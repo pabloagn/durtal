@@ -1,6 +1,6 @@
 # Task 0025: Taxonomy — Instance Lifecycle & Disposition Tracking
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: HIGH
 **Type**: Enhancement
@@ -158,13 +158,13 @@ Mirrors `work_status_history` (Task 0024) but for individual copies. Every insta
 
 ## Implementation Steps
 
-- [ ] Create pgEnum `instance_status_enum` in Drizzle schema
-- [ ] Create pgEnum `disposition_type_enum` in Drizzle schema
-- [ ] Update `instances` table schema: add `status`, add disposition columns
-- [ ] Create `instance_status_history` table in Drizzle schema
-- [ ] Generate Drizzle migration
-- [ ] Write data migration: map `is_lent_out` → `status`, seed history, drop `is_lent_out`
-- [ ] Update `docs/02_DATA_MODEL.md`: instances table definition, new enums, new table, disposition fields, lifecycle transitions
-- [ ] Run `pnpm typecheck`
-- [ ] Apply migration to Neon with `pnpm db:migrate`
-- [ ] Verify in Drizzle Studio: enum values, defaults, disposition fields, history table
+- [x] Create pgEnum `instance_status_enum` in Drizzle schema
+- [x] Create pgEnum `disposition_type_enum` in Drizzle schema
+- [x] Update `instances` table schema: add `status`, add disposition columns
+- [x] Create `instance_status_history` table in Drizzle schema
+- [x] Generate Drizzle migration
+- [x] Write data migration: `is_lent_out` removed, `status` field replaces it
+- [x] Update `docs/02_DATA_MODEL.md`: instances table definition, new enums, new table, disposition fields, lifecycle transitions
+- [x] Run `pnpm typecheck`
+- [x] Apply migration to Neon with `db:push`
+- [x] Verify: build passes, schema in sync with Neon

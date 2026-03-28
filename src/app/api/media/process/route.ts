@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAndUploadMedia } from "@/lib/s3/media";
 import { createMedia } from "@/lib/actions/media";
-import { bronzeMediaKey } from "@/lib/s3/keys";
+import { updateCollection } from "@/lib/actions/collections";
+import { bronzeMediaKey, type MediaEntityType } from "@/lib/s3/keys";
 import { getPresignedUploadUrl } from "@/lib/s3/covers";
 import type { MediaType } from "@/lib/types";
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "presign") {
       const { entityType, entityId, filename, contentType } = body as {
-        entityType: "work" | "author";
+        entityType: MediaEntityType;
         entityId: string;
         filename: string;
         contentType: string;
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       mimeType,
       sizeBytes,
     } = body as {
-      entityType: "work" | "author";
+      entityType: MediaEntityType;
       entityId: string;
       mediaType: MediaType;
       fileId: string;
@@ -88,7 +89,25 @@ export async function POST(req: NextRequest) {
       buffer,
     );
 
-    // Create DB record
+    // For collections, store S3 keys directly on the collection record
+    if (entityType === "collection") {
+      const updateData: Record<string, string | null> = {};
+      if (mediaType === "poster") {
+        updateData.posterS3Key = result.s3Key;
+        updateData.posterThumbnailS3Key = result.thumbnailS3Key;
+      } else if (mediaType === "background") {
+        updateData.backgroundS3Key = result.s3Key;
+      }
+      await updateCollection(entityId, updateData);
+      return NextResponse.json({
+        s3Key: result.s3Key,
+        thumbnailS3Key: result.thumbnailS3Key,
+        width: result.width,
+        height: result.height,
+      });
+    }
+
+    // For works/authors, create a media DB record
     const record = await createMedia({
       ...(entityType === "work" ? { workId: entityId } : { authorId: entityId }),
       type: mediaType,

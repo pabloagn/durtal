@@ -5,7 +5,7 @@ import { Upload, X } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 
 interface UploadZoneProps {
-  entityType: "work" | "author";
+  entityType: "work" | "author" | "collection";
   entityId: string;
   mediaType: MediaType;
   onUploadComplete?: () => void;
@@ -140,7 +140,7 @@ export function UploadZone({
         className={`flex cursor-pointer flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors ${
           isDragging
             ? "border-accent-rose bg-accent-rose/5"
-            : "border-bg-tertiary hover:border-fg-muted/30"
+            : "border-glass-border hover:border-fg-muted/30"
         }`}
       >
         <Upload className="mb-2 h-5 w-5 text-fg-muted" strokeWidth={1.5} />
@@ -165,12 +165,12 @@ export function UploadZone({
               <div className="h-1 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
                 <div
                   className={`h-full transition-all ${
-                    u.status === "error" ? "bg-red-500" : "bg-accent-rose"
+                    u.status === "error" ? "bg-accent-red" : "bg-accent-rose"
                   }`}
                   style={{ width: `${u.progress}%` }}
                 />
               </div>
-              <span className="text-[10px] text-fg-muted">
+              <span className="text-micro text-fg-muted">
                 {u.status === "error" ? "Failed" : u.status === "processing" ? "Processing..." : `${u.progress}%`}
               </span>
             </div>

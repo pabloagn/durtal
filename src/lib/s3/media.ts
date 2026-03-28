@@ -1,5 +1,5 @@
 import { uploadToS3 } from "./covers";
-import { goldMediaKey, goldMediaThumbnailKey } from "./keys";
+import { goldMediaKey, goldMediaThumbnailKey, type MediaEntityType } from "./keys";
 
 /** Per-type max dimensions */
 const MEDIA_DIMENSIONS: Record<string, { w: number; h: number }> = {
@@ -13,7 +13,7 @@ const MEDIA_DIMENSIONS: Record<string, { w: number; h: number }> = {
  * Returns S3 keys for both the full-size and thumbnail versions.
  */
 export async function processAndUploadMedia(
-  entityType: "work" | "author",
+  entityType: MediaEntityType,
   entityId: string,
   mediaType: string,
   fileId: string,

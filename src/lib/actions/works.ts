@@ -9,8 +9,9 @@ import {
   instances,
   authors,
 } from "@/lib/db/schema";
-import { eq, desc, asc, ilike, count } from "drizzle-orm";
+import { eq, desc, asc, ilike, like, count } from "drizzle-orm";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
+import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 
 export async function getWorks(opts?: {
   search?: string;
@@ -97,6 +98,64 @@ export async function getWork(id: string) {
         },
       },
       media: true,
+      workType: true,
+      series: true,
+      recommender: true,
+      workCategories: { with: { category: true } },
+      workThemes: { with: { theme: true } },
+      workLiteraryMovements: { with: { literaryMovement: true } },
+      workArtTypes: { with: { artType: true } },
+      workArtMovements: { with: { artMovement: true } },
+      workKeywords: { with: { keyword: true } },
+      workAttributes: { with: { attribute: true } },
+    },
+  });
+
+  return result ?? null;
+}
+
+export async function getWorkBySlug(slug: string) {
+  const result = await db.query.works.findFirst({
+    where: eq(works.slug, slug),
+    with: {
+      workAuthors: {
+        with: { author: true },
+        orderBy: asc(workAuthors.sortOrder),
+      },
+      workSubjects: {
+        with: { subject: true },
+      },
+      editions: {
+        orderBy: desc(editions.publicationYear),
+        with: {
+          instances: {
+            with: {
+              location: true,
+              subLocation: true,
+            },
+          },
+          contributors: {
+            with: { author: true },
+          },
+          editionGenres: {
+            with: { genre: true },
+          },
+          editionTags: {
+            with: { tag: true },
+          },
+        },
+      },
+      media: true,
+      workType: true,
+      series: true,
+      recommender: true,
+      workCategories: { with: { category: true } },
+      workThemes: { with: { theme: true } },
+      workLiteraryMovements: { with: { literaryMovement: true } },
+      workArtTypes: { with: { artType: true } },
+      workArtMovements: { with: { artMovement: true } },
+      workKeywords: { with: { keyword: true } },
+      workAttributes: { with: { attribute: true } },
     },
   });
 
@@ -190,7 +249,35 @@ export async function createWork(input: CreateWorkInput) {
     );
   }
 
-  return work;
+  // Generate slug: look up primary author name, then set slug on work
+  const primaryAuthorName = await (async () => {
+    if (authorIds.length > 0) {
+      const authorRow = await db.query.authors.findFirst({
+        where: eq(authors.id, authorIds[0].authorId),
+        columns: { name: true },
+      });
+      return authorRow?.name ?? "unknown";
+    }
+    return "unknown";
+  })();
+
+  const baseSlug = generateWorkSlug(work.title, primaryAuthorName, work.id);
+  const existing = await db
+    .select({ slug: works.slug })
+    .from(works)
+    .where(like(works.slug, `${baseSlug}%`));
+  const existingSlugs = existing
+    .map((r) => r.slug)
+    .filter((s): s is string => s !== null);
+  const slug = makeUnique(baseSlug, existingSlugs);
+
+  const [updated] = await db
+    .update(works)
+    .set({ slug })
+    .where(eq(works.id, work.id))
+    .returning();
+
+  return updated;
 }
 
 export async function updateWork(
@@ -229,6 +316,39 @@ export async function updateWork(
           subjectId,
         })),
       );
+    }
+  }
+
+  // Regenerate slug if title or authors changed
+  if (workData.title !== undefined || authorIds !== undefined) {
+    const currentWork = await db.query.works.findFirst({
+      where: eq(works.id, id),
+      columns: { title: true, slug: true },
+      with: {
+        workAuthors: {
+          with: { author: { columns: { name: true } } },
+          orderBy: asc(workAuthors.sortOrder),
+          limit: 1,
+        },
+      },
+    });
+
+    if (currentWork) {
+      const primaryAuthorName =
+        currentWork.workAuthors[0]?.author.name ?? "unknown";
+      const baseSlug = generateWorkSlug(currentWork.title, primaryAuthorName, id);
+
+      // Exclude own current slug from uniqueness check
+      const existing = await db
+        .select({ slug: works.slug })
+        .from(works)
+        .where(like(works.slug, `${baseSlug}%`));
+      const existingSlugs = existing
+        .map((r) => r.slug)
+        .filter((s): s is string => s !== null && s !== currentWork.slug);
+      const slug = makeUnique(baseSlug, existingSlugs);
+
+      await db.update(works).set({ slug }).where(eq(works.id, id));
     }
   }
 

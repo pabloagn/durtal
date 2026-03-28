@@ -10,18 +10,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-accent-rose text-fg-primary hover:bg-accent-rose/80 active:bg-accent-rose/70",
+    "bg-accent-rose/90 text-fg-primary border border-accent-rose/40 shadow-[inset_0_1px_0_rgba(193,198,196,0.08),0_1px_3px_rgba(0,0,0,0.3)] hover:bg-accent-rose hover:shadow-[inset_0_1px_0_rgba(193,198,196,0.12),0_2px_8px_rgba(125,61,82,0.25)] active:bg-accent-rose/80 active:shadow-none",
   secondary:
-    "border border-bg-tertiary bg-bg-secondary text-fg-primary hover:bg-bg-tertiary active:bg-bg-tertiary/80",
+    "border border-glass-border bg-glass-highlight text-fg-primary backdrop-blur-sm hover:bg-bg-tertiary/60 hover:border-fg-muted/10 active:bg-bg-tertiary/80",
   ghost:
-    "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary active:bg-bg-tertiary/80",
+    "text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary active:bg-bg-tertiary/80",
   danger:
-    "bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 active:bg-accent-red/30",
+    "bg-accent-red/8 text-accent-red border border-accent-red/15 hover:bg-accent-red/15 active:bg-accent-red/20",
 };
 
 const sizeStyles: Record<Size, string> = {
   sm: "h-7 px-2.5 text-xs gap-1.5",
-  md: "h-8 px-3 text-sm gap-2",
+  md: "h-8 px-3.5 text-sm gap-2",
   lg: "h-9 px-4 text-sm gap-2",
 };
 
@@ -30,7 +30,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`inline-flex items-center justify-center rounded-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose disabled:pointer-events-none disabled:opacity-50 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose focus-visible:ring-offset-1 focus-visible:ring-offset-bg-primary disabled:pointer-events-none disabled:opacity-40 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         {...props}
       />
     );

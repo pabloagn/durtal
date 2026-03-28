@@ -145,7 +145,7 @@ export function AddressPostalLookup({ value, onChange }: AddressPostalLookupProp
         </Button>
       </div>
       {value.city && (
-        <div className="rounded-sm border border-bg-tertiary bg-bg-primary p-3 text-xs text-fg-secondary">
+        <div className="rounded-sm border border-glass-border bg-bg-primary p-3 text-xs text-fg-secondary">
           <p className="font-medium text-fg-primary">
             {[value.street, value.city, value.region, value.postalCode, value.country]
               .filter(Boolean)

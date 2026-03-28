@@ -22,6 +22,34 @@
       "when": 1774716545848,
       "tag": "0002_youthful_fabian_cortez",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774719031566,
+      "tag": "0003_aromatic_leper_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774719655941,
+      "tag": "0004_careful_hannibal_king",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774724322235,
+      "tag": "0005_yummy_nekra",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774725142763,
+      "tag": "0006_worthless_ozymandias",
+      "breakpoints": true
     }
   ]
 }

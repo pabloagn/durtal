@@ -72,6 +72,7 @@ async function LibraryContent({
 
     return {
       workId: work.id,
+      slug: work.slug ?? "",
       title: work.title,
       authorName: primaryAuthor?.name ?? "Unknown",
       coverUrl: firstEdition?.thumbnailS3Key ?? null,
@@ -79,6 +80,7 @@ async function LibraryContent({
       language: firstEdition?.language,
       instanceCount,
       rating: work.rating,
+      catalogueStatus: work.catalogueStatus,
     };
   });
 
@@ -115,7 +117,7 @@ async function LibraryContent({
         </div>
       )}
 
-      <p className="mt-4 text-center font-mono text-[10px] text-fg-muted">
+      <p className="mt-4 text-center font-mono text-xs text-fg-muted">
         {total} {total === 1 ? "work" : "works"}
       </p>
     </>

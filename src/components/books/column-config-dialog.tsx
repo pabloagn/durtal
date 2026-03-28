@@ -65,9 +65,9 @@ export function ColumnConfigDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/80">
-      <div className="w-80 rounded-sm border border-bg-tertiary bg-bg-secondary p-4">
+      <div className="w-80 rounded-sm border border-glass-border bg-bg-secondary p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-serif text-sm text-fg-primary">
+          <h3 className="font-serif text-base text-fg-primary">
             Configure Columns
           </h3>
           <button
@@ -114,8 +114,8 @@ export function ColumnConfigDialog({
           })}
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>
+        <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+          <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" size="sm" onClick={handleSave}>

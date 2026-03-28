@@ -17,7 +17,7 @@ const MODES: { value: ViewMode; icon: typeof Grid2X2; label: string }[] = [
 
 export function ViewModeSwitcher({ value, onChange }: ViewModeSwitcherProps) {
   return (
-    <div className="flex items-center rounded-sm border border-bg-tertiary">
+    <div className="flex items-center rounded-sm border border-glass-border">
       {MODES.map((mode) => {
         const Icon = mode.icon;
         return (

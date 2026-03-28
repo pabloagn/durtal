@@ -8,8 +8,11 @@ export const createWorkSchema = z.object({
   seriesName: z.string().max(300).nullable().optional(),
   seriesPosition: z.string().max(20).nullable().optional(),
   isAnthology: z.boolean().default(false),
+  workTypeId: z.string().uuid().nullable().optional(),
+  seriesId: z.string().uuid().nullable().optional(),
   notes: z.string().max(10000).nullable().optional(),
   rating: z.number().int().min(1).max(5).nullable().optional(),
+  recommenderId: z.string().uuid().nullable().optional(),
   catalogueStatus: z.enum(["tracked", "shortlisted", "wanted", "on_order", "accessioned", "deaccessioned"]).default("tracked"),
   acquisitionPriority: z.enum(["none", "low", "medium", "high", "urgent"]).default("none"),
   authorIds: z.array(z.object({

@@ -1,9 +1,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import type { CatalogueStatus } from "@/lib/types";
+
+const STATUS_CONFIG: Record<CatalogueStatus, { label: string; variant: "muted" | "blue" | "gold" | "rose" | "sage" | "red" }> = {
+  tracked: { label: "Tracked", variant: "muted" },
+  shortlisted: { label: "Shortlisted", variant: "blue" },
+  wanted: { label: "Wanted", variant: "gold" },
+  on_order: { label: "On Order", variant: "rose" },
+  accessioned: { label: "Accessioned", variant: "sage" },
+  deaccessioned: { label: "Deaccessioned", variant: "red" },
+};
 
 interface BookCardProps {
   workId: string;
+  slug: string;
   title: string;
   authorName: string;
   coverUrl?: string | null;
@@ -11,10 +22,11 @@ interface BookCardProps {
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
+  catalogueStatus?: string | null;
 }
 
 export function BookCard({
-  workId,
+  slug,
   title,
   authorName,
   coverUrl,
@@ -22,11 +34,16 @@ export function BookCard({
   language,
   instanceCount,
   rating,
+  catalogueStatus,
 }: BookCardProps) {
+  const statusInfo = catalogueStatus
+    ? STATUS_CONFIG[catalogueStatus as CatalogueStatus]
+    : null;
+
   return (
     <Link
-      href={`/library/${workId}`}
-      className="group block rounded-sm border border-bg-tertiary bg-bg-secondary transition-all hover:border-fg-muted/30 hover:shadow-lg hover:shadow-accent-rose/5"
+      href={`/library/${slug}`}
+      className="group block rounded-sm border border-glass-border bg-bg-secondary card-interactive"
     >
       {/* Cover */}
       <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary">
@@ -40,7 +57,14 @@ export function BookCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <span className="font-serif text-lg text-fg-muted/40">{title[0]}</span>
+            <span className="font-serif text-3xl text-fg-muted/30">{title[0]}</span>
+          </div>
+        )}
+
+        {/* Status badge — top-left, always visible */}
+        {statusInfo && (
+          <div className="absolute left-2 top-2">
+            <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
           </div>
         )}
 
@@ -53,23 +77,23 @@ export function BookCard({
       </div>
 
       {/* Meta */}
-      <div className="p-3">
-        <h3 className="line-clamp-2 font-serif text-sm leading-tight text-fg-primary">
+      <div className="p-3.5">
+        <h3 className="line-clamp-2 font-serif text-lg leading-snug text-fg-primary">
           {title}
         </h3>
-        <p className="mt-1 line-clamp-1 text-xs text-fg-secondary">
+        <p className="mt-1 line-clamp-1 text-sm text-fg-secondary">
           {authorName}
         </p>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-2">
           {publicationYear && (
-            <span className="font-mono text-[10px] text-fg-muted">
+            <span className="font-mono text-micro text-fg-muted">
               {publicationYear}
             </span>
           )}
           {language && language !== "en" && (
             <Badge variant="blue">{language}</Badge>
           )}
-          <span className="ml-auto font-mono text-[10px] text-fg-muted">
+          <span className="ml-auto font-mono text-micro text-fg-muted">
             {instanceCount} {instanceCount === 1 ? "copy" : "copies"}
           </span>
         </div>

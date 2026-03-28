@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
-import { EB_Garamond, Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { Shell } from "@/components/layout/shell";
 import "@/styles/globals.css";
 
-const serif = EB_Garamond({
-  subsets: ["latin"],
+const serif = localFont({
+  src: [
+    {
+      path: "../../public/fonts/PPCirka/PPCirka-Light.otf",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/PPCirka/PPCirka-Bold.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
   variable: "--font-serif",
   display: "swap",
 });

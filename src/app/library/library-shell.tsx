@@ -7,6 +7,7 @@ import type { ViewMode } from "@/components/books/view-mode-switcher";
 
 interface BookItem {
   workId: string;
+  slug: string;
   title: string;
   authorName: string;
   coverUrl?: string | null;
@@ -14,6 +15,7 @@ interface BookItem {
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
+  catalogueStatus?: string | null;
 }
 
 export function LibraryShell({ books }: { books: BookItem[] }) {

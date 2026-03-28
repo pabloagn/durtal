@@ -2,6 +2,7 @@ import { BookCard } from "./book-card";
 
 interface BookGridItem {
   workId: string;
+  slug: string;
   title: string;
   authorName: string;
   coverUrl?: string | null;
@@ -9,6 +10,7 @@ interface BookGridItem {
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
+  catalogueStatus?: string | null;
 }
 
 const COL_CLASSES: Record<number, string> = {

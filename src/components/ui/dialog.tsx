@@ -40,21 +40,21 @@ export function Dialog({
   return (
     <dialog
       ref={dialogRef}
-      className={`w-full max-w-lg rounded-sm border border-bg-tertiary bg-bg-secondary p-0 text-fg-primary backdrop:bg-bg-primary/80 backdrop:backdrop-blur-sm ${className}`}
+      className={`m-auto w-full max-w-lg rounded-sm p-0 text-fg-primary glass-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] backdrop:bg-bg-primary/70 backdrop:backdrop-blur-md ${className}`}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
     >
-      <div className="flex items-center justify-between border-b border-bg-tertiary px-5 py-3.5">
+      <div className="flex items-center justify-between border-b border-glass-border px-5 py-3.5">
         <div>
-          <h2 className="font-serif text-lg text-fg-primary">{title}</h2>
+          <h2 className="font-serif text-xl text-fg-primary">{title}</h2>
           {description && (
             <p className="mt-0.5 text-xs text-fg-secondary">{description}</p>
           )}
         </div>
         <button
           onClick={onClose}
-          className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+          className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
         >
           <X className="h-4 w-4" strokeWidth={1.5} />
         </button>

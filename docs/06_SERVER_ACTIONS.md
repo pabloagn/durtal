@@ -76,6 +76,23 @@ deleteWork(id: string): Promise<void>
 
 Deletes the work. Cascades to editions, instances, junction rows, and media.
 
+### `findDuplicateWork(opts)`
+
+```typescript
+findDuplicateWork(opts: {
+  isbn13?: string;
+  title: string;
+  authorName: string;
+}): Promise<WorkWithRelations | null>
+```
+
+Used by the add-book wizard to prevent duplicate work creation. Checks in two passes:
+
+1. **ISBN match**: Exact match against `editions.isbn13`. If found, returns the parent work.
+2. **Title + author match**: Case-insensitive title match via `ilike`, then checks if any candidate has an author whose name partially matches `authorName`.
+
+Returns the first matching work with editions and instance counts, or `null` if no duplicate found.
+
 ### `getLibraryStats()`
 
 ```typescript
@@ -189,6 +206,14 @@ createAuthor(input: CreateAuthorInput): Promise<Author>
 ```
 
 Creates author record. Auto-generates `sortName` from `name` if not provided (inverts "First Last" to "Last, First").
+
+### `findOrCreateAuthor(name)`
+
+```typescript
+findOrCreateAuthor(name: string): Promise<Author>
+```
+
+Finds an existing author by name (case-insensitive `ilike` match) or creates a new one. Used by the add-book wizard to prevent duplicate author records. If creating, auto-generates `sortName`.
 
 ### `updateAuthor(id, input)`
 

@@ -7,6 +7,7 @@ import { workSubjects } from "./taxonomy";
 import { media } from "./media";
 import { series } from "./series";
 import { workTypes } from "./work-types";
+import { recommenders } from "./recommenders";
 import { workCategories } from "./book-categories";
 import { workLiteraryMovements } from "./literary-movements";
 import { workThemes } from "./themes";
@@ -21,6 +22,7 @@ export const works = pgTable("works", {
 
   // Work-level metadata
   title: text("title").notNull(),
+  slug: text("slug").unique(),
   originalLanguage: text("original_language").notNull().default("en"),
   originalYear: smallint("original_year"),
   description: text("description"),
@@ -37,6 +39,9 @@ export const works = pgTable("works", {
   // Personal
   notes: text("notes"),
   rating: smallint("rating"),
+  recommenderId: uuid("recommender_id").references(() => recommenders.id, {
+    onDelete: "set null",
+  }),
 
   // Catalogue lifecycle
   catalogueStatus: catalogueStatusEnum("catalogue_status").notNull().default("tracked"),
@@ -63,6 +68,10 @@ export const worksRelations = relations(works, ({ one, many }) => ({
   workType: one(workTypes, {
     fields: [works.workTypeId],
     references: [workTypes.id],
+  }),
+  recommender: one(recommenders, {
+    fields: [works.recommenderId],
+    references: [recommenders.id],
   }),
   workCategories: many(workCategories),
   workLiteraryMovements: many(workLiteraryMovements),

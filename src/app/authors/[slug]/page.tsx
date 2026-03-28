@@ -3,18 +3,18 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getAuthor } from "@/lib/actions/authors";
+import { getAuthorBySlug } from "@/lib/actions/authors";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AuthorMediaSection } from "./author-media-section";
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export default async function AuthorDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  const author = await getAuthor(id);
+  const { slug } = await params;
+  const author = await getAuthorBySlug(slug);
 
   if (!author) notFound();
 
@@ -55,11 +55,11 @@ export default async function AuthorDetailPage({ params }: PageProps) {
         )}
 
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-3xl tracking-tight text-fg-primary">
+          <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
             {author.name}
           </h1>
           <div className="mt-2 flex items-center gap-3 text-sm text-fg-secondary">
-            {author.nationality && <span>{author.nationality}</span>}
+            {author.country?.name && <span>{author.country.name}</span>}
             {author.birthYear && (
               <span className="font-mono text-xs text-fg-muted">
                 {author.birthYear}–{author.deathYear ?? ""}
@@ -89,16 +89,16 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {/* Works as author */}
       {works.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-serif text-lg text-fg-primary">
+          <h2 className="mb-4 font-serif text-2xl text-fg-primary">
             Works ({works.length})
           </h2>
           <div className="space-y-2">
             {works.map((work) => (
-              <Link key={work.id} href={`/library/${work.id}`}>
+              <Link key={work.id} href={`/library/${work.slug ?? ""}`}>
                 <Card hover>
                   <CardContent className="flex items-center justify-between py-2.5">
                     <div>
-                      <span className="font-serif text-sm text-fg-primary">
+                      <span className="font-serif text-lg text-fg-primary">
                         {work.title}
                       </span>
                       {work.originalYear && (
@@ -119,7 +119,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {/* Edition contributions */}
       {contributions.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-serif text-lg text-fg-primary">
+          <h2 className="mb-4 font-serif text-2xl text-fg-primary">
             Edition contributions ({contributions.length})
           </h2>
           <div className="space-y-2">
@@ -127,7 +127,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
               <Card key={`${edition.id}-${edition.role}`}>
                 <CardContent className="flex items-center justify-between py-2.5">
                   <div>
-                    <span className="font-serif text-sm text-fg-primary">
+                    <span className="font-serif text-lg text-fg-primary">
                       {edition.title}
                     </span>
                     {edition.publicationYear && (
@@ -147,7 +147,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {/* External links */}
       {(author.website || author.openLibraryKey || author.goodreadsId) && (
         <section className="mb-8">
-          <h2 className="mb-2 font-serif text-sm text-fg-secondary">
+          <h2 className="mb-2 font-serif text-xl text-fg-secondary">
             External links
           </h2>
           <div className="flex gap-3">

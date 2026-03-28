@@ -13,7 +13,7 @@ const AddressMapPicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[320px] items-center justify-center rounded-sm border border-bg-tertiary bg-bg-primary">
+      <div className="flex h-[320px] items-center justify-center rounded-sm border border-glass-border bg-bg-primary">
         <Spinner className="h-5 w-5" />
       </div>
     ),
@@ -52,7 +52,7 @@ export function AddressInput({ value, onChange }: AddressInputProps) {
   return (
     <div className="space-y-3">
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-sm border border-bg-tertiary bg-bg-primary p-0.5">
+      <div className="flex gap-1 rounded-sm border border-glass-border bg-bg-primary p-0.5">
         {MODES.map(({ key, label, icon: Icon }) => (
           <button
             key={key}

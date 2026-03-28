@@ -1,6 +1,6 @@
 # Task 0024: Taxonomy — Catalogue Status & Acquisition Priority
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: HIGH
 **Type**: Enhancement
@@ -152,13 +152,13 @@ The following existing tasks reference the old `catalogue_status` values and mus
 
 ## Implementation Steps
 
-- [ ] Create pgEnum `catalogue_status_enum` in Drizzle schema
-- [ ] Create pgEnum `acquisition_priority_enum` in Drizzle schema
-- [ ] Update `works` table schema: convert `catalogue_status` to enum, add `acquisition_priority`
-- [ ] Create `work_status_history` table in Drizzle schema
-- [ ] Generate Drizzle migration
-- [ ] Write data migration for existing rows (if any): map old values, seed history
-- [ ] Update `docs/02_DATA_MODEL.md`: works table definition, new enums, new table, state transition documentation
-- [ ] Run `pnpm typecheck` to verify all TypeScript references compile
-- [ ] Apply migration to Neon with `pnpm db:migrate`
-- [ ] Verify in Drizzle Studio: enum values, defaults, history table
+- [x] Create pgEnum `catalogue_status_enum` in Drizzle schema
+- [x] Create pgEnum `acquisition_priority_enum` in Drizzle schema
+- [x] Update `works` table schema: convert `catalogue_status` to enum, add `acquisition_priority`
+- [x] Create `work_status_history` table in Drizzle schema
+- [x] Generate Drizzle migration
+- [x] Write data migration for existing rows (if any): map old values, seed history
+- [x] Update `docs/02_DATA_MODEL.md`: works table definition, new enums, new table, state transition documentation
+- [x] Run `pnpm typecheck` to verify all TypeScript references compile
+- [x] Apply migration to Neon with `db:push`
+- [x] Verify: build passes, schema in sync with Neon

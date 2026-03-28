@@ -184,7 +184,7 @@ export function AddressMapPicker({ value, onChange }: AddressMapPickerProps) {
         </Button>
       </div>
 
-      <div className="relative h-[260px] w-full overflow-hidden rounded-sm border border-bg-tertiary">
+      <div className="relative h-[260px] w-full overflow-hidden rounded-sm border border-glass-border">
         <MapContainer
           center={center}
           zoom={value.latitude != null ? 14 : 3}
@@ -206,7 +206,7 @@ export function AddressMapPicker({ value, onChange }: AddressMapPickerProps) {
       </div>
 
       {value.city && (
-        <div className="rounded-sm border border-bg-tertiary bg-bg-primary p-3 text-xs text-fg-secondary">
+        <div className="rounded-sm border border-glass-border bg-bg-primary p-3 text-xs text-fg-secondary">
           <p className="font-medium text-fg-primary">
             {[value.street, value.city, value.region, value.postalCode, value.country]
               .filter(Boolean)

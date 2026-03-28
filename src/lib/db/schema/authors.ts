@@ -2,6 +2,7 @@ import {
   pgTable,
   uuid,
   text,
+  varchar,
   smallint,
   boolean,
   timestamp,
@@ -12,27 +13,30 @@ import { works } from "./works";
 import { editions } from "./editions";
 import { media } from "./media";
 import { contributionTypes } from "./contribution-types";
+import { countries } from "./countries";
+import { genderEnum } from "./enums";
 
 export const authors = pgTable("authors", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
+  slug: text("slug").unique(),
   sortName: text("sort_name"),
   firstName: text("first_name"),
   lastName: text("last_name"),
   realName: text("real_name"),
-  gender: text("gender"),
+  gender: genderEnum("gender"),
   birthYear: smallint("birth_year"),
   birthMonth: smallint("birth_month"),
   birthDay: smallint("birth_day"),
   birthYearIsApproximate: boolean("birth_year_is_approximate").notNull().default(false),
-  birthYearGregorian: text("birth_year_gregorian"),
+  birthYearGregorian: smallint("birth_year_gregorian"),
   deathYear: smallint("death_year"),
   deathMonth: smallint("death_month"),
   deathDay: smallint("death_day"),
   deathYearIsApproximate: boolean("death_year_is_approximate").notNull().default(false),
-  deathYearGregorian: text("death_year_gregorian"),
-  nationality: text("nationality"),
-  bio: text("bio"),
+  deathYearGregorian: smallint("death_year_gregorian"),
+  nationalityId: uuid("nationality_id").references(() => countries.id, { onDelete: "set null" }),
+  bio: varchar("bio", { length: 10000 }),
   photoS3Key: text("photo_s3_key"),
   website: text("website"),
   openLibraryKey: text("open_library_key"),
@@ -43,7 +47,11 @@ export const authors = pgTable("authors", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const authorsRelations = relations(authors, ({ many }) => ({
+export const authorsRelations = relations(authors, ({ one, many }) => ({
+  country: one(countries, {
+    fields: [authors.nationalityId],
+    references: [countries.id],
+  }),
   workAuthors: many(workAuthors),
   editionContributors: many(editionContributors),
   authorContributionTypes: many(authorContributionTypes),

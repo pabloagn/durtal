@@ -5,11 +5,11 @@
 ```
 /                           Dashboard
 /library                    Main catalogue view
-/library/[id]               Work detail page
+/library/[slug]             Work detail page (slug format: {title}-by-{author})
 /library/new                Add new book (wizard)
 /library/import             Bulk import interface
 /authors                    Author index
-/authors/[id]               Author detail
+/authors/[slug]             Author detail (slug format: {author-name})
 /series                     Series index
 /series/[id]                Series detail
 /locations                  Location management
@@ -141,7 +141,7 @@ The main catalogue view. Displays all works with pagination and search.
 
 ---
 
-### Work Detail (`/library/[id]`)
+### Work Detail (`/library/[slug]`)
 
 The detail page for a single work. Displays the work and all its editions and instances.
 
@@ -256,7 +256,7 @@ Table view of all authors in the database.
 
 ---
 
-### Author Detail (`/authors/[id]`)
+### Author Detail (`/authors/[slug]`)
 
 Full author profile page.
 

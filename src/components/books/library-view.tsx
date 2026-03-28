@@ -12,6 +12,7 @@ import type { ViewMode } from "./view-mode-switcher";
 
 interface BookItem {
   workId: string;
+  slug: string;
   title: string;
   authorName: string;
   coverUrl?: string | null;
@@ -19,6 +20,7 @@ interface BookItem {
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
+  catalogueStatus?: string | null;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;

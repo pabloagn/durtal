@@ -9,14 +9,17 @@ import { Button } from "@/components/ui/button";
 import {
   INSTANCE_FORMATS,
   INSTANCE_CONDITIONS,
+  INSTANCE_STATUSES,
   ACQUISITION_TYPES,
-} from "@/lib/types";
+  DISPOSITION_TYPES,
+} from "@/lib/types/index";
 
 export interface InstanceDraft {
   locationId: string;
   subLocationId: string;
   format: string;
   condition: string;
+  status: string;
   acquisitionType: string;
   acquisitionDate: string;
   acquisitionSource: string;
@@ -34,6 +37,14 @@ export interface InstanceDraft {
   calibreUrl: string;
   fileSizeBytes: string;
   notes: string;
+  lentTo: string;
+  lentDate: string;
+  dispositionType: string;
+  dispositionDate: string;
+  dispositionTo: string;
+  dispositionPrice: string;
+  dispositionCurrency: string;
+  dispositionNotes: string;
 }
 
 export const EMPTY_INSTANCE: InstanceDraft = {
@@ -41,6 +52,7 @@ export const EMPTY_INSTANCE: InstanceDraft = {
   subLocationId: "",
   format: "",
   condition: "",
+  status: "available",
   acquisitionType: "",
   acquisitionDate: "",
   acquisitionSource: "",
@@ -58,6 +70,14 @@ export const EMPTY_INSTANCE: InstanceDraft = {
   calibreUrl: "",
   fileSizeBytes: "",
   notes: "",
+  lentTo: "",
+  lentDate: "",
+  dispositionType: "",
+  dispositionDate: "",
+  dispositionTo: "",
+  dispositionPrice: "",
+  dispositionCurrency: "",
+  dispositionNotes: "",
 };
 
 interface LocationOption {
@@ -86,7 +106,7 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-bg-tertiary pt-3">
+    <div className="border-t border-glass-border pt-3">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -123,7 +143,7 @@ export function InstanceForm({
   const isPhysicalFormat = ["hardcover", "paperback"].includes(value.format);
 
   return (
-    <div className="rounded-sm border border-bg-tertiary bg-bg-secondary p-4">
+    <div className="rounded-sm border border-glass-border bg-bg-secondary p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-xs font-medium text-fg-secondary">
           Copy {index + 1}
@@ -215,6 +235,102 @@ export function InstanceForm({
               Slipcase
             </label>
           </div>
+        )}
+
+        {/* Status */}
+        <Select
+          label="Status"
+          id={`inst-${index}-status`}
+          value={value.status}
+          onChange={(e) => update("status", e.target.value)}
+          options={INSTANCE_STATUSES.map((s) => ({
+            value: s,
+            label: s.replace(/_/g, " "),
+          }))}
+        />
+
+        {/* Lending (shown when status is lent_out) */}
+        {value.status === "lent_out" && (
+          <Section title="Lending" defaultOpen>
+            <Input
+              label="Lent to"
+              id={`inst-${index}-lent-to`}
+              value={value.lentTo}
+              onChange={(e) => update("lentTo", e.target.value)}
+              placeholder="Name of person..."
+            />
+            <Input
+              label="Lent date"
+              id={`inst-${index}-lent-date`}
+              type="date"
+              value={value.lentDate}
+              onChange={(e) => update("lentDate", e.target.value)}
+            />
+          </Section>
+        )}
+
+        {/* Disposition (shown when status is deaccessioned) */}
+        {value.status === "deaccessioned" && (
+          <Section title="Disposition" defaultOpen>
+            <Select
+              label="Disposition type"
+              id={`inst-${index}-disposition-type`}
+              value={value.dispositionType}
+              onChange={(e) => update("dispositionType", e.target.value)}
+              placeholder="Select..."
+              options={DISPOSITION_TYPES.map((t) => ({
+                value: t,
+                label: t.replace(/_/g, " "),
+              }))}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Disposition date"
+                id={`inst-${index}-disposition-date`}
+                type="date"
+                value={value.dispositionDate}
+                onChange={(e) => update("dispositionDate", e.target.value)}
+              />
+              <Input
+                label="Disposed to"
+                id={`inst-${index}-disposition-to`}
+                value={value.dispositionTo}
+                onChange={(e) => update("dispositionTo", e.target.value)}
+                placeholder="Person or organisation..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Price"
+                id={`inst-${index}-disposition-price`}
+                type="number"
+                step="0.01"
+                value={value.dispositionPrice}
+                onChange={(e) => update("dispositionPrice", e.target.value)}
+                placeholder="0.00"
+              />
+              <Input
+                label="Currency"
+                id={`inst-${index}-disposition-currency`}
+                value={value.dispositionCurrency}
+                onChange={(e) =>
+                  update(
+                    "dispositionCurrency",
+                    e.target.value.toUpperCase().slice(0, 3),
+                  )
+                }
+                placeholder="EUR"
+                maxLength={3}
+              />
+            </div>
+            <Textarea
+              label="Disposition notes"
+              id={`inst-${index}-disposition-notes`}
+              value={value.dispositionNotes}
+              onChange={(e) => update("dispositionNotes", e.target.value)}
+              placeholder="Notes about this disposition..."
+            />
+          </Section>
         )}
 
         {/* Acquisition */}

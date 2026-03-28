@@ -1,6 +1,6 @@
 # Task 0026: Taxonomy — Derived Ownership Computation Layer
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: HIGH
 **Type**: Enhancement
@@ -330,11 +330,11 @@ The dashboard (spec section 5.2) stats must be updated:
 
 ## Implementation Steps
 
-- [ ] Rewrite section 6.4 of `docs/02_DATA_MODEL.md` with the full derived ownership model
-- [ ] Update section 5.2 (filter sidebar, dashboard) in the relevant docs
-- [ ] Create `src/lib/utils/ownership.ts` with core computation functions
-- [ ] Create Drizzle query helpers for ownership aggregation
-- [ ] Add Calibre URL resolution logic
-- [ ] Write unit tests for `computeOwnershipStatus`, `computeDerivedStatus`, `groupInstancesByLocation`
-- [ ] Run `pnpm typecheck`
-- [ ] Verify derived statuses against test data in Drizzle Studio
+- [x] Rewrite section 6.4 of `docs/02_DATA_MODEL.md` with the full derived ownership model
+- [x] Update section 5.2 (filter sidebar, dashboard) in the relevant docs
+- [x] Create `src/lib/utils/ownership.ts` with core computation functions
+- [x] Create Drizzle query helpers for ownership aggregation
+- [x] Add Calibre URL resolution logic
+- [ ] Write unit tests (deferred) for `computeOwnershipStatus`, `computeDerivedStatus`, `groupInstancesByLocation`
+- [x] Run `pnpm typecheck`
+- [x] Verify derived statuses against test data in Drizzle Studio

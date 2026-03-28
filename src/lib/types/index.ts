@@ -14,6 +14,16 @@ import type {
   collections,
   imports,
   media,
+  bookCategories,
+  themes,
+  literaryMovements,
+  artTypes,
+  artMovements,
+  keywords,
+  attributes,
+  series,
+  workTypes,
+  recommenders,
 } from "@/lib/db/schema";
 
 // ── Select types (rows from DB) ─────────────────────────────────────────────
@@ -32,6 +42,16 @@ export type Tag = InferSelectModel<typeof tags>;
 export type Collection = InferSelectModel<typeof collections>;
 export type Import = InferSelectModel<typeof imports>;
 export type Media = InferSelectModel<typeof media>;
+export type BookCategory = InferSelectModel<typeof bookCategories>;
+export type Theme = InferSelectModel<typeof themes>;
+export type LiteraryMovement = InferSelectModel<typeof literaryMovements>;
+export type ArtType = InferSelectModel<typeof artTypes>;
+export type ArtMovement = InferSelectModel<typeof artMovements>;
+export type Keyword = InferSelectModel<typeof keywords>;
+export type Attribute = InferSelectModel<typeof attributes>;
+export type Series = InferSelectModel<typeof series>;
+export type WorkType = InferSelectModel<typeof workTypes>;
+export type Recommender = InferSelectModel<typeof recommenders>;
 
 // ── Insert types (for creating new rows) ────────────────────────────────────
 
@@ -54,14 +74,27 @@ export type WorkWithRelations = Work & {
   workAuthors: (WorkAuthor & { author: Author })[];
   workSubjects: { subject: Subject }[];
   media: Media[];
+  workType: WorkType | null;
+  series: Series | null;
+  recommender: Recommender | null;
+  workCategories: { category: BookCategory }[];
+  workThemes: { theme: Theme }[];
+  workLiteraryMovements: { literaryMovement: LiteraryMovement }[];
+  workArtTypes: { artType: ArtType }[];
+  workArtMovements: { artMovement: ArtMovement }[];
+  workKeywords: { keyword: Keyword }[];
+  workAttributes: { attribute: Attribute }[];
 };
 
 export type EditionWithRelations = Edition & {
-  work: Work;
   instances: (Instance & { location: Location; subLocation: SubLocation | null })[];
   contributors: (EditionContributor & { author: Author })[];
   editionGenres: { genre: Genre }[];
   editionTags: { tag: Tag }[];
+};
+
+export type EditionWithWork = EditionWithRelations & {
+  work: Work;
 };
 
 export type AuthorWithRelations = Author & {

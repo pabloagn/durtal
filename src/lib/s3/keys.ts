@@ -46,10 +46,12 @@ export function goldExportKey(exportId: string) {
   return `gold/exports/${exportId}/library_export.csv`;
 }
 
-// ── Media (work/author posters, backgrounds, galleries) ─────────────────────
+// ── Media (work/author/collection posters, backgrounds, galleries) ──────────
+
+export type MediaEntityType = "work" | "author" | "collection";
 
 export function bronzeMediaKey(
-  entityType: "work" | "author",
+  entityType: MediaEntityType,
   entityId: string,
   fileId: string,
   ext: string,
@@ -58,7 +60,7 @@ export function bronzeMediaKey(
 }
 
 export function goldMediaKey(
-  entityType: "work" | "author",
+  entityType: MediaEntityType,
   entityId: string,
   mediaType: string,
   fileId: string,
@@ -67,7 +69,7 @@ export function goldMediaKey(
 }
 
 export function goldMediaThumbnailKey(
-  entityType: "work" | "author",
+  entityType: MediaEntityType,
   entityId: string,
   mediaType: string,
   fileId: string,

@@ -1,5 +1,9 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
+// ── Author-level enums ──────────────────────────────────────────────────────
+
+export const genderEnum = pgEnum("gender_enum", ["male", "female"]);
+
 // ── Work-level enums ─────────────────────────────────────────────────────────
 
 export const catalogueStatusEnum = pgEnum("catalogue_status_enum", [

@@ -25,7 +25,7 @@ import {
 } from "@/components/books/instance-form";
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
-import { findDuplicateWork, createWork } from "@/lib/actions/works";
+import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
 import { createEdition } from "@/lib/actions/editions";
 import { createInstance } from "@/lib/actions/instances";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
@@ -116,6 +116,10 @@ export function AddBookWizard() {
   const [description, setDescription] = useState("");
   const [seriesName, setSeriesName] = useState("");
   const [seriesPosition, setSeriesPosition] = useState("");
+  const [catalogueStatus, setCatalogueStatus] = useState("tracked");
+  const [acquisitionPriority, setAcquisitionPriority] = useState("none");
+
+  const isWishlistStatus = ["tracked", "shortlisted", "wanted"].includes(catalogueStatus);
 
   // Edition fields
   const [isbn13, setIsbn13] = useState("");
@@ -250,6 +254,7 @@ export function AddBookWizard() {
     startTransition(async () => {
       try {
         let workId = existingWorkId;
+        let workSlug: string | undefined;
 
         // 1. Find or create author
         const author = await findOrCreateAuthor(authorName.trim());
@@ -265,7 +270,8 @@ export function AddBookWizard() {
             description: description || undefined,
             seriesName: seriesName || undefined,
             seriesPosition: seriesPosition || undefined,
-            catalogueStatus: "tracked",
+            catalogueStatus: catalogueStatus as any,
+            acquisitionPriority: acquisitionPriority as any,
             authorIds: [{ authorId: author.id, role: "author" }],
             subjectIds:
               selectedSubjectIds.length > 0
@@ -275,6 +281,11 @@ export function AddBookWizard() {
             metadataSourceId: metadataSourceId || undefined,
           } as any);
           workId = work.id;
+          workSlug = work.slug ?? undefined;
+        } else {
+          // Existing work — fetch its slug for navigation
+          const existingWork = await getWork(workId);
+          workSlug = existingWork?.slug ?? undefined;
         }
 
         // 3. Create edition
@@ -346,7 +357,7 @@ export function AddBookWizard() {
         }
 
         toast.success("Book added to catalogue");
-        router.push(`/library/${workId}`);
+        router.push(`/library/${workSlug ?? ""}`);
       } catch (err) {
         toast.error("Failed to add book");
         console.error(err);
@@ -393,7 +404,7 @@ export function AddBookWizard() {
                 type="button"
                 disabled={!isCompleted}
                 onClick={() => isCompleted && setStep(s.key)}
-                className={`flex items-center gap-1 rounded-sm px-2 py-1 text-[10px] font-medium transition-colors ${
+                className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
                   isCurrent
                     ? "bg-accent-plum text-accent-rose"
                     : isCompleted
@@ -431,7 +442,7 @@ export function AddBookWizard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="h-9 w-full rounded-sm border border-bg-tertiary bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+                className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
                 autoFocus
               />
             </div>
@@ -461,7 +472,7 @@ export function AddBookWizard() {
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 font-serif text-sm text-fg-primary">
+                        <h3 className="line-clamp-1 font-serif text-lg text-fg-primary">
                           {result.title}
                         </h3>
                         <p className="mt-0.5 line-clamp-1 text-xs text-fg-secondary">
@@ -469,12 +480,12 @@ export function AddBookWizard() {
                         </p>
                         <div className="mt-1 flex items-center gap-2">
                           {result.publicationYear && (
-                            <span className="font-mono text-[10px] text-fg-muted">
+                            <span className="font-mono text-micro text-fg-muted">
                               {result.publicationYear}
                             </span>
                           )}
                           {result.publisher && (
-                            <span className="text-[10px] text-fg-muted">
+                            <span className="text-micro text-fg-muted">
                               {result.publisher}
                             </span>
                           )}
@@ -494,7 +505,7 @@ export function AddBookWizard() {
             </div>
           )}
 
-          <div className="border-t border-bg-tertiary pt-4">
+          <div className="border-t border-glass-border pt-4">
             <button
               onClick={() => setStep("details")}
               className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
@@ -510,7 +521,7 @@ export function AddBookWizard() {
       {step === "duplicate" && duplicateWork && (
         <div className="space-y-6">
           <div className="rounded-sm border border-accent-gold/30 bg-accent-gold/5 p-4">
-            <h3 className="font-serif text-sm text-fg-primary">
+            <h3 className="font-serif text-lg text-fg-primary">
               Possible duplicate found
             </h3>
             <p className="mt-1 text-xs text-fg-secondary">
@@ -521,7 +532,7 @@ export function AddBookWizard() {
 
           <Card>
             <CardContent className="py-4">
-              <h3 className="font-serif text-base text-fg-primary">
+              <h3 className="font-serif text-lg text-fg-primary">
                 {duplicateWork.title}
               </h3>
               <p className="mt-1 text-xs text-fg-secondary">
@@ -628,6 +639,45 @@ export function AddBookWizard() {
                 placeholder="1"
               />
             </div>
+
+            <div className="border-t border-bg-tertiary pt-4 mt-2">
+              <p className="text-micro font-medium uppercase tracking-wider text-fg-muted mb-3">
+                Catalogue status
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Select
+                  label="Status"
+                  id="catalogueStatus"
+                  value={catalogueStatus}
+                  onChange={(e) => setCatalogueStatus(e.target.value)}
+                  options={[
+                    { value: "tracked", label: "Tracked" },
+                    { value: "shortlisted", label: "Shortlisted" },
+                    { value: "wanted", label: "Wanted" },
+                    { value: "on_order", label: "On Order" },
+                    { value: "accessioned", label: "Accessioned" },
+                  ]}
+                />
+                <Select
+                  label="Priority"
+                  id="acquisitionPriority"
+                  value={acquisitionPriority}
+                  onChange={(e) => setAcquisitionPriority(e.target.value)}
+                  options={[
+                    { value: "none", label: "None" },
+                    { value: "low", label: "Low" },
+                    { value: "medium", label: "Medium" },
+                    { value: "high", label: "High" },
+                    { value: "urgent", label: "Urgent" },
+                  ]}
+                />
+              </div>
+              {isWishlistStatus && (
+                <p className="mt-2 text-xs text-fg-muted">
+                  You can add copies later from the book detail page.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-between">
@@ -722,10 +772,18 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <Button onClick={() => setStep("instance")}>
-              Add copies
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </Button>
+            <div className="flex gap-2">
+              {isWishlistStatus && (
+                <Button variant="ghost" onClick={() => setStep("categorize")}>
+                  <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Skip copies
+                </Button>
+              )}
+              <Button onClick={() => setStep("instance")}>
+                {isWishlistStatus ? "Add copies anyway" : "Add copies"}
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -734,7 +792,9 @@ export function AddBookWizard() {
       {step === "instance" && (
         <div className="space-y-6">
           <p className="text-xs text-fg-secondary">
-            Where do you have this book? Add at least one copy with a location.
+            {isWishlistStatus
+              ? "Optionally add copies if you already have this book."
+              : "Where do you have this book? Add copies with their locations."}
           </p>
 
           {locations.length === 0 ? (
@@ -780,13 +840,18 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <Button
-              onClick={() => setStep("categorize")}
-              disabled={!instanceDrafts.some((d) => d.locationId)}
-            >
-              Categorize
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </Button>
+            <div className="flex gap-2">
+              {!instanceDrafts.some((d) => d.locationId) && (
+                <Button variant="ghost" onClick={() => setStep("categorize")}>
+                  <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Skip
+                </Button>
+              )}
+              <Button onClick={() => setStep("categorize")}>
+                Categorize
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -836,10 +901,10 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
                     Work
                   </p>
-                  <h3 className="mt-1 font-serif text-base text-fg-primary">
+                  <h3 className="mt-1 font-serif text-lg text-fg-primary">
                     {title}
                   </h3>
                   <p className="mt-0.5 text-xs text-fg-secondary">
@@ -855,6 +920,20 @@ export function AddBookWizard() {
                         {seriesName}
                         {seriesPosition && ` #${seriesPosition}`}
                       </Badge>
+                    )}
+                    <Badge
+                      variant={
+                        catalogueStatus === "accessioned"
+                          ? "sage"
+                          : catalogueStatus === "wanted" || catalogueStatus === "shortlisted"
+                            ? "gold"
+                            : "muted"
+                      }
+                    >
+                      {catalogueStatus}
+                    </Badge>
+                    {acquisitionPriority !== "none" && (
+                      <Badge variant="blue">{acquisitionPriority} priority</Badge>
                     )}
                     {existingWorkId && (
                       <Badge variant="gold">Existing work</Badge>
@@ -879,7 +958,7 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
                     Edition
                   </p>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
@@ -917,46 +996,52 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div className="w-full">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
                     Copies ({instanceDrafts.filter((d) => d.locationId).length})
                   </p>
                   <div className="mt-2 space-y-2">
-                    {instanceDrafts
-                      .filter((d) => d.locationId)
-                      .map((d, i) => {
-                        const loc = locations.find(
-                          (l) => l.id === d.locationId,
-                        );
-                        return (
-                          <div
-                            key={i}
-                            className="flex items-center gap-2 text-xs text-fg-secondary"
-                          >
-                            <span className="text-fg-primary">
-                              {loc?.name ?? "Unknown"}
-                            </span>
-                            {d.format && (
-                              <Badge variant="muted">{d.format}</Badge>
-                            )}
-                            {d.condition && (
-                              <Badge variant="sage">
-                                {d.condition.replace(/_/g, " ")}
-                              </Badge>
-                            )}
-                            {d.isSigned && (
-                              <Badge variant="gold">Signed</Badge>
-                            )}
-                            {d.isFirstPrinting && (
-                              <Badge variant="gold">1st printing</Badge>
-                            )}
-                            {d.acquisitionPrice && d.acquisitionCurrency && (
-                              <span className="font-mono text-fg-muted">
-                                {d.acquisitionPrice} {d.acquisitionCurrency}
+                    {instanceDrafts.filter((d) => d.locationId).length === 0 ? (
+                      <p className="text-xs text-fg-muted">
+                        No copies -- you can add them later from the book detail page.
+                      </p>
+                    ) : (
+                      instanceDrafts
+                        .filter((d) => d.locationId)
+                        .map((d, i) => {
+                          const loc = locations.find(
+                            (l) => l.id === d.locationId,
+                          );
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 text-xs text-fg-secondary"
+                            >
+                              <span className="text-fg-primary">
+                                {loc?.name ?? "Unknown"}
                               </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                              {d.format && (
+                                <Badge variant="muted">{d.format}</Badge>
+                              )}
+                              {d.condition && (
+                                <Badge variant="sage">
+                                  {d.condition.replace(/_/g, " ")}
+                                </Badge>
+                              )}
+                              {d.isSigned && (
+                                <Badge variant="gold">Signed</Badge>
+                              )}
+                              {d.isFirstPrinting && (
+                                <Badge variant="gold">1st printing</Badge>
+                              )}
+                              {d.acquisitionPrice && d.acquisitionCurrency && (
+                                <span className="font-mono text-fg-muted">
+                                  {d.acquisitionPrice} {d.acquisitionCurrency}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                    )}
                   </div>
                 </div>
                 <Button
@@ -979,7 +1064,7 @@ export function AddBookWizard() {
               <CardContent className="py-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+                    <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
                       Categorization
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">

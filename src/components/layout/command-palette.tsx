@@ -6,6 +6,7 @@ import { Command } from "cmdk";
 import {
   Library,
   Users,
+  Layers,
   MapPin,
   FolderOpen,
   Plus,
@@ -24,6 +25,7 @@ const NAVIGATION_ITEMS = [
   { label: "Dashboard", href: "/", icon: BookOpen, group: "Navigate" },
   { label: "Library", href: "/library", icon: Library, group: "Navigate" },
   { label: "Authors", href: "/authors", icon: Users, group: "Navigate" },
+  { label: "Series", href: "/series", icon: Layers, group: "Navigate" },
   { label: "Locations", href: "/locations", icon: MapPin, group: "Navigate" },
   {
     label: "Collections",
@@ -60,7 +62,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     [router, onOpenChange],
   );
 
-  // Reset query when closing
   useEffect(() => {
     if (!open) setQuery("");
   }, [open]);
@@ -71,19 +72,19 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-bg-primary/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-bg-primary/70 backdrop-blur-md"
         onClick={() => onOpenChange(false)}
       />
 
       {/* Palette */}
       <div className="absolute left-1/2 top-[20%] w-full max-w-lg -translate-x-1/2">
         <Command
-          className="overflow-hidden rounded-sm border border-bg-tertiary bg-bg-secondary shadow-2xl"
+          className="overflow-hidden rounded-sm glass-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
           shouldFilter={true}
           value={query}
           onValueChange={setQuery}
         >
-          <div className="flex items-center border-b border-bg-tertiary px-4">
+          <div className="flex items-center border-b border-glass-border px-4">
             <Search className="mr-2 h-4 w-4 shrink-0 text-fg-muted" />
             <Command.Input
               placeholder="Search catalogue, navigate, or take an action..."
@@ -106,7 +107,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   key={item.href}
                   value={item.label}
                   onSelect={() => navigate(item.href)}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary aria-selected:bg-bg-tertiary aria-selected:text-fg-primary"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-accent-plum/60 aria-selected:text-fg-primary"
                 >
                   <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   {item.label}
@@ -114,7 +115,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               ))}
             </Command.Group>
 
-            <Command.Separator className="my-1 h-px bg-bg-tertiary" />
+            <Command.Separator className="my-1 h-px bg-glass-border" />
 
             <Command.Group
               heading="Actions"
@@ -125,7 +126,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   key={item.href}
                   value={item.label}
                   onSelect={() => navigate(item.href)}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary aria-selected:bg-bg-tertiary aria-selected:text-fg-primary"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-accent-plum/60 aria-selected:text-fg-primary"
                 >
                   <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   {item.label}

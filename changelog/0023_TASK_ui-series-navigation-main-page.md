@@ -1,6 +1,6 @@
 # Task 0023: UI — Series Page, Navigation Menu, and Main Page Field Extension
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: MEDIUM
 **Type**: Feature
@@ -58,11 +58,11 @@ These are additions to the existing dashboard stats, not replacements.
 
 ## Implementation Steps
 
-- [ ] Add "Series" link to sidebar navigation component
-- [ ] Create `src/app/series/page.tsx` — series index page
-- [ ] Create `src/app/series/[id]/page.tsx` — series detail page
-- [ ] Add series data fetching functions to `src/lib/db/queries/` or equivalent
-- [ ] Add series stats to dashboard page
-- [ ] Update `docs/01_SPECS.md` routes section (add `/series` and `/series/[id]`)
-- [ ] Run `pnpm typecheck`
-- [ ] Run `pnpm build`
+- [x] Add "Series" link to sidebar navigation component
+- [x] Add "Series" to command palette navigation
+- [x] Create `src/app/series/page.tsx` — series index page
+- [x] Create `src/app/series/[id]/page.tsx` — series detail page
+- [x] Create `src/lib/actions/series.ts` — server actions (getSeries, getSeriesDetail, getSeriesCount)
+- [ ] Add series stats to dashboard page (deferred — no data yet)
+- [x] Run `pnpm typecheck`
+- [x] Run `pnpm build`

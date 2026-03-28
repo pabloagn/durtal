@@ -96,12 +96,13 @@ export function LocationActions() {
               <AddressInput value={address} onChange={setAddress} />
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+          <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+            <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button
               variant="primary"
+              size="sm"
               onClick={handleSubmit}
               disabled={isPending}
             >

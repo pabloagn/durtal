@@ -5,19 +5,19 @@ import { UploadZone } from "@/components/media/upload-zone";
 import { MediaGallery } from "@/components/media/media-gallery";
 import type { Media } from "@/lib/types";
 
-interface AuthorMediaSectionProps {
-  authorId: string;
+interface WorkMediaSectionProps {
+  workId: string;
   gallery: Media[];
   hasPoster: boolean;
   hasBackground: boolean;
 }
 
-export function AuthorMediaSection({
-  authorId,
+export function WorkMediaSection({
+  workId,
   gallery,
   hasPoster,
   hasBackground,
-}: AuthorMediaSectionProps) {
+}: WorkMediaSectionProps) {
   const router = useRouter();
   const refresh = () => router.refresh();
 
@@ -26,24 +26,25 @@ export function AuthorMediaSection({
 
   return (
     <>
+      {/* Upload zones for poster and background */}
       {(!hasPoster || !hasBackground) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-sm text-fg-secondary">
+          <h2 className="mb-3 font-serif text-xl text-fg-secondary">
             Media
           </h2>
           <div className="grid grid-cols-2 gap-3">
             {!hasPoster && (
               <UploadZone
-                entityType="author"
-                entityId={authorId}
+                entityType="work"
+                entityId={workId}
                 mediaType="poster"
                 onUploadComplete={refresh}
               />
             )}
             {!hasBackground && (
               <UploadZone
-                entityType="author"
-                entityId={authorId}
+                entityType="work"
+                entityId={workId}
                 mediaType="background"
                 onUploadComplete={refresh}
               />
@@ -52,8 +53,9 @@ export function AuthorMediaSection({
         </section>
       )}
 
+      {/* Gallery */}
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-sm text-fg-secondary">
+        <h2 className="mb-3 font-serif text-xl text-fg-secondary">
           Gallery
           {gallery.length > 0 && (
             <span className="ml-1 text-fg-muted">({gallery.length})</span>
@@ -69,8 +71,8 @@ export function AuthorMediaSection({
           }}
         />
         <UploadZone
-          entityType="author"
-          entityId={authorId}
+          entityType="work"
+          entityId={workId}
           mediaType="gallery"
           onUploadComplete={refresh}
           multiple

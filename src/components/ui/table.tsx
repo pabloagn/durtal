@@ -5,7 +5,7 @@ interface TableProps {
 
 export function Table({ children, className = "" }: TableProps) {
   return (
-    <div className="overflow-x-auto rounded-sm border border-bg-tertiary">
+    <div className="overflow-x-auto rounded-sm border border-glass-border">
       <table className={`w-full text-sm ${className}`}>{children}</table>
     </div>
   );
@@ -19,7 +19,7 @@ export function TableHeader({
   className?: string;
 }) {
   return (
-    <thead className={`border-b border-bg-tertiary bg-bg-secondary ${className}`}>
+    <thead className={`border-b border-glass-border bg-bg-secondary/60 ${className}`}>
       {children}
     </thead>
   );
@@ -46,9 +46,9 @@ export function TableRow({
 }) {
   return (
     <tr
-      className={`border-b border-bg-tertiary last:border-0 ${
+      className={`border-b border-glass-border last:border-0 ${
         onClick
-          ? "cursor-pointer transition-colors hover:bg-bg-secondary"
+          ? "cursor-pointer transition-colors hover:bg-bg-secondary/40"
           : ""
       } ${className}`}
       onClick={onClick}
@@ -67,7 +67,7 @@ export function TableHead({
 }) {
   return (
     <th
-      className={`px-4 py-2 text-left font-serif text-xs font-normal text-fg-secondary ${className}`}
+      className={`px-4 py-2.5 text-left font-serif text-sm font-normal text-fg-secondary ${className}`}
     >
       {children}
     </th>

@@ -33,7 +33,7 @@ async function LocationsContent() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h3 className="font-serif text-base text-fg-primary">
+                  <h3 className="font-serif text-lg text-fg-primary">
                     {location.name}
                   </h3>
                   <Badge

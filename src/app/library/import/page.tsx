@@ -17,17 +17,17 @@ export default function ImportPage() {
         <Card>
           <CardContent className="py-6">
             <div className="flex flex-col items-center justify-center">
-              <div className="mb-4 rounded-sm border border-bg-tertiary bg-bg-primary p-3">
+              <div className="mb-4 rounded-sm border border-glass-border bg-bg-primary p-3">
                 <Upload className="h-6 w-6 text-fg-muted" strokeWidth={1.5} />
               </div>
-              <h3 className="font-serif text-base text-fg-primary">
+              <h3 className="font-serif text-lg text-fg-primary">
                 CSV Import
               </h3>
               <p className="mt-1 text-center text-xs text-fg-secondary">
                 Upload a CSV file with book data. The file will be processed
                 through the medallion pipeline (bronze &rarr; silver &rarr; gold).
               </p>
-              <p className="mt-4 text-center text-[10px] text-fg-muted">
+              <p className="mt-4 text-center text-micro text-fg-muted">
                 Coming soon &mdash; use Python ingestion scripts for now
               </p>
             </div>
@@ -38,24 +38,24 @@ export default function ImportPage() {
         <Card>
           <CardContent className="py-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-sm border border-bg-tertiary bg-bg-primary p-2.5">
+              <div className="rounded-sm border border-glass-border bg-bg-primary p-2.5">
                 <FileText
                   className="h-5 w-5 text-fg-muted"
                   strokeWidth={1.5}
                 />
               </div>
               <div>
-                <h3 className="font-serif text-base text-fg-primary">
+                <h3 className="font-serif text-lg text-fg-primary">
                   Python ingestion scripts
                 </h3>
                 <p className="mt-1 text-xs text-fg-secondary">
                   For the initial data load from the knowledge base Excel
                   workbook, use the Python scripts in{" "}
-                  <code className="rounded-sm bg-bg-tertiary px-1 py-0.5 font-mono text-[10px]">
+                  <code className="rounded-sm bg-bg-tertiary px-1 py-0.5 font-mono text-micro">
                     scripts/ingest/
                   </code>
                 </p>
-                <div className="mt-3 space-y-1 font-mono text-[10px] text-fg-muted">
+                <div className="mt-3 space-y-1 font-mono text-micro text-fg-muted">
                   <p>task ingest:dry &mdash; Preview without writing</p>
                   <p>task ingest &mdash; Full ingestion run</p>
                   <p>task ingest:report &mdash; Post-ingestion report</p>
@@ -69,14 +69,14 @@ export default function ImportPage() {
         <Card>
           <CardContent className="py-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-sm border border-bg-tertiary bg-bg-primary p-2.5">
+              <div className="rounded-sm border border-glass-border bg-bg-primary p-2.5">
                 <Database
                   className="h-5 w-5 text-fg-muted"
                   strokeWidth={1.5}
                 />
               </div>
               <div>
-                <h3 className="font-serif text-base text-fg-primary">
+                <h3 className="font-serif text-lg text-fg-primary">
                   Import history
                 </h3>
                 <p className="mt-1 text-xs text-fg-secondary">

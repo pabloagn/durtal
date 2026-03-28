@@ -1,14 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
-import { Search } from "lucide-react";
-import {
-  ViewModeSwitcher,
-  type ViewMode,
-} from "@/components/books/view-mode-switcher";
-import { GridSizeSlider } from "@/components/books/grid-size-slider";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { EntityFilters } from "@/components/shared/entity-filters";
+import type { ViewMode } from "@/components/books/view-mode-switcher";
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Recent" },
@@ -30,72 +23,16 @@ export function LibraryFilters({
   viewMode = "grid",
   gridColumns = 6,
 }: LibraryFiltersProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentSort = searchParams.get("sort") ?? "recent";
-  const currentQuery = searchParams.get("q") ?? "";
-
-  const updateParams = useCallback(
-    (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value) {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
-      params.delete("page");
-      router.push(`/library?${params.toString()}`);
-    },
-    [router, searchParams],
-  );
-
   return (
-    <div className="mb-6 flex items-center gap-3">
-      {/* Search */}
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
-        <input
-          type="text"
-          placeholder="Search works..."
-          defaultValue={currentQuery}
-          onChange={(e) => {
-            const val = e.target.value;
-            clearTimeout((window as any).__searchTimeout);
-            (window as any).__searchTimeout = setTimeout(
-              () => updateParams("q", val),
-              300,
-            );
-          }}
-          className="h-8 w-full rounded-sm border border-bg-tertiary bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
-        />
-      </div>
-
-      {/* Sort */}
-      <div className="flex items-center gap-1">
-        {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => updateParams("sort", opt.value)}
-            className={`rounded-sm px-2.5 py-1 text-xs transition-colors ${
-              currentSort === opt.value
-                ? "bg-accent-plum text-fg-primary"
-                : "text-fg-muted hover:bg-bg-tertiary hover:text-fg-secondary"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* View mode */}
-      {onViewModeChange && (
-        <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} />
-      )}
-
-      {/* Grid size slider (only in grid mode) */}
-      {viewMode === "grid" && onGridColumnsChange && (
-        <GridSizeSlider value={gridColumns} onChange={onGridColumnsChange} />
-      )}
-    </div>
+    <EntityFilters
+      basePath="/library"
+      sortOptions={SORT_OPTIONS}
+      searchPlaceholder="Search works..."
+      defaultSort="recent"
+      viewMode={viewMode}
+      gridColumns={gridColumns}
+      onViewModeChange={onViewModeChange ?? (() => {})}
+      onGridColumnsChange={onGridColumnsChange ?? (() => {})}
+    />
   );
 }

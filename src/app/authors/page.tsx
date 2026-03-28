@@ -2,29 +2,43 @@ export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { Users, Plus } from "lucide-react";
+import { Users } from "lucide-react";
 import { getAuthors, getAuthorCount } from "@/lib/actions/authors";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { AuthorsShell, type AuthorItem } from "./authors-shell";
 
 interface PageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }
 
-async function AuthorsContent({ search }: { search?: string }) {
-  const authors = await getAuthors({ search });
+async function AuthorsContent({
+  searchParams,
+}: {
+  searchParams: { q?: string; sort?: string; page?: string };
+}) {
+  const search = searchParams.q;
+  const sort = (searchParams.sort ?? "name") as
+    | "name"
+    | "recent"
+    | "birth"
+    | "works";
+  const page = parseInt(searchParams.page ?? "1", 10);
+  const limit = 48;
+  const offset = (page - 1) * limit;
 
-  if (authors.length === 0) {
+  const [rawAuthors, total] = await Promise.all([
+    getAuthors({ search, sort, limit, offset }),
+    getAuthorCount(search),
+  ]);
+
+  if (rawAuthors.length === 0) {
     return (
       <EmptyState
         icon={Users}
@@ -38,56 +52,72 @@ async function AuthorsContent({ search }: { search?: string }) {
     );
   }
 
+  const authors: AuthorItem[] = rawAuthors.map((a) => ({
+    id: a.id,
+    slug: a.slug ?? "",
+    name: a.name,
+    sortName: a.sortName,
+    nationality: a.country?.name ?? null,
+    birthYear: a.birthYear,
+    deathYear: a.deathYear,
+    gender: a.gender,
+    photoUrl: a.photoS3Key ?? null,
+    website: a.website,
+    bio: a.bio,
+    worksCount: a.workAuthors.length,
+    createdAt: new Date(a.createdAt).toLocaleDateString(),
+  }));
+
+  const totalPages = Math.ceil(total / limit);
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Nationality</TableHead>
-          <TableHead>Years</TableHead>
-          <TableHead className="text-right">Works</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {authors.map((author) => (
-          <TableRow key={author.id}>
-            <TableCell>
-              <Link
-                href={`/authors/${author.id}`}
-                className="font-serif text-fg-primary transition-colors hover:text-accent-rose"
-              >
-                {author.name}
-              </Link>
-              {author.sortName && author.sortName !== author.name && (
-                <span className="ml-2 text-xs text-fg-muted">
-                  ({author.sortName})
-                </span>
-              )}
-            </TableCell>
-            <TableCell className="text-fg-secondary">
-              {author.nationality ?? "—"}
-            </TableCell>
-            <TableCell className="font-mono text-xs text-fg-muted">
-              {author.birthYear
-                ? `${author.birthYear}–${author.deathYear ?? ""}`
-                : "—"}
-            </TableCell>
-            <TableCell className="text-right font-mono text-xs text-fg-secondary">
-              {author.workAuthors.length}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <>
+      <AuthorsShell authors={authors} />
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-2">
+          {page > 1 && (
+            <Link
+              href={`/authors?${new URLSearchParams({ ...(search ? { q: search } : {}), sort, page: String(page - 1) })}`}
+            >
+              <Button variant="ghost" size="sm">
+                Previous
+              </Button>
+            </Link>
+          )}
+          <span className="font-mono text-xs text-fg-muted">
+            {page} / {totalPages}
+          </span>
+          {page < totalPages && (
+            <Link
+              href={`/authors?${new URLSearchParams({ ...(search ? { q: search } : {}), sort, page: String(page + 1) })}`}
+            >
+              <Button variant="ghost" size="sm">
+                Next
+              </Button>
+            </Link>
+          )}
+        </div>
+      )}
+
+      <p className="mt-4 text-center font-mono text-xs text-fg-muted">
+        {total} {total === 1 ? "author" : "authors"}
+      </p>
+    </>
   );
 }
 
 export default async function AuthorsPage({ searchParams }: PageProps) {
-  const { q } = await searchParams;
+  const params = await searchParams;
 
   return (
     <>
-      <PageHeader title="Authors" description="Browse all authors in your catalogue" />
+      <PageHeader
+        title="Authors"
+        description="Browse all authors in your catalogue"
+      />
+
       <Suspense
         fallback={
           <div className="flex items-center justify-center py-16">
@@ -95,7 +125,7 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
           </div>
         }
       >
-        <AuthorsContent search={q} />
+        <AuthorsContent searchParams={params} />
       </Suspense>
     </>
   );

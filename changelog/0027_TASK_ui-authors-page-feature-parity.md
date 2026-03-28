@@ -227,20 +227,21 @@ export async function getAuthors(opts?: {
 
 ## Implementation Steps
 
-- [ ] Update `getAuthors` action: add sort parameter, pagination total, change default limit
-- [ ] Create `src/components/authors/author-card.tsx`
-- [ ] Create `src/components/authors/author-grid.tsx`
-- [ ] Create `src/components/authors/author-list.tsx`
-- [ ] Create `src/components/authors/author-data-table.tsx`
-- [ ] Create `src/components/authors/authors-view.tsx`
-- [ ] Refactor `src/app/authors/page.tsx` to use shell pattern (AuthorsContent + AuthorsShell + AuthorsFilters)
-- [ ] Wire up URL params: `q`, `sort`, `page`
-- [ ] Wire up localStorage: view mode, grid columns, column config
-- [ ] Verify shared components work without modification (ViewModeSwitcher, GridSizeSlider, ColumnConfigDialog)
+- [x] Extract `src/components/shared/entity-filters.tsx` — generic search/sort/view/slider bar (DRY)
+- [x] Extract `src/components/shared/data-table.tsx` — generic sortable table with column config (DRY)
+- [x] Refactor `src/app/library/filters.tsx` — now wraps `EntityFilters` (no behavior change)
+- [x] Refactor `src/components/books/book-data-table.tsx` — now wraps `DataTable` (no behavior change)
+- [x] Update `getAuthors` action: add sort parameter (`name`/`recent`/`birth`/`works`), change default limit to 48
+- [x] Create `src/components/authors/author-card.tsx` — grid card (same styles as BookCard)
+- [x] Create `src/components/authors/author-list-item.tsx` — list row (same styles as BookList)
+- [x] Create `src/app/authors/authors-shell.tsx` — client shell with EntityFilters + 3 view modes + DataTable
+- [x] Rebuild `src/app/authors/page.tsx` — shell pattern, URL params (`q`, `sort`, `page`), pagination
+- [x] Wire up localStorage: `durtal-authors-view-mode`, `durtal-authors-grid-columns`, `durtal-authors-column-config`
+- [x] Shared components work without modification (ViewModeSwitcher, GridSizeSlider, ColumnConfigDialog)
+- [x] Run `pnpm typecheck` — passes clean
 - [ ] Test all 3 view modes render correctly
 - [ ] Test sort options work end-to-end
 - [ ] Test search with debounce
 - [ ] Test pagination
 - [ ] Test column config persistence across page reloads
-- [ ] Run `pnpm typecheck`
 - [ ] Run `pnpm lint`

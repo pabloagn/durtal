@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Library,
   Users,
+  Layers,
   MapPin,
   FolderOpen,
   Tag,
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: BookOpen },
   { href: "/library", label: "Library", icon: Library },
   { href: "/authors", label: "Authors", icon: Users },
+  { href: "/series", label: "Series", icon: Layers },
   { href: "/locations", label: "Locations", icon: MapPin },
   { href: "/collections", label: "Collections", icon: FolderOpen },
   { href: "/tags", label: "Tags", icon: Tag },
@@ -31,10 +33,13 @@ export function Sidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-dvh w-56 flex-col border-r border-bg-tertiary bg-bg-secondary">
+    <aside className="fixed left-0 top-0 z-40 flex h-dvh w-56 flex-col border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl">
       {/* Logo */}
       <div className="flex h-14 items-center px-5">
-        <Link href="/" className="font-serif text-xl tracking-tight text-fg-primary">
+        <Link
+          href="/"
+          className="font-serif text-2xl tracking-tight text-fg-primary"
+        >
           Durtal
         </Link>
       </div>
@@ -43,12 +48,12 @@ export function Sidebar({
       <div className="px-3 pb-2">
         <button
           onClick={onCommandPalette}
-          className="flex w-full items-center gap-2 rounded-sm border border-bg-tertiary bg-bg-primary px-3 py-1.5 text-sm text-fg-muted transition-colors hover:border-fg-muted hover:text-fg-secondary"
+          className="flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-primary/50 px-3 py-1.5 text-sm text-fg-muted transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary"
         >
           <Search className="h-3.5 w-3.5" />
           <span>Search...</span>
-          <kbd className="ml-auto font-mono text-[10px] text-fg-muted">
-            <span className="text-[9px]">&#8984;</span>K
+          <kbd className="ml-auto font-mono text-micro text-fg-muted">
+            <span className="text-nano">&#8984;</span>K
           </kbd>
         </button>
       </div>
@@ -63,10 +68,10 @@ export function Sidebar({
               <li key={href}>
                 <Link
                   href={href}
-                  className={`flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-sm transition-colors ${
+                  className={`flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-sm transition-all duration-150 ${
                     isActive
-                      ? "bg-accent-plum text-fg-primary"
-                      : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+                      ? "bg-accent-plum/80 text-fg-primary border border-accent-rose/10"
+                      : "text-fg-secondary border border-transparent hover:bg-bg-tertiary/50 hover:text-fg-primary"
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
@@ -79,8 +84,8 @@ export function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-bg-tertiary px-5 py-3">
-        <p className="font-mono text-[10px] text-fg-muted">
+      <div className="border-t border-glass-border px-5 py-3">
+        <p className="font-mono text-micro text-fg-muted">
           catalogue &middot; index &middot; archive
         </p>
       </div>

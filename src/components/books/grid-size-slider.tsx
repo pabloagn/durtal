@@ -8,7 +8,7 @@ interface GridSizeSliderProps {
 export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-fg-muted">Size</span>
+      <span className="text-micro text-fg-muted">Size</span>
       <input
         type="range"
         min={2}

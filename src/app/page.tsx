@@ -27,9 +27,9 @@ function StatCard({
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 py-4">
-        <div className="rounded-sm border border-bg-tertiary bg-bg-primary p-2.5">
+    <Card glass>
+      <CardContent className="flex items-center gap-4 py-5">
+        <div className="rounded-sm border border-glass-border bg-bg-primary/50 p-2.5">
           <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
         </div>
         <div>
@@ -74,9 +74,9 @@ async function DashboardContent() {
 
       {/* Recent additions */}
       {stats.recentWorks.length > 0 && (
-        <section className="mt-10">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-serif text-lg text-fg-primary">
+        <section className="mt-12">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-serif text-xl text-fg-primary">
               Recent additions
             </h2>
             <Link
@@ -99,24 +99,24 @@ async function DashboardContent() {
               return (
                 <Link
                   key={work.id}
-                  href={`/library/${work.id}`}
-                  className="group rounded-sm border border-bg-tertiary bg-bg-secondary p-3 transition-all hover:border-fg-muted/30 hover:shadow-lg hover:shadow-accent-rose/5"
+                  href={`/library/${work.slug ?? ""}`}
+                  className="group rounded-sm border border-glass-border bg-bg-secondary p-4 card-interactive"
                 >
-                  <h3 className="line-clamp-2 font-serif text-sm leading-tight text-fg-primary">
+                  <h3 className="line-clamp-2 font-serif text-lg leading-tight text-fg-primary">
                     {work.title}
                   </h3>
                   {author && (
-                    <p className="mt-1 line-clamp-1 text-xs text-fg-secondary">
+                    <p className="mt-1.5 line-clamp-1 text-sm text-fg-secondary">
                       {author.name}
                     </p>
                   )}
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-3 flex items-center gap-2">
                     {edition?.publicationYear && (
-                      <span className="font-mono text-[10px] text-fg-muted">
+                      <span className="font-mono text-micro text-fg-muted">
                         {edition.publicationYear}
                       </span>
                     )}
-                    <span className="ml-auto font-mono text-[10px] text-fg-muted">
+                    <span className="ml-auto font-mono text-micro text-fg-muted">
                       {instanceCount} {instanceCount === 1 ? "copy" : "copies"}
                     </span>
                   </div>

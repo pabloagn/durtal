@@ -1,5 +1,6 @@
 // ── Enums ───────────────────────────────────────────────────────────────────
 export {
+  genderEnum,
   catalogueStatusEnum,
   acquisitionPriorityEnum,
   instanceStatusEnum,
@@ -65,6 +66,7 @@ export {
 export { centuries } from "./centuries";
 export { sources } from "./sources";
 export { series, seriesRelations } from "./series";
+export { recommenders } from "./recommenders";
 export {
   publishingHouses,
   publishingHousesRelations,

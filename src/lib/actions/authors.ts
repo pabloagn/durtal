@@ -2,30 +2,54 @@
 
 import { db } from "@/lib/db";
 import { authors, workAuthors, editionContributors } from "@/lib/db/schema";
-import { eq, asc, ilike, count } from "drizzle-orm";
+import { eq, asc, desc, ilike, like, count } from "drizzle-orm";
 import {
   createAuthorSchema,
   type CreateAuthorInput,
 } from "@/lib/validations";
+import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 
 export async function getAuthors(opts?: {
   search?: string;
   limit?: number;
   offset?: number;
+  sort?: "name" | "recent" | "birth" | "works";
 }) {
-  const { search, limit = 100, offset = 0 } = opts ?? {};
+  const { search, limit = 48, offset = 0, sort = "name" } = opts ?? {};
 
-  return db.query.authors.findMany({
-    where: search ? ilike(authors.name, `%${search}%`) : undefined,
-    orderBy: asc(authors.sortName),
+  const where = search ? ilike(authors.name, `%${search}%`) : undefined;
+
+  const orderBy = (() => {
+    switch (sort) {
+      case "recent":
+        return desc(authors.createdAt);
+      case "birth":
+        return asc(authors.birthYear);
+      case "name":
+      default:
+        return asc(authors.sortName);
+    }
+  })();
+
+  const results = await db.query.authors.findMany({
+    where,
+    orderBy,
     limit,
     offset,
     with: {
+      country: { columns: { name: true } },
       workAuthors: {
         columns: { workId: true },
       },
     },
   });
+
+  // For "works" sort, we sort client-side since it's a derived count
+  if (sort === "works") {
+    results.sort((a, b) => b.workAuthors.length - a.workAuthors.length);
+  }
+
+  return results;
 }
 
 export async function getAuthorCount(search?: string) {
@@ -40,6 +64,47 @@ export async function getAuthor(id: string) {
   return db.query.authors.findFirst({
     where: eq(authors.id, id),
     with: {
+      country: { columns: { name: true } },
+      workAuthors: {
+        with: {
+          work: {
+            with: {
+              editions: {
+                columns: {
+                  id: true,
+                  title: true,
+                  thumbnailS3Key: true,
+                  publicationYear: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: asc(workAuthors.sortOrder),
+      },
+      editionContributors: {
+        with: {
+          edition: {
+            columns: {
+              id: true,
+              title: true,
+              thumbnailS3Key: true,
+              publicationYear: true,
+            },
+          },
+        },
+        orderBy: asc(editionContributors.sortOrder),
+      },
+      media: true,
+    },
+  });
+}
+
+export async function getAuthorBySlug(slug: string) {
+  return db.query.authors.findFirst({
+    where: eq(authors.slug, slug),
+    with: {
+      country: { columns: { name: true } },
       workAuthors: {
         with: {
           work: {
@@ -92,7 +157,25 @@ export async function createAuthor(input: CreateAuthorInput) {
     .insert(authors)
     .values({ ...parsed, sortName })
     .returning();
-  return author;
+
+  // Generate and set slug
+  const baseSlug = generateAuthorSlug(author.name);
+  const existing = await db
+    .select({ slug: authors.slug })
+    .from(authors)
+    .where(like(authors.slug, `${baseSlug}%`));
+  const existingSlugs = existing
+    .map((r) => r.slug)
+    .filter((s): s is string => s !== null);
+  const slug = makeUnique(baseSlug, existingSlugs);
+
+  const [updated] = await db
+    .update(authors)
+    .set({ slug })
+    .where(eq(authors.id, author.id))
+    .returning();
+
+  return updated;
 }
 
 /**
@@ -113,6 +196,28 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
     .update(authors)
     .set({ ...input, updatedAt: new Date() })
     .where(eq(authors.id, id));
+
+  // Regenerate slug when name changes
+  if (input.name !== undefined) {
+    const currentAuthor = await db.query.authors.findFirst({
+      where: eq(authors.id, id),
+      columns: { name: true, slug: true },
+    });
+
+    if (currentAuthor) {
+      const baseSlug = generateAuthorSlug(currentAuthor.name);
+      const existing = await db
+        .select({ slug: authors.slug })
+        .from(authors)
+        .where(like(authors.slug, `${baseSlug}%`));
+      const existingSlugs = existing
+        .map((r) => r.slug)
+        .filter((s): s is string => s !== null && s !== currentAuthor.slug);
+      const slug = makeUnique(baseSlug, existingSlugs);
+      await db.update(authors).set({ slug }).where(eq(authors.id, id));
+    }
+  }
+
   return { id };
 }
 

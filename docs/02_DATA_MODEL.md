@@ -138,6 +138,7 @@ The abstract intellectual creation. A work exists independently of any particula
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
+| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (format: `{title}-by-{author}`) |
 | `original_language` | TEXT | NOT NULL, default `'en'` | ISO 639-1 code |
 | `original_year` | SMALLINT | nullable | Year of first publication |
 | `description` | TEXT | nullable | Synopsis or summary |
@@ -300,23 +301,24 @@ Persons who create, translate, edit, or otherwise contribute to works and editio
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `name` | TEXT | NOT NULL | Display name ("Gabriel Garcia Marquez") |
+| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (e.g., `gabriel-garcia-marquez`) |
 | `sort_name` | TEXT | nullable | Inverted name for sorting ("Garcia Marquez, Gabriel") |
 | `first_name` | TEXT | nullable | Given name |
 | `last_name` | TEXT | nullable | Family name |
 | `real_name` | TEXT | nullable | Birth name if using a pen name |
-| `gender` | TEXT | nullable | |
+| `gender` | gender_enum | nullable | `'male'`, `'female'` |
 | `birth_year` | SMALLINT | nullable | |
 | `birth_month` | SMALLINT | nullable | |
 | `birth_day` | SMALLINT | nullable | |
 | `birth_year_is_approximate` | BOOLEAN | default `false` | |
-| `birth_year_gregorian` | TEXT | nullable | Gregorian calendar representation |
+| `birth_year_gregorian` | SMALLINT | nullable | Gregorian calendar year |
 | `death_year` | SMALLINT | nullable | |
 | `death_month` | SMALLINT | nullable | |
 | `death_day` | SMALLINT | nullable | |
 | `death_year_is_approximate` | BOOLEAN | default `false` | |
-| `death_year_gregorian` | TEXT | nullable | |
-| `nationality` | TEXT | nullable | |
-| `bio` | TEXT | nullable | |
+| `death_year_gregorian` | SMALLINT | nullable | Gregorian calendar year |
+| `nationality_id` | UUID | FK → `countries.id`, SET NULL | |
+| `bio` | VARCHAR(10000) | nullable | |
 | `photo_s3_key` | TEXT | nullable | S3 key for author photo |
 | `website` | TEXT | nullable | |
 | `open_library_key` | TEXT | nullable | |

@@ -24,23 +24,23 @@ export const createEditionSchema = z.object({
 
   // Edition details
   editionName: z.string().max(200).nullable().optional(),
-  editionNumber: z.number().int().positive().nullable().optional(),
-  printingNumber: z.number().int().positive().nullable().optional(),
+  editionNumber: z.number().int().min(1).nullable().optional(),
+  printingNumber: z.number().int().min(1).nullable().optional(),
   isFirstEdition: z.boolean().optional().default(false),
   isLimitedEdition: z.boolean().optional().default(false),
-  limitedEditionCount: z.number().int().positive().nullable().optional(),
+  limitedEditionCount: z.number().int().min(1).nullable().optional(),
 
   // Language
   language: z.string().default("en"),
   isTranslated: z.boolean().optional().default(false),
 
-  // Physical
-  pageCount: z.number().int().positive().nullable().optional(),
+  // Physical — accept 0 as null (empty field parsed to 0)
+  pageCount: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
   binding: z.string().nullable().optional(),
-  heightMm: z.number().int().positive().nullable().optional(),
-  widthMm: z.number().int().positive().nullable().optional(),
-  depthMm: z.number().int().positive().nullable().optional(),
-  weightGrams: z.number().int().positive().nullable().optional(),
+  heightMm: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
+  widthMm: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
+  depthMm: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
+  weightGrams: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
   illustrationType: z.string().nullable().optional(),
 
   // Content

@@ -54,7 +54,7 @@ export function MediaGallery({
                 className="absolute right-2 top-2 rounded-sm bg-bg-primary/80 p-1 opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <Trash2
-                  className="h-3.5 w-3.5 text-red-400"
+                  className="h-3.5 w-3.5 text-accent-red"
                   strokeWidth={1.5}
                 />
               </button>
