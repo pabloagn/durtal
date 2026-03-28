@@ -1,0 +1,200 @@
+/* ── Durtal TUI Palette ───────────────────────────────────────────────────── */
+/* Derived from the Durtal web UI dark gothic-minimal design                  */
+
+Screen {
+    background: #030507;
+}
+
+Header {
+    background: #0a0d10;
+    color: #c1c6c4;
+    text-style: bold;
+}
+
+Footer {
+    background: #0a0d10;
+    color: #6b7280;
+}
+
+/* ── Reusable Layout Classes ─────────────────────────────────────────────── */
+
+.surface {
+    background: #0a0d10;
+    border: solid #1e2228;
+    padding: 1 2;
+}
+
+.panel {
+    background: #0a0d10;
+    border: solid #1e2228;
+}
+
+.row {
+    layout: horizontal;
+    height: auto;
+    width: 100%;
+}
+
+.column {
+    layout: vertical;
+    height: auto;
+    width: 100%;
+}
+
+.spacer {
+    height: 1;
+}
+
+/* ── Status Colors ───────────────────────────────────────────────────────── */
+
+.status-ok {
+    color: #5a8a6a;
+}
+
+.status-error {
+    color: #b54a4a;
+}
+
+.status-warn {
+    color: #c0a36e;
+}
+
+.status-pending {
+    color: #6b7280;
+}
+
+.status-running {
+    color: #7d3d52;
+}
+
+/* ── Labels ──────────────────────────────────────────────────────────────── */
+
+.label-title {
+    color: #c1c6c4;
+    text-style: bold;
+    padding: 0 0 1 0;
+}
+
+.label-subtitle {
+    color: #6b7280;
+    padding: 0 0 1 0;
+}
+
+.label-muted {
+    color: #4b5563;
+}
+
+.label-accent {
+    color: #7d3d52;
+}
+
+.label-gold {
+    color: #c0a36e;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+Button {
+    background: #14171c;
+    color: #c1c6c4;
+    border: none;
+    margin: 0 1;
+}
+
+Button:hover {
+    background: #1e2228;
+}
+
+Button:focus {
+    background: #1e2228;
+    text-style: bold;
+}
+
+Button.primary {
+    background: #7d3d52;
+    color: #c1c6c4;
+}
+
+Button.primary:hover {
+    background: #9a4d66;
+}
+
+Button.secondary {
+    background: #1e2228;
+    color: #c1c6c4;
+}
+
+Button.danger {
+    background: #b54a4a;
+    color: #c1c6c4;
+}
+
+/* ── DataTable ───────────────────────────────────────────────────────────── */
+
+DataTable {
+    background: #0a0d10;
+    color: #c1c6c4;
+}
+
+DataTable > .datatable--header {
+    background: #14171c;
+    color: #c0a36e;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #7d3d52;
+    color: #c1c6c4;
+}
+
+DataTable > .datatable--even-row {
+    background: #0a0d10;
+}
+
+DataTable > .datatable--odd-row {
+    background: #0c0f13;
+}
+
+/* ── Input / Select ──────────────────────────────────────────────────────── */
+
+Input {
+    background: #14171c;
+    border: solid #1e2228;
+    color: #c1c6c4;
+}
+
+Input:focus {
+    border: solid #7d3d52;
+}
+
+Select {
+    background: #14171c;
+    border: solid #1e2228;
+    color: #c1c6c4;
+}
+
+/* ── ProgressBar ─────────────────────────────────────────────────────────── */
+
+ProgressBar > .bar--bar {
+    color: #7d3d52;
+}
+
+ProgressBar > .bar--complete {
+    color: #5a8a6a;
+}
+
+/* ── StatCard Widget ─────────────────────────────────────────────────────── */
+
+StatCard {
+    height: auto;
+    background: #0a0d10;
+    border: solid #1e2228;
+    padding: 1 2;
+    margin: 0 1;
+}
+
+/* ── WorkTable Widget ────────────────────────────────────────────────────── */
+
+WorkTable {
+    height: 1fr;
+}

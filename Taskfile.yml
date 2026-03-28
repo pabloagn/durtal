@@ -1,0 +1,144 @@
+version: "3"
+dotenv: [".env.local", ".env"]
+
+tasks:
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
+  install:
+    desc: Install all dependencies (Node.js + Python)
+    cmds:
+      - pnpm install
+      - uv sync
+
+  # ===========================================================================
+  # Development
+  # ===========================================================================
+  dev:
+    desc: Start Next.js development server (localhost:3100)
+    cmds:
+      - pnpm dev -p 3100
+
+  build:
+    desc: Production build
+    cmds:
+      - pnpm build
+
+  start:
+    desc: Start production server (after build)
+    cmds:
+      - pnpm start
+
+  # ===========================================================================
+  # Code Quality
+  # ===========================================================================
+  lint:
+    desc: Run ESLint + TypeScript type check
+    cmds:
+      - pnpm lint
+      - pnpm typecheck
+
+  format:
+    desc: Format code with Prettier
+    cmds:
+      - pnpm format
+
+  typecheck:
+    desc: TypeScript type checking only
+    cmds:
+      - pnpm typecheck
+
+  # ===========================================================================
+  # Database (Drizzle ORM → Neon)
+  # ===========================================================================
+  db:generate:
+    desc: Generate Drizzle migration from schema changes
+    cmds:
+      - pnpm db:generate
+
+  db:migrate:
+    desc: Apply pending migrations to Neon
+    cmds:
+      - pnpm db:migrate
+
+  db:push:
+    desc: Push schema directly to Neon (dev only, no migration file)
+    cmds:
+      - pnpm db:push
+
+  db:studio:
+    desc: Open Drizzle Studio (database browser)
+    cmds:
+      - pnpm db:studio
+
+  # ===========================================================================
+  # Ingestion Scripts (Python)
+  # ===========================================================================
+  ingest:
+    desc: Run full ingestion pipeline
+    cmds:
+      - uv run python -m scripts.ingest.main --all
+
+  ingest:dry:
+    desc: Dry run ingestion (validate without writing to DB)
+    cmds:
+      - uv run python -m scripts.ingest.main --all --dry-run
+
+  ingest:step:
+    desc: "Run single ingestion step (usage: task ingest:step -- taxonomy)"
+    cmds:
+      - uv run python -m scripts.ingest.main --step {{.CLI_ARGS}}
+
+  ingest:report:
+    desc: Generate ingestion quality report
+    cmds:
+      - uv run python -m scripts.ingest.main --step report
+
+  # ===========================================================================
+  # Docker
+  # ===========================================================================
+  docker:build:
+    desc: Build production Docker image
+    cmds:
+      - docker build -t durtal:latest .
+
+  docker:run:
+    desc: Run production Docker image locally
+    cmds:
+      - docker run --rm -p 3100:3000 --env-file .env.local durtal:latest
+
+  # ===========================================================================
+  # TUI
+  # ===========================================================================
+  tui:
+    desc: Launch Durtal TUI (terminal interface)
+    cmds:
+      - uv run durtal-tui
+
+  # ===========================================================================
+  # Python Code Quality
+  # ===========================================================================
+  py:lint:
+    desc: Lint Python ingestion scripts
+    cmds:
+      - uv run ruff check scripts/
+
+  py:format:
+    desc: Format Python ingestion scripts
+    cmds:
+      - uv run ruff format scripts/
+
+  py:typecheck:
+    desc: Type check Python ingestion scripts
+    cmds:
+      - uv run basedpyright scripts/
+
+  # ===========================================================================
+  # Utilities
+  # ===========================================================================
+  clean:
+    desc: Clean all generated artifacts
+    cmds:
+      - rm -rf .next out node_modules/.cache
+      - find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+      - rm -rf .pytest_cache .ruff_cache

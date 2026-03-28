@@ -1,0 +1,76 @@
+[project]
+name = "durtal-scripts"
+version = "0.1.0"
+description = "Seed data ingestion scripts for Durtal book catalogue"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+  { name = "Pablo Aguirre" },
+]
+
+dependencies = [
+  # ── Data Processing ──────────────────────────────────
+  "pandas>=2.2",
+  "openpyxl>=3.1",
+  "pyarrow>=15.0",
+  # ── Database ─────────────────────────────────────────
+  "psycopg2-binary>=2.9",
+  # ── Validation ───────────────────────────────────────
+  "pydantic>=2.6",
+  "pydantic-settings>=2.0",
+  # ── CLI ──────────────────────────────────────────────
+  "click>=8.1",
+  "rich>=13.7",
+  # ── TUI ──────────────────────────────────────────
+  "textual>=3.0",
+  "typer>=0.15",
+  # ── HTTP Client (API enrichment) ─────────────────────
+  "httpx>=0.27",
+  # ── Image Processing (cover images) ──────────────────
+  "pillow>=10.3",
+  # ── AWS S3 (cover uploads) ───────────────────────────
+  "boto3>=1.34",
+  # ── Environment ──────────────────────────────────────
+  "python-dotenv>=1.0",
+  # ── ISBN Handling ────────────────────────────────────
+  "isbnlib>=3.10",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.5.0",
+  "basedpyright>=1.12.0",
+]
+
+[project.scripts]
+durtal-tui = "scripts.tui.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "W",
+  "F",
+  "I",
+  "B",
+  "C4",
+  "UP",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"

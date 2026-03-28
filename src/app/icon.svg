@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#030507"/>
+  <path fill="#c0a36e" fill-rule="evenodd" d="
+    M 120,96
+    H 280
+    C 376,96 412,176 412,256
+    C 412,336 376,416 280,416
+    H 120
+    V 400
+    H 152
+    V 112
+    H 120
+    Z
+    M 192,140
+    H 272
+    C 340,140 372,196 372,256
+    C 372,316 340,372 272,372
+    H 192
+    Z
+  "/>
+</svg>

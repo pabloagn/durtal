@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1774706930306,
+      "tag": "0000_safe_captain_universe",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774713122283,
+      "tag": "0001_panoramic_victor_mancha",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774716545848,
+      "tag": "0002_youthful_fabian_cortez",
+      "breakpoints": true
+    }
+  ]
+}
