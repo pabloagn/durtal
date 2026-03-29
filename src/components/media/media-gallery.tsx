@@ -47,6 +47,7 @@ export function MediaGallery({
               width={item.width ?? 400}
               height={item.height ?? 400}
               className="w-full transition-transform duration-300 group-hover:scale-[1.02]"
+            unoptimized
             />
             {editable && (
               <button
@@ -54,7 +55,7 @@ export function MediaGallery({
                 className="absolute right-2 top-2 rounded-sm bg-bg-primary/80 p-1 opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <Trash2
-                  className="h-3.5 w-3.5 text-accent-red"
+                  className="h-4 w-4 text-accent-red"
                   strokeWidth={1.5}
                 />
               </button>

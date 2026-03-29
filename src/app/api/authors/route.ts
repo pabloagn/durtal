@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
     const [authors, total] = await Promise.all([
       getAuthors({ search, limit, offset }),
-      getAuthorCount(search),
+      getAuthorCount({ search }),
     ]);
 
     return NextResponse.json({ authors, total });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -10,7 +10,9 @@ import {
   Loader2,
   Check,
   SkipForward,
+  ImageIcon,
 } from "lucide-react";
+import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +31,21 @@ import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
 import { createEdition } from "@/lib/actions/editions";
 import { createInstance } from "@/lib/actions/instances";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { getRecommenders } from "@/lib/actions/recommenders";
 import { getLocations } from "@/lib/actions/locations";
-import { getSubjects, getGenres, getTags } from "@/lib/actions/taxonomy";
+import {
+  getSubjects,
+  getGenres,
+  getTags,
+  getCategories,
+  getThemes,
+  getLiteraryMovements,
+  getArtTypes,
+  getArtMovements,
+  getKeywords,
+  getAttributes,
+  updateWorkTaxonomy,
+} from "@/lib/actions/taxonomy";
 import { getCollections, addEditionToCollection } from "@/lib/actions/collections";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -100,9 +115,37 @@ export function AddBookWizard() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>("search");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+
+  // Search autocomplete
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    results: searchResults,
+    isSearching,
+    clearResults,
+  } = useDebouncedSearch(300);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Reset highlight when results change
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [searchResults]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (step !== "search") return;
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target as Node)
+      ) {
+        clearResults();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [step, clearResults]);
 
   // Duplicate detection
   const [duplicateWork, setDuplicateWork] = useState<DuplicateWork | null>(null);
@@ -118,6 +161,8 @@ export function AddBookWizard() {
   const [seriesPosition, setSeriesPosition] = useState("");
   const [catalogueStatus, setCatalogueStatus] = useState("tracked");
   const [acquisitionPriority, setAcquisitionPriority] = useState("none");
+  const [selectedRecommenderIds, setSelectedRecommenderIds] = useState<string[]>([]);
+  const [allRecommenders, setAllRecommenders] = useState<{ id: string; name: string }[]>([]);
 
   const isWishlistStatus = ["tracked", "shortlisted", "wanted"].includes(catalogueStatus);
 
@@ -144,6 +189,13 @@ export function AddBookWizard() {
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedThemeIds, setSelectedThemeIds] = useState<string[]>([]);
+  const [selectedLiteraryMovementIds, setSelectedLiteraryMovementIds] = useState<string[]>([]);
+  const [selectedArtTypeIds, setSelectedArtTypeIds] = useState<string[]>([]);
+  const [selectedArtMovementIds, setSelectedArtMovementIds] = useState<string[]>([]);
+  const [selectedKeywordIds, setSelectedKeywordIds] = useState<string[]>([]);
+  const [selectedAttributeIds, setSelectedAttributeIds] = useState<string[]>([]);
 
   // Reference data (fetched once)
   const [locations, setLocations] = useState<LocationItem[]>([]);
@@ -151,7 +203,25 @@ export function AddBookWizard() {
   const [genres, setGenres] = useState<RefDataItem[]>([]);
   const [tags, setTags] = useState<RefDataItem[]>([]);
   const [collections, setCollections] = useState<RefDataItem[]>([]);
+  const [categories, setCategories] = useState<RefDataItem[]>([]);
+  const [themes, setThemes] = useState<RefDataItem[]>([]);
+  const [literaryMovements, setLiteraryMovements] = useState<RefDataItem[]>([]);
+  const [artTypes, setArtTypes] = useState<RefDataItem[]>([]);
+  const [artMovements, setArtMovements] = useState<RefDataItem[]>([]);
+  const [keywords, setKeywords] = useState<RefDataItem[]>([]);
+  const [attributes, setAttributes] = useState<RefDataItem[]>([]);
   const [refDataLoaded, setRefDataLoaded] = useState(false);
+  const [recommendersLoaded, setRecommendersLoaded] = useState(false);
+
+  // Fetch recommenders when details step is reached
+  useEffect(() => {
+    if (recommendersLoaded) return;
+    if (step !== "details" && step !== "confirm") return;
+    setRecommendersLoaded(true);
+    getRecommenders().then((data) => {
+      setAllRecommenders(data.map((r) => ({ id: r.id, name: r.name })));
+    });
+  }, [step, recommendersLoaded]);
 
   // Fetch reference data when needed
   useEffect(() => {
@@ -165,7 +235,14 @@ export function AddBookWizard() {
       getGenres(),
       getTags(),
       getCollections(),
-    ]).then(([locs, subs, gens, tgs, cols]) => {
+      getCategories(),
+      getThemes(),
+      getLiteraryMovements(),
+      getArtTypes(),
+      getArtMovements(),
+      getKeywords(),
+      getAttributes(),
+    ]).then(([locs, subs, gens, tgs, cols, cats, thms, litMvs, artTps, artMvs, kwds, attrs]) => {
       setLocations(
         locs.map((l) => ({
           id: l.id,
@@ -186,30 +263,47 @@ export function AddBookWizard() {
           name: c.name,
         })),
       );
+      setCategories(cats.map((c) => ({ id: c.id, name: c.name })));
+      setThemes(thms.map((t) => ({ id: t.id, name: t.name })));
+      setLiteraryMovements(litMvs.map((m) => ({ id: m.id, name: m.name })));
+      setArtTypes(artTps.map((t) => ({ id: t.id, name: t.name })));
+      setArtMovements(artMvs.map((m) => ({ id: m.id, name: m.name })));
+      setKeywords(kwds.map((k) => ({ id: k.id, name: k.name })));
+      setAttributes(attrs.map((a) => ({ id: a.id, name: a.name })));
     });
   }, [step, refDataLoaded]);
 
   // ── Search ───────────────────────────────────────────────────────────────
 
-  async function handleSearch() {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-    try {
-      const isIsbn = /^\d{10,13}$/.test(searchQuery.replace(/-/g, ""));
-      const param = isIsbn
-        ? `isbn=${searchQuery.replace(/-/g, "")}`
-        : `q=${encodeURIComponent(searchQuery)}`;
-      const res = await fetch(`/api/search?${param}`);
-      const data = await res.json();
-      setSearchResults(data.results ?? []);
-    } catch {
-      toast.error("Search failed");
-    } finally {
-      setIsSearching(false);
+  function handleSearchKeyDown(e: React.KeyboardEvent) {
+    if (!searchResults.length && e.key !== "Escape") return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedIndex((i) =>
+          i < searchResults.length - 1 ? i + 1 : i,
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedIndex((i) => (i > 0 ? i - 1 : i));
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+          selectResult(searchResults[highlightedIndex]);
+        }
+        break;
+      case "Escape":
+        clearResults();
+        setHighlightedIndex(-1);
+        break;
     }
   }
 
   function selectResult(result: SearchResult) {
+    clearResults();
     setTitle(result.title);
     setAuthorName(result.authors[0] ?? "");
     setOriginalYear(String(result.publicationYear ?? ""));
@@ -273,15 +367,23 @@ export function AddBookWizard() {
             catalogueStatus: catalogueStatus as any,
             acquisitionPriority: acquisitionPriority as any,
             authorIds: [{ authorId: author.id, role: "author" }],
-            subjectIds:
-              selectedSubjectIds.length > 0
-                ? selectedSubjectIds
-                : undefined,
+            recommenderIds: selectedRecommenderIds.length > 0 ? selectedRecommenderIds : undefined,
             metadataSource: metadataSource || undefined,
             metadataSourceId: metadataSourceId || undefined,
           } as any);
           workId = work.id;
           workSlug = work.slug ?? undefined;
+          // Save all work-level taxonomy
+          await updateWorkTaxonomy(workId!, {
+            subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
+            categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+            themeIds: selectedThemeIds.length > 0 ? selectedThemeIds : undefined,
+            literaryMovementIds: selectedLiteraryMovementIds.length > 0 ? selectedLiteraryMovementIds : undefined,
+            artTypeIds: selectedArtTypeIds.length > 0 ? selectedArtTypeIds : undefined,
+            artMovementIds: selectedArtMovementIds.length > 0 ? selectedArtMovementIds : undefined,
+            keywordIds: selectedKeywordIds.length > 0 ? selectedKeywordIds : undefined,
+            attributeIds: selectedAttributeIds.length > 0 ? selectedAttributeIds : undefined,
+          });
         } else {
           // Existing work — fetch its slug for navigation
           const existingWork = await getWork(workId);
@@ -433,50 +535,64 @@ export function AddBookWizard() {
       {/* ── Step: Search ──────────────────────────────────────────────── */}
       {step === "search" && (
         <div className="space-y-6">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          <div ref={searchContainerRef} className="relative">
+            {/* Search input */}
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
               <input
                 type="text"
-                placeholder="Search by ISBN, title, or author..."
+                placeholder="Search by title, author, or ISBN..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+                onKeyDown={handleSearchKeyDown}
+                className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-9 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
                 autoFocus
               />
-            </div>
-            <Button onClick={handleSearch} disabled={isSearching}>
-              {isSearching ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "Search"
+              {isSearching && (
+                <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted" />
               )}
-            </Button>
-          </div>
+            </div>
 
-          {searchResults.length > 0 && (
-            <div className="space-y-2">
-              {searchResults.map((result, i) => (
-                <Card key={`${result.source}-${result.sourceId}-${i}`} hover>
-                  <button
-                    className="w-full text-left"
-                    onClick={() => selectResult(result)}
-                  >
-                    <CardContent className="flex items-start gap-3 py-3">
-                      {result.coverUrl && (
-                        <img
-                          src={result.coverUrl}
-                          alt=""
-                          className="h-16 w-11 shrink-0 rounded-sm object-cover"
-                        />
-                      )}
+            {/* Autocomplete dropdown */}
+            {searchQuery.trim().length >= 2 &&
+              (searchResults.length > 0 || isSearching) && (
+                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-[420px] overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+                  {searchResults.map((result, i) => (
+                    <button
+                      key={`${result.source}-${result.sourceId}-${i}`}
+                      className={`flex w-full items-start gap-3 border-b border-glass-border/50 px-3 py-2.5 text-left transition-colors last:border-0 ${
+                        highlightedIndex === i
+                          ? "bg-bg-tertiary"
+                          : "hover:bg-bg-tertiary"
+                      }`}
+                      onClick={() => selectResult(result)}
+                      onMouseEnter={() => setHighlightedIndex(i)}
+                    >
+                      {/* Cover thumbnail */}
+                      <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
+                        {result.coverUrl ? (
+                          <img
+                            src={result.coverUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <ImageIcon
+                              className="h-3 w-3 text-fg-muted/40"
+                              strokeWidth={1.5}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Details */}
                       <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 font-serif text-lg text-fg-primary">
+                        <h3 className="line-clamp-1 font-serif text-base text-fg-primary">
                           {result.title}
                         </h3>
                         <p className="mt-0.5 line-clamp-1 text-xs text-fg-secondary">
-                          {result.authors.join(", ")}
+                          {result.authors.join(", ") || "Unknown author"}
                         </p>
                         <div className="mt-1 flex items-center gap-2">
                           {result.publicationYear && (
@@ -485,7 +601,7 @@ export function AddBookWizard() {
                             </span>
                           )}
                           {result.publisher && (
-                            <span className="text-micro text-fg-muted">
+                            <span className="line-clamp-1 text-micro text-fg-muted">
                               {result.publisher}
                             </span>
                           )}
@@ -494,16 +610,33 @@ export function AddBookWizard() {
                           </Badge>
                         </div>
                       </div>
+
                       <ArrowRight
-                        className="mt-1 h-4 w-4 shrink-0 text-fg-muted"
+                        className="mt-2 h-3.5 w-3.5 flex-shrink-0 text-fg-muted"
                         strokeWidth={1.5}
                       />
-                    </CardContent>
-                  </button>
-                </Card>
-              ))}
-            </div>
-          )}
+                    </button>
+                  ))}
+
+                  {isSearching && searchResults.length === 0 && (
+                    <div className="flex items-center gap-2 px-3 py-4">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" />
+                      <span className="text-xs text-fg-muted">
+                        Searching...
+                      </span>
+                    </div>
+                  )}
+
+                  {!isSearching && searchResults.length === 0 &&
+                    searchQuery.trim().length >= 2 && (
+                      <div className="px-3 py-4 text-xs text-fg-muted">
+                        No books found. Try a different search or enter details
+                        manually.
+                      </div>
+                    )}
+                </div>
+              )}
+          </div>
 
           <div className="border-t border-glass-border pt-4">
             <button
@@ -638,6 +771,57 @@ export function AddBookWizard() {
                 onChange={(e) => setSeriesPosition(e.target.value)}
                 placeholder="1"
               />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-fg-secondary">
+                Recommended by
+              </label>
+              {selectedRecommenderIds.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {selectedRecommenderIds.map((id) => {
+                    const r = allRecommenders.find((x) => x.id === id);
+                    return r ? (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 rounded-sm bg-bg-tertiary px-2 py-0.5 text-xs text-fg-secondary"
+                      >
+                        {r.name}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedRecommenderIds((prev) =>
+                              prev.filter((x) => x !== id),
+                            )
+                          }
+                          className="ml-0.5 text-fg-muted hover:text-fg-primary"
+                        >
+                          x
+                        </button>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+              <select
+                value=""
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && !selectedRecommenderIds.includes(val)) {
+                    setSelectedRecommenderIds((prev) => [...prev, val]);
+                  }
+                }}
+                className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-rose focus:outline-none"
+              >
+                <option value="">Add recommender...</option>
+                {allRecommenders
+                  .filter((r) => !selectedRecommenderIds.includes(r.id))
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div className="border-t border-bg-tertiary pt-4 mt-2">
@@ -864,14 +1048,35 @@ export function AddBookWizard() {
             genres={genres}
             tags={tags}
             collections={collections}
+            categories={categories}
+            themes={themes}
+            literaryMovements={literaryMovements}
+            artTypes={artTypes}
+            artMovements={artMovements}
+            keywords={keywords}
+            attributes={attributes}
             selectedSubjectIds={selectedSubjectIds}
             selectedGenreIds={selectedGenreIds}
             selectedTagIds={selectedTagIds}
             selectedCollectionIds={selectedCollectionIds}
+            selectedCategoryIds={selectedCategoryIds}
+            selectedThemeIds={selectedThemeIds}
+            selectedLiteraryMovementIds={selectedLiteraryMovementIds}
+            selectedArtTypeIds={selectedArtTypeIds}
+            selectedArtMovementIds={selectedArtMovementIds}
+            selectedKeywordIds={selectedKeywordIds}
+            selectedAttributeIds={selectedAttributeIds}
             onSubjectsChange={setSelectedSubjectIds}
             onGenresChange={setSelectedGenreIds}
             onTagsChange={setSelectedTagIds}
             onCollectionsChange={setSelectedCollectionIds}
+            onCategoriesChange={setSelectedCategoryIds}
+            onThemesChange={setSelectedThemeIds}
+            onLiteraryMovementsChange={setSelectedLiteraryMovementIds}
+            onArtTypesChange={setSelectedArtTypeIds}
+            onArtMovementsChange={setSelectedArtMovementIds}
+            onKeywordsChange={setSelectedKeywordIds}
+            onAttributesChange={setSelectedAttributeIds}
           />
 
           <div className="flex justify-between">
@@ -1059,7 +1264,14 @@ export function AddBookWizard() {
           {(selectedSubjectIds.length > 0 ||
             selectedGenreIds.length > 0 ||
             selectedTagIds.length > 0 ||
-            selectedCollectionIds.length > 0) && (
+            selectedCollectionIds.length > 0 ||
+            selectedCategoryIds.length > 0 ||
+            selectedThemeIds.length > 0 ||
+            selectedLiteraryMovementIds.length > 0 ||
+            selectedArtTypeIds.length > 0 ||
+            selectedArtMovementIds.length > 0 ||
+            selectedKeywordIds.length > 0 ||
+            selectedAttributeIds.length > 0) && (
             <Card>
               <CardContent className="py-4">
                 <div className="flex items-start justify-between">
@@ -1081,6 +1293,62 @@ export function AddBookWizard() {
                         return g ? (
                           <Badge key={id} variant="blue">
                             {g.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedCategoryIds.map((id) => {
+                        const c = categories.find((x) => x.id === id);
+                        return c ? (
+                          <Badge key={id} variant="sage">
+                            {c.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedThemeIds.map((id) => {
+                        const t = themes.find((x) => x.id === id);
+                        return t ? (
+                          <Badge key={id} variant="default">
+                            {t.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedLiteraryMovementIds.map((id) => {
+                        const m = literaryMovements.find((x) => x.id === id);
+                        return m ? (
+                          <Badge key={id} variant="blue">
+                            {m.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedArtTypeIds.map((id) => {
+                        const a = artTypes.find((x) => x.id === id);
+                        return a ? (
+                          <Badge key={id} variant="muted">
+                            {a.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedArtMovementIds.map((id) => {
+                        const a = artMovements.find((x) => x.id === id);
+                        return a ? (
+                          <Badge key={id} variant="muted">
+                            {a.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedKeywordIds.map((id) => {
+                        const k = keywords.find((x) => x.id === id);
+                        return k ? (
+                          <Badge key={id} variant="default">
+                            {k.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {selectedAttributeIds.map((id) => {
+                        const a = attributes.find((x) => x.id === id);
+                        return a ? (
+                          <Badge key={id} variant="default">
+                            {a.name}
                           </Badge>
                         ) : null;
                       })}

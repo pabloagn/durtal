@@ -131,10 +131,10 @@ export function InstanceEditDialog({
           setDraft(instanceToDraft(instance));
           setOpen(true);
         }}
-        className="h-7 w-7 p-0"
         title="Edit instance"
       >
-        <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+        <Pencil className="h-4 w-4" strokeWidth={1.5} />
+        Edit
       </Button>
 
       <Dialog

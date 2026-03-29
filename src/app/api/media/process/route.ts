@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processAndUploadMedia } from "@/lib/s3/media";
-import { createMedia } from "@/lib/actions/media";
+import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/media";
+import { createMedia, setActiveMedia } from "@/lib/actions/media";
 import { updateCollection } from "@/lib/actions/collections";
 import { bronzeMediaKey, type MediaEntityType } from "@/lib/s3/keys";
 import { getPresignedUploadUrl } from "@/lib/s3/covers";
+import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
 import type { MediaType } from "@/lib/types";
 
 /**
@@ -80,6 +81,40 @@ export async function POST(req: NextRequest) {
     const bytes = await obj.Body!.transformToByteArray();
     const buffer = Buffer.from(bytes);
 
+    // Author media: monochrome pipeline with original preservation
+    if (entityType === "author") {
+      const rawParams = body.processingParams;
+      let params = DEFAULT_MONOCHROME_PARAMS;
+      if (rawParams) {
+        const parsed = monochromeParamsSchema.safeParse(rawParams);
+        if (parsed.success) params = parsed.data;
+      }
+
+      const result = await processAndUploadAuthorMedia(
+        entityId, mediaType, fileId, buffer, params,
+      );
+
+      const record = await createMedia({
+        authorId: entityId,
+        type: mediaType,
+        s3Key: result.s3Key,
+        thumbnailS3Key: result.thumbnailS3Key,
+        originalS3Key: result.originalS3Key,
+        originalFilename,
+        mimeType: "image/webp",
+        width: result.width,
+        height: result.height,
+        sizeBytes,
+        processingParams: params,
+      });
+
+      if (mediaType === "poster" || mediaType === "background") {
+        await setActiveMedia(record.id);
+      }
+
+      return NextResponse.json({ media: record });
+    }
+
     // Process and upload to gold/
     const result = await processAndUploadMedia(
       entityType,
@@ -119,6 +154,11 @@ export async function POST(req: NextRequest) {
       height: result.height,
       sizeBytes,
     });
+
+    // Activate the new record (deactivates others of same type+owner)
+    if (mediaType === "poster" || mediaType === "background") {
+      await setActiveMedia(record.id);
+    }
 
     return NextResponse.json({ media: record });
   } catch (err) {

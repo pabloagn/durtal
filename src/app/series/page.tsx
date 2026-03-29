@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { Suspense } from "react";
 import { Layers } from "lucide-react";
 import Link from "next/link";

@@ -1,6 +1,6 @@
 # Task 0033: Edition & Instance Management UI
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: MEDIUM
 **Type**: Feature

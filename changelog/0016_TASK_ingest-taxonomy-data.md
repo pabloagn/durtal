@@ -1,6 +1,6 @@
 # Task 0016: Ingestion — Seed Taxonomy Data
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: HIGH
 **Type**: Feature

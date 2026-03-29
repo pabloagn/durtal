@@ -1,6 +1,6 @@
 # Task 0017: Ingestion — Seed Publishing Houses and Publisher Specialties
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: MEDIUM
 **Type**: Feature

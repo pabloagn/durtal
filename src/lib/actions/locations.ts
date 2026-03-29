@@ -3,20 +3,24 @@
 import { db } from "@/lib/db";
 import { locations, subLocations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 
-export async function getLocations() {
-  return db.query.locations.findMany({
-    orderBy: asc(locations.sortOrder),
-    with: {
-      subLocations: {
-        orderBy: asc(subLocations.sortOrder),
+export const getLocations = cached(
+  () =>
+    db.query.locations.findMany({
+      orderBy: asc(locations.sortOrder),
+      with: {
+        subLocations: {
+          orderBy: asc(subLocations.sortOrder),
+        },
+        instances: {
+          columns: { id: true },
+        },
       },
-      instances: {
-        columns: { id: true },
-      },
-    },
-  });
-}
+    }),
+  ["locations"],
+  [CACHE_TAGS.locations],
+);
 
 export async function getLocation(id: string) {
   return db.query.locations.findFirst({
@@ -45,6 +49,7 @@ export async function createLocation(input: {
   sortOrder?: number;
 }) {
   const [location] = await db.insert(locations).values(input).returning();
+  invalidate(CACHE_TAGS.locations);
   return location;
 }
 
@@ -68,11 +73,13 @@ export async function updateLocation(
   }>,
 ) {
   await db.update(locations).set(input).where(eq(locations.id, id));
+  invalidate(CACHE_TAGS.locations);
   return { id };
 }
 
 export async function deleteLocation(id: string) {
   await db.delete(locations).where(eq(locations.id, id));
+  invalidate(CACHE_TAGS.locations);
   return { id };
 }
 

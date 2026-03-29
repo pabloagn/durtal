@@ -1,8 +1,9 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { authors, workAuthors, editionContributors } from "@/lib/db/schema";
-import { eq, asc, desc, ilike, like, count } from "drizzle-orm";
+import { authors, workAuthors, editionContributors, countries } from "@/lib/db/schema";
+import { eq, and, asc, desc, ilike, like, inArray, count } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import {
   createAuthorSchema,
   type CreateAuthorInput,
@@ -14,20 +15,58 @@ export async function getAuthors(opts?: {
   limit?: number;
   offset?: number;
   sort?: "name" | "recent" | "birth" | "works";
+  order?: "asc" | "desc";
+  filters?: {
+    nationalities?: string[];
+  };
 }) {
-  const { search, limit = 48, offset = 0, sort = "name" } = opts ?? {};
+  const { search, limit = 48, offset = 0, sort = "name", order, filters } = opts ?? {};
 
-  const where = search ? ilike(authors.name, `%${search}%`) : undefined;
+  const conditions: SQL[] = [];
+  if (search) {
+    conditions.push(ilike(authors.name, `%${search}%`));
+  }
+
+  // Nationality filtering: resolve country names to IDs, then filter authors
+  if (filters?.nationalities?.length) {
+    const countryRows = await db
+      .select({ id: countries.id })
+      .from(countries)
+      .where(inArray(countries.name, filters.nationalities));
+    const countryIds = countryRows.map((c) => c.id);
+    if (countryIds.length > 0) {
+      conditions.push(inArray(authors.nationalityId, countryIds));
+    } else {
+      return [];
+    }
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // Determine sort direction: use explicit order if provided, otherwise defaults
+  const dirFn = order
+    ? order === "asc" ? asc : desc
+    : (() => {
+        switch (sort) {
+          case "recent":
+          case "works":
+            return desc;
+          case "birth":
+          case "name":
+          default:
+            return asc;
+        }
+      })();
 
   const orderBy = (() => {
     switch (sort) {
       case "recent":
-        return desc(authors.createdAt);
+        return dirFn(authors.createdAt);
       case "birth":
-        return asc(authors.birthYear);
+        return dirFn(authors.birthYear);
       case "name":
       default:
-        return asc(authors.sortName);
+        return dirFn(authors.sortName);
     }
   })();
 
@@ -41,23 +80,67 @@ export async function getAuthors(opts?: {
       workAuthors: {
         columns: { workId: true },
       },
+      media: {
+        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true },
+      },
     },
   });
 
   // For "works" sort, we sort client-side since it's a derived count
   if (sort === "works") {
-    results.sort((a, b) => b.workAuthors.length - a.workAuthors.length);
+    const ascending = order ? order === "asc" : false;
+    results.sort((a, b) =>
+      ascending
+        ? a.workAuthors.length - b.workAuthors.length
+        : b.workAuthors.length - a.workAuthors.length
+    );
   }
 
   return results;
 }
 
-export async function getAuthorCount(search?: string) {
+export async function getAuthorCount(opts?: {
+  search?: string;
+  filters?: {
+    nationalities?: string[];
+  };
+}) {
+  const { search, filters } = opts ?? {};
+
+  const conditions: SQL[] = [];
+  if (search) {
+    conditions.push(ilike(authors.name, `%${search}%`));
+  }
+
+  if (filters?.nationalities?.length) {
+    const countryRows = await db
+      .select({ id: countries.id })
+      .from(countries)
+      .where(inArray(countries.name, filters.nationalities));
+    const countryIds = countryRows.map((c) => c.id);
+    if (countryIds.length > 0) {
+      conditions.push(inArray(authors.nationalityId, countryIds));
+    } else {
+      return 0;
+    }
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
   const [result] = await db
     .select({ count: count() })
     .from(authors)
-    .where(search ? ilike(authors.name, `%${search}%`) : undefined);
+    .where(where);
   return result.count;
+}
+
+export async function getDistinctNationalities(): Promise<string[]> {
+  const result = await db
+    .selectDistinct({ name: countries.name })
+    .from(countries)
+    .innerJoin(authors, eq(authors.nationalityId, countries.id))
+    .orderBy(asc(countries.name));
+  return result.map((r) => r.name);
 }
 
 export async function getAuthor(id: string) {
@@ -104,7 +187,7 @@ export async function getAuthorBySlug(slug: string) {
   return db.query.authors.findFirst({
     where: eq(authors.slug, slug),
     with: {
-      country: { columns: { name: true } },
+      country: { columns: { id: true, name: true } },
       workAuthors: {
         with: {
           work: {
@@ -115,7 +198,20 @@ export async function getAuthorBySlug(slug: string) {
                   title: true,
                   thumbnailS3Key: true,
                   publicationYear: true,
+                  language: true,
                 },
+                limit: 1,
+                with: {
+                  instances: { columns: { id: true } },
+                },
+              },
+              media: {
+                columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+              },
+              workAuthors: {
+                with: { author: { columns: { name: true } } },
+                orderBy: asc(workAuthors.sortOrder),
+                limit: 1,
               },
             },
           },
@@ -137,6 +233,14 @@ export async function getAuthorBySlug(slug: string) {
       },
       media: true,
     },
+  });
+}
+
+export async function getCountries() {
+  const { countries } = await import("@/lib/db/schema");
+  return db.query.countries.findMany({
+    orderBy: asc(countries.name),
+    columns: { id: true, name: true },
   });
 }
 

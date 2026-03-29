@@ -50,6 +50,27 @@
       "when": 1774725142763,
       "tag": "0006_worthless_ozymandias",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774780340203,
+      "tag": "0007_blushing_owl",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774786250949,
+      "tag": "0008_stormy_king_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774793815793,
+      "tag": "0009_clean_wild_pack",
+      "breakpoints": true
     }
   ]
 }

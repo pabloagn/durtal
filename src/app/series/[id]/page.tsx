@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -65,7 +63,13 @@ export default async function SeriesDetailPage({ params }: PageProps) {
           const hasInstance = edition?.instances.some(
             (i) => i.status !== "deaccessioned",
           );
-          const thumb = edition?.thumbnailS3Key;
+          const activePoster = work.media?.find(
+            (m) => m.type === "poster" && m.isActive,
+          );
+          const thumb =
+            activePoster?.thumbnailS3Key ??
+            activePoster?.s3Key ??
+            edition?.thumbnailS3Key;
 
           return (
             <Link key={work.id} href={`/library/${work.slug ?? ""}`}>
@@ -82,6 +86,18 @@ export default async function SeriesDetailPage({ params }: PageProps) {
                       src={`/api/s3/read?key=${encodeURIComponent(thumb)}`}
                       alt=""
                       className="h-12 w-8 shrink-0 rounded-sm object-cover"
+                      style={
+                        activePoster &&
+                        (activePoster.cropX !== 50 ||
+                          activePoster.cropY !== 50 ||
+                          activePoster.cropZoom !== 100)
+                          ? {
+                              objectPosition: `${activePoster.cropX}% ${activePoster.cropY}%`,
+                              transform: `scale(${activePoster.cropZoom / 100})`,
+                              transformOrigin: `${activePoster.cropX}% ${activePoster.cropY}%`,
+                            }
+                          : undefined
+                      }
                     />
                   ) : (
                     <div className="h-12 w-8 shrink-0 rounded-sm bg-bg-tertiary" />

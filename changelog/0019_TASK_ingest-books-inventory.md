@@ -1,6 +1,6 @@
 # Task 0019: Ingestion — Core Books Inventory
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-03-28
 **Priority**: HIGH
 **Type**: Feature

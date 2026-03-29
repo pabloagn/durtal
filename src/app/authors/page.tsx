@@ -1,9 +1,7 @@
-export const dynamic = "force-dynamic";
-
 import { Suspense } from "react";
 import Link from "next/link";
 import { Users } from "lucide-react";
-import { getAuthors, getAuthorCount } from "@/lib/actions/authors";
+import { getAuthors, getAuthorCount, getDistinctNationalities } from "@/lib/actions/authors";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,13 +13,15 @@ interface PageProps {
     q?: string;
     sort?: string;
     page?: string;
+    order?: string;
+    nationality?: string;
   }>;
 }
 
 async function AuthorsContent({
   searchParams,
 }: {
-  searchParams: { q?: string; sort?: string; page?: string };
+  searchParams: { q?: string; sort?: string; page?: string; order?: string; nationality?: string };
 }) {
   const search = searchParams.q;
   const sort = (searchParams.sort ?? "name") as
@@ -29,13 +29,20 @@ async function AuthorsContent({
     | "recent"
     | "birth"
     | "works";
+  const order = (searchParams.order ?? undefined) as "asc" | "desc" | undefined;
+  const nationalityFilter = searchParams.nationality?.split(",").filter(Boolean);
   const page = parseInt(searchParams.page ?? "1", 10);
   const limit = 48;
   const offset = (page - 1) * limit;
 
-  const [rawAuthors, total] = await Promise.all([
-    getAuthors({ search, sort, limit, offset }),
-    getAuthorCount(search),
+  const filters = {
+    nationalities: nationalityFilter?.length ? nationalityFilter : undefined,
+  };
+
+  const [rawAuthors, total, nationalities] = await Promise.all([
+    getAuthors({ search, sort, order, limit, offset, filters }),
+    getAuthorCount({ search, filters }),
+    getDistinctNationalities(),
   ]);
 
   if (rawAuthors.length === 0) {
@@ -52,34 +59,52 @@ async function AuthorsContent({
     );
   }
 
-  const authors: AuthorItem[] = rawAuthors.map((a) => ({
-    id: a.id,
-    slug: a.slug ?? "",
-    name: a.name,
-    sortName: a.sortName,
-    nationality: a.country?.name ?? null,
-    birthYear: a.birthYear,
-    deathYear: a.deathYear,
-    gender: a.gender,
-    photoUrl: a.photoS3Key ?? null,
-    website: a.website,
-    bio: a.bio,
-    worksCount: a.workAuthors.length,
-    createdAt: new Date(a.createdAt).toLocaleDateString(),
-  }));
+  const authors: AuthorItem[] = rawAuthors.map((a) => {
+    // Prefer active poster from media table, fall back to legacy photoS3Key
+    const activePoster = a.media?.find(
+      (m) => m.type === "poster" && m.isActive,
+    );
+    const photoKey =
+      activePoster?.thumbnailS3Key ?? activePoster?.s3Key ?? a.photoS3Key;
+
+    return {
+      id: a.id,
+      slug: a.slug ?? "",
+      name: a.name,
+      sortName: a.sortName,
+      nationality: a.country?.name ?? null,
+      birthYear: a.birthYear,
+      deathYear: a.deathYear,
+      gender: a.gender,
+      photoUrl: photoKey
+        ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
+        : null,
+      website: a.website,
+      bio: a.bio,
+      worksCount: a.workAuthors.length,
+      createdAt: new Date(a.createdAt).toLocaleDateString(),
+    };
+  });
 
   const totalPages = Math.ceil(total / limit);
 
+  const paginationParams = {
+    ...(search ? { q: search } : {}),
+    sort,
+    ...(searchParams.order ? { order: searchParams.order } : {}),
+    ...(searchParams.nationality ? { nationality: searchParams.nationality } : {}),
+  };
+
   return (
     <>
-      <AuthorsShell authors={authors} />
+      <AuthorsShell authors={authors} nationalities={nationalities} />
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2">
           {page > 1 && (
             <Link
-              href={`/authors?${new URLSearchParams({ ...(search ? { q: search } : {}), sort, page: String(page - 1) })}`}
+              href={`/authors?${new URLSearchParams({ ...paginationParams, page: String(page - 1) })}`}
             >
               <Button variant="ghost" size="sm">
                 Previous
@@ -91,7 +116,7 @@ async function AuthorsContent({
           </span>
           {page < totalPages && (
             <Link
-              href={`/authors?${new URLSearchParams({ ...(search ? { q: search } : {}), sort, page: String(page + 1) })}`}
+              href={`/authors?${new URLSearchParams({ ...paginationParams, page: String(page + 1) })}`}
             >
               <Button variant="ghost" size="sm">
                 Next

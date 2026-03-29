@@ -1,6 +1,6 @@
 # Task 0022: Ingestion — Book Series Data
 
-**Status**: Not Started
+**Status**: In Progress
 **Created**: 2026-03-28
 **Priority**: MEDIUM
 **Type**: Feature

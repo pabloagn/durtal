@@ -9,6 +9,7 @@ import {
   type DetailedBookItem,
 } from "./book-data-table";
 import type { ViewMode } from "./view-mode-switcher";
+import type { CoverCrop } from "./book-card";
 
 interface BookItem {
   workId: string;
@@ -16,11 +17,14 @@ interface BookItem {
   title: string;
   authorName: string;
   coverUrl?: string | null;
+  coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  acquisitionPriority?: string | null;
+  primaryEditionId?: string | null;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;
@@ -35,6 +39,9 @@ interface LibraryViewProps {
   books: BookItem[];
   viewMode: ViewMode;
   gridColumns: number;
+  isSelecting?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (workId: string) => void;
 }
 
 const DEFAULT_COLUMN_CONFIG = ALL_COLUMNS.map((c) => ({
@@ -43,7 +50,7 @@ const DEFAULT_COLUMN_CONFIG = ALL_COLUMNS.map((c) => ({
   order: c.defaultOrder,
 }));
 
-export function LibraryView({ books, viewMode, gridColumns }: LibraryViewProps) {
+export function LibraryView({ books, viewMode, gridColumns, isSelecting, selectedIds, onSelect }: LibraryViewProps) {
   const [columnConfig, setColumnConfig] = useLocalStorage(
     "durtal-column-config",
     DEFAULT_COLUMN_CONFIG,
@@ -51,7 +58,15 @@ export function LibraryView({ books, viewMode, gridColumns }: LibraryViewProps) 
 
   switch (viewMode) {
     case "grid":
-      return <BookGrid books={books} columns={gridColumns} />;
+      return (
+        <BookGrid
+          books={books}
+          columns={gridColumns}
+          isSelecting={isSelecting}
+          selectedIds={selectedIds}
+          onSelect={onSelect}
+        />
+      );
     case "list":
       return <BookList books={books} />;
     case "detailed":

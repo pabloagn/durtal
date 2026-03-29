@@ -4,8 +4,11 @@ import {
   text,
   integer,
   smallint,
+  boolean,
   timestamp,
   check,
+  real,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { works } from "./works";
@@ -33,6 +36,18 @@ export const media = pgTable(
     width: integer("width"),
     height: integer("height"),
     sizeBytes: integer("size_bytes"),
+
+    // Active flag — for poster/background, only one active per owner+type
+    isActive: boolean("is_active").notNull().default(true),
+
+    // Crop / focal-point positioning (CSS object-position + scale)
+    cropX: real("crop_x").notNull().default(50), // 0-100 horizontal %
+    cropY: real("crop_y").notNull().default(50), // 0-100 vertical %
+    cropZoom: real("crop_zoom").notNull().default(100), // 100 = no zoom
+
+    // Author monochrome processing — original (color) S3 key + tuning params
+    originalS3Key: text("original_s3_key"),
+    processingParams: jsonb("processing_params"),
 
     // Ordering and metadata
     sortOrder: smallint("sort_order").notNull().default(0),

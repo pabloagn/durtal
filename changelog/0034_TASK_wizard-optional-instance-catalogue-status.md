@@ -1,6 +1,6 @@
 # Task 0034: Add-Book Wizard -- Optional Instance & Catalogue Status
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: HIGH
 **Type**: Enhancement

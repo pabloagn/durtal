@@ -12,7 +12,7 @@ export const createWorkSchema = z.object({
   seriesId: z.string().uuid().nullable().optional(),
   notes: z.string().max(10000).nullable().optional(),
   rating: z.number().int().min(1).max(5).nullable().optional(),
-  recommenderId: z.string().uuid().nullable().optional(),
+  recommenderIds: z.array(z.string().uuid()).optional(),
   catalogueStatus: z.enum(["tracked", "shortlisted", "wanted", "on_order", "accessioned", "deaccessioned"]).default("tracked"),
   acquisitionPriority: z.enum(["none", "low", "medium", "high", "urgent"]).default("none"),
   authorIds: z.array(z.object({

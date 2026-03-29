@@ -76,7 +76,7 @@ export type WorkWithRelations = Work & {
   media: Media[];
   workType: WorkType | null;
   series: Series | null;
-  recommender: Recommender | null;
+  workRecommenders: { recommender: Recommender }[];
   workCategories: { category: BookCategory }[];
   workThemes: { theme: Theme }[];
   workLiteraryMovements: { literaryMovement: LiteraryMovement }[];

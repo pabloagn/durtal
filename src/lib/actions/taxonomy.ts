@@ -24,42 +24,47 @@ import {
   works,
 } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 
 // ── Work Types ────────────────────────────────────────────────────────────────
 
-export async function getWorkTypes() {
-  return db.query.workTypes.findMany({ orderBy: asc(workTypes.name) });
-}
+export const getWorkTypes = cached(
+  () => db.query.workTypes.findMany({ orderBy: asc(workTypes.name) }),
+  ["work-types"],
+  [CACHE_TAGS.workTypes],
+);
 
 // ── Subjects ─────────────────────────────────────────────────────────────────
 
-export async function getSubjects() {
-  return db.query.subjects.findMany({
-    orderBy: asc(subjects.name),
-  });
-}
+export const getSubjects = cached(
+  () => db.query.subjects.findMany({ orderBy: asc(subjects.name) }),
+  ["subjects"],
+  [CACHE_TAGS.subjects],
+);
 
 export async function createSubject(input: { name: string; slug: string }) {
   const [subject] = await db.insert(subjects).values(input).returning();
+  invalidate(CACHE_TAGS.subjects);
   return subject;
 }
 
 export async function deleteSubject(id: string) {
   await db.delete(subjects).where(eq(subjects.id, id));
+  invalidate(CACHE_TAGS.subjects);
   return { id };
 }
 
 // ── Genres ────────────────────────────────────────────────────────────────────
 
-export async function getGenres() {
-  return db.query.genres.findMany({
-    orderBy: asc(genres.sortOrder),
-    with: {
-      parent: true,
-      children: true,
-    },
-  });
-}
+export const getGenres = cached(
+  () =>
+    db.query.genres.findMany({
+      orderBy: asc(genres.sortOrder),
+      with: { parent: true, children: true },
+    }),
+  ["genres"],
+  [CACHE_TAGS.genres],
+);
 
 export async function createGenre(input: {
   name: string;
@@ -68,6 +73,7 @@ export async function createGenre(input: {
   sortOrder?: number;
 }) {
   const [genre] = await db.insert(genres).values(input).returning();
+  invalidate(CACHE_TAGS.genres);
   return genre;
 }
 
@@ -81,24 +87,27 @@ export async function updateGenre(
   }>,
 ) {
   await db.update(genres).set(input).where(eq(genres.id, id));
+  invalidate(CACHE_TAGS.genres);
   return { id };
 }
 
 export async function deleteGenre(id: string) {
   await db.delete(genres).where(eq(genres.id, id));
+  invalidate(CACHE_TAGS.genres);
   return { id };
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
 
-export async function getTags() {
-  return db.query.tags.findMany({
-    orderBy: asc(tags.name),
-  });
-}
+export const getTags = cached(
+  () => db.query.tags.findMany({ orderBy: asc(tags.name) }),
+  ["tags"],
+  [CACHE_TAGS.tags],
+);
 
 export async function createTag(input: { name: string; color?: string | null }) {
   const [tag] = await db.insert(tags).values(input).returning();
+  invalidate(CACHE_TAGS.tags);
   return tag;
 }
 
@@ -107,72 +116,83 @@ export async function updateTag(
   input: Partial<{ name: string; color: string | null }>,
 ) {
   await db.update(tags).set(input).where(eq(tags.id, id));
+  invalidate(CACHE_TAGS.tags);
   return { id };
 }
 
 export async function deleteTag(id: string) {
   await db.delete(tags).where(eq(tags.id, id));
+  invalidate(CACHE_TAGS.tags);
   return { id };
 }
 
 // ── Categories ────────────────────────────────────────────────────────────────
 
-export async function getCategories() {
-  return db.query.bookCategories.findMany({
-    orderBy: asc(bookCategories.sortOrder),
-    with: { parent: true, children: true },
-  });
-}
+export const getCategories = cached(
+  () =>
+    db.query.bookCategories.findMany({
+      orderBy: asc(bookCategories.sortOrder),
+      with: { parent: true, children: true },
+    }),
+  ["categories"],
+  [CACHE_TAGS.categories],
+);
 
 // ── Themes ────────────────────────────────────────────────────────────────────
 
-export async function getThemes() {
-  return db.query.themes.findMany({
-    orderBy: asc(themes.sortOrder),
-    with: { parent: true, children: true },
-  });
-}
+export const getThemes = cached(
+  () =>
+    db.query.themes.findMany({
+      orderBy: asc(themes.sortOrder),
+      with: { parent: true, children: true },
+    }),
+  ["themes"],
+  [CACHE_TAGS.themes],
+);
 
 // ── Literary Movements ────────────────────────────────────────────────────────
 
-export async function getLiteraryMovements() {
-  return db.query.literaryMovements.findMany({
-    orderBy: asc(literaryMovements.sortOrder),
-    with: { parent: true, children: true },
-  });
-}
+export const getLiteraryMovements = cached(
+  () =>
+    db.query.literaryMovements.findMany({
+      orderBy: asc(literaryMovements.sortOrder),
+      with: { parent: true, children: true },
+    }),
+  ["literary-movements"],
+  [CACHE_TAGS.literaryMovements],
+);
 
 // ── Art Types ─────────────────────────────────────────────────────────────────
 
-export async function getArtTypes() {
-  return db.query.artTypes.findMany({
-    orderBy: asc(artTypes.name),
-  });
-}
+export const getArtTypes = cached(
+  () => db.query.artTypes.findMany({ orderBy: asc(artTypes.name) }),
+  ["art-types"],
+  [CACHE_TAGS.artTypes],
+);
 
 // ── Art Movements ─────────────────────────────────────────────────────────────
 
-export async function getArtMovements() {
-  return db.query.artMovements.findMany({
-    orderBy: asc(artMovements.name),
-  });
-}
+export const getArtMovements = cached(
+  () => db.query.artMovements.findMany({ orderBy: asc(artMovements.name) }),
+  ["art-movements"],
+  [CACHE_TAGS.artMovements],
+);
 
 // ── Keywords ──────────────────────────────────────────────────────────────────
 
-export async function getKeywords() {
-  return db.query.keywords.findMany({
-    orderBy: asc(keywords.name),
-  });
-}
+export const getKeywords = cached(
+  () => db.query.keywords.findMany({ orderBy: asc(keywords.name) }),
+  ["keywords"],
+  [CACHE_TAGS.keywords],
+);
 
 // ── Attributes ────────────────────────────────────────────────────────────────
 
-export async function getAttributes() {
-  return db.query.attributes.findMany({
-    orderBy: asc(attributes.name),
-  });
-}
+export const getAttributes = cached(
+  () => db.query.attributes.findMany({ orderBy: asc(attributes.name) }),
+  ["attributes"],
+  [CACHE_TAGS.attributes],
+);
 
 // ── Update Work Taxonomy ──────────────────────────────────────────────────────
 
@@ -273,5 +293,6 @@ export async function updateWorkTaxonomy(
     .set({ updatedAt: new Date() })
     .where(eq(works.id, workId));
 
+  invalidate(CACHE_TAGS.works);
   return { workId };
 }

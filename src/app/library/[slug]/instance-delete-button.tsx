@@ -33,10 +33,11 @@ export function InstanceDeleteButton({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        className="h-7 w-7 p-0 hover:text-accent-red"
+        className="text-fg-muted hover:text-accent-red"
         title="Delete instance"
       >
-        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+        <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+        Delete
       </Button>
 
       <DeleteConfirmDialog

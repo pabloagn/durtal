@@ -1,4 +1,4 @@
-# Task 0024: Taxonomy — Catalogue Status & Acquisition Priority
+# Task 0024b: Taxonomy — Catalogue Status & Acquisition Priority
 
 **Status**: Completed
 **Created**: 2026-03-28

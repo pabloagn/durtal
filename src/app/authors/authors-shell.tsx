@@ -1,7 +1,9 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { EntityFilters } from "@/components/shared/entity-filters";
+import { FilterDropdown, type FilterGroup } from "@/components/shared/filter-dropdown";
 import { DataTable } from "@/components/shared/data-table";
 import { AuthorCard } from "@/components/authors/author-card";
 import { AuthorListItem } from "@/components/authors/author-list-item";
@@ -121,7 +123,10 @@ function renderAuthorCell(author: AuthorItem, key: string) {
   }
 }
 
-export function AuthorsShell({ authors }: { authors: AuthorItem[] }) {
+export function AuthorsShell({ authors, nationalities }: { authors: AuthorItem[]; nationalities: string[] }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>(
     "durtal-authors-view-mode",
     "grid",
@@ -135,6 +140,36 @@ export function AuthorsShell({ authors }: { authors: AuthorItem[] }) {
     DEFAULT_COLUMN_CONFIG,
   );
 
+  const filterGroups: FilterGroup[] = [
+    {
+      key: "nationality",
+      label: "Nationality",
+      options: nationalities.map((n) => ({ value: n, label: n })),
+    },
+  ];
+
+  const activeFilters: Record<string, string[]> = {
+    nationality: searchParams.get("nationality")?.split(",").filter(Boolean) ?? [],
+  };
+
+  function handleFilterChange(key: string, values: string[]) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (values.length > 0) {
+      params.set(key, values.join(","));
+    } else {
+      params.delete(key);
+    }
+    params.delete("page");
+    router.push(`/authors?${params.toString()}`);
+  }
+
+  function handleClearAll() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("nationality");
+    params.delete("page");
+    router.push(`/authors?${params.toString()}`);
+  }
+
   return (
     <>
       <EntityFilters
@@ -142,11 +177,19 @@ export function AuthorsShell({ authors }: { authors: AuthorItem[] }) {
         sortOptions={SORT_OPTIONS}
         searchPlaceholder="Search authors..."
         defaultSort="name"
+        defaultSortOrders={{ name: "asc", recent: "desc", birth: "asc", works: "desc" }}
         viewMode={viewMode}
         gridColumns={gridColumns}
         onViewModeChange={setViewMode}
         onGridColumnsChange={setGridColumns}
-      />
+      >
+        <FilterDropdown
+          groups={filterGroups}
+          activeFilters={activeFilters}
+          onFilterChange={handleFilterChange}
+          onClearAll={handleClearAll}
+        />
+      </EntityFilters>
 
       {viewMode === "grid" && (
         <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-5"}`}>

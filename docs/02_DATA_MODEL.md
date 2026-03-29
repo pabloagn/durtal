@@ -156,7 +156,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
-**Relations**: `editions` (1:N), `workAuthors` (N:M via junction), `workSubjects` (N:M), `media` (1:N), `workCategories` (N:M), `workLiteraryMovements` (N:M), `workThemes` (N:M), `workArtTypes` (N:M), `workArtMovements` (N:M), `workKeywords` (N:M), `workAttributes` (N:M), `statusHistory` (1:N → `work_status_history`)
+**Relations**: `editions` (1:N), `workAuthors` (N:M via junction), `workSubjects` (N:M), `media` (1:N), `workRecommenders` (N:M), `workCategories` (N:M), `workLiteraryMovements` (N:M), `workThemes` (N:M), `workArtTypes` (N:M), `workArtMovements` (N:M), `workKeywords` (N:M), `workAttributes` (N:M), `statusHistory` (1:N → `work_status_history`)
 
 ---
 
@@ -596,6 +596,27 @@ Normalized book series (replaces the text `series_name` field on works).
 
 Indexed on: `title` (GIN trigram), `slug` (B-tree). Seeded from Knowledge_Base (153 rows).
 
+### `recommenders`
+
+People or channels who recommended a work. Many-to-many with works via `work_recommenders`.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `name` | TEXT | UNIQUE, NOT NULL |
+| `url` | TEXT | nullable |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+### `work_recommenders`
+
+| Column | Type |
+|---|---|
+| `work_id` | UUID FK → `works.id`, CASCADE |
+| `recommender_id` | UUID FK → `recommenders.id`, CASCADE |
+
+**PK**: `(work_id, recommender_id)`
+
 ### `publishing_houses`
 
 Publisher entities with country association.
@@ -866,11 +887,23 @@ Images attached to works or authors. Polymorphic ownership.
 | `width` | INTEGER | nullable |
 | `height` | INTEGER | nullable |
 | `size_bytes` | INTEGER | nullable |
+| `is_active` | BOOLEAN | NOT NULL, default `true`. For poster/background: only one active per owner+type. For gallery: always true. |
+| `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position`. |
+| `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position`. |
+| `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
+| `original_s3_key` | TEXT | nullable. S3 key for the pre-processing color original. Set only for author media with monochrome processing. |
+| `processing_params` | JSONB | nullable. Monochrome processing parameters: `{ grayscale: true, contrast: number, sharpness: number, gamma: number, brightness: number }`. Author media only. |
 | `sort_order` | SMALLINT | NOT NULL, default `0` |
 | `caption` | TEXT | nullable |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 **Check constraint**: `(work_id IS NOT NULL) != (author_id IS NOT NULL)` — exactly one owner.
+
+**Active selection**: Multiple posters/backgrounds can exist for a work, but only one is active at a time. Uploading a new poster deactivates the previous one (without deleting it). Users can switch the active poster/background or permanently delete unwanted items.
+
+**Crop positioning**: The `crop_x`, `crop_y`, and `crop_zoom` fields store CSS-only positioning metadata. They control how an image is displayed within its container via `object-position` and `transform: scale()`, without modifying the original S3 files. Users adjust these values through a drag-and-zoom editor in the media manager.
+
+**Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
 
 ### `imports`
 
@@ -967,6 +1000,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `keywords` | `work_keywords` | CASCADE |
 | `works` | `work_attributes` | CASCADE |
 | `attributes` | `work_attributes` | CASCADE |
+| `works` | `work_recommenders` | CASCADE |
+| `recommenders` | `work_recommenders` | CASCADE |
 | `authors` | `author_contribution_types` | CASCADE |
 | `contribution_types` | `author_contribution_types` | CASCADE |
 | `publishing_houses` | `publishing_house_specialties` | CASCADE |
@@ -986,6 +1021,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | People | `authors` | `work_authors`, `edition_contributors`, `author_contribution_types` |
 | Taxonomy (edition) | `genres`, `tags` | `edition_genres`, `edition_tags` |
 | Taxonomy (work) | `subjects`, `book_categories`, `literary_movements`, `themes`, `art_types`, `art_movements`, `keywords`, `attributes` | `work_subjects`, `work_categories`, `work_literary_movements`, `work_themes`, `work_art_types`, `work_art_movements`, `work_keywords`, `work_attributes` |
+| Recommenders | `recommenders` | `work_recommenders` |
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
 | Publishing | `publishing_houses`, `publisher_specialties` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |

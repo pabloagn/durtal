@@ -5,31 +5,109 @@ import {
   works,
   workAuthors,
   workSubjects,
+  workRecommenders,
   editions,
   instances,
   authors,
+  media,
 } from "@/lib/db/schema";
-import { eq, desc, asc, ilike, like, count } from "drizzle-orm";
+import { eq, desc, asc, ilike, like, count, and, inArray, gte, isNotNull, notInArray } from "drizzle-orm";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
+
+type CatalogueStatus = typeof works.catalogueStatus.enumValues[number];
+type AcquisitionPriority = typeof works.acquisitionPriority.enumValues[number];
 
 export async function getWorks(opts?: {
   search?: string;
   limit?: number;
   offset?: number;
-  sort?: "title" | "recent" | "year" | "rating";
+  sort?: "title" | "recent" | "year" | "rating" | "authorFirstName" | "authorLastName";
+  order?: "asc" | "desc";
+  filters?: {
+    catalogueStatus?: string[];
+    acquisitionPriority?: string[];
+    minRating?: number;
+    locationId?: string;
+    hasPoster?: boolean;
+  };
 }) {
-  const { search, limit = 50, offset = 0, sort = "recent" } = opts ?? {};
+  const { search, limit = 50, offset = 0, sort = "recent", order, filters } = opts ?? {};
 
+  // Default sort directions per sort type
+  const defaultOrders: Record<string, "asc" | "desc"> = {
+    title: "asc",
+    recent: "desc",
+    year: "desc",
+    rating: "desc",
+    authorFirstName: "asc",
+    authorLastName: "asc",
+  };
+  const resolvedOrder = order ?? defaultOrders[sort] ?? "asc";
+
+  const orderFn = resolvedOrder === "asc" ? asc : desc;
+
+  // For DB-level sorts (author sorts are handled post-query)
   const orderBy = {
-    title: asc(works.title),
-    recent: desc(works.createdAt),
-    year: desc(works.originalYear),
-    rating: desc(works.rating),
+    title: orderFn(works.title),
+    recent: orderFn(works.createdAt),
+    year: orderFn(works.originalYear),
+    rating: orderFn(works.rating),
+    authorFirstName: orderFn(works.createdAt), // placeholder; sorted post-query
+    authorLastName: orderFn(works.createdAt),   // placeholder; sorted post-query
   }[sort];
 
+  // Build where clause combining search + filters
+  const conditions = [];
+  if (search) conditions.push(ilike(works.title, `%${search}%`));
+  if (filters?.catalogueStatus?.length) {
+    conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
+  }
+  if (filters?.acquisitionPriority?.length) {
+    conditions.push(inArray(works.acquisitionPriority, filters.acquisitionPriority as AcquisitionPriority[]));
+  }
+  if (filters?.minRating) {
+    conditions.push(gte(works.rating, filters.minRating));
+  }
+  if (filters?.locationId) {
+    const matchingInstances = await db
+      .select({ workId: editions.workId })
+      .from(instances)
+      .innerJoin(editions, eq(instances.editionId, editions.id))
+      .where(eq(instances.locationId, filters.locationId));
+    const workIds = [...new Set(matchingInstances.map(r => r.workId))];
+    if (workIds.length > 0) {
+      conditions.push(inArray(works.id, workIds));
+    } else {
+      return [];
+    }
+  }
+  if (filters?.hasPoster !== undefined) {
+    const posterRows = await db
+      .select({ workId: media.workId })
+      .from(media)
+      .where(and(eq(media.type, "poster"), eq(media.isActive, true), isNotNull(media.workId)));
+    const posterWorkIds = [...new Set(posterRows.map(r => r.workId!))];
+    if (filters.hasPoster) {
+      // Only works WITH a poster
+      if (posterWorkIds.length > 0) {
+        conditions.push(inArray(works.id, posterWorkIds));
+      } else {
+        return []; // no works have posters
+      }
+    } else {
+      // Only works WITHOUT a poster
+      if (posterWorkIds.length > 0) {
+        conditions.push(notInArray(works.id, posterWorkIds));
+      }
+      // else: no works have posters, so all works match — no filter needed
+    }
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
   const results = await db.query.works.findMany({
-    where: search ? ilike(works.title, `%${search}%`) : undefined,
+    where,
     orderBy,
     limit,
     offset,
@@ -52,17 +130,99 @@ export async function getWorks(opts?: {
           },
         },
       },
+      media: {
+        columns: {
+          s3Key: true,
+          thumbnailS3Key: true,
+          type: true,
+          isActive: true,
+          cropX: true,
+          cropY: true,
+          cropZoom: true,
+        },
+      },
     },
   });
+
+  // Post-query sort for author name sorts (Drizzle relational queries can't order by joined columns)
+  if (sort === "authorFirstName" || sort === "authorLastName") {
+    results.sort((a, b) => {
+      const authorA = a.workAuthors[0]?.author;
+      const authorB = b.workAuthors[0]?.author;
+
+      let nameA: string, nameB: string;
+      if (sort === "authorFirstName") {
+        nameA = (authorA?.firstName || authorA?.name?.split(/\s+/)[0] || "").toLowerCase();
+        nameB = (authorB?.firstName || authorB?.name?.split(/\s+/)[0] || "").toLowerCase();
+      } else {
+        // lastName: use sortName (format "Last, First") or fall back to last word of name
+        nameA = (authorA?.sortName?.split(",")[0] || authorA?.name?.split(/\s+/).pop() || "").toLowerCase();
+        nameB = (authorB?.sortName?.split(",")[0] || authorB?.name?.split(/\s+/).pop() || "").toLowerCase();
+      }
+
+      const cmp = nameA.localeCompare(nameB);
+      return resolvedOrder === "desc" ? -cmp : cmp;
+    });
+  }
 
   return results;
 }
 
-export async function getWorkCount(search?: string) {
+export async function getWorkCount(search?: string, filters?: {
+  catalogueStatus?: string[];
+  acquisitionPriority?: string[];
+  minRating?: number;
+  locationId?: string;
+  hasPoster?: boolean;
+}) {
+  const conditions = [];
+  if (search) conditions.push(ilike(works.title, `%${search}%`));
+  if (filters?.catalogueStatus?.length) {
+    conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
+  }
+  if (filters?.acquisitionPriority?.length) {
+    conditions.push(inArray(works.acquisitionPriority, filters.acquisitionPriority as AcquisitionPriority[]));
+  }
+  if (filters?.minRating) {
+    conditions.push(gte(works.rating, filters.minRating));
+  }
+  if (filters?.locationId) {
+    const matchingInstances = await db
+      .select({ workId: editions.workId })
+      .from(instances)
+      .innerJoin(editions, eq(instances.editionId, editions.id))
+      .where(eq(instances.locationId, filters.locationId));
+    const workIds = [...new Set(matchingInstances.map(r => r.workId))];
+    if (workIds.length > 0) {
+      conditions.push(inArray(works.id, workIds));
+    } else {
+      return 0;
+    }
+  }
+  if (filters?.hasPoster !== undefined) {
+    const posterRows = await db
+      .select({ workId: media.workId })
+      .from(media)
+      .where(and(eq(media.type, "poster"), eq(media.isActive, true), isNotNull(media.workId)));
+    const posterWorkIds = [...new Set(posterRows.map(r => r.workId!))];
+    if (filters.hasPoster) {
+      if (posterWorkIds.length > 0) {
+        conditions.push(inArray(works.id, posterWorkIds));
+      } else {
+        return 0;
+      }
+    } else {
+      if (posterWorkIds.length > 0) {
+        conditions.push(notInArray(works.id, posterWorkIds));
+      }
+    }
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
   const [result] = await db
     .select({ count: count() })
     .from(works)
-    .where(search ? ilike(works.title, `%${search}%`) : undefined);
+    .where(where);
   return result.count;
 }
 
@@ -100,7 +260,7 @@ export async function getWork(id: string) {
       media: true,
       workType: true,
       series: true,
-      recommender: true,
+      workRecommenders: { with: { recommender: true } },
       workCategories: { with: { category: true } },
       workThemes: { with: { theme: true } },
       workLiteraryMovements: { with: { literaryMovement: true } },
@@ -148,7 +308,7 @@ export async function getWorkBySlug(slug: string) {
       media: true,
       workType: true,
       series: true,
-      recommender: true,
+      workRecommenders: { with: { recommender: true } },
       workCategories: { with: { category: true } },
       workThemes: { with: { theme: true } },
       workLiteraryMovements: { with: { literaryMovement: true } },
@@ -223,7 +383,7 @@ export async function findDuplicateWork(opts: {
 
 export async function createWork(input: CreateWorkInput) {
   const parsed = createWorkSchema.parse(input);
-  const { authorIds, subjectIds, ...workData } = parsed;
+  const { authorIds, subjectIds, recommenderIds, ...workData } = parsed;
 
   const [work] = await db.insert(works).values(workData).returning();
 
@@ -245,6 +405,16 @@ export async function createWork(input: CreateWorkInput) {
       subjectIds.map((subjectId) => ({
         workId: work.id,
         subjectId,
+      })),
+    );
+  }
+
+  // Link recommenders
+  if (recommenderIds && recommenderIds.length > 0) {
+    await db.insert(workRecommenders).values(
+      recommenderIds.map((recommenderId) => ({
+        workId: work.id,
+        recommenderId,
       })),
     );
   }
@@ -277,6 +447,7 @@ export async function createWork(input: CreateWorkInput) {
     .where(eq(works.id, work.id))
     .returning();
 
+  invalidate(CACHE_TAGS.works);
   return updated;
 }
 
@@ -284,7 +455,7 @@ export async function updateWork(
   id: string,
   input: Partial<CreateWorkInput>,
 ) {
-  const { authorIds, subjectIds, ...workData } = input;
+  const { authorIds, subjectIds, recommenderIds, ...workData } = input;
 
   if (Object.keys(workData).length > 0) {
     await db
@@ -319,14 +490,26 @@ export async function updateWork(
     }
   }
 
-  // Regenerate slug if title or authors changed
+  if (recommenderIds) {
+    await db.delete(workRecommenders).where(eq(workRecommenders.workId, id));
+    if (recommenderIds.length > 0) {
+      await db.insert(workRecommenders).values(
+        recommenderIds.map((recommenderId) => ({
+          workId: id,
+          recommenderId,
+        })),
+      );
+    }
+  }
+
+  // Regenerate slug only if title or authors ACTUALLY changed
   if (workData.title !== undefined || authorIds !== undefined) {
     const currentWork = await db.query.works.findFirst({
       where: eq(works.id, id),
       columns: { title: true, slug: true },
       with: {
         workAuthors: {
-          with: { author: { columns: { name: true } } },
+          with: { author: { columns: { id: true, name: true } } },
           orderBy: asc(workAuthors.sortOrder),
           limit: 1,
         },
@@ -334,45 +517,81 @@ export async function updateWork(
     });
 
     if (currentWork) {
-      const primaryAuthorName =
-        currentWork.workAuthors[0]?.author.name ?? "unknown";
-      const baseSlug = generateWorkSlug(currentWork.title, primaryAuthorName, id);
+      // Check if title or primary author actually changed
+      const oldTitle = currentWork.title;
+      const oldPrimaryAuthorId = currentWork.workAuthors[0]?.author.id;
+      const newTitle = workData.title ?? oldTitle;
+      const newPrimaryAuthorId = authorIds?.[0]?.authorId ?? oldPrimaryAuthorId;
+      const titleChanged = newTitle !== oldTitle;
+      const authorChanged = authorIds !== undefined && newPrimaryAuthorId !== oldPrimaryAuthorId;
 
-      // Exclude own current slug from uniqueness check
-      const existing = await db
-        .select({ slug: works.slug })
-        .from(works)
-        .where(like(works.slug, `${baseSlug}%`));
-      const existingSlugs = existing
-        .map((r) => r.slug)
-        .filter((s): s is string => s !== null && s !== currentWork.slug);
-      const slug = makeUnique(baseSlug, existingSlugs);
+      if (titleChanged || authorChanged) {
+        const primaryAuthorName =
+          currentWork.workAuthors[0]?.author.name ?? "unknown";
+        // Use the NEW title for slug generation (it was already written to DB above)
+        const effectiveTitle = workData.title ?? currentWork.title;
+        // If author changed, look up the new author name
+        let effectiveAuthorName = primaryAuthorName;
+        if (authorChanged && authorIds && authorIds.length > 0) {
+          const newAuthor = await db.query.authors.findFirst({
+            where: eq(authors.id, authorIds[0].authorId),
+            columns: { name: true },
+          });
+          effectiveAuthorName = newAuthor?.name ?? "unknown";
+        }
+        const baseSlug = generateWorkSlug(effectiveTitle, effectiveAuthorName, id);
 
-      await db.update(works).set({ slug }).where(eq(works.id, id));
+        // Exclude own current slug from uniqueness check
+        const existing = await db
+          .select({ slug: works.slug })
+          .from(works)
+          .where(like(works.slug, `${baseSlug}%`));
+        const existingSlugs = existing
+          .map((r) => r.slug)
+          .filter((s): s is string => s !== null && s !== currentWork.slug);
+        const newSlug = makeUnique(baseSlug, existingSlugs);
+
+        await db.update(works).set({ slug: newSlug }).where(eq(works.id, id));
+        invalidate(CACHE_TAGS.works);
+        return { id, slug: newSlug };
+      }
     }
   }
 
+  invalidate(CACHE_TAGS.works);
   return { id };
 }
 
 export async function deleteWork(id: string) {
   await db.delete(works).where(eq(works.id, id));
+  invalidate(CACHE_TAGS.works);
   return { id };
 }
 
-/** Dashboard stats */
-export async function getLibraryStats() {
-  const [workCount] = await db.select({ count: count() }).from(works);
-  const [editionCount] = await db.select({ count: count() }).from(editions);
-  const [instanceCount] = await db.select({ count: count() }).from(instances);
-  const [authorCount] = await db.select({ count: count() }).from(authors);
+export async function getWorksByAuthorId(
+  authorId: string,
+  excludeWorkId?: string,
+  limit = 12,
+) {
+  // Get work IDs for this author
+  const authorWorks = await db.query.workAuthors.findMany({
+    where: eq(workAuthors.authorId, authorId),
+    columns: { workId: true },
+  });
 
-  const recentWorks = await db.query.works.findMany({
+  const workIds = authorWorks
+    .map((wa) => wa.workId)
+    .filter((id) => id !== excludeWorkId);
+
+  if (workIds.length === 0) return [];
+
+  return db.query.works.findMany({
+    where: inArray(works.id, workIds),
+    limit,
     orderBy: desc(works.createdAt),
-    limit: 8,
     with: {
       workAuthors: {
-        with: { author: true },
+        with: { author: { columns: { name: true } } },
         orderBy: asc(workAuthors.sortOrder),
         limit: 1,
       },
@@ -385,13 +604,138 @@ export async function getLibraryStats() {
         },
         limit: 1,
         with: {
-          instances: {
-            columns: { id: true },
-          },
+          instances: { columns: { id: true } },
         },
+      },
+      media: {
+        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
       },
     },
   });
+}
+
+/** Dashboard stats */
+export async function getLibraryStats() {
+  const worksWith = {
+    workAuthors: {
+      with: { author: true },
+      orderBy: asc(workAuthors.sortOrder),
+      limit: 1,
+    },
+    editions: {
+      columns: {
+        id: true,
+        thumbnailS3Key: true,
+        publicationYear: true,
+        language: true,
+      },
+      limit: 1,
+      with: {
+        instances: {
+          columns: { id: true },
+        },
+      },
+    },
+    media: {
+      columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+    },
+  } as const;
+
+  const [
+    [workCount],
+    [editionCount],
+    [instanceCount],
+    [authorCount],
+    recentWorks,
+    topRatedWorks,
+    wantedWorks,
+    recentWorksForAuthors,
+  ] = await Promise.all([
+    db.select({ count: count() }).from(works),
+    db.select({ count: count() }).from(editions),
+    db.select({ count: count() }).from(instances),
+    db.select({ count: count() }).from(authors),
+    // Recent additions
+    db.query.works.findMany({
+      orderBy: desc(works.createdAt),
+      limit: 8,
+      with: worksWith,
+    }),
+    // Top rated
+    db.query.works.findMany({
+      where: isNotNull(works.rating),
+      orderBy: [desc(works.rating), desc(works.createdAt)],
+      limit: 8,
+      with: worksWith,
+    }),
+    // Wanted / shortlisted
+    db.query.works.findMany({
+      where: inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
+      orderBy: desc(works.createdAt),
+      limit: 8,
+      with: worksWith,
+    }),
+    // For recent authors: get more works so we can extract unique authors
+    db.query.works.findMany({
+      orderBy: desc(works.createdAt),
+      limit: 40,
+      with: {
+        workAuthors: {
+          with: {
+            author: {
+              with: {
+                country: { columns: { name: true } },
+                workAuthors: { columns: { workId: true } },
+                media: {
+                  columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true },
+                },
+              },
+            },
+          },
+          orderBy: asc(workAuthors.sortOrder),
+          limit: 1,
+        },
+      },
+    }),
+  ]);
+
+  // De-duplicate authors from recent works, preserving recency order
+  const seenAuthorIds = new Set<string>();
+  const recentAuthors: Array<{
+    id: string;
+    slug: string | null;
+    name: string;
+    photoS3Key: string | null;
+    nationality: string | null;
+    birthYear: number | null;
+    deathYear: number | null;
+    worksCount: number;
+  }> = [];
+  for (const work of recentWorksForAuthors) {
+    const author = work.workAuthors[0]?.author;
+    if (author && !seenAuthorIds.has(author.id)) {
+      seenAuthorIds.add(author.id);
+      // Prefer active poster from media table, fall back to legacy photoS3Key
+      const activePoster = author.media?.find(
+        (m: { type: string; isActive: boolean }) => m.type === "poster" && m.isActive,
+      );
+      const photoKey =
+        (activePoster as { thumbnailS3Key?: string; s3Key: string } | undefined)?.thumbnailS3Key ??
+        (activePoster as { s3Key: string } | undefined)?.s3Key ??
+        author.photoS3Key;
+      recentAuthors.push({
+        id: author.id,
+        slug: author.slug,
+        name: author.name,
+        photoS3Key: photoKey,
+        nationality: author.country?.name ?? null,
+        birthYear: author.birthYear,
+        deathYear: author.deathYear,
+        worksCount: author.workAuthors.length,
+      });
+      if (recentAuthors.length >= 12) break;
+    }
+  }
 
   return {
     works: workCount.count,
@@ -399,5 +743,8 @@ export async function getLibraryStats() {
     instances: instanceCount.count,
     authors: authorCount.count,
     recentWorks,
+    topRatedWorks,
+    wantedWorks,
+    recentAuthors,
   };
 }

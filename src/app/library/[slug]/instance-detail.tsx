@@ -112,7 +112,7 @@ export function InstanceDetail({
         </div>
 
         {hasActions && (
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1">
             <InstanceEditDialog
               instance={instance}
               editionId={instance.editionId}

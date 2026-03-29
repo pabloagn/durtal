@@ -5,6 +5,7 @@ import { InstanceDetail } from "./instance-detail";
 import { EditionEditDialog } from "./edition-edit-dialog";
 import { EditionDeleteButton } from "./edition-delete-button";
 import { InstanceAddDialog } from "./instance-add-dialog";
+import { EditionMatchButton } from "./edition-match-button";
 import {
   formatDimensions,
   formatDate,
@@ -40,6 +41,8 @@ type EditionFull = Edition & {
 
 interface EditionDetailCardProps {
   edition: EditionFull;
+  workId?: string;
+  authorName?: string;
   availableLocations?: LocationWithSubLocations[];
   availableAuthors?: { id: string; name: string }[];
   availableGenres?: { id: string; name: string }[];
@@ -62,6 +65,8 @@ function DetailRow({ label, children }: DetailRowProps) {
 
 export function EditionDetailCard({
   edition,
+  workId,
+  authorName,
   availableLocations = [],
   availableAuthors = [],
   availableGenres = [],
@@ -149,7 +154,16 @@ export function EditionDetailCard({
               )}
             </div>
             {hasActionProps && (
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-1">
+                {workId && (
+                  <EditionMatchButton
+                    workId={workId}
+                    editionId={edition.id}
+                    currentTitle={edition.title}
+                    currentAuthor={authorName ?? ""}
+                    currentMetadataSource={edition.metadataSource}
+                  />
+                )}
                 <EditionEditDialog
                   edition={edition}
                   availableAuthors={availableAuthors}

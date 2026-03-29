@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { UploadZone } from "@/components/media/upload-zone";
 import { MediaGallery } from "@/components/media/media-gallery";
+import { DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
 import type { Media } from "@/lib/types";
 
 interface AuthorMediaSectionProps {
@@ -38,6 +39,7 @@ export function AuthorMediaSection({
                 entityId={authorId}
                 mediaType="poster"
                 onUploadComplete={refresh}
+                processingParams={DEFAULT_MONOCHROME_PARAMS}
               />
             )}
             {!hasBackground && (
@@ -46,6 +48,7 @@ export function AuthorMediaSection({
                 entityId={authorId}
                 mediaType="background"
                 onUploadComplete={refresh}
+                processingParams={DEFAULT_MONOCHROME_PARAMS}
               />
             )}
           </div>
@@ -75,6 +78,7 @@ export function AuthorMediaSection({
           onUploadComplete={refresh}
           multiple
           className="mt-3"
+          processingParams={DEFAULT_MONOCHROME_PARAMS}
         />
       </section>
     </>

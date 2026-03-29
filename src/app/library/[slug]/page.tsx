@@ -1,9 +1,7 @@
-export const dynamic = "force-dynamic";
-
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Star } from "lucide-react";
-import { getWorkBySlug } from "@/lib/actions/works";
+import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
 import { getAuthors } from "@/lib/actions/authors";
 import { getSeries } from "@/lib/actions/series";
 import {
@@ -22,13 +20,18 @@ import {
 import { getLocations } from "@/lib/actions/locations";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { Badge } from "@/components/ui/badge";
-import { WorkMediaSection } from "./work-media-section";
+import { priorityVariant } from "@/lib/constants/catalogue";
+import { WorkMediaInline } from "./work-media-inline";
 import { WorkMetadataGrid } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
 import { EditionDetailCard } from "./edition-detail-card";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkEditDialog } from "./work-edit-dialog";
+import { WorkDeleteButton } from "./work-delete-button";
+import { WorkCopyButton } from "./work-copy-button";
 import { WorkTaxonomyEditDialog } from "./work-taxonomy-edit-dialog";
+import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
+import { BookCard } from "@/components/books/book-card";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -46,21 +49,6 @@ function catalogueStatusVariant(
     case "deaccessioned":
       return "red";
     case "on_order":
-      return "blue";
-    default:
-      return "muted";
-  }
-}
-
-function acquisitionPriorityVariant(
-  priority: string,
-): "red" | "gold" | "blue" | "muted" {
-  switch (priority) {
-    case "urgent":
-      return "red";
-    case "high":
-      return "gold";
-    case "medium":
       return "blue";
     default:
       return "muted";
@@ -108,9 +96,17 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   if (!work) notFound();
 
+  // Get works by the same primary author
+  const primaryAuthor = work.workAuthors[0]?.author;
+  const relatedWorks = primaryAuthor
+    ? await getWorksByAuthorId(primaryAuthor.id, work.id, 12)
+    : [];
+
   const primaryAuthors = work.workAuthors.map((wa) => wa.author);
-  const poster = work.media?.find((m) => m.type === "poster");
-  const background = work.media?.find((m) => m.type === "background");
+  const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
+  const background = work.media?.find((m) => m.type === "background" && m.isActive);
+  const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
+  const allBackgrounds = work.media?.filter((m) => m.type === "background") ?? [];
   const galleryMedia = work.media?.filter((m) => m.type === "gallery") ?? [];
 
   // Collect external links from all editions
@@ -144,26 +140,65 @@ export default async function WorkDetailPage({ params }: PageProps) {
     (link, idx, arr) => arr.findIndex((l) => l.href === link.href) === idx,
   );
 
+  const backgroundUrl = background
+    ? `/api/s3/read?key=${encodeURIComponent(background.s3Key)}`
+    : null;
+
   return (
     <>
-      {/* Back link */}
-      <Link
-        href="/library"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
-      >
-        <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-        Back to library
-      </Link>
+      {/* Cinematic backdrop + header */}
+      <div className={background ? "relative -mx-6 -mt-6 mb-8" : ""}>
+        {/* Background image layer */}
+        {background && (
+          <div className="absolute inset-0 -z-0 overflow-hidden">
+            <img
+              src={backgroundUrl!}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{
+                objectPosition: `${background.cropX}% ${background.cropY}%`,
+                transform: `scale(${background.cropZoom / 100})`,
+                transformOrigin: `${background.cropX}% ${background.cropY}%`,
+              }}
+            />
+            {/* Dark overlay for readability */}
+            <div className="absolute inset-0 bg-black/70" />
+            {/* Bottom gradient: dissolves into the page background */}
+            <div
+              className="absolute inset-x-0 bottom-0 h-40"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
+              }}
+            />
+          </div>
+        )}
 
-      {/* Header */}
-      <div className="mb-8 flex gap-6">
+        {/* Content on top of the backdrop */}
+        <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+          {/* Back link */}
+          <Link
+            href="/library"
+            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          >
+            <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
+            Back to library
+          </Link>
+
+          {/* Header */}
+          <div className={`${background ? "mb-4" : "mb-8"} flex gap-6`}>
         {/* Poster image */}
         {poster && (
-          <div className="relative h-48 w-32 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+          <div className="relative h-64 w-44 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             <img
               src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
               alt={`${work.title} poster`}
               className="h-full w-full object-cover"
+              style={{
+                objectPosition: `${poster.cropX}% ${poster.cropY}%`,
+                transform: `scale(${poster.cropZoom / 100})`,
+                transformOrigin: `${poster.cropX}% ${poster.cropY}%`,
+              }}
             />
           </div>
         )}
@@ -173,47 +208,59 @@ export default async function WorkDetailPage({ params }: PageProps) {
             <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
               {work.title}
             </h1>
-            <WorkEditDialog
-              work={{
-                id: work.id,
-                slug: work.slug ?? "",
-                title: work.title,
-                originalLanguage: work.originalLanguage,
-                originalYear: work.originalYear ?? null,
-                description: work.description ?? null,
-                seriesName: work.seriesName ?? null,
-                seriesPosition: work.seriesPosition ?? null,
-                seriesId: work.seriesId ?? null,
-                isAnthology: work.isAnthology,
-                workTypeId: work.workTypeId ?? null,
-                notes: work.notes ?? null,
-                rating: work.rating ?? null,
-                catalogueStatus: work.catalogueStatus,
-                acquisitionPriority: work.acquisitionPriority,
-                recommenderId: work.recommenderId ?? null,
-              }}
-              authors={work.workAuthors.map((wa) => ({
-                id: wa.author.id,
-                name: wa.author.name,
-                role: wa.role,
-              }))}
-              availableAuthors={allAuthors.map((a) => ({
-                id: a.id,
-                name: a.name,
-              }))}
-              availableSeries={allSeries.map((s) => ({
-                id: s.id,
-                title: s.title,
-              }))}
-              availableWorkTypes={allWorkTypes.map((wt) => ({
-                id: wt.id,
-                name: wt.name,
-              }))}
-              availableRecommenders={allRecommenders.map((r) => ({
-                id: r.id,
-                name: r.name,
-              }))}
-            />
+            <div className="flex items-center gap-1">
+              <WorkCopyButton
+                title={work.title}
+                authorName={primaryAuthors.map((a) => a.name).join(", ")}
+              />
+              <WorkEditDialog
+                work={{
+                  id: work.id,
+                  slug: work.slug ?? "",
+                  title: work.title,
+                  originalLanguage: work.originalLanguage,
+                  originalYear: work.originalYear ?? null,
+                  description: work.description ?? null,
+                  seriesName: work.seriesName ?? null,
+                  seriesPosition: work.seriesPosition ?? null,
+                  seriesId: work.seriesId ?? null,
+                  isAnthology: work.isAnthology,
+                  workTypeId: work.workTypeId ?? null,
+                  notes: work.notes ?? null,
+                  rating: work.rating ?? null,
+                  catalogueStatus: work.catalogueStatus,
+                  acquisitionPriority: work.acquisitionPriority,
+                  recommenderIds: work.workRecommenders.map((wr) => wr.recommender.id),
+                }}
+                authors={work.workAuthors.map((wa) => ({
+                  id: wa.author.id,
+                  name: wa.author.name,
+                  role: wa.role,
+                }))}
+                availableAuthors={allAuthors.map((a) => ({
+                  id: a.id,
+                  name: a.name,
+                }))}
+                availableSeries={allSeries.map((s) => ({
+                  id: s.id,
+                  title: s.title,
+                }))}
+                availableWorkTypes={allWorkTypes.map((wt) => ({
+                  id: wt.id,
+                  name: wt.name,
+                }))}
+                availableRecommenders={allRecommenders.map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                }))}
+              />
+              <WorkDeleteButton
+                workId={work.id}
+                title={work.title}
+                editionCount={work.editions.length}
+                instanceCount={work.editions.reduce((acc, e) => acc + (e.instances?.length ?? 0), 0)}
+              />
+            </div>
           </div>
 
           {/* Author links */}
@@ -274,7 +321,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             </Badge>
             {work.acquisitionPriority && work.acquisitionPriority !== "none" && (
               <Badge
-                variant={acquisitionPriorityVariant(work.acquisitionPriority)}
+                variant={priorityVariant(work.acquisitionPriority)}
               >
                 {work.acquisitionPriority} priority
               </Badge>
@@ -282,27 +329,34 @@ export default async function WorkDetailPage({ params }: PageProps) {
           </div>
 
           {/* Recommended by */}
-          {work.recommender && (
+          {work.workRecommenders.length > 0 && (
             <div className="mt-3">
               <span className="text-xs text-fg-muted">Recommended by </span>
-              {work.recommender.url ? (
-                <a
-                  href={work.recommender.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
-                >
-                  {work.recommender.name}
-                </a>
-              ) : (
-                <span className="text-xs text-fg-secondary">
-                  {work.recommender.name}
+              {work.workRecommenders.map((wr, i) => (
+                <span key={wr.recommender.id}>
+                  {i > 0 && <span className="text-xs text-fg-muted">, </span>}
+                  {wr.recommender.url ? (
+                    <a
+                      href={wr.recommender.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
+                    >
+                      {wr.recommender.name}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-fg-secondary">
+                      {wr.recommender.name}
+                    </span>
+                  )}
                 </span>
-              )}
+              ))}
             </div>
           )}
         </div>
       </div>
+      </div>{/* end content-on-backdrop */}
+      </div>{/* end cinematic backdrop */}
 
       {/* Description */}
       {work.description && (
@@ -354,12 +408,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
         }
       />
 
-      {/* Media upload and gallery */}
-      <WorkMediaSection
+      {/* Media management */}
+      <WorkMediaInline
         workId={work.id}
-        gallery={galleryMedia}
-        hasPoster={!!poster}
-        hasBackground={!!background}
+        title={work.title}
+        posterCount={allPosters.length}
+        backgroundCount={allBackgrounds.length}
+        galleryCount={galleryMedia.length}
       />
 
       {/* Editions */}
@@ -382,6 +437,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
             <EditionDetailCard
               key={edition.id}
               edition={edition}
+              workId={work.id}
+              authorName={primaryAuthor?.name}
               availableLocations={allLocations}
               availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
               availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
@@ -390,6 +447,64 @@ export default async function WorkDetailPage({ params }: PageProps) {
           ))}
         </div>
       </section>
+
+      {/* Works by same author */}
+      {relatedWorks.length > 0 && primaryAuthor && (
+        <section className="mb-8">
+          <HorizontalCarousel
+            title={`More by ${primaryAuthor.name}`}
+            titleHref={
+              primaryAuthor.slug
+                ? `/authors/${primaryAuthor.slug}`
+                : undefined
+            }
+          >
+            {relatedWorks.map((rw) => {
+              const edition = rw.editions[0];
+              const authorName =
+                rw.workAuthors[0]?.author?.name ?? "Unknown";
+              const rwPoster = rw.media?.find(
+                (m) => m.type === "poster" && m.isActive,
+              );
+              const rwCoverKey =
+                rwPoster?.thumbnailS3Key ??
+                rwPoster?.s3Key ??
+                edition?.thumbnailS3Key;
+              return (
+                <div
+                  key={rw.id}
+                  className="w-[160px] flex-shrink-0 snap-start"
+                >
+                  <BookCard
+                    workId={rw.id}
+                    slug={rw.slug ?? ""}
+                    title={rw.title}
+                    authorName={authorName}
+                    coverUrl={
+                      rwCoverKey
+                        ? `/api/s3/read?key=${encodeURIComponent(rwCoverKey)}`
+                        : null
+                    }
+                    coverCrop={
+                      rwPoster
+                        ? { x: rwPoster.cropX, y: rwPoster.cropY, zoom: rwPoster.cropZoom }
+                        : null
+                    }
+                    publicationYear={
+                      edition?.publicationYear ?? rw.originalYear
+                    }
+                    language={edition?.language}
+                    instanceCount={edition?.instances?.length ?? 0}
+                    rating={rw.rating}
+                    catalogueStatus={rw.catalogueStatus}
+                    acquisitionPriority={rw.acquisitionPriority}
+                  />
+                </div>
+              );
+            })}
+          </HorizontalCarousel>
+        </section>
+      )}
 
       {/* Notes */}
       {work.notes && (

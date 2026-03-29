@@ -32,6 +32,7 @@ export function HeroBackground({
             fill
             className="object-cover"
             priority
+          unoptimized
           />
           <div className="absolute inset-0 bg-gradient-to-b from-bg-primary/40 via-bg-primary/70 to-bg-primary" />
         </div>

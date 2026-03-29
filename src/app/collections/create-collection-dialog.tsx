@@ -84,7 +84,7 @@ function ImageUploadField({
               alt={label}
               fill
               className="object-cover"
-              unoptimized
+            unoptimized
             />
           </div>
           <button
@@ -429,6 +429,7 @@ export function CreateCollectionDialog() {
                             fill
                             className="object-cover"
                             sizes="28px"
+                          unoptimized
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center">
@@ -481,6 +482,7 @@ export function CreateCollectionDialog() {
                           fill
                           className="object-cover"
                           sizes="20px"
+                        unoptimized
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center">

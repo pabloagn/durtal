@@ -99,7 +99,7 @@ export function InstanceAddDialog({
         className="h-7 gap-1 px-2"
         title={`Add instance for ${editionTitle}`}
       >
-        <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+        <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add instance
       </Button>
 

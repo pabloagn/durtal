@@ -76,3 +76,12 @@ export function goldMediaThumbnailKey(
 ) {
   return `gold/media/${entityType}/${entityId}/${mediaType}/${fileId}_thumb.webp`;
 }
+
+export function goldMediaOriginalKey(
+  entityType: MediaEntityType,
+  entityId: string,
+  mediaType: string,
+  fileId: string,
+) {
+  return `gold/media/${entityType}/${entityId}/${mediaType}/${fileId}_original.webp`;
+}

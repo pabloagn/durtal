@@ -142,6 +142,19 @@ export async function searchEditionsForPicker(search: string, limit = 20) {
 }
 
 /**
+ * Get all collections that a specific edition belongs to.
+ */
+export async function getEditionCollections(editionId: string) {
+  const result = await db.query.collectionEditions.findMany({
+    where: eq(collectionEditions.editionId, editionId),
+    with: {
+      collection: true,
+    },
+  });
+  return result.map((ce) => ce.collection);
+}
+
+/**
  * Add multiple editions to a collection at once.
  */
 export async function bulkAddEditionsToCollection(

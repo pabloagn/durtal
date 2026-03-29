@@ -38,7 +38,7 @@ interface WorkEditDialogProps {
     rating: number | null;
     catalogueStatus: string;
     acquisitionPriority: string;
-    recommenderId: string | null;
+    recommenderIds: string[];
   };
   authors: AuthorRow[];
   availableAuthors: { id: string; name: string }[];
@@ -113,7 +113,7 @@ export function WorkEditDialog({
   // Form state — Description & Notes
   const [description, setDescription] = useState(work.description ?? "");
   const [notes, setNotes] = useState(work.notes ?? "");
-  const [recommenderId, setRecommenderId] = useState(work.recommenderId ?? "");
+  const [recommenderIds, setRecommenderIds] = useState<string[]>(work.recommenderIds);
 
   // Form state — Series
   const [seriesId, setSeriesId] = useState(work.seriesId ?? "");
@@ -146,7 +146,7 @@ export function WorkEditDialog({
     setRating(work.rating != null ? String(work.rating) : "");
     setDescription(work.description ?? "");
     setNotes(work.notes ?? "");
-    setRecommenderId(work.recommenderId ?? "");
+    setRecommenderIds(work.recommenderIds);
     setSeriesId(work.seriesId ?? "");
     setSeriesPosition(work.seriesPosition ?? "");
     setAuthors(initialAuthors);
@@ -238,7 +238,7 @@ export function WorkEditDialog({
           rating: rating ? parseInt(rating, 10) : null,
           description: description.trim() || null,
           notes: notes.trim() || null,
-          recommenderId: recommenderId || null,
+          recommenderIds,
           seriesId: seriesId || null,
           seriesPosition: seriesPosition.trim() || null,
           authorIds: authors.map((a) => ({
@@ -385,19 +385,56 @@ export function WorkEditDialog({
                   rows={3}
                   placeholder="Personal notes"
                 />
-                <Select
-                  id="edit-recommender"
-                  label="Recommended by"
-                  options={[
-                    { value: "", label: "None" },
-                    ...availableRecommenders.map((r) => ({
-                      value: r.id,
-                      label: r.name,
-                    })),
-                  ]}
-                  value={recommenderId}
-                  onChange={(e) => setRecommenderId(e.target.value)}
-                />
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-fg-secondary">
+                    Recommended by
+                  </label>
+                  {recommenderIds.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {recommenderIds.map((id) => {
+                        const r = availableRecommenders.find((x) => x.id === id);
+                        return r ? (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1 rounded-sm border border-glass-border bg-bg-secondary px-2 py-0.5 text-xs text-fg-secondary"
+                          >
+                            {r.name}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRecommenderIds((prev) =>
+                                  prev.filter((x) => x !== id),
+                                )
+                              }
+                              className="text-fg-muted transition-colors hover:text-fg-primary"
+                            >
+                              <X className="h-3 w-3" strokeWidth={1.5} />
+                            </button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && !recommenderIds.includes(val)) {
+                        setRecommenderIds((prev) => [...prev, val]);
+                      }
+                    }}
+                    className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-rose focus:outline-none"
+                  >
+                    <option value="">Add recommender...</option>
+                    {availableRecommenders
+                      .filter((r) => !recommenderIds.includes(r.id))
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
             </section>
 

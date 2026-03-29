@@ -1,3 +1,5 @@
+import type { SearchResult } from "./types";
+
 interface GoogleBooksVolume {
   id: string;
   volumeInfo: {
@@ -27,24 +29,6 @@ interface GoogleBooksResponse {
   items?: GoogleBooksVolume[];
 }
 
-export interface BookSearchResult {
-  source: "google_books";
-  sourceId: string;
-  title: string;
-  subtitle?: string;
-  authors: string[];
-  publisher?: string;
-  publishedDate?: string;
-  publicationYear?: number;
-  description?: string;
-  isbn13?: string;
-  isbn10?: string;
-  pageCount?: number;
-  categories: string[];
-  coverUrl?: string;
-  language?: string;
-}
-
 const BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 
 function parseYear(dateStr?: string): number | undefined {
@@ -64,7 +48,6 @@ function getBestCover(
   imageLinks?: GoogleBooksVolume["volumeInfo"]["imageLinks"],
 ): string | undefined {
   if (!imageLinks) return undefined;
-  // Prefer larger images, upgrade to https
   const url =
     imageLinks.large ??
     imageLinks.medium ??
@@ -74,7 +57,7 @@ function getBestCover(
   return url?.replace("http://", "https://");
 }
 
-function volumeToResult(volume: GoogleBooksVolume): BookSearchResult {
+function volumeToResult(volume: GoogleBooksVolume): SearchResult {
   const info = volume.volumeInfo;
   return {
     source: "google_books",
@@ -98,7 +81,7 @@ function volumeToResult(volume: GoogleBooksVolume): BookSearchResult {
 export async function searchGoogleBooks(
   query: string,
   maxResults = 10,
-): Promise<BookSearchResult[]> {
+): Promise<SearchResult[]> {
   const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
   const params = new URLSearchParams({
     q: query,
@@ -116,7 +99,14 @@ export async function searchGoogleBooks(
 
 export async function searchGoogleBooksByIsbn(
   isbn: string,
-): Promise<BookSearchResult | null> {
+): Promise<SearchResult | null> {
   const results = await searchGoogleBooks(`isbn:${isbn}`, 1);
   return results[0] ?? null;
+}
+
+export async function searchGoogleBooksByAuthor(
+  authorName: string,
+  maxResults = 10,
+): Promise<SearchResult[]> {
+  return searchGoogleBooks(`inauthor:"${authorName}"`, maxResults);
 }

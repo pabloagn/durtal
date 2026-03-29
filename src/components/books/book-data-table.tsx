@@ -4,17 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
+import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { ColumnDef } from "@/components/books/column-config-dialog";
 import type { CatalogueStatus } from "@/lib/types";
-
-const STATUS_CONFIG: Record<CatalogueStatus, { label: string; variant: "muted" | "blue" | "gold" | "rose" | "sage" | "red" }> = {
-  tracked: { label: "Tracked", variant: "muted" },
-  shortlisted: { label: "Shortlisted", variant: "blue" },
-  wanted: { label: "Wanted", variant: "gold" },
-  on_order: { label: "On Order", variant: "rose" },
-  accessioned: { label: "Accessioned", variant: "sage" },
-  deaccessioned: { label: "Deaccessioned", variant: "red" },
-};
+import type { CoverCrop } from "./book-card";
 
 export interface DetailedBookItem {
   workId: string;
@@ -22,6 +15,7 @@ export interface DetailedBookItem {
   title: string;
   authorName: string;
   coverUrl?: string | null;
+  coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
   language?: string | null;
   instanceCount: number;
@@ -66,7 +60,26 @@ function renderBookCell(book: DetailedBookItem, key: string) {
         >
           <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (
-              <Image src={book.coverUrl} alt="" fill sizes="56px" className="object-cover" />
+              <Image
+                src={book.coverUrl}
+                alt=""
+                fill
+                sizes="56px"
+                className="object-cover"
+                style={
+                  book.coverCrop &&
+                  (book.coverCrop.x !== 50 ||
+                    book.coverCrop.y !== 50 ||
+                    book.coverCrop.zoom !== 100)
+                    ? {
+                        objectPosition: `${book.coverCrop.x}% ${book.coverCrop.y}%`,
+                        transform: `scale(${book.coverCrop.zoom / 100})`,
+                        transformOrigin: `${book.coverCrop.x}% ${book.coverCrop.y}%`,
+                      }
+                    : undefined
+                }
+              unoptimized
+              />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <span className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>

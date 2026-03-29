@@ -1,4 +1,5 @@
 import { BookCard } from "./book-card";
+import type { CoverCrop } from "./book-card";
 
 interface BookGridItem {
   workId: string;
@@ -6,11 +7,14 @@ interface BookGridItem {
   title: string;
   authorName: string;
   coverUrl?: string | null;
+  coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  acquisitionPriority?: string | null;
+  primaryEditionId?: string | null;
 }
 
 const COL_CLASSES: Record<number, string> = {
@@ -26,15 +30,27 @@ const COL_CLASSES: Record<number, string> = {
 export function BookGrid({
   books,
   columns = 6,
+  isSelecting = false,
+  selectedIds,
+  onSelect,
 }: {
   books: BookGridItem[];
   columns?: number;
+  isSelecting?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (workId: string) => void;
 }) {
   const colClass = COL_CLASSES[columns] ?? "grid-cols-6";
   return (
     <div className={`grid gap-4 ${colClass}`}>
       {books.map((book) => (
-        <BookCard key={book.workId} {...book} />
+        <BookCard
+          key={book.workId}
+          {...book}
+          isSelecting={isSelecting}
+          isSelected={selectedIds?.has(book.workId) ?? false}
+          onSelect={onSelect}
+        />
       ))}
     </div>
   );

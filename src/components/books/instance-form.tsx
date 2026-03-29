@@ -164,8 +164,7 @@ export function InstanceForm({
             id={`inst-${index}-location`}
             value={value.locationId}
             onChange={(e) => {
-              update("locationId", e.target.value);
-              update("subLocationId", "");
+              onChange({ ...value, locationId: e.target.value, subLocationId: "" });
             }}
             placeholder="Select location..."
             options={locations.map((l) => ({

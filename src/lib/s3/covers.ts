@@ -1,4 +1,5 @@
 import {
+  S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -52,8 +53,22 @@ export async function getPresignedUploadUrl(
   contentType: string,
   expiresIn = 3600,
 ): Promise<string> {
+  // Disable SDK checksum headers -- browsers can't send them on PUT,
+  // causing S3 to reject the upload with a signature mismatch.
+  const s3NoChecksum =
+    noChecksumClient ?? new S3Client({
+      region: process.env.AWS_REGION ?? "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
+    });
+  noChecksumClient = s3NoChecksum;
+
   return getSignedUrl(
-    s3,
+    s3NoChecksum,
     new PutObjectCommand({
       Bucket: S3_BUCKET,
       Key: key,
@@ -62,6 +77,9 @@ export async function getPresignedUploadUrl(
     { expiresIn },
   );
 }
+
+// Cached client without automatic checksums (for browser-facing presigned URLs)
+let noChecksumClient: S3Client | null = null;
 
 /**
  * Download a cover image from a URL, process it with sharp,
@@ -82,16 +100,16 @@ export async function processAndUploadCover(
     // Dynamic import sharp (it's a native module)
     const sharp = (await import("sharp")).default;
 
-    // Full cover: 400x600 max, webp
+    // Full cover: 1200x1800 max, webp (sharp on all displays)
     const coverBuffer = await sharp(buffer)
-      .resize(400, 600, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 85 })
+      .resize(1200, 1800, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 88 })
       .toBuffer();
 
-    // Thumbnail: 200x300 max, webp
+    // Thumbnail: 600x900 max, webp (crisp on retina)
     const thumbBuffer = await sharp(buffer)
-      .resize(200, 300, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 75 })
+      .resize(600, 900, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82 })
       .toBuffer();
 
     const coverKey = goldCoverKey(editionId);

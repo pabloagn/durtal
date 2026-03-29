@@ -39,6 +39,7 @@ export function AuthorListItem({
             fill
             sizes="28px"
             className="object-cover"
+          unoptimized
           />
         ) : (
           <div className="flex h-full items-center justify-center">

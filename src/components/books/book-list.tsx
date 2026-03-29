@@ -1,16 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import type { CatalogueStatus } from "@/lib/types";
-
-const STATUS_CONFIG: Record<CatalogueStatus, { label: string; variant: "muted" | "blue" | "gold" | "rose" | "sage" | "red" }> = {
-  tracked: { label: "Tracked", variant: "muted" },
-  shortlisted: { label: "Shortlisted", variant: "blue" },
-  wanted: { label: "Wanted", variant: "gold" },
-  on_order: { label: "On Order", variant: "rose" },
-  accessioned: { label: "Accessioned", variant: "sage" },
-  deaccessioned: { label: "Deaccessioned", variant: "red" },
-};
+import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
+import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
+import type { CoverCrop } from "./book-card";
 
 interface BookListItem {
   workId: string;
@@ -18,11 +11,13 @@ interface BookListItem {
   title: string;
   authorName: string;
   coverUrl?: string | null;
+  coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
   language?: string | null;
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  acquisitionPriority?: string | null;
 }
 
 export function BookList({ books }: { books: BookListItem[] }) {
@@ -43,6 +38,19 @@ export function BookList({ books }: { books: BookListItem[] }) {
                 fill
                 sizes="28px"
                 className="object-cover"
+                style={
+                  book.coverCrop &&
+                  (book.coverCrop.x !== 50 ||
+                    book.coverCrop.y !== 50 ||
+                    book.coverCrop.zoom !== 100)
+                    ? {
+                        objectPosition: `${book.coverCrop.x}% ${book.coverCrop.y}%`,
+                        transform: `scale(${book.coverCrop.zoom / 100})`,
+                        transformOrigin: `${book.coverCrop.x}% ${book.coverCrop.y}%`,
+                      }
+                    : undefined
+                }
+              unoptimized
               />
             ) : (
               <div className="flex h-full items-center justify-center">
@@ -71,6 +79,18 @@ export function BookList({ books }: { books: BookListItem[] }) {
                 : null;
               return statusInfo ? (
                 <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+              ) : null;
+            })()}
+            {(() => {
+              const priorityInfo =
+                book.acquisitionPriority && book.acquisitionPriority !== "none"
+                  ? PRIORITY_CONFIG[book.acquisitionPriority as AcquisitionPriority]
+                  : null;
+              return priorityInfo ? (
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${priorityInfo.dotColor}`}
+                  title={priorityInfo.label}
+                />
               ) : null;
             })()}
             {book.publicationYear && (

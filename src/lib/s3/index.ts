@@ -21,5 +21,11 @@ export {
   bronzeMediaKey,
   goldMediaKey,
   goldMediaThumbnailKey,
+  goldMediaOriginalKey,
 } from "./keys";
-export { processAndUploadMedia } from "./media";
+export {
+  processAndUploadMedia,
+  processAndUploadAuthorMedia,
+  applyMonochromeProcessing,
+  reprocessAuthorMedia,
+} from "./media";

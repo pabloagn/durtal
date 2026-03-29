@@ -78,6 +78,7 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
             height={1200}
             className="max-h-[85vh] w-auto object-contain"
             priority
+          unoptimized
           />
           {current.caption && (
             <p className="mt-3 text-center text-xs text-fg-secondary">

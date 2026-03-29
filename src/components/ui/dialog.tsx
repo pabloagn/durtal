@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useCallback, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 interface DialogProps {
@@ -22,6 +22,8 @@ export function Dialog({
 }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
+  const handleClose = useCallback(() => onClose(), [onClose]);
+
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
@@ -32,10 +34,11 @@ export function Dialog({
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    const handleClose = () => onClose();
     el.addEventListener("close", handleClose);
     return () => el.removeEventListener("close", handleClose);
-  }, [onClose]);
+  }, [handleClose]);
+
+  if (!open) return null;
 
   return (
     <dialog

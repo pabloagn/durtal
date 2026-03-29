@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { Search } from "lucide-react";
+import { Search, ArrowUp, ArrowDown } from "lucide-react";
 import {
   ViewModeSwitcher,
   type ViewMode,
@@ -19,10 +19,13 @@ interface EntityFiltersProps {
   sortOptions: SortOption[];
   searchPlaceholder?: string;
   defaultSort?: string;
+  defaultSortOrders?: Record<string, "asc" | "desc">;
   viewMode: ViewMode;
   gridColumns: number;
   onViewModeChange: (mode: ViewMode) => void;
   onGridColumnsChange: (cols: number) => void;
+  children?: React.ReactNode;
+  className?: string;
 }
 
 export function EntityFilters({
@@ -30,15 +33,21 @@ export function EntityFilters({
   sortOptions,
   searchPlaceholder = "Search...",
   defaultSort,
+  defaultSortOrders,
   viewMode,
   gridColumns,
   onViewModeChange,
   onGridColumnsChange,
+  children,
+  className,
 }: EntityFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const resolvedDefault = defaultSort ?? sortOptions[0]?.value ?? "";
   const currentSort = searchParams.get("sort") ?? resolvedDefault;
+  const currentOrder = searchParams.get("order") as "asc" | "desc" | null;
+  const effectiveOrder =
+    currentOrder ?? defaultSortOrders?.[currentSort] ?? "asc";
   const currentQuery = searchParams.get("q") ?? "";
 
   const updateParams = useCallback(
@@ -56,7 +65,7 @@ export function EntityFilters({
   );
 
   return (
-    <div className="mb-6 flex items-center gap-3">
+    <div className={className ?? "mb-6 flex items-center gap-3"}>
       {/* Search */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
@@ -81,7 +90,26 @@ export function EntityFilters({
         {sortOptions.map((opt) => (
           <button
             key={opt.value}
-            onClick={() => updateParams("sort", opt.value)}
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              if (opt.value === currentSort) {
+                // Toggle direction
+                const newOrder =
+                  effectiveOrder === "asc" ? "desc" : "asc";
+                const defaultOrder =
+                  defaultSortOrders?.[opt.value] ?? "asc";
+                if (newOrder === defaultOrder) {
+                  params.delete("order"); // clean URL when using default
+                } else {
+                  params.set("order", newOrder);
+                }
+              } else {
+                params.set("sort", opt.value);
+                params.delete("order"); // reset to default for new sort field
+              }
+              params.delete("page");
+              router.push(`${basePath}?${params.toString()}`);
+            }}
             className={`rounded-sm px-2.5 py-1 text-xs transition-colors ${
               currentSort === opt.value
                 ? "bg-accent-plum text-fg-primary"
@@ -89,9 +117,24 @@ export function EntityFilters({
             }`}
           >
             {opt.label}
+            {currentSort === opt.value &&
+              (effectiveOrder === "asc" ? (
+                <ArrowUp
+                  className="ml-0.5 inline h-3 w-3"
+                  strokeWidth={1.5}
+                />
+              ) : (
+                <ArrowDown
+                  className="ml-0.5 inline h-3 w-3"
+                  strokeWidth={1.5}
+                />
+              ))}
           </button>
         ))}
       </div>
+
+      {/* Custom filters */}
+      {children}
 
       {/* View mode */}
       <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} />

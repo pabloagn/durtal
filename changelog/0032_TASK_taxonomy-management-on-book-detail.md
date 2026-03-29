@@ -1,6 +1,6 @@
 # Task 0032: Taxonomy Management on Book Detail
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-28
 **Priority**: MEDIUM
 **Type**: Feature

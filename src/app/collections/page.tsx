@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { Suspense } from "react";
 import Image from "next/image";
 import { FolderOpen } from "lucide-react";
@@ -49,6 +47,7 @@ async function CollectionsContent() {
                   fill
                   sizes="(min-width: 1280px) 220px, (min-width: 768px) 200px, 50vw"
                   className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                unoptimized
                 />
               ) : backgroundKey ? (
                 <Image
@@ -57,6 +56,7 @@ async function CollectionsContent() {
                   fill
                   sizes="(min-width: 1280px) 220px, (min-width: 768px) 200px, 50vw"
                   className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                unoptimized
                 />
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2">

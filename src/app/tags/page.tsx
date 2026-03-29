@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { Suspense } from "react";
 import { Tag } from "lucide-react";
 import { getTags } from "@/lib/actions/taxonomy";

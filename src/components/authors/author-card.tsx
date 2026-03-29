@@ -40,6 +40,7 @@ export function AuthorCard({
             fill
             sizes="(min-width: 1280px) 200px, (min-width: 768px) 180px, 160px"
             className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+          unoptimized
           />
         ) : (
           <div className="flex h-full items-center justify-center">
