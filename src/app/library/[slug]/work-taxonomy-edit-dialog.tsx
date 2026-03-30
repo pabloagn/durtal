@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Tag } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,9 @@ interface WorkTaxonomyEditDialogProps {
   artMovements: { id: string; name: string }[];
   keywords: { id: string; name: string }[];
   attributes: { id: string; name: string }[];
+  /** When provided, the dialog is externally controlled and no trigger button is rendered */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function WorkTaxonomyEditDialog({
@@ -47,9 +50,19 @@ export function WorkTaxonomyEditDialog({
   artMovements,
   keywords,
   attributes,
+  open: controlledOpen,
+  onOpenChange,
 }: WorkTaxonomyEditDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  function setOpen(next: boolean) {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  }
+
   const [isPending, startTransition] = useTransition();
 
   const [subjectIds, setSubjectIds] = useState<string[]>(currentSubjectIds);
@@ -80,6 +93,21 @@ export function WorkTaxonomyEditDialog({
     setOpen(true);
   }
 
+  // When externally controlled, reset selections whenever the dialog opens
+  useEffect(() => {
+    if (isControlled && open) {
+      setSubjectIds(currentSubjectIds);
+      setCategoryIds(currentCategoryIds);
+      setThemeIds(currentThemeIds);
+      setLiteraryMovementIds(currentLiteraryMovementIds);
+      setArtTypeIds(currentArtTypeIds);
+      setArtMovementIds(currentArtMovementIds);
+      setKeywordIds(currentKeywordIds);
+      setAttributeIds(currentAttributeIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isControlled, open]);
+
   function handleSave() {
     startTransition(async () => {
       try {
@@ -104,13 +132,15 @@ export function WorkTaxonomyEditDialog({
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-      >
-        <Tag className="h-3.5 w-3.5" strokeWidth={1.5} />
-        Edit taxonomy
-      </button>
+      {!isControlled && (
+        <button
+          onClick={handleOpen}
+          className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+        >
+          <Tag className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Edit taxonomy
+        </button>
+      )}
 
       <Dialog
         open={open}

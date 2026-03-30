@@ -24,6 +24,7 @@ interface EntityFiltersProps {
   gridColumns: number;
   onViewModeChange: (mode: ViewMode) => void;
   onGridColumnsChange: (cols: number) => void;
+  availableViewModes?: ViewMode[];
   children?: React.ReactNode;
   className?: string;
 }
@@ -38,6 +39,7 @@ export function EntityFilters({
   gridColumns,
   onViewModeChange,
   onGridColumnsChange,
+  availableViewModes,
   children,
   className,
 }: EntityFiltersProps) {
@@ -137,7 +139,7 @@ export function EntityFilters({
       {children}
 
       {/* View mode */}
-      <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} />
+      <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} availableModes={availableViewModes} />
 
       {/* Grid size slider (only in grid mode) */}
       {viewMode === "grid" && (

@@ -50,7 +50,7 @@ NON_LITERARY_ROLES = frozenset({
 # Values should match the start of a country name in Countries_Continents.
 NATIONALITY_TO_COUNTRY: dict[str, str] = {
     "Afghan": "Afghanistan", "Albanian": "Albania", "Algerian": "Algeria",
-    "American": "United States", "Angolan": "Angola", "Argentine": "Argentina",
+    "American": "United States of America", "Angolan": "Angola", "Argentine": "Argentina",
     "Argentinian": "Argentina", "Armenian": "Armenia", "Australian": "Australia",
     "Austrian": "Austria", "Azerbaijani": "Azerbaijan",
     "Bahraini": "Bahrain", "Bangladeshi": "Bangladesh", "Barbadian": "Barbados",

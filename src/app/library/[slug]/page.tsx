@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Star, Route } from "lucide-react";
 import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
 import { getAuthors } from "@/lib/actions/authors";
+import { getOrdersForWork } from "@/lib/actions/orders";
 import { getSeries } from "@/lib/actions/series";
 import {
   getWorkTypes,
@@ -25,13 +26,11 @@ import { WorkMediaInline } from "./work-media-inline";
 import { WorkMetadataGrid } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
 import { EditionDetailCard } from "./edition-detail-card";
-import { EditionAddDialog } from "./edition-add-dialog";
-import { WorkEditDialog } from "./work-edit-dialog";
-import { WorkDeleteButton } from "./work-delete-button";
-import { WorkCopyButton } from "./work-copy-button";
-import { WorkTaxonomyEditDialog } from "./work-taxonomy-edit-dialog";
+import { WorkActionsMenu } from "./work-actions-menu";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { BookCard } from "@/components/books/book-card";
+import { WorkPosterImage } from "./work-poster-image";
+import { GallerySection } from "@/components/shared/gallery-section";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -95,6 +94,9 @@ export default async function WorkDetailPage({ params }: PageProps) {
   ]);
 
   if (!work) notFound();
+
+  // Get orders for this work
+  const workOrders = await getOrdersForWork(work.id);
 
   // Get works by the same primary author
   const primaryAuthor = work.workAuthors[0]?.author;
@@ -189,18 +191,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <div className={`${background ? "mb-4" : "mb-8"} flex gap-6`}>
         {/* Poster image */}
         {poster && (
-          <div className="relative h-64 w-44 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-            <img
-              src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
-              alt={`${work.title} poster`}
-              className="h-full w-full object-cover"
-              style={{
-                objectPosition: `${poster.cropX}% ${poster.cropY}%`,
-                transform: `scale(${poster.cropZoom / 100})`,
-                transformOrigin: `${poster.cropX}% ${poster.cropY}%`,
-              }}
-            />
-          </div>
+          <WorkPosterImage
+            src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
+            alt={`${work.title} poster`}
+            cropX={poster.cropX}
+            cropY={poster.cropY}
+            cropZoom={poster.cropZoom}
+          />
         )}
 
         <div className="min-w-0 flex-1">
@@ -208,12 +205,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
             <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
               {work.title}
             </h1>
-            <div className="flex items-center gap-1">
-              <WorkCopyButton
-                title={work.title}
-                authorName={primaryAuthors.map((a) => a.name).join(", ")}
-              />
-              <WorkEditDialog
+            <div className="flex-shrink-0">
+              <WorkActionsMenu
                 work={{
                   id: work.id,
                   slug: work.slug ?? "",
@@ -232,33 +225,43 @@ export default async function WorkDetailPage({ params }: PageProps) {
                   acquisitionPriority: work.acquisitionPriority,
                   recommenderIds: work.workRecommenders.map((wr) => wr.recommender.id),
                 }}
-                authors={work.workAuthors.map((wa) => ({
+                workAuthors={work.workAuthors.map((wa) => ({
                   id: wa.author.id,
                   name: wa.author.name,
                   role: wa.role,
                 }))}
-                availableAuthors={allAuthors.map((a) => ({
-                  id: a.id,
-                  name: a.name,
-                }))}
-                availableSeries={allSeries.map((s) => ({
-                  id: s.id,
-                  title: s.title,
-                }))}
-                availableWorkTypes={allWorkTypes.map((wt) => ({
-                  id: wt.id,
-                  name: wt.name,
-                }))}
-                availableRecommenders={allRecommenders.map((r) => ({
-                  id: r.id,
-                  name: r.name,
-                }))}
-              />
-              <WorkDeleteButton
-                workId={work.id}
-                title={work.title}
+                authorName={primaryAuthors.map((a) => a.name).join(", ")}
                 editionCount={work.editions.length}
                 instanceCount={work.editions.reduce((acc, e) => acc + (e.instances?.length ?? 0), 0)}
+                posterCount={allPosters.length}
+                backgroundCount={allBackgrounds.length}
+                galleryCount={galleryMedia.length}
+                taxonomyIds={{
+                  subjectIds: work.workSubjects.map((ws) => ws.subject.id),
+                  categoryIds: work.workCategories.map((wc) => wc.category.id),
+                  themeIds: work.workThemes.map((wt) => wt.theme.id),
+                  literaryMovementIds: work.workLiteraryMovements.map((wlm) => wlm.literaryMovement.id),
+                  artTypeIds: work.workArtTypes.map((wat) => wat.artType.id),
+                  artMovementIds: work.workArtMovements.map((wam) => wam.artMovement.id),
+                  keywordIds: work.workKeywords.map((wk) => wk.keyword.id),
+                  attributeIds: work.workAttributes.map((wa) => wa.attribute.id),
+                }}
+                availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
+                availableSeries={allSeries.map((s) => ({ id: s.id, title: s.title }))}
+                availableWorkTypes={allWorkTypes.map((wt) => ({ id: wt.id, name: wt.name }))}
+                availableRecommenders={allRecommenders.map((r) => ({ id: r.id, name: r.name }))}
+                availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
+                availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
+                taxonomyOptions={{
+                  subjects: allSubjects.map((s) => ({ id: s.id, name: s.name })),
+                  categories: allCategories.map((c) => ({ id: c.id, name: c.name })),
+                  themes: allThemes.map((t) => ({ id: t.id, name: t.name })),
+                  literaryMovements: allLiteraryMovements.map((lm) => ({ id: lm.id, name: lm.name })),
+                  artTypes: allArtTypes.map((at) => ({ id: at.id, name: at.name })),
+                  artMovements: allArtMovements.map((am) => ({ id: am.id, name: am.name })),
+                  keywords: allKeywords.map((k) => ({ id: k.id, name: k.name })),
+                  attributes: allAttributes.map((a) => ({ id: a.id, name: a.name })),
+                }}
               />
             </div>
           </div>
@@ -371,42 +374,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       <WorkMetadataGrid work={work} />
 
       {/* Taxonomy section */}
-      <WorkTaxonomySection
-        work={work}
-        headerAction={
-          <WorkTaxonomyEditDialog
-            workId={work.id}
-            currentSubjectIds={work.workSubjects.map((ws) => ws.subject.id)}
-            currentCategoryIds={work.workCategories.map((wc) => wc.category.id)}
-            currentThemeIds={work.workThemes.map((wt) => wt.theme.id)}
-            currentLiteraryMovementIds={work.workLiteraryMovements.map(
-              (wlm) => wlm.literaryMovement.id,
-            )}
-            currentArtTypeIds={work.workArtTypes.map((wat) => wat.artType.id)}
-            currentArtMovementIds={work.workArtMovements.map(
-              (wam) => wam.artMovement.id,
-            )}
-            currentKeywordIds={work.workKeywords.map((wk) => wk.keyword.id)}
-            currentAttributeIds={work.workAttributes.map(
-              (wa) => wa.attribute.id,
-            )}
-            subjects={allSubjects.map((s) => ({ id: s.id, name: s.name }))}
-            categories={allCategories.map((c) => ({ id: c.id, name: c.name }))}
-            themes={allThemes.map((t) => ({ id: t.id, name: t.name }))}
-            literaryMovements={allLiteraryMovements.map((lm) => ({
-              id: lm.id,
-              name: lm.name,
-            }))}
-            artTypes={allArtTypes.map((at) => ({ id: at.id, name: at.name }))}
-            artMovements={allArtMovements.map((am) => ({
-              id: am.id,
-              name: am.name,
-            }))}
-            keywords={allKeywords.map((k) => ({ id: k.id, name: k.name }))}
-            attributes={allAttributes.map((a) => ({ id: a.id, name: a.name }))}
-          />
-        }
-      />
+      <WorkTaxonomySection work={work} />
 
       {/* Media management */}
       <WorkMediaInline
@@ -415,21 +383,18 @@ export default async function WorkDetailPage({ params }: PageProps) {
         posterCount={allPosters.length}
         backgroundCount={allBackgrounds.length}
         galleryCount={galleryMedia.length}
+        showButton={false}
       />
+
+      {/* Gallery collage */}
+      <GallerySection entityType="work" entityId={work.id} />
 
       {/* Editions */}
       <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4">
           <h2 className="font-serif text-2xl text-fg-primary">
             Editions ({work.editions.length})
           </h2>
-          <EditionAddDialog
-            workId={work.id}
-            workTitle={work.title}
-            availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
-            availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
-            availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
-          />
         </div>
 
         <div className="space-y-4">
@@ -503,6 +468,69 @@ export default async function WorkDetailPage({ params }: PageProps) {
               );
             })}
           </HorizontalCarousel>
+        </section>
+      )}
+
+      {/* Orders */}
+      {workOrders.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-serif text-xl text-fg-secondary">
+              Orders ({workOrders.length})
+            </h2>
+            <Link
+              href="/provenance"
+              className="inline-flex items-center gap-1.5 text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+            >
+              <Route className="h-3 w-3" strokeWidth={1.5} />
+              View pipeline
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {workOrders.map((order) => {
+              const statusVariantMap: Record<string, "default" | "blue" | "gold" | "sage" | "red" | "muted"> = {
+                placed: "muted",
+                confirmed: "blue",
+                processing: "gold",
+                shipped: "sage",
+                in_transit: "sage",
+                out_for_delivery: "gold",
+                delivered: "sage",
+                purchased: "sage",
+                received: "sage",
+                bid: "gold",
+                won: "sage",
+                cancelled: "red",
+                returned: "red",
+              };
+              const variant = statusVariantMap[order.status] ?? "muted";
+              return (
+                <div
+                  key={order.id}
+                  className="flex items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
+                >
+                  <Badge variant={variant}>
+                    {order.status.replace(/_/g, " ")}
+                  </Badge>
+                  <span className="text-xs text-fg-secondary">
+                    {order.acquisitionMethod.replace(/_/g, " ")}
+                  </span>
+                  {order.venue && (
+                    <span className="truncate text-xs text-fg-muted">
+                      {order.venue.name}
+                    </span>
+                  )}
+                  <span className="ml-auto font-mono text-micro text-fg-muted">
+                    {new Date(order.orderDate).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

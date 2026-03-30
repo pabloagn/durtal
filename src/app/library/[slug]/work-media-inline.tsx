@@ -11,6 +11,14 @@ interface WorkMediaInlineProps {
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
+  /**
+   * When provided, the dialog is externally controlled and no trigger button is rendered.
+   * Pass `false` to simply hide the button without external control.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Set to false to hide the built-in trigger button (e.g., when using an action menu) */
+  showButton?: boolean;
 }
 
 export function WorkMediaInline({
@@ -19,8 +27,18 @@ export function WorkMediaInline({
   posterCount,
   backgroundCount,
   galleryCount,
+  open: controlledOpen,
+  onOpenChange,
+  showButton = true,
 }: WorkMediaInlineProps) {
-  const [mediaOpen, setMediaOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const mediaOpen = isControlled ? controlledOpen : internalOpen;
+
+  function setMediaOpen(next: boolean) {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  }
 
   const totalCount = posterCount + backgroundCount + galleryCount;
 
@@ -33,14 +51,16 @@ export function WorkMediaInline({
             <span className="ml-1 text-fg-muted">({totalCount})</span>
           )}
         </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setMediaOpen(true)}
-        >
-          <Image className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Manage media
-        </Button>
+        {showButton && !isControlled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMediaOpen(true)}
+          >
+            <Image className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Manage media
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-4 text-xs text-fg-muted">

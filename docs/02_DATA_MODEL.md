@@ -312,12 +312,15 @@ Persons who create, translate, edit, or otherwise contribute to works and editio
 | `birth_day` | SMALLINT | nullable | |
 | `birth_year_is_approximate` | BOOLEAN | default `false` | |
 | `birth_year_gregorian` | SMALLINT | nullable | Gregorian calendar year |
+| `zodiac_sign` | TEXT | nullable | Auto-computed from birth_month/birth_day (tropical Western zodiac). Values: `aries`, `taurus`, `gemini`, `cancer`, `leo`, `virgo`, `libra`, `scorpio`, `sagittarius`, `capricorn`, `aquarius`, `pisces` |
 | `death_year` | SMALLINT | nullable | |
 | `death_month` | SMALLINT | nullable | |
 | `death_day` | SMALLINT | nullable | |
 | `death_year_is_approximate` | BOOLEAN | default `false` | |
 | `death_year_gregorian` | SMALLINT | nullable | Gregorian calendar year |
 | `nationality_id` | UUID | FK → `countries.id`, SET NULL | |
+| `birth_place_id` | UUID | FK → `places.id`, SET NULL | Geographic place of birth |
+| `death_place_id` | UUID | FK → `places.id`, SET NULL | Geographic place of death |
 | `bio` | VARCHAR(10000) | nullable | |
 | `photo_s3_key` | TEXT | nullable | S3 key for author photo |
 | `website` | TEXT | nullable | |
@@ -328,7 +331,7 @@ Persons who create, translate, edit, or otherwise contribute to works and editio
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
-**Relations**: `workAuthors` (N:M via junction), `editionContributors` (N:M), `media` (1:N), `authorContributionTypes` (N:M)
+**Relations**: `workAuthors` (N:M via junction), `editionContributors` (N:M), `media` (1:N), `authorContributionTypes` (N:M), `birthPlace` (N:1 → `places`), `deathPlace` (N:1 → `places`)
 
 ---
 
@@ -517,9 +520,31 @@ Normalized country/continent reference. ISO 3166 compliant.
 | `numeric_code` | SMALLINT | |
 | `continent_name` | TEXT | |
 | `continent_code` | VARCHAR(2) | |
+| `latitude` | DOUBLE PRECISION | nullable | Geographic centroid latitude |
+| `longitude` | DOUBLE PRECISION | nullable | Geographic centroid longitude |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 Indexed on: `name`, `alpha_2`, `alpha_3`, `continent_name`. Seeded from Knowledge_Base (262 rows).
+
+### `places`
+
+Hierarchical geographic locations. Used to record birth and death places for authors. Supports arbitrary depth (country → region → city → district → neighborhood) via a self-referential parent FK.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK, auto-generated | |
+| `name` | TEXT | NOT NULL | Short place name (e.g., "Paris") |
+| `full_name` | TEXT | nullable | Precomputed full path (e.g., "Paris, Île-de-France, France") |
+| `type` | TEXT | NOT NULL | `country`, `region`, `state`, `province`, `city`, `town`, `village`, `district`, `neighborhood` |
+| `parent_id` | UUID | FK → `places.id`, SET NULL, self-ref | Parent in hierarchy |
+| `country_id` | UUID | FK → `countries.id`, SET NULL | Shortcut to country for fast filtering |
+| `latitude` | DOUBLE PRECISION | nullable | |
+| `longitude` | DOUBLE PRECISION | nullable | |
+| `geoname_id` | INTEGER | nullable | GeoNames database ID |
+| `wikidata_id` | TEXT | nullable | Wikidata entity ID (e.g., Q90 for Paris) |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Relations**: `parent` (N:1 → `places`, self-ref), `children` (1:N → `places`, self-ref), `country` (N:1 → `countries`)
 
 ### `centuries`
 
@@ -905,6 +930,27 @@ Images attached to works or authors. Polymorphic ownership.
 
 **Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
 
+### `gallery_layouts`
+
+Pre-computed collage grid layout specifications for gallery media on work and author detail pages. Stores the result of the layout algorithm so layouts are deterministic and do not need to be recomputed on every page view.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK, auto-generated | |
+| `entity_type` | TEXT | NOT NULL | `'work'` or `'author'` |
+| `entity_id` | UUID | NOT NULL | ID of the owning work or author |
+| `layout_data` | JSONB | NOT NULL | Computed `CollageLayoutData` JSON: `{ blocks: CollageBlock[] }` where each block has `columns`, `rows`, and `cells` (with `mediaId`, `row`, `col`, `rowSpan`, `colSpan`) |
+| `seed` | INTEGER | NOT NULL, default `0` | Integer seed used for deterministic template selection — same seed produces the same layout |
+| `image_count` | INTEGER | NOT NULL, default `0` | Number of gallery images at time of last computation; used to detect staleness |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Unique constraint**: `(entity_type, entity_id)` — one layout record per entity.
+
+**Staleness detection**: The `image_count` field is compared against the current count of `media` rows with `type = 'gallery'` for the entity. If they differ, the layout is recomputed before rendering. The existing `seed` is reused to preserve the current visual arrangement where possible.
+
+**Randomization**: A "Shuffle" button in the gallery UI calls `randomizeLayout()`, which generates a new random seed and recomputes the layout, storing the new result.
+
 ### `imports`
 
 Tracks bulk import operations through the medallion pipeline.
@@ -927,6 +973,59 @@ Tracks bulk import operations through the medallion pipeline.
 
 ---
 
+## Provenance Tables
+
+### `orders`
+
+Tracks the acquisition pipeline for individual works — from intent to receipt. Links a work to a venue, shipping details, cost breakdown, and destination location.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK, auto-generated | |
+| `work_id` | UUID | FK → `works.id`, CASCADE, NOT NULL | The work being acquired |
+| `edition_id` | UUID | FK → `editions.id`, SET NULL, nullable | Specific edition ordered (if known) |
+| `instance_id` | UUID | FK → `instances.id`, SET NULL, nullable | Resulting instance once received |
+| `venue_id` | UUID | FK → `venues.id`, SET NULL, nullable | Venue / seller from which the order was placed |
+| `acquisition_method` | `acquisition_method_enum` | NOT NULL | How the work is being acquired |
+| `status` | `order_status_enum` | NOT NULL, default `'placed'` | Current stage in the acquisition pipeline |
+| `order_date` | DATE | NOT NULL | Date the order was placed or acquisition initiated |
+| `order_confirmation` | TEXT | nullable | Confirmation or reference number |
+| `order_url` | TEXT | nullable | URL to the order page |
+| `price` | NUMERIC(10,2) | nullable | Item price (before shipping) |
+| `shipping_cost` | NUMERIC(10,2) | nullable | Shipping cost |
+| `total_cost` | NUMERIC(10,2) | nullable | Total cost (price + shipping) |
+| `currency` | TEXT | nullable | ISO 4217 currency code (e.g., `EUR`) |
+| `carrier` | TEXT | nullable | Shipping carrier (e.g., `DHL`, `USPS`) |
+| `tracking_number` | TEXT | nullable | Carrier tracking number |
+| `tracking_url` | TEXT | nullable | Direct link to carrier tracking page |
+| `shipped_date` | DATE | nullable | Date item was shipped |
+| `estimated_delivery_date` | DATE | nullable | Expected arrival date |
+| `actual_delivery_date` | DATE | nullable | Date the item was actually received |
+| `origin_description` | TEXT | nullable | Free-text origin description (e.g., gift from person) |
+| `origin_place_id` | UUID | FK → `places.id`, SET NULL, nullable | Geographic origin of the shipment |
+| `destination_location_id` | UUID | FK → `locations.id`, SET NULL, nullable | Target library location |
+| `destination_sub_location_id` | UUID | FK → `sub_locations.id`, SET NULL, nullable | Target shelf/drawer within location |
+| `notes` | TEXT | nullable | Personal collector notes |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Relations**: `work` (N:1), `edition` (N:1), `instance` (N:1), `venue` (N:1), `originPlace` (N:1), `destinationLocation` (N:1), `destinationSubLocation` (N:1), `statusHistory` (1:N → `order_status_history`)
+
+### `order_status_history`
+
+Append-only audit log of every status transition for an order.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK, auto-generated | |
+| `order_id` | UUID | FK → `orders.id`, CASCADE, NOT NULL | Parent order |
+| `from_status` | `order_status_enum` | nullable | Previous status (null for initial entry) |
+| `to_status` | `order_status_enum` | NOT NULL | New status |
+| `changed_at` | TIMESTAMPTZ | NOT NULL, auto | When the transition occurred |
+| `notes` | TEXT | nullable | Optional note for this transition |
+
+---
+
 ## Enums
 
 ### Postgres Enums (pgEnum)
@@ -939,6 +1038,8 @@ These are native Postgres enum types enforced at the database level.
 | `acquisition_priority_enum` | `none`, `low`, `medium`, `high`, `urgent` |
 | `instance_status_enum` | `available`, `lent_out`, `in_transit`, `in_storage`, `missing`, `damaged`, `deaccessioned` |
 | `disposition_type_enum` | `sold`, `donated`, `gifted`, `traded`, `lost`, `stolen`, `destroyed`, `returned`, `expired` |
+| `order_status_enum` | `placed`, `confirmed`, `processing`, `shipped`, `in_transit`, `out_for_delivery`, `delivered`, `purchased`, `received`, `bid`, `won`, `cancelled`, `returned` |
+| `acquisition_method_enum` | `online_order`, `in_store_purchase`, `gift`, `digital_purchase`, `auction`, `event_purchase` |
 
 ### Application-Level Enums
 
@@ -1009,6 +1110,14 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `countries` | `publishing_houses.country_id` | SET NULL |
 | `series` | `works.series_id` | SET NULL |
 | `work_types` | `works.work_type_id` | SET NULL |
+| `works` | `orders` | CASCADE |
+| `editions` | `orders.edition_id` | SET NULL |
+| `instances` | `orders.instance_id` | SET NULL |
+| `venues` | `orders.venue_id` | SET NULL |
+| `places` | `orders.origin_place_id` | SET NULL |
+| `locations` | `orders.destination_location_id` | SET NULL |
+| `sub_locations` | `orders.destination_sub_location_id` | SET NULL |
+| `orders` | `order_status_history` | CASCADE |
 
 ---
 
@@ -1026,9 +1135,10 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Publishing | `publishing_houses`, `publisher_specialties` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
 | Organization | `collections` | `collection_editions` |
-| Media | `media` | — |
+| Media | `media`, `gallery_layouts` | — |
 | Import | `imports` | — |
-| **Total** | **32 entity tables** | **17 junction tables** |
+| Provenance | `orders`, `order_status_history` | — |
+| **Total** | **35 entity tables** | **17 junction tables** |
 
 ---
 
@@ -1106,3 +1216,49 @@ JOIN works w ON w.id = e.work_id
 JOIN locations l ON l.id = i.location_id
 WHERE i.is_lent_out = true;
 ```
+
+---
+
+## Venues Table
+
+### `venues`
+
+Real-world and online establishments where books are acquired, browsed, or experienced. This is the "Places" section of the catalogue.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | UUID | PK, auto-generated | |
+| `name` | TEXT | NOT NULL | Venue name |
+| `slug` | TEXT | UNIQUE, nullable | URL slug (auto-generated from name) |
+| `type` | `venue_type_enum` | NOT NULL | Category: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other` |
+| `subtype` | TEXT | nullable | More specific classification (e.g. "second-hand", "academic") |
+| `description` | TEXT | nullable | Description of the venue |
+| `website` | TEXT | nullable | Website URL |
+| `instagram_handle` | TEXT | nullable | Instagram handle |
+| `social_links` | JSONB | nullable | Additional social links `{ twitter, facebook, ... }` |
+| `place_id` | UUID | FK → `places.id`, nullable, SET NULL | Geographic place reference |
+| `formatted_address` | TEXT | nullable | Full street address |
+| `google_place_id` | TEXT | nullable | Google Places API identifier |
+| `phone` | TEXT | nullable | Phone number |
+| `email` | TEXT | nullable | Contact email |
+| `opening_hours` | JSONB | nullable | Structured opening hours |
+| `timezone` | TEXT | nullable | IANA timezone identifier |
+| `poster_s3_key` | TEXT | nullable | S3 key for venue poster image |
+| `thumbnail_s3_key` | TEXT | nullable | S3 key for thumbnail image |
+| `color` | TEXT | nullable | Brand/accent color for display |
+| `is_favorite` | BOOLEAN | NOT NULL, default `false` | Marked as favorite |
+| `personal_rating` | SMALLINT | nullable | Personal rating 1–5 |
+| `notes` | TEXT | nullable | Personal notes |
+| `specialties` | TEXT | nullable | What the venue specialises in |
+| `tags` | TEXT[] | nullable | Free-form tags |
+| `first_visit_date` | DATE | nullable | Date of first visit |
+| `last_visit_date` | DATE | nullable | Date of most recent visit |
+| `total_orders` | INTEGER | NOT NULL, default `0` | Denormalised order count |
+| `total_spent` | NUMERIC(12,2) | NOT NULL, default `0` | Denormalised total spend |
+| `last_order_date` | DATE | nullable | Date of most recent order |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Relations**: `place` (N:1 → `places`, optional)
+
+**Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`

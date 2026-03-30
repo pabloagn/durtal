@@ -10,6 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { toast } from "sonner";
 import {
@@ -207,6 +208,11 @@ export function BulkActionToolbar({
             Clear rating
           </DropdownMenuItem>
         </DropdownMenu>
+
+        <div className="h-4 w-px bg-glass-border" />
+
+        {/* Export */}
+        <ExportMenu entity="works" ids={selectedIds} />
 
         <div className="h-4 w-px bg-glass-border" />
 

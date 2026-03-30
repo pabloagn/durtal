@@ -46,3 +46,47 @@ export const dispositionTypeEnum = pgEnum("disposition_type_enum", [
   "returned",
   "expired",
 ]);
+
+// ── Venue-level enums ─────────────────────────────────────────────────────────
+
+export const venueTypeEnum = pgEnum("venue_type_enum", [
+  "bookshop",
+  "online_store",
+  "cafe",
+  "library",
+  "museum",
+  "gallery",
+  "auction_house",
+  "market",
+  "fair",
+  "publisher",
+  "individual",
+  "other",
+]);
+
+// ── Order-level enums ─────────────────────────────────────────────────────────
+
+export const orderStatusEnum = pgEnum("order_status_enum", [
+  "placed",
+  "confirmed",
+  "processing",
+  "shipped",
+  "in_transit",
+  "out_for_delivery",
+  "delivered",
+  "purchased",
+  "received",
+  "bid",
+  "won",
+  "cancelled",
+  "returned",
+]);
+
+export const acquisitionMethodEnum = pgEnum("acquisition_method_enum", [
+  "online_order",
+  "in_store_purchase",
+  "gift",
+  "digital_purchase",
+  "auction",
+  "event_purchase",
+]);

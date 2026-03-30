@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Pencil, ImageIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { AuthorEditDialog } from "./author-edit-dialog";
-import { AuthorDeleteButton } from "./author-delete-button";
+import { AuthorMergeDialog } from "./author-merge-dialog";
 import { AuthorMediaManagerDialog } from "@/components/media/author-media-manager-dialog";
+import { ImageLightbox } from "@/components/shared/image-lightbox";
+import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { ExportMenu } from "@/components/shared/export-menu";
+import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { deleteAuthor } from "@/lib/actions/authors";
 
 interface PosterCrop {
   x: number;
@@ -17,6 +23,8 @@ interface PosterCrop {
 interface AuthorDetailHeaderProps {
   authorId: string;
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
   realName?: string | null;
   countryName?: string | null;
   lifeDates?: string | null;
@@ -24,11 +32,14 @@ interface AuthorDetailHeaderProps {
   posterUrl?: string | null;
   posterCrop?: PosterCrop | null;
   workCount: number;
+  allAuthors: { id: string; name: string; slug: string | null }[];
 }
 
 export function AuthorDetailHeader({
   authorId,
   name,
+  firstName,
+  lastName,
   realName,
   countryName,
   lifeDates,
@@ -36,21 +47,88 @@ export function AuthorDetailHeader({
   posterUrl,
   posterCrop,
   workCount,
+  allAuthors,
 }: AuthorDetailHeaderProps) {
+  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopyName() {
+    const fullName =
+      firstName && lastName
+        ? `${firstName} ${lastName}`
+        : name;
+    await navigator.clipboard.writeText(fullName);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteAuthor(authorId);
+      toast.success("Author deleted");
+      router.push("/authors");
+    } catch {
+      toast.error("Failed to delete author");
+    }
+  }
+
+  const actionItems = [
+    {
+      label: copied ? "Copied!" : "Copy Name",
+      icon: copied ? Check : Copy,
+      onClick: handleCopyName,
+    },
+    {
+      label: "Merge",
+      icon: Merge,
+      onClick: () => setMergeOpen(true),
+    },
+    {
+      label: "Edit",
+      icon: Pencil,
+      onClick: () => setEditOpen(true),
+    },
+    {
+      label: "Manage Media",
+      icon: ImageIcon,
+      onClick: () => setMediaOpen(true),
+    },
+    {
+      label: "Delete",
+      icon: Trash2,
+      onClick: () => setDeleteOpen(true),
+      variant: "destructive" as const,
+    },
+  ];
 
   return (
     <>
-      <div className="mb-8 flex gap-6">
+      <div className="mb-8 flex gap-8">
         {posterUrl ? (
-          <div className="relative h-48 w-36 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+          <div
+            className="relative h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary cursor-pointer"
+            onClick={() => setLightboxOpen(true)}
+            role="button"
+            aria-label={`View full image: ${name} portrait`}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setLightboxOpen(true);
+              }
+            }}
+          >
             <Image
               src={posterUrl}
               alt={`${name} portrait`}
               fill
-              sizes="144px"
-              className="object-cover"
+              sizes="192px"
+              className="object-cover transition-transform duration-300 hover:scale-[1.03]"
               style={
                 posterCrop &&
                 (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100)
@@ -65,8 +143,8 @@ export function AuthorDetailHeader({
             />
           </div>
         ) : (
-          <div className="flex h-48 w-36 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
-            <span className="font-serif text-4xl text-fg-muted/20">
+          <div className="flex h-64 w-48 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
+            <span className="font-serif text-5xl text-fg-muted/20">
               {name[0]}
             </span>
           </div>
@@ -84,30 +162,15 @@ export function AuthorDetailHeader({
                 </p>
               )}
             </div>
-            <div className="flex flex-shrink-0 items-center gap-1">
-              <Button
-                variant="ghost"
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <ExportMenu
+                entity="authors"
+                ids={[authorId]}
+                side="bottom"
+                align="end"
                 size="sm"
-                className="text-fg-muted hover:text-fg-primary"
-                onClick={() => setMediaOpen(true)}
-              >
-                <ImageIcon className="h-4 w-4" strokeWidth={1.5} />
-                Media
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-fg-muted hover:text-fg-primary"
-                onClick={() => setEditOpen(true)}
-              >
-                <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                Edit
-              </Button>
-              <AuthorDeleteButton
-                authorId={authorId}
-                name={name}
-                workCount={workCount}
               />
+              <EntityActionMenu items={actionItems} />
             </div>
           </div>
 
@@ -137,6 +200,37 @@ export function AuthorDetailHeader({
         authorId={authorId}
         authorName={name}
       />
+
+      <AuthorMergeDialog
+        open={mergeOpen}
+        onClose={() => setMergeOpen(false)}
+        targetAuthorId={authorId}
+        targetAuthorName={name}
+        allAuthors={allAuthors}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete author"
+        description="Are you sure you want to delete this author? This action cannot be undone."
+        itemName={name}
+        cascade={
+          workCount > 0
+            ? "This will NOT delete the author's works, but will remove authorship links."
+            : undefined
+        }
+      />
+
+      {posterUrl && (
+        <ImageLightbox
+          src={posterUrl}
+          alt={`${name} portrait`}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </>
   );
 }

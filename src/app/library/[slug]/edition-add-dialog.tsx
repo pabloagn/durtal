@@ -20,6 +20,9 @@ interface EditionAddDialogProps {
   availableAuthors: { id: string; name: string }[];
   availableGenres: { id: string; name: string }[];
   availableTags: { id: string; name: string }[];
+  /** When provided, the dialog is externally controlled and no trigger button is rendered */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function EditionAddDialog({
@@ -28,9 +31,19 @@ export function EditionAddDialog({
   availableAuthors,
   availableGenres,
   availableTags,
+  open: controlledOpen,
+  onOpenChange,
 }: EditionAddDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  function setOpen(next: boolean) {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  }
+
   const [isPending, setIsPending] = useState(false);
 
   const initialValues: EditionFormValues = {
@@ -106,15 +119,17 @@ export function EditionAddDialog({
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen(true)}
-        className="h-7 gap-1 px-2"
-      >
-        <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-        Add edition
-      </Button>
+      {!isControlled && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className="h-7 gap-1 px-2"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Add edition
+        </Button>
+      )}
 
       <Dialog
         open={open}

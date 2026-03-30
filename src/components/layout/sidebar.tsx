@@ -12,6 +12,8 @@ import {
   BookOpen,
   Settings,
   Search,
+  Archive,
+  Route,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -19,7 +21,9 @@ const NAV_ITEMS = [
   { href: "/library", label: "Library", icon: Library },
   { href: "/authors", label: "Authors", icon: Users },
   { href: "/series", label: "Series", icon: Layers },
-  { href: "/locations", label: "Locations", icon: MapPin },
+  { href: "/places", label: "Places", icon: MapPin },
+  { href: "/provenance", label: "Provenance", icon: Route },
+  { href: "/locations", label: "Locations", icon: Archive },
   { href: "/collections", label: "Collections", icon: FolderOpen },
   { href: "/tags", label: "Tags", icon: Tag },
   { href: "/settings", label: "Settings", icon: Settings },

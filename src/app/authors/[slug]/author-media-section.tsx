@@ -2,82 +2,53 @@
 
 import { useRouter } from "next/navigation";
 import { UploadZone } from "@/components/media/upload-zone";
-import { MediaGallery } from "@/components/media/media-gallery";
 import { DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
 import type { Media } from "@/lib/types";
 
 interface AuthorMediaSectionProps {
   authorId: string;
+  /** Retained for compatibility; no longer used for display — handled by GallerySection */
   gallery: Media[];
-  hasPoster: boolean;
-  hasBackground: boolean;
 }
 
-export function AuthorMediaSection({
-  authorId,
-  gallery,
-  hasPoster,
-  hasBackground,
-}: AuthorMediaSectionProps) {
+export function AuthorMediaSection({ authorId }: AuthorMediaSectionProps) {
   const router = useRouter();
   const refresh = () => router.refresh();
 
-  const getImageUrl = (s3Key: string) =>
-    `/api/s3/read?key=${encodeURIComponent(s3Key)}`;
-
   return (
     <>
-      {(!hasPoster || !hasBackground) && (
-        <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-secondary">
-            Media
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {!hasPoster && (
-              <UploadZone
-                entityType="author"
-                entityId={authorId}
-                mediaType="poster"
-                onUploadComplete={refresh}
-                processingParams={DEFAULT_MONOCHROME_PARAMS}
-              />
-            )}
-            {!hasBackground && (
-              <UploadZone
-                entityType="author"
-                entityId={authorId}
-                mediaType="background"
-                onUploadComplete={refresh}
-                processingParams={DEFAULT_MONOCHROME_PARAMS}
-              />
-            )}
-          </div>
-        </section>
-      )}
-
+      {/* Upload zones for poster and background */}
       <section className="mb-8">
+        <h2 className="mb-3 font-serif text-xl text-fg-secondary">Media</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <UploadZone
+            entityType="author"
+            entityId={authorId}
+            mediaType="poster"
+            onUploadComplete={refresh}
+            processingParams={DEFAULT_MONOCHROME_PARAMS}
+          />
+          <UploadZone
+            entityType="author"
+            entityId={authorId}
+            mediaType="background"
+            onUploadComplete={refresh}
+            processingParams={DEFAULT_MONOCHROME_PARAMS}
+          />
+        </div>
+      </section>
+
+      {/* Gallery upload zone */}
+      <section className="mb-4">
         <h2 className="mb-3 font-serif text-xl text-fg-secondary">
-          Gallery
-          {gallery.length > 0 && (
-            <span className="ml-1 text-fg-muted">({gallery.length})</span>
-          )}
+          Gallery Upload
         </h2>
-        <MediaGallery
-          media={gallery}
-          editable
-          getImageUrl={getImageUrl}
-          onDelete={async (id) => {
-            await fetch(`/api/media/${id}`, { method: "DELETE" });
-            refresh();
-          }}
-        />
         <UploadZone
           entityType="author"
           entityId={authorId}
           mediaType="gallery"
           onUploadComplete={refresh}
           multiple
-          className="mt-3"
           processingParams={DEFAULT_MONOCHROME_PARAMS}
         />
       </section>

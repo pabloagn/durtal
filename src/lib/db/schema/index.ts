@@ -5,6 +5,9 @@ export {
   acquisitionPriorityEnum,
   instanceStatusEnum,
   dispositionTypeEnum,
+  venueTypeEnum,
+  orderStatusEnum,
+  acquisitionMethodEnum,
 } from "./enums";
 
 // ── Core tables ─────────────────────────────────────────────────────────────
@@ -58,6 +61,7 @@ export { media, mediaRelations } from "./media";
 // ── Reference tables ────────────────────────────────────────────────────────
 export { languages } from "./languages";
 export { countries } from "./countries";
+export { places, placesRelations } from "./places";
 export { workTypes } from "./work-types";
 export {
   contributionTypes,
@@ -124,3 +128,14 @@ export {
   workAttributes,
   workAttributesRelations,
 } from "./attributes";
+export { galleryLayouts } from "./gallery-layouts";
+
+// ── Venues ───────────────────────────────────────────────────────────────────
+export { venues, venuesRelations } from "./venues";
+
+// ── Orders ───────────────────────────────────────────────────────────────────
+export { orders, ordersRelations } from "./orders";
+export {
+  orderStatusHistory,
+  orderStatusHistoryRelations,
+} from "./order-status-history";

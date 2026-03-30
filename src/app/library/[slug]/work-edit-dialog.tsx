@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +45,9 @@ interface WorkEditDialogProps {
   availableSeries: { id: string; title: string }[];
   availableWorkTypes: { id: string; name: string }[];
   availableRecommenders: { id: string; name: string }[];
+  /** When provided, the dialog is externally controlled and no trigger button is rendered */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -91,9 +94,18 @@ export function WorkEditDialog({
   availableSeries,
   availableWorkTypes,
   availableRecommenders,
+  open: controlledOpen,
+  onOpenChange,
 }: WorkEditDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  function setOpen(next: boolean) {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  }
   const [isPending, startTransition] = useTransition();
 
   // Form state — Core Details
@@ -159,6 +171,29 @@ export function WorkEditDialog({
     if (isPending) return;
     setOpen(false);
   }
+
+  // When externally controlled, reset form state whenever the dialog opens
+  useEffect(() => {
+    if (isControlled && open) {
+      setTitle(work.title);
+      setOriginalLanguage(work.originalLanguage);
+      setOriginalYear(work.originalYear != null ? String(work.originalYear) : "");
+      setWorkTypeId(work.workTypeId ?? "");
+      setIsAnthology(work.isAnthology);
+      setCatalogueStatus(work.catalogueStatus);
+      setAcquisitionPriority(work.acquisitionPriority);
+      setRating(work.rating != null ? String(work.rating) : "");
+      setDescription(work.description ?? "");
+      setNotes(work.notes ?? "");
+      setRecommenderIds(work.recommenderIds);
+      setSeriesId(work.seriesId ?? "");
+      setSeriesPosition(work.seriesPosition ?? "");
+      setAuthors(initialAuthors);
+      setAuthorSearch("");
+      setShowAuthorAdd(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isControlled, open]);
 
   function removeAuthor(id: string) {
     if (authors.length <= 1) {
@@ -267,10 +302,12 @@ export function WorkEditDialog({
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={openDialog} type="button">
-        <Pencil className="h-4 w-4" strokeWidth={1.5} />
-        Edit
-      </Button>
+      {!isControlled && (
+        <Button variant="ghost" size="sm" onClick={openDialog} type="button">
+          <Pencil className="h-4 w-4" strokeWidth={1.5} />
+          Edit
+        </Button>
+      )}
 
       <Dialog
         open={open}

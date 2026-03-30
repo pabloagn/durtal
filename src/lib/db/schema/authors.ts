@@ -14,6 +14,7 @@ import { editions } from "./editions";
 import { media } from "./media";
 import { contributionTypes } from "./contribution-types";
 import { countries } from "./countries";
+import { places } from "./places";
 import { genderEnum } from "./enums";
 
 export const authors = pgTable("authors", {
@@ -36,11 +37,14 @@ export const authors = pgTable("authors", {
   deathYearIsApproximate: boolean("death_year_is_approximate").notNull().default(false),
   deathYearGregorian: smallint("death_year_gregorian"),
   nationalityId: uuid("nationality_id").references(() => countries.id, { onDelete: "set null" }),
+  birthPlaceId: uuid("birth_place_id").references(() => places.id, { onDelete: "set null" }),
+  deathPlaceId: uuid("death_place_id").references(() => places.id, { onDelete: "set null" }),
   bio: varchar("bio", { length: 10000 }),
   photoS3Key: text("photo_s3_key"),
   website: text("website"),
   openLibraryKey: text("open_library_key"),
   goodreadsId: text("goodreads_id"),
+  zodiacSign: text("zodiac_sign"),
   metadataSource: text("metadata_source"),
   metadataSourceId: text("metadata_source_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -51,6 +55,16 @@ export const authorsRelations = relations(authors, ({ one, many }) => ({
   country: one(countries, {
     fields: [authors.nationalityId],
     references: [countries.id],
+  }),
+  birthPlace: one(places, {
+    fields: [authors.birthPlaceId],
+    references: [places.id],
+    relationName: "authorBirthPlace",
+  }),
+  deathPlace: one(places, {
+    fields: [authors.deathPlaceId],
+    references: [places.id],
+    relationName: "authorDeathPlace",
   }),
   workAuthors: many(workAuthors),
   editionContributors: many(editionContributors),

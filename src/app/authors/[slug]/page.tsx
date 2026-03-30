@@ -2,11 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
-import { getAuthorBySlug } from "@/lib/actions/authors";
+import { getAuthorBySlug, getAuthors } from "@/lib/actions/authors";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { AuthorMediaSection } from "./author-media-section";
 import { AuthorDetailHeader } from "./author-detail-header";
+import { GallerySection } from "@/components/shared/gallery-section";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -14,9 +15,18 @@ interface PageProps {
 
 export default async function AuthorDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const author = await getAuthorBySlug(slug);
+  const [author, allAuthorRows] = await Promise.all([
+    getAuthorBySlug(slug),
+    getAuthors({ limit: 5000 }),
+  ]);
 
   if (!author) notFound();
+
+  const allAuthors = allAuthorRows.map((a) => ({
+    id: a.id,
+    name: a.name,
+    slug: a.slug,
+  }));
 
   const works = author.workAuthors.map((wa) => ({
     ...wa.work,
@@ -122,6 +132,8 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           <AuthorDetailHeader
             authorId={author.id}
             name={author.name}
+            firstName={author.firstName}
+            lastName={author.lastName}
             realName={author.realName}
             countryName={author.country?.name}
             lifeDates={lifeDates}
@@ -129,6 +141,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             posterUrl={posterUrl}
             posterCrop={posterCrop}
             workCount={works.length}
+            allAuthors={allAuthors}
           />
         </div>
       </div>
@@ -256,13 +269,14 @@ export default async function AuthorDetailPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Media upload and gallery */}
+      {/* Media upload zones (poster + background) */}
       <AuthorMediaSection
         authorId={author.id}
         gallery={galleryMedia}
-        hasPoster={!!poster}
-        hasBackground={!!background}
       />
+
+      {/* Gallery collage */}
+      <GallerySection entityType="author" entityId={author.id} />
 
       {/* External links */}
       {(author.website || author.openLibraryKey || author.goodreadsId) && (

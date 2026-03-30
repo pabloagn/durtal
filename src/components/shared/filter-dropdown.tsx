@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { SlidersHorizontal } from "lucide-react";
+import { RangeSlider } from "@/components/ui/range-slider";
 
 export interface FilterGroup {
   key: string;
@@ -9,11 +10,26 @@ export interface FilterGroup {
   options: { value: string; label: string }[];
 }
 
+export interface RangeFilterGroup {
+  type: "range";
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  /** Active range, defaults to [min, max] when unset */
+  value?: [number, number];
+  onChange: (value: [number, number]) => void;
+}
+
+export type AnyFilterGroup = FilterGroup | RangeFilterGroup;
+
 interface FilterDropdownProps {
-  groups: FilterGroup[];
+  groups: AnyFilterGroup[];
   activeFilters: Record<string, string[]>;
   onFilterChange: (key: string, values: string[]) => void;
   onClearAll: () => void;
+  /** Count of active range filters (for badge display) */
+  activeRangeCount?: number;
 }
 
 export function FilterDropdown({
@@ -21,14 +37,14 @@ export function FilterDropdown({
   activeFilters,
   onFilterChange,
   onClearAll,
+  activeRangeCount = 0,
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const activeCount = Object.values(activeFilters).reduce(
-    (sum, vals) => sum + vals.length,
-    0,
-  );
+  const activeCount =
+    Object.values(activeFilters).reduce((sum, vals) => sum + vals.length, 0) +
+    activeRangeCount;
 
   const handleToggleValue = useCallback(
     (groupKey: string, value: string) => {
@@ -99,7 +115,7 @@ export function FilterDropdown({
           )}
 
           {/* Filter groups */}
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto">
             {groups.map((group, groupIdx) => (
               <div
                 key={group.key}
@@ -109,56 +125,74 @@ export function FilterDropdown({
                     : ""
                 }
               >
-                <div className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-wider text-fg-muted">
-                  {group.label}
-                </div>
-                <div className="px-1.5 pb-2">
-                  {group.options.map((option) => {
-                    const isChecked =
-                      activeFilters[group.key]?.includes(option.value) ?? false;
-                    return (
-                      <label
-                        key={option.value}
-                        className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-                      >
-                        <span
-                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
-                            isChecked
-                              ? "border-accent-plum bg-accent-plum"
-                              : "border-glass-border bg-transparent"
-                          }`}
-                        >
-                          {isChecked && (
-                            <svg
-                              width="10"
-                              height="10"
-                              viewBox="0 0 10 10"
-                              fill="none"
-                              className="text-fg-primary"
+                {"type" in group && group.type === "range" ? (
+                  /* Range slider group */
+                  <div className="px-3 pb-1 pt-2.5">
+                    <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-fg-muted">
+                      {group.label}
+                    </div>
+                    <RangeSlider
+                      min={group.min}
+                      max={group.max}
+                      value={group.value ?? [group.min, group.max]}
+                      onChange={group.onChange}
+                    />
+                  </div>
+                ) : (
+                  /* Checkbox group */
+                  <>
+                    <div className="px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-wider text-fg-muted">
+                      {(group as FilterGroup).label}
+                    </div>
+                    <div className="px-1.5 pb-2">
+                      {(group as FilterGroup).options.map((option) => {
+                        const isChecked =
+                          activeFilters[group.key]?.includes(option.value) ?? false;
+                        return (
+                          <label
+                            key={option.value}
+                            className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                          >
+                            <span
+                              className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                                isChecked
+                                  ? "border-accent-plum bg-accent-plum"
+                                  : "border-glass-border bg-transparent"
+                              }`}
                             >
-                              <path
-                                d="M2 5L4.5 7.5L8 3"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() =>
-                            handleToggleValue(group.key, option.value)
-                          }
-                          className="sr-only"
-                        />
-                        {option.label}
-                      </label>
-                    );
-                  })}
-                </div>
+                              {isChecked && (
+                                <svg
+                                  width="10"
+                                  height="10"
+                                  viewBox="0 0 10 10"
+                                  fill="none"
+                                  className="text-fg-primary"
+                                >
+                                  <path
+                                    d="M2 5L4.5 7.5L8 3"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() =>
+                                handleToggleValue(group.key, option.value)
+                              }
+                              className="sr-only"
+                            />
+                            {option.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

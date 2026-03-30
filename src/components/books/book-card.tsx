@@ -135,6 +135,7 @@ export function BookCard({
         className={`block ${isSelecting ? "pointer-events-none" : ""}`}
         tabIndex={isSelecting ? -1 : undefined}
       >
+        <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
         <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary">
           {coverUrl ? (
             <CoverImage
@@ -150,7 +151,10 @@ export function BookCard({
           {/* Status badge -- top-left */}
           {statusInfo && (
             <div className="absolute left-1 top-1 @[220px]:left-2 @[220px]:top-2">
-              <Badge variant={statusInfo.variant}>
+              <Badge
+                variant={statusInfo.variant}
+                className="backdrop-blur-md border-white/15"
+              >
                 <span className="hidden @[220px]:inline">{statusInfo.label}</span>
                 <span className="@[220px]:hidden">{statusInfo.shortLabel}</span>
               </Badge>
@@ -160,7 +164,7 @@ export function BookCard({
           {/* Rating overlay */}
           {rating && (
             <div className="absolute right-1 top-1 @[220px]:right-2 @[220px]:top-2">
-              <Badge variant="gold">
+              <Badge variant="gold" className="backdrop-blur-md border-white/15">
                 <span className="hidden @[220px]:inline">{rating}/5</span>
                 <span className="@[220px]:hidden">{rating}</span>
               </Badge>
@@ -172,7 +176,7 @@ export function BookCard({
             const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
             return (
               <div
-                className="absolute bottom-1 left-1 flex items-center justify-center rounded-sm border border-white/10 bg-white/5 backdrop-blur-sm @[220px]:bottom-2 @[220px]:left-2 h-4 w-4 @[220px]:h-5 @[220px]:w-5"
+                className="absolute bottom-1 left-1 flex items-center justify-center rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md @[220px]:bottom-2 @[220px]:left-2 h-4 w-4 @[220px]:h-5 @[220px]:w-5"
                 title={`${pConfig?.label ?? acquisitionPriority} priority`}
               >
                 <span
@@ -181,15 +185,19 @@ export function BookCard({
               </div>
             );
           })()}
+
+          {/* Three-dot actions menu -- bottom-right of cover, visible on hover */}
+          {!isSelecting && (
+            <div
+              className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 @[220px]:bottom-2 @[220px]:right-2"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            >
+              <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
+            </div>
+          )}
+        </div>
         </div>
       </Link>
-
-      {/* Three-dot actions menu -- top-right, visible on hover */}
-      {!isSelecting && (
-        <div className="absolute right-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 @[220px]:right-2 @[220px]:top-2">
-          <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
-        </div>
-      )}
 
       {/* Selection checkbox -- top-left, visible in selection mode */}
       {isSelecting && (

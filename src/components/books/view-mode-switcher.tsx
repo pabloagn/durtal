@@ -1,21 +1,27 @@
 "use client";
 
-import { Grid2X2, List, Table2 } from "lucide-react";
+import { Grid2X2, List, Table2, Map } from "lucide-react";
 
-export type ViewMode = "grid" | "list" | "detailed";
+export type ViewMode = "grid" | "list" | "detailed" | "map";
 
 interface ViewModeSwitcherProps {
   value: ViewMode;
   onChange: (mode: ViewMode) => void;
+  availableModes?: ViewMode[];
 }
 
-const MODES: { value: ViewMode; icon: typeof Grid2X2; label: string }[] = [
+const ALL_MODES: { value: ViewMode; icon: typeof Grid2X2; label: string }[] = [
   { value: "grid", icon: Grid2X2, label: "Grid" },
   { value: "list", icon: List, label: "List" },
   { value: "detailed", icon: Table2, label: "Detailed" },
+  { value: "map", icon: Map, label: "Map" },
 ];
 
-export function ViewModeSwitcher({ value, onChange }: ViewModeSwitcherProps) {
+export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSwitcherProps) {
+  const MODES = availableModes
+    ? ALL_MODES.filter((m) => availableModes.includes(m.value))
+    : ALL_MODES.filter((m) => m.value !== "map");
+
   return (
     <div className="flex items-center rounded-sm border border-glass-border">
       {MODES.map((mode) => {
