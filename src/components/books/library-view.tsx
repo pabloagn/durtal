@@ -77,5 +77,8 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
           onColumnsChange={setColumnConfig}
         />
       );
+    case "map":
+    case "timeline":
+      return null;
   }
 }

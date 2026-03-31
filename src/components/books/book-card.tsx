@@ -71,7 +71,7 @@ function CoverImage({
       alt={alt}
       fill
       sizes="(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px"
-      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+      className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
       style={
         hasCrop
           ? {
@@ -136,7 +136,7 @@ export function BookCard({
         tabIndex={isSelecting ? -1 : undefined}
       >
         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
-        <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary">
+        <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary" onContextMenu={(e) => e.preventDefault()}>
           {coverUrl ? (
             <CoverImage
               src={coverUrl}

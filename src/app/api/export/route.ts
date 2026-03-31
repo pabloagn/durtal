@@ -145,7 +145,27 @@ export async function POST(req: NextRequest) {
     }
 
     const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `durtal-${entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
+
+    // For single-entity exports, use a descriptive filename
+    let filename: string;
+    if (rows.length === 1 && entityType === "authors") {
+      const row = rows[0] as { first_name?: string; last_name?: string; name?: string };
+      const first = (row.first_name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const last = (row.last_name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+      if (first && last) {
+        filename = `durtal-${first}-${last}-${timestamp}${FORMAT_EXT[fmt]}`;
+      } else {
+        // Fallback to full name slugified
+        const slug = (row.name ?? "author").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        filename = `durtal-${slug}-${timestamp}${FORMAT_EXT[fmt]}`;
+      }
+    } else if (rows.length === 1 && entityType === "works") {
+      const row = rows[0] as { title?: string };
+      const slug = (row.title ?? "work").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      filename = `durtal-${slug}-${timestamp}${FORMAT_EXT[fmt]}`;
+    } else {
+      filename = `durtal-${entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
+    }
 
     if (fmt === "csv" || fmt === "tsv") {
       const text = fmt === "csv" ? toCSV(rows) : toTSV(rows);

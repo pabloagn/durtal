@@ -56,19 +56,24 @@ export function ImageLightbox({ src, alt, open, onClose }: ImageLightboxProps) {
       </button>
 
       {/* Image container — centered, padded, preserves aspect ratio */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         className="relative z-10 max-h-[90vh] max-w-[90vw]"
         style={{
           animation: "lightbox-scale-in 200ms ease forwards",
         }}
         onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={alt}
-          className="block max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-sm"
+          className="protected-image block max-h-[90vh] max-w-[90vw] w-auto h-auto object-contain rounded-sm"
         />
+        {/* Invisible overlay to prevent direct image interaction */}
+        <div className="absolute inset-0" aria-hidden="true" />
       </div>
 
       <style>{`

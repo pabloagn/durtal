@@ -16,18 +16,24 @@ interface AuthorCardActionsMenuProps {
   authorId: string;
   slug: string;
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
 }
 
 export function AuthorCardActionsMenu({
   authorId,
   slug,
   name,
+  firstName,
+  lastName,
 }: AuthorCardActionsMenuProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   function handleCopyName() {
-    navigator.clipboard.writeText(name).then(
+    const copyText =
+      firstName && lastName ? `${firstName} ${lastName}` : name;
+    navigator.clipboard.writeText(copyText).then(
       () => toast.success("Name copied to clipboard"),
       () => toast.error("Failed to copy name"),
     );

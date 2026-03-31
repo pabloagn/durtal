@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { Users } from "lucide-react";
 import {
   getAuthors,
@@ -11,8 +10,8 @@ import {
   getAuthorDeathYearRange,
 } from "@/lib/actions/authors";
 import { getAuthorsForMap } from "@/lib/actions/author-map";
+import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorsShell, type AuthorItem } from "./authors-shell";
@@ -56,6 +55,7 @@ async function AuthorsContent({
   const search = searchParams.q;
   const sort = (searchParams.sort ?? "name") as
     | "name"
+    | "lastName"
     | "recent"
     | "birth"
     | "works";
@@ -85,7 +85,19 @@ async function AuthorsContent({
     alive,
   };
 
-  const [rawAuthors, total, nationalities, genders, zodiacSigns, birthYearRange, deathYearRange, mapAuthors] =
+  // getAuthorsForTimeline uses alive as a string ("true"|"false"), not boolean
+  const timelineFilters = {
+    nationalities: nationalityFilter?.length ? nationalityFilter : undefined,
+    genders: genderFilter?.length ? genderFilter : undefined,
+    zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
+    birthYearMin,
+    birthYearMax,
+    deathYearMin,
+    deathYearMax,
+    alive: aliveParam,
+  };
+
+  const [rawAuthors, total, nationalities, genders, zodiacSigns, birthYearRange, deathYearRange, mapAuthors, timelineAuthors] =
     await Promise.all([
       getAuthors({ search, sort, order, limit, offset, filters }),
       getAuthorCount({ search, filters }),
@@ -95,6 +107,7 @@ async function AuthorsContent({
       getAuthorBirthYearRange(),
       getAuthorDeathYearRange(),
       getAuthorsForMap({ search, filters }),
+      getAuthorsForTimeline({ search, filters: timelineFilters }),
     ]);
 
   if (rawAuthors.length === 0) {
@@ -123,6 +136,8 @@ async function AuthorsContent({
       id: a.id,
       slug: a.slug ?? "",
       name: a.name,
+      firstName: a.firstName ?? null,
+      lastName: a.lastName ?? null,
       sortName: a.sortName,
       nationality: a.country?.name ?? null,
       birthYear: a.birthYear,
@@ -162,43 +177,19 @@ async function AuthorsContent({
       <AuthorsShell
         authors={authors}
         mapAuthors={mapAuthors}
+        timelineAuthors={timelineAuthors}
         nationalities={nationalities}
         genders={genders}
         zodiacSigns={zodiacSigns}
         birthYearRange={birthYearRange}
         deathYearRange={deathYearRange}
+        pagination={{
+          page,
+          totalPages,
+          total,
+          paginationParams,
+        }}
       />
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          {page > 1 && (
-            <Link
-              href={`/authors?${new URLSearchParams({ ...paginationParams, page: String(page - 1) })}`}
-            >
-              <Button variant="ghost" size="sm">
-                Previous
-              </Button>
-            </Link>
-          )}
-          <span className="font-mono text-xs text-fg-muted">
-            {page} / {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link
-              href={`/authors?${new URLSearchParams({ ...paginationParams, page: String(page + 1) })}`}
-            >
-              <Button variant="ghost" size="sm">
-                Next
-              </Button>
-            </Link>
-          )}
-        </div>
-      )}
-
-      <p className="mt-4 text-center font-mono text-xs text-fg-muted">
-        {total} {total === 1 ? "author" : "authors"}
-      </p>
     </>
   );
 }

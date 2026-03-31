@@ -210,3 +210,54 @@ dialog::backdrop {
   background: var(--color-bg-tertiary);
   border-radius: 2px;
 }
+
+/* ── Bio rich-text content ──────────────────────────────────────────────── */
+.bio-content p {
+  margin-bottom: 0.75em;
+}
+.bio-content p:last-child {
+  margin-bottom: 0;
+}
+.bio-content strong,
+.bio-content b {
+  font-weight: 600;
+  color: var(--color-fg-primary);
+}
+.bio-content em,
+.bio-content i {
+  font-style: italic;
+}
+.bio-content a {
+  color: var(--color-accent-rose);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.bio-content a:hover {
+  color: var(--color-fg-primary);
+}
+.bio-content ul,
+.bio-content ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+.bio-content ul {
+  list-style: disc;
+}
+.bio-content ol {
+  list-style: decimal;
+}
+.bio-content li {
+  margin-bottom: 0.25em;
+}
+
+/* ── Protected images ──────────────────────────────────────────────────── */
+.protected-image {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}

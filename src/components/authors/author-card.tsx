@@ -15,6 +15,8 @@ interface AuthorCardProps {
   id: string;
   slug: string;
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
   nationality?: string | null;
   birthYear?: number | null;
   deathYear?: number | null;
@@ -30,6 +32,8 @@ export function AuthorCard({
   id,
   slug,
   name,
+  firstName,
+  lastName,
   nationality,
   birthYear,
   deathYear,
@@ -69,14 +73,17 @@ export function AuthorCard({
         tabIndex={isSelecting ? -1 : undefined}
       >
         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
-          <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary">
+          <div
+            className="relative aspect-[2/3] overflow-hidden bg-bg-primary"
+            onContextMenu={(e) => e.preventDefault()}
+          >
             {photoUrl ? (
               <Image
                 src={photoUrl}
                 alt={name}
                 fill
                 sizes="(min-width: 1280px) 200px, (min-width: 768px) 180px, 160px"
-                className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 style={
                   hasCrop
                     ? {
@@ -111,7 +118,7 @@ export function AuthorCard({
                 className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
               >
-                <AuthorCardActionsMenu authorId={id} slug={slug} name={name} />
+                <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
               </div>
             )}
           </div>

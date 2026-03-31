@@ -1,0 +1,1 @@
+ALTER TABLE "gallery_layouts" ADD COLUMN "container_width" integer;

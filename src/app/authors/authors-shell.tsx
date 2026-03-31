@@ -18,6 +18,14 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ZODIAC_LABELS, ZODIAC_SIGNS } from "@/lib/utils/zodiac";
 import type { AuthorMapPoint } from "@/lib/actions/author-map";
+import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
+
+interface PaginationData {
+  page: number;
+  totalPages: number;
+  total: number;
+  paginationParams: Record<string, string>;
+}
 
 const AuthorsMap = dynamic(
   () =>
@@ -34,8 +42,24 @@ const AuthorsMap = dynamic(
   },
 );
 
+const AuthorTimeline = dynamic(
+  () =>
+    import("@/components/timeline/author-timeline").then((m) => ({
+      default: m.AuthorTimeline,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-muted">
+        Loading timeline...
+      </div>
+    ),
+  },
+);
+
 const SORT_OPTIONS = [
   { value: "name", label: "Name" },
+  { value: "lastName", label: "Last Name" },
   { value: "recent", label: "Recent" },
   { value: "birth", label: "Born" },
   { value: "works", label: "Works" },
@@ -61,6 +85,8 @@ export interface AuthorItem {
   id: string;
   slug: string;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   sortName: string | null;
   nationality: string | null;
   birthYear: number | null;
@@ -172,26 +198,30 @@ function renderAuthorCell(author: AuthorItem, key: string) {
   }
 }
 
-const AUTHOR_VIEW_MODES: ViewMode[] = ["grid", "list", "detailed", "map"];
+const AUTHOR_VIEW_MODES: ViewMode[] = ["grid", "list", "detailed", "map", "timeline"];
 
 interface AuthorsShellProps {
   authors: AuthorItem[];
   mapAuthors: AuthorMapPoint[];
+  timelineAuthors: AuthorTimelineItem[];
   nationalities: string[];
   genders: string[];
   zodiacSigns: string[];
   birthYearRange: { min: number | null; max: number | null };
   deathYearRange: { min: number | null; max: number | null };
+  pagination: PaginationData;
 }
 
 export function AuthorsShell({
   authors,
   mapAuthors,
+  timelineAuthors,
   nationalities,
   genders,
   zodiacSigns,
   birthYearRange,
   deathYearRange,
+  pagination,
 }: AuthorsShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -389,7 +419,7 @@ export function AuthorsShell({
         sortOptions={SORT_OPTIONS}
         searchPlaceholder="Search authors..."
         defaultSort="name"
-        defaultSortOrders={{ name: "asc", recent: "desc", birth: "asc", works: "desc" }}
+        defaultSortOrders={{ name: "asc", lastName: "asc", recent: "desc", birth: "asc", works: "desc" }}
         viewMode={viewMode}
         gridColumns={gridColumns}
         onViewModeChange={setViewMode}
@@ -405,8 +435,8 @@ export function AuthorsShell({
         />
       </EntityFilters>
 
-      {/* Select / Cancel button */}
-      {viewMode !== "map" && (
+      {/* Select / Cancel button — hidden in map and timeline views */}
+      {viewMode !== "map" && viewMode !== "timeline" && (
         <div className="mb-4 flex justify-end">
           <Button
             variant={selection.isSelecting ? "primary" : "ghost"}
@@ -429,6 +459,16 @@ export function AuthorsShell({
         </div>
       )}
 
+      {viewMode === "timeline" && (
+        <div className="h-[calc(100vh-220px)] min-h-[400px]">
+          <AuthorTimeline
+            authors={timelineAuthors}
+            sortBy={(searchParams.get("sort") ?? "birth") as "name" | "lastName" | "birth" | "works" | "recent"}
+            sortOrder={(searchParams.get("order") ?? "asc") as "asc" | "desc"}
+          />
+        </div>
+      )}
+
       {viewMode === "grid" && (
         <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-5"}`}>
           {authors.map((a) => (
@@ -437,6 +477,8 @@ export function AuthorsShell({
               id={a.id}
               slug={a.slug}
               name={a.name}
+              firstName={a.firstName}
+              lastName={a.lastName}
               nationality={a.nationality}
               birthYear={a.birthYear}
               deathYear={a.deathYear}
@@ -459,6 +501,8 @@ export function AuthorsShell({
               id={a.id}
               slug={a.slug}
               name={a.name}
+              firstName={a.firstName}
+              lastName={a.lastName}
               nationality={a.nationality}
               birthYear={a.birthYear}
               deathYear={a.deathYear}
@@ -493,6 +537,41 @@ export function AuthorsShell({
         onDeselectAll={selection.deselectAll}
         onExitSelection={selection.exitSelectionMode}
       />
+
+      {/* Pagination — hidden in map and timeline views which show all items */}
+      {viewMode !== "map" && viewMode !== "timeline" && (
+        <>
+          {pagination.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-2">
+              {pagination.page > 1 && (
+                <Link
+                  href={`/authors?${new URLSearchParams({ ...pagination.paginationParams, page: String(pagination.page - 1) })}`}
+                >
+                  <Button variant="ghost" size="sm">
+                    Previous
+                  </Button>
+                </Link>
+              )}
+              <span className="font-mono text-xs text-fg-muted">
+                {pagination.page} / {pagination.totalPages}
+              </span>
+              {pagination.page < pagination.totalPages && (
+                <Link
+                  href={`/authors?${new URLSearchParams({ ...pagination.paginationParams, page: String(pagination.page + 1) })}`}
+                >
+                  <Button variant="ghost" size="sm">
+                    Next
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+
+          <p className="mt-4 text-center font-mono text-xs text-fg-muted">
+            {pagination.total} {pagination.total === 1 ? "author" : "authors"}
+          </p>
+        </>
+      )}
     </>
   );
 }

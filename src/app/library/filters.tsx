@@ -66,6 +66,7 @@ interface LibraryFiltersProps {
   onGridColumnsChange?: (cols: number) => void;
   viewMode?: ViewMode;
   gridColumns?: number;
+  availableViewModes?: ViewMode[];
 }
 
 export function LibraryFilters({
@@ -73,6 +74,7 @@ export function LibraryFilters({
   onGridColumnsChange,
   viewMode = "grid",
   gridColumns = 6,
+  availableViewModes,
 }: LibraryFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -120,6 +122,7 @@ export function LibraryFilters({
       gridColumns={gridColumns}
       onViewModeChange={onViewModeChange ?? (() => {})}
       onGridColumnsChange={onGridColumnsChange ?? (() => {})}
+      availableViewModes={availableViewModes}
       className="flex flex-1 items-center gap-3"
     >
       <FilterDropdown

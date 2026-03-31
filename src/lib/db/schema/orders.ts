@@ -96,10 +96,12 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   destinationLocation: one(locations, {
     fields: [orders.destinationLocationId],
     references: [locations.id],
+    relationName: "orderDestinationLocation",
   }),
   destinationSubLocation: one(subLocations, {
     fields: [orders.destinationSubLocationId],
     references: [subLocations.id],
+    relationName: "orderDestinationSubLocation",
   }),
   statusHistory: many(orderStatusHistory),
 }));

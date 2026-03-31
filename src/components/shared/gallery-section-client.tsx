@@ -147,7 +147,7 @@ export function GallerySectionClient({
               mediaItems[0].originalFilename ??
               "Gallery image"
             }
-            className="w-full max-w-sm rounded-sm object-cover transition-[filter] duration-200 hover:brightness-110"
+            className="protected-image w-full max-w-sm rounded-sm object-cover transition-[filter] duration-200 hover:brightness-110"
             loading="lazy"
           />
         </div>

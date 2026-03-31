@@ -84,10 +84,12 @@ export const instancesRelations = relations(instances, ({ one, many }) => ({
   location: one(locations, {
     fields: [instances.locationId],
     references: [locations.id],
+    relationName: "instanceLocation",
   }),
   subLocation: one(subLocations, {
     fields: [instances.subLocationId],
     references: [subLocations.id],
+    relationName: "instanceSubLocation",
   }),
   statusHistory: many(instanceStatusHistory),
 }));

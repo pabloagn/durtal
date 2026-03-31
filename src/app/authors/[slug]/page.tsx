@@ -5,7 +5,6 @@ import { ArrowLeft } from "lucide-react";
 import { getAuthorBySlug, getAuthors } from "@/lib/actions/authors";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
-import { AuthorMediaSection } from "./author-media-section";
 import { AuthorDetailHeader } from "./author-detail-header";
 import { GallerySection } from "@/components/shared/gallery-section";
 
@@ -43,9 +42,6 @@ export default async function AuthorDetailPage({ params }: PageProps) {
   );
   const poster = activePoster ?? author.media?.find((m) => m.type === "poster");
   const background = author.media?.find((m) => m.type === "background");
-  const galleryMedia =
-    author.media?.filter((m) => m.type === "gallery") ?? [];
-
   const posterUrl = poster
     ? `/api/s3/read?key=${encodeURIComponent(poster.thumbnailS3Key ?? poster.s3Key)}`
     : null;
@@ -98,7 +94,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             <img
               src={backgroundUrl}
               alt=""
-              className="h-full w-full object-cover"
+              className="protected-image h-full w-full object-cover"
               style={{
                 objectPosition: `${bgMedia.cropX}% ${bgMedia.cropY}%`,
                 transform: `scale(${bgMedia.cropZoom / 100})`,
@@ -150,9 +146,10 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {author.bio && (
         <section className="mb-8">
           <h2 className="mb-3 font-serif text-xl text-fg-primary">About</h2>
-          <p className="max-w-2xl text-sm leading-relaxed text-fg-secondary">
-            {author.bio}
-          </p>
+          <div
+            className="bio-content max-w-2xl text-sm leading-relaxed text-fg-secondary"
+            dangerouslySetInnerHTML={{ __html: author.bio }}
+          />
         </section>
       )}
 
@@ -241,7 +238,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
                       alt={edition.title ?? "Edition cover"}
                       fill
                       sizes="32px"
-                      className="object-cover"
+                      className="protected-image object-cover"
                     unoptimized
                     />
                   </div>
@@ -268,12 +265,6 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
-
-      {/* Media upload zones (poster + background) */}
-      <AuthorMediaSection
-        authorId={author.id}
-        gallery={galleryMedia}
-      />
 
       {/* Gallery collage */}
       <GallerySection entityType="author" entityId={author.id} />

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { AuthorMediaManagerDialog } from "@/components/media/author-media-manage
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ExportMenu } from "@/components/shared/export-menu";
+import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
 
@@ -110,38 +112,42 @@ export function AuthorDetailHeader({
     <>
       <div className="mb-8 flex gap-8">
         {posterUrl ? (
-          <div
-            className="relative h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary cursor-pointer"
-            onClick={() => setLightboxOpen(true)}
-            role="button"
-            aria-label={`View full image: ${name} portrait`}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setLightboxOpen(true);
-              }
-            }}
+          <ProtectedImageWrapper
+            className="h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary cursor-pointer"
           >
-            <Image
-              src={posterUrl}
-              alt={`${name} portrait`}
-              fill
-              sizes="192px"
-              className="object-cover transition-transform duration-300 hover:scale-[1.03]"
-              style={
-                posterCrop &&
-                (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100)
-                  ? {
-                      objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
-                      transform: `scale(${posterCrop.zoom / 100})`,
-                      transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
-                    }
-                  : undefined
-              }
-              unoptimized
-            />
-          </div>
+            <div
+              className="relative h-full w-full"
+              onClick={() => setLightboxOpen(true)}
+              role="button"
+              aria-label={`View full image: ${name} portrait`}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setLightboxOpen(true);
+                }
+              }}
+            >
+              <Image
+                src={posterUrl}
+                alt={`${name} portrait`}
+                fill
+                sizes="192px"
+                className="protected-image object-cover transition-transform duration-300 hover:scale-[1.03]"
+                style={
+                  posterCrop &&
+                  (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100)
+                    ? {
+                        objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
+                        transform: `scale(${posterCrop.zoom / 100})`,
+                        transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
+                      }
+                    : undefined
+                }
+                unoptimized
+              />
+            </div>
+          </ProtectedImageWrapper>
         ) : (
           <div className="flex h-64 w-48 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
             <span className="font-serif text-5xl text-fg-muted/20">
@@ -174,15 +180,24 @@ export function AuthorDetailHeader({
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-fg-secondary">
-            {countryName && <span>{countryName}</span>}
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+            {countryName && (
+              <Link
+                href={`/authors?nationality=${encodeURIComponent(countryName)}`}
+                className="text-fg-primary font-medium transition-colors hover:text-accent-rose"
+              >
+                {countryName}
+              </Link>
+            )}
             {lifeDates && (
-              <span className="font-mono text-xs text-fg-muted">
+              <span className="font-mono text-xs text-fg-secondary">
                 {lifeDates}
               </span>
             )}
             {gender && (
-              <span className="text-xs text-fg-muted">{gender}</span>
+              <span className="text-sm text-fg-secondary capitalize">
+                {gender}
+              </span>
             )}
           </div>
         </div>

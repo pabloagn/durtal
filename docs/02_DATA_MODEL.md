@@ -942,6 +942,7 @@ Pre-computed collage grid layout specifications for gallery media on work and au
 | `layout_data` | JSONB | NOT NULL | Computed `CollageLayoutData` JSON: `{ blocks: CollageBlock[] }` where each block has `columns`, `rows`, and `cells` (with `mediaId`, `row`, `col`, `rowSpan`, `colSpan`) |
 | `seed` | INTEGER | NOT NULL, default `0` | Integer seed used for deterministic template selection — same seed produces the same layout |
 | `image_count` | INTEGER | NOT NULL, default `0` | Number of gallery images at time of last computation; used to detect staleness |
+| `container_width` | INTEGER | nullable | Pixel width of the gallery container at time of last computation; used to detect layout staleness when the container is resized |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 

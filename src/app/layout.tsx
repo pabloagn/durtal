@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Shell } from "@/components/layout/shell";
+import { ImageGuard } from "@/components/shared/image-guard";
 import "@/styles/globals.css";
 
 const serif = localFont({
@@ -52,6 +53,7 @@ export default function RootLayout({
       className={`dark ${serif.variable} ${sans.variable} ${mono.variable}`}
     >
       <body>
+        <ImageGuard />
         <Shell>{children}</Shell>
       </body>
     </html>

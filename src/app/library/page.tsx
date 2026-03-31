@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, Library } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
+import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,7 +58,7 @@ async function LibraryContent({
   const posterParam = searchParams.poster;
   const hasPoster = posterParam === "has" ? true : posterParam === "missing" ? false : undefined;
 
-  const [works, total] = await Promise.all([
+  const [works, total, timelineWorks] = await Promise.all([
     getWorks({
       search,
       sort,
@@ -79,9 +80,15 @@ async function LibraryContent({
       locationId,
       hasPoster,
     }),
+    getWorksForTimeline({
+      search,
+      filters: {
+        catalogueStatus: statusFilter?.length ? statusFilter : undefined,
+      },
+    }),
   ]);
 
-  if (works.length === 0) {
+  if (works.length === 0 && timelineWorks.length === 0) {
     const hasFilters = !!(search || statusFilter?.length || priorityFilter?.length || ratingParam || locationId || posterParam);
     return (
       <EmptyState
@@ -161,38 +168,38 @@ async function LibraryContent({
 
   return (
     <>
-      <LibraryShell books={books} />
+      <LibraryShell books={books} timelineWorks={timelineWorks}>
+        {/* Pagination — hidden in timeline mode by LibraryShell */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-2">
+            {page > 1 && (
+              <Link
+                href={`/library?${new URLSearchParams({ ...paginationParams, page: String(page - 1) })}`}
+              >
+                <Button variant="ghost" size="sm">
+                  Previous
+                </Button>
+              </Link>
+            )}
+            <span className="font-mono text-xs text-fg-muted">
+              {page} / {totalPages}
+            </span>
+            {page < totalPages && (
+              <Link
+                href={`/library?${new URLSearchParams({ ...paginationParams, page: String(page + 1) })}`}
+              >
+                <Button variant="ghost" size="sm">
+                  Next
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          {page > 1 && (
-            <Link
-              href={`/library?${new URLSearchParams({ ...paginationParams, page: String(page - 1) })}`}
-            >
-              <Button variant="ghost" size="sm">
-                Previous
-              </Button>
-            </Link>
-          )}
-          <span className="font-mono text-xs text-fg-muted">
-            {page} / {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link
-              href={`/library?${new URLSearchParams({ ...paginationParams, page: String(page + 1) })}`}
-            >
-              <Button variant="ghost" size="sm">
-                Next
-              </Button>
-            </Link>
-          )}
-        </div>
-      )}
-
-      <p className="mt-4 text-center font-mono text-xs text-fg-muted">
-        {total} {total === 1 ? "work" : "works"}
-      </p>
+        <p className="mt-4 text-center font-mono text-xs text-fg-muted">
+          {total} {total === 1 ? "work" : "works"}
+        </p>
+      </LibraryShell>
     </>
   );
 }

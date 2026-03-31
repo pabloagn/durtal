@@ -14,6 +14,8 @@ interface AuthorListItemProps {
   id: string;
   slug: string;
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
   nationality?: string | null;
   birthYear?: number | null;
   deathYear?: number | null;
@@ -29,6 +31,8 @@ export function AuthorListItem({
   id,
   slug,
   name,
+  firstName,
+  lastName,
   nationality,
   birthYear,
   deathYear,
@@ -90,14 +94,14 @@ export function AuthorListItem({
         tabIndex={isSelecting ? -1 : undefined}
       >
         {/* Small thumbnail */}
-        <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+        <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary" onContextMenu={(e) => e.preventDefault()}>
           {photoUrl ? (
             <Image
               src={photoUrl}
               alt={name}
               fill
               sizes="28px"
-              className="object-cover"
+              className="protected-image object-cover"
               style={
                 posterCrop && (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100)
                   ? {
@@ -145,7 +149,7 @@ export function AuthorListItem({
           className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
-          <AuthorCardActionsMenu authorId={id} slug={slug} name={name} />
+          <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
         </div>
       )}
     </div>

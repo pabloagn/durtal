@@ -17,6 +17,7 @@ export const galleryLayouts = pgTable(
     layoutData: jsonb("layout_data").notNull(), // computed layout JSON
     seed: integer("seed").notNull().default(0),
     imageCount: integer("image_count").notNull().default(0),
+    containerWidth: integer("container_width"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

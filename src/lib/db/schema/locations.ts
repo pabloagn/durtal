@@ -30,7 +30,7 @@ export const locations = pgTable("locations", {
 });
 
 export const locationsRelations = relations(locations, ({ many }) => ({
-  instances: many(instances),
+  instances: many(instances, { relationName: "instanceLocation" }),
   subLocations: many(subLocations),
 }));
 
@@ -43,9 +43,10 @@ export const subLocations = pgTable("sub_locations", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
-export const subLocationsRelations = relations(subLocations, ({ one }) => ({
+export const subLocationsRelations = relations(subLocations, ({ one, many }) => ({
   location: one(locations, {
     fields: [subLocations.locationId],
     references: [locations.id],
   }),
+  instances: many(instances, { relationName: "instanceSubLocation" }),
 }));

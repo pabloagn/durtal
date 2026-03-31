@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { GooglePlacesSearch } from "@/components/venues/google-places-search";
+import type { GooglePlaceResult } from "@/components/venues/google-places-search";
 import { createVenue } from "@/lib/actions/venues";
 import type { VenueType } from "@/lib/actions/venues";
 
@@ -46,6 +48,13 @@ export function VenueCreateDialog() {
   const [notes, setNotes] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
 
+  // Google Places data (stored for submission)
+  const [googlePlaceId, setGooglePlaceId] = useState<string | null>(null);
+  const [placeCoords, setPlaceCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
   function resetForm() {
     setName("");
     setType("bookshop");
@@ -59,6 +68,25 @@ export function VenueCreateDialog() {
     setSpecialties("");
     setNotes("");
     setTagsRaw("");
+    setGooglePlaceId(null);
+    setPlaceCoords(null);
+  }
+
+  function handlePlaceSelect(place: GooglePlaceResult) {
+    if (!name.trim()) {
+      setName(place.name);
+    }
+    if (place.formattedAddress) {
+      setFormattedAddress(place.formattedAddress);
+    }
+    if (place.nationalPhoneNumber) {
+      setPhone(place.nationalPhoneNumber);
+    }
+    if (place.websiteUri) {
+      setWebsite(place.websiteUri);
+    }
+    setGooglePlaceId(place.placeId);
+    setPlaceCoords(place.location ?? null);
   }
 
   function handleClose() {
@@ -88,6 +116,8 @@ export function VenueCreateDialog() {
           website: website.trim() || null,
           instagramHandle: instagramHandle.trim() || null,
           formattedAddress: formattedAddress.trim() || null,
+          googlePlaceId: googlePlaceId ?? null,
+          placeCoordinates: placeCoords ?? null,
           phone: phone.trim() || null,
           email: email.trim() || null,
           specialties: specialties.trim() || null,
@@ -169,16 +199,26 @@ export function VenueCreateDialog() {
                 Location
               </h3>
               <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-fg-secondary">
+                    Search Google Places
+                  </label>
+                  <GooglePlacesSearch
+                    onSelect={handlePlaceSelect}
+                    disabled={isPending}
+                  />
+                  {googlePlaceId && (
+                    <p className="text-xs text-accent-sage">
+                      Place linked — fields auto-filled below.
+                    </p>
+                  )}
+                </div>
                 <Input
                   label="Address"
                   value={formattedAddress}
                   onChange={(e) => setFormattedAddress(e.target.value)}
                   placeholder="Full address"
                 />
-                <p className="text-xs text-fg-muted">
-                  Google Places autocomplete will be added in a future update.
-                  Enter the address manually for now.
-                </p>
               </div>
             </section>
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { venues } from "@/lib/db/schema";
+import { venues, places } from "@/lib/db/schema";
 import {
   eq,
   and,
@@ -43,6 +43,8 @@ export interface CreateVenueInput {
   placeId?: string | null;
   formattedAddress?: string | null;
   googlePlaceId?: string | null;
+  /** Coordinates from Google Places — used to create a geographic places record */
+  placeCoordinates?: { latitude: number; longitude: number } | null;
   phone?: string | null;
   email?: string | null;
   openingHours?: Record<string, unknown> | null;
@@ -211,6 +213,28 @@ export async function searchVenues(query: string) {
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 export async function createVenue(input: CreateVenueInput) {
+  // If Google Places coordinates were provided and no explicit placeId, create
+  // a geographic places record and link it to this venue.
+  let resolvedPlaceId = input.placeId ?? null;
+
+  if (!resolvedPlaceId && input.placeCoordinates && input.formattedAddress) {
+    try {
+      const [geoPlace] = await db
+        .insert(places)
+        .values({
+          name: input.name,
+          fullName: input.formattedAddress,
+          type: "venue",
+          latitude: input.placeCoordinates.latitude,
+          longitude: input.placeCoordinates.longitude,
+        })
+        .returning({ id: places.id });
+      if (geoPlace) resolvedPlaceId = geoPlace.id;
+    } catch {
+      // Non-fatal: venue creation continues without a places link
+    }
+  }
+
   const [venue] = await db
     .insert(venues)
     .values({
@@ -221,7 +245,7 @@ export async function createVenue(input: CreateVenueInput) {
       website: input.website ?? null,
       instagramHandle: input.instagramHandle ?? null,
       socialLinks: input.socialLinks ?? null,
-      placeId: input.placeId ?? null,
+      placeId: resolvedPlaceId,
       formattedAddress: input.formattedAddress ?? null,
       googlePlaceId: input.googlePlaceId ?? null,
       phone: input.phone ?? null,

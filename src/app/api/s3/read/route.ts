@@ -51,7 +51,12 @@ export async function GET(req: NextRequest) {
       setCachedUrl(key, url);
     }
 
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, {
+      headers: {
+        "Cache-Control": "private, no-store, no-cache",
+        "Content-Disposition": "inline",
+      },
+    });
   } catch {
     return NextResponse.json({ error: "Failed to get URL" }, { status: 500 });
   }

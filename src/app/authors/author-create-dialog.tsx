@@ -6,8 +6,8 @@ import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { RichTextEditor } from "@/components/shared/rich-text-editor";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { createAuthor, getCountries } from "@/lib/actions/authors";
@@ -311,13 +311,13 @@ export function AuthorCreateDialog() {
                   <h3 className="mb-3 font-serif text-lg text-fg-secondary">
                     Bio
                   </h3>
-                  <Textarea
+                  <RichTextEditor
                     label="Biography"
                     value={bio}
-                    onChange={(e) => setBio(e.target.value)}
+                    onChange={setBio}
                     rows={6}
-                    maxLength={10000}
                     placeholder="Author biography"
+                    disabled={isPending}
                   />
                 </section>
 

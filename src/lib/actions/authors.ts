@@ -15,7 +15,7 @@ export async function getAuthors(opts?: {
   search?: string;
   limit?: number;
   offset?: number;
-  sort?: "name" | "recent" | "birth" | "works";
+  sort?: "name" | "lastName" | "recent" | "birth" | "works";
   order?: "asc" | "desc";
   filters?: {
     nationalities?: string[];
@@ -108,6 +108,7 @@ export async function getAuthors(opts?: {
             return desc;
           case "birth":
           case "name":
+          case "lastName":
           default:
             return asc;
         }
@@ -164,9 +165,11 @@ export async function getAuthors(opts?: {
         return dirFn(authors.createdAt);
       case "birth":
         return dirFn(authors.birthYear);
+      case "lastName":
+        return dirFn(authors.sortName);
       case "name":
       default:
-        return dirFn(authors.sortName);
+        return dirFn(authors.name);
     }
   })();
 
