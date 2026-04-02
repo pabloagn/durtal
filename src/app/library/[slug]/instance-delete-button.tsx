@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { deleteInstance } from "@/lib/actions/instances";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface InstanceDeleteButtonProps {
   instanceId: string;
@@ -25,6 +26,7 @@ export function InstanceDeleteButton({
     toast.success("Instance deleted");
     setOpen(false);
     router.refresh();
+    triggerActivityRefresh();
   }
 
   return (

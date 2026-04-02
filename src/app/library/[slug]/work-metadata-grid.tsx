@@ -36,7 +36,7 @@ export function WorkMetadataGrid({ work }: WorkMetadataGridProps) {
 
   return (
     <section className="mb-8">
-      <h2 className="mb-3 font-serif text-xl text-fg-secondary">Details</h2>
+      <h2 className="mb-3 font-serif text-2xl text-fg-primary">Details</h2>
       <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
         {work.originalLanguage && (
           <MetaRow label="Original Language">

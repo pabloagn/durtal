@@ -19,7 +19,7 @@ export function AuthorMediaSection({ authorId }: AuthorMediaSectionProps) {
     <>
       {/* Upload zones for poster and background */}
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-xl text-fg-secondary">Media</h2>
+        <h2 className="mb-3 font-serif text-2xl text-fg-primary">Media</h2>
         <div className="grid grid-cols-2 gap-3">
           <UploadZone
             entityType="author"
@@ -40,7 +40,7 @@ export function AuthorMediaSection({ authorId }: AuthorMediaSectionProps) {
 
       {/* Gallery upload zone */}
       <section className="mb-4">
-        <h2 className="mb-3 font-serif text-xl text-fg-secondary">
+        <h2 className="mb-3 font-serif text-2xl text-fg-primary">
           Gallery Upload
         </h2>
         <UploadZone

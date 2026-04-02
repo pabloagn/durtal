@@ -11,6 +11,7 @@ import { RichTextEditor } from "@/components/shared/rich-text-editor";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { getAuthor, updateAuthor, getCountries } from "@/lib/actions/authors";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface AuthorEditDialogProps {
   open: boolean;
@@ -156,6 +157,7 @@ export function AuthorEditDialog({
         toast.success("Author updated");
         onClose();
         router.refresh();
+        triggerActivityRefresh();
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Failed to update author",

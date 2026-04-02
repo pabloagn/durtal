@@ -1,6 +1,6 @@
 # Task 0056: Author Card Action Menu (Three-Dots)
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-30
 **Priority**: HIGH
 **Type**: Feature

@@ -1,6 +1,6 @@
 # Task 0051: Author Poster Size Increase on Author Detail Page
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-30
 **Priority**: MEDIUM
 **Type**: Enhancement

@@ -14,8 +14,6 @@ import {
   avg,
   gte,
   lte,
-  sql,
-  isNull,
   isNotNull,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -28,34 +26,48 @@ import type {
 import {
   TERMINAL_STATUSES,
   IN_TRANSIT_STATUSES,
+  BOOK_IN_HAND_STATUSES,
+  getValidTransitions,
 } from "@/lib/constants/orders";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 
-// Statuses that mean "book is in hand"
-const BOOK_IN_HAND_STATUSES: OrderStatus[] = [
-  "delivered",
-  "purchased",
-  "received",
-];
-
 /**
- * Sync the work's catalogueStatus based on order lifecycle events.
+ * Derive the correct work catalogueStatus by looking at ALL orders for the work.
+ * (C1, H4) — handles cancellation, return, deletion, and multi-order scenarios.
  *
- * - Order in progress (not in hand) → work becomes "on_order"
- * - Order completed (book in hand)  → work becomes "accessioned"
- *
- * Skips the update if the work is already in the target status.
- * Records the transition in work_status_history and activity log.
+ * Priority: any "book in hand" order → accessioned
+ *           any active (non-terminal) order → on_order
+ *           otherwise → leave unchanged (don't revert to a status we can't know)
  */
-async function syncWorkCatalogueStatus(
+async function syncWorkCatalogueStatusFromAllOrders(
   workId: string,
-  orderStatus: OrderStatus,
   notes: string,
 ) {
-  const targetStatus = BOOK_IN_HAND_STATUSES.includes(orderStatus)
-    ? "accessioned"
-    : "on_order";
+  const allOrders = await db.query.orders.findMany({
+    where: eq(orders.workId, workId),
+    columns: { status: true },
+  });
+
+  const hasBookInHand = allOrders.some((o) =>
+    BOOK_IN_HAND_STATUSES.includes(o.status as OrderStatus),
+  );
+  const hasActiveOrder = allOrders.some(
+    (o) => !(TERMINAL_STATUSES as string[]).includes(o.status),
+  );
+
+  type CatalogueStatus = "tracked" | "shortlisted" | "wanted" | "on_order" | "accessioned" | "deaccessioned";
+
+  let targetStatus: CatalogueStatus;
+  if (hasBookInHand) {
+    targetStatus = "accessioned";
+  } else if (hasActiveOrder) {
+    targetStatus = "on_order";
+  } else {
+    // All orders are terminal non-delivered (cancelled/returned) or no orders left.
+    // Revert to "wanted" since the user clearly wanted this work.
+    targetStatus = "wanted";
+  }
 
   const work = await db.query.works.findFirst({
     where: eq(works.id, workId),
@@ -350,6 +362,7 @@ export async function getProvenanceStats(dateRange?: {
         ),
       ),
 
+    // M3: include outer date-range filter in arrivingThisWeek subquery
     db
       .select({ count: count() })
       .from(orders)
@@ -359,6 +372,7 @@ export async function getProvenanceStats(dateRange?: {
           gte(orders.estimatedDeliveryDate, todayStr),
           lte(orders.estimatedDeliveryDate, sevenDaysStr),
           notInArray(orders.status, TERMINAL_STATUSES as OrderStatus[]),
+          where,
         ),
       ),
   ]);
@@ -416,17 +430,23 @@ export async function createOrder(input: CreateOrderInput) {
     notes: "Order created",
   });
 
-  // Sync work catalogue status: on_order or accessioned
-  await syncWorkCatalogueStatus(
+  // Sync work catalogue status from all orders for this work
+  await syncWorkCatalogueStatusFromAllOrders(
     input.workId,
-    status,
     `Order created with status "${status}"`,
   );
 
+  invalidate(CACHE_TAGS.orders);
   return order;
 }
 
 export async function updateOrder(id: string, input: UpdateOrderInput) {
+  // H3: fetch current state to record what changed
+  const current = await db.query.orders.findFirst({
+    where: eq(orders.id, id),
+    columns: { workId: true },
+  });
+
   const [updated] = await db
     .update(orders)
     .set({
@@ -485,6 +505,14 @@ export async function updateOrder(id: string, input: UpdateOrderInput) {
     .where(eq(orders.id, id))
     .returning();
 
+  // H3: record activity event for field edits
+  if (current) {
+    recordActivity("work", current.workId, "work.order_updated", {
+      extra: { orderId: id },
+    });
+  }
+
+  invalidate(CACHE_TAGS.orders);
   return updated;
 }
 
@@ -495,25 +523,40 @@ export async function updateOrderStatus(
 ) {
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
-    columns: { status: true },
+    columns: { status: true, acquisitionMethod: true, shippedDate: true, actualDeliveryDate: true, workId: true },
   });
 
   if (!current) throw new Error("Order not found");
 
-  const fromStatus = current.status;
+  // C5: server-side transition validation
+  const valid = getValidTransitions(
+    current.status as OrderStatus,
+    current.acquisitionMethod as AcquisitionMethod,
+  );
+  if (!valid.includes(newStatus)) {
+    throw new Error(
+      `Invalid transition from "${current.status}" to "${newStatus}" for method "${current.acquisitionMethod}"`,
+    );
+  }
 
+  const fromStatus = current.status;
+  const today = new Date().toISOString().split("T")[0];
+
+  // C6: only auto-set dates when the field is currently null
   const additionalFields: Record<string, unknown> = {};
-  if (newStatus === "shipped" || newStatus === "in_transit") {
-    additionalFields.shippedDate = new Date().toISOString().split("T")[0];
+  if (
+    (newStatus === "shipped" || newStatus === "in_transit") &&
+    !current.shippedDate
+  ) {
+    additionalFields.shippedDate = today;
   }
   if (
-    newStatus === "delivered" ||
-    newStatus === "purchased" ||
-    newStatus === "received"
+    (newStatus === "delivered" ||
+      newStatus === "purchased" ||
+      newStatus === "received") &&
+    !current.actualDeliveryDate
   ) {
-    additionalFields.actualDeliveryDate = new Date()
-      .toISOString()
-      .split("T")[0];
+    additionalFields.actualDeliveryDate = today;
   }
 
   const [updated] = await db
@@ -529,44 +572,60 @@ export async function updateOrderStatus(
     notes: notes ?? null,
   });
 
-  // Sync work catalogue status when order reaches "book in hand" state
-  if (BOOK_IN_HAND_STATUSES.includes(newStatus)) {
-    await syncWorkCatalogueStatus(
-      updated.workId,
-      newStatus,
-      `Order status changed to "${newStatus}"`,
-    );
-  }
+  // C1: always sync work status from all orders (handles cancel, return, delivery)
+  await syncWorkCatalogueStatusFromAllOrders(
+    updated.workId,
+    `Order status changed to "${newStatus}"`,
+  );
 
+  invalidate(CACHE_TAGS.orders);
   return updated;
 }
 
 export async function deleteOrder(id: string) {
   const order = await db.query.orders.findFirst({
     where: eq(orders.id, id),
-    columns: { status: true },
+    columns: { status: true, workId: true },
   });
 
   if (!order) throw new Error("Order not found");
 
-  if (order.status === "delivered") {
+  // M2: guard against all book-in-hand statuses, not just "delivered"
+  if (BOOK_IN_HAND_STATUSES.includes(order.status as OrderStatus)) {
     throw new Error(
-      "Cannot delete a delivered order. Consider updating its status instead.",
+      `Cannot delete a "${order.status}" order. Consider updating its status instead.`,
     );
   }
 
+  // C2: record history before deletion
+  await db.insert(orderStatusHistory).values({
+    orderId: id,
+    fromStatus: order.status,
+    toStatus: "cancelled" as OrderStatus,
+    notes: "Order deleted",
+  });
+
   await db.delete(orders).where(eq(orders.id, id));
+
+  // C2: sync work status after removing order
+  await syncWorkCatalogueStatusFromAllOrders(
+    order.workId,
+    `Order deleted (was "${order.status}")`,
+  );
+
+  invalidate(CACHE_TAGS.orders);
   return { id };
 }
 
 export async function searchWorksForOrder(query: string) {
-  const { works, workAuthors, authors, media } = await import(
-    "@/lib/db/schema"
-  );
+  const { works } = await import("@/lib/db/schema");
   const { ilike } = await import("drizzle-orm");
 
+  // L1: escape SQL pattern characters to prevent unintended matches
+  const escaped = query.replace(/[%_\\]/g, (c) => `\\${c}`);
+
   return db.query.works.findMany({
-    where: ilike(works.title, `%${query}%`),
+    where: ilike(works.title, `%${escaped}%`),
     limit: 20,
     orderBy: asc(works.title),
     with: {

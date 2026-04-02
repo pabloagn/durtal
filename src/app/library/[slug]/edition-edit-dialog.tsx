@@ -12,6 +12,7 @@ import {
 } from "@/components/books/edition-form";
 import { updateEdition } from "@/lib/actions/editions";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { EditionWithRelations } from "@/lib/types/index";
 
 interface EditionEditDialogProps {
@@ -142,6 +143,7 @@ export function EditionEditDialog({
       toast.success("Edition updated");
       setOpen(false);
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to update edition");
     } finally {

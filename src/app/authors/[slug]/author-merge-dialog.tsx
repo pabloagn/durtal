@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { mergeAuthors } from "@/lib/actions/authors";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface AuthorMergeDialogProps {
   open: boolean;
@@ -72,6 +73,7 @@ export function AuthorMergeDialog({
         );
         handleClose();
         router.refresh();
+        triggerActivityRefresh();
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Failed to merge authors",

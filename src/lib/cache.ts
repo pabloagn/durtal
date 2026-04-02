@@ -30,6 +30,7 @@ export const CACHE_TAGS = {
   media: "data:media",
   activity: "data:activity",
   comments: "data:comments",
+  orders: "data:orders",
 } as const;
 
 // ── Cache durations (seconds) ──────────────────────────────────────────────────

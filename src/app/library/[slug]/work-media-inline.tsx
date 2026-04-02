@@ -45,10 +45,10 @@ export function WorkMediaInline({
   return (
     <section className="mb-8">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-xl text-fg-secondary">
+        <h2 className="font-serif text-2xl text-fg-primary">
           Media
           {totalCount > 0 && (
-            <span className="ml-1 text-fg-muted">({totalCount})</span>
+            <span className="ml-1">({totalCount})</span>
           )}
         </h2>
         {showButton && !isControlled && (

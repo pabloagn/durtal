@@ -37,7 +37,11 @@ import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
-import { TERMINAL_STATUSES, PIPELINE_STATUSES } from "@/lib/constants/orders";
+import {
+  AUCTION_PIPELINE,
+  BOOK_IN_HAND_STATUSES,
+  getValidTransitions,
+} from "@/lib/constants/orders";
 import { OrderEditDialog } from "./order-edit-dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -168,6 +172,8 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   shipped: "in_transit",
   in_transit: "out_for_delivery",
   out_for_delivery: "delivered",
+  bid: "won",
+  won: "shipped",
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -185,42 +191,6 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
   returned: "Returned",
 };
-
-/**
- * Returns all valid statuses an order can transition to, given its current
- * status and acquisition method. Allows skipping intermediate statuses.
- */
-function getValidTransitions(
-  currentStatus: OrderStatus,
-  method: AcquisitionMethod,
-): OrderStatus[] {
-  // Terminal statuses can't transition further
-  if ((TERMINAL_STATUSES as string[]).includes(currentStatus)) return [];
-
-  let pipeline: OrderStatus[];
-  if (method === "auction") {
-    pipeline = ["bid", "won", "shipped", "in_transit", "out_for_delivery", "delivered"];
-  } else if (
-    method === "in_store_purchase" ||
-    method === "gift" ||
-    method === "event_purchase"
-  ) {
-    pipeline = ["purchased", "received"];
-  } else {
-    pipeline = [...PIPELINE_STATUSES] as OrderStatus[];
-  }
-
-  const currentIdx = pipeline.indexOf(currentStatus);
-  // All statuses AFTER the current one in the pipeline, plus cancel/return
-  const forward =
-    currentIdx >= 0
-      ? pipeline.slice(currentIdx + 1)
-      : pipeline;
-
-  return ([...forward, "cancelled" as OrderStatus, "returned" as OrderStatus]).filter(
-    (s) => s !== currentStatus,
-  );
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -251,6 +221,38 @@ function daysUntil(dateStr: string): number {
   const d = new Date(dateStr);
   const now = new Date();
   return Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// M1: method-aware timeline steps
+function getTimelineSteps(
+  order: OrderItem,
+): { label: string; date: string | null; done: boolean }[] {
+  const m = order.acquisitionMethod;
+  if (m === "gift") {
+    return [
+      { label: "Received", date: order.actualDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+    ];
+  }
+  if (m === "in_store_purchase" || m === "event_purchase") {
+    return [
+      { label: "Purchased", date: order.orderDate, done: true },
+    ];
+  }
+  if (m === "auction") {
+    return [
+      { label: "Bid placed", date: order.orderDate, done: true },
+      { label: "Won", date: null, done: AUCTION_PIPELINE.indexOf(order.status) >= AUCTION_PIPELINE.indexOf("won") },
+      { label: "Shipped", date: order.shippedDate, done: Boolean(order.shippedDate) },
+      { label: "Delivered", date: order.actualDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+    ];
+  }
+  // online_order / digital_purchase
+  return [
+    { label: "Order placed", date: order.orderDate, done: true },
+    { label: "Shipped", date: order.shippedDate, done: Boolean(order.shippedDate) },
+    { label: "Estimated delivery", date: order.estimatedDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+    { label: "Delivered", date: order.actualDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+  ];
 }
 
 function formatCurrency(amount: string | null, currency: string | null): string {
@@ -359,7 +361,7 @@ function PipelineOrderCard({
           ) : (
             <div className="flex h-full items-center justify-center">
               <span className="font-serif text-xs text-fg-muted/30">
-                {order.work.title[0]}
+                {order.work.title?.[0] ?? "?"}
               </span>
             </div>
           )}
@@ -392,7 +394,7 @@ function PipelineOrderCard({
             className={`ml-auto font-mono text-micro ${etaOverdue ? "text-accent-red" : "text-accent-gold"}`}
           >
             {etaOverdue
-              ? `${Math.abs(etaDays!)}d late`
+              ? `${Math.abs(etaDays ?? 0)}d late`
               : etaDays === 0
                 ? "today"
                 : `${etaDays}d`}
@@ -521,7 +523,6 @@ function OrderDetailPanel({
         `Status updated to ${newStatus.replace(/_/g, " ")}`,
       );
       router.refresh();
-      onClose();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to update status",
@@ -619,7 +620,7 @@ function OrderDetailPanel({
               ) : (
                 <div className="flex h-full items-center justify-center">
                   <span className="font-serif text-lg text-fg-muted/30">
-                    {order.work.title[0]}
+                    {order.work.title?.[0] ?? "?"}
                   </span>
                 </div>
               )}
@@ -643,30 +644,13 @@ function OrderDetailPanel({
             </div>
           </div>
 
-          {/* Order timeline */}
+          {/* M1: method-aware order timeline */}
           <div className="mt-6">
             <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
               Timeline
             </h3>
             <div className="space-y-1">
-              {[
-                { label: "Order placed", date: order.orderDate, done: true },
-                {
-                  label: "Shipped",
-                  date: order.shippedDate,
-                  done: Boolean(order.shippedDate),
-                },
-                {
-                  label: "Estimated delivery",
-                  date: order.estimatedDeliveryDate,
-                  done: Boolean(order.actualDeliveryDate),
-                },
-                {
-                  label: "Delivered",
-                  date: order.actualDeliveryDate,
-                  done: Boolean(order.actualDeliveryDate),
-                },
-              ].map(({ label, date, done }) => (
+              {getTimelineSteps(order).map(({ label, date, done }) => (
                 <div key={label} className="flex items-center gap-3">
                   {done ? (
                     <CheckCircle
@@ -910,6 +894,11 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
   // Sync optimistic state with server data
   useEffect(() => {
     setOptimisticOrders(activeOrders);
+    // Keep selected order in sync with fresh server data
+    setSelectedOrder((prev) => {
+      if (!prev) return null;
+      return activeOrders.find((o) => o.id === prev.id) ?? null;
+    });
   }, [activeOrders]);
 
   // Drag-and-drop sensors with activation delay to differentiate clicks from drags
@@ -938,11 +927,27 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
     const valid = getValidTransitions(order.status, order.acquisitionMethod);
     if (!valid.includes(targetStatus)) return;
 
-    // Optimistic update
+    // Optimistic update — include date fields that the server auto-populates
+    const today = new Date().toISOString().split("T")[0];
+    const optimisticDates: Partial<OrderItem> = {};
+    if (targetStatus === "shipped" || targetStatus === "in_transit") {
+      optimisticDates.shippedDate = order.shippedDate ?? today;
+    }
+    if (BOOK_IN_HAND_STATUSES.includes(targetStatus)) {
+      optimisticDates.actualDeliveryDate = order.actualDeliveryDate ?? today;
+    }
+
+    const optimisticOrder = { ...order, status: targetStatus, ...optimisticDates };
+
     setOptimisticOrders((prev) =>
       prev.map((o) =>
-        o.id === order.id ? { ...o, status: targetStatus } : o,
+        o.id === order.id ? optimisticOrder : o,
       ),
+    );
+
+    // Keep detail panel in sync if this order is selected
+    setSelectedOrder((prev) =>
+      prev?.id === order.id ? optimisticOrder : prev,
     );
 
     // Server update
@@ -957,8 +962,11 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         // Revert optimistic update
         setOptimisticOrders((prev) =>
           prev.map((o) =>
-            o.id === order.id ? { ...o, status: order.status } : o,
+            o.id === order.id ? order : o,
           ),
+        );
+        setSelectedOrder((prev) =>
+          prev?.id === order.id ? order : prev,
         );
         toast.error(
           err instanceof Error
@@ -992,14 +1000,19 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
       o.acquisitionMethod === "event_purchase",
   );
 
+  // C3: auction orders have their own pipeline (bid/won) not in PIPELINE_COLUMNS
+  const auctionOrders = optimisticOrders.filter(
+    (o) => o.acquisitionMethod === "auction",
+  );
+
+  // M5: format without hardcoded currency — show raw number
   const totalSpentFormatted = stats.totalSpent
     ? (() => {
         const num = parseFloat(stats.totalSpent);
         if (isNaN(num)) return "—";
         return new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "EUR",
-          maximumFractionDigits: 0,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
         }).format(num);
       })()
     : "—";
@@ -1112,7 +1125,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       ) : (
                         <div className="flex h-full items-center justify-center">
                           <span className="font-serif text-xs text-fg-muted/30">
-                            {order.work.title[0]}
+                            {order.work.title?.[0] ?? "?"}
                           </span>
                         </div>
                       )}
@@ -1131,6 +1144,66 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                     <Badge variant="muted">
                       {METHOD_LABELS[order.acquisitionMethod]}
                     </Badge>
+                    <span className="font-mono text-micro text-fg-muted">
+                      {formatDate(order.orderDate)}
+                    </span>
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0 text-fg-muted"
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* C3: Auction orders section */}
+        {auctionOrders.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-3 font-serif text-xl tracking-tight text-fg-primary">
+              Auctions
+            </h2>
+            <div className="space-y-2">
+              {auctionOrders.map((order) => {
+                const posterUrl = getPosterUrl(order.work);
+                const authorName = getAuthorName(order.work);
+                return (
+                  <button
+                    key={order.id}
+                    type="button"
+                    onClick={() => setSelectedOrder(order)}
+                    className="flex w-full items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
+                  >
+                    <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+                      {posterUrl ? (
+                        <Image
+                          src={posterUrl}
+                          alt={order.work.title}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <span className="font-serif text-xs text-fg-muted/30">
+                            {order.work.title?.[0] ?? "?"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-fg-primary">
+                        {order.work.title}
+                      </p>
+                      <p className="truncate text-xs text-fg-muted">
+                        {authorName}
+                      </p>
+                    </div>
+                    <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
+                      {order.status.replace(/_/g, " ")}
+                    </Badge>
+                    <Badge variant="muted">Auction</Badge>
                     <span className="font-mono text-micro text-fg-muted">
                       {formatDate(order.orderDate)}
                     </span>

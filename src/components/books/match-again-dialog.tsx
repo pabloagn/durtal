@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { rematchEdition, getPrimaryEdition } from "@/lib/actions/editions";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "sonner";
 
 interface MatchResult {
@@ -133,6 +134,7 @@ export function MatchAgainDialog({
         `Metadata updated from ${SOURCE_LABELS[selected.source] ?? selected.source}`,
       );
       router.refresh();
+      triggerActivityRefresh();
       handleClose();
     } catch {
       toast.error("Failed to update metadata");

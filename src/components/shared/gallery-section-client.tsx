@@ -100,10 +100,10 @@ export function GallerySectionClient({
   return (
     <section className="mb-8">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-xl text-fg-secondary">
+        <h2 className="font-serif text-2xl text-fg-primary">
           {title}
           {mediaItems.length > 0 && (
-            <span className="ml-1 text-fg-muted">({mediaItems.length})</span>
+            <span className="ml-1">({mediaItems.length})</span>
           )}
         </h2>
 

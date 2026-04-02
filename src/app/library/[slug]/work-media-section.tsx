@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { UploadZone } from "@/components/media/upload-zone";
 import { MediaGallery } from "@/components/media/media-gallery";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { Media } from "@/lib/types";
 
 interface WorkMediaSectionProps {
@@ -19,7 +20,10 @@ export function WorkMediaSection({
   hasBackground,
 }: WorkMediaSectionProps) {
   const router = useRouter();
-  const refresh = () => router.refresh();
+  const refresh = () => {
+    router.refresh();
+    triggerActivityRefresh();
+  };
 
   const getImageUrl = (s3Key: string) =>
     `/api/s3/read?key=${encodeURIComponent(s3Key)}`;
@@ -29,7 +33,7 @@ export function WorkMediaSection({
       {/* Upload zones for poster and background */}
       {(!hasPoster || !hasBackground) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-secondary">
+          <h2 className="mb-3 font-serif text-2xl text-fg-primary">
             Media
           </h2>
           <div className="grid grid-cols-2 gap-3">
@@ -55,10 +59,10 @@ export function WorkMediaSection({
 
       {/* Gallery */}
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-xl text-fg-secondary">
+        <h2 className="mb-3 font-serif text-2xl text-fg-primary">
           Gallery
           {gallery.length > 0 && (
-            <span className="ml-1 text-fg-muted">({gallery.length})</span>
+            <span className="ml-1">({gallery.length})</span>
           )}
         </h2>
         <MediaGallery

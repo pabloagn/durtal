@@ -59,7 +59,7 @@ export function WorkTaxonomySection({
   return (
     <section className="mb-8">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-xl text-fg-secondary">Taxonomy</h2>
+        <h2 className="font-serif text-2xl text-fg-primary">Taxonomy</h2>
         {headerAction}
       </div>
       {!hasAny && (

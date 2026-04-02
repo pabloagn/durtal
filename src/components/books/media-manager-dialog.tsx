@@ -17,6 +17,7 @@ import {
   updateMediaCrop,
 } from "@/lib/actions/media";
 import { MediaCropEditor } from "./media-crop-editor";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "sonner";
 
 type TabType = "poster" | "background" | "gallery";
@@ -141,6 +142,7 @@ export function MediaManagerDialog({
       await setActiveMedia(id);
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
       toast.success(`Active ${activeTab} updated`);
     } catch {
       toast.error(`Failed to set active ${activeTab}`);
@@ -160,6 +162,7 @@ export function MediaManagerDialog({
       });
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
       toast.success("Media deleted");
     } catch {
       toast.error("Failed to delete media");
@@ -176,6 +179,7 @@ export function MediaManagerDialog({
       setSelected(new Set());
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
       toast.success(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
     } catch {
       toast.error("Failed to delete selected media");
@@ -227,6 +231,7 @@ export function MediaManagerDialog({
       toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} added`);
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : `Failed to add ${activeTab} from URL`,
@@ -290,6 +295,7 @@ export function MediaManagerDialog({
                         await updateMediaCrop(activeItem.id, values);
                         await fetchItems();
                         router.refresh();
+      triggerActivityRefresh();
                         toast.success("Position saved");
                       } catch {
                         toast.error("Failed to save position");

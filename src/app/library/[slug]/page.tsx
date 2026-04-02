@@ -501,7 +501,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {workOrders.length > 0 && (
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-serif text-xl text-fg-secondary">
+            <h2 className="font-serif text-2xl text-fg-primary">
               Orders ({workOrders.length})
             </h2>
             <Link
@@ -566,7 +566,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Notes */}
       {work.notes && (
         <section className="mb-8">
-          <h2 className="mb-2 font-serif text-xl text-fg-secondary">Notes</h2>
+          <h2 className="mb-2 font-serif text-2xl text-fg-primary">Notes</h2>
           <p className="max-w-2xl whitespace-pre-wrap text-sm text-fg-secondary">
             {work.notes}
           </p>
@@ -576,7 +576,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* External links */}
       {(uniqueExternalLinks.length > 0 || work.metadataSource) && (
         <section className="mb-8">
-          <h2 className="mb-2 font-serif text-xl text-fg-secondary">
+          <h2 className="mb-2 font-serif text-2xl text-fg-primary">
             External Links
           </h2>
           <div className="flex flex-wrap gap-4">

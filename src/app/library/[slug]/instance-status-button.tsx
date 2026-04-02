@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { updateInstance } from "@/lib/actions/instances";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { INSTANCE_STATUSES } from "@/lib/types/index";
 
 interface InstanceStatusButtonProps {
@@ -43,6 +44,7 @@ export function InstanceStatusButton({
       setOpen(false);
       setPendingStatus(null);
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to update status");
     } finally {

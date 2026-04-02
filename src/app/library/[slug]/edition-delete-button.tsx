@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { deleteEdition } from "@/lib/actions/editions";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface EditionDeleteButtonProps {
   editionId: string;
@@ -27,6 +28,7 @@ export function EditionDeleteButton({
     toast.success("Edition deleted");
     setOpen(false);
     router.refresh();
+    triggerActivityRefresh();
   }
 
   return (

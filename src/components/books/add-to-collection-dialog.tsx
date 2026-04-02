@@ -13,6 +13,7 @@ import {
   removeEditionFromCollection,
   getEditionCollections,
 } from "@/lib/actions/collections";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "sonner";
 
 interface AddToCollectionDialogProps {
@@ -108,6 +109,7 @@ export function AddToCollectionDialog({
         toast.success("Added to collection");
       }
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       // Revert optimistic update
       setMemberIds((prev) => {
@@ -139,6 +141,7 @@ export function AddToCollectionDialog({
       setNewName("");
       toast.success(`Created "${trimmed}" and added edition`);
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to create collection");
     } finally {

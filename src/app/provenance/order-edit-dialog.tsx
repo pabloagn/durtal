@@ -87,30 +87,39 @@ export function OrderEditDialog({ order, open, onClose }: OrderEditDialogProps) 
   const showShipping = isOnline || isAuction;
 
   function handleSubmit() {
-    const priceVal = price || null;
-    const shippingVal = shippingCost || null;
+    // H1: use !== "" instead of falsy check so "0" is preserved
+    const priceVal = price !== "" ? price : null;
+    const shippingVal = shippingCost !== "" ? shippingCost : null;
     const total =
-      priceVal && shippingVal
+      priceVal != null && shippingVal != null
         ? String(parseFloat(priceVal) + parseFloat(shippingVal))
         : priceVal ?? shippingVal ?? null;
+
+    // M6: null out shipping-specific fields when method doesn't use shipping
+    const carrierVal = showShipping ? (carrier || null) : null;
+    const trackingNumberVal = showShipping ? (trackingNumber || null) : null;
+    const trackingUrlVal = showShipping ? (trackingUrl || null) : null;
+    const shippedDateVal = showShipping ? (shippedDate || null) : null;
+    const estimatedDeliveryDateVal = showShipping ? (estimatedDeliveryDate || null) : null;
+    const actualDeliveryDateVal = (showShipping || isGift) ? (actualDeliveryDate || null) : null;
 
     startTransition(async () => {
       try {
         await updateOrder(order.id, {
           acquisitionMethod: method,
           orderDate,
-          orderConfirmation: orderConfirmation || null,
-          orderUrl: orderUrl || null,
+          orderConfirmation: showShipping ? (orderConfirmation || null) : null,
+          orderUrl: showShipping ? (orderUrl || null) : null,
           price: priceVal,
           shippingCost: shippingVal,
           totalCost: total,
           currency: currency || null,
-          carrier: carrier || null,
-          trackingNumber: trackingNumber || null,
-          trackingUrl: trackingUrl || null,
-          shippedDate: shippedDate || null,
-          estimatedDeliveryDate: estimatedDeliveryDate || null,
-          actualDeliveryDate: actualDeliveryDate || null,
+          carrier: carrierVal,
+          trackingNumber: trackingNumberVal,
+          trackingUrl: trackingUrlVal,
+          shippedDate: shippedDateVal,
+          estimatedDeliveryDate: estimatedDeliveryDateVal,
+          actualDeliveryDate: actualDeliveryDateVal,
           notes: notes || null,
         });
         if (currency) {

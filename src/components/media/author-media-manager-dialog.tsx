@@ -18,6 +18,7 @@ import {
   updateMediaCrop,
 } from "@/lib/actions/media";
 import { MediaCropEditor } from "@/components/books/media-crop-editor";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import {
   DEFAULT_MONOCHROME_PARAMS,
   parseProcessingParams,
@@ -150,6 +151,7 @@ export function AuthorMediaManagerDialog({
       await setActiveMedia(id);
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
       toast.success(`Active ${activeTab} updated`);
     } catch {
       toast.error(`Failed to set active ${activeTab}`);
@@ -170,6 +172,7 @@ export function AuthorMediaManagerDialog({
       if (tuningId === id) setTuningId(null);
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
       toast.success("Media deleted");
     } catch {
       toast.error("Failed to delete media");
@@ -187,6 +190,7 @@ export function AuthorMediaManagerDialog({
       setTuningId(null);
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
       toast.success(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
     } catch {
       toast.error("Failed to delete selected media");
@@ -236,6 +240,7 @@ export function AuthorMediaManagerDialog({
       toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} added`);
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : `Failed to add ${activeTab} from URL`,
@@ -257,6 +262,7 @@ export function AuthorMediaManagerDialog({
       toast.success("Image reprocessed");
       await fetchItems();
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to reprocess image");
     }
@@ -317,6 +323,7 @@ export function AuthorMediaManagerDialog({
                         await updateMediaCrop(activeItem.id, values);
                         await fetchItems();
                         router.refresh();
+      triggerActivityRefresh();
                         toast.success("Position saved");
                       } catch {
                         toast.error("Failed to save position");

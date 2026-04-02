@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { updateWork } from "@/lib/actions/works";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { LANGUAGES } from "@/lib/constants/languages";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -284,6 +285,7 @@ export function WorkEditDialog({
         toast.success("Work updated");
         setOpen(false);
         router.refresh();
+        triggerActivityRefresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to update work");
       }

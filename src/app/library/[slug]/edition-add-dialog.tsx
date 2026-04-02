@@ -13,6 +13,7 @@ import {
 } from "@/components/books/edition-form";
 import { createEdition } from "@/lib/actions/editions";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface EditionAddDialogProps {
   workId: string;
@@ -110,6 +111,7 @@ export function EditionAddDialog({
       toast.success("Edition created");
       setOpen(false);
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to create edition");
     } finally {

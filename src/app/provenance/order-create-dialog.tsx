@@ -15,6 +15,7 @@ import { createOrder, searchWorksForOrder } from "@/lib/actions/orders";
 import { createWork } from "@/lib/actions/works";
 import { findOrCreateAuthor, searchAuthorsLite } from "@/lib/actions/authors";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
+import { getValidInitialStatuses } from "@/lib/constants/orders";
 import {
   CURRENCY_SELECT_OPTIONS,
   DEFAULT_CURRENCY,
@@ -54,21 +55,31 @@ const ACQUISITION_METHOD_OPTIONS: {
   { value: "event_purchase", label: "Event Purchase" },
 ];
 
-const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
-  { value: "placed", label: "Placed" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "processing", label: "Processing" },
-  { value: "shipped", label: "Shipped" },
-  { value: "in_transit", label: "In Transit" },
-  { value: "out_for_delivery", label: "Out for Delivery" },
-  { value: "delivered", label: "Delivered" },
-  { value: "purchased", label: "Purchased" },
-  { value: "received", label: "Received" },
-  { value: "bid", label: "Bid" },
-  { value: "won", label: "Won" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "returned", label: "Returned" },
-];
+// H2: status labels used to build method-filtered options
+const STATUS_LABEL_MAP: Record<OrderStatus, string> = {
+  placed: "Placed",
+  confirmed: "Confirmed",
+  processing: "Processing",
+  shipped: "Shipped",
+  in_transit: "In Transit",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  purchased: "Purchased",
+  received: "Received",
+  bid: "Bid",
+  won: "Won",
+  cancelled: "Cancelled",
+  returned: "Returned",
+};
+
+function getStatusOptionsForMethod(
+  method: AcquisitionMethod,
+): { value: OrderStatus; label: string }[] {
+  return getValidInitialStatuses(method).map((s) => ({
+    value: s,
+    label: STATUS_LABEL_MAP[s],
+  }));
+}
 
 function getPosterUrl(work: WorkResult): string | null {
   const poster = work.media.find((m) => m.type === "poster" && m.isActive);
@@ -302,7 +313,7 @@ function WorkSearchStep({
             ) : (
               <div className="flex h-full items-center justify-center">
                 <span className="font-serif text-sm text-fg-muted/40">
-                  {selectedWork.title[0]}
+                  {selectedWork.title?.[0] ?? "?"}
                 </span>
               </div>
             )}
@@ -363,7 +374,7 @@ function WorkSearchStep({
                   ) : (
                     <div className="flex h-full items-center justify-center">
                       <span className="font-serif text-xs text-fg-muted/40">
-                        {work.title[0]}
+                        {work.title?.[0] ?? "?"}
                       </span>
                     </div>
                   )}
@@ -418,6 +429,9 @@ function MethodStep({
   status: OrderStatus;
   onStatusChange: (v: OrderStatus) => void;
 }) {
+  // H2: filter status options by method
+  const statusOptions = getStatusOptionsForMethod(method);
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-fg-secondary">
@@ -427,12 +441,20 @@ function MethodStep({
         label="Acquisition Method"
         options={ACQUISITION_METHOD_OPTIONS}
         value={method}
-        onChange={(e) => onMethodChange(e.target.value as AcquisitionMethod)}
+        onChange={(e) => {
+          const newMethod = e.target.value as AcquisitionMethod;
+          onMethodChange(newMethod);
+          // Auto-reset status to the first valid option for the new method
+          const validStatuses = getValidInitialStatuses(newMethod);
+          if (!validStatuses.includes(status)) {
+            onStatusChange(validStatuses[0]);
+          }
+        }}
         required
       />
       <Select
         label="Initial Status"
-        options={ORDER_STATUS_OPTIONS}
+        options={statusOptions}
         value={status}
         onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
       />
@@ -676,10 +698,11 @@ export function OrderCreateDialog() {
       return;
     }
 
-    const priceVal = details.price ? details.price : null;
-    const shippingVal = details.shippingCost ? details.shippingCost : null;
+    // H1: use !== "" instead of falsy check so "0" is preserved
+    const priceVal = details.price !== "" ? details.price : null;
+    const shippingVal = details.shippingCost !== "" ? details.shippingCost : null;
     const total =
-      priceVal && shippingVal
+      priceVal != null && shippingVal != null
         ? String(parseFloat(priceVal) + parseFloat(shippingVal))
         : priceVal ?? shippingVal ?? null;
 

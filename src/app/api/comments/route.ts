@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { comments } from "@/lib/db/schema";
+import { comments, activityEvents } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { createCommentSchema } from "@/lib/validations/comments";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
-import { recordActivity } from "@/lib/activity/record";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -21,15 +20,24 @@ export async function POST(req: NextRequest) {
     })
     .returning();
 
-  // Record activity event with commentId in metadata
-  recordActivity(
-    parsed.entityType as "work" | "author",
-    parsed.entityId,
-    `${parsed.entityType}.comment_added`,
-    { commentId: comment.id },
-  );
+  // Record activity event synchronously so we can return the event ID
+  let eventId: string | undefined;
+  try {
+    const [event] = await db
+      .insert(activityEvents)
+      .values({
+        entityType: parsed.entityType as "work" | "author",
+        entityId: parsed.entityId,
+        eventKey: `${parsed.entityType}.comment_added`,
+        metadata: { commentId: comment.id },
+      })
+      .returning({ id: activityEvents.id });
+    eventId = event?.id;
+  } catch (err) {
+    console.error("[activity] Failed to record comment event:", err);
+  }
 
-  return NextResponse.json(comment, { status: 201 });
+  return NextResponse.json({ ...comment, eventId }, { status: 201 });
 }
 
 export async function GET(req: NextRequest) {

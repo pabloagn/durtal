@@ -12,6 +12,7 @@ import {
   type InstanceDraft,
 } from "@/components/books/instance-form";
 import { createInstance } from "@/lib/actions/instances";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface LocationOption {
   id: string;
@@ -80,6 +81,7 @@ export function InstanceAddDialog({
       setDraft({ ...EMPTY_INSTANCE });
       setOpen(false);
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to add instance");
     } finally {

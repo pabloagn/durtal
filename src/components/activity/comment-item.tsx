@@ -61,15 +61,18 @@ export function CommentItem({
     }
   }
 
+  const relative = formatRelativeTime(createdAt);
+  const full = formatFullDate(createdAt);
+
   return (
-    <div className="relative -ml-[25px] mb-5">
-      {/* Timeline dot */}
-      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-glass-border bg-bg-secondary">
-        <MessageSquare className="h-3 w-3 text-fg-muted" />
+    <div className="relative flex gap-3 py-1.5">
+      {/* Icon dot sitting on the timeline line */}
+      <div className="relative z-10 mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-bg-primary">
+        <MessageSquare className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
       </div>
 
-      {/* Comment card, offset to the right */}
-      <div className="group ml-8 -mt-5 rounded-sm border border-glass-border bg-bg-secondary/60 p-3">
+      {/* Comment card */}
+      <div className="group min-w-0 flex-1">
         {isEditing ? (
           <CommentEditor
             entityType={entityType}
@@ -84,28 +87,25 @@ export function CommentItem({
             }}
           />
         ) : (
-          <>
-            <div
-              className="tiptap-content prose-sm text-sm text-fg-secondary"
-              dangerouslySetInnerHTML={{ __html: comment.contentHtml }}
-            />
+          <div className="rounded-sm border border-glass-border bg-bg-secondary/40">
+            {/* Comment header */}
+            <div className="flex items-center justify-between px-3 pt-2.5 pb-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-medium text-fg-primary">Comment</span>
+                <time
+                  className="text-[11px] text-fg-muted"
+                  title={full}
+                >
+                  {relative}
+                </time>
+              </div>
 
-            {comment.attachments.length > 0 && (
-              <CommentAttachmentList attachments={comment.attachments} />
-            )}
-
-            <div className="mt-2 flex items-center justify-between">
-              <time
-                className="font-mono text-micro text-fg-muted"
-                title={formatFullDate(createdAt)}
-              >
-                {formatRelativeTime(createdAt)}
-              </time>
+              {/* Hover actions */}
               <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="text-xs text-fg-muted hover:text-fg-secondary"
+                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
                 >
                   Edit
                 </button>
@@ -113,13 +113,25 @@ export function CommentItem({
                   type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="text-xs text-fg-muted hover:text-accent-red disabled:opacity-50"
+                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-accent-red disabled:opacity-50"
                 >
-                  {isDeleting ? "Deleting..." : "Delete"}
+                  {isDeleting ? "..." : "Delete"}
                 </button>
               </div>
             </div>
-          </>
+
+            {/* Comment body */}
+            <div
+              className="tiptap-content px-3 pt-1.5 pb-2.5 text-[13px] leading-relaxed text-fg-secondary"
+              dangerouslySetInnerHTML={{ __html: comment.contentHtml }}
+            />
+
+            {comment.attachments.length > 0 && (
+              <div className="px-3 pb-2.5">
+                <CommentAttachmentList attachments={comment.attachments} />
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

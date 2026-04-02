@@ -146,7 +146,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {/* Bio */}
       {author.bio && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-primary">About</h2>
+          <h2 className="mb-3 font-serif text-2xl text-fg-primary">About</h2>
           <div
             className="bio-content max-w-2xl text-sm leading-relaxed text-fg-secondary"
             dangerouslySetInnerHTML={{ __html: author.bio }}
@@ -276,7 +276,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
       {/* External links */}
       {(author.website || author.openLibraryKey || author.goodreadsId) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-primary">
+          <h2 className="mb-3 font-serif text-2xl text-fg-primary">
             External Links
           </h2>
           <div className="flex gap-4">

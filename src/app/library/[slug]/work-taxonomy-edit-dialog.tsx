@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MultiSelectSection } from "@/components/shared/multi-select-section";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface WorkTaxonomyEditDialogProps {
   workId: string;
@@ -124,6 +125,7 @@ export function WorkTaxonomyEditDialog({
         toast.success("Taxonomy updated");
         setOpen(false);
         router.refresh();
+        triggerActivityRefresh();
       } catch {
         toast.error("Failed to update taxonomy");
       }

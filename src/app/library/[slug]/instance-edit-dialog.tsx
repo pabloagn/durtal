@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { InstanceForm, type InstanceDraft } from "@/components/books/instance-form";
 import { updateInstance } from "@/lib/actions/instances";
+import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { Instance, Location, SubLocation } from "@/lib/types/index";
 
 type InstanceWithLocation = Instance & {
@@ -115,6 +116,7 @@ export function InstanceEditDialog({
       toast.success("Instance updated");
       setOpen(false);
       router.refresh();
+      triggerActivityRefresh();
     } catch {
       toast.error("Failed to update instance");
     } finally {

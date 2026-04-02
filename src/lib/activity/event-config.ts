@@ -44,6 +44,7 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.instance_deleted":          { icon: "Package",      color: RED,       category: "delete" },
   "work.collection_added":          { icon: "FolderPlus",   color: MUTED,     category: "relation" },
   "work.collection_removed":        { icon: "FolderMinus",  color: RED,       category: "relation" },
+  "work.order_updated":              { icon: "Truck",        color: MUTED,     category: "update" },
   "work.comment_added":             { icon: "MessageSquare",color: SECONDARY, category: "comment" },
 
   // ── Author events ────────────────────────────────────────────────────────
@@ -65,57 +66,101 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "author.comment_added":           { icon: "MessageSquare",color: SECONDARY, category: "comment" },
 };
 
-// ── Description formatting ───────────────────────────────────────────────────
+// ── Structured description formatting ─────────────────────────────────────
 
-const DESCRIPTION_MAP: Record<string, (m?: ActivityMetadata | null) => string> = {
-  "work.created":                    () => "Created this work",
-  "work.deleted":                    () => "Deleted this work",
-  "work.title_changed":             (m) => m?.oldValue ? `Changed title from "${m.oldValue}" to "${m.newValue}"` : `Set title to "${m?.newValue}"`,
-  "work.year_changed":              (m) => m?.oldValue ? `Changed original year from ${m.oldValue} to ${m.newValue}` : `Set original year to ${m?.newValue}`,
-  "work.language_changed":          (m) => m?.oldValue ? `Changed original language from "${m.oldValue}" to "${m.newValue}"` : `Set original language to "${m?.newValue}"`,
-  "work.catalogue_status_changed":  (m) => m?.oldValue ? `Changed catalogue status from "${m.oldValue}" to "${m.newValue}"` : `Set catalogue status to "${m?.newValue}"`,
-  "work.acquisition_priority_changed": (m) => m?.oldValue ? `Changed acquisition priority from "${m.oldValue}" to "${m.newValue}"` : `Set acquisition priority to "${m?.newValue}"`,
-  "work.rating_changed":            (m) => m?.oldValue ? `Changed rating from ${m.oldValue} to ${m.newValue}` : `Set rating to ${m?.newValue}`,
-  "work.series_changed":            (m) => m?.newValue ? `Added to series "${m.newValue}"` : "Removed from series",
-  "work.author_added":              (m) => `Added author ${m?.targetName ?? ""}`,
-  "work.author_removed":            (m) => `Removed author ${m?.targetName ?? ""}`,
-  "work.poster_uploaded":           () => "Uploaded poster image",
-  "work.poster_deleted":            () => "Deleted poster image",
-  "work.poster_default_changed":    () => "Changed default poster",
-  "work.background_uploaded":       () => "Uploaded background image",
-  "work.background_deleted":        () => "Deleted background image",
-  "work.background_default_changed":() => "Changed default background",
-  "work.gallery_image_added":       () => "Added gallery image",
-  "work.gallery_image_removed":     () => "Removed gallery image",
-  "work.rematched":                 () => "Rematched with external source",
-  "work.taxonomy_added":            (m) => `Added ${m?.taxonomyType ?? "taxonomy"} "${m?.targetName ?? ""}"`,
-  "work.taxonomy_removed":          (m) => `Removed ${m?.taxonomyType ?? "taxonomy"} "${m?.targetName ?? ""}"`,
-  "work.edition_added":             (m) => m?.editionIsbn ? `Added edition (ISBN: ${m.editionIsbn})` : `Added edition "${m?.targetName ?? ""}"`,
-  "work.edition_updated":           (m) => m?.editionIsbn ? `Updated edition (ISBN: ${m.editionIsbn})` : "Updated edition",
-  "work.edition_deleted":           (m) => m?.targetName ? `Deleted edition "${m.targetName}"` : "Deleted edition",
-  "work.instance_added":            (m) => m?.locationName ? `Added instance at "${m.locationName}"` : "Added instance",
-  "work.instance_updated":          () => "Updated instance",
-  "work.instance_deleted":          () => "Deleted instance",
-  "work.collection_added":          (m) => `Added to collection "${m?.collectionName ?? ""}"`,
-  "work.collection_removed":        (m) => `Removed from collection "${m?.collectionName ?? ""}"`,
-  "work.comment_added":             () => "Left a comment",
+/** A segment of a formatted event description */
+export type DescriptionSegment =
+  | { type: "text"; value: string }
+  | { type: "label"; value: string };
 
-  "author.created":                 () => "Created this author",
-  "author.deleted":                 () => "Deleted this author",
-  "author.name_changed":            (m) => m?.oldValue ? `Changed name from "${m.oldValue}" to "${m.newValue}"` : `Set name to "${m?.newValue}"`,
-  "author.birth_year_changed":      (m) => m?.oldValue ? `Changed birth year from ${m.oldValue} to ${m.newValue}` : `Set birth year to ${m?.newValue}`,
-  "author.death_year_changed":      (m) => m?.oldValue ? `Changed death year from ${m.oldValue} to ${m.newValue}` : `Set death year to ${m?.newValue}`,
-  "author.gender_changed":          (m) => m?.oldValue ? `Changed gender from "${m.oldValue}" to "${m.newValue}"` : `Set gender to "${m?.newValue}"`,
-  "author.nationality_changed":     (m) => m?.oldValue ? `Changed nationality from "${m.oldValue}" to "${m.newValue}"` : `Set nationality to "${m?.newValue}"`,
-  "author.biography_changed":       () => "Updated biography",
-  "author.birthplace_changed":      (m) => m?.newValue ? `Changed birthplace to "${m.newValue}"` : "Updated birthplace",
-  "author.poster_uploaded":         () => "Uploaded portrait",
-  "author.poster_deleted":          () => "Deleted portrait",
-  "author.poster_default_changed":  () => "Changed default portrait",
-  "author.background_uploaded":     () => "Uploaded background image",
-  "author.background_deleted":      () => "Deleted background image",
-  "author.background_default_changed":() => "Changed default background",
-  "author.comment_added":           () => "Left a comment",
+type DescriptionBuilder = (m?: ActivityMetadata | null) => DescriptionSegment[];
+
+function text(value: string): DescriptionSegment {
+  return { type: "text", value };
+}
+
+function label(value: string): DescriptionSegment {
+  return { type: "label", value };
+}
+
+/** Build a "Changed X from A to B" description with styled labels */
+function fieldChanged(
+  fieldName: string,
+  m?: ActivityMetadata | null,
+): DescriptionSegment[] {
+  if (m?.oldValue) {
+    return [
+      text(`Changed ${fieldName} from `),
+      label(String(m.oldValue)),
+      text(" to "),
+      label(String(m.newValue)),
+    ];
+  }
+  return [text(`Set ${fieldName} to `), label(String(m?.newValue))];
+}
+
+const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
+  "work.created":                    () => [text("Created this work")],
+  "work.deleted":                    () => [text("Deleted this work")],
+  "work.title_changed":             (m) => fieldChanged("title", m),
+  "work.year_changed":              (m) => fieldChanged("original year", m),
+  "work.language_changed":          (m) => fieldChanged("original language", m),
+  "work.catalogue_status_changed":  (m) => fieldChanged("catalogue status", m),
+  "work.acquisition_priority_changed": (m) => fieldChanged("acquisition priority", m),
+  "work.rating_changed":            (m) => fieldChanged("rating", m),
+  "work.series_changed":            (m) => m?.newValue
+    ? [text("Added to series "), label(String(m.newValue))]
+    : [text("Removed from series")],
+  "work.author_added":              (m) => [text("Added author "), label(m?.targetName ?? "")],
+  "work.author_removed":            (m) => [text("Removed author "), label(m?.targetName ?? "")],
+  "work.poster_uploaded":           () => [text("Uploaded poster image")],
+  "work.poster_deleted":            () => [text("Deleted poster image")],
+  "work.poster_default_changed":    () => [text("Changed default poster")],
+  "work.background_uploaded":       () => [text("Uploaded background image")],
+  "work.background_deleted":        () => [text("Deleted background image")],
+  "work.background_default_changed":() => [text("Changed default background")],
+  "work.gallery_image_added":       () => [text("Added gallery image")],
+  "work.gallery_image_removed":     () => [text("Removed gallery image")],
+  "work.rematched":                 () => [text("Rematched with external source")],
+  "work.taxonomy_added":            (m) => [text(`Added ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
+  "work.taxonomy_removed":          (m) => [text(`Removed ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
+  "work.edition_added":             (m) => m?.editionIsbn
+    ? [text("Added edition "), label(`ISBN: ${m.editionIsbn}`)]
+    : [text("Added edition "), label(m?.targetName ?? "")],
+  "work.edition_updated":           (m) => m?.editionIsbn
+    ? [text("Updated edition "), label(`ISBN: ${m.editionIsbn}`)]
+    : [text("Updated edition")],
+  "work.edition_deleted":           (m) => m?.targetName
+    ? [text("Deleted edition "), label(m.targetName)]
+    : [text("Deleted edition")],
+  "work.instance_added":            (m) => m?.locationName
+    ? [text("Added instance at "), label(m.locationName)]
+    : [text("Added instance")],
+  "work.instance_updated":          () => [text("Updated instance")],
+  "work.instance_deleted":          () => [text("Deleted instance")],
+  "work.collection_added":          (m) => [text("Added to collection "), label(m?.collectionName ?? "")],
+  "work.collection_removed":        (m) => [text("Removed from collection "), label(m?.collectionName ?? "")],
+  "work.order_updated":              () => [text("Updated order details")],
+  "work.comment_added":             () => [text("Left a comment")],
+
+  "author.created":                 () => [text("Created this author")],
+  "author.deleted":                 () => [text("Deleted this author")],
+  "author.name_changed":            (m) => fieldChanged("name", m),
+  "author.birth_year_changed":      (m) => fieldChanged("birth year", m),
+  "author.death_year_changed":      (m) => fieldChanged("death year", m),
+  "author.gender_changed":          (m) => fieldChanged("gender", m),
+  "author.nationality_changed":     (m) => fieldChanged("nationality", m),
+  "author.biography_changed":       () => [text("Updated biography")],
+  "author.birthplace_changed":      (m) => m?.newValue
+    ? [text("Changed birthplace to "), label(String(m.newValue))]
+    : [text("Updated birthplace")],
+  "author.poster_uploaded":         () => [text("Uploaded portrait")],
+  "author.poster_deleted":          () => [text("Deleted portrait")],
+  "author.poster_default_changed":  () => [text("Changed default portrait")],
+  "author.background_uploaded":     () => [text("Uploaded background image")],
+  "author.background_deleted":      () => [text("Deleted background image")],
+  "author.background_default_changed":() => [text("Changed default background")],
+  "author.comment_added":           () => [text("Left a comment")],
 };
 
 export function formatEventDescription(
@@ -123,8 +168,21 @@ export function formatEventDescription(
   metadata?: ActivityMetadata | null,
 ): string {
   const fn = DESCRIPTION_MAP[eventKey];
-  if (fn) return fn(metadata);
-  // Fallback: humanize the event key
+  if (fn) {
+    return fn(metadata)
+      .map((s) => s.value)
+      .join("");
+  }
   const parts = eventKey.split(".");
   return parts[parts.length - 1].replace(/_/g, " ");
+}
+
+export function formatEventDescriptionSegments(
+  eventKey: string,
+  metadata?: ActivityMetadata | null,
+): DescriptionSegment[] {
+  const fn = DESCRIPTION_MAP[eventKey];
+  if (fn) return fn(metadata);
+  const parts = eventKey.split(".");
+  return [text(parts[parts.length - 1].replace(/_/g, " "))];
 }

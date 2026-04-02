@@ -25,11 +25,11 @@ export type AcquisitionMethod =
   | "auction"
   | "event_purchase";
 
+// C4: removed "won" — auction orders must advance past won to shipped/delivered
 export const TERMINAL_STATUSES: OrderStatus[] = [
   "delivered",
   "purchased",
   "received",
-  "won",
   "cancelled",
   "returned",
 ];
@@ -49,6 +49,71 @@ export const PIPELINE_STATUSES: OrderStatus[] = [
   "out_for_delivery",
   "delivered",
 ];
+
+export const AUCTION_PIPELINE: OrderStatus[] = [
+  "bid",
+  "won",
+  "shipped",
+  "in_transit",
+  "out_for_delivery",
+  "delivered",
+];
+
+export const IMMEDIATE_PIPELINE: OrderStatus[] = ["purchased", "received"];
+
+export const BOOK_IN_HAND_STATUSES: OrderStatus[] = [
+  "delivered",
+  "purchased",
+  "received",
+];
+
+// C5: shared transition validation — used by both UI and server
+export function getValidTransitions(
+  currentStatus: OrderStatus,
+  method: AcquisitionMethod,
+): OrderStatus[] {
+  if ((TERMINAL_STATUSES as string[]).includes(currentStatus)) return [];
+
+  let pipeline: OrderStatus[];
+  if (method === "auction") {
+    pipeline = [...AUCTION_PIPELINE];
+  } else if (
+    method === "in_store_purchase" ||
+    method === "gift" ||
+    method === "event_purchase"
+  ) {
+    pipeline = [...IMMEDIATE_PIPELINE];
+  } else {
+    pipeline = [...PIPELINE_STATUSES];
+  }
+
+  const currentIdx = pipeline.indexOf(currentStatus);
+  const forward =
+    currentIdx >= 0 ? pipeline.slice(currentIdx + 1) : pipeline;
+
+  return [...forward, "cancelled" as OrderStatus, "returned" as OrderStatus].filter(
+    (s) => s !== currentStatus,
+  );
+}
+
+// H2: valid initial statuses for a given acquisition method
+export function getValidInitialStatuses(
+  method: AcquisitionMethod,
+): OrderStatus[] {
+  switch (method) {
+    case "auction":
+      return ["bid", "won"];
+    case "in_store_purchase":
+    case "event_purchase":
+      return ["purchased"];
+    case "gift":
+      return ["received"];
+    case "online_order":
+    case "digital_purchase":
+    default:
+      return ["placed", "confirmed", "processing", "shipped"];
+  }
+}
 
 export interface CreateOrderInput {
   workId: string;
