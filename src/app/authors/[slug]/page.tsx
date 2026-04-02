@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { AuthorDetailHeader } from "./author-detail-header";
 import { GallerySection } from "@/components/shared/gallery-section";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -265,6 +266,9 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
+
+      {/* Activity timeline */}
+      <ActivityTimeline entityType="author" entityId={author.id} />
 
       {/* Gallery collage */}
       <GallerySection entityType="author" entityId={author.id} />

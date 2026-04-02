@@ -12,6 +12,7 @@ import {
   Plus,
   Settings,
   BookOpen,
+  BookOpenText,
   Search,
   Tag,
 } from "lucide-react";
@@ -24,6 +25,7 @@ interface CommandPaletteProps {
 const NAVIGATION_ITEMS = [
   { label: "Dashboard", href: "/", icon: BookOpen, group: "Navigate" },
   { label: "Library", href: "/library", icon: Library, group: "Navigate" },
+  { label: "Reader", href: "/reader", icon: BookOpenText, group: "Navigate" },
   { label: "Authors", href: "/authors", icon: Users, group: "Navigate" },
   { label: "Series", href: "/series", icon: Layers, group: "Navigate" },
   { label: "Locations", href: "/locations", icon: MapPin, group: "Navigate" },

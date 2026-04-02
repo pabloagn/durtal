@@ -43,6 +43,7 @@ interface BookItem {
   catalogueStatus?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
+  hasDigitalEdition?: boolean;
 }
 
 interface LibraryShellProps {

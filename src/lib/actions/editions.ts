@@ -13,6 +13,7 @@ import {
   type CreateEditionInput,
 } from "@/lib/validations";
 import { processAndUploadCover } from "@/lib/s3/covers";
+import { recordActivity } from "@/lib/activity/record";
 
 export async function getEdition(id: string) {
   return db.query.editions.findFirst({
@@ -102,6 +103,12 @@ export async function createEdition(input: CreateEditionInput) {
     );
   }
 
+  recordActivity("work", editionData.workId, "work.edition_added", {
+    targetName: edition.title ?? undefined,
+    targetId: edition.id,
+    editionIsbn: edition.isbn13 ?? undefined,
+  });
+
   return { ...edition, ...coverKeys };
 }
 
@@ -169,10 +176,35 @@ export async function updateEdition(
     }
   }
 
+  // Record activity — resolve workId from editionData or fetch from DB
+  const workId =
+    editionData.workId ??
+    (
+      await db.query.editions.findFirst({
+        where: eq(editions.id, id),
+        columns: { workId: true },
+      })
+    )?.workId;
+  if (workId) {
+    recordActivity("work", workId, "work.edition_updated", { targetId: id });
+  }
+
   return { id };
 }
 
 export async function deleteEdition(id: string) {
+  const edition = await db.query.editions.findFirst({
+    where: eq(editions.id, id),
+    columns: { workId: true, title: true },
+  });
+
+  if (edition) {
+    recordActivity("work", edition.workId, "work.edition_deleted", {
+      targetName: edition.title ?? undefined,
+      targetId: id,
+    });
+  }
+
   await db.delete(editions).where(eq(editions.id, id));
   return { id };
 }
@@ -331,7 +363,13 @@ export async function rematchEdition(
   await db.update(editions).set(updates).where(eq(editions.id, editionId));
 
   // Return the updated edition
-  return db.query.editions.findFirst({
+  const updated = await db.query.editions.findFirst({
     where: eq(editions.id, editionId),
   });
+
+  if (updated) {
+    recordActivity("work", updated.workId, "work.rematched");
+  }
+
+  return updated;
 }

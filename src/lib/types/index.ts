@@ -24,6 +24,9 @@ import type {
   series,
   workTypes,
   recommenders,
+  activityEvents,
+  comments,
+  commentAttachments,
 } from "@/lib/db/schema";
 
 // ── Select types (rows from DB) ─────────────────────────────────────────────
@@ -52,6 +55,9 @@ export type Attribute = InferSelectModel<typeof attributes>;
 export type Series = InferSelectModel<typeof series>;
 export type WorkType = InferSelectModel<typeof workTypes>;
 export type Recommender = InferSelectModel<typeof recommenders>;
+export type ActivityEvent = InferSelectModel<typeof activityEvents>;
+export type Comment = InferSelectModel<typeof comments>;
+export type CommentAttachment = InferSelectModel<typeof commentAttachments>;
 
 // ── Insert types (for creating new rows) ────────────────────────────────────
 
@@ -222,3 +228,31 @@ export type LocationType = (typeof LOCATION_TYPES)[number];
 
 export const MEDIA_TYPES = ["poster", "background", "gallery"] as const;
 export type MediaType = (typeof MEDIA_TYPES)[number];
+
+// ── Color extraction types ──────────────────────────────────────────────────
+
+export interface ColorSwatch {
+  hex: string;
+  rgb: [number, number, number];
+  hsl: [number, number, number];
+  population: number;
+}
+
+export interface CrystalColor {
+  hex: string;
+  rgb: [number, number, number];
+  opacity: number;
+  role: "primary" | "secondary" | "accent" | "halo";
+}
+
+export interface ColorPalette {
+  vibrant: ColorSwatch | null;
+  muted: ColorSwatch | null;
+  darkVibrant: ColorSwatch | null;
+  darkMuted: ColorSwatch | null;
+  lightVibrant: ColorSwatch | null;
+  lightMuted: ColorSwatch | null;
+  dominant: { hex: string; rgb: [number, number, number] };
+  crystal: CrystalColor[];
+  extractedAt: string;
+}

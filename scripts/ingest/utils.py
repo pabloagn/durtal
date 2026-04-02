@@ -3,17 +3,51 @@
 import re
 import unicodedata
 
+# Characters that survive NFKD normalization and need explicit transliteration.
+_TRANSLITERATION_MAP: dict[str, str] = {
+    "\u00E6": "ae",  # æ
+    "\u00C6": "ae",  # Æ
+    "\u0153": "oe",  # œ
+    "\u0152": "oe",  # Œ
+    "\u00F8": "o",   # ø
+    "\u00D8": "o",   # Ø
+    "\u0142": "l",   # ł
+    "\u0141": "l",   # Ł
+    "\u00F0": "d",   # ð
+    "\u00D0": "d",   # Ð
+    "\u00FE": "th",  # þ
+    "\u00DE": "th",  # Þ
+    "\u00DF": "ss",  # ß
+    "\u0111": "d",   # đ
+    "\u0110": "d",   # Đ
+    "\u0127": "h",   # ħ
+    "\u0126": "h",   # Ħ
+    "\u0131": "i",   # ı (dotless i)
+    "\u0138": "k",   # ĸ
+    "\u014B": "ng",  # ŋ
+    "\u014A": "ng",  # Ŋ
+    "\u0167": "t",   # ŧ
+    "\u0166": "t",   # Ŧ
+}
+
+_TRANSLITERATION_RE = re.compile(
+    "[" + "".join(re.escape(k) for k in _TRANSLITERATION_MAP) + "]"
+)
+
 
 def slugify(text: str) -> str:
     """Convert text to a URL-safe slug."""
     if not text:
         return ""
-    # Normalize unicode
-    text = unicodedata.normalize("NFKD", text)
+    # Transliterate special Latin characters (ł → l, ß → ss, æ → ae, etc.)
+    text = _TRANSLITERATION_RE.sub(lambda m: _TRANSLITERATION_MAP[m.group()], text)
     # Replace common ligatures / special chars
     text = text.replace("&", "and").replace("+", "plus")
-    # Keep only ASCII alphanumerics and spaces/hyphens
-    text = re.sub(r"[^\w\s-]", "", text.lower())
+    # Normalize unicode and strip combining marks
+    text = unicodedata.normalize("NFKD", text)
+    text = re.sub(r"[\u0300-\u036f]", "", text)
+    # Keep only ASCII alphanumerics, spaces, and hyphens
+    text = re.sub(r"[^a-z0-9\s-]", "", text.lower())
     # Collapse whitespace/hyphens
     text = re.sub(r"[-\s]+", "-", text).strip("-")
     return text[:200]  # truncate for safety

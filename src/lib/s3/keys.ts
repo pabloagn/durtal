@@ -85,3 +85,15 @@ export function goldMediaOriginalKey(
 ) {
   return `gold/media/${entityType}/${entityId}/${mediaType}/${fileId}_original.webp`;
 }
+
+// ── Comment attachments ─────────────────────────────────────────────────────
+
+export function goldCommentAttachmentKey(
+  entityType: string,
+  entityId: string,
+  commentId: string,
+  fileId: string,
+  ext: string,
+) {
+  return `gold/comments/${entityType}/${entityId}/${commentId}/${fileId}.${ext}`;
+}

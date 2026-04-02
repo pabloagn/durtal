@@ -168,7 +168,7 @@ export function EditionEditDialog({
         description={edition.title}
         className="max-w-3xl"
       >
-        <div className="max-h-[72vh] overflow-y-auto">
+        <div className="max-h-[75vh] overflow-y-auto">
           <EditionForm
             initialValues={editionToFormValues(edition)}
             availableAuthors={availableAuthors}

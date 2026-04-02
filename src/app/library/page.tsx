@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LibraryShell } from "./library-shell";
 import { LibraryFiltersBar } from "./library-filters-bar";
+import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
 
 interface PageProps {
   searchParams: Promise<{
@@ -115,6 +116,10 @@ async function LibraryContent({
     );
   }
 
+  // Check which works have digital editions in Calibre
+  const workIds = works.map((w) => w.id);
+  const digitalWorkIds = await getWorkIdsWithDigitalEditions(workIds);
+
   const books = works.map((work) => {
     const firstEdition = work.editions[0];
     const primaryAuthor = work.workAuthors[0]?.author;
@@ -150,6 +155,7 @@ async function LibraryContent({
       catalogueStatus: work.catalogueStatus,
       acquisitionPriority: work.acquisitionPriority,
       primaryEditionId: firstEdition?.id ?? null,
+      hasDigitalEdition: digitalWorkIds.has(work.id),
     };
   });
 

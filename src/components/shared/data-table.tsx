@@ -25,6 +25,9 @@ interface DataTableProps<T> {
   defaultSortKey?: string;
   defaultSortDir?: "asc" | "desc";
   getSortValue?: (item: T, key: string) => string | number;
+  isSelecting?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (id: string) => void;
 }
 
 export function DataTable<T>({
@@ -37,6 +40,9 @@ export function DataTable<T>({
   defaultSortKey,
   defaultSortDir = "asc",
   getSortValue,
+  isSelecting = false,
+  selectedIds,
+  onSelect,
 }: DataTableProps<T>) {
   const resolvedSortKey = defaultSortKey ?? allColumns[0]?.key ?? "";
   const [sortKey, setSortKey] = useState(resolvedSortKey);
@@ -84,6 +90,7 @@ export function DataTable<T>({
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-glass-border">
+              {isSelecting && <th className="w-10 px-3 py-2" />}
               {visibleColumns.map((col) => (
                 <th
                   key={col.key}
@@ -109,11 +116,41 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {sortedItems.map((item) => (
+            {sortedItems.map((item) => {
+              const id = itemKey(item);
+              const isSelected = selectedIds?.has(id) ?? false;
+
+              return (
               <tr
-                key={itemKey(item)}
-                className="border-b border-glass-border/50 transition-colors hover:bg-bg-secondary"
+                key={id}
+                className={`border-b border-glass-border/50 transition-colors hover:bg-bg-secondary ${isSelecting ? "cursor-pointer" : ""} ${isSelected ? "bg-accent-rose/5" : ""}`}
+                onClick={isSelecting && onSelect ? () => onSelect(id) : undefined}
               >
+                {isSelecting && (
+                  <td className="px-3 py-2">
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
+                        isSelected
+                          ? "border-accent-rose bg-accent-rose text-white"
+                          : "border-glass-border bg-black/60 text-transparent"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="h-3 w-3"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M2 6l3 3 5-5" />
+                        </svg>
+                      )}
+                    </div>
+                  </td>
+                )}
                 {visibleColumns.map((col) => (
                   <td key={col.key} className="px-3 py-2 text-fg-secondary">
                     {renderCell(item, col.key)}
@@ -121,7 +158,8 @@ export function DataTable<T>({
                 ))}
                 <td />
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

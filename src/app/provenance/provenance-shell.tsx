@@ -1,30 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Package,
   Truck,
-  Clock,
   DollarSign,
   CalendarDays,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   X,
   MapPin,
   BookOpen,
   CheckCircle,
   Circle,
   RefreshCw,
-  AlertCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { updateOrderStatus } from "@/lib/actions/orders";
+import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
+import { TERMINAL_STATUSES, PIPELINE_STATUSES } from "@/lib/constants/orders";
+import { OrderEditDialog } from "./order-edit-dialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -119,22 +133,6 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   returned: "text-accent-red",
 };
 
-const STATUS_BG: Record<OrderStatus, string> = {
-  placed: "bg-fg-muted/10",
-  confirmed: "bg-accent-blue/10",
-  processing: "bg-accent-gold/10",
-  shipped: "bg-accent-sage/10",
-  in_transit: "bg-accent-sage/10",
-  out_for_delivery: "bg-accent-gold/10",
-  delivered: "bg-accent-sage/10",
-  purchased: "bg-accent-sage/10",
-  received: "bg-accent-sage/10",
-  bid: "bg-accent-gold/10",
-  won: "bg-accent-sage/10",
-  cancelled: "bg-accent-red/10",
-  returned: "bg-accent-red/10",
-};
-
 const STATUS_BADGE_VARIANT: Record<
   OrderStatus,
   "default" | "blue" | "gold" | "sage" | "red" | "muted"
@@ -172,6 +170,58 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   out_for_delivery: "delivered",
 };
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  placed: "Placed",
+  confirmed: "Confirmed",
+  processing: "Processing",
+  shipped: "Shipped",
+  in_transit: "In Transit",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  purchased: "Purchased",
+  received: "Received",
+  bid: "Bid",
+  won: "Won",
+  cancelled: "Cancelled",
+  returned: "Returned",
+};
+
+/**
+ * Returns all valid statuses an order can transition to, given its current
+ * status and acquisition method. Allows skipping intermediate statuses.
+ */
+function getValidTransitions(
+  currentStatus: OrderStatus,
+  method: AcquisitionMethod,
+): OrderStatus[] {
+  // Terminal statuses can't transition further
+  if ((TERMINAL_STATUSES as string[]).includes(currentStatus)) return [];
+
+  let pipeline: OrderStatus[];
+  if (method === "auction") {
+    pipeline = ["bid", "won", "shipped", "in_transit", "out_for_delivery", "delivered"];
+  } else if (
+    method === "in_store_purchase" ||
+    method === "gift" ||
+    method === "event_purchase"
+  ) {
+    pipeline = ["purchased", "received"];
+  } else {
+    pipeline = [...PIPELINE_STATUSES] as OrderStatus[];
+  }
+
+  const currentIdx = pipeline.indexOf(currentStatus);
+  // All statuses AFTER the current one in the pipeline, plus cancel/return
+  const forward =
+    currentIdx >= 0
+      ? pipeline.slice(currentIdx + 1)
+      : pipeline;
+
+  return ([...forward, "cancelled" as OrderStatus, "returned" as OrderStatus]).filter(
+    (s) => s !== currentStatus,
+  );
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getPosterUrl(work: OrderWork): string | null {
@@ -189,16 +239,6 @@ function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatDateFull(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 function daysSince(dateStr: string): number {
@@ -275,10 +315,17 @@ function StatCard({
 function PipelineOrderCard({
   order,
   onClick,
+  isDragOverlay,
 }: {
   order: OrderItem;
   onClick: (order: OrderItem) => void;
+  isDragOverlay?: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: order.id,
+    data: { order },
+  });
+
   const posterUrl = getPosterUrl(order.work);
   const authorName = getAuthorName(order.work);
   const days = daysSince(order.orderDate);
@@ -289,9 +336,14 @@ function PipelineOrderCard({
 
   return (
     <button
+      ref={setNodeRef}
       type="button"
       onClick={() => onClick(order)}
-      className="w-full rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99]"
+      {...listeners}
+      {...attributes}
+      className={`w-full rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
+        isDragging && !isDragOverlay ? "opacity-30" : ""
+      } ${isDragOverlay ? "shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-accent-rose/40" : ""}`}
     >
       <div className="flex items-start gap-2.5">
         {/* Poster */}
@@ -358,21 +410,31 @@ function PipelineColumn({
   label,
   orders,
   onCardClick,
+  isDropTarget,
 }: {
   status: OrderStatus;
   label: string;
   orders: OrderItem[];
   onCardClick: (order: OrderItem) => void;
+  isDropTarget?: boolean;
 }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${status}`,
+    data: { status },
+  });
+
   const count = orders.length;
   const isActive = count > 0;
 
   return (
     <div
+      ref={setNodeRef}
       className={`flex min-w-[160px] max-w-[200px] flex-shrink-0 flex-col rounded-sm border transition-colors ${
-        isActive
-          ? "border-glass-border bg-bg-secondary/60"
-          : "border-glass-border/50 bg-bg-secondary/20"
+        isOver && isDropTarget
+          ? "border-accent-rose/50 bg-accent-rose/5"
+          : isActive
+            ? "border-glass-border bg-bg-secondary/60"
+            : "border-glass-border/50 bg-bg-secondary/20"
       }`}
     >
       {/* Column header */}
@@ -413,26 +475,6 @@ function PipelineColumn({
 
 // ── Order Detail Panel ─────────────────────────────────────────────────────────
 
-function StatusHistoryDot({
-  status,
-  isLast,
-}: {
-  status: OrderStatus;
-  isLast: boolean;
-}) {
-  const color = STATUS_COLORS[status] ?? "text-fg-muted";
-  return (
-    <div className="flex flex-col items-center">
-      <div
-        className={`h-2 w-2 rounded-full border ${color.replace("text-", "border-")} ${STATUS_BG[status]}`}
-      />
-      {!isLast && (
-        <div className="mt-1 h-6 w-px bg-glass-border" />
-      )}
-    </div>
-  );
-}
-
 function OrderDetailPanel({
   order,
   onClose,
@@ -442,16 +484,42 @@ function OrderDetailPanel({
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const posterUrl = getPosterUrl(order.work);
   const authorName = getAuthorName(order.work);
+
+  const validTransitions = getValidTransitions(
+    order.status,
+    order.acquisitionMethod,
+  );
   const nextStatus = NEXT_STATUS[order.status];
 
-  async function handleAdvanceStatus() {
-    if (!nextStatus) return;
+  // Close status dropdown on outside click
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(e.target as Node)
+      ) {
+        setStatusDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [statusDropdownOpen]);
+
+  async function handleStatusChange(newStatus: OrderStatus) {
+    setStatusDropdownOpen(false);
     setIsPending(true);
     try {
-      await updateOrderStatus(order.id, nextStatus);
-      toast.success(`Status updated to ${nextStatus.replace(/_/g, " ")}`);
+      await updateOrderStatus(order.id, newStatus);
+      toast.success(
+        `Status updated to ${newStatus.replace(/_/g, " ")}`,
+      );
       router.refresh();
       onClose();
     } catch (err) {
@@ -463,267 +531,447 @@ function OrderDetailPanel({
     }
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      {/* Panel header */}
-      <div className="flex items-center justify-between border-b border-glass-border px-5 py-3.5">
-        <h2 className="font-serif text-lg text-fg-primary">Order Details</h2>
-        <button
-          onClick={onClose}
-          className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
-        >
-          <X className="h-4 w-4" strokeWidth={1.5} />
-        </button>
-      </div>
+  async function handleDelete() {
+    setIsPending(true);
+    try {
+      await deleteOrder(order.id);
+      toast.success("Order deleted");
+      router.refresh();
+      onClose();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete order",
+      );
+    } finally {
+      setIsPending(false);
+      setConfirmDelete(false);
+    }
+  }
 
-      <div className="flex-1 overflow-y-auto p-5">
-        {/* Work info */}
-        <div className="flex gap-4">
-          <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
-            {posterUrl ? (
-              <Image
-                src={posterUrl}
-                alt={order.work.title}
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-lg text-fg-muted/30">
-                  {order.work.title[0]}
-                </span>
-              </div>
-            )}
+  return (
+    <>
+      <div className="flex h-full flex-col">
+        {/* Panel header */}
+        <div className="flex items-center justify-between border-b border-glass-border px-5 py-3.5">
+          <h2 className="font-serif text-lg text-fg-primary">Order Details</h2>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowEditDialog(true)}
+              title="Edit order"
+              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Delete order"
+              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-accent-red"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
           </div>
-          <div className="min-w-0">
+        </div>
+
+        {/* Delete confirmation */}
+        {confirmDelete && (
+          <div className="border-b border-accent-red/30 bg-accent-red/5 px-5 py-3">
+            <p className="text-xs text-fg-secondary">
+              Delete this order? This cannot be undone.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDelete}
+                disabled={isPending}
+              >
+                {isPending ? "Deleting..." : "Delete"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-5">
+          {/* Work info */}
+          <div className="flex gap-4">
+            <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+              {posterUrl ? (
+                <Image
+                  src={posterUrl}
+                  alt={order.work.title}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <span className="font-serif text-lg text-fg-muted/30">
+                    {order.work.title[0]}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <Link
+                href={`/library/${order.work.slug}`}
+                className="font-serif text-lg leading-snug text-fg-primary hover:text-accent-gold transition-colors"
+              >
+                {order.work.title}
+              </Link>
+              <p className="mt-0.5 text-sm text-fg-secondary">{authorName}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
+                  {order.status.replace(/_/g, " ")}
+                </Badge>
+                <Badge variant="muted">
+                  {METHOD_LABELS[order.acquisitionMethod]}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Order timeline */}
+          <div className="mt-6">
+            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+              Timeline
+            </h3>
+            <div className="space-y-1">
+              {[
+                { label: "Order placed", date: order.orderDate, done: true },
+                {
+                  label: "Shipped",
+                  date: order.shippedDate,
+                  done: Boolean(order.shippedDate),
+                },
+                {
+                  label: "Estimated delivery",
+                  date: order.estimatedDeliveryDate,
+                  done: Boolean(order.actualDeliveryDate),
+                },
+                {
+                  label: "Delivered",
+                  date: order.actualDeliveryDate,
+                  done: Boolean(order.actualDeliveryDate),
+                },
+              ].map(({ label, date, done }) => (
+                <div key={label} className="flex items-center gap-3">
+                  {done ? (
+                    <CheckCircle
+                      className="h-3.5 w-3.5 shrink-0 text-accent-sage"
+                      strokeWidth={1.5}
+                    />
+                  ) : (
+                    <Circle
+                      className="h-3.5 w-3.5 shrink-0 text-fg-muted/40"
+                      strokeWidth={1.5}
+                    />
+                  )}
+                  <span
+                    className={`text-xs ${done ? "text-fg-primary" : "text-fg-muted"}`}
+                  >
+                    {label}
+                  </span>
+                  <span className="ml-auto font-mono text-micro text-fg-muted">
+                    {formatDate(date)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Shipping info */}
+          {(order.carrier || order.trackingNumber) && (
+            <div className="mt-6">
+              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+                Shipping
+              </h3>
+              <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
+                {order.carrier && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-muted">Carrier</span>
+                    <span className="text-xs text-fg-primary">{order.carrier}</span>
+                  </div>
+                )}
+                {order.trackingNumber && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-muted">Tracking #</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-micro text-fg-primary">
+                        {order.trackingNumber}
+                      </span>
+                      {order.trackingUrl && (
+                        <a
+                          href={order.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent-blue hover:text-accent-blue/80"
+                        >
+                          <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Price breakdown */}
+          {(order.price || order.totalCost) && (
+            <div className="mt-6">
+              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+                Cost
+              </h3>
+              <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
+                {order.price && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-muted">Price</span>
+                    <span className="font-mono text-micro text-fg-primary">
+                      {formatCurrency(order.price, order.currency)}
+                    </span>
+                  </div>
+                )}
+                {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-muted">Shipping</span>
+                    <span className="font-mono text-micro text-fg-primary">
+                      {formatCurrency(order.shippingCost, order.currency)}
+                    </span>
+                  </div>
+                )}
+                {order.totalCost && (
+                  <div className="flex items-center justify-between border-t border-glass-border pt-2">
+                    <span className="text-xs font-medium text-fg-secondary">
+                      Total
+                    </span>
+                    <span className="font-mono text-xs font-medium text-fg-primary">
+                      {formatCurrency(order.totalCost, order.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Venue */}
+          {order.venue && (
+            <div className="mt-6">
+              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+                Venue
+              </h3>
+              <Link
+                href={`/places/${order.venue.slug}`}
+                className="flex items-center gap-2 rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 transition-colors hover:border-fg-muted/15 hover:bg-bg-tertiary/50"
+              >
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} />
+                <span className="text-xs text-fg-primary">{order.venue.name}</span>
+                <ChevronRight className="ml-auto h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+              </Link>
+            </div>
+          )}
+
+          {/* External links */}
+          <div className="mt-6 flex flex-wrap gap-2">
+            {order.orderUrl && (
+              <a
+                href={order.orderUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+              >
+                <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                Order Page
+              </a>
+            )}
             <Link
               href={`/library/${order.work.slug}`}
-              className="font-serif text-lg leading-snug text-fg-primary hover:text-accent-gold transition-colors"
-            >
-              {order.work.title}
-            </Link>
-            <p className="mt-0.5 text-sm text-fg-secondary">{authorName}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
-                {order.status.replace(/_/g, " ")}
-              </Badge>
-              <Badge variant="muted">
-                {METHOD_LABELS[order.acquisitionMethod]}
-              </Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Order timeline */}
-        <div className="mt-6">
-          <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
-            Timeline
-          </h3>
-          <div className="space-y-1">
-            {[
-              { label: "Order placed", date: order.orderDate, done: true },
-              {
-                label: "Shipped",
-                date: order.shippedDate,
-                done: Boolean(order.shippedDate),
-              },
-              {
-                label: "Estimated delivery",
-                date: order.estimatedDeliveryDate,
-                done: Boolean(order.actualDeliveryDate),
-              },
-              {
-                label: "Delivered",
-                date: order.actualDeliveryDate,
-                done: Boolean(order.actualDeliveryDate),
-              },
-            ].map(({ label, date, done }) => (
-              <div key={label} className="flex items-center gap-3">
-                {done ? (
-                  <CheckCircle
-                    className="h-3.5 w-3.5 shrink-0 text-accent-sage"
-                    strokeWidth={1.5}
-                  />
-                ) : (
-                  <Circle
-                    className="h-3.5 w-3.5 shrink-0 text-fg-muted/40"
-                    strokeWidth={1.5}
-                  />
-                )}
-                <span
-                  className={`text-xs ${done ? "text-fg-primary" : "text-fg-muted"}`}
-                >
-                  {label}
-                </span>
-                <span className="ml-auto font-mono text-micro text-fg-muted">
-                  {formatDate(date)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Shipping info */}
-        {(order.carrier || order.trackingNumber) && (
-          <div className="mt-6">
-            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
-              Shipping
-            </h3>
-            <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
-              {order.carrier && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-fg-muted">Carrier</span>
-                  <span className="text-xs text-fg-primary">{order.carrier}</span>
-                </div>
-              )}
-              {order.trackingNumber && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-fg-muted">Tracking #</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-micro text-fg-primary">
-                      {order.trackingNumber}
-                    </span>
-                    {order.trackingUrl && (
-                      <a
-                        href={order.trackingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-accent-blue hover:text-accent-blue/80"
-                      >
-                        <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Price breakdown */}
-        {(order.price || order.totalCost) && (
-          <div className="mt-6">
-            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
-              Cost
-            </h3>
-            <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
-              {order.price && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-fg-muted">Price</span>
-                  <span className="font-mono text-micro text-fg-primary">
-                    {formatCurrency(order.price, order.currency)}
-                  </span>
-                </div>
-              )}
-              {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-fg-muted">Shipping</span>
-                  <span className="font-mono text-micro text-fg-primary">
-                    {formatCurrency(order.shippingCost, order.currency)}
-                  </span>
-                </div>
-              )}
-              {order.totalCost && (
-                <div className="flex items-center justify-between border-t border-glass-border pt-2">
-                  <span className="text-xs font-medium text-fg-secondary">
-                    Total
-                  </span>
-                  <span className="font-mono text-xs font-medium text-fg-primary">
-                    {formatCurrency(order.totalCost, order.currency)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Venue */}
-        {order.venue && (
-          <div className="mt-6">
-            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
-              Venue
-            </h3>
-            <Link
-              href={`/places/${order.venue.slug}`}
-              className="flex items-center gap-2 rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 transition-colors hover:border-fg-muted/15 hover:bg-bg-tertiary/50"
-            >
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} />
-              <span className="text-xs text-fg-primary">{order.venue.name}</span>
-              <ChevronRight className="ml-auto h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
-            </Link>
-          </div>
-        )}
-
-        {/* External links */}
-        <div className="mt-6 flex flex-wrap gap-2">
-          {order.orderUrl && (
-            <a
-              href={order.orderUrl}
-              target="_blank"
-              rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
             >
-              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-              Order Page
-            </a>
+              <BookOpen className="h-3 w-3" strokeWidth={1.5} />
+              View Work
+            </Link>
+          </div>
+
+          {/* Notes */}
+          {order.notes && (
+            <div className="mt-6">
+              <h3 className="mb-2 font-mono text-micro uppercase tracking-wider text-fg-muted">
+                Notes
+              </h3>
+              <p className="text-xs leading-relaxed text-fg-secondary">
+                {order.notes}
+              </p>
+            </div>
           )}
-          <Link
-            href={`/library/${order.work.slug}`}
-            className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
-          >
-            <BookOpen className="h-3 w-3" strokeWidth={1.5} />
-            View Work
-          </Link>
         </div>
 
-        {/* Notes */}
-        {order.notes && (
-          <div className="mt-6">
-            <h3 className="mb-2 font-mono text-micro uppercase tracking-wider text-fg-muted">
-              Notes
-            </h3>
-            <p className="text-xs leading-relaxed text-fg-secondary">
-              {order.notes}
-            </p>
+        {/* Status promotion actions */}
+        {validTransitions.length > 0 && (
+          <div className="border-t border-glass-border p-4">
+            <div className="flex gap-2">
+              {/* Quick advance button */}
+              {nextStatus && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleStatusChange(nextStatus)}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                  ) : (
+                    <>
+                      <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Mark as {STATUS_LABELS[nextStatus] ?? nextStatus}
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* All transitions dropdown */}
+              <div className="relative" ref={statusDropdownRef}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    setStatusDropdownOpen((prev) => !prev)
+                  }
+                  disabled={isPending}
+                >
+                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </Button>
+
+                {statusDropdownOpen && (
+                  <div className="absolute bottom-full right-0 mb-1 w-48 rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+                    {validTransitions.map((s) => {
+                      const isDestructive =
+                        s === "cancelled" || s === "returned";
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleStatusChange(s)}
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-bg-tertiary ${
+                            isDestructive
+                              ? "text-accent-red hover:text-accent-red"
+                              : "text-fg-secondary hover:text-fg-primary"
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              STATUS_COLORS[s]?.replace("text-", "bg-") ??
+                              "bg-fg-muted"
+                            }`}
+                          />
+                          {STATUS_LABELS[s] ?? s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Actions */}
-      {nextStatus && (
-        <div className="border-t border-glass-border p-4">
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full"
-            onClick={handleAdvanceStatus}
-            disabled={isPending}
-          >
-            {isPending ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-            ) : (
-              <>
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Mark as {nextStatus.replace(/_/g, " ")}
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-    </div>
+      {/* Edit dialog */}
+      <OrderEditDialog
+        order={order}
+        open={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+      />
+    </>
   );
 }
 
 // ── Main Shell ─────────────────────────────────────────────────────────────────
 
 export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
+  const router = useRouter();
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
+  const [draggedOrder, setDraggedOrder] = useState<OrderItem | null>(null);
+  const [optimisticOrders, setOptimisticOrders] = useState(activeOrders);
+
+  // Sync optimistic state with server data
+  useEffect(() => {
+    setOptimisticOrders(activeOrders);
+  }, [activeOrders]);
+
+  // Drag-and-drop sensors with activation delay to differentiate clicks from drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  );
+
+  function handleDragStart(event: DragStartEvent) {
+    const order = event.active.data.current?.order as OrderItem | undefined;
+    if (order) setDraggedOrder(order);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setDraggedOrder(null);
+
+    const { active, over } = event;
+    if (!over) return;
+
+    const order = active.data.current?.order as OrderItem | undefined;
+    const targetStatus = over.data.current?.status as OrderStatus | undefined;
+    if (!order || !targetStatus || targetStatus === order.status) return;
+
+    // Validate transition
+    const valid = getValidTransitions(order.status, order.acquisitionMethod);
+    if (!valid.includes(targetStatus)) return;
+
+    // Optimistic update
+    setOptimisticOrders((prev) =>
+      prev.map((o) =>
+        o.id === order.id ? { ...o, status: targetStatus } : o,
+      ),
+    );
+
+    // Server update
+    updateOrderStatus(order.id, targetStatus)
+      .then(() => {
+        toast.success(
+          `${order.work.title} moved to ${STATUS_LABELS[targetStatus] ?? targetStatus}`,
+        );
+        router.refresh();
+      })
+      .catch((err) => {
+        // Revert optimistic update
+        setOptimisticOrders((prev) =>
+          prev.map((o) =>
+            o.id === order.id ? { ...o, status: order.status } : o,
+          ),
+        );
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Failed to update status",
+        );
+      });
+  }
 
   // Group orders by status for the pipeline
   const ordersByStatus = PIPELINE_COLUMNS.reduce<Record<string, OrderItem[]>>(
     (acc, col) => {
-      acc[col.status] = activeOrders.filter(
+      acc[col.status] = optimisticOrders.filter(
         (o) => o.status === col.status,
       );
       return acc;
@@ -731,8 +979,13 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
     {},
   );
 
+  // Compute valid drop targets for the currently dragged order
+  const dragValidTargets = draggedOrder
+    ? getValidTransitions(draggedOrder.status, draggedOrder.acquisitionMethod)
+    : [];
+
   // Immediate acquisitions (no pipeline step needed)
-  const immediateOrders = activeOrders.filter(
+  const immediateOrders = optimisticOrders.filter(
     (o) =>
       o.acquisitionMethod === "in_store_purchase" ||
       o.acquisitionMethod === "gift" ||
@@ -797,19 +1050,38 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
           </p>
         </div>
 
-        <div className="overflow-x-auto pb-4">
-          <div className="flex min-w-max gap-3 pt-3">
-            {PIPELINE_COLUMNS.map((col) => (
-              <PipelineColumn
-                key={col.status}
-                status={col.status}
-                label={col.label}
-                orders={ordersByStatus[col.status] ?? []}
-                onCardClick={setSelectedOrder}
-              />
-            ))}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto pb-4">
+            <div className="flex min-w-max gap-3 pt-3">
+              {PIPELINE_COLUMNS.map((col) => (
+                <PipelineColumn
+                  key={col.status}
+                  status={col.status}
+                  label={col.label}
+                  orders={ordersByStatus[col.status] ?? []}
+                  onCardClick={setSelectedOrder}
+                  isDropTarget={dragValidTargets.includes(col.status)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+
+          <DragOverlay dropAnimation={null}>
+            {draggedOrder && (
+              <div className="w-[180px]">
+                <PipelineOrderCard
+                  order={draggedOrder}
+                  onClick={() => {}}
+                  isDragOverlay
+                />
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
 
         {/* Immediate acquisitions (in-store / gifts) */}
         {immediateOrders.length > 0 && (
@@ -873,7 +1145,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
           </div>
         )}
 
-        {activeOrders.length === 0 && (
+        {optimisticOrders.length === 0 && (
           <div className="mt-12 flex flex-col items-center justify-center text-center">
             <Package
               className="mb-4 h-10 w-10 text-fg-muted/30"

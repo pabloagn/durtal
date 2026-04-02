@@ -110,12 +110,18 @@ interface BookDataTableProps {
   books: DetailedBookItem[];
   columns: { key: string; visible: boolean; order: number }[];
   onColumnsChange: (cols: { key: string; visible: boolean; order: number }[]) => void;
+  isSelecting?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (workId: string) => void;
 }
 
 export function BookDataTable({
   books,
   columns,
   onColumnsChange,
+  isSelecting,
+  selectedIds,
+  onSelect,
 }: BookDataTableProps) {
   return (
     <DataTable
@@ -125,6 +131,9 @@ export function BookDataTable({
       columns={columns}
       onColumnsChange={onColumnsChange}
       renderCell={renderBookCell}
+      isSelecting={isSelecting}
+      selectedIds={selectedIds}
+      onSelect={onSelect}
     />
   );
 }

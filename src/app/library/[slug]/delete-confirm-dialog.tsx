@@ -35,7 +35,7 @@ export function DeleteConfirmDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={title}>
+    <Dialog open={open} onClose={onClose} title={title} className="max-w-lg" expandable={false}>
       <div className="space-y-4">
         <p className="text-sm text-fg-secondary">{description}</p>
         <div className="rounded-sm border border-glass-border bg-bg-primary px-3 py-2">

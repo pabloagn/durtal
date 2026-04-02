@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +22,64 @@ interface BookListItem {
   acquisitionPriority?: string | null;
 }
 
-export function BookList({ books }: { books: BookListItem[] }) {
+interface BookListProps {
+  books: BookListItem[];
+  isSelecting?: boolean;
+  selectedIds?: Set<string>;
+  onSelect?: (workId: string) => void;
+}
+
+export function BookList({ books, isSelecting = false, selectedIds, onSelect }: BookListProps) {
   return (
     <div className="space-y-px">
-      {books.map((book) => (
-        <Link
+      {books.map((book) => {
+        const isSelected = selectedIds?.has(book.workId) ?? false;
+
+        function handleRowClick(e: React.MouseEvent) {
+          if (isSelecting && onSelect) {
+            e.preventDefault();
+            onSelect(book.workId);
+          }
+        }
+
+        return (
+        <div
           key={book.workId}
-          href={`/library/${book.slug}`}
-          className="group flex items-center gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60"
+          className={`group flex items-center gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 ${isSelected ? "bg-accent-rose/5" : ""}`}
+          onClick={handleRowClick}
         >
+          {/* Selection checkbox */}
+          {isSelecting && (
+            <div className="flex-shrink-0">
+              <div
+                className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
+                  isSelected
+                    ? "border-accent-rose bg-accent-rose text-white"
+                    : "border-glass-border bg-black/60 text-transparent"
+                }`}
+              >
+                {isSelected && (
+                  <svg
+                    className="h-3 w-3"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M2 6l3 3 5-5" />
+                  </svg>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Link
+            href={`/library/${book.slug}`}
+            className={`flex min-w-0 flex-1 items-center gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
+            tabIndex={isSelecting ? -1 : undefined}
+          >
           {/* Small thumbnail */}
           <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (
@@ -105,8 +156,10 @@ export function BookList({ books }: { books: BookListItem[] }) {
               {book.instanceCount} {book.instanceCount === 1 ? "copy" : "copies"}
             </span>
           </div>
-        </Link>
-      ))}
+          </Link>
+        </div>
+        );
+      })}
     </div>
   );
 }

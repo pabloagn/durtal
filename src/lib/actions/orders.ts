@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { orders, orderStatusHistory } from "@/lib/db/schema";
+import { orders, orderStatusHistory, works, workStatusHistory } from "@/lib/db/schema";
 import {
   eq,
   and,
@@ -29,6 +29,62 @@ import {
   TERMINAL_STATUSES,
   IN_TRANSIT_STATUSES,
 } from "@/lib/constants/orders";
+import { recordActivity } from "@/lib/activity/record";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
+
+// Statuses that mean "book is in hand"
+const BOOK_IN_HAND_STATUSES: OrderStatus[] = [
+  "delivered",
+  "purchased",
+  "received",
+];
+
+/**
+ * Sync the work's catalogueStatus based on order lifecycle events.
+ *
+ * - Order in progress (not in hand) → work becomes "on_order"
+ * - Order completed (book in hand)  → work becomes "accessioned"
+ *
+ * Skips the update if the work is already in the target status.
+ * Records the transition in work_status_history and activity log.
+ */
+async function syncWorkCatalogueStatus(
+  workId: string,
+  orderStatus: OrderStatus,
+  notes: string,
+) {
+  const targetStatus = BOOK_IN_HAND_STATUSES.includes(orderStatus)
+    ? "accessioned"
+    : "on_order";
+
+  const work = await db.query.works.findFirst({
+    where: eq(works.id, workId),
+    columns: { catalogueStatus: true },
+  });
+
+  if (!work || work.catalogueStatus === targetStatus) return;
+
+  const fromStatus = work.catalogueStatus;
+
+  await db
+    .update(works)
+    .set({ catalogueStatus: targetStatus })
+    .where(eq(works.id, workId));
+
+  await db.insert(workStatusHistory).values({
+    workId,
+    fromStatus,
+    toStatus: targetStatus,
+    notes,
+  });
+
+  recordActivity("work", workId, "work.catalogue_status_changed", {
+    oldValue: fromStatus,
+    newValue: targetStatus,
+  });
+
+  invalidate(CACHE_TAGS.works);
+}
 
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -360,6 +416,13 @@ export async function createOrder(input: CreateOrderInput) {
     notes: "Order created",
   });
 
+  // Sync work catalogue status: on_order or accessioned
+  await syncWorkCatalogueStatus(
+    input.workId,
+    status,
+    `Order created with status "${status}"`,
+  );
+
   return order;
 }
 
@@ -465,6 +528,15 @@ export async function updateOrderStatus(
     toStatus: newStatus,
     notes: notes ?? null,
   });
+
+  // Sync work catalogue status when order reaches "book in hand" state
+  if (BOOK_IN_HAND_STATUSES.includes(newStatus)) {
+    await syncWorkCatalogueStatus(
+      updated.workId,
+      newStatus,
+      `Order status changed to "${newStatus}"`,
+    );
+  }
 
   return updated;
 }

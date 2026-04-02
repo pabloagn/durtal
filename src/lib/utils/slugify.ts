@@ -4,7 +4,44 @@
  */
 
 /**
+ * Characters that survive NFD normalization and need explicit transliteration.
+ * Covers Polish, Scandinavian, German, Icelandic, Croatian, and other Latin-script
+ * characters that don't decompose into base + combining mark.
+ */
+const TRANSLITERATION_MAP: Record<string, string> = {
+  "\u00E6": "ae", // æ
+  "\u00C6": "ae", // Æ
+  "\u0153": "oe", // œ
+  "\u0152": "oe", // Œ
+  "\u00F8": "o",  // ø
+  "\u00D8": "o",  // Ø
+  "\u0142": "l",  // ł
+  "\u0141": "l",  // Ł
+  "\u00F0": "d",  // ð
+  "\u00D0": "d",  // Ð
+  "\u00FE": "th", // þ
+  "\u00DE": "th", // Þ
+  "\u00DF": "ss", // ß
+  "\u0111": "d",  // đ
+  "\u0110": "d",  // Đ
+  "\u0127": "h",  // ħ
+  "\u0126": "h",  // Ħ
+  "\u0131": "i",  // ı (dotless i)
+  "\u0138": "k",  // ĸ
+  "\u014B": "ng", // ŋ
+  "\u014A": "ng", // Ŋ
+  "\u0167": "t",  // ŧ
+  "\u0166": "t",  // Ŧ
+};
+
+const TRANSLITERATION_RE = new RegExp(
+  `[${Object.keys(TRANSLITERATION_MAP).join("")}]`,
+  "g",
+);
+
+/**
  * Convert arbitrary text to a URL-safe slug.
+ * - Transliterates special Latin characters (ł → l, ß → ss, æ → ae, etc.)
  * - Normalises Unicode (NFD) and strips combining diacritics
  * - Lowercases
  * - Replaces non-alphanumeric characters with hyphens
@@ -13,6 +50,7 @@
  */
 export function slugify(text: string): string {
   return text
+    .replace(TRANSLITERATION_RE, (ch) => TRANSLITERATION_MAP[ch] ?? ch)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // strip diacritics
     .toLowerCase()

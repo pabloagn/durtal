@@ -305,7 +305,6 @@ export function WorkQuickEditDialog({
         if (!isPending) onClose();
       }}
       title="Edit Work"
-      className="max-w-2xl"
     >
       {loading || !loaded ? (
         <div className="flex items-center justify-center py-12">
@@ -313,7 +312,7 @@ export function WorkQuickEditDialog({
         </div>
       ) : (
         <>
-          <div className="max-h-[70vh] overflow-y-auto pr-1">
+          <div className="max-h-[75vh] overflow-y-auto pr-1">
             <div className="space-y-6">
               {/* Core Details */}
               <section>

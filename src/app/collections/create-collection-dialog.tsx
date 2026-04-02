@@ -330,9 +330,8 @@ export function CreateCollectionDialog() {
         onClose={() => !isPending && setOpen(false)}
         title="Create collection"
         description="Organize editions into a curated group"
-        className="max-w-2xl"
       >
-        <div className="max-h-[72vh] space-y-6 overflow-y-auto pr-1">
+        <div className="max-h-[75vh] space-y-6 overflow-y-auto pr-1">
           {/* Section: Details */}
           <section>
             <h3 className="mb-3 font-serif text-base text-fg-secondary">

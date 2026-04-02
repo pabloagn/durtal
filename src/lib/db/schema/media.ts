@@ -49,6 +49,9 @@ export const media = pgTable(
     originalS3Key: text("original_s3_key"),
     processingParams: jsonb("processing_params"),
 
+    // Extracted color palette (poster images only)
+    colorPalette: jsonb("color_palette"),
+
     // Ordering and metadata
     sortOrder: smallint("sort_order").notNull().default(0),
     caption: text("caption"),

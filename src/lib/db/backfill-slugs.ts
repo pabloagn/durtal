@@ -1,31 +1,33 @@
 /**
- * Backfill slugs for all existing works and authors.
+ * Regenerate slugs for all works and authors.
  *
- * Run once after the 0004 migration:
+ * Run after fixing the slugify function:
  *   npx tsx src/lib/db/backfill-slugs.ts
  *
- * Safe to re-run: rows that already have a slug are skipped.
+ * Regenerates ALL slugs (not just null ones) to fix bad characters.
  */
 
 import { db } from "@/lib/db";
 import { works, authors, workAuthors } from "@/lib/db/schema";
-import { eq, asc, like, isNull } from "drizzle-orm";
+import { eq, asc, like } from "drizzle-orm";
 import { generateWorkSlug, generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 
 async function backfillAuthors() {
-  console.log("Backfilling author slugs…");
+  console.log("Regenerating author slugs…");
 
   const allAuthors = await db.query.authors.findMany({
-    where: isNull(authors.slug),
-    columns: { id: true, name: true },
+    columns: { id: true, name: true, slug: true },
+    orderBy: asc(authors.name),
   });
 
-  console.log(`  Found ${allAuthors.length} authors without a slug`);
+  console.log(`  Found ${allAuthors.length} authors`);
 
+  let updated = 0;
   for (const author of allAuthors) {
     const baseSlug = generateAuthorSlug(author.name);
 
     // Fetch existing slugs with the same prefix to check uniqueness
+    // Exclude own row so we don't collide with ourselves
     const existing = await db
       .select({ slug: authors.slug })
       .from(authors)
@@ -33,23 +35,25 @@ async function backfillAuthors() {
 
     const existingSlugs = existing
       .map((r) => r.slug)
-      .filter((s): s is string => s !== null);
+      .filter((s): s is string => s !== null && s !== author.slug);
 
     const slug = makeUnique(baseSlug, existingSlugs);
 
-    await db.update(authors).set({ slug }).where(eq(authors.id, author.id));
-    console.log(`  author: "${author.name}" → ${slug}`);
+    if (slug !== author.slug) {
+      await db.update(authors).set({ slug }).where(eq(authors.id, author.id));
+      console.log(`  author: "${author.name}" → ${slug}${author.slug ? ` (was: ${author.slug})` : ""}`);
+      updated++;
+    }
   }
 
-  console.log("Author slug backfill complete.");
+  console.log(`Author slug regeneration complete. Updated ${updated}/${allAuthors.length}.`);
 }
 
 async function backfillWorks() {
-  console.log("Backfilling work slugs…");
+  console.log("Regenerating work slugs…");
 
   const allWorks = await db.query.works.findMany({
-    where: isNull(works.slug),
-    columns: { id: true, title: true },
+    columns: { id: true, title: true, slug: true },
     with: {
       workAuthors: {
         with: { author: { columns: { name: true } } },
@@ -57,10 +61,12 @@ async function backfillWorks() {
         limit: 1,
       },
     },
+    orderBy: asc(works.title),
   });
 
-  console.log(`  Found ${allWorks.length} works without a slug`);
+  console.log(`  Found ${allWorks.length} works`);
 
+  let updated = 0;
   for (const work of allWorks) {
     const authorName = work.workAuthors[0]?.author.name ?? "unknown";
     const baseSlug = generateWorkSlug(work.title, authorName, work.id);
@@ -72,15 +78,18 @@ async function backfillWorks() {
 
     const existingSlugs = existing
       .map((r) => r.slug)
-      .filter((s): s is string => s !== null);
+      .filter((s): s is string => s !== null && s !== work.slug);
 
     const slug = makeUnique(baseSlug, existingSlugs);
 
-    await db.update(works).set({ slug }).where(eq(works.id, work.id));
-    console.log(`  work: "${work.title}" → ${slug}`);
+    if (slug !== work.slug) {
+      await db.update(works).set({ slug }).where(eq(works.id, work.id));
+      console.log(`  work: "${work.title}" → ${slug}${work.slug ? ` (was: ${work.slug})` : ""}`);
+      updated++;
+    }
   }
 
-  console.log("Work slug backfill complete.");
+  console.log(`Work slug regeneration complete. Updated ${updated}/${allWorks.length}.`);
 }
 
 async function main() {

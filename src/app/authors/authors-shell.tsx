@@ -525,6 +525,9 @@ export function AuthorsShell({
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
           renderCell={renderAuthorCell}
+          isSelecting={selection.isSelecting}
+          selectedIds={selection.selectedIds}
+          onSelect={selection.toggleSelection}
         />
       )}
 

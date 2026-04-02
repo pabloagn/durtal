@@ -10,9 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
-import { createOrder } from "@/lib/actions/orders";
-import { searchWorksForOrder } from "@/lib/actions/orders";
+import { DatePicker } from "@/components/ui/date-picker";
+import { createOrder, searchWorksForOrder } from "@/lib/actions/orders";
+import { createWork } from "@/lib/actions/works";
+import { findOrCreateAuthor, searchAuthorsLite } from "@/lib/actions/authors";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
+import {
+  CURRENCY_SELECT_OPTIONS,
+  DEFAULT_CURRENCY,
+} from "@/lib/constants/currencies";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -89,6 +95,18 @@ function WorkSearchStep({
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Inline work creation state
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [authorResults, setAuthorResults] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [isSearchingAuthors, setIsSearchingAuthors] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const authorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Work search effect
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) {
@@ -108,6 +126,161 @@ function WorkSearchStep({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query]);
+
+  // Author search effect
+  useEffect(() => {
+    if (authorDebounceRef.current) clearTimeout(authorDebounceRef.current);
+    if (!authorQuery.trim()) {
+      setAuthorResults([]);
+      return;
+    }
+    authorDebounceRef.current = setTimeout(async () => {
+      setIsSearchingAuthors(true);
+      try {
+        const res = await searchAuthorsLite(authorQuery);
+        setAuthorResults(res);
+      } finally {
+        setIsSearchingAuthors(false);
+      }
+    }, 300);
+    return () => {
+      if (authorDebounceRef.current) clearTimeout(authorDebounceRef.current);
+    };
+  }, [authorQuery]);
+
+  async function handleCreateWork() {
+    if (!newTitle.trim() || !authorQuery.trim()) return;
+    setIsCreating(true);
+    try {
+      // Find or create the author
+      const author = await findOrCreateAuthor(authorQuery.trim());
+
+      // Create the work with minimal fields
+      const work = await createWork({
+        title: newTitle.trim(),
+        authorIds: [{ authorId: author.id, role: "author" }],
+        catalogueStatus: "on_order",
+      });
+
+      // Build a WorkResult-compatible object so the parent can use it
+      const workResult: WorkResult = {
+        id: work.id,
+        title: work.title,
+        slug: work.slug ?? "",
+        workAuthors: [{ author: { id: author.id, name: author.name } }],
+        media: [],
+      };
+
+      onSelect(workResult);
+      setShowCreate(false);
+      setNewTitle("");
+      setAuthorQuery("");
+      toast.success(`Created "${work.title}" and selected it`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create work",
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  // Inline creation form
+  if (showCreate) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-fg-secondary">
+            Add a new work to the library.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowCreate(false)}
+            className="text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+          >
+            Back to search
+          </button>
+        </div>
+
+        <Input
+          label="Title"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Book title"
+          required
+          autoFocus
+        />
+
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-fg-secondary">
+            Author <span className="ml-0.5 text-accent-red">*</span>
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={authorQuery}
+              onChange={(e) => setAuthorQuery(e.target.value)}
+              placeholder="Author name"
+              className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+            />
+            {isSearchingAuthors && (
+              <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted" strokeWidth={1.5} />
+            )}
+          </div>
+
+          {/* Author autocomplete dropdown */}
+          {authorQuery.trim() && authorResults.length > 0 && (
+            <div className="max-h-32 overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary">
+              {authorResults.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => {
+                    setAuthorQuery(a.name);
+                    setAuthorResults([]);
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {authorQuery.trim() &&
+            !isSearchingAuthors &&
+            authorResults.length === 0 && (
+              <p className="text-xs text-fg-muted">
+                No existing author found. A new author &ldquo;{authorQuery.trim()}&rdquo; will be created.
+              </p>
+            )}
+        </div>
+
+        <Button
+          variant="primary"
+          size="sm"
+          className="w-full"
+          onClick={handleCreateWork}
+          disabled={!newTitle.trim() || !authorQuery.trim() || isCreating}
+        >
+          {isCreating ? (
+            <>
+              <Loader2
+                className="h-3.5 w-3.5 animate-spin"
+                strokeWidth={1.5}
+              />
+              Creating...
+            </>
+          ) : (
+            <>
+              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Create Work & Select
+            </>
+          )}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -213,9 +386,22 @@ function WorkSearchStep({
       )}
 
       {query.trim() && !isSearching && results.length === 0 && (
-        <p className="text-center text-xs text-fg-muted">
-          No works found for &ldquo;{query}&rdquo;
-        </p>
+        <div className="space-y-3 text-center">
+          <p className="text-xs text-fg-muted">
+            No works found for &ldquo;{query}&rdquo;
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setNewTitle(query.trim());
+              setShowCreate(true);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Add New Work
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -273,11 +459,10 @@ function DetailsStep({
         Fill in the acquisition details.
       </p>
 
-      <Input
+      <DatePicker
         label="Order / Acquisition Date"
-        type="date"
         value={form.orderDate}
-        onChange={(e) => onChange("orderDate", e.target.value)}
+        onChange={(v) => onChange("orderDate", v)}
         required
       />
 
@@ -321,11 +506,11 @@ function DetailsStep({
             onChange={(e) => onChange("trackingUrl", e.target.value)}
             placeholder="https://..."
           />
-          <Input
+          <DatePicker
             label="Estimated Delivery Date"
-            type="date"
             value={form.estimatedDeliveryDate}
-            onChange={(e) => onChange("estimatedDeliveryDate", e.target.value)}
+            onChange={(v) => onChange("estimatedDeliveryDate", v)}
+            min={form.orderDate || undefined}
           />
         </>
       )}
@@ -363,11 +548,12 @@ function DetailsStep({
           onChange={(e) => onChange("shippingCost", e.target.value)}
           placeholder="0.00"
         />
-        <Input
+        <Select
           label="Currency"
+          options={CURRENCY_SELECT_OPTIONS}
           value={form.currency}
           onChange={(e) => onChange("currency", e.target.value)}
-          placeholder="EUR"
+          placeholder="Select"
         />
       </div>
     </div>
@@ -412,6 +598,11 @@ interface DetailsForm {
   originDescription: string;
 }
 
+function getInitialCurrency(): string {
+  if (typeof window === "undefined") return DEFAULT_CURRENCY;
+  return localStorage.getItem("durtal:preferred-currency") ?? DEFAULT_CURRENCY;
+}
+
 const INITIAL_DETAILS: DetailsForm = {
   orderDate: new Date().toISOString().split("T")[0],
   venueName: "",
@@ -423,7 +614,7 @@ const INITIAL_DETAILS: DetailsForm = {
   estimatedDeliveryDate: "",
   price: "",
   shippingCost: "",
-  currency: "",
+  currency: DEFAULT_CURRENCY,
   originDescription: "",
 };
 
@@ -439,7 +630,10 @@ export function OrderCreateDialog() {
   const [selectedWork, setSelectedWork] = useState<WorkResult | null>(null);
   const [method, setMethod] = useState<AcquisitionMethod>("online_order");
   const [status, setStatus] = useState<OrderStatus>("placed");
-  const [details, setDetails] = useState<DetailsForm>(INITIAL_DETAILS);
+  const [details, setDetails] = useState<DetailsForm>(() => ({
+    ...INITIAL_DETAILS,
+    currency: getInitialCurrency(),
+  }));
   const [notes, setNotes] = useState("");
 
   function resetForm() {
@@ -447,7 +641,7 @@ export function OrderCreateDialog() {
     setSelectedWork(null);
     setMethod("online_order");
     setStatus("placed");
-    setDetails(INITIAL_DETAILS);
+    setDetails({ ...INITIAL_DETAILS, currency: getInitialCurrency() });
     setNotes("");
   }
 
@@ -491,6 +685,10 @@ export function OrderCreateDialog() {
 
     startTransition(async () => {
       try {
+        // Remember the currency preference for next order
+        if (details.currency) {
+          localStorage.setItem("durtal:preferred-currency", details.currency);
+        }
         await createOrder({
           workId: selectedWork.id,
           acquisitionMethod: method,
@@ -538,7 +736,7 @@ export function OrderCreateDialog() {
         onClose={handleClose}
         title="New Order"
         description={`Step ${step + 1} of ${STEP_LABELS.length} — ${STEP_LABELS[step]}`}
-        className="max-w-xl"
+        className="max-w-3xl"
       >
         {/* Step indicator */}
         <div className="mb-5 flex gap-1.5">

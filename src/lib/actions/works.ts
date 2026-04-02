@@ -15,6 +15,7 @@ import { eq, desc, asc, ilike, like, count, and, inArray, gte, isNotNull, notInA
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { recordActivity } from "@/lib/activity/record";
 
 type CatalogueStatus = typeof works.catalogueStatus.enumValues[number];
 type AcquisitionPriority = typeof works.acquisitionPriority.enumValues[number];
@@ -447,6 +448,7 @@ export async function createWork(input: CreateWorkInput) {
     .where(eq(works.id, work.id))
     .returning();
 
+  recordActivity("work", updated.id, "work.created", { newValue: workData.title });
   invalidate(CACHE_TAGS.works);
   return updated;
 }
@@ -456,6 +458,27 @@ export async function updateWork(
   input: Partial<CreateWorkInput>,
 ) {
   const { authorIds, subjectIds, recommenderIds, ...workData } = input;
+
+  // Snapshot current state for activity diffing
+  const prev = await db.query.works.findFirst({
+    where: eq(works.id, id),
+    columns: {
+      title: true,
+      originalYear: true,
+      originalLanguage: true,
+      catalogueStatus: true,
+      acquisitionPriority: true,
+      rating: true,
+      seriesId: true,
+    },
+    with: {
+      workAuthors: {
+        columns: { authorId: true },
+        with: { author: { columns: { id: true, name: true } } },
+        orderBy: asc(workAuthors.sortOrder),
+      },
+    },
+  });
 
   if (Object.keys(workData).length > 0) {
     await db
@@ -552,17 +575,73 @@ export async function updateWork(
         const newSlug = makeUnique(baseSlug, existingSlugs);
 
         await db.update(works).set({ slug: newSlug }).where(eq(works.id, id));
+        recordWorkDiffs(id, prev, workData, authorIds);
         invalidate(CACHE_TAGS.works);
         return { id, slug: newSlug };
       }
     }
   }
 
+  recordWorkDiffs(id, prev, workData, authorIds);
   invalidate(CACHE_TAGS.works);
   return { id };
 }
 
+/** Emit per-field activity events by diffing previous state against incoming input. */
+function recordWorkDiffs(
+  id: string,
+  prev: { title: string; originalYear: number | null; originalLanguage: string | null; catalogueStatus: string | null; acquisitionPriority: string | null; rating: number | null; seriesId: string | null; workAuthors: { authorId: string; author: { id: string; name: string } }[] } | undefined,
+  workData: Record<string, unknown>,
+  authorIds?: { authorId: string; role?: string }[],
+) {
+  if (!prev) return;
+
+  const fieldMap: [string, string][] = [
+    ["title", "work.title_changed"],
+    ["originalYear", "work.year_changed"],
+    ["originalLanguage", "work.language_changed"],
+    ["catalogueStatus", "work.catalogue_status_changed"],
+    ["acquisitionPriority", "work.acquisition_priority_changed"],
+    ["rating", "work.rating_changed"],
+  ];
+
+  for (const [field, eventKey] of fieldMap) {
+    if (field in workData && workData[field] !== (prev as Record<string, unknown>)[field]) {
+      recordActivity("work", id, eventKey, {
+        oldValue: (prev as Record<string, unknown>)[field] as string | number | null,
+        newValue: workData[field] as string | number | null,
+      });
+    }
+  }
+
+  if ("seriesId" in workData && workData.seriesId !== prev.seriesId) {
+    recordActivity("work", id, "work.series_changed", {
+      oldValue: prev.seriesId,
+      newValue: workData.seriesId as string | null,
+    });
+  }
+
+  if (authorIds) {
+    const oldIds = new Set(prev.workAuthors.map((wa) => wa.authorId));
+    const newIds = new Set(authorIds.map((a) => a.authorId));
+    for (const a of authorIds) {
+      if (!oldIds.has(a.authorId)) {
+        recordActivity("work", id, "work.author_added", { targetId: a.authorId });
+      }
+    }
+    for (const wa of prev.workAuthors) {
+      if (!newIds.has(wa.authorId)) {
+        recordActivity("work", id, "work.author_removed", {
+          targetId: wa.authorId,
+          targetName: wa.author.name,
+        });
+      }
+    }
+  }
+}
+
 export async function deleteWork(id: string) {
+  recordActivity("work", id, "work.deleted");
   await db.delete(works).where(eq(works.id, id));
   invalidate(CACHE_TAGS.works);
   return { id };

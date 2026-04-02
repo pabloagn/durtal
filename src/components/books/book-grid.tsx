@@ -15,6 +15,7 @@ interface BookGridItem {
   catalogueStatus?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
+  hasDigitalEdition?: boolean;
 }
 
 const COL_CLASSES: Record<number, string> = {

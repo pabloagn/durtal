@@ -918,6 +918,7 @@ Images attached to works or authors. Polymorphic ownership.
 | `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
 | `original_s3_key` | TEXT | nullable. S3 key for the pre-processing color original. Set only for author media with monochrome processing. |
 | `processing_params` | JSONB | nullable. Monochrome processing parameters: `{ grayscale: true, contrast: number, sharpness: number, gamma: number, brightness: number }`. Author media only. |
+| `color_palette` | JSONB | nullable. Extracted color palette for poster images. Contains raw Vibrant swatches (vibrant, muted, darkVibrant, darkMuted, lightVibrant, lightMuted), dominant color from sharp stats, and a post-processed `crystal` array of 3-4 colors ready for ambient rendering. Extracted at upload time via node-vibrant. |
 | `sort_order` | SMALLINT | NOT NULL, default `0` |
 | `caption` | TEXT | nullable |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
@@ -929,6 +930,8 @@ Images attached to works or authors. Polymorphic ownership.
 **Crop positioning**: The `crop_x`, `crop_y`, and `crop_zoom` fields store CSS-only positioning metadata. They control how an image is displayed within its container via `object-position` and `transform: scale()`, without modifying the original S3 files. Users adjust these values through a drag-and-zoom editor in the media manager.
 
 **Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
+
+**Color palette extraction**: For poster images (`type = 'poster'`), a color palette is extracted at upload time using node-vibrant. The multi-pass algorithm extracts six semantic swatches (Vibrant, Muted, DarkVibrant, DarkMuted, LightVibrant, LightMuted) and the dominant color via sharp stats. These are then processed through a crystal pipeline that enforces diversity (delta-E > 25 between selected colors), clamps saturation/lightness to the design language bounds (S: 12-65%, L: 18-45%), and assigns 3-4 roles (primary, secondary, accent, halo) with per-color opacity recommendations (0.08-0.18). The resulting `crystal` array drives the ambient color crystallization effect on book detail pages.
 
 ### `gallery_layouts`
 
@@ -1263,3 +1266,107 @@ Real-world and online establishments where books are acquired, browsed, or exper
 **Relations**: `place` (N:1 → `places`, optional)
 
 **Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`
+
+---
+
+## Calibre Integration (Reader)
+
+### `calibre_books`
+
+Mirrors metadata from the Calibre ebook library for in-app reading. Not all entries link to a Durtal work; the Reader tab can browse the full Calibre catalogue independently.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `calibre_id` | INTEGER | NOT NULL, UNIQUE | Primary key from Calibre's `books.id` |
+| `calibre_uuid` | TEXT | nullable | Calibre's internal UUID |
+| `title` | TEXT | NOT NULL | Book title from Calibre |
+| `author_sort` | TEXT | nullable | "Last, First" author sort from Calibre |
+| `path` | TEXT | NOT NULL | Relative path within Calibre library (e.g. `Author/Title (id)`) |
+| `has_cover` | BOOLEAN | NOT NULL, default `false` | Whether `cover.jpg` exists in Calibre |
+| `cover_s3_key` | TEXT | nullable | S3 key for the cover image (e.g. `gold/calibre/{id}/cover.jpg`) |
+| `isbn` | TEXT | nullable | First ISBN found in Calibre identifiers |
+| `formats` | JSONB | nullable | Array of `{ format, fileName, sizeBytes, s3Key }` |
+| `pubdate` | TEXT | nullable | Publication date from Calibre |
+| `work_id` | UUID | FK -> `works.id`, nullable, SET NULL | Link to Durtal catalogue (via ISBN match or manual linking) |
+| `last_synced` | TIMESTAMPTZ | NOT NULL, auto | When this record was last synced from Calibre |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Relations**: `work` (N:1 -> `works`, optional)
+
+**File path resolution**: `{CALIBRE_LIBRARY_PATH}/{path}/{formats[n].fileName}.{formats[n].format}`
+
+### `reading_progress`
+
+Tracks reading position, bookmarks, and per-book reader settings. One record per Calibre book.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `calibre_book_id` | UUID | NOT NULL, UNIQUE, FK -> `calibre_books.id` CASCADE | |
+| `current_cfi` | TEXT | nullable | EPUB CFI string for current position |
+| `current_page` | INTEGER | nullable | PDF page number |
+| `progress_percent` | REAL | nullable | 0.0 to 1.0 |
+| `current_chapter` | TEXT | nullable | Human-readable chapter name |
+| `total_reading_seconds` | INTEGER | default `0` | Cumulative reading time |
+| `started_at` | TIMESTAMPTZ | NOT NULL, auto | When reading began |
+| `last_read_at` | TIMESTAMPTZ | NOT NULL, auto | Most recent reading session |
+| `finished_at` | TIMESTAMPTZ | nullable | When the book was completed |
+| `bookmarks` | JSONB | nullable | Array of `{ cfi, label?, contextText?, createdAt }` |
+| `reader_settings` | JSONB | nullable | Per-book overrides: `{ fontSize, fontFamily, lineHeight, margin, textAlign }` |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Relations**: `calibreBook` (N:1 -> `calibre_books`)
+
+## Activity & Comments
+
+### `activity_events`
+
+Audit log tracking every mutation to Works and Authors. Polymorphic via `entity_type` + `entity_id`.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `entity_type` | TEXT | NOT NULL | `"work"` or `"author"` |
+| `entity_id` | UUID | NOT NULL | References `works.id` or `authors.id` (no FK) |
+| `event_key` | TEXT | NOT NULL | e.g. `"work.title_changed"`, `"author.poster_uploaded"` |
+| `metadata` | JSONB | nullable | Structured: `{ oldValue, newValue, targetName, targetId, taxonomyType, editionIsbn, locationName, collectionName, commentId, extra }` |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Indexes**: composite on `(entity_type, entity_id)`, single on `created_at`
+
+### `comments`
+
+Rich-text comments attached to Works or Authors. Content stored as both rendered HTML and Tiptap JSON for re-editing.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `entity_type` | TEXT | NOT NULL | `"work"` or `"author"` |
+| `entity_id` | UUID | NOT NULL | References `works.id` or `authors.id` (no FK) |
+| `content_html` | TEXT | NOT NULL | Server-sanitized HTML for display |
+| `content_json` | JSONB | nullable | Tiptap JSON document for re-editing |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Indexes**: composite on `(entity_type, entity_id)`, single on `created_at`
+**Relations**: `attachments` (1:N -> `comment_attachments`)
+
+### `comment_attachments`
+
+File attachments on comments, stored in S3.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `comment_id` | UUID | NOT NULL, FK -> `comments.id` CASCADE | |
+| `file_name` | TEXT | NOT NULL | Original filename |
+| `file_size` | INTEGER | NOT NULL | Size in bytes |
+| `mime_type` | TEXT | NOT NULL | e.g. `"image/png"`, `"application/pdf"` |
+| `s3_key` | TEXT | NOT NULL | Full S3 object key |
+| `is_image` | BOOLEAN | NOT NULL, default `false` | For inline thumbnail rendering |
+| `thumbnail_url` | TEXT | nullable | Pre-signed or public URL for image previews |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+**Relations**: `comment` (N:1 -> `comments`)

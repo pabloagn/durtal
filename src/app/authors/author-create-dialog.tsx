@@ -151,7 +151,6 @@ export function AuthorCreateDialog() {
         open={open}
         onClose={handleClose}
         title="Add Author"
-        className="max-w-2xl"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -159,7 +158,7 @@ export function AuthorCreateDialog() {
           </div>
         ) : (
           <>
-            <div className="max-h-[70vh] overflow-y-auto pr-1">
+            <div className="max-h-[75vh] overflow-y-auto pr-1">
               <div className="space-y-6">
                 {/* Identity */}
                 <section>

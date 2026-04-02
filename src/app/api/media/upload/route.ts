@@ -3,8 +3,9 @@ import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/med
 import { createMedia, setActiveMedia } from "@/lib/actions/media";
 import { updateCollection } from "@/lib/actions/collections";
 import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
+import { extractColorPalette } from "@/lib/color/extract-palette";
 import type { MediaEntityType } from "@/lib/s3/keys";
-import type { MediaType } from "@/lib/types";
+import type { ColorPalette, MediaType } from "@/lib/types";
 
 /**
  * POST /api/media/upload
@@ -107,6 +108,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Extract color palette for poster uploads (buffer is still in memory)
+    let colorPalette: ColorPalette | undefined;
+    if (mediaType === "poster" && entityType === "work") {
+      try {
+        colorPalette = await extractColorPalette(buffer);
+      } catch (err) {
+        console.error("Color palette extraction failed (non-blocking):", err);
+      }
+    }
+
     // For works/authors, create a media DB record
     const record = await createMedia({
       ...(entityType === "work" ? { workId: entityId } : { authorId: entityId }),
@@ -118,6 +129,7 @@ export async function POST(req: NextRequest) {
       width: result.width,
       height: result.height,
       sizeBytes: file.size,
+      ...(colorPalette ? { colorPalette } : {}),
     });
 
     // Activate the new record (deactivates others of same type+owner)

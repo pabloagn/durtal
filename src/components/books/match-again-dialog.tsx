@@ -168,7 +168,6 @@ export function MatchAgainDialog({
       onClose={handleClose}
       title="Match again"
       description={`Current source: ${sourceLabel}`}
-      className="max-w-2xl"
     >
       {/* Confirmation view */}
       {selected ? (

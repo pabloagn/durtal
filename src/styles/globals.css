@@ -100,6 +100,22 @@ dialog::backdrop {
   inset: 0;
 }
 
+/* Dialog entrance animation */
+.dialog-enter {
+  animation: dialog-scale-in 150ms ease-out;
+}
+
+@keyframes dialog-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -251,6 +267,7 @@ dialog::backdrop {
   margin-bottom: 0.25em;
 }
 
+
 /* ── Protected images ──────────────────────────────────────────────────── */
 .protected-image {
   -webkit-user-drag: none;
@@ -260,4 +277,58 @@ dialog::backdrop {
   user-drag: none;
   -webkit-touch-callout: none;
   pointer-events: none;
+}
+
+/* ── Tiptap comment editor + rendered content ────────────────────────── */
+.tiptap-content p {
+  margin-bottom: 0.5em;
+}
+.tiptap-content p:last-child {
+  margin-bottom: 0;
+}
+.tiptap-content code {
+  background: var(--color-bg-tertiary);
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+  font-size: 0.875em;
+}
+.tiptap-content pre {
+  background: var(--color-bg-primary);
+  padding: 0.75em;
+  border-radius: 2px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.tiptap-content pre code {
+  background: none;
+  padding: 0;
+}
+.tiptap-content blockquote {
+  border-left: 2px solid var(--color-bg-tertiary);
+  padding-left: 0.75em;
+  color: var(--color-fg-muted);
+  margin: 0.5em 0;
+}
+.tiptap-content a {
+  color: var(--color-accent-rose);
+  text-decoration: underline;
+}
+.tiptap-content ul,
+.tiptap-content ol {
+  padding-left: 1.5em;
+  margin: 0.25em 0;
+}
+.tiptap-content li {
+  margin: 0.15em 0;
+}
+.tiptap-content hr {
+  border-color: var(--color-glass-border);
+  margin: 0.75em 0;
+}
+.tiptap-content .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-fg-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
 }

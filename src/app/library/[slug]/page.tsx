@@ -20,6 +20,8 @@ import {
 } from "@/lib/actions/taxonomy";
 import { getLocations } from "@/lib/actions/locations";
 import { getRecommenders } from "@/lib/actions/recommenders";
+import { getCalibreBooksByWorkId } from "@/lib/calibre/queries";
+import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
 import { priorityVariant } from "@/lib/constants/catalogue";
 import { WorkMediaInline } from "./work-media-inline";
@@ -31,6 +33,10 @@ import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { BookCard } from "@/components/books/book-card";
 import { WorkPosterImage } from "./work-poster-image";
 import { GallerySection } from "@/components/shared/gallery-section";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
+// Ambient color feature — kept but disabled for now
+// import { AmbientCrystals, AmbientPortal } from "./ambient-crystals";
+import type { CrystalColor, ColorPalette } from "@/lib/types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -95,14 +101,15 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   if (!work) notFound();
 
-  // Get orders for this work
-  const workOrders = await getOrdersForWork(work.id);
-
-  // Get works by the same primary author
+  // Get orders, calibre books, and related works for this work
   const primaryAuthor = work.workAuthors[0]?.author;
-  const relatedWorks = primaryAuthor
-    ? await getWorksByAuthorId(primaryAuthor.id, work.id, 12)
-    : [];
+  const [workOrders, digitalBooks, relatedWorks] = await Promise.all([
+    getOrdersForWork(work.id),
+    getCalibreBooksByWorkId(work.id),
+    primaryAuthor
+      ? getWorksByAuthorId(primaryAuthor.id, work.id, 12)
+      : Promise.resolve([]),
+  ]);
 
   const primaryAuthors = work.workAuthors.map((wa) => wa.author);
   const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
@@ -110,6 +117,10 @@ export default async function WorkDetailPage({ params }: PageProps) {
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
   const allBackgrounds = work.media?.filter((m) => m.type === "background") ?? [];
   const galleryMedia = work.media?.filter((m) => m.type === "gallery") ?? [];
+
+  // Extract crystal palette from the active poster's color data (kept for future use)
+  const _crystalPalette: CrystalColor[] =
+    (poster?.colorPalette as ColorPalette | null)?.crystal ?? [];
 
   // Collect external links from all editions
   const externalLinks: {
@@ -147,37 +158,45 @@ export default async function WorkDetailPage({ params }: PageProps) {
     : null;
 
   return (
-    <>
-      {/* Cinematic backdrop + header */}
-      <div className={background ? "relative -mx-6 -mt-6 mb-8" : ""}>
-        {/* Background image layer */}
-        {background && (
-          <div className="absolute inset-0 -z-0 overflow-hidden">
-            <img
-              src={backgroundUrl!}
-              alt=""
-              className="h-full w-full object-cover"
-              style={{
-                objectPosition: `${background.cropX}% ${background.cropY}%`,
-                transform: `scale(${background.cropZoom / 100})`,
-                transformOrigin: `${background.cropX}% ${background.cropY}%`,
-              }}
-            />
-            {/* Dark overlay for readability */}
-            <div className="absolute inset-0 bg-black/70" />
-            {/* Bottom gradient: dissolves into the page background */}
-            <div
-              className="absolute inset-x-0 bottom-0 h-40"
-              style={{
-                background:
-                  "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
-              }}
-            />
-          </div>
-        )}
+    <div className="relative">
+        {/* Cinematic backdrop + header */}
+        <div className={background ? "relative -mx-6 -mt-6 mb-8" : ""}>
+          {/* Background image layer */}
+          {background && (
+            <div className="absolute inset-0 -z-0 overflow-hidden">
+              <img
+                src={backgroundUrl!}
+                alt=""
+                className="h-full w-full object-cover"
+                style={{
+                  objectPosition: `${background.cropX}% ${background.cropY}%`,
+                  transform: `scale(${background.cropZoom / 100})`,
+                  transformOrigin: `${background.cropX}% ${background.cropY}%`,
+                }}
+              />
+              {/* Dark overlay for readability */}
+              <div className="absolute inset-0 bg-black/70" />
+              {/* Bottom gradient: dissolves into the page background */}
+              <div
+                className="absolute inset-x-0 bottom-0 h-40"
+                style={{
+                  background:
+                    "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
+                }}
+              />
+              {/* Bottom gradient: dissolves into the page background */}
+              <div
+                className="absolute inset-x-0 bottom-0 h-40"
+                style={{
+                  background:
+                    "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
+                }}
+              />
+            </div>
+          )}
 
-        {/* Content on top of the backdrop */}
-        <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+          {/* Content on top of the backdrop */}
+          <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
           {/* Back link */}
           <Link
             href="/library"
@@ -312,6 +331,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
               <Badge variant="muted">{work.workType.name}</Badge>
             )}
           </div>
+
+          {/* Read button (digital editions) */}
+          {digitalBooks.length > 0 && (
+            <div className="mt-3">
+              <ReadButton calibreBooks={digitalBooks} />
+            </div>
+          )}
 
           {/* Status badges */}
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -534,6 +560,9 @@ export default async function WorkDetailPage({ params }: PageProps) {
         </section>
       )}
 
+      {/* Activity timeline */}
+      <ActivityTimeline entityType="work" entityId={work.id} />
+
       {/* Notes */}
       {work.notes && (
         <section className="mb-8">
@@ -576,6 +605,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }

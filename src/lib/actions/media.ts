@@ -7,6 +7,7 @@ import { deleteFromS3 } from "@/lib/s3";
 import type { CreateMediaInput, UpdateMediaInput, UpdateMediaCropInput } from "@/lib/validations/media";
 import { createMediaSchema, updateMediaSchema, updateMediaCropSchema } from "@/lib/validations/media";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { recordActivity } from "@/lib/activity/record";
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,11 @@ export async function getMediaByType(workId: string, type: string) {
 export async function createMedia(input: CreateMediaInput) {
   const data = createMediaSchema.parse(input);
   const [row] = await db.insert(media).values(data).returning();
+
+  const entityType = data.workId ? "work" : "author";
+  const entityId = (data.workId ?? data.authorId)!;
+  recordActivity(entityType as "work" | "author", entityId, `${entityType}.${data.type}_uploaded`);
+
   invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
   return row;
 }
@@ -76,6 +82,10 @@ export async function deleteMedia(id: string) {
     deletions.push(deleteFromS3(existing.originalS3Key));
   }
   await Promise.all(deletions);
+
+  const entityType = existing.workId ? "work" : "author";
+  const entityId = (existing.workId ?? existing.authorId)!;
+  recordActivity(entityType as "work" | "author", entityId, `${entityType}.${existing.type}_deleted`);
 
   await db.delete(media).where(eq(media.id, id));
   invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
@@ -117,6 +127,10 @@ export async function setActiveMedia(id: string) {
   await db.update(media)
     .set({ isActive: true })
     .where(eq(media.id, id));
+
+  const entityType = item.workId ? "work" : "author";
+  const entityId = (item.workId ?? item.authorId)!;
+  recordActivity(entityType as "work" | "author", entityId, `${entityType}.${item.type}_default_changed`);
 
   invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
 }

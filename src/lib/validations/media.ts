@@ -45,6 +45,7 @@ export const createMediaSchema = z
     isActive: z.boolean().optional().default(true),
     caption: z.string().optional(),
     processingParams: monochromeParamsSchema.optional(),
+    colorPalette: z.any().optional(),
   })
   .refine(
     (d) => (d.workId != null) !== (d.authorId != null),

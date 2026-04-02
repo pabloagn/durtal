@@ -25,6 +25,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
+import { recordActivity } from "@/lib/activity/record";
 
 // ── Work Types ────────────────────────────────────────────────────────────────
 
@@ -292,6 +293,10 @@ export async function updateWorkTaxonomy(
     .update(works)
     .set({ updatedAt: new Date() })
     .where(eq(works.id, workId));
+
+  recordActivity("work", workId, "work.taxonomy_added", {
+    extra: { updated: true },
+  });
 
   invalidate(CACHE_TAGS.works);
   return { workId };

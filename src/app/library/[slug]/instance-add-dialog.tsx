@@ -108,9 +108,8 @@ export function InstanceAddDialog({
         onClose={() => setOpen(false)}
         title="Add Instance"
         description={editionTitle}
-        className="max-w-2xl"
       >
-        <div className="max-h-[70vh] overflow-y-auto">
+        <div className="max-h-[75vh] overflow-y-auto">
           <InstanceForm
             value={draft}
             onChange={setDraft}

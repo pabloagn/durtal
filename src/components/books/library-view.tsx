@@ -25,6 +25,7 @@ interface BookItem {
   catalogueStatus?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
+  hasDigitalEdition?: boolean;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;
@@ -68,13 +69,23 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
         />
       );
     case "list":
-      return <BookList books={books} />;
+      return (
+        <BookList
+          books={books}
+          isSelecting={isSelecting}
+          selectedIds={selectedIds}
+          onSelect={onSelect}
+        />
+      );
     case "detailed":
       return (
         <BookDataTable
           books={books as DetailedBookItem[]}
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
+          isSelecting={isSelecting}
+          selectedIds={selectedIds}
+          onSelect={onSelect}
         />
       );
     case "map":

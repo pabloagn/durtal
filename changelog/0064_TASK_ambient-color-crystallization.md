@@ -1,6 +1,6 @@
 # Task 0064: Ambient Color Crystallization
 
-**Status**: Not Started
+**Status**: Completed
 **Created**: 2026-03-31
 **Priority**: MEDIUM
 **Type**: Feature
@@ -539,4 +539,35 @@ When the user changes the active poster (via the media manager), the new poster'
 - Distracting — the crystals are background atmosphere, never foreground attention
 
 ## Completion Notes
-_To be filled upon completion._
+
+Implemented 2026-03-31.
+
+**New dependency**: `node-vibrant` v4.0.4 (MMCQ-based semantic color extraction).
+
+**Schema change**: Added `color_palette` JSONB column to `media` table (migration `0015_bouncy_mole_man.sql`).
+
+**New files created**:
+- `src/lib/color/color-math.ts` — RGB/HSL/Lab conversion, delta-E distance, HSL clamping
+- `src/lib/color/crystal-pipeline.ts` — Composite scoring, diversity filter (delta-E > 25), design-language normalization (S: 12-65%, L: 18-45%), role assignment with opacity
+- `src/lib/color/extract-palette.ts` — Multi-pass node-vibrant extraction with WebP-to-PNG conversion, sharp stats dominant color
+- `src/app/library/[slug]/ambient-crystals.tsx` — Client component rendering 3-4 blurred organic blobs with mix-blend-mode: screen
+- `src/app/api/media/backfill-palettes/route.ts` — One-time backfill route for existing posters
+
+**Modified files**:
+- `src/lib/db/schema/media.ts` — Added `colorPalette` JSONB column
+- `src/lib/types/index.ts` — Added `ColorSwatch`, `CrystalColor`, `ColorPalette` interfaces
+- `src/lib/validations/media.ts` — Added `colorPalette` to create schema
+- `src/app/api/media/upload/route.ts` — Extracts palette on poster upload (non-blocking)
+- `src/app/library/[slug]/page.tsx` — Renders AmbientCrystals at z-[1] between background and content
+- `src/styles/globals.css` — Crystal drift keyframes (70-100s cycles) with prefers-reduced-motion support
+- `docs/02_DATA_MODEL.md` — Documented `color_palette` column and extraction pipeline
+
+**Backfill**: 385 existing posters processed successfully (0 failures). WebP images are converted to PNG in-memory before extraction since node-vibrant doesn't support WebP natively.
+
+**Key design decisions**:
+- Extraction runs at upload time, not page load — zero runtime cost
+- WebP → PNG conversion adds ~50ms but is necessary for node-vibrant compatibility
+- Crystal colors are clamped to Durtal's design language bounds (no vivid neons)
+- Blobs use `mix-blend-mode: screen` for additive light on the near-black background
+- 70-100 second drift animations are subliminal and GPU-composited (transform only)
+- Fallback to gothic underlay colors when extraction yields insufficient diversity

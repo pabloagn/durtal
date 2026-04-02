@@ -10,6 +10,7 @@ import {
 } from "@/lib/validations";
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
+import { recordActivity } from "@/lib/activity/record";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -467,6 +468,7 @@ export async function createAuthor(input: CreateAuthorInput) {
     .where(eq(authors.id, author.id))
     .returning();
 
+  recordActivity("author", updated.id, "author.created", { newValue: parsed.name });
   return updated;
 }
 
@@ -483,17 +485,36 @@ export async function findOrCreateAuthor(name: string) {
   return createAuthor({ name: trimmed });
 }
 
+/**
+ * Lightweight author search for autocomplete dropdowns.
+ * Returns id + name only.
+ */
+export async function searchAuthorsLite(query: string) {
+  if (!query.trim()) return [];
+  return db.query.authors.findMany({
+    where: ilike(authors.name, `%${query.trim()}%`),
+    columns: { id: true, name: true },
+    orderBy: asc(authors.name),
+    limit: 10,
+  });
+}
+
 export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>) {
+  // Snapshot for activity diffing + zodiac recomputation
+  const prev = await db.query.authors.findFirst({
+    where: eq(authors.id, id),
+    columns: {
+      name: true, slug: true, birthYear: true, deathYear: true,
+      gender: true, nationalityId: true, bio: true,
+      birthMonth: true, birthDay: true,
+    },
+  });
+
   // Recompute zodiac sign if birth month or day is changing
   let zodiacSign: string | null | undefined;
   if (input.birthMonth !== undefined || input.birthDay !== undefined) {
-    // Need the current values for the fields not included in the update
-    const current = await db.query.authors.findFirst({
-      where: eq(authors.id, id),
-      columns: { birthMonth: true, birthDay: true },
-    });
-    const month = input.birthMonth ?? current?.birthMonth ?? null;
-    const day = input.birthDay ?? current?.birthDay ?? null;
+    const month = input.birthMonth ?? prev?.birthMonth ?? null;
+    const day = input.birthDay ?? prev?.birthDay ?? null;
     zodiacSign = month != null && day != null ? computeZodiacSign(month, day) : null;
   }
 
@@ -529,10 +550,31 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
     }
   }
 
+  // Record activity diffs
+  if (prev) {
+    const diffs: [string, string, unknown, unknown][] = [
+      ["name", "author.name_changed", prev.name, input.name],
+      ["birthYear", "author.birth_year_changed", prev.birthYear, input.birthYear],
+      ["deathYear", "author.death_year_changed", prev.deathYear, input.deathYear],
+      ["gender", "author.gender_changed", prev.gender, input.gender],
+      ["nationalityId", "author.nationality_changed", prev.nationalityId, input.nationalityId],
+      ["bio", "author.biography_changed", prev.bio, input.bio],
+    ];
+    for (const [field, eventKey, oldVal, newVal] of diffs) {
+      if (newVal !== undefined && newVal !== oldVal) {
+        recordActivity("author", id, eventKey, {
+          oldValue: oldVal as string | number | null,
+          newValue: (field === "bio" ? undefined : newVal) as string | number | null,
+        });
+      }
+    }
+  }
+
   return { id };
 }
 
 export async function deleteAuthor(id: string) {
+  recordActivity("author", id, "author.deleted");
   await db.delete(authors).where(eq(authors.id, id));
   return { id };
 }

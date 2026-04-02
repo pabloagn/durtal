@@ -34,3 +34,9 @@ export {
   type CreateLocationInput,
   type UpdateLocationInput,
 } from "./locations";
+export {
+  createCommentSchema,
+  updateCommentSchema,
+  type CreateCommentInput,
+  type UpdateCommentInput,
+} from "./comments";

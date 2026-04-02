@@ -47,6 +47,18 @@ export async function getPresignedReadUrl(
   );
 }
 
+/** Get an S3 object as a readable stream with metadata */
+export async function getS3Object(key: string) {
+  const response = await s3.send(
+    new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+  );
+  return {
+    body: response.Body,
+    contentType: response.ContentType,
+    contentLength: response.ContentLength,
+  };
+}
+
 /** Get a pre-signed URL for uploading to S3 */
 export async function getPresignedUploadUrl(
   key: string,

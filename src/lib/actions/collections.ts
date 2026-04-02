@@ -2,7 +2,8 @@
 
 import { db } from "@/lib/db";
 import { collections, collectionEditions, editions, works, workAuthors, authors } from "@/lib/db/schema";
-import { eq, asc, and, ilike, or, sql } from "drizzle-orm";
+import { eq, asc, and, ilike, or, sql, inArray } from "drizzle-orm";
+import { recordActivity } from "@/lib/activity/record";
 
 export async function getCollections() {
   return db.query.collections.findMany({
@@ -88,6 +89,17 @@ export async function addEditionToCollection(
     .insert(collectionEditions)
     .values({ collectionId, editionId, sortOrder })
     .onConflictDoNothing();
+
+  // Resolve edition -> work for activity recording
+  const edition = await db.query.editions.findFirst({
+    where: eq(editions.id, editionId),
+    columns: { workId: true },
+  });
+  if (edition?.workId) {
+    recordActivity("work", edition.workId, "work.collection_added", {
+      extra: { collectionId },
+    });
+  }
 }
 
 export async function removeEditionFromCollection(
@@ -181,4 +193,16 @@ export async function bulkAddEditionsToCollection(
       })),
     )
     .onConflictDoNothing();
+
+  // Resolve edition -> work mapping for activity recording
+  const editionRows = await db.query.editions.findMany({
+    where: inArray(editions.id, editionIds),
+    columns: { workId: true },
+  });
+  const workIds = [...new Set(editionRows.map((e) => e.workId).filter(Boolean))];
+  for (const wId of workIds) {
+    recordActivity("work", wId!, "work.collection_added", {
+      extra: { collectionId },
+    });
+  }
 }

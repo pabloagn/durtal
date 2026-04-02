@@ -106,6 +106,34 @@
       "when": 1774885742449,
       "tag": "0014_mixed_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1774955574665,
+      "tag": "0015_bouncy_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1774968393610,
+      "tag": "0016_wet_medusa",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1775072872170,
+      "tag": "0017_romantic_slipstream",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775075605796,
+      "tag": "0018_pale_klaw",
+      "breakpoints": true
     }
   ]
 }

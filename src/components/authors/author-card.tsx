@@ -66,64 +66,66 @@ export function AuthorCard({
       className={`@container group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive ${selectionRing}`}
       onClick={handleCardClick}
     >
-      {/* Photo — navigates on click */}
-      <Link
-        href={href}
-        className={`block ${isSelecting ? "pointer-events-none" : ""}`}
-        tabIndex={isSelecting ? -1 : undefined}
-      >
-        <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
-          <div
-            className="relative aspect-[2/3] overflow-hidden bg-bg-primary"
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            {photoUrl ? (
-              <Image
-                src={photoUrl}
-                alt={name}
-                fill
-                sizes="(min-width: 1280px) 200px, (min-width: 768px) 180px, 160px"
-                className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                style={
-                  hasCrop
-                    ? {
-                        objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
-                        transform: `scale(${posterCrop.zoom / 100})`,
-                        transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
-                      }
-                    : undefined
-                }
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-3xl text-fg-muted/30">
-                  {name[0]}
-                </span>
-              </div>
-            )}
+      {/* Photo area — relative wrapper so dropdown escapes overflow-hidden */}
+      <div className="relative">
+        <Link
+          href={href}
+          className={`block ${isSelecting ? "pointer-events-none" : ""}`}
+          tabIndex={isSelecting ? -1 : undefined}
+        >
+          <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+            <div
+              className="relative aspect-[2/3] overflow-hidden bg-bg-primary"
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {photoUrl ? (
+                <Image
+                  src={photoUrl}
+                  alt={name}
+                  fill
+                  sizes="(min-width: 1280px) 200px, (min-width: 768px) 180px, 160px"
+                  className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  style={
+                    hasCrop
+                      ? {
+                          objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
+                          transform: `scale(${posterCrop.zoom / 100})`,
+                          transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
+                        }
+                      : undefined
+                  }
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <span className="font-serif text-3xl text-fg-muted/30">
+                    {name[0]}
+                  </span>
+                </div>
+              )}
 
-            {/* Works count overlay — top-right */}
-            {worksCount > 0 && !isSelecting && (
-              <div className="absolute right-2 top-2">
-                <Badge variant="muted">
-                  {worksCount} {worksCount === 1 ? "work" : "works"}
-                </Badge>
-              </div>
-            )}
-
-            {/* Three-dot actions menu — bottom-right, visible on hover */}
-            {!isSelecting && (
-              <div
-                className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              >
-                <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
-              </div>
-            )}
+              {/* Works count overlay — top-right */}
+              {worksCount > 0 && !isSelecting && (
+                <div className="absolute right-2 top-2">
+                  <Badge variant="muted">
+                    {worksCount} {worksCount === 1 ? "work" : "works"}
+                  </Badge>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+
+        {/* Three-dot menu — outside overflow-hidden, opens upward into poster */}
+        {!isSelecting && (
+          <div
+            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
+          </div>
+        )}
+      </div>
 
       {/* Selection checkbox — top-left, visible in selection mode */}
       {isSelecting && (

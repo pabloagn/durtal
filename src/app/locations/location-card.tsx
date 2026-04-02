@@ -243,6 +243,8 @@ export function LocationCard({
         onClose={() => setDeleteOpen(false)}
         title="Delete location"
         description={`Are you sure you want to delete "${name}"?`}
+        className="max-w-lg"
+        expandable={false}
       >
         <div className="space-y-4">
           {instanceCount > 0 && (

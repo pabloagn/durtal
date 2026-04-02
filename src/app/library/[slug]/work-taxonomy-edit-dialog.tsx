@@ -149,7 +149,7 @@ export function WorkTaxonomyEditDialog({
         description="Assign or remove taxonomy classifications for this work"
         className="max-w-3xl"
       >
-        <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
+        <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
           <MultiSelectSection
             title="Subjects"
             items={subjects}

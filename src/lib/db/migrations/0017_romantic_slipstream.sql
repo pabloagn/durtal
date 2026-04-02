@@ -1,0 +1,1 @@
+ALTER TABLE "calibre_books" ADD COLUMN "cover_s3_key" text;

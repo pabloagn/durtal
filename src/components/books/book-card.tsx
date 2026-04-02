@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
+import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 
 export interface CoverCrop {
@@ -28,6 +29,8 @@ interface BookCardProps {
   catalogueStatus?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
+  /** Whether a digital edition exists in Calibre for this work */
+  hasDigitalEdition?: boolean;
   /** When true, show a checkbox overlay instead of navigation on click */
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -104,6 +107,7 @@ export function BookCard({
   catalogueStatus,
   acquisitionPriority,
   primaryEditionId,
+  hasDigitalEdition = false,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -129,75 +133,82 @@ export function BookCard({
       className={`@container group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive ${selectionRing}`}
       onClick={handleCardClick}
     >
-      {/* Cover — navigates when not selecting */}
-      <Link
-        href={href}
-        className={`block ${isSelecting ? "pointer-events-none" : ""}`}
-        tabIndex={isSelecting ? -1 : undefined}
-      >
-        <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
-        <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary" onContextMenu={(e) => e.preventDefault()}>
-          {coverUrl ? (
-            <CoverImage
-              src={coverUrl}
-              alt={title}
-              fallbackLetter={title[0]}
-              crop={coverCrop}
-            />
-          ) : (
-            <CoverPlaceholder letter={title[0]} />
-          )}
+      {/* Cover area — relative wrapper so the dropdown menu escapes overflow-hidden */}
+      <div className="relative">
+        <Link
+          href={href}
+          className={`block ${isSelecting ? "pointer-events-none" : ""}`}
+          tabIndex={isSelecting ? -1 : undefined}
+        >
+          <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+          <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary" onContextMenu={(e) => e.preventDefault()}>
+            {coverUrl ? (
+              <CoverImage
+                src={coverUrl}
+                alt={title}
+                fallbackLetter={title[0]}
+                crop={coverCrop}
+              />
+            ) : (
+              <CoverPlaceholder letter={title[0]} />
+            )}
 
-          {/* Status badge -- top-left */}
-          {statusInfo && (
-            <div className="absolute left-1 top-1 @[220px]:left-2 @[220px]:top-2">
-              <Badge
-                variant={statusInfo.variant}
-                className="backdrop-blur-md border-white/15"
-              >
-                <span className="hidden @[220px]:inline">{statusInfo.label}</span>
-                <span className="@[220px]:hidden">{statusInfo.shortLabel}</span>
-              </Badge>
-            </div>
-          )}
-
-          {/* Rating overlay */}
-          {rating && (
-            <div className="absolute right-1 top-1 @[220px]:right-2 @[220px]:top-2">
-              <Badge variant="gold" className="backdrop-blur-md border-white/15">
-                <span className="hidden @[220px]:inline">{rating}/5</span>
-                <span className="@[220px]:hidden">{rating}</span>
-              </Badge>
-            </div>
-          )}
-
-          {/* Priority indicator dot */}
-          {acquisitionPriority && acquisitionPriority !== "none" && (() => {
-            const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
-            return (
-              <div
-                className="absolute bottom-1 left-1 flex items-center justify-center rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md @[220px]:bottom-2 @[220px]:left-2 h-4 w-4 @[220px]:h-5 @[220px]:w-5"
-                title={`${pConfig?.label ?? acquisitionPriority} priority`}
-              >
-                <span
-                  className={`block h-1.5 w-1.5 rounded-full @[220px]:h-2 @[220px]:w-2 ${pConfig?.dotColor ?? "bg-fg-muted"} ${pConfig?.glowColor ?? ""}`}
-                />
+            {/* Status badge -- top-left */}
+            {statusInfo && (
+              <div className="absolute left-1 top-1 @[220px]:left-2 @[220px]:top-2">
+                <Badge
+                  variant={statusInfo.variant}
+                  className="backdrop-blur-md border-white/15"
+                >
+                  <span className="hidden @[220px]:inline">{statusInfo.label}</span>
+                  <span className="@[220px]:hidden">{statusInfo.shortLabel}</span>
+                </Badge>
               </div>
-            );
-          })()}
+            )}
 
-          {/* Three-dot actions menu -- bottom-right of cover, visible on hover */}
-          {!isSelecting && (
-            <div
-              className="absolute bottom-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 @[220px]:bottom-2 @[220px]:right-2"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            >
-              <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
-            </div>
-          )}
-        </div>
-        </div>
-      </Link>
+            {/* Rating overlay */}
+            {rating && (
+              <div className="absolute right-1 top-1 @[220px]:right-2 @[220px]:top-2">
+                <Badge variant="gold" className="backdrop-blur-md border-white/15">
+                  <span className="hidden @[220px]:inline">{rating}/5</span>
+                  <span className="@[220px]:hidden">{rating}</span>
+                </Badge>
+              </div>
+            )}
+
+            {/* Bottom-left indicators: priority dot + digital edition badge */}
+            {(hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
+              <div className="absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2">
+                {acquisitionPriority && acquisitionPriority !== "none" && (() => {
+                  const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
+                  return (
+                    <div
+                      className="flex items-center justify-center rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md h-4 w-4 @[220px]:h-5 @[220px]:w-5"
+                      title={`${pConfig?.label ?? acquisitionPriority} priority`}
+                    >
+                      <span
+                        className={`block h-1.5 w-1.5 rounded-full @[220px]:h-2 @[220px]:w-2 ${pConfig?.dotColor ?? "bg-fg-muted"} ${pConfig?.glowColor ?? ""}`}
+                      />
+                    </div>
+                  );
+                })()}
+                {hasDigitalEdition && <DigitalEditionBadge />}
+              </div>
+            )}
+          </div>
+          </div>
+        </Link>
+
+        {/* Three-dot menu — lives outside overflow-hidden, opens upward into poster */}
+        {!isSelecting && (
+          <div
+            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 @[220px]:bottom-2 @[220px]:right-2"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
+          </div>
+        )}
+      </div>
 
       {/* Selection checkbox -- top-left, visible in selection mode */}
       {isSelecting && (

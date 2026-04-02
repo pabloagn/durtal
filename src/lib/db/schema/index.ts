@@ -139,3 +139,18 @@ export {
   orderStatusHistory,
   orderStatusHistoryRelations,
 } from "./order-status-history";
+
+// ── Calibre / Reader ─────────────────────────────────────────────────────────
+export { calibreBooks, calibreBooksRelations } from "./calibre-books";
+export { readingProgress, readingProgressRelations } from "./reading-progress";
+
+// ── Activity events ─────────────────────────────────────────────────────────
+export { activityEvents } from "./activity-events";
+
+// ── Comments ────────────────────────────────────────────────────────────────
+export {
+  comments,
+  commentsRelations,
+  commentAttachments,
+  commentAttachmentsRelations,
+} from "./comments";
