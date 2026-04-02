@@ -34,8 +34,7 @@ import { BookCard } from "@/components/books/book-card";
 import { WorkPosterImage } from "./work-poster-image";
 import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
-// Ambient color feature — kept but disabled for now
-// import { AmbientCrystals, AmbientPortal } from "./ambient-crystals";
+import { AmbientCrystals } from "./ambient-crystals";
 import type { CrystalColor, ColorPalette } from "@/lib/types";
 
 interface PageProps {
@@ -118,8 +117,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
   const allBackgrounds = work.media?.filter((m) => m.type === "background") ?? [];
   const galleryMedia = work.media?.filter((m) => m.type === "gallery") ?? [];
 
-  // Extract crystal palette from the active poster's color data (kept for future use)
-  const _crystalPalette: CrystalColor[] =
+  // Extract crystal palette from the active poster's color data
+  const crystalPalette: CrystalColor[] =
     (poster?.colorPalette as ColorPalette | null)?.crystal ?? [];
 
   // Collect external links from all editions
@@ -159,8 +158,14 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   return (
     <div className="relative">
+        {/* Ambient color field — independent layer, spans from top of page
+            down ~600px, sits behind all content. NOT inside the hero. */}
+        {crystalPalette.length > 0 && (
+          <AmbientCrystals palette={crystalPalette} />
+        )}
+
         {/* Cinematic backdrop + header */}
-        <div className={background ? "relative -mx-6 -mt-6 mb-8" : ""}>
+        <div className={background ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"}>
           {/* Background image layer */}
           {background && (
             <div className="absolute inset-0 -z-0 overflow-hidden">
@@ -176,14 +181,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
               />
               {/* Dark overlay for readability */}
               <div className="absolute inset-0 bg-black/70" />
-              {/* Bottom gradient: dissolves into the page background */}
-              <div
-                className="absolute inset-x-0 bottom-0 h-40"
-                style={{
-                  background:
-                    "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
-                }}
-              />
               {/* Bottom gradient: dissolves into the page background */}
               <div
                 className="absolute inset-x-0 bottom-0 h-40"
@@ -216,6 +213,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             cropX={poster.cropX}
             cropY={poster.cropY}
             cropZoom={poster.cropZoom}
+            palette={crystalPalette}
           />
         )}
 

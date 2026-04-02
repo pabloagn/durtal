@@ -88,10 +88,13 @@ export function getValidTransitions(
   }
 
   const currentIdx = pipeline.indexOf(currentStatus);
-  const forward =
-    currentIdx >= 0 ? pipeline.slice(currentIdx + 1) : pipeline;
+  // Allow both forward and backward transitions within the pipeline
+  const reachable =
+    currentIdx >= 0
+      ? pipeline.filter((_, i) => i !== currentIdx)
+      : pipeline;
 
-  return [...forward, "cancelled" as OrderStatus, "returned" as OrderStatus].filter(
+  return [...reachable, "cancelled" as OrderStatus, "returned" as OrderStatus].filter(
     (s) => s !== currentStatus,
   );
 }
