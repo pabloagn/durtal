@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
   check,
+  index,
   real,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -65,6 +66,8 @@ export const media = pgTable(
       "media_owner_check",
       sql`(work_id IS NOT NULL) != (author_id IS NOT NULL)`,
     ),
+    index("media_work_id_type_active_idx").on(t.workId, t.type, t.isActive),
+    index("media_author_id_active_idx").on(t.authorId, t.isActive),
   ],
 );
 

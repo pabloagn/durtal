@@ -193,7 +193,6 @@ export function WorkEditDialog({
       setAuthorSearch("");
       setShowAuthorAdd(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled, open]);
 
   function removeAuthor(id: string) {

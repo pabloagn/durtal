@@ -138,7 +138,6 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
         }}
       >
         {work.coverUrl && !imgError ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={work.coverUrl}
             alt={work.title}

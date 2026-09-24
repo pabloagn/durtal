@@ -55,7 +55,6 @@ export function VenueListItem({
         {/* Small thumbnail */}
         <div className="relative h-10 w-14 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
           {thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={thumbnailUrl}
               alt={name}

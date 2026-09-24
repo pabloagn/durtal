@@ -38,14 +38,16 @@ interface MatchAgainDialogProps {
   currentMetadataSource?: string | null;
 }
 
-type SourceFilter = "all" | "google_books" | "open_library";
+type SourceFilter = "all" | "isbndb" | "google_books" | "open_library";
 
 const SOURCE_LABELS: Record<string, string> = {
+  isbndb: "ISBNdb",
   google_books: "Google Books",
   open_library: "Open Library",
 };
 
-function sourceBadgeVariant(source: string): "sage" | "blue" {
+function sourceBadgeVariant(source: string): "sage" | "blue" | "gold" {
+  if (source === "isbndb") return "gold";
   return source === "google_books" ? "sage" : "blue";
 }
 
@@ -61,7 +63,7 @@ export function MatchAgainDialog({
   const router = useRouter();
 
   const [query, setQuery] = useState(`${currentTitle} ${currentAuthor}`.trim());
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("isbndb");
   const [results, setResults] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -277,7 +279,7 @@ export function MatchAgainDialog({
 
           {/* Source filter */}
           <div className="flex gap-1">
-            {(["all", "google_books", "open_library"] as SourceFilter[]).map(
+            {(["all", "isbndb", "google_books", "open_library"] as SourceFilter[]).map(
               (s) => (
                 <Button
                   key={s}
@@ -285,11 +287,7 @@ export function MatchAgainDialog({
                   size="sm"
                   onClick={() => setSourceFilter(s)}
                 >
-                  {s === "all"
-                    ? "All"
-                    : s === "google_books"
-                      ? "Google Books"
-                      : "Open Library"}
+                  {s === "all" ? "All" : SOURCE_LABELS[s]}
                 </Button>
               ),
             )}

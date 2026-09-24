@@ -31,6 +31,7 @@ import {
 } from "@/lib/constants/orders";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { createOrderSchema } from "@/lib/validations/orders";
 
 /**
  * Derive the correct work catalogueStatus by looking at ALL orders for the work.
@@ -110,7 +111,7 @@ export async function getOrder(id: string) {
         with: {
           workAuthors: {
             with: { author: { columns: { id: true, name: true } } },
-            orderBy: (wa: any) => asc(wa.sortOrder),
+            orderBy: (wa) => asc(wa.sortOrder),
             limit: 3,
           },
           media: {
@@ -156,7 +157,7 @@ export async function getOrder(id: string) {
         columns: { id: true, name: true },
       },
       statusHistory: {
-        orderBy: (sh: any) => asc(sh.changedAt),
+        orderBy: (sh) => asc(sh.changedAt),
       },
     },
   });
@@ -171,7 +172,7 @@ export async function getOrdersForWork(workId: string) {
         columns: { id: true, name: true, slug: true, type: true },
       },
       statusHistory: {
-        orderBy: (sh: any) => desc(sh.changedAt),
+        orderBy: (sh) => desc(sh.changedAt),
         limit: 1,
       },
     },
@@ -208,7 +209,7 @@ export async function getActiveOrders(filters?: {
         with: {
           workAuthors: {
             with: { author: { columns: { id: true, name: true } } },
-            orderBy: (wa: any) => asc(wa.sortOrder),
+            orderBy: (wa) => asc(wa.sortOrder),
             limit: 1,
           },
           media: {
@@ -279,7 +280,7 @@ export async function getOrderTimeline(
           with: {
             workAuthors: {
               with: { author: { columns: { id: true, name: true } } },
-              orderBy: (wa: any) => asc(wa.sortOrder),
+              orderBy: (wa) => asc(wa.sortOrder),
               limit: 1,
             },
             media: {
@@ -390,35 +391,36 @@ export async function getProvenanceStats(dateRange?: {
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 export async function createOrder(input: CreateOrderInput) {
-  const status: OrderStatus = input.status ?? "placed";
+  const validated = createOrderSchema.parse(input);
+  const status: OrderStatus = validated.status ?? "placed";
 
   const [order] = await db
     .insert(orders)
     .values({
-      workId: input.workId,
-      editionId: input.editionId ?? null,
-      instanceId: input.instanceId ?? null,
-      venueId: input.venueId ?? null,
-      acquisitionMethod: input.acquisitionMethod,
+      workId: validated.workId,
+      editionId: validated.editionId ?? null,
+      instanceId: validated.instanceId ?? null,
+      venueId: validated.venueId ?? null,
+      acquisitionMethod: validated.acquisitionMethod,
       status,
-      orderDate: input.orderDate,
-      orderConfirmation: input.orderConfirmation ?? null,
-      orderUrl: input.orderUrl ?? null,
-      price: input.price ?? null,
-      shippingCost: input.shippingCost ?? null,
-      totalCost: input.totalCost ?? null,
-      currency: input.currency ?? null,
-      carrier: input.carrier ?? null,
-      trackingNumber: input.trackingNumber ?? null,
-      trackingUrl: input.trackingUrl ?? null,
-      shippedDate: input.shippedDate ?? null,
-      estimatedDeliveryDate: input.estimatedDeliveryDate ?? null,
-      actualDeliveryDate: input.actualDeliveryDate ?? null,
-      originDescription: input.originDescription ?? null,
-      originPlaceId: input.originPlaceId ?? null,
-      destinationLocationId: input.destinationLocationId ?? null,
-      destinationSubLocationId: input.destinationSubLocationId ?? null,
-      notes: input.notes ?? null,
+      orderDate: validated.orderDate,
+      orderConfirmation: validated.orderConfirmation ?? null,
+      orderUrl: validated.orderUrl ?? null,
+      price: validated.price ?? null,
+      shippingCost: validated.shippingCost ?? null,
+      totalCost: validated.totalCost ?? null,
+      currency: validated.currency ?? null,
+      carrier: validated.carrier ?? null,
+      trackingNumber: validated.trackingNumber ?? null,
+      trackingUrl: validated.trackingUrl ?? null,
+      shippedDate: validated.shippedDate ?? null,
+      estimatedDeliveryDate: validated.estimatedDeliveryDate ?? null,
+      actualDeliveryDate: validated.actualDeliveryDate ?? null,
+      originDescription: validated.originDescription ?? null,
+      originPlaceId: validated.originPlaceId ?? null,
+      destinationLocationId: validated.destinationLocationId ?? null,
+      destinationSubLocationId: validated.destinationSubLocationId ?? null,
+      notes: validated.notes ?? null,
     })
     .returning();
 
@@ -432,7 +434,7 @@ export async function createOrder(input: CreateOrderInput) {
 
   // Sync work catalogue status from all orders for this work
   await syncWorkCatalogueStatusFromAllOrders(
-    input.workId,
+    validated.workId,
     `Order created with status "${status}"`,
   );
 
@@ -631,7 +633,7 @@ export async function searchWorksForOrder(query: string) {
     with: {
       workAuthors: {
         with: { author: { columns: { id: true, name: true } } },
-        orderBy: (wa: any) => asc(wa.sortOrder),
+        orderBy: (wa) => asc(wa.sortOrder),
         limit: 1,
       },
       media: {

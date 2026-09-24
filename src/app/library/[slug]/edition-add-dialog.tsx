@@ -112,8 +112,10 @@ export function EditionAddDialog({
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Failed to create edition");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create edition";
+      toast.error(message);
     } finally {
       setIsPending(false);
     }

@@ -78,7 +78,6 @@ export function VenueCard({
             style={color ? { backgroundColor: color } : undefined}
           >
             {thumbnailUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={thumbnailUrl}
                 alt={name}

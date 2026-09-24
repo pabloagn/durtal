@@ -8,6 +8,7 @@ import {
   numeric,
   bigint,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { editions } from "./editions";
@@ -74,7 +75,11 @@ export const instances = pgTable("instances", {
   // Timestamps
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("instances_edition_id_idx").on(t.editionId),
+  index("instances_location_id_idx").on(t.locationId),
+  index("instances_status_idx").on(t.status),
+]);
 
 export const instancesRelations = relations(instances, ({ one, many }) => ({
   edition: one(editions, {

@@ -77,8 +77,8 @@ export function EntityFilters({
           defaultValue={currentQuery}
           onChange={(e) => {
             const val = e.target.value;
-            clearTimeout((window as any).__searchTimeout);
-            (window as any).__searchTimeout = setTimeout(
+            clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>).__searchTimeout);
+            (window as unknown as Record<string, ReturnType<typeof setTimeout>>).__searchTimeout = setTimeout(
               () => updateParams("q", val),
               300,
             );

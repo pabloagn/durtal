@@ -14,7 +14,9 @@ import {
   BookOpen,
   BookOpenText,
   Search,
-  Tag,
+  Tags,
+  Archive,
+  Route,
 } from "lucide-react";
 
 interface CommandPaletteProps {
@@ -28,14 +30,16 @@ const NAVIGATION_ITEMS = [
   { label: "Reader", href: "/reader", icon: BookOpenText, group: "Navigate" },
   { label: "Authors", href: "/authors", icon: Users, group: "Navigate" },
   { label: "Series", href: "/series", icon: Layers, group: "Navigate" },
-  { label: "Locations", href: "/locations", icon: MapPin, group: "Navigate" },
+  { label: "Places", href: "/places", icon: MapPin, group: "Navigate" },
+  { label: "Provenance", href: "/provenance", icon: Route, group: "Navigate" },
+  { label: "Locations", href: "/locations", icon: Archive, group: "Navigate" },
   {
     label: "Collections",
     href: "/collections",
     icon: FolderOpen,
     group: "Navigate",
   },
-  { label: "Tags", href: "/tags", icon: Tag, group: "Navigate" },
+  { label: "Taxonomy", href: "/taxonomy", icon: Tags, group: "Navigate" },
   { label: "Settings", href: "/settings", icon: Settings, group: "Navigate" },
 ];
 

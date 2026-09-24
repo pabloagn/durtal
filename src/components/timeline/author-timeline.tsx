@@ -57,7 +57,6 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
         }}
       >
         {author.posterUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={author.posterUrl}
             alt={author.name}

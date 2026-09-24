@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, smallint, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, smallint, boolean, timestamp, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { catalogueStatusEnum, acquisitionPriorityEnum } from "./enums";
 import { editions } from "./editions";
@@ -16,6 +16,7 @@ import { workArtMovements } from "./art-movements";
 import { workKeywords } from "./keywords";
 import { workAttributes } from "./attributes";
 import { workStatusHistory } from "./work-status-history";
+import { customTaxonomyItemWorks } from "./taxonomy-families";
 
 export const works = pgTable("works", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -51,7 +52,12 @@ export const works = pgTable("works", {
   // Timestamps
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("works_catalogue_status_idx").on(t.catalogueStatus),
+  index("works_series_id_idx").on(t.seriesId),
+  index("works_created_at_idx").on(t.createdAt),
+  index("works_rating_idx").on(t.rating),
+]);
 
 export const worksRelations = relations(works, ({ one, many }) => ({
   editions: many(editions),
@@ -75,4 +81,5 @@ export const worksRelations = relations(works, ({ one, many }) => ({
   workKeywords: many(workKeywords),
   workAttributes: many(workAttributes),
   statusHistory: many(workStatusHistory),
+  customTaxonomyItemWorks: many(customTaxonomyItemWorks),
 }));

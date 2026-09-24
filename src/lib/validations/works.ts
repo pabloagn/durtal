@@ -20,6 +20,8 @@ export const createWorkSchema = z.object({
     role: z.enum(["author", "co_author"]).default("author"),
   })).min(1, "At least one author is required"),
   subjectIds: z.array(z.string().uuid()).optional(),
+  metadataSource: z.string().max(100).nullable().optional(),
+  metadataSourceId: z.string().max(200).nullable().optional(),
 });
 
 export const updateWorkSchema = createWorkSchema.partial().omit({ authorIds: undefined }).extend({

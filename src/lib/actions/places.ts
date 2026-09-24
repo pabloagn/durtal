@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { places } from "@/lib/db/schema";
 import { eq, ilike, and, isNull } from "drizzle-orm";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { createPlaceSchema } from "@/lib/validations/places";
 
 type PlaceRow = typeof places.$inferSelect;
 
@@ -17,7 +19,9 @@ export async function createPlace(input: {
   geonameId?: number | null;
   wikidataId?: string | null;
 }) {
-  const [place] = await db.insert(places).values(input).returning();
+  const validated = createPlaceSchema.parse(input);
+  const [place] = await db.insert(places).values(validated).returning();
+  invalidate(CACHE_TAGS.places);
   return place;
 }
 
@@ -111,5 +115,6 @@ export async function getOrCreatePlaceChain(
     .where(eq(places.id, parentId!))
     .limit(1);
 
+  invalidate(CACHE_TAGS.places);
   return resultRows[0] ?? null;
 }

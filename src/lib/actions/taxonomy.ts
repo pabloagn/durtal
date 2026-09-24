@@ -23,7 +23,7 @@ import {
   workAttributes,
   works,
 } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 
@@ -54,6 +54,26 @@ export async function deleteSubject(id: string) {
   invalidate(CACHE_TAGS.subjects);
   return { id };
 }
+
+export const getSubjectsWithWorkCounts = cached(
+  async () => {
+    const rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        description: subjects.description,
+        workCount: sql<number>`count(${workSubjects.workId})::int`,
+      })
+      .from(subjects)
+      .leftJoin(workSubjects, eq(subjects.id, workSubjects.subjectId))
+      .groupBy(subjects.id)
+      .orderBy(asc(subjects.name));
+    return rows;
+  },
+  ["subjects-with-counts"],
+  [CACHE_TAGS.subjects, CACHE_TAGS.works],
+);
 
 // ── Genres ────────────────────────────────────────────────────────────────────
 

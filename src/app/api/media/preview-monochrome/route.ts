@@ -33,13 +33,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const params = monochromeParamsSchema.parse({
+    const parseResult = monochromeParamsSchema.safeParse({
       grayscale: true,
       contrast: parseFloat(sp.get("contrast") ?? "1.0"),
       sharpness: parseFloat(sp.get("sharpness") ?? "1.0"),
       gamma: parseFloat(sp.get("gamma") ?? "2.2"),
       brightness: parseFloat(sp.get("brightness") ?? "1.0"),
     });
+    if (!parseResult.success) {
+      return NextResponse.json({ error: "Invalid processing params" }, { status: 400 });
+    }
+    const params = parseResult.data;
 
     // Fetch original from S3
     const obj = await s3.send(

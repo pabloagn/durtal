@@ -255,7 +255,6 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
             >
               <div className="flex items-start gap-2">
                 {selectedAuthor.posterUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={selectedAuthor.posterUrl}
                     alt={selectedAuthor.name}

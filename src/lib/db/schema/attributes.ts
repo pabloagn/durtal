@@ -14,6 +14,7 @@ export const attributes = pgTable("attributes", {
   slug: text("slug").notNull().unique(),
   description: text("description"),
   category: text("category"),
+  color: text("color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

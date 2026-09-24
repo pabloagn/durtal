@@ -5,6 +5,7 @@ import {
   integer,
   doublePrecision,
   timestamp,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { countries } from "./countries";
@@ -14,7 +15,7 @@ export const places = pgTable("places", {
   name: text("name").notNull(),
   fullName: text("full_name"), // precomputed: "Auteuil, Paris, Île-de-France, France"
   type: text("type").notNull(), // country | region | state | province | city | town | village | district | neighborhood
-  parentId: uuid("parent_id").references((): any => places.id, { onDelete: "set null" }),
+  parentId: uuid("parent_id").references((): AnyPgColumn => places.id, { onDelete: "set null" }),
   countryId: uuid("country_id").references(() => countries.id, { onDelete: "set null" }),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),

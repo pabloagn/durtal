@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   BINDING_TYPES,
   EDITION_CONTRIBUTOR_ROLES,
@@ -337,12 +338,11 @@ export function EditionForm({
             onChange={(e) => update("publicationYear", e.target.value)}
             placeholder="2003"
           />
-          <Input
+          <DatePicker
             label="Publication date"
             id="ed-pub-date"
-            type="date"
             value={values.publicationDate}
-            onChange={(e) => update("publicationDate", e.target.value)}
+            onChange={(v) => update("publicationDate", v)}
           />
         </div>
         <Input

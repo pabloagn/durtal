@@ -30,6 +30,7 @@ interface GoogleBooksResponse {
 }
 
 const BASE_URL = "https://www.googleapis.com/books/v1/volumes";
+const FETCH_TIMEOUT_MS = 8000;
 
 function parseYear(dateStr?: string): number | undefined {
   if (!dateStr) return undefined;
@@ -90,7 +91,10 @@ export async function searchGoogleBooks(
     ...(apiKey ? { key: apiKey } : {}),
   });
 
-  const res = await fetch(`${BASE_URL}?${params}`, { next: { revalidate: 3600 } });
+  const res = await fetch(`${BASE_URL}?${params}`, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    next: { revalidate: 3600 },
+  });
   if (!res.ok) return [];
 
   const data: GoogleBooksResponse = await res.json();

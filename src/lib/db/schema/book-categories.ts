@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   primaryKey,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
@@ -15,10 +16,11 @@ export const bookCategories = pgTable("book_categories", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   level: smallint("level").notNull(),
-  parentId: uuid("parent_id").references((): any => bookCategories.id, {
+  parentId: uuid("parent_id").references((): AnyPgColumn => bookCategories.id, {
     onDelete: "cascade",
   }),
   scopeNotes: text("scope_notes"),
+  color: text("color"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

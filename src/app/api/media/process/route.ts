@@ -5,7 +5,9 @@ import { updateCollection } from "@/lib/actions/collections";
 import { bronzeMediaKey, type MediaEntityType } from "@/lib/s3/keys";
 import { getPresignedUploadUrl } from "@/lib/s3/covers";
 import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
-import type { MediaType } from "@/lib/types";
+import { isAllowedImageType } from "@/lib/validations/media-security";
+import { extractColorPalette } from "@/lib/color/extract-palette";
+import type { ColorPalette, MediaType } from "@/lib/types";
 
 /**
  * POST /api/media/process
@@ -37,6 +39,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
 
+      if (!["work", "author", "collection"].includes(entityType)) {
+        return NextResponse.json({ error: "Invalid entity type" }, { status: 400 });
+      }
+
+      if (!isAllowedImageType(contentType)) {
+        return NextResponse.json(
+          { error: "File type not allowed. Accepted: JPEG, PNG, WebP, GIF." },
+          { status: 400 },
+        );
+      }
+
       const fileId = crypto.randomUUID();
       const ext = filename.split(".").pop() ?? "jpg";
       const key = bronzeMediaKey(entityType, entityId, fileId, ext);
@@ -53,7 +66,7 @@ export async function POST(req: NextRequest) {
       fileId,
       bronzeKey,
       originalFilename,
-      mimeType,
+      mimeType: _mimeType,
       sizeBytes,
     } = body as {
       entityType: MediaEntityType;
@@ -142,6 +155,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Extract color palette for work poster uploads
+    let colorPalette: ColorPalette | undefined;
+    if (mediaType === "poster" && entityType === "work") {
+      try {
+        colorPalette = await extractColorPalette(buffer);
+      } catch (err) {
+        console.error("Color palette extraction failed (non-blocking):", err);
+      }
+    }
+
     // For works/authors, create a media DB record
     const record = await createMedia({
       ...(entityType === "work" ? { workId: entityId } : { authorId: entityId }),
@@ -153,6 +176,7 @@ export async function POST(req: NextRequest) {
       width: result.width,
       height: result.height,
       sizeBytes,
+      ...(colorPalette ? { colorPalette } : {}),
     });
 
     // Activate the new record (deactivates others of same type+owner)

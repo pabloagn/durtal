@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { getVenueBySlug } from "@/lib/actions/venues";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -51,8 +53,7 @@ const VENUE_TYPE_BADGE_VARIANTS: Record<
   other: "muted",
 };
 
-export default async function VenueDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+async function PlaceContent({ slug }: { slug: string }) {
   const venue = await getVenueBySlug(slug);
 
   if (!venue) notFound();
@@ -93,7 +94,6 @@ export default async function VenueDetailPage({ params }: PageProps) {
             className="h-40 w-56 flex-shrink-0 overflow-hidden rounded-sm bg-bg-secondary"
             style={venue.color ? { backgroundColor: venue.color } : undefined}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={displayImage}
               alt={venue.name}
@@ -307,5 +307,21 @@ export default async function VenueDetailPage({ params }: PageProps) {
         </div>
       </section>
     </>
+  );
+}
+
+export default async function VenueDetailPage({ params }: PageProps) {
+  const { slug } = await params;
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-16">
+          <Spinner className="h-6 w-6" />
+        </div>
+      }
+    >
+      <PlaceContent slug={slug} />
+    </Suspense>
   );
 }

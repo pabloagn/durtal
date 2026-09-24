@@ -28,7 +28,7 @@ export function RangeSlider({
     if (!isDraggingRef.current) {
       setLocalValue(value);
     }
-  }, [value[0], value[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = Number(e.target.value);
@@ -101,6 +101,7 @@ export function RangeSlider({
           onChange={handleMinChange}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp("min")}
+          aria-label={label ? `${label} minimum` : "Range minimum"}
           className="range-thumb-min pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-accent-plum [&::-webkit-slider-thumb]:bg-bg-secondary [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-accent-plum [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-accent-plum [&::-moz-range-thumb]:bg-bg-secondary"
         />
 
@@ -114,6 +115,7 @@ export function RangeSlider({
           onChange={handleMaxChange}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp("max")}
+          aria-label={label ? `${label} maximum` : "Range maximum"}
           className="range-thumb-max pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-accent-plum [&::-webkit-slider-thumb]:bg-bg-secondary [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-accent-plum [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-accent-plum [&::-moz-range-thumb]:bg-bg-secondary"
         />
       </div>

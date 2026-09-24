@@ -71,7 +71,6 @@ export function MonochromeControls({
       <div className="flex items-start gap-4">
         {/* Preview */}
         <div className="relative h-40 w-28 flex-shrink-0 overflow-hidden rounded-sm border border-glass-border bg-bg-primary">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             key={previewKey}
             src={previewUrl}

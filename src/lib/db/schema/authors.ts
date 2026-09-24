@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
@@ -49,7 +50,9 @@ export const authors = pgTable("authors", {
   metadataSourceId: text("metadata_source_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("authors_birth_year_idx").on(t.birthYear),
+]);
 
 export const authorsRelations = relations(authors, ({ one, many }) => ({
   country: one(countries, {

@@ -1,16 +1,13 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { works, editions, instances, media } from "@/lib/db/schema";
+import { works, editions } from "@/lib/db/schema";
 import {
   and,
   asc,
-  eq,
   ilike,
   inArray,
   isNotNull,
-  gte,
-  notInArray,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 

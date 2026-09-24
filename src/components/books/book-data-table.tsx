@@ -50,6 +50,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
 ];
 
 function renderBookCell(book: DetailedBookItem, key: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const val = (book as any)[key];
   switch (key) {
     case "title":

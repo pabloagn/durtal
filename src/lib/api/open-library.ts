@@ -23,6 +23,7 @@ interface OpenLibrarySearchResponse {
 
 const SEARCH_URL = "https://openlibrary.org/search.json";
 const COVERS_URL = "https://covers.openlibrary.org/b";
+const FETCH_TIMEOUT_MS = 8000;
 
 const OL_FIELDS =
   "key,title,subtitle,author_name,author_key,first_publish_year,publisher,isbn,language,number_of_pages_median,subject,cover_i,edition_count";
@@ -70,6 +71,7 @@ export async function searchOpenLibrary(
   });
 
   const res = await fetch(`${SEARCH_URL}?${params}`, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
   if (!res.ok) return [];
@@ -88,6 +90,7 @@ export async function searchOpenLibraryByIsbn(
   });
 
   const res = await fetch(`${SEARCH_URL}?${params}`, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
   if (!res.ok) return null;
@@ -108,6 +111,7 @@ export async function searchOpenLibraryByAuthor(
   });
 
   const res = await fetch(`${SEARCH_URL}?${params}`, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
   if (!res.ok) return [];
@@ -130,6 +134,7 @@ export async function searchOpenLibrarySplit(
   });
 
   const res = await fetch(`${SEARCH_URL}?${params}`, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
   if (!res.ok) return [];

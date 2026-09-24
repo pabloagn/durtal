@@ -21,6 +21,7 @@ import {
 import { getLocations } from "@/lib/actions/locations";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { getCalibreBooksByWorkId } from "@/lib/calibre/queries";
+import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
 import { priorityVariant } from "@/lib/constants/catalogue";
@@ -28,6 +29,7 @@ import { WorkMediaInline } from "./work-media-inline";
 import { WorkMetadataGrid } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
 import { EditionDetailCard } from "./edition-detail-card";
+import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkActionsMenu } from "./work-actions-menu";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { BookCard } from "@/components/books/book-card";
@@ -388,9 +390,12 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Description */}
       {work.description && (
         <section className="mb-8">
-          <p className="max-w-2xl text-sm leading-relaxed text-fg-secondary">
-            {work.description}
-          </p>
+          <div
+            className="prose-description max-w-2xl text-sm leading-relaxed text-fg-secondary [&_p]:mb-2 [&_p:last-child]:mb-0 [&_a]:text-accent-rose [&_a:hover]:underline"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeDescriptionHtml(work.description),
+            }}
+          />
         </section>
       )}
 
@@ -415,10 +420,17 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
       {/* Editions */}
       <section className="mb-8">
-        <div className="mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="font-serif text-2xl text-fg-primary">
             Editions ({work.editions.length})
           </h2>
+          <EditionAddDialog
+            workId={work.id}
+            workTitle={work.title}
+            availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
+            availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
+            availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
+          />
         </div>
 
         <div className="space-y-4">

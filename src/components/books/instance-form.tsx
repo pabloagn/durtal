@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   INSTANCE_FORMATS,
   INSTANCE_CONDITIONS,
@@ -50,8 +51,8 @@ export interface InstanceDraft {
 export const EMPTY_INSTANCE: InstanceDraft = {
   locationId: "",
   subLocationId: "",
-  format: "",
-  condition: "",
+  format: "paperback",
+  condition: "mint",
   status: "available",
   acquisitionType: "",
   acquisitionDate: "",
@@ -85,6 +86,25 @@ interface LocationOption {
   name: string;
   type: string;
   subLocations: { id: string; name: string }[];
+}
+
+/** Preferred location order — locations matching earlier entries sort first. */
+const PREFERRED_LOCATIONS = ["amsterdam", "mexico city"];
+
+function sortLocations(locs: LocationOption[]): LocationOption[] {
+  return [...locs].sort((a, b) => {
+    const aName = a.name.toLowerCase();
+    const bName = b.name.toLowerCase();
+    const aIdx = PREFERRED_LOCATIONS.findIndex((p) => aName.includes(p));
+    const bIdx = PREFERRED_LOCATIONS.findIndex((p) => bName.includes(p));
+    // Both preferred: sort by preference order
+    if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
+    // Only one preferred: it goes first
+    if (aIdx >= 0) return -1;
+    if (bIdx >= 0) return 1;
+    // Neither preferred: keep original order
+    return 0;
+  });
 }
 
 interface InstanceFormProps {
@@ -135,6 +155,7 @@ export function InstanceForm({
     onChange({ ...value, [field]: v });
   }
 
+  const sortedLocations = sortLocations(locations);
   const selectedLocation = locations.find((l) => l.id === value.locationId);
   const subLocations = selectedLocation?.subLocations ?? [];
   const isDigitalFormat = ["ebook", "pdf", "epub", "audiobook"].includes(
@@ -167,7 +188,7 @@ export function InstanceForm({
               onChange({ ...value, locationId: e.target.value, subLocationId: "" });
             }}
             placeholder="Select location..."
-            options={locations.map((l) => ({
+            options={sortedLocations.map((l) => ({
               value: l.id,
               label: `${l.name} (${l.type})`,
             }))}
@@ -258,12 +279,11 @@ export function InstanceForm({
               onChange={(e) => update("lentTo", e.target.value)}
               placeholder="Name of person..."
             />
-            <Input
+            <DatePicker
               label="Lent date"
               id={`inst-${index}-lent-date`}
-              type="date"
               value={value.lentDate}
-              onChange={(e) => update("lentDate", e.target.value)}
+              onChange={(v) => update("lentDate", v)}
             />
           </Section>
         )}
@@ -283,12 +303,11 @@ export function InstanceForm({
               }))}
             />
             <div className="grid grid-cols-2 gap-3">
-              <Input
+              <DatePicker
                 label="Disposition date"
                 id={`inst-${index}-disposition-date`}
-                type="date"
                 value={value.dispositionDate}
-                onChange={(e) => update("dispositionDate", e.target.value)}
+                onChange={(v) => update("dispositionDate", v)}
               />
               <Input
                 label="Disposed to"
@@ -346,12 +365,11 @@ export function InstanceForm({
                 label: t.replace(/_/g, " "),
               }))}
             />
-            <Input
+            <DatePicker
               label="Date"
               id={`inst-${index}-acq-date`}
-              type="date"
               value={value.acquisitionDate}
-              onChange={(e) => update("acquisitionDate", e.target.value)}
+              onChange={(v) => update("acquisitionDate", v)}
             />
           </div>
           <Input

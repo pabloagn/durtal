@@ -130,7 +130,6 @@ function renderAuthorCell(author: AuthorItem, key: string) {
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
             {author.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={author.photoUrl}
                 alt={author.name}

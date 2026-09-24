@@ -37,18 +37,17 @@ export async function updateInstance(
 
   const inst = await db.query.instances.findFirst({
     where: eq(instances.id, id),
-    columns: { editionId: true },
+    columns: { id: true },
+    with: {
+      edition: {
+        columns: { workId: true },
+      },
+    },
   });
-  if (inst) {
-    const edition = await db.query.editions.findFirst({
-      where: eq(editions.id, inst.editionId),
-      columns: { workId: true },
+  if (inst?.edition) {
+    recordActivity("work", inst.edition.workId, "work.instance_updated", {
+      targetId: id,
     });
-    if (edition) {
-      recordActivity("work", edition.workId, "work.instance_updated", {
-        targetId: id,
-      });
-    }
   }
 
   return { id };
@@ -57,21 +56,20 @@ export async function updateInstance(
 export async function deleteInstance(id: string) {
   const inst = await db.query.instances.findFirst({
     where: eq(instances.id, id),
-    columns: { editionId: true },
+    columns: { id: true },
+    with: {
+      edition: {
+        columns: { workId: true },
+      },
+    },
   });
 
   await db.delete(instances).where(eq(instances.id, id));
 
-  if (inst) {
-    const edition = await db.query.editions.findFirst({
-      where: eq(editions.id, inst.editionId),
-      columns: { workId: true },
+  if (inst?.edition) {
+    recordActivity("work", inst.edition.workId, "work.instance_deleted", {
+      targetId: id,
     });
-    if (edition) {
-      recordActivity("work", edition.workId, "work.instance_deleted", {
-        targetId: id,
-      });
-    }
   }
 
   return { id };

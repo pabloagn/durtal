@@ -98,8 +98,8 @@ External URL (Google Books, Open Library)
        |
        v
   Resize with Sharp:
-    - Cover:     400 x 600 max, WebP
-    - Thumbnail: 200 x 300 max, WebP
+    - Cover:     1200 x 1800 max, WebP
+    - Thumbnail: 600 x 900 max, WebP
        |
        v
   Upload to S3:
@@ -164,10 +164,10 @@ Maximum dimensions by media type (aspect ratio preserved):
 
 | Type | Max Width | Max Height |
 |---|---|---|
-| Poster | 800 | 1200 |
-| Background | 1920 | 1080 |
-| Gallery | 1600 | 1600 |
-| Thumbnail (all) | 400 | 400 |
+| Poster | 1600 | 2400 |
+| Background | 2560 | 1440 |
+| Gallery | 2400 | 2400 |
+| Thumbnail (all) | 800 | 1200 |
 
 Output format: WebP for all processed images.
 

@@ -13,7 +13,14 @@ import { s3, S3_BUCKET } from "@/lib/s3/client";
  * Processes sequentially to avoid overwhelming S3.
  * Returns a summary of how many were processed.
  */
-export async function POST() {
+export async function POST(req: Request) {
+  if (process.env.ADMIN_TOKEN) {
+    const adminToken = req.headers.get("x-admin-token");
+    if (adminToken !== process.env.ADMIN_TOKEN) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   try {
     // Find all poster media without a color palette
     const posters = await db.query.media.findMany({

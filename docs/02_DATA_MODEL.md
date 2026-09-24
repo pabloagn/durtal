@@ -1044,6 +1044,8 @@ These are native Postgres enum types enforced at the database level.
 | `disposition_type_enum` | `sold`, `donated`, `gifted`, `traded`, `lost`, `stolen`, `destroyed`, `returned`, `expired` |
 | `order_status_enum` | `placed`, `confirmed`, `processing`, `shipped`, `in_transit`, `out_for_delivery`, `delivered`, `purchased`, `received`, `bid`, `won`, `cancelled`, `returned` |
 | `acquisition_method_enum` | `online_order`, `in_store_purchase`, `gift`, `digital_purchase`, `auction`, `event_purchase` |
+| `venue_type_enum` | `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other` |
+| `gender_enum` | `male`, `female` |
 
 ### Application-Level Enums
 
@@ -1052,7 +1054,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Enum | Values |
 |---|---|
 | `WORK_AUTHOR_ROLES` | `author`, `co_author` |
-| `EDITION_CONTRIBUTOR_ROLES` | `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduction`, `narrator`, `photographer`, `compiler` |
+| `EDITION_CONTRIBUTOR_ROLES` | `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduction`, `narrator`, `photographer`, `compiler`, `contributor` |
 | `INSTANCE_FORMATS` | `hardcover`, `paperback`, `ebook`, `audiobook`, `pdf`, `epub`, `other` |
 | `INSTANCE_CONDITIONS` | `mint`, `fine`, `very_good`, `good`, `fair`, `poor` |
 | `ACQUISITION_TYPES` | `purchased`, `gift`, `inherited`, `borrowed`, `found`, `review_copy`, `other` |

@@ -1,9 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { authors, workAuthors, editionContributors, countries } from "@/lib/db/schema";
-import { eq, and, asc, desc, ilike, like, inArray, count, sql, isNull, isNotNull, gte, lte, min, max } from "drizzle-orm";
+import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
+import { eq, and, asc, desc, ilike, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 import {
   createAuthorSchema,
   type CreateAuthorInput,
@@ -31,70 +32,12 @@ export async function getAuthors(opts?: {
 }) {
   const { search, limit = 48, offset = 0, sort = "name", order, filters } = opts ?? {};
 
-  const conditions: SQL[] = [];
+  const filterConditions = await buildAuthorFilterConditions(filters);
+  if (filterConditions === null) return [];
+
+  const conditions: SQL[] = [...filterConditions];
   if (search) {
     conditions.push(ilike(authors.name, `%${search}%`));
-  }
-
-  // Nationality filtering: resolve country names to IDs, then filter authors
-  if (filters?.nationalities?.length) {
-    const countryRows = await db
-      .select({ id: countries.id })
-      .from(countries)
-      .where(inArray(countries.name, filters.nationalities));
-    const countryIds = countryRows.map((c) => c.id);
-    if (countryIds.length > 0) {
-      conditions.push(inArray(authors.nationalityId, countryIds));
-    } else {
-      return [];
-    }
-  }
-
-  // Gender filtering
-  if (filters?.genders?.length) {
-    const validGenders = filters.genders.filter((g) => g === "male" || g === "female") as ("male" | "female")[];
-    if (validGenders.length > 0) {
-      conditions.push(inArray(authors.gender, validGenders));
-    }
-  }
-
-  // Zodiac sign filtering (handles "__none__" sentinel for null values)
-  if (filters?.zodiacSigns?.length) {
-    const hasNone = filters.zodiacSigns.includes("__none__");
-    const realSigns = filters.zodiacSigns.filter((z) => z !== "__none__");
-    if (hasNone && realSigns.length > 0) {
-      // NULL OR one of the listed signs
-      conditions.push(
-        sql`(${authors.zodiacSign} IS NULL OR ${authors.zodiacSign} = ANY(ARRAY[${sql.join(realSigns.map((s) => sql`${s}`), sql`, `)}]))`,
-      );
-    } else if (hasNone) {
-      conditions.push(isNull(authors.zodiacSign));
-    } else {
-      conditions.push(inArray(authors.zodiacSign, realSigns));
-    }
-  }
-
-  // Birth year range
-  if (filters?.birthYearMin != null) {
-    conditions.push(gte(authors.birthYear, filters.birthYearMin));
-  }
-  if (filters?.birthYearMax != null) {
-    conditions.push(lte(authors.birthYear, filters.birthYearMax));
-  }
-
-  // Death year range
-  if (filters?.deathYearMin != null) {
-    conditions.push(gte(authors.deathYear, filters.deathYearMin));
-  }
-  if (filters?.deathYearMax != null) {
-    conditions.push(lte(authors.deathYear, filters.deathYearMax));
-  }
-
-  // Alive / deceased filter
-  if (filters?.alive === true) {
-    conditions.push(isNull(authors.deathYear));
-  } else if (filters?.alive === false) {
-    conditions.push(isNotNull(authors.deathYear));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -208,61 +151,12 @@ export async function getAuthorCount(opts?: {
 }) {
   const { search, filters } = opts ?? {};
 
-  const conditions: SQL[] = [];
+  const filterConditions = await buildAuthorFilterConditions(filters);
+  if (filterConditions === null) return 0;
+
+  const conditions: SQL[] = [...filterConditions];
   if (search) {
     conditions.push(ilike(authors.name, `%${search}%`));
-  }
-
-  if (filters?.nationalities?.length) {
-    const countryRows = await db
-      .select({ id: countries.id })
-      .from(countries)
-      .where(inArray(countries.name, filters.nationalities));
-    const countryIds = countryRows.map((c) => c.id);
-    if (countryIds.length > 0) {
-      conditions.push(inArray(authors.nationalityId, countryIds));
-    } else {
-      return 0;
-    }
-  }
-
-  if (filters?.genders?.length) {
-    const validGenders = filters.genders.filter((g) => g === "male" || g === "female") as ("male" | "female")[];
-    if (validGenders.length > 0) {
-      conditions.push(inArray(authors.gender, validGenders));
-    }
-  }
-
-  if (filters?.zodiacSigns?.length) {
-    const hasNone = filters.zodiacSigns.includes("__none__");
-    const realSigns = filters.zodiacSigns.filter((z) => z !== "__none__");
-    if (hasNone && realSigns.length > 0) {
-      conditions.push(
-        sql`(${authors.zodiacSign} IS NULL OR ${authors.zodiacSign} = ANY(ARRAY[${sql.join(realSigns.map((s) => sql`${s}`), sql`, `)}]))`,
-      );
-    } else if (hasNone) {
-      conditions.push(isNull(authors.zodiacSign));
-    } else {
-      conditions.push(inArray(authors.zodiacSign, realSigns));
-    }
-  }
-
-  if (filters?.birthYearMin != null) {
-    conditions.push(gte(authors.birthYear, filters.birthYearMin));
-  }
-  if (filters?.birthYearMax != null) {
-    conditions.push(lte(authors.birthYear, filters.birthYearMax));
-  }
-  if (filters?.deathYearMin != null) {
-    conditions.push(gte(authors.deathYear, filters.deathYearMin));
-  }
-  if (filters?.deathYearMax != null) {
-    conditions.push(lte(authors.deathYear, filters.deathYearMax));
-  }
-  if (filters?.alive === true) {
-    conditions.push(isNull(authors.deathYear));
-  } else if (filters?.alive === false) {
-    conditions.push(isNotNull(authors.deathYear));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -575,6 +469,12 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
 
 export async function deleteAuthor(id: string) {
   recordActivity("author", id, "author.deleted");
+
+  // Clean up polymorphic records (not covered by FK cascades)
+  await db.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id)));
+  await db.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id)));
+  await db.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id)));
+
   await db.delete(authors).where(eq(authors.id, id));
   return { id };
 }
@@ -596,6 +496,8 @@ export async function mergeAuthors(sourceId: string, targetId: string) {
   ]);
   if (!source) throw new Error("Source author not found");
   if (!target) throw new Error("Target author not found");
+
+  const { authorContributionTypes } = await import("@/lib/db/schema");
 
   // 1. Transfer workAuthors — skip rows that would conflict on (workId, targetId, role)
   const sourceWorkAuthors = await db
@@ -672,8 +574,6 @@ export async function mergeAuthors(sourceId: string, targetId: string) {
   }
 
   // 3. Transfer authorContributionTypes — skip conflicts
-  const { authorContributionTypes } = await import("@/lib/db/schema");
-
   const sourceACT = await db
     .select()
     .from(authorContributionTypes)

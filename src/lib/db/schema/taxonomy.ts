@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   primaryKey,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
@@ -17,6 +18,7 @@ export const subjects = pgTable("subjects", {
   name: text("name").notNull().unique(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  color: text("color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -50,9 +52,10 @@ export const genres = pgTable("genres", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull().unique(),
   slug: text("slug").notNull().unique(),
-  parentId: uuid("parent_id").references((): any => genres.id, {
+  parentId: uuid("parent_id").references((): AnyPgColumn => genres.id, {
     onDelete: "set null",
   }),
+  color: text("color"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
@@ -95,6 +98,7 @@ export const editionGenresRelations = relations(editionGenres, ({ one }) => ({
 export const tags = pgTable("tags", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull().unique(),
+  slug: text("slug").unique(),
   color: text("color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -10,6 +10,7 @@ import {
   formatDimensions,
   formatDate,
 } from "@/lib/utils/format";
+import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import type {
   Edition,
   Instance,
@@ -246,9 +247,12 @@ export function EditionDetailCard({
       {/* Edition description (if different from work) */}
       {edition.description && (
         <div className="border-b border-glass-border px-4 py-3">
-          <p className="max-w-2xl text-sm leading-relaxed text-fg-secondary">
-            {edition.description}
-          </p>
+          <div
+            className="max-w-2xl text-sm leading-relaxed text-fg-secondary [&_a]:text-accent-rose [&_a]:underline"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeDescriptionHtml(edition.description),
+            }}
+          />
         </div>
       )}
 

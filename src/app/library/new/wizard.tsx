@@ -28,6 +28,8 @@ import {
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
+import { stripHtmlToText } from "@/lib/utils/sanitize";
+import type { CreateWorkInput } from "@/lib/validations";
 import { createEdition } from "@/lib/actions/editions";
 import { createInstance } from "@/lib/actions/instances";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
@@ -243,17 +245,33 @@ export function AddBookWizard() {
       getKeywords(),
       getAttributes(),
     ]).then(([locs, subs, gens, tgs, cols, cats, thms, litMvs, artTps, artMvs, kwds, attrs]) => {
-      setLocations(
-        locs.map((l) => ({
-          id: l.id,
-          name: l.name,
-          type: l.type,
-          subLocations: l.subLocations.map((s) => ({
-            id: s.id,
-            name: s.name,
-          })),
+      const mappedLocations = locs.map((l) => ({
+        id: l.id,
+        name: l.name,
+        type: l.type,
+        subLocations: l.subLocations.map((s) => ({
+          id: s.id,
+          name: s.name,
         })),
-      );
+      }));
+      setLocations(mappedLocations);
+
+      // Auto-select first preferred location for drafts without one
+      const preferred = ["amsterdam", "mexico city"];
+      const sorted = [...mappedLocations].sort((a, b) => {
+        const ai = preferred.findIndex((p) => a.name.toLowerCase().includes(p));
+        const bi = preferred.findIndex((p) => b.name.toLowerCase().includes(p));
+        if (ai >= 0 && bi >= 0) return ai - bi;
+        if (ai >= 0) return -1;
+        if (bi >= 0) return 1;
+        return 0;
+      });
+      const defaultLocationId = sorted[0]?.id ?? "";
+      if (defaultLocationId) {
+        setInstanceDrafts((prev) =>
+          prev.map((d) => (d.locationId ? d : { ...d, locationId: defaultLocationId })),
+        );
+      }
       setSubjects(subs.map((s) => ({ id: s.id, name: s.name })));
       setGenres(gens.map((g) => ({ id: g.id, name: g.name })));
       setTags(tgs.map((t) => ({ id: t.id, name: t.name })));
@@ -308,7 +326,7 @@ export function AddBookWizard() {
     setAuthorName(result.authors[0] ?? "");
     setOriginalYear(String(result.publicationYear ?? ""));
     setOriginalLanguage(result.language ?? "en");
-    setDescription(result.description ?? "");
+    setDescription(stripHtmlToText(result.description ?? ""));
     setIsbn13(result.isbn13 ?? "");
     setPublisher(result.publisher ?? "");
     setPublicationYear(String(result.publicationYear ?? ""));
@@ -364,13 +382,13 @@ export function AddBookWizard() {
             description: description || undefined,
             seriesName: seriesName || undefined,
             seriesPosition: seriesPosition || undefined,
-            catalogueStatus: catalogueStatus as any,
-            acquisitionPriority: acquisitionPriority as any,
-            authorIds: [{ authorId: author.id, role: "author" }],
+            catalogueStatus: catalogueStatus as CreateWorkInput["catalogueStatus"],
+            acquisitionPriority: acquisitionPriority as CreateWorkInput["acquisitionPriority"],
+            authorIds: [{ authorId: author.id, role: "author" as const }],
             recommenderIds: selectedRecommenderIds.length > 0 ? selectedRecommenderIds : undefined,
             metadataSource: metadataSource || undefined,
             metadataSourceId: metadataSourceId || undefined,
-          } as any);
+          });
           workId = work.id;
           workSlug = work.slug ?? undefined;
           // Save all work-level taxonomy
@@ -461,7 +479,9 @@ export function AddBookWizard() {
         toast.success("Book added to catalogue");
         router.push(`/library/${workSlug ?? ""}`);
       } catch (err) {
-        toast.error("Failed to add book");
+        const message =
+          err instanceof Error ? err.message : "Failed to add book";
+        toast.error(message);
         console.error(err);
       }
     });
@@ -606,7 +626,9 @@ export function AddBookWizard() {
                             </span>
                           )}
                           <Badge variant="muted">
-                            {result.source.replace("_", " ")}
+                            {result.source === "isbndb"
+                              ? "ISBNdb"
+                              : result.source.replace("_", " ")}
                           </Badge>
                         </div>
                       </div>

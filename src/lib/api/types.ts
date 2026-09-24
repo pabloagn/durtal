@@ -3,7 +3,7 @@
  * Backward-compatible with the wizard's existing SearchResult usage.
  */
 export interface SearchResult {
-  source: "google_books" | "open_library";
+  source: "isbndb" | "google_books" | "open_library";
   sourceId: string;
   title: string;
   subtitle?: string;

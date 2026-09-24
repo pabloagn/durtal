@@ -137,7 +137,6 @@ export function GallerySectionClient({
             }
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={getImageUrl(
               mediaItems[0].thumbnailS3Key ?? mediaItems[0].s3Key,

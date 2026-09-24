@@ -432,7 +432,6 @@ export function AuthorMediaManagerDialog({
                               : "border-glass-border hover:border-fg-muted/30"
                           } ${!isGallery && !item.isActive ? "cursor-pointer" : ""}`}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={thumbnailUrl(item)}
                             alt={item.caption || item.originalFilename || "Media"}

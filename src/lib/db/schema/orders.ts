@@ -5,6 +5,7 @@ import {
   numeric,
   date,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
@@ -70,7 +71,11 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  index("orders_work_id_idx").on(t.workId),
+  index("orders_status_idx").on(t.status),
+  index("orders_created_at_idx").on(t.createdAt),
+]);
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   work: one(works, {

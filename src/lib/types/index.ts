@@ -132,6 +132,7 @@ export const EDITION_CONTRIBUTOR_ROLES = [
   "narrator",
   "photographer",
   "compiler",
+  "contributor",
 ] as const;
 export type EditionContributorRole = (typeof EDITION_CONTRIBUTOR_ROLES)[number];
 

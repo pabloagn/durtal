@@ -148,7 +148,7 @@ export function WorkQuickEditDialog({
       setDescription(work.description ?? "");
       setNotes(work.notes ?? "");
       setRecommenderIds(
-        (work as any).workRecommenders?.map((wr: any) => wr.recommender.id) ?? [],
+        work.workRecommenders?.map((wr: { recommender: { id: string } }) => wr.recommender.id) ?? [],
       );
       setSeriesId(work.seriesId ?? "");
       setSeriesPosition(work.seriesPosition ?? "");

@@ -129,6 +129,16 @@ export {
   workAttributesRelations,
 } from "./attributes";
 export { galleryLayouts } from "./gallery-layouts";
+export {
+  taxonomyFamilies,
+  taxonomyFamiliesRelations,
+  customTaxonomyItems,
+  customTaxonomyItemsRelations,
+  customTaxonomyItemWorks,
+  customTaxonomyItemWorksRelations,
+  customTaxonomyItemEditions,
+  customTaxonomyItemEditionsRelations,
+} from "./taxonomy-families";
 
 // ── Venues ───────────────────────────────────────────────────────────────────
 export { venues, venuesRelations } from "./venues";

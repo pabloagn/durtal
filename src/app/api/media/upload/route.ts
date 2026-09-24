@@ -3,6 +3,7 @@ import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/med
 import { createMedia, setActiveMedia } from "@/lib/actions/media";
 import { updateCollection } from "@/lib/actions/collections";
 import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
+import { isAllowedImageType, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
 import { extractColorPalette } from "@/lib/color/extract-palette";
 import type { MediaEntityType } from "@/lib/s3/keys";
 import type { ColorPalette, MediaType } from "@/lib/types";
@@ -36,6 +37,20 @@ export async function POST(req: NextRequest) {
 
     if (!["poster", "background", "gallery"].includes(mediaType)) {
       return NextResponse.json({ error: "Invalid mediaType" }, { status: 400 });
+    }
+
+    if (file.size > MAX_MEDIA_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: "File too large. Maximum size: 50 MB." },
+        { status: 400 },
+      );
+    }
+
+    if (!isAllowedImageType(file.type)) {
+      return NextResponse.json(
+        { error: "File type not allowed. Accepted: JPEG, PNG, WebP, GIF." },
+        { status: 400 },
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();

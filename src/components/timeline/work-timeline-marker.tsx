@@ -185,7 +185,6 @@ export function WorkTimelineMarker({
       {showCover && (
         <div style={coverStyle}>
           {work.coverUrl && !imgError ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={work.coverUrl}
               alt={work.title}

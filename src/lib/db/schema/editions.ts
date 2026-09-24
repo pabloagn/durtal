@@ -7,6 +7,7 @@ import {
   boolean,
   date,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
@@ -14,6 +15,7 @@ import { instances } from "./instances";
 import { editionContributors } from "./authors";
 import { editionGenres, editionTags } from "./taxonomy";
 import { collectionEditions } from "./collections";
+import { customTaxonomyItemEditions } from "./taxonomy-families";
 
 export const editions = pgTable("editions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -83,7 +85,11 @@ export const editions = pgTable("editions", {
   // Timestamps
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("editions_work_id_idx").on(t.workId),
+  index("editions_language_idx").on(t.language),
+  index("editions_publication_year_idx").on(t.publicationYear),
+]);
 
 export const editionsRelations = relations(editions, ({ one, many }) => ({
   work: one(works, {
@@ -95,4 +101,5 @@ export const editionsRelations = relations(editions, ({ one, many }) => ({
   editionGenres: many(editionGenres),
   editionTags: many(editionTags),
   collectionEditions: many(collectionEditions),
+  customTaxonomyItemEditions: many(customTaxonomyItemEditions),
 }));

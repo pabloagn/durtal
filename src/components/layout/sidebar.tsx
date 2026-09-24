@@ -9,7 +9,7 @@ import {
   Layers,
   MapPin,
   FolderOpen,
-  Tag,
+  Tags,
   BookOpen,
   BookOpenText,
   Settings,
@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { href: "/provenance", label: "Provenance", icon: Route },
   { href: "/locations", label: "Locations", icon: Archive },
   { href: "/collections", label: "Collections", icon: FolderOpen },
-  { href: "/tags", label: "Tags", icon: Tag },
+  { href: "/taxonomy", label: "Taxonomy", icon: Tags },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

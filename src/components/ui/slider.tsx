@@ -34,6 +34,7 @@ export function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
+        aria-label={label}
         className="slider-track h-1 w-full cursor-pointer appearance-none rounded-sm bg-bg-tertiary accent-accent-rose"
       />
     </div>

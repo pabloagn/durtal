@@ -6,8 +6,13 @@ import { createCommentSchema } from "@/lib/validations/comments";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const parsed = createCommentSchema.parse(body);
+  let parsed;
+  try {
+    const body = await req.json();
+    parsed = createCommentSchema.parse(body);
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const html = sanitizeCommentHtml(parsed.contentHtml);
 
   const [comment] = await db

@@ -122,6 +122,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (ids.length > 500) {
+      return NextResponse.json(
+        { error: "Too many IDs. Maximum: 500." },
+        { status: 400 },
+      );
+    }
+
     if (!format || !VALID_FORMATS.includes(format as ExportFormat)) {
       return NextResponse.json(
         { error: "Invalid format. Must be 'csv', 'tsv', or 'parquet'." },

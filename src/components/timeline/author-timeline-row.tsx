@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 
@@ -69,7 +68,6 @@ function Portrait({
 
     return (
       <div style={containerStyle}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={author.posterUrl} alt={author.name} style={imgStyle} />
       </div>
     );

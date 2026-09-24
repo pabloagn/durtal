@@ -1,9 +1,7 @@
 import { Suspense } from "react";
-import { Route } from "lucide-react";
 import { getActiveOrders, getProvenanceStats } from "@/lib/actions/orders";
 import { PageHeader } from "@/components/layout/page-header";
 import { Spinner } from "@/components/ui/spinner";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ProvenanceShell } from "./provenance-shell";
 import { OrderCreateDialog } from "./order-create-dialog";
 import type { OrderItem, ProvenanceStats } from "./provenance-shell";

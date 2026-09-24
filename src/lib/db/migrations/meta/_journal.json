@@ -134,6 +134,20 @@
       "when": 1775075605796,
       "tag": "0018_pale_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775466737341,
+      "tag": "0019_regular_shen",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775475216728,
+      "tag": "0020_sweet_zodiak",
+      "breakpoints": true
     }
   ]
 }

@@ -1,16 +1,17 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getSeriesDetail } from "@/lib/actions/series";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function SeriesDetailPage({ params }: PageProps) {
-  const { id } = await params;
+async function SeriesContent({ id }: { id: string }) {
   const s = await getSeriesDetail(id);
 
   if (!s) notFound();
@@ -134,5 +135,21 @@ export default async function SeriesDetailPage({ params }: PageProps) {
         })}
       </div>
     </>
+  );
+}
+
+export default async function SeriesDetailPage({ params }: PageProps) {
+  const { id } = await params;
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-16">
+          <Spinner className="h-6 w-6" />
+        </div>
+      }
+    >
+      <SeriesContent id={id} />
+    </Suspense>
   );
 }

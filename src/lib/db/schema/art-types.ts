@@ -14,6 +14,7 @@ export const artTypes = pgTable("art_types", {
   slug: text("slug").notNull().unique(),
   description: text("description"),
   applicableWorkTypes: text("applicable_work_types"),
+  color: text("color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

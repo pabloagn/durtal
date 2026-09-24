@@ -15,6 +15,8 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { slugify, makeUnique } from "@/lib/utils/slugify";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { createVenueSchema } from "@/lib/validations/venues";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -213,20 +215,21 @@ export async function searchVenues(query: string) {
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 export async function createVenue(input: CreateVenueInput) {
+  const validated = createVenueSchema.parse(input);
   // If Google Places coordinates were provided and no explicit placeId, create
   // a geographic places record and link it to this venue.
-  let resolvedPlaceId = input.placeId ?? null;
+  let resolvedPlaceId = validated.placeId ?? null;
 
-  if (!resolvedPlaceId && input.placeCoordinates && input.formattedAddress) {
+  if (!resolvedPlaceId && validated.placeCoordinates && validated.formattedAddress) {
     try {
       const [geoPlace] = await db
         .insert(places)
         .values({
-          name: input.name,
-          fullName: input.formattedAddress,
+          name: validated.name,
+          fullName: validated.formattedAddress,
           type: "venue",
-          latitude: input.placeCoordinates.latitude,
-          longitude: input.placeCoordinates.longitude,
+          latitude: validated.placeCoordinates.latitude,
+          longitude: validated.placeCoordinates.longitude,
         })
         .returning({ id: places.id });
       if (geoPlace) resolvedPlaceId = geoPlace.id;
@@ -238,30 +241,30 @@ export async function createVenue(input: CreateVenueInput) {
   const [venue] = await db
     .insert(venues)
     .values({
-      name: input.name,
-      type: input.type,
-      subtype: input.subtype ?? null,
-      description: input.description ?? null,
-      website: input.website ?? null,
-      instagramHandle: input.instagramHandle ?? null,
-      socialLinks: input.socialLinks ?? null,
+      name: validated.name,
+      type: validated.type,
+      subtype: validated.subtype ?? null,
+      description: validated.description ?? null,
+      website: validated.website ?? null,
+      instagramHandle: validated.instagramHandle ?? null,
+      socialLinks: validated.socialLinks ?? null,
       placeId: resolvedPlaceId,
-      formattedAddress: input.formattedAddress ?? null,
-      googlePlaceId: input.googlePlaceId ?? null,
-      phone: input.phone ?? null,
-      email: input.email ?? null,
-      openingHours: input.openingHours ?? null,
-      timezone: input.timezone ?? null,
-      posterS3Key: input.posterS3Key ?? null,
-      thumbnailS3Key: input.thumbnailS3Key ?? null,
-      color: input.color ?? null,
-      isFavorite: input.isFavorite ?? false,
-      personalRating: input.personalRating ?? null,
-      notes: input.notes ?? null,
-      specialties: input.specialties ?? null,
-      tags: input.tags ?? null,
-      firstVisitDate: input.firstVisitDate ?? null,
-      lastVisitDate: input.lastVisitDate ?? null,
+      formattedAddress: validated.formattedAddress ?? null,
+      googlePlaceId: validated.googlePlaceId ?? null,
+      phone: validated.phone ?? null,
+      email: validated.email ?? null,
+      openingHours: validated.openingHours ?? null,
+      timezone: validated.timezone ?? null,
+      posterS3Key: validated.posterS3Key ?? null,
+      thumbnailS3Key: validated.thumbnailS3Key ?? null,
+      color: validated.color ?? null,
+      isFavorite: validated.isFavorite ?? false,
+      personalRating: validated.personalRating ?? null,
+      notes: validated.notes ?? null,
+      specialties: validated.specialties ?? null,
+      tags: validated.tags ?? null,
+      firstVisitDate: validated.firstVisitDate ?? null,
+      lastVisitDate: validated.lastVisitDate ?? null,
     })
     .returning();
 
@@ -282,6 +285,7 @@ export async function createVenue(input: CreateVenueInput) {
     .where(eq(venues.id, venue.id))
     .returning();
 
+  invalidate(CACHE_TAGS.venues);
   return updated;
 }
 
@@ -313,10 +317,12 @@ export async function updateVenue(id: string, input: Partial<CreateVenueInput>) 
     }
   }
 
+  invalidate(CACHE_TAGS.venues);
   return { id };
 }
 
 export async function deleteVenue(id: string) {
   await db.delete(venues).where(eq(venues.id, id));
+  invalidate(CACHE_TAGS.venues);
   return { id };
 }

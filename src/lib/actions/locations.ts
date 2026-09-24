@@ -89,6 +89,7 @@ export async function createSubLocation(input: {
   sortOrder?: number;
 }) {
   const [sub] = await db.insert(subLocations).values(input).returning();
+  invalidate(CACHE_TAGS.locations);
   return sub;
 }
 
@@ -97,10 +98,12 @@ export async function updateSubLocation(
   input: Partial<{ name: string; sortOrder: number }>,
 ) {
   await db.update(subLocations).set(input).where(eq(subLocations.id, id));
+  invalidate(CACHE_TAGS.locations);
   return { id };
 }
 
 export async function deleteSubLocation(id: string) {
   await db.delete(subLocations).where(eq(subLocations.id, id));
+  invalidate(CACHE_TAGS.locations);
   return { id };
 }

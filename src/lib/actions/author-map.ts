@@ -1,19 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { authors, countries, places } from "@/lib/db/schema";
-import {
-  and,
-  ilike,
-  inArray,
-  isNull,
-  isNotNull,
-  gte,
-  lte,
-  sql,
-} from "drizzle-orm";
+import { authors } from "@/lib/db/schema";
+import { and, ilike } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 
 export interface AuthorMapPoint {
   id: string;
@@ -42,72 +33,13 @@ export async function getAuthorsForMap(opts?: {
 }): Promise<AuthorMapPoint[]> {
   const { search, filters } = opts ?? {};
 
-  const conditions: SQL[] = [];
+  const filterConditions = await buildAuthorFilterConditions(filters);
+  if (filterConditions === null) return [];
+
+  const conditions: SQL[] = [...filterConditions];
 
   if (search) {
     conditions.push(ilike(authors.name, `%${search}%`));
-  }
-
-  // Nationality filtering
-  if (filters?.nationalities?.length) {
-    const countryRows = await db
-      .select({ id: countries.id })
-      .from(countries)
-      .where(inArray(countries.name, filters.nationalities));
-    const countryIds = countryRows.map((c) => c.id);
-    if (countryIds.length > 0) {
-      conditions.push(inArray(authors.nationalityId, countryIds));
-    } else {
-      return [];
-    }
-  }
-
-  // Gender filtering
-  if (filters?.genders?.length) {
-    const validGenders = filters.genders.filter(
-      (g) => g === "male" || g === "female",
-    ) as ("male" | "female")[];
-    if (validGenders.length > 0) {
-      conditions.push(inArray(authors.gender, validGenders));
-    }
-  }
-
-  // Zodiac sign filtering
-  if (filters?.zodiacSigns?.length) {
-    const hasNone = filters.zodiacSigns.includes("__none__");
-    const realSigns = filters.zodiacSigns.filter((z) => z !== "__none__");
-    if (hasNone && realSigns.length > 0) {
-      conditions.push(
-        sql`(${authors.zodiacSign} IS NULL OR ${authors.zodiacSign} = ANY(ARRAY[${sql.join(realSigns.map((s) => sql`${s}`), sql`, `)}]))`,
-      );
-    } else if (hasNone) {
-      conditions.push(isNull(authors.zodiacSign));
-    } else {
-      conditions.push(inArray(authors.zodiacSign, realSigns));
-    }
-  }
-
-  // Birth year range
-  if (filters?.birthYearMin != null) {
-    conditions.push(gte(authors.birthYear, filters.birthYearMin));
-  }
-  if (filters?.birthYearMax != null) {
-    conditions.push(lte(authors.birthYear, filters.birthYearMax));
-  }
-
-  // Death year range
-  if (filters?.deathYearMin != null) {
-    conditions.push(gte(authors.deathYear, filters.deathYearMin));
-  }
-  if (filters?.deathYearMax != null) {
-    conditions.push(lte(authors.deathYear, filters.deathYearMax));
-  }
-
-  // Alive / deceased filter
-  if (filters?.alive === true) {
-    conditions.push(isNull(authors.deathYear));
-  } else if (filters?.alive === false) {
-    conditions.push(isNotNull(authors.deathYear));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;

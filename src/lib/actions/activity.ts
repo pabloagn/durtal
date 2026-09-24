@@ -65,7 +65,7 @@ export async function getActivityTimeline(
     .filter((id): id is string => !!id);
 
   // Batch-fetch comments and their attachments
-  let commentMap = new Map<
+  const commentMap = new Map<
     string,
     TimelineItem["comment"]
   >();

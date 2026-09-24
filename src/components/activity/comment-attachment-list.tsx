@@ -40,7 +40,6 @@ export function CommentAttachmentList({
             rel="noopener noreferrer"
             className="block overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={
                 attachment.thumbnailUrl ??

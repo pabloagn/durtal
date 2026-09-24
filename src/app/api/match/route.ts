@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchGoogleBooks } from "@/lib/api/google-books";
-import { searchOpenLibrary } from "@/lib/api/open-library";
-import type { SearchResult } from "@/lib/api/types";
+import { searchBooks } from "@/lib/api/search-engine";
+
+const VALID_SOURCES = ["all", "isbndb", "google_books", "open_library"] as const;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const query = searchParams.get("q");
+  const query = searchParams.get("q")?.trim() || null;
   const source = searchParams.get("source") ?? "all";
 
   if (!query) {
@@ -15,33 +15,14 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const validSources = ["all", "google_books", "open_library"];
-  if (!validSources.includes(source)) {
-    return NextResponse.json(
-      { error: "Invalid source. Use: all, google_books, open_library" },
-      { status: 400 },
-    );
-  }
-
   try {
-    const searches: Promise<SearchResult[]>[] = [];
+    let results = await searchBooks(query);
 
-    if (source === "all" || source === "google_books") {
-      searches.push(
-        searchGoogleBooks(query, 10).catch(() => [] as SearchResult[]),
-      );
+    // Post-filter by source if not "all"
+    if (source !== "all" && VALID_SOURCES.includes(source as (typeof VALID_SOURCES)[number])) {
+      results = results.filter((r) => r.source === source);
     }
 
-    if (source === "all" || source === "open_library") {
-      searches.push(
-        searchOpenLibrary(query, 10).catch(() => [] as SearchResult[]),
-      );
-    }
-
-    const resultArrays = await Promise.all(searches);
-    const results = resultArrays.flat();
-
-    // Normalize to the compact shape the dialog expects
     const normalized = results.map((r) => ({
       id: `${r.source}:${r.sourceId}`,
       title: r.title,

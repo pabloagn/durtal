@@ -68,6 +68,7 @@ export function HorizontalCarousel({
             <button
               onClick={() => scroll("left")}
               disabled={!canScrollLeft}
+              aria-label="Scroll left"
               className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
@@ -75,6 +76,7 @@ export function HorizontalCarousel({
             <button
               onClick={() => scroll("right")}
               disabled={!canScrollRight}
+              aria-label="Scroll right"
               className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" strokeWidth={1.5} />

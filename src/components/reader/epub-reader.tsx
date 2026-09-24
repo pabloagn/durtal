@@ -85,6 +85,7 @@ export function EpubReader({
       rendition.themes.override("background", "#030507");
 
       // Inject full CSS on each rendered section
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       rendition.hooks.content.register((contents: any) => {
         const doc = contents.document;
         if (!doc) return;
@@ -105,6 +106,7 @@ export function EpubReader({
       });
 
       // Track location changes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       rendition.on("relocated", (location: any) => {
         if (destroyed) return;
         const cfi = location.start?.cfi;
@@ -151,7 +153,6 @@ export function EpubReader({
       }
       renditionRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookUrl]);
 
   // Update theme when settings change (without reinitializing the book)
@@ -160,6 +161,7 @@ export function EpubReader({
     if (!rendition) return;
 
     // Re-inject CSS into all rendered views
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rendition.views().forEach((view: any) => {
       const doc = view.document;
       if (!doc) return;
@@ -200,6 +202,7 @@ function findChapterForCfi(book: Book, cfi: string): string {
     const spineItem = book.spine.get(cfi);
     if (!spineItem) return "";
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const nav = (book as any).navigation;
     if (!nav?.toc) return "";
 

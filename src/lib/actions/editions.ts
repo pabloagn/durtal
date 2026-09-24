@@ -45,6 +45,19 @@ export async function createEdition(input: CreateEditionInput) {
   const { contributorIds, genreIds, tagIds, coverSourceUrl, ...editionData } =
     parsed;
 
+  // Check for duplicate ISBN-13 before inserting
+  if (editionData.isbn13) {
+    const existing = await db.query.editions.findFirst({
+      where: eq(editions.isbn13, editionData.isbn13),
+      columns: { id: true, title: true },
+    });
+    if (existing) {
+      throw new Error(
+        `An edition with ISBN ${editionData.isbn13} already exists${existing.title ? ` ("${existing.title}")` : ""}`,
+      );
+    }
+  }
+
   // Process cover if URL provided
   let coverKeys: { coverS3Key?: string; thumbnailS3Key?: string } = {};
 
@@ -345,6 +358,22 @@ export async function rematchEdition(
     } else if (data.cover_i) {
       coverUrl = `https://covers.openlibrary.org/b/id/${data.cover_i}-L.jpg`;
     }
+  } else if (source === "isbndb") {
+    const { searchIsbndbByIsbn } = await import("@/lib/api/isbndb");
+    // sourceId is the ISBN for ISBNdb results
+    const result = await searchIsbndbByIsbn(sourceId);
+    if (!result) throw new Error("Could not fetch from ISBNdb");
+
+    updates.title = result.title;
+    updates.subtitle = result.subtitle ?? null;
+    updates.publisher = result.publisher ?? null;
+    updates.publicationYear = result.publicationYear ?? null;
+    updates.pageCount = result.pageCount ?? null;
+    updates.language = result.language ?? "en";
+    updates.isbn13 = result.isbn13 ?? null;
+    updates.isbn10 = result.isbn10 ?? null;
+    updates.description = result.description ?? null;
+    coverUrl = result.coverUrl;
   } else {
     throw new Error(`Unsupported source: ${source}`);
   }

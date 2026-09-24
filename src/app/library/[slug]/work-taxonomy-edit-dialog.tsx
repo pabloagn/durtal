@@ -106,7 +106,6 @@ export function WorkTaxonomyEditDialog({
       setKeywordIds(currentKeywordIds);
       setAttributeIds(currentAttributeIds);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isControlled, open]);
 
   function handleSave() {

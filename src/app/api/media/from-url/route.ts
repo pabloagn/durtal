@@ -3,8 +3,10 @@ import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/med
 import { createMedia, setActiveMedia } from "@/lib/actions/media";
 import { updateCollection } from "@/lib/actions/collections";
 import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
+import { isSafeUrl, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
+import { extractColorPalette } from "@/lib/color/extract-palette";
 import type { MediaEntityType } from "@/lib/s3/keys";
-import type { MediaType } from "@/lib/types";
+import type { ColorPalette, MediaType } from "@/lib/types";
 
 /**
  * POST /api/media/from-url
@@ -61,14 +63,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate URL is safe (SSRF prevention)
+    if (!isSafeUrl(imageUrl)) {
+      return NextResponse.json(
+        { error: "URL not allowed. Only HTTPS URLs to public hosts are accepted." },
+        { status: 400 },
+      );
+    }
+
     // Download the image from the URL
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     const response = await fetch(imageUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Durtal/1.0; +https://durtal.app)",
         "Accept": "image/*,*/*;q=0.8",
       },
       redirect: "follow",
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!response.ok) {
       console.error(`Image download failed: ${response.status} ${response.statusText} for ${imageUrl}`);
       return NextResponse.json(
@@ -83,6 +97,13 @@ export async function POST(req: NextRequest) {
     if (buffer.length === 0) {
       return NextResponse.json(
         { error: "Downloaded image is empty" },
+        { status: 400 },
+      );
+    }
+
+    if (buffer.length > MAX_MEDIA_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: "Downloaded image too large. Maximum size: 50 MB." },
         { status: 400 },
       );
     }
@@ -150,6 +171,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Extract color palette for work poster uploads
+    let colorPalette: ColorPalette | undefined;
+    if (mediaType === "poster" && entityType === "work") {
+      try {
+        colorPalette = await extractColorPalette(buffer);
+      } catch (err) {
+        console.error("Color palette extraction failed (non-blocking):", err);
+      }
+    }
+
     // For works/authors, create a media DB record
     const record = await createMedia({
       ...(entityType === "work"
@@ -163,6 +194,7 @@ export async function POST(req: NextRequest) {
       height: result.height,
       sizeBytes: buffer.length,
       caption,
+      ...(colorPalette ? { colorPalette } : {}),
     });
 
     // Activate the new record (deactivates others of same type+owner)

@@ -5,8 +5,8 @@ export async function GET(req: NextRequest) {
   try {
     const url = req.nextUrl;
     const search = url.searchParams.get("q") ?? undefined;
-    const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
-    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const limit = Math.max(1, Math.min(parseInt(url.searchParams.get("limit") ?? "100", 10) || 100, 200));
+    const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
 
     const [authors, total] = await Promise.all([
       getAuthors({ search, limit, offset }),

@@ -17,10 +17,14 @@ export const CACHE_TAGS = {
   artMovements: "ref:art-movements",
   keywords: "ref:keywords",
   attributes: "ref:attributes",
+  taxonomyFamilies: "ref:taxonomy-families",
+  customTaxonomyItems: "ref:custom-taxonomy-items",
   locations: "ref:locations",
   recommenders: "ref:recommenders",
   countries: "ref:countries",
   authors: "ref:authors",
+  venues: "ref:venues",
+  places: "ref:places",
 
   // Entity data (mutated more frequently)
   works: "data:works",

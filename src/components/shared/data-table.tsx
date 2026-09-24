@@ -63,10 +63,10 @@ export function DataTable<T>({
     return [...items].sort((a, b) => {
       const aVal = getSortValue
         ? getSortValue(a, sortKey)
-        : ((a as any)[sortKey] ?? "");
+        : ((a as Record<string, unknown>)[sortKey] ?? "");
       const bVal = getSortValue
         ? getSortValue(b, sortKey)
-        : ((b as any)[sortKey] ?? "");
+        : ((b as Record<string, unknown>)[sortKey] ?? "");
       const cmp =
         typeof aVal === "number" && typeof bVal === "number"
           ? aVal - bVal
@@ -96,6 +96,7 @@ export function DataTable<T>({
                   key={col.key}
                   className="cursor-pointer px-3 py-2 font-normal text-fg-muted transition-colors hover:text-fg-secondary"
                   onClick={() => toggleSort(col.key)}
+                  aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                 >
                   <div className="flex items-center gap-1">
                     {col.label}

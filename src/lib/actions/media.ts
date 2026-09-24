@@ -88,6 +88,20 @@ export async function deleteMedia(id: string) {
   recordActivity(entityType as "work" | "author", entityId, `${entityType}.${existing.type}_deleted`);
 
   await db.delete(media).where(eq(media.id, id));
+
+  // If the deleted item was active, auto-promote the next one
+  if (existing.isActive) {
+    const ownerCol = existing.workId ? media.workId : media.authorId;
+    const ownerId = existing.workId ?? existing.authorId!;
+    const next = await db.query.media.findFirst({
+      where: and(eq(ownerCol, ownerId), eq(media.type, existing.type)),
+      orderBy: asc(media.sortOrder),
+    });
+    if (next) {
+      await setActiveMedia(next.id);
+    }
+  }
+
   invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
 }
 
@@ -116,17 +130,33 @@ export async function setActiveMedia(id: string) {
   const item = await db.query.media.findFirst({ where: eq(media.id, id) });
   if (!item) return;
 
-  // Deactivate all others of same type for this owner
+  // Deactivate all others of same type for this owner, then activate target
   const ownerCol = item.workId ? media.workId : media.authorId;
   const ownerId = item.workId ?? item.authorId!;
   await db.update(media)
     .set({ isActive: false })
     .where(and(eq(ownerCol, ownerId), eq(media.type, item.type), not(eq(media.id, id))));
 
-  // Activate this one
   await db.update(media)
     .set({ isActive: true })
     .where(eq(media.id, id));
+
+  // Backfill color palette if this is a work poster without one
+  if (item.workId && item.type === "poster" && !item.colorPalette && item.s3Key) {
+    try {
+      const { s3, S3_BUCKET } = await import("@/lib/s3/client");
+      const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+      const { extractColorPalette } = await import("@/lib/color/extract-palette");
+      const obj = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: item.s3Key }));
+      const bytes = await obj.Body!.transformToByteArray();
+      const palette = await extractColorPalette(Buffer.from(bytes));
+      if (palette) {
+        await db.update(media).set({ colorPalette: palette }).where(eq(media.id, id));
+      }
+    } catch (err) {
+      console.error("Palette backfill on setActive failed (non-blocking):", err);
+    }
+  }
 
   const entityType = item.workId ? "work" : "author";
   const entityId = (item.workId ?? item.authorId)!;
@@ -152,4 +182,5 @@ export async function reorderMedia(ids: string[]) {
       db.update(media).set({ sortOrder: i }).where(eq(media.id, id)),
     ),
   );
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
 }

@@ -11,9 +11,12 @@ import {
 import {
   searchOpenLibrary,
   searchOpenLibraryByIsbn,
-  searchOpenLibraryByAuthor,
-  searchOpenLibrarySplit,
 } from "./open-library";
+import {
+  searchIsbndb,
+  searchIsbndbByIsbn,
+  searchIsbndbByAuthor,
+} from "./isbndb";
 
 // ── Normalization ──────────────────────────────────────────────────────────────
 
@@ -121,6 +124,9 @@ function scoreResult(result: SearchResult, query: ClassifiedQuery): number {
   const normalizedAuthors = result.authors.map((a) => normalize(a));
   const allAuthorText = normalizedAuthors.join(" ");
 
+  // 0. Source preference — ISBNdb is the preferred catalogue source
+  if (result.source === "isbndb") score += 10;
+
   // 1. Metadata completeness (0-30)
   if (result.coverUrl) score += 10;
   if (result.description) score += 5;
@@ -225,20 +231,50 @@ async function safeSearch(
   }
 }
 
+/**
+ * Race primary and secondary search sources. Returns as soon as the
+ * primary source resolves. The secondary source gets a grace period
+ * to finish — if it doesn't, we return without it.
+ */
+async function raceSearches(
+  primary: Promise<SearchResult[]>,
+  secondary: Promise<SearchResult[]>,
+  graceMs = 1500,
+): Promise<SearchResult[]> {
+  const primaryResults = await primary;
+  if (primaryResults.length > 0) {
+    // Primary has results — give secondary a short grace period
+    const secondaryWithTimeout = Promise.race([
+      secondary,
+      new Promise<SearchResult[]>((resolve) =>
+        setTimeout(() => resolve([]), graceMs),
+      ),
+    ]);
+    const secondaryResults = await secondaryWithTimeout;
+    return [...primaryResults, ...secondaryResults];
+  }
+  // Primary returned nothing — wait for secondary fully
+  const secondaryResults = await secondary;
+  return secondaryResults;
+}
+
 async function searchByIsbn(isbn: string): Promise<SearchResult[]> {
-  const results = await Promise.all([
+  // ISBNdb is primary; Google Books + Open Library are secondary
+  const primary = safeSearch(() => searchIsbndbByIsbn(isbn));
+  const secondary = Promise.all([
     safeSearch(() => searchGoogleBooksByIsbn(isbn)),
     safeSearch(() => searchOpenLibraryByIsbn(isbn)),
-  ]);
-  return results.flat();
+  ]).then((r) => r.flat());
+
+  return raceSearches(primary, secondary);
 }
 
 /**
  * Comprehensive search strategy for non-ISBN queries.
  *
- * Always runs free-text search on both APIs, plus smart author/title
- * operator splits for multi-word queries. Classification is used as a
- * ranking hint to boost relevant results, not to restrict search scope.
+ * Runs free-text search on Google Books (fast) as primary, and
+ * Open Library + supplementary queries as secondary with a grace period.
+ * Only adds one author/title split (most likely) instead of all permutations.
  */
 async function searchComprehensive(
   query: ClassifiedQuery,
@@ -246,60 +282,52 @@ async function searchComprehensive(
   const q = query.normalized;
   const words = q.split(/\s+/);
 
-  const searches: Promise<SearchResult[]>[] = [
-    // Core: free-text search on both APIs (always)
+  // Primary: ISBNdb free-text search
+  const primary = safeSearch(() => searchIsbndb(q, 10));
+
+  // Secondary: Google Books + Open Library + targeted queries
+  const secondarySearches: Promise<SearchResult[]>[] = [
     safeSearch(() => searchGoogleBooks(q, 10)),
     safeSearch(() => searchOpenLibrary(q, 10)),
   ];
 
-  // Multi-word queries: try author/title operator splits
+  // Multi-word queries: add a single best-guess split
   if (words.length >= 2 && words.length <= 6) {
-    const maxSplits = Math.min(words.length - 1, 3);
-    for (let i = 1; i <= maxSplits; i++) {
-      const left = words.slice(0, i).join(" ");
-      const right = words.slice(i).join(" ");
+    const left = words[0];
+    const right = words.slice(1).join(" ");
 
-      // Google Books: left=author, right=title
-      searches.push(
-        safeSearch(() =>
-          searchGoogleBooks(`inauthor:${left} intitle:${right}`, 3),
-        ),
-      );
-      // Google Books: right=author, left=title (reversed)
-      searches.push(
-        safeSearch(() =>
-          searchGoogleBooks(`inauthor:${right} intitle:${left}`, 3),
-        ),
-      );
-      // Open Library: split search with author/title params
-      searches.push(
-        safeSearch(() => searchOpenLibrarySplit(left, right, 3)),
-      );
-      searches.push(
-        safeSearch(() => searchOpenLibrarySplit(right, left, 3)),
-      );
-    }
+    secondarySearches.push(
+      safeSearch(() =>
+        searchGoogleBooks(`inauthor:${left} intitle:${right}`, 3),
+      ),
+    );
+    secondarySearches.push(
+      safeSearch(() =>
+        searchGoogleBooks(`inauthor:${right} intitle:${left}`, 3),
+      ),
+    );
   }
 
-  // High author confidence: add dedicated author search
+  // High author confidence: add dedicated author searches
   if (query.authorScore >= 0.7) {
-    searches.push(
-      safeSearch(() => searchGoogleBooksByAuthor(q, 5)),
+    secondarySearches.push(
+      safeSearch(() => searchIsbndbByAuthor(q, 5)),
     );
-    searches.push(
-      safeSearch(() => searchOpenLibraryByAuthor(q, 5)),
+    secondarySearches.push(
+      safeSearch(() => searchGoogleBooksByAuthor(q, 5)),
     );
   }
 
   // Low author confidence (likely title): add targeted title search
   if (query.authorScore <= 0.3) {
-    searches.push(
+    secondarySearches.push(
       safeSearch(() => searchGoogleBooks(`intitle:"${q}"`, 5)),
     );
   }
 
-  const results = await Promise.all(searches);
-  return results.flat();
+  const secondary = Promise.all(secondarySearches).then((r) => r.flat());
+
+  return raceSearches(primary, secondary, 2000);
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────

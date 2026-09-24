@@ -11,8 +11,13 @@ export async function PATCH(
   { params }: { params: Promise<{ commentId: string }> },
 ) {
   const { commentId } = await params;
-  const body = await req.json();
-  const parsed = updateCommentSchema.parse(body);
+  let parsed;
+  try {
+    const body = await req.json();
+    parsed = updateCommentSchema.parse(body);
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const html = sanitizeCommentHtml(parsed.contentHtml);
 
   const [updated] = await db

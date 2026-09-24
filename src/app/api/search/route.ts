@@ -3,7 +3,7 @@ import { searchBooks } from "@/lib/api/search-engine";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const query = searchParams.get("q");
+  const query = searchParams.get("q")?.trim() || null;
   const isbn = searchParams.get("isbn");
 
   if (!query && !isbn) {

@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
       | "recent"
       | "year"
       | "rating";
-    const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
-    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const limit = Math.max(1, Math.min(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 200));
+    const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
 
     const [works, total] = await Promise.all([
       getWorks({ search, sort, limit, offset }),

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { UploadZone } from "./upload-zone";
-import type { MediaType } from "@/lib/types";
+import type { MediaType as _MediaType } from "@/lib/types";
 
 interface HeroBackgroundProps {
   imageUrl?: string | null;

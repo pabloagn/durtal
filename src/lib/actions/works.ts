@@ -10,8 +10,11 @@ import {
   instances,
   authors,
   media,
+  comments,
+  activityEvents,
+  galleryLayouts,
 } from "@/lib/db/schema";
-import { eq, desc, asc, ilike, like, count, and, inArray, gte, isNotNull, notInArray } from "drizzle-orm";
+import { eq, desc, asc, ilike, like, count, and, or, inArray, gte, isNotNull, notInArray } from "drizzle-orm";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -19,6 +22,69 @@ import { recordActivity } from "@/lib/activity/record";
 
 type CatalogueStatus = typeof works.catalogueStatus.enumValues[number];
 type AcquisitionPriority = typeof works.acquisitionPriority.enumValues[number];
+
+/**
+ * Build a search condition that matches works by title, author, ISBN,
+ * publisher, or series name. Detects ISBN-shaped queries and prioritises
+ * edition-level ISBN lookup.
+ */
+async function buildSearchCondition(search: string) {
+  const stripped = search.replace(/[-\s]/g, "");
+  const isIsbn = /^\d{10,13}$/.test(stripped);
+
+  // Collect work IDs that match via related tables
+  const relatedWorkIds = new Set<string>();
+
+  // 1. ISBN lookup (always, not just when the query "looks like" an ISBN —
+  //    this lets partial-ISBN or hyphenated-ISBN queries still match)
+  if (isIsbn || /\d{4,}/.test(stripped)) {
+    const target = isIsbn ? stripped : search.trim();
+    const isbnEditions = await db
+      .select({ workId: editions.workId })
+      .from(editions)
+      .where(
+        or(
+          eq(editions.isbn13, target),
+          eq(editions.isbn10, target),
+          ilike(editions.isbn13, `%${target}%`),
+          ilike(editions.isbn10, `%${target}%`),
+        ),
+      );
+    for (const r of isbnEditions) relatedWorkIds.add(r.workId);
+
+    // Pure ISBN query — don't bother with title/author text matching
+    if (isIsbn) {
+      return relatedWorkIds.size > 0
+        ? inArray(works.id, [...relatedWorkIds])
+        : eq(works.id, "00000000-0000-0000-0000-000000000000"); // no match
+    }
+  }
+
+  // 2. Author name match
+  const authorMatches = await db
+    .select({ workId: workAuthors.workId })
+    .from(workAuthors)
+    .innerJoin(authors, eq(workAuthors.authorId, authors.id))
+    .where(ilike(authors.name, `%${search}%`));
+  for (const r of authorMatches) relatedWorkIds.add(r.workId);
+
+  // 3. Publisher match (via editions)
+  const publisherMatches = await db
+    .select({ workId: editions.workId })
+    .from(editions)
+    .where(ilike(editions.publisher, `%${search}%`));
+  for (const r of publisherMatches) relatedWorkIds.add(r.workId);
+
+  // Build OR condition: title match OR series name match OR related-table matches
+  const orConditions = [
+    ilike(works.title, `%${search}%`),
+    ilike(works.seriesName, `%${search}%`),
+  ];
+  if (relatedWorkIds.size > 0) {
+    orConditions.push(inArray(works.id, [...relatedWorkIds]));
+  }
+  return or(...orConditions)!;
+}
 
 export async function getWorks(opts?: {
   search?: string;
@@ -61,7 +127,9 @@ export async function getWorks(opts?: {
 
   // Build where clause combining search + filters
   const conditions = [];
-  if (search) conditions.push(ilike(works.title, `%${search}%`));
+  if (search) {
+    conditions.push(await buildSearchCondition(search));
+  }
   if (filters?.catalogueStatus?.length) {
     conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
   }
@@ -177,7 +245,9 @@ export async function getWorkCount(search?: string, filters?: {
   hasPoster?: boolean;
 }) {
   const conditions = [];
-  if (search) conditions.push(ilike(works.title, `%${search}%`));
+  if (search) {
+    conditions.push(await buildSearchCondition(search));
+  }
   if (filters?.catalogueStatus?.length) {
     conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
   }
@@ -642,6 +712,12 @@ function recordWorkDiffs(
 
 export async function deleteWork(id: string) {
   recordActivity("work", id, "work.deleted");
+
+  // Clean up polymorphic records (not covered by FK cascades)
+  await db.delete(comments).where(and(eq(comments.entityType, "work"), eq(comments.entityId, id)));
+  await db.delete(activityEvents).where(and(eq(activityEvents.entityType, "work"), eq(activityEvents.entityId, id)));
+  await db.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "work"), eq(galleryLayouts.entityId, id)));
+
   await db.delete(works).where(eq(works.id, id));
   invalidate(CACHE_TAGS.works);
   return { id };
