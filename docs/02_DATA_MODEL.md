@@ -86,6 +86,20 @@ Given a work W, its editions E[], their instances I[] (excluding deaccessioned),
 
 The UI renders ownership as colored location indicators. Each location has an assigned color. On the book card, small dots (or icons) light up for each location that holds an instance.
 
+### Status Changes From Orders
+
+Creating, updating or deleting an order re-derives the work's `catalogue_status` from all of its orders (`nextCatalogueStatus()` in `src/lib/utils/order-status-sync.ts`). Orders only promote a work; they never demote an owned book:
+
+```
+  any order in hand (delivered / received / purchased / won) → accessioned
+  any open order                                              → on_order, unless already accessioned
+  no open or in-hand order left, work is on_order             → status before it was ordered
+                                                                (from work_status_history, else wanted)
+  no open or in-hand order left, any other status             → unchanged
+```
+
+Every change is written to `work_status_history`. A deleted order is recorded as a `work.order_deleted` activity event (its own `order_status_history` rows are removed with it).
+
 ---
 
 ## Entity-Relationship Overview

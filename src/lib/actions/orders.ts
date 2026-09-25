@@ -32,24 +32,29 @@ import {
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { createOrderSchema } from "@/lib/validations/orders";
+import { nextCatalogueStatus, type CatalogueStatus } from "@/lib/utils/order-status-sync";
 
 /**
- * Derive the correct work catalogueStatus by looking at ALL orders for the work.
- * (C1, H4) — handles cancellation, return, deletion, and multi-order scenarios.
- *
- * Priority: any "book in hand" order → accessioned
- *           any active (non-terminal) order → on_order
- *           otherwise → leave unchanged (don't revert to a status we can't know)
+ * Keep a work's catalogueStatus in line with ALL its orders (C1, H4), without
+ * ever demoting a book that is owned. The rules live in nextCatalogueStatus().
  */
 async function syncWorkCatalogueStatusFromAllOrders(
   workId: string,
   notes: string,
 ) {
-  const allOrders = await db.query.orders.findMany({
-    where: eq(orders.workId, workId),
-    columns: { status: true },
-  });
+  const [allOrders, work] = await Promise.all([
+    db.query.orders.findMany({
+      where: eq(orders.workId, workId),
+      columns: { status: true },
+    }),
+    db.query.works.findFirst({
+      where: eq(works.id, workId),
+      columns: { catalogueStatus: true },
+    }),
+  ]);
+  if (!work) return;
 
+  const current = work.catalogueStatus as CatalogueStatus;
   const hasBookInHand = allOrders.some((o) =>
     BOOK_IN_HAND_STATUSES.includes(o.status as OrderStatus),
   );
@@ -57,27 +62,22 @@ async function syncWorkCatalogueStatusFromAllOrders(
     (o) => !(TERMINAL_STATUSES as string[]).includes(o.status),
   );
 
-  type CatalogueStatus = "tracked" | "shortlisted" | "wanted" | "on_order" | "accessioned" | "deaccessioned";
-
-  let targetStatus: CatalogueStatus;
-  if (hasBookInHand) {
-    targetStatus = "accessioned";
-  } else if (hasActiveOrder) {
-    targetStatus = "on_order";
-  } else {
-    // All orders are terminal non-delivered (cancelled/returned) or no orders left.
-    // Revert to "wanted" since the user clearly wanted this work.
-    targetStatus = "wanted";
+  // Only needed when a work leaves on_order: the status it had before it was ordered
+  let statusBeforeOrdering: CatalogueStatus | null = null;
+  if (current === "on_order" && !hasBookInHand && !hasActiveOrder) {
+    const lastOrdered = await db.query.workStatusHistory.findFirst({
+      where: and(
+        eq(workStatusHistory.workId, workId),
+        eq(workStatusHistory.toStatus, "on_order"),
+      ),
+      orderBy: desc(workStatusHistory.changedAt),
+      columns: { fromStatus: true },
+    });
+    statusBeforeOrdering = (lastOrdered?.fromStatus as CatalogueStatus | null) ?? null;
   }
 
-  const work = await db.query.works.findFirst({
-    where: eq(works.id, workId),
-    columns: { catalogueStatus: true },
-  });
-
-  if (!work || work.catalogueStatus === targetStatus) return;
-
-  const fromStatus = work.catalogueStatus;
+  const targetStatus = nextCatalogueStatus({ current, hasBookInHand, hasActiveOrder, statusBeforeOrdering });
+  if (targetStatus === current) return;
 
   await db
     .update(works)
@@ -86,13 +86,13 @@ async function syncWorkCatalogueStatusFromAllOrders(
 
   await db.insert(workStatusHistory).values({
     workId,
-    fromStatus,
+    fromStatus: current,
     toStatus: targetStatus,
     notes,
   });
 
   recordActivity("work", workId, "work.catalogue_status_changed", {
-    oldValue: fromStatus,
+    oldValue: current,
     newValue: targetStatus,
   });
 
@@ -599,15 +599,14 @@ export async function deleteOrder(id: string) {
     );
   }
 
-  // C2: record history before deletion
-  await db.insert(orderStatusHistory).values({
-    orderId: id,
-    fromStatus: order.status,
-    toStatus: "cancelled" as OrderStatus,
-    notes: "Order deleted",
-  });
-
+  // The order's own status history is removed with it (ON DELETE CASCADE),
+  // so the deletion is recorded on the work's activity timeline instead.
   await db.delete(orders).where(eq(orders.id, id));
+
+  recordActivity("work", order.workId, "work.order_deleted", {
+    oldValue: order.status,
+    extra: { orderId: id },
+  });
 
   // C2: sync work status after removing order
   await syncWorkCatalogueStatusFromAllOrders(

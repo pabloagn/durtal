@@ -45,6 +45,7 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.collection_added":          { icon: "FolderPlus",   color: MUTED,     category: "relation" },
   "work.collection_removed":        { icon: "FolderMinus",  color: RED,       category: "relation" },
   "work.order_updated":              { icon: "Truck",        color: MUTED,     category: "update" },
+  "work.order_deleted":              { icon: "Truck",        color: RED,       category: "delete" },
   "work.comment_added":             { icon: "MessageSquare",color: SECONDARY, category: "comment" },
 
   // ── Author events ────────────────────────────────────────────────────────
@@ -141,6 +142,9 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.collection_added":          (m) => [text("Added to collection "), label(m?.collectionName ?? "")],
   "work.collection_removed":        (m) => [text("Removed from collection "), label(m?.collectionName ?? "")],
   "work.order_updated":              () => [text("Updated order details")],
+  "work.order_deleted":              (m) => m?.oldValue
+    ? [text("Deleted an order (was "), label(String(m.oldValue).replace(/_/g, " ")), text(")")]
+    : [text("Deleted an order")],
   "work.comment_added":             () => [text("Left a comment")],
 
   "author.created":                 () => [text("Created this author")],
