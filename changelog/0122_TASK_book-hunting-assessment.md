@@ -1,6 +1,6 @@
 # Task 0122: Book hunting assessment
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-09-25
 **Priority**: HIGH
 **Type**: Feature
@@ -21,4 +21,4 @@ SLN-315: Mark a work Rare or Difficult to Hunt and retain the calendar date of t
 
 ## Completion Notes
 
-Implementation tested in an isolated worktree. 284 unit tests and 5 real PostgreSQL integration tests pass; TypeScript and lint pass. Browser verified marking, historical dates, reassessing today, clearing, filtering and all three library views against disposable synthetic data. No live book data changed. Live migration and activation pending approval required by HANDOVER.md.
+Implementation tested in an isolated worktree. 284 unit tests and 5 real PostgreSQL integration tests pass; TypeScript and lint pass. Browser verified marking, historical dates, reassessing today, clearing, filtering and all three library views against disposable synthetic data. After explicit user approval, migration 0023 was applied to live Neon using Drizzle's transactional migrator. Before/after fingerprints confirmed all 348 existing works retained their original values; the new fields remain unmarked. Activated in the localhost:3100 checkout and verified the live editor without saving an assessment to a real book.
