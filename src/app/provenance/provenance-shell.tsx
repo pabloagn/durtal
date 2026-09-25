@@ -77,6 +77,8 @@ interface OrderVenue {
 export interface OrderItem {
   id: string;
   workId: string;
+  editionId?: string | null;
+  acquisitionTargetId?: string | null;
   work: OrderWork;
   venue: OrderVenue | null;
   acquisitionMethod: AcquisitionMethod;
@@ -239,32 +241,63 @@ function getTimelineSteps(
   const m = order.acquisitionMethod;
   if (m === "gift") {
     return [
-      { label: "Received", date: order.actualDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+      {
+        label: "Received",
+        date: order.actualDeliveryDate,
+        done: Boolean(order.actualDeliveryDate),
+      },
     ];
   }
   if (m === "in_store_purchase" || m === "event_purchase") {
-    return [
-      { label: "Purchased", date: order.orderDate, done: true },
-    ];
+    return [{ label: "Purchased", date: order.orderDate, done: true }];
   }
   if (m === "auction") {
     return [
       { label: "Bid placed", date: order.orderDate, done: true },
-      { label: "Won", date: null, done: AUCTION_PIPELINE.indexOf(order.status) >= AUCTION_PIPELINE.indexOf("won") },
-      { label: "Shipped", date: order.shippedDate, done: Boolean(order.shippedDate) },
-      { label: "Delivered", date: order.actualDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+      {
+        label: "Won",
+        date: null,
+        done:
+          AUCTION_PIPELINE.indexOf(order.status) >=
+          AUCTION_PIPELINE.indexOf("won"),
+      },
+      {
+        label: "Shipped",
+        date: order.shippedDate,
+        done: Boolean(order.shippedDate),
+      },
+      {
+        label: "Delivered",
+        date: order.actualDeliveryDate,
+        done: Boolean(order.actualDeliveryDate),
+      },
     ];
   }
   // online_order / digital_purchase
   return [
     { label: "Order placed", date: order.orderDate, done: true },
-    { label: "Shipped", date: order.shippedDate, done: Boolean(order.shippedDate) },
-    { label: "Estimated delivery", date: order.estimatedDeliveryDate, done: Boolean(order.actualDeliveryDate) },
-    { label: "Delivered", date: order.actualDeliveryDate, done: Boolean(order.actualDeliveryDate) },
+    {
+      label: "Shipped",
+      date: order.shippedDate,
+      done: Boolean(order.shippedDate),
+    },
+    {
+      label: "Estimated delivery",
+      date: order.estimatedDeliveryDate,
+      done: Boolean(order.actualDeliveryDate),
+    },
+    {
+      label: "Delivered",
+      date: order.actualDeliveryDate,
+      done: Boolean(order.actualDeliveryDate),
+    },
   ];
 }
 
-function formatCurrency(amount: string | null, currency: string | null): string {
+function formatCurrency(
+  amount: string | null,
+  currency: string | null,
+): string {
   if (!amount) return "—";
   const num = parseFloat(amount);
   if (isNaN(num)) return "—";
@@ -306,9 +339,7 @@ function StatCard({
           >
             {value}
           </p>
-          {subtext && (
-            <p className="mt-1 text-xs text-fg-muted">{subtext}</p>
-          )}
+          {subtext && <p className="mt-1 text-xs text-fg-muted">{subtext}</p>}
         </div>
         <div className="rounded-sm border border-glass-border bg-bg-tertiary/40 p-2">
           <Icon
@@ -529,9 +560,7 @@ function OrderDetailPanel({
     setIsPending(true);
     try {
       await updateOrderStatus(order.id, newStatus);
-      toast.success(
-        `Status updated to ${newStatus.replace(/_/g, " ")}`,
-      );
+      toast.success(`Status updated to ${newStatus.replace(/_/g, " ")}`);
       router.refresh();
     } catch (err) {
       toast.error(
@@ -697,7 +726,9 @@ function OrderDetailPanel({
                 {order.carrier && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-fg-muted">Carrier</span>
-                    <span className="text-xs text-fg-primary">{order.carrier}</span>
+                    <span className="text-xs text-fg-primary">
+                      {order.carrier}
+                    </span>
                   </div>
                 )}
                 {order.trackingNumber && (
@@ -771,9 +802,17 @@ function OrderDetailPanel({
                 href={`/places/${order.venue.slug}`}
                 className="flex items-center gap-2 rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 transition-colors hover:border-fg-muted/15 hover:bg-bg-tertiary/50"
               >
-                <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} />
-                <span className="text-xs text-fg-primary">{order.venue.name}</span>
-                <ChevronRight className="ml-auto h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+                <MapPin
+                  className="h-3.5 w-3.5 shrink-0 text-fg-muted"
+                  strokeWidth={1.5}
+                />
+                <span className="text-xs text-fg-primary">
+                  {order.venue.name}
+                </span>
+                <ChevronRight
+                  className="ml-auto h-3.5 w-3.5 text-fg-muted"
+                  strokeWidth={1.5}
+                />
               </Link>
             </div>
           )}
@@ -827,7 +866,10 @@ function OrderDetailPanel({
                   disabled={isPending}
                 >
                   {isPending ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                    <RefreshCw
+                      className="h-3.5 w-3.5 animate-spin"
+                      strokeWidth={1.5}
+                    />
                   ) : (
                     <>
                       <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -842,9 +884,7 @@ function OrderDetailPanel({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() =>
-                    setStatusDropdownOpen((prev) => !prev)
-                  }
+                  onClick={() => setStatusDropdownOpen((prev) => !prev)}
                   disabled={isPending}
                 >
                   <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -948,12 +988,14 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
       optimisticDates.actualDeliveryDate = order.actualDeliveryDate ?? today;
     }
 
-    const optimisticOrder = { ...order, status: targetStatus, ...optimisticDates };
+    const optimisticOrder = {
+      ...order,
+      status: targetStatus,
+      ...optimisticDates,
+    };
 
     setOptimisticOrders((prev) =>
-      prev.map((o) =>
-        o.id === order.id ? optimisticOrder : o,
-      ),
+      prev.map((o) => (o.id === order.id ? optimisticOrder : o)),
     );
 
     // Keep detail panel in sync if this order is selected
@@ -972,17 +1014,11 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
       .catch((err) => {
         // Revert optimistic update
         setOptimisticOrders((prev) =>
-          prev.map((o) =>
-            o.id === order.id ? order : o,
-          ),
+          prev.map((o) => (o.id === order.id ? order : o)),
         );
-        setSelectedOrder((prev) =>
-          prev?.id === order.id ? order : prev,
-        );
+        setSelectedOrder((prev) => (prev?.id === order.id ? order : prev));
         toast.error(
-          err instanceof Error
-            ? err.message
-            : "Failed to update status",
+          err instanceof Error ? err.message : "Failed to update status",
         );
       });
   }
@@ -990,9 +1026,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
   // Group orders by status for the pipeline
   const ordersByStatus = PIPELINE_COLUMNS.reduce<Record<string, OrderItem[]>>(
     (acc, col) => {
-      acc[col.status] = optimisticOrders.filter(
-        (o) => o.status === col.status,
-      );
+      acc[col.status] = optimisticOrders.filter((o) => o.status === col.status);
       return acc;
     },
     {},

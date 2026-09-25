@@ -72,6 +72,7 @@ export function getValidTransitions(
   currentStatus: OrderStatus,
   method: AcquisitionMethod,
 ): OrderStatus[] {
+  if (BOOK_IN_HAND_STATUSES.includes(currentStatus)) return ["returned"];
   if ((TERMINAL_STATUSES as string[]).includes(currentStatus)) return [];
 
   let pipeline: OrderStatus[];
@@ -90,13 +91,13 @@ export function getValidTransitions(
   const currentIdx = pipeline.indexOf(currentStatus);
   // Allow both forward and backward transitions within the pipeline
   const reachable =
-    currentIdx >= 0
-      ? pipeline.filter((_, i) => i !== currentIdx)
-      : pipeline;
+    currentIdx >= 0 ? pipeline.filter((_, i) => i !== currentIdx) : pipeline;
 
-  return [...reachable, "cancelled" as OrderStatus, "returned" as OrderStatus].filter(
-    (s) => s !== currentStatus,
-  );
+  return [
+    ...reachable,
+    "cancelled" as OrderStatus,
+    "returned" as OrderStatus,
+  ].filter((s) => s !== currentStatus);
 }
 
 // H2: valid initial statuses for a given acquisition method
@@ -120,6 +121,7 @@ export function getValidInitialStatuses(
 
 export interface CreateOrderInput {
   workId: string;
+  acquisitionTargetId?: string | null;
   editionId?: string | null;
   instanceId?: string | null;
   venueId?: string | null;

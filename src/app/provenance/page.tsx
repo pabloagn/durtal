@@ -1,3 +1,4 @@
+import { getTargetOrderSeed } from "@/lib/actions/publishers";
 import { Suspense } from "react";
 import { getActiveOrders, getProvenanceStats } from "@/lib/actions/orders";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,6 +16,8 @@ async function ProvenanceContent() {
   const orders: OrderItem[] = rawOrders.map((o) => ({
     id: o.id,
     workId: o.workId,
+    editionId: o.editionId,
+    acquisitionTargetId: o.acquisitionTargetId,
     work: {
       id: o.work.id,
       title: o.work.title,
@@ -73,13 +76,24 @@ async function ProvenanceContent() {
   return <ProvenanceShell activeOrders={orders} stats={provenanceStats} />;
 }
 
-export default async function ProvenancePage() {
+export default async function ProvenancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ target?: string }>;
+}) {
+  const { target } = await searchParams;
+  const seed =
+    target && /^[0-9a-f-]{36}$/i.test(target)
+      ? await getTargetOrderSeed(target)
+      : null;
   return (
     <>
       <PageHeader
         title="Provenance"
         description="Track the acquisition pipeline for incoming books"
-        actions={<OrderCreateDialog />}
+        actions={
+          <OrderCreateDialog key={seed?.target.id ?? "new"} seed={seed} />
+        }
       />
 
       <Suspense

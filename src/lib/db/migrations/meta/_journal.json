@@ -176,6 +176,20 @@
       "when": 1790355882228,
       "tag": "0024_rare_boolean",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790359515766,
+      "tag": "0025_publishers_and_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790360689420,
+      "tag": "0026_target_accessioned_copies",
+      "breakpoints": true
     }
   ]
 }

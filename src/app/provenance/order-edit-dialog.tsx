@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  OrderTargetFields,
+  type OrderTargetValue,
+} from "@/components/publishers/order-target-fields";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -11,13 +15,14 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { updateOrder } from "@/lib/actions/orders";
-import {
-  CURRENCY_SELECT_OPTIONS,
-} from "@/lib/constants/currencies";
+import { CURRENCY_SELECT_OPTIONS } from "@/lib/constants/currencies";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 
 interface OrderData {
   id: string;
+  workId: string;
+  editionId?: string | null;
+  acquisitionTargetId?: string | null;
   acquisitionMethod: AcquisitionMethod;
   status: OrderStatus;
   orderDate: string;
@@ -54,10 +59,18 @@ interface OrderEditDialogProps {
   onClose: () => void;
 }
 
-export function OrderEditDialog({ order, open, onClose }: OrderEditDialogProps) {
+export function OrderEditDialog({
+  order,
+  open,
+  onClose,
+}: OrderEditDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const [targetValue, setTargetValue] = useState<OrderTargetValue>({
+    acquisitionTargetId: order.acquisitionTargetId ?? "",
+    editionId: order.editionId ?? "",
+  });
   const [method, setMethod] = useState(order.acquisitionMethod);
   const [orderDate, setOrderDate] = useState(order.orderDate);
   const [orderConfirmation, setOrderConfirmation] = useState(
@@ -93,23 +106,28 @@ export function OrderEditDialog({ order, open, onClose }: OrderEditDialogProps) 
     const total =
       priceVal != null && shippingVal != null
         ? String(parseFloat(priceVal) + parseFloat(shippingVal))
-        : priceVal ?? shippingVal ?? null;
+        : (priceVal ?? shippingVal ?? null);
 
     // M6: null out shipping-specific fields when method doesn't use shipping
-    const carrierVal = showShipping ? (carrier || null) : null;
-    const trackingNumberVal = showShipping ? (trackingNumber || null) : null;
-    const trackingUrlVal = showShipping ? (trackingUrl || null) : null;
-    const shippedDateVal = showShipping ? (shippedDate || null) : null;
-    const estimatedDeliveryDateVal = showShipping ? (estimatedDeliveryDate || null) : null;
-    const actualDeliveryDateVal = (showShipping || isGift) ? (actualDeliveryDate || null) : null;
+    const carrierVal = showShipping ? carrier || null : null;
+    const trackingNumberVal = showShipping ? trackingNumber || null : null;
+    const trackingUrlVal = showShipping ? trackingUrl || null : null;
+    const shippedDateVal = showShipping ? shippedDate || null : null;
+    const estimatedDeliveryDateVal = showShipping
+      ? estimatedDeliveryDate || null
+      : null;
+    const actualDeliveryDateVal =
+      showShipping || isGift ? actualDeliveryDate || null : null;
 
     startTransition(async () => {
       try {
         await updateOrder(order.id, {
           acquisitionMethod: method,
+          acquisitionTargetId: targetValue.acquisitionTargetId || null,
+          editionId: targetValue.editionId || null,
           orderDate,
-          orderConfirmation: showShipping ? (orderConfirmation || null) : null,
-          orderUrl: showShipping ? (orderUrl || null) : null,
+          orderConfirmation: showShipping ? orderConfirmation || null : null,
+          orderUrl: showShipping ? orderUrl || null : null,
           price: priceVal,
           shippingCost: shippingVal,
           totalCost: total,
@@ -144,13 +162,16 @@ export function OrderEditDialog({ order, open, onClose }: OrderEditDialogProps) 
       className="max-w-2xl"
     >
       <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+        <OrderTargetFields
+          workId={order.workId}
+          value={targetValue}
+          onChange={setTargetValue}
+        />
         <Select
           label="Acquisition Method"
           options={ACQUISITION_METHOD_OPTIONS}
           value={method}
-          onChange={(e) =>
-            setMethod(e.target.value as AcquisitionMethod)
-          }
+          onChange={(e) => setMethod(e.target.value as AcquisitionMethod)}
         />
 
         <DatePicker

@@ -30,7 +30,11 @@ describe("TERMINAL_STATUSES", () => {
 
 describe("BOOK_IN_HAND_STATUSES", () => {
   it("contains delivery-complete statuses", () => {
-    expect(BOOK_IN_HAND_STATUSES).toEqual(["delivered", "purchased", "received"]);
+    expect(BOOK_IN_HAND_STATUSES).toEqual([
+      "delivered",
+      "purchased",
+      "received",
+    ]);
   });
 
   it("is a subset of TERMINAL_STATUSES", () => {
@@ -43,8 +47,13 @@ describe("BOOK_IN_HAND_STATUSES", () => {
 describe("PIPELINE_STATUSES", () => {
   it("follows correct order progression", () => {
     expect(PIPELINE_STATUSES).toEqual([
-      "placed", "confirmed", "processing", "shipped",
-      "in_transit", "out_for_delivery", "delivered",
+      "placed",
+      "confirmed",
+      "processing",
+      "shipped",
+      "in_transit",
+      "out_for_delivery",
+      "delivered",
     ]);
   });
 });
@@ -71,11 +80,18 @@ describe("IMMEDIATE_PIPELINE", () => {
 // ── Transition validation ────────────────────────────────────────────────────
 
 describe("getValidTransitions", () => {
-  it("returns empty array for terminal statuses", () => {
-    const methods: AcquisitionMethod[] = ["online_order", "in_store_purchase", "auction", "gift"];
+  it("allows returns after receipt and no transitions after cancellation or return", () => {
+    const methods: AcquisitionMethod[] = [
+      "online_order",
+      "in_store_purchase",
+      "auction",
+      "gift",
+    ];
     for (const method of methods) {
       for (const terminal of TERMINAL_STATUSES) {
-        expect(getValidTransitions(terminal, method)).toEqual([]);
+        expect(getValidTransitions(terminal, method)).toEqual(
+          BOOK_IN_HAND_STATUSES.includes(terminal) ? ["returned"] : [],
+        );
       }
     }
   });
@@ -106,8 +122,8 @@ describe("getValidTransitions", () => {
 
   it("uses immediate pipeline for in-store purchases", () => {
     const transitions = getValidTransitions("purchased", "in_store_purchase");
-    // purchased is terminal
-    expect(transitions).toEqual([]);
+    // A completed purchase can still be returned.
+    expect(transitions).toEqual(["returned"]);
   });
 
   it("uses immediate pipeline for gifts", () => {
@@ -157,9 +173,19 @@ describe("getValidInitialStatuses", () => {
 
 describe("status coverage", () => {
   const ALL_STATUSES: OrderStatus[] = [
-    "placed", "confirmed", "processing", "shipped", "in_transit",
-    "out_for_delivery", "delivered", "purchased", "received",
-    "bid", "won", "cancelled", "returned",
+    "placed",
+    "confirmed",
+    "processing",
+    "shipped",
+    "in_transit",
+    "out_for_delivery",
+    "delivered",
+    "purchased",
+    "received",
+    "bid",
+    "won",
+    "cancelled",
+    "returned",
   ];
 
   it("every status appears in at least one pipeline or terminal list", () => {
@@ -175,7 +201,10 @@ describe("status coverage", () => {
   });
 
   it("no status appears in both terminal and active pipelines", () => {
-    const activePipeline = [...PIPELINE_STATUSES.slice(0, -1), ...AUCTION_PIPELINE.slice(0, -1)];
+    const activePipeline = [
+      ...PIPELINE_STATUSES.slice(0, -1),
+      ...AUCTION_PIPELINE.slice(0, -1),
+    ];
     // Terminal and active should not overlap except for end states
     for (const active of activePipeline) {
       if (active === "delivered") continue; // delivered is both pipeline end and terminal

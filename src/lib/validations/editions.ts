@@ -6,7 +6,12 @@ export const createEditionSchema = z.object({
   subtitle: z.string().max(500).nullable().optional(),
 
   // Identifiers
-  isbn13: z.string().length(13).regex(/^\d{13}$/, "Must be 13 digits").nullable().optional(),
+  isbn13: z
+    .string()
+    .length(13)
+    .regex(/^\d{13}$/, "Must be 13 digits")
+    .nullable()
+    .optional(),
   isbn10: z.string().length(10).nullable().optional(),
   asin: z.string().max(20).nullable().optional(),
   lccn: z.string().max(20).nullable().optional(),
@@ -16,6 +21,7 @@ export const createEditionSchema = z.object({
   goodreadsId: z.string().max(50).nullable().optional(),
 
   // Publication
+  publisherIds: z.array(z.uuid()).max(20).optional(),
   publisher: z.string().max(300).nullable().optional(),
   imprint: z.string().max(300).nullable().optional(),
   publicationDate: z.string().nullable().optional(),
@@ -35,12 +41,42 @@ export const createEditionSchema = z.object({
   isTranslated: z.boolean().optional().default(false),
 
   // Physical — accept 0 as null (empty field parsed to 0)
-  pageCount: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
+  pageCount: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((v) => (v === 0 ? null : v)),
   binding: z.string().nullable().optional(),
-  heightMm: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
-  widthMm: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
-  depthMm: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
-  weightGrams: z.number().int().min(0).nullable().optional().transform((v) => (v === 0 ? null : v)),
+  heightMm: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((v) => (v === 0 ? null : v)),
+  widthMm: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((v) => (v === 0 ? null : v)),
+  depthMm: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((v) => (v === 0 ? null : v)),
+  weightGrams: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((v) => (v === 0 ? null : v)),
   illustrationType: z.string().nullable().optional(),
 
   // Content
@@ -58,15 +94,21 @@ export const createEditionSchema = z.object({
   notes: z.string().max(10000).nullable().optional(),
 
   // Relations
-  contributorIds: z.array(z.object({
-    authorId: z.string().uuid(),
-    role: z.string().min(1),
-  })).optional(),
+  contributorIds: z
+    .array(
+      z.object({
+        authorId: z.string().uuid(),
+        role: z.string().min(1),
+      }),
+    )
+    .optional(),
   genreIds: z.array(z.string().uuid()).optional(),
   tagIds: z.array(z.string().uuid()).optional(),
 });
 
-export const updateEditionSchema = createEditionSchema.partial().omit({ workId: undefined });
+export const updateEditionSchema = createEditionSchema
+  .partial()
+  .omit({ workId: undefined });
 
 export type CreateEditionInput = z.input<typeof createEditionSchema>;
 export type UpdateEditionInput = z.input<typeof updateEditionSchema>;

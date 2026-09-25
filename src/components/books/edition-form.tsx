@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import {
-  BINDING_TYPES,
-  EDITION_CONTRIBUTOR_ROLES,
-} from "@/lib/types/index";
+import { BINDING_TYPES, EDITION_CONTRIBUTOR_ROLES } from "@/lib/types/index";
 import { filterBySearch } from "@/lib/utils/search-text";
+
+import { getPublisherOptions } from "@/lib/actions/publishers";
+import {
+  PublisherPicker,
+  type PublisherOption,
+} from "@/components/publishers/publisher-picker";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +35,7 @@ export interface EditionFormValues {
   openLibraryKey: string;
   googleBooksId: string;
   goodreadsId: string;
+  publisherIds?: string[];
   publisher: string;
   imprint: string;
   publicationYear: string;
@@ -161,6 +165,20 @@ export function EditionForm({
   isPending,
   existingCoverUrl,
 }: EditionFormProps) {
+  const [publisherOptions, setPublisherOptions] = useState<PublisherOption[]>(
+    [],
+  );
+  useEffect(() => {
+    let active = true;
+    getPublisherOptions()
+      .then((rows) => {
+        if (active) setPublisherOptions(rows);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
   const [values, setValues] = useState<EditionFormValues>(initialValues);
   const [newContributorName, setNewContributorName] = useState("");
   const [newContributorRole, setNewContributorRole] = useState("translator");
@@ -183,7 +201,11 @@ export function EditionForm({
     );
 
     const entry: ContributorEntry = existing
-      ? { authorId: existing.id, authorName: existing.name, role: newContributorRole }
+      ? {
+          authorId: existing.id,
+          authorName: existing.name,
+          role: newContributorRole,
+        }
       : { authorId: "", authorName: trimmed, role: newContributorRole };
 
     update("contributors", [...values.contributors, entry]);
@@ -313,7 +335,54 @@ export function EditionForm({
       </Section>
 
       {/* Section 2: Publication */}
-      <Section title="Publication">
+      <Section title="Publication" defaultOpen>
+        <label className="flex items-center gap-2 text-sm text-fg-secondary">
+          <input
+            type="checkbox"
+            disabled={initialValues.publisherIds !== undefined}
+            checked={values.publisherIds !== undefined}
+            onChange={(e) =>
+              update("publisherIds", e.target.checked ? [] : undefined)
+            }
+          />
+          Choose publisher identities manually
+        </label>
+        {values.publisherIds !== undefined && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {values.publisherIds.map((id) => (
+                <button
+                  type="button"
+                  key={id}
+                  className="text-xs text-fg-secondary"
+                  onClick={() =>
+                    update(
+                      "publisherIds",
+                      values.publisherIds!.filter((v) => v !== id),
+                    )
+                  }
+                >
+                  {publisherOptions.find((p) => p.id === id)?.name ??
+                    "Publisher"}{" "}
+                  ×
+                </button>
+              ))}
+            </div>
+            <PublisherPicker
+              options={publisherOptions.filter(
+                (p) => !values.publisherIds!.includes(p.id),
+              )}
+              value=""
+              onChange={(id) =>
+                id && update("publisherIds", [...values.publisherIds!, id])
+              }
+            />
+            <p className="text-xs text-fg-muted">
+              These links are preserved during metadata refresh. The original
+              publication text stays below.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Input
             label="Publisher"
@@ -570,7 +639,9 @@ export function EditionForm({
           </div>
         )}
         <div className="space-y-2">
-          <p className="text-xs font-medium text-fg-secondary">Add contributor</p>
+          <p className="text-xs font-medium text-fg-secondary">
+            Add contributor
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
               <Input
@@ -688,7 +759,8 @@ export function EditionForm({
         </label>
         {values.metadataSource && (
           <p className="text-xs text-fg-muted">
-            Source: <span className="text-fg-secondary">{values.metadataSource}</span>
+            Source:{" "}
+            <span className="text-fg-secondary">{values.metadataSource}</span>
           </p>
         )}
       </Section>

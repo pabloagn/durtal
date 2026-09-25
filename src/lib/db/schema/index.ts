@@ -12,15 +12,18 @@ export {
 
 // ── Core tables ─────────────────────────────────────────────────────────────
 export { works, worksRelations } from "./works";
-export {
-  editions,
-  editionsRelations,
-} from "./editions";
+export { editions, editionsRelations } from "./editions";
 export { instances, instancesRelations } from "./instances";
 
 // ── Status history (audit trail) ────────────────────────────────────────────
-export { workStatusHistory, workStatusHistoryRelations } from "./work-status-history";
-export { instanceStatusHistory, instanceStatusHistoryRelations } from "./instance-status-history";
+export {
+  workStatusHistory,
+  workStatusHistoryRelations,
+} from "./work-status-history";
+export {
+  instanceStatusHistory,
+  instanceStatusHistoryRelations,
+} from "./instance-status-history";
 export {
   authors,
   authorsRelations,
@@ -164,3 +167,11 @@ export {
   commentAttachments,
   commentAttachmentsRelations,
 } from "./comments";
+
+export { publisherAliases } from "./publishing-houses";
+export {
+  editionPublishers,
+  editionPublishersRelations,
+  acquisitionTargets,
+  acquisitionTargetCopies,
+} from "./publisher-links";

@@ -2,6 +2,7 @@ import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type {
   works,
   editions,
+  publishingHouses,
   instances,
   authors,
   workAuthors,
@@ -93,7 +94,16 @@ export type WorkWithRelations = Work & {
 };
 
 export type EditionWithRelations = Edition & {
-  instances: (Instance & { location: Location; subLocation: SubLocation | null })[];
+  publisherLinks?: {
+    publisher: Pick<
+      InferSelectModel<typeof publishingHouses>,
+      "id" | "name" | "slug" | "country" | "kind" | "parentId"
+    >;
+  }[];
+  instances: (Instance & {
+    location: Location;
+    subLocation: SubLocation | null;
+  })[];
   contributors: (EditionContributor & { author: Author })[];
   editionGenres: { genre: Genre }[];
   editionTags: { tag: Tag }[];

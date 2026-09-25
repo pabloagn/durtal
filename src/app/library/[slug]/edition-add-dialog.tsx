@@ -78,17 +78,26 @@ export function EditionAddDialog({
         openLibraryKey: values.openLibraryKey || null,
         googleBooksId: values.googleBooksId || null,
         goodreadsId: values.goodreadsId || null,
+        publisherIds: values.publisherIds,
         publisher: values.publisher || null,
         imprint: values.imprint || null,
-        publicationYear: values.publicationYear ? parseInt(values.publicationYear, 10) : null,
+        publicationYear: values.publicationYear
+          ? parseInt(values.publicationYear, 10)
+          : null,
         publicationDate: values.publicationDate || null,
         publicationCountry: values.publicationCountry || null,
         editionName: values.editionName || null,
-        editionNumber: values.editionNumber ? parseInt(values.editionNumber, 10) : null,
-        printingNumber: values.printingNumber ? parseInt(values.printingNumber, 10) : null,
+        editionNumber: values.editionNumber
+          ? parseInt(values.editionNumber, 10)
+          : null,
+        printingNumber: values.printingNumber
+          ? parseInt(values.printingNumber, 10)
+          : null,
         isFirstEdition: values.isFirstEdition,
         isLimitedEdition: values.isLimitedEdition,
-        limitedEditionCount: values.limitedEditionCount ? parseInt(values.limitedEditionCount, 10) : null,
+        limitedEditionCount: values.limitedEditionCount
+          ? parseInt(values.limitedEditionCount, 10)
+          : null,
         language: values.language || "en",
         isTranslated: values.isTranslated,
         pageCount: values.pageCount ? parseInt(values.pageCount, 10) : null,
@@ -96,12 +105,16 @@ export function EditionAddDialog({
         heightMm: values.heightMm ? parseInt(values.heightMm, 10) : null,
         widthMm: values.widthMm ? parseInt(values.widthMm, 10) : null,
         depthMm: values.depthMm ? parseInt(values.depthMm, 10) : null,
-        weightGrams: values.weightGrams ? parseInt(values.weightGrams, 10) : null,
+        weightGrams: values.weightGrams
+          ? parseInt(values.weightGrams, 10)
+          : null,
         illustrationType: values.illustrationType || null,
         description: values.description || null,
         tableOfContents: values.tableOfContents || null,
         notes: values.notes || null,
-        ...(values.coverSourceUrl ? { coverSourceUrl: values.coverSourceUrl } : {}),
+        ...(values.coverSourceUrl
+          ? { coverSourceUrl: values.coverSourceUrl }
+          : {}),
         metadataLocked: values.metadataLocked,
         contributorIds: resolvedContributors,
         genreIds: values.genreIds,

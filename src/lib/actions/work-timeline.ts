@@ -1,19 +1,14 @@
 "use server";
 
+import {
+  publisherWorkCondition,
+  catalogueStatusCondition,
+} from "@/lib/publishers/conditions";
 import { db } from "@/lib/db";
 import { works, editions } from "@/lib/db/schema";
-import {
-  and,
-  eq,
-  asc,
-  ilike,
-  inArray,
-  isNotNull,
-} from "drizzle-orm";
+import { and, eq, asc, ilike, inArray, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
-
-type CatalogueStatus = (typeof works.catalogueStatus.enumValues)[number];
 
 export interface WorkEditionTimelineItem {
   id: string;
@@ -40,6 +35,7 @@ export async function getWorksForTimeline(opts?: {
   filters?: {
     catalogueStatus?: string[];
     isRare?: boolean;
+    publisherIds?: string[];
     language?: string[];
   };
 }): Promise<WorkTimelineItem[]> {
@@ -51,16 +47,13 @@ export async function getWorksForTimeline(opts?: {
     conditions.push(ilike(works.title, `%${search}%`));
   }
 
+  if (filters?.publisherIds?.length)
+    conditions.push(publisherWorkCondition(filters.publisherIds));
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));
   }
   if (filters?.catalogueStatus?.length) {
-    conditions.push(
-      inArray(
-        works.catalogueStatus,
-        filters.catalogueStatus as CatalogueStatus[],
-      ),
-    );
+    conditions.push(catalogueStatusCondition(filters.catalogueStatus));
   }
 
   // Language filter: find works that have at least one edition in the requested

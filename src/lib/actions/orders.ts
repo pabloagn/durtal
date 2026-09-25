@@ -1,7 +1,14 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { orders, orderStatusHistory, works, workStatusHistory } from "@/lib/db/schema";
+import {
+  orders,
+  orderStatusHistory,
+  works,
+  workStatusHistory,
+  instances,
+  editions,
+} from "@/lib/db/schema";
 import {
   eq,
   and,
@@ -15,6 +22,7 @@ import {
   gte,
   lte,
   isNotNull,
+  ne,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type {
@@ -50,14 +58,30 @@ async function syncWorkCatalogueStatusFromAllOrders(
     columns: { status: true },
   });
 
-  const hasBookInHand = allOrders.some((o) =>
-    BOOK_IN_HAND_STATUSES.includes(o.status as OrderStatus),
-  );
+  const ownedCopies = await db
+    .select({ id: instances.id })
+    .from(instances)
+    .innerJoin(editions, eq(editions.id, instances.editionId))
+    .where(
+      and(eq(editions.workId, workId), ne(instances.status, "deaccessioned")),
+    )
+    .limit(1);
+  const hasBookInHand =
+    ownedCopies.length > 0 ||
+    allOrders.some((o) =>
+      BOOK_IN_HAND_STATUSES.includes(o.status as OrderStatus),
+    );
   const hasActiveOrder = allOrders.some(
     (o) => !(TERMINAL_STATUSES as string[]).includes(o.status),
   );
 
-  type CatalogueStatus = "tracked" | "shortlisted" | "wanted" | "on_order" | "accessioned" | "deaccessioned";
+  type CatalogueStatus =
+    | "tracked"
+    | "shortlisted"
+    | "wanted"
+    | "on_order"
+    | "accessioned"
+    | "deaccessioned";
 
   let targetStatus: CatalogueStatus;
   if (hasBookInHand) {
@@ -98,7 +122,6 @@ async function syncWorkCatalogueStatusFromAllOrders(
 
   invalidate(CACHE_TAGS.works);
 }
-
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -404,6 +427,7 @@ export async function createOrder(input: CreateOrderInput) {
     .insert(orders)
     .values({
       workId: validated.workId,
+      acquisitionTargetId: validated.acquisitionTargetId ?? null,
       editionId: validated.editionId ?? null,
       instanceId: validated.instanceId ?? null,
       venueId: validated.venueId ?? null,
@@ -459,6 +483,9 @@ export async function updateOrder(id: string, input: UpdateOrderInput) {
     .update(orders)
     .set({
       ...(input.workId !== undefined ? { workId: input.workId } : {}),
+      ...(input.acquisitionTargetId !== undefined
+        ? { acquisitionTargetId: input.acquisitionTargetId }
+        : {}),
       ...(input.editionId !== undefined ? { editionId: input.editionId } : {}),
       ...(input.instanceId !== undefined
         ? { instanceId: input.instanceId }
@@ -531,7 +558,13 @@ export async function updateOrderStatus(
 ) {
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
-    columns: { status: true, acquisitionMethod: true, shippedDate: true, actualDeliveryDate: true, workId: true },
+    columns: {
+      status: true,
+      acquisitionMethod: true,
+      shippedDate: true,
+      actualDeliveryDate: true,
+      workId: true,
+    },
   });
 
   if (!current) throw new Error("Order not found");

@@ -1,3 +1,8 @@
+import {
+  getAcquisitionTargets,
+  getPublisherOptions,
+} from "@/lib/actions/publishers";
+import { AcquisitionTargets } from "@/components/publishers/acquisition-targets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
@@ -106,19 +111,30 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   // Get orders, calibre books, and related works for this work
   const primaryAuthor = work.workAuthors[0]?.author;
-  const [workOrders, digitalBooks, relatedWorks] = await Promise.all([
+  const [
+    workOrders,
+    digitalBooks,
+    relatedWorks,
+    acquisitionTargets,
+    publisherOptions,
+  ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
     primaryAuthor
       ? getWorksByAuthorId(primaryAuthor.id, work.id, 12)
       : Promise.resolve([]),
+    getAcquisitionTargets(work.id),
+    getPublisherOptions(),
   ]);
 
   const primaryAuthors = work.workAuthors.map((wa) => wa.author);
   const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
-  const background = work.media?.find((m) => m.type === "background" && m.isActive);
+  const background = work.media?.find(
+    (m) => m.type === "background" && m.isActive,
+  );
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
-  const allBackgrounds = work.media?.filter((m) => m.type === "background") ?? [];
+  const allBackgrounds =
+    work.media?.filter((m) => m.type === "background") ?? [];
   const galleryMedia = work.media?.filter((m) => m.type === "gallery") ?? [];
 
   // Extract crystal palette from the active poster's color data
@@ -162,38 +178,42 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   return (
     <div className="relative">
-        {/* Ambient color field — independent layer, spans from top of page
+      {/* Ambient color field — independent layer, spans from top of page
             down ~600px, sits behind all content. NOT inside the hero. */}
-        {crystalPalette.length > 0 && (
-          <AmbientCrystals palette={crystalPalette} />
+      {crystalPalette.length > 0 && (
+        <AmbientCrystals palette={crystalPalette} />
+      )}
+
+      {/* Cinematic backdrop + header */}
+      <div
+        className={
+          background ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"
+        }
+      >
+        {/* Background image layer */}
+        {background && (
+          <div className="absolute inset-0 -z-0 overflow-hidden">
+            <img
+              src={backgroundUrl!}
+              alt=""
+              className="h-full w-full object-cover"
+              style={mediaImageStyle(mediaCrop(background))}
+            />
+            {/* Dark overlay for readability */}
+            <div className="absolute inset-0 bg-black/70" />
+            {/* Bottom gradient: dissolves into the page background */}
+            <div
+              className="absolute inset-x-0 bottom-0 h-40"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
+              }}
+            />
+          </div>
         )}
 
-        {/* Cinematic backdrop + header */}
-        <div className={background ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"}>
-          {/* Background image layer */}
-          {background && (
-            <div className="absolute inset-0 -z-0 overflow-hidden">
-              <img
-                src={backgroundUrl!}
-                alt=""
-                className="h-full w-full object-cover"
-                style={mediaImageStyle(mediaCrop(background))}
-              />
-              {/* Dark overlay for readability */}
-              <div className="absolute inset-0 bg-black/70" />
-              {/* Bottom gradient: dissolves into the page background */}
-              <div
-                className="absolute inset-x-0 bottom-0 h-40"
-                style={{
-                  background:
-                    "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
-                }}
-              />
-            </div>
-          )}
-
-          {/* Content on top of the backdrop */}
-          <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+        {/* Content on top of the backdrop */}
+        <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
           {/* Back link */}
           <Link
             href="/library"
@@ -205,184 +225,244 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
           {/* Header */}
           <div className={`${background ? "mb-4" : "mb-8"} flex gap-6`}>
-        {/* Poster image */}
-        {poster && (
-          <WorkPosterImage
-            src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
-            alt={`${work.title} poster`}
-            crop={mediaCrop(poster)}
-            palette={crystalPalette}
-          />
-        )}
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
-              {work.title}
-            </h1>
-            <div className="flex-shrink-0">
-              <WorkActionsMenu
-                work={{
-                  id: work.id,
-                  slug: work.slug ?? "",
-                  title: work.title,
-                  originalLanguage: work.originalLanguage,
-                  originalYear: work.originalYear ?? null,
-                  description: work.description ?? null,
-                  seriesName: work.seriesName ?? null,
-                  seriesPosition: work.seriesPosition ?? null,
-                  seriesId: work.seriesId ?? null,
-                  isAnthology: work.isAnthology,
-                  workTypeId: work.workTypeId ?? null,
-                  notes: work.notes ?? null,
-                  rating: work.rating ?? null,
-                  catalogueStatus: work.catalogueStatus,
-                  acquisitionPriority: work.acquisitionPriority,
-                  recommenderIds: work.workRecommenders.map((wr) => wr.recommender.id),
-                }}
-                workAuthors={work.workAuthors.map((wa) => ({
-                  id: wa.author.id,
-                  name: wa.author.name,
-                  role: wa.role,
-                }))}
-                authorName={primaryAuthors.map((a) => a.name).join(", ")}
-                editionCount={work.editions.length}
-                instanceCount={work.editions.reduce((acc, e) => acc + (e.instances?.length ?? 0), 0)}
-                posterCount={allPosters.length}
-                backgroundCount={allBackgrounds.length}
-                galleryCount={galleryMedia.length}
-                taxonomyIds={{
-                  subjectIds: work.workSubjects.map((ws) => ws.subject.id),
-                  categoryIds: work.workCategories.map((wc) => wc.category.id),
-                  themeIds: work.workThemes.map((wt) => wt.theme.id),
-                  literaryMovementIds: work.workLiteraryMovements.map((wlm) => wlm.literaryMovement.id),
-                  artTypeIds: work.workArtTypes.map((wat) => wat.artType.id),
-                  artMovementIds: work.workArtMovements.map((wam) => wam.artMovement.id),
-                  keywordIds: work.workKeywords.map((wk) => wk.keyword.id),
-                  attributeIds: work.workAttributes.map((wa) => wa.attribute.id),
-                }}
-                availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
-                availableSeries={allSeries.map((s) => ({ id: s.id, title: s.title }))}
-                availableWorkTypes={allWorkTypes.map((wt) => ({ id: wt.id, name: wt.name }))}
-                availableRecommenders={allRecommenders.map((r) => ({ id: r.id, name: r.name }))}
-                availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
-                availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
-                taxonomyOptions={{
-                  subjects: allSubjects.map((s) => ({ id: s.id, name: s.name })),
-                  categories: allCategories.map((c) => ({ id: c.id, name: c.name })),
-                  themes: allThemes.map((t) => ({ id: t.id, name: t.name })),
-                  literaryMovements: allLiteraryMovements.map((lm) => ({ id: lm.id, name: lm.name })),
-                  artTypes: allArtTypes.map((at) => ({ id: at.id, name: at.name })),
-                  artMovements: allArtMovements.map((am) => ({ id: am.id, name: am.name })),
-                  keywords: allKeywords.map((k) => ({ id: k.id, name: k.name })),
-                  attributes: allAttributes.map((a) => ({ id: a.id, name: a.name })),
-                }}
+            {/* Poster image */}
+            {poster && (
+              <WorkPosterImage
+                src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
+                alt={`${work.title} poster`}
+                crop={mediaCrop(poster)}
+                palette={crystalPalette}
               />
-            </div>
-          </div>
-
-          {/* Author links */}
-          {primaryAuthors.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1">
-              {primaryAuthors.map((author, i) => (
-                <span key={author.id} className="text-sm text-fg-secondary">
-                  {i > 0 && (
-                    <span className="mr-1 text-fg-muted">,</span>
-                  )}
-                  {author.slug ? (
-                    <Link
-                      href={`/authors/${author.slug}`}
-                      className="transition-colors hover:text-accent-rose"
-                    >
-                      {author.name}
-                    </Link>
-                  ) : (
-                    author.name
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Year and rating */}
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            {work.originalYear && (
-              <span className="font-mono text-xs text-fg-muted">
-                {work.originalYear}
-              </span>
             )}
-            {work.rating && (
-              <div className="flex items-center gap-1">
-                <Star
-                  className="h-3 w-3 text-accent-gold"
-                  strokeWidth={1.5}
-                  fill="currentColor"
-                />
-                <span className="font-mono text-xs text-accent-gold">
-                  {work.rating}/5
-                </span>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
+                  {work.title}
+                </h1>
+                <div className="flex-shrink-0">
+                  <WorkActionsMenu
+                    work={{
+                      id: work.id,
+                      slug: work.slug ?? "",
+                      title: work.title,
+                      originalLanguage: work.originalLanguage,
+                      originalYear: work.originalYear ?? null,
+                      description: work.description ?? null,
+                      seriesName: work.seriesName ?? null,
+                      seriesPosition: work.seriesPosition ?? null,
+                      seriesId: work.seriesId ?? null,
+                      isAnthology: work.isAnthology,
+                      workTypeId: work.workTypeId ?? null,
+                      notes: work.notes ?? null,
+                      rating: work.rating ?? null,
+                      catalogueStatus: work.catalogueStatus,
+                      acquisitionPriority: work.acquisitionPriority,
+                      recommenderIds: work.workRecommenders.map(
+                        (wr) => wr.recommender.id,
+                      ),
+                    }}
+                    workAuthors={work.workAuthors.map((wa) => ({
+                      id: wa.author.id,
+                      name: wa.author.name,
+                      role: wa.role,
+                    }))}
+                    authorName={primaryAuthors.map((a) => a.name).join(", ")}
+                    editionCount={work.editions.length}
+                    instanceCount={work.editions.reduce(
+                      (acc, e) => acc + (e.instances?.length ?? 0),
+                      0,
+                    )}
+                    posterCount={allPosters.length}
+                    backgroundCount={allBackgrounds.length}
+                    galleryCount={galleryMedia.length}
+                    taxonomyIds={{
+                      subjectIds: work.workSubjects.map((ws) => ws.subject.id),
+                      categoryIds: work.workCategories.map(
+                        (wc) => wc.category.id,
+                      ),
+                      themeIds: work.workThemes.map((wt) => wt.theme.id),
+                      literaryMovementIds: work.workLiteraryMovements.map(
+                        (wlm) => wlm.literaryMovement.id,
+                      ),
+                      artTypeIds: work.workArtTypes.map(
+                        (wat) => wat.artType.id,
+                      ),
+                      artMovementIds: work.workArtMovements.map(
+                        (wam) => wam.artMovement.id,
+                      ),
+                      keywordIds: work.workKeywords.map((wk) => wk.keyword.id),
+                      attributeIds: work.workAttributes.map(
+                        (wa) => wa.attribute.id,
+                      ),
+                    }}
+                    availableAuthors={allAuthors.map((a) => ({
+                      id: a.id,
+                      name: a.name,
+                    }))}
+                    availableSeries={allSeries.map((s) => ({
+                      id: s.id,
+                      title: s.title,
+                    }))}
+                    availableWorkTypes={allWorkTypes.map((wt) => ({
+                      id: wt.id,
+                      name: wt.name,
+                    }))}
+                    availableRecommenders={allRecommenders.map((r) => ({
+                      id: r.id,
+                      name: r.name,
+                    }))}
+                    availableGenres={allGenres.map((g) => ({
+                      id: g.id,
+                      name: g.name,
+                    }))}
+                    availableTags={allTags.map((t) => ({
+                      id: t.id,
+                      name: t.name,
+                    }))}
+                    taxonomyOptions={{
+                      subjects: allSubjects.map((s) => ({
+                        id: s.id,
+                        name: s.name,
+                      })),
+                      categories: allCategories.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                      })),
+                      themes: allThemes.map((t) => ({
+                        id: t.id,
+                        name: t.name,
+                      })),
+                      literaryMovements: allLiteraryMovements.map((lm) => ({
+                        id: lm.id,
+                        name: lm.name,
+                      })),
+                      artTypes: allArtTypes.map((at) => ({
+                        id: at.id,
+                        name: at.name,
+                      })),
+                      artMovements: allArtMovements.map((am) => ({
+                        id: am.id,
+                        name: am.name,
+                      })),
+                      keywords: allKeywords.map((k) => ({
+                        id: k.id,
+                        name: k.name,
+                      })),
+                      attributes: allAttributes.map((a) => ({
+                        id: a.id,
+                        name: a.name,
+                      })),
+                    }}
+                  />
+                </div>
               </div>
-            )}
-            <HuntAssessmentControl workId={work.id} isRare={work.isRare} huntAssessedOn={work.huntAssessedOn} />
-            {work.workType && (
-              <Badge variant="muted">{work.workType.name}</Badge>
-            )}
-          </div>
 
-          {/* Read button (digital editions) */}
-          {digitalBooks.length > 0 && (
-            <div className="mt-3">
-              <ReadButton calibreBooks={digitalBooks} />
-            </div>
-          )}
-
-          {/* Status badges */}
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Badge variant="muted">{work.originalLanguage}</Badge>
-            {work.isAnthology && (
-              <Badge variant="blue">Anthology</Badge>
-            )}
-            <Badge variant={catalogueStatusVariant(work.catalogueStatus)}>
-              {work.catalogueStatus}
-            </Badge>
-            {work.acquisitionPriority && work.acquisitionPriority !== "none" && (
-              <Badge
-                variant={priorityVariant(work.acquisitionPriority)}
-              >
-                {work.acquisitionPriority} priority
-              </Badge>
-            )}
-          </div>
-
-          {/* Recommended by */}
-          {work.workRecommenders.length > 0 && (
-            <div className="mt-3">
-              <span className="text-xs text-fg-muted">Recommended by </span>
-              {work.workRecommenders.map((wr, i) => (
-                <span key={wr.recommender.id}>
-                  {i > 0 && <span className="text-xs text-fg-muted">, </span>}
-                  {wr.recommender.url ? (
-                    <a
-                      href={wr.recommender.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
-                    >
-                      {wr.recommender.name}
-                    </a>
-                  ) : (
-                    <span className="text-xs text-fg-secondary">
-                      {wr.recommender.name}
+              {/* Author links */}
+              {primaryAuthors.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1">
+                  {primaryAuthors.map((author, i) => (
+                    <span key={author.id} className="text-sm text-fg-secondary">
+                      {i > 0 && <span className="mr-1 text-fg-muted">,</span>}
+                      {author.slug ? (
+                        <Link
+                          href={`/authors/${author.slug}`}
+                          className="transition-colors hover:text-accent-rose"
+                        >
+                          {author.name}
+                        </Link>
+                      ) : (
+                        author.name
+                      )}
                     </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Year and rating */}
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {work.originalYear && (
+                  <span className="font-mono text-xs text-fg-muted">
+                    {work.originalYear}
+                  </span>
+                )}
+                {work.rating && (
+                  <div className="flex items-center gap-1">
+                    <Star
+                      className="h-3 w-3 text-accent-gold"
+                      strokeWidth={1.5}
+                      fill="currentColor"
+                    />
+                    <span className="font-mono text-xs text-accent-gold">
+                      {work.rating}/5
+                    </span>
+                  </div>
+                )}
+                <HuntAssessmentControl
+                  workId={work.id}
+                  isRare={work.isRare}
+                  huntAssessedOn={work.huntAssessedOn}
+                />
+                {work.workType && (
+                  <Badge variant="muted">{work.workType.name}</Badge>
+                )}
+              </div>
+
+              {/* Read button (digital editions) */}
+              {digitalBooks.length > 0 && (
+                <div className="mt-3">
+                  <ReadButton calibreBooks={digitalBooks} />
+                </div>
+              )}
+
+              {/* Status badges */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <Badge variant="muted">{work.originalLanguage}</Badge>
+                {work.isAnthology && <Badge variant="blue">Anthology</Badge>}
+                <Badge variant={catalogueStatusVariant(work.catalogueStatus)}>
+                  {work.catalogueStatus}
+                </Badge>
+                {work.acquisitionPriority &&
+                  work.acquisitionPriority !== "none" && (
+                    <Badge variant={priorityVariant(work.acquisitionPriority)}>
+                      {work.acquisitionPriority} priority
+                    </Badge>
                   )}
-                </span>
-              ))}
+              </div>
+
+              {/* Recommended by */}
+              {work.workRecommenders.length > 0 && (
+                <div className="mt-3">
+                  <span className="text-xs text-fg-muted">Recommended by </span>
+                  {work.workRecommenders.map((wr, i) => (
+                    <span key={wr.recommender.id}>
+                      {i > 0 && (
+                        <span className="text-xs text-fg-muted">, </span>
+                      )}
+                      {wr.recommender.url ? (
+                        <a
+                          href={wr.recommender.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
+                        >
+                          {wr.recommender.name}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-fg-secondary">
+                          {wr.recommender.name}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
+        {/* end content-on-backdrop */}
       </div>
-      </div>{/* end content-on-backdrop */}
-      </div>{/* end cinematic backdrop */}
+      {/* end cinematic backdrop */}
 
       {/* Description */}
       {work.description && (
@@ -415,6 +495,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Gallery collage */}
       <GallerySection entityType="work" entityId={work.id} />
 
+      <AcquisitionTargets
+        workId={work.id}
+        targets={acquisitionTargets}
+        publishers={publisherOptions}
+        editions={work.editions}
+      />
+
       {/* Editions */}
       <section className="mb-8">
         <div className="mb-4 flex items-center justify-between">
@@ -424,7 +511,10 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <EditionAddDialog
             workId={work.id}
             workTitle={work.title}
-            availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
+            availableAuthors={allAuthors.map((a) => ({
+              id: a.id,
+              name: a.name,
+            }))}
             availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
             availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
           />
@@ -438,8 +528,14 @@ export default async function WorkDetailPage({ params }: PageProps) {
               workId={work.id}
               authorName={primaryAuthor?.name}
               availableLocations={allLocations}
-              availableAuthors={allAuthors.map((a) => ({ id: a.id, name: a.name }))}
-              availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
+              availableAuthors={allAuthors.map((a) => ({
+                id: a.id,
+                name: a.name,
+              }))}
+              availableGenres={allGenres.map((g) => ({
+                id: g.id,
+                name: g.name,
+              }))}
               availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
             />
           ))}
@@ -452,15 +548,12 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <HorizontalCarousel
             title={`More by ${primaryAuthor.name}`}
             titleHref={
-              primaryAuthor.slug
-                ? `/authors/${primaryAuthor.slug}`
-                : undefined
+              primaryAuthor.slug ? `/authors/${primaryAuthor.slug}` : undefined
             }
           >
             {relatedWorks.map((rw) => {
               const edition = rw.editions[0];
-              const authorName =
-                rw.workAuthors[0]?.author?.name ?? "Unknown";
+              const authorName = rw.workAuthors[0]?.author?.name ?? "Unknown";
               const rwPoster = rw.media?.find(
                 (m) => m.type === "poster" && m.isActive,
               );
@@ -469,10 +562,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 rwPoster?.s3Key ??
                 edition?.thumbnailS3Key;
               return (
-                <div
-                  key={rw.id}
-                  className="w-[160px] flex-shrink-0 snap-start"
-                >
+                <div key={rw.id} className="w-[160px] flex-shrink-0 snap-start">
                   <BookCard
                     workId={rw.id}
                     slug={rw.slug ?? ""}
@@ -483,11 +573,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                         ? `/api/s3/read?key=${encodeURIComponent(rwCoverKey)}`
                         : null
                     }
-                    coverCrop={
-                      rwPoster
-                        ? mediaCrop(rwPoster)
-                        : null
-                    }
+                    coverCrop={rwPoster ? mediaCrop(rwPoster) : null}
                     publicationYear={
                       edition?.publicationYear ?? rw.originalYear
                     }
@@ -521,7 +607,10 @@ export default async function WorkDetailPage({ params }: PageProps) {
           </div>
           <div className="space-y-2">
             {workOrders.map((order) => {
-              const statusVariantMap: Record<string, "default" | "blue" | "gold" | "sage" | "red" | "muted"> = {
+              const statusVariantMap: Record<
+                string,
+                "default" | "blue" | "gold" | "sage" | "red" | "muted"
+              > = {
                 placed: "muted",
                 confirmed: "blue",
                 processing: "gold",

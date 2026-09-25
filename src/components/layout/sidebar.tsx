@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useRef, useCallback, useEffect, useState } from "react";
 import {
   Library,
+  Building2,
   Users,
   Layers,
   MapPin,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/library", label: "Library", icon: Library },
   { href: "/reader", label: "Reader", icon: BookOpenText },
   { href: "/authors", label: "Authors", icon: Users },
+  { href: "/publishers", label: "Publishers", icon: Building2 },
   { href: "/series", label: "Series", icon: Layers },
   { href: "/places", label: "Places", icon: MapPin },
   { href: "/provenance", label: "Provenance", icon: Route },
@@ -53,15 +55,12 @@ export function Sidebar({
 
   const isCollapsed = width <= SIDEBAR_COLLAPSED;
 
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      isDragging.current = true;
-      setDragging(true);
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    },
-    []
-  );
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    setDragging(true);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -77,18 +76,15 @@ export function Sidebar({
 
       onWidthChange(newWidth);
     },
-    [onWidthChange]
+    [onWidthChange],
   );
 
-  const handlePointerUp = useCallback(
-    (e: React.PointerEvent) => {
-      if (!isDragging.current) return;
-      isDragging.current = false;
-      setDragging(false);
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    },
-    []
-  );
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    setDragging(false);
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
 
   const handleDoubleClick = useCallback(() => {
     onWidthChange(isCollapsed ? SIDEBAR_DEFAULT : SIDEBAR_COLLAPSED);
@@ -168,9 +164,7 @@ export function Sidebar({
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  {!isCollapsed && (
-                    <span className="truncate">{label}</span>
-                  )}
+                  {!isCollapsed && <span className="truncate">{label}</span>}
                 </Link>
                 {/* Tooltip for collapsed mode */}
                 {isCollapsed && (

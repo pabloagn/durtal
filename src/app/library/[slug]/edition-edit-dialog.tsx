@@ -34,17 +34,26 @@ function editionToFormValues(edition: EditionWithRelations): EditionFormValues {
     openLibraryKey: edition.openLibraryKey ?? "",
     googleBooksId: edition.googleBooksId ?? "",
     goodreadsId: edition.goodreadsId ?? "",
+    publisherIds: edition.publisherLinksConfirmed
+      ? (edition.publisherLinks?.map((l) => l.publisher.id) ?? [])
+      : undefined,
     publisher: edition.publisher ?? "",
     imprint: edition.imprint ?? "",
-    publicationYear: edition.publicationYear != null ? String(edition.publicationYear) : "",
+    publicationYear:
+      edition.publicationYear != null ? String(edition.publicationYear) : "",
     publicationDate: edition.publicationDate ?? "",
     publicationCountry: edition.publicationCountry ?? "",
     editionName: edition.editionName ?? "",
-    editionNumber: edition.editionNumber != null ? String(edition.editionNumber) : "",
-    printingNumber: edition.printingNumber != null ? String(edition.printingNumber) : "",
+    editionNumber:
+      edition.editionNumber != null ? String(edition.editionNumber) : "",
+    printingNumber:
+      edition.printingNumber != null ? String(edition.printingNumber) : "",
     isFirstEdition: edition.isFirstEdition ?? false,
     isLimitedEdition: edition.isLimitedEdition ?? false,
-    limitedEditionCount: edition.limitedEditionCount != null ? String(edition.limitedEditionCount) : "",
+    limitedEditionCount:
+      edition.limitedEditionCount != null
+        ? String(edition.limitedEditionCount)
+        : "",
     language: edition.language ?? "en",
     isTranslated: edition.isTranslated ?? false,
     pageCount: edition.pageCount != null ? String(edition.pageCount) : "",
@@ -109,17 +118,26 @@ export function EditionEditDialog({
         openLibraryKey: values.openLibraryKey || null,
         googleBooksId: values.googleBooksId || null,
         goodreadsId: values.goodreadsId || null,
+        publisherIds: values.publisherIds,
         publisher: values.publisher || null,
         imprint: values.imprint || null,
-        publicationYear: values.publicationYear ? parseInt(values.publicationYear, 10) : null,
+        publicationYear: values.publicationYear
+          ? parseInt(values.publicationYear, 10)
+          : null,
         publicationDate: values.publicationDate || null,
         publicationCountry: values.publicationCountry || null,
         editionName: values.editionName || null,
-        editionNumber: values.editionNumber ? parseInt(values.editionNumber, 10) : null,
-        printingNumber: values.printingNumber ? parseInt(values.printingNumber, 10) : null,
+        editionNumber: values.editionNumber
+          ? parseInt(values.editionNumber, 10)
+          : null,
+        printingNumber: values.printingNumber
+          ? parseInt(values.printingNumber, 10)
+          : null,
         isFirstEdition: values.isFirstEdition,
         isLimitedEdition: values.isLimitedEdition,
-        limitedEditionCount: values.limitedEditionCount ? parseInt(values.limitedEditionCount, 10) : null,
+        limitedEditionCount: values.limitedEditionCount
+          ? parseInt(values.limitedEditionCount, 10)
+          : null,
         language: values.language || "en",
         isTranslated: values.isTranslated,
         pageCount: values.pageCount ? parseInt(values.pageCount, 10) : null,
@@ -127,13 +145,17 @@ export function EditionEditDialog({
         heightMm: values.heightMm ? parseInt(values.heightMm, 10) : null,
         widthMm: values.widthMm ? parseInt(values.widthMm, 10) : null,
         depthMm: values.depthMm ? parseInt(values.depthMm, 10) : null,
-        weightGrams: values.weightGrams ? parseInt(values.weightGrams, 10) : null,
+        weightGrams: values.weightGrams
+          ? parseInt(values.weightGrams, 10)
+          : null,
         illustrationType: values.illustrationType || null,
         description: values.description || null,
         tableOfContents: values.tableOfContents || null,
         notes: values.notes || null,
         // Only send coverSourceUrl if it changed (non-empty)
-        ...(values.coverSourceUrl ? { coverSourceUrl: values.coverSourceUrl } : {}),
+        ...(values.coverSourceUrl
+          ? { coverSourceUrl: values.coverSourceUrl }
+          : {}),
         metadataLocked: values.metadataLocked,
         contributorIds: resolvedContributors,
         genreIds: values.genreIds,

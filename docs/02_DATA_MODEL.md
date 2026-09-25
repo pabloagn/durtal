@@ -180,7 +180,8 @@ A specific published form of a work. Carries all publication-level metadata.
 | `goodreads_id` | TEXT | nullable | Goodreads edition ID |
 | `title` | TEXT | NOT NULL | Edition title (may differ from work title) |
 | `subtitle` | TEXT | nullable | |
-| `publisher` | TEXT | nullable | Publisher name |
+| `publisher` | TEXT | nullable | Original/imported publisher text; retained alongside identity links |
+| `publisher_links_confirmed` | BOOLEAN | NOT NULL, default false | Protect explicit identity links (including an empty choice) from automatic matching |
 | `imprint` | TEXT | nullable | Publishing imprint |
 | `publication_date` | DATE | nullable | Exact publication date |
 | `publication_year` | SMALLINT | nullable | Publication year |
@@ -656,20 +657,53 @@ People or channels who recommended a work. Many-to-many with works via `work_rec
 
 ### `publishing_houses`
 
-Publisher entities with country association.
+Stable publisher identities, including explicitly related imprints. Names are **not unique**: unrelated houses can share a name. Country and website help a person distinguish them. Slugs remain unique and stable across renames.
 
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | UUID | PK |
-| `name` | TEXT | UNIQUE, NOT NULL |
+| `name` | TEXT | NOT NULL; indexed, not unique |
 | `slug` | TEXT | UNIQUE, NOT NULL |
 | `country` | TEXT | nullable |
-| `country_id` | UUID | FK → `countries.id`, nullable |
+| `country_id` | UUID | FK → `countries.id`, SET NULL |
+| `kind` | TEXT | NOT NULL, default publisher; CHECK permits publisher or imprint |
+| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; required for imprints, NULL for houses |
+| `is_favourite` | BOOLEAN | NOT NULL, default false |
+| `notes` | TEXT | Personal collecting notes, nullable |
 | `description` | TEXT | nullable |
-| `website` | TEXT | nullable |
+| `website` | TEXT | nullable; web writes accept HTTP(S) URLs |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-Seeded from Knowledge_Base (172 rows).
+A trigger restricts parents to publishing houses (one level; no cycles). Type and parent cannot change once referenced by editions, targets, or child imprints. This avoids reinterpreting historical editions during corporate changes. Sellers remain `venues`, not publisher identities.
+
+### `publisher_aliases`
+
+`publisher_id` (UUID, FK → publishing_houses, CASCADE) and `name` (TEXT, NOT NULL), composite PK. The same alias may belong to different houses; such a match is ambiguous. Aliases are explicitly maintained on publisher profiles.
+
+### `edition_publishers`
+
+`edition_id` (UUID, FK → editions, CASCADE) and `publisher_id` (UUID, FK → publishing_houses, RESTRICT), composite PK; publisher lookup index. Supports co-publishing and imprint associations without duplicated editions. Parent views include directly linked imprints; an imprint view does not include siblings. All counts de-duplicate edition/work IDs.
+
+Migration 0025 adds exact matching at the database boundary for web, API and Python writes. `publisher_name_key` trims and collapses whitespace, then lowercases. Only one globally unique name/alias candidate links automatically. No fuzzy matching, inferred imprint membership, or source-text rewrites. Publisher/alias changes recompute unconfirmed links, including removing links that become ambiguous. `set_edition_publishers` locks the edition and atomically replaces links; `publisher_links_confirmed` prevents imports/rematching from altering them. The review page identifies unmatched or ambiguous nonempty source fields; missing text remains unknown.
+
+### `acquisition_targets`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK, auto |
+| `work_id` | UUID | NOT NULL, FK → works, CASCADE |
+| `edition_id` | UUID | nullable, FK → editions, RESTRICT |
+| `publisher_id` | UUID | nullable, FK → publishing_houses, RESTRICT |
+| `is_cancelled` | BOOLEAN | NOT NULL, default false |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+Both optional IDs NULL means **any edition**; a publisher ID means a publisher preference; an edition ID means an exact edition. CHECK prevents both IDs being populated. Partial unique index prevents duplicate active targets, including the NULL cases. A trigger validates the edition's work; target identity is immutable. Existing targets can be removed only when no non-cancelled/non-returned orders depend on them.
+
+Target state is derived, not independently stored: cancelled; received through an explicitly linked matching order or active matching copy; on order; otherwise wanted. Receiving another publisher's edition cannot fulfil a target. Returns or disposal of its only linked copy reopen it. Work ownership still derives from copies: owning one edition and wanting another coexist. Library Wanted/On order filters include matching acquisition targets while preserving the work's stored status.
+
+### `acquisition_target_copies`
+
+`target_id` UUID PK (FK → acquisition_targets, CASCADE), `instance_id` UUID NOT NULL (FK → instances, CASCADE; indexed). Introduced in migration 0026 for explicit fulfilment by a copy accessioned without an order. The trigger rejects copies of the wrong work, edition or publisher and deaccessioned copies. Moving a linked copy to an incompatible edition is rejected. Deleting or deaccessioning the copy removes its contribution to fulfilment.
 
 ### `publisher_specialties`
 
@@ -1003,6 +1037,7 @@ Tracks the acquisition pipeline for individual works — from intent to receipt.
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `work_id` | UUID | FK → `works.id`, CASCADE, NOT NULL | The work being acquired |
+| `acquisition_target_id` | UUID | nullable, FK → acquisition_targets, RESTRICT | Optional collecting target; database validates work, edition and copy compatibility |
 | `edition_id` | UUID | FK → `editions.id`, SET NULL, nullable | Specific edition ordered (if known) |
 | `instance_id` | UUID | FK → `instances.id`, SET NULL, nullable | Resulting instance once received |
 | `venue_id` | UUID | FK → `venues.id`, SET NULL, nullable | Venue / seller from which the order was placed |

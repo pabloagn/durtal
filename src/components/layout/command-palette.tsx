@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
   Library,
+  Building2,
   Users,
   Layers,
   MapPin,
@@ -29,6 +30,12 @@ const NAVIGATION_ITEMS = [
   { label: "Library", href: "/library", icon: Library, group: "Navigate" },
   { label: "Reader", href: "/reader", icon: BookOpenText, group: "Navigate" },
   { label: "Authors", href: "/authors", icon: Users, group: "Navigate" },
+  {
+    label: "Publishers",
+    href: "/publishers",
+    icon: Building2,
+    group: "Navigate",
+  },
   { label: "Series", href: "/series", icon: Layers, group: "Navigate" },
   { label: "Places", href: "/places", icon: MapPin, group: "Navigate" },
   { label: "Provenance", href: "/provenance", icon: Route, group: "Navigate" },

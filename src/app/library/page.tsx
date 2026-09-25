@@ -20,6 +20,7 @@ interface PageProps {
     status?: string;
     priority?: string;
     rare?: string;
+    publisher?: string;
     rating?: string;
     location?: string;
     poster?: string;
@@ -37,6 +38,7 @@ async function LibraryContent({
     status?: string;
     priority?: string;
     rare?: string;
+    publisher?: string;
     rating?: string;
     location?: string;
     poster?: string;
@@ -63,7 +65,12 @@ async function LibraryContent({
   const minRating = ratingParam ? parseInt(ratingParam, 10) : undefined;
   const locationId = searchParams.location || undefined;
   const posterParam = searchParams.poster;
-  const hasPoster = posterParam === "has" ? true : posterParam === "missing" ? false : undefined;
+  const hasPoster =
+    posterParam === "has"
+      ? true
+      : posterParam === "missing"
+        ? false
+        : undefined;
 
   const [works, total, timelineWorks] = await Promise.all([
     getWorks({
@@ -75,7 +82,12 @@ async function LibraryContent({
       filters: {
         catalogueStatus: statusFilter?.length ? statusFilter : undefined,
         isRare: rareFilter,
-        acquisitionPriority: priorityFilter?.length ? priorityFilter : undefined,
+        publisherIds: searchParams.publisher
+          ?.split(",")
+          .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
+        acquisitionPriority: priorityFilter?.length
+          ? priorityFilter
+          : undefined,
         minRating,
         locationId,
         hasPoster,
@@ -84,6 +96,9 @@ async function LibraryContent({
     getWorkCount(search, {
       catalogueStatus: statusFilter?.length ? statusFilter : undefined,
       isRare: rareFilter,
+      publisherIds: searchParams.publisher
+        ?.split(",")
+        .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
       acquisitionPriority: priorityFilter?.length ? priorityFilter : undefined,
       minRating,
       locationId,
@@ -94,13 +109,18 @@ async function LibraryContent({
       filters: {
         catalogueStatus: statusFilter?.length ? statusFilter : undefined,
         isRare: rareFilter,
+        publisherIds: searchParams.publisher
+          ?.split(",")
+          .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
       },
     }),
   ]);
 
   if (works.length === 0 && timelineWorks.length === 0) {
     const params = new URLSearchParams(
-      Object.entries(searchParams).filter((e): e is [string, string] => typeof e[1] === "string"),
+      Object.entries(searchParams).filter(
+        (e): e is [string, string] => typeof e[1] === "string",
+      ),
     );
     if (hasListQuery(params)) {
       // The filters bar is rendered by the page, so it stays visible here
@@ -108,7 +128,16 @@ async function LibraryContent({
         <NoResults
           noun="works"
           search={search}
-          hasFilters={!!(statusFilter?.length || priorityFilter?.length || rareFilter || ratingParam || locationId || posterParam)}
+          hasFilters={
+            !!(
+              statusFilter?.length ||
+              priorityFilter?.length ||
+              rareFilter ||
+              ratingParam ||
+              locationId ||
+              posterParam
+            )
+          }
           clearHref={clearedListHref("/library", params)}
         />
       );
@@ -159,9 +188,7 @@ async function LibraryContent({
       coverUrl: coverS3Key
         ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
         : null,
-      coverCrop: activePoster
-        ? mediaCrop(activePoster)
-        : null,
+      coverCrop: activePoster ? mediaCrop(activePoster) : null,
       publicationYear: firstEdition?.publicationYear ?? work.originalYear,
       language: firstEdition?.language,
       instanceCount,

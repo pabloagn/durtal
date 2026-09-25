@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
 import { db } from "@/lib/db";
 import { works, workAuthors, authors } from "@/lib/db/schema";
 import { inArray, asc } from "drizzle-orm";
@@ -25,6 +26,7 @@ async function fetchWorksForExport(ids: string[]) {
       },
       editions: {
         with: {
+          publisherLinks: { with: { publisher: true } },
           instances: {
             columns: { id: true },
           },
@@ -33,6 +35,7 @@ async function fetchWorksForExport(ids: string[]) {
     },
   });
 
+  const targets = ids.length ? await getAcquisitionTargetsForExport(ids) : [];
   return results.map((w) => {
     const authorNames = w.workAuthors.map((wa) => wa.author.name).join("; ");
     const primaryEdition = w.editions[0];
@@ -53,6 +56,27 @@ async function fetchWorksForExport(ids: string[]) {
       isbn_13: primaryEdition?.isbn13 ?? "",
       isbn_10: primaryEdition?.isbn10 ?? "",
       publisher: primaryEdition?.publisher ?? "",
+      acquisition_targets: JSON.stringify(
+        targets
+          .filter((t) => t.target.workId === w.id)
+          .map((t) => ({
+            ...t.target,
+            state: t.state,
+            fulfilled_instance_id: t.instanceId,
+          })),
+      ),
+      edition_publishers: JSON.stringify(
+        w.editions.map((e) => ({
+          edition_id: e.id,
+          isbn_13: e.isbn13,
+          publishers: e.publisherLinks.map((l) => ({
+            id: l.publisher.id,
+            name: l.publisher.name,
+            kind: l.publisher.kind,
+            parent_id: l.publisher.parentId,
+          })),
+        })),
+      ),
       imprint: primaryEdition?.imprint ?? "",
       publication_year: primaryEdition?.publicationYear ?? "",
       edition_language: primaryEdition?.language ?? "",
@@ -105,10 +129,7 @@ export async function POST(req: NextRequest) {
       format?: string;
     };
 
-    if (
-      !entity ||
-      !VALID_ENTITIES.includes(entity as EntityType)
-    ) {
+    if (!entity || !VALID_ENTITIES.includes(entity as EntityType)) {
       return NextResponse.json(
         { error: "Invalid entity type. Must be 'works' or 'authors'." },
         { status: 400 },
@@ -156,19 +177,33 @@ export async function POST(req: NextRequest) {
     // For single-entity exports, use a descriptive filename
     let filename: string;
     if (rows.length === 1 && entityType === "authors") {
-      const row = rows[0] as { first_name?: string; last_name?: string; name?: string };
-      const first = (row.first_name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-      const last = (row.last_name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const row = rows[0] as {
+        first_name?: string;
+        last_name?: string;
+        name?: string;
+      };
+      const first = (row.first_name ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+      const last = (row.last_name ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
       if (first && last) {
         filename = `durtal-${first}-${last}-${timestamp}${FORMAT_EXT[fmt]}`;
       } else {
         // Fallback to full name slugified
-        const slug = (row.name ?? "author").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const slug = (row.name ?? "author")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
         filename = `durtal-${slug}-${timestamp}${FORMAT_EXT[fmt]}`;
       }
     } else if (rows.length === 1 && entityType === "works") {
       const row = rows[0] as { title?: string };
-      const slug = (row.title ?? "work").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const slug = (row.title ?? "work")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
       filename = `durtal-${slug}-${timestamp}${FORMAT_EXT[fmt]}`;
     } else {
       filename = `durtal-${entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
@@ -188,20 +223,15 @@ export async function POST(req: NextRequest) {
     // Parquet — binary response
     const buf = await toParquet(rows);
     const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-    return new NextResponse(bytes as unknown as BodyInit,
-      {
-        status: 200,
-        headers: {
-          "Content-Type": FORMAT_MIME[fmt],
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
+    return new NextResponse(bytes as unknown as BodyInit, {
+      status: 200,
+      headers: {
+        "Content-Type": FORMAT_MIME[fmt],
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
-    );
+    });
   } catch (err) {
     console.error("Export error:", err);
-    return NextResponse.json(
-      { error: "Export failed." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Export failed." }, { status: 500 });
   }
 }

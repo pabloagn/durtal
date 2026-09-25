@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
+import {
+  OrderTargetFields,
+  type OrderTargetValue,
+} from "@/components/publishers/order-target-fields";
+import type { getTargetOrderSeed } from "@/lib/actions/publishers";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
@@ -197,9 +202,7 @@ function WorkSearchStep({
       setAuthorQuery("");
       toast.success(`Created "${work.title}" and selected it`);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to create work",
-      );
+      toast.error(err instanceof Error ? err.message : "Failed to create work");
     } finally {
       setIsCreating(false);
     }
@@ -244,7 +247,10 @@ function WorkSearchStep({
               className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
             />
             {isSearchingAuthors && (
-              <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted" strokeWidth={1.5} />
+              <Loader2
+                className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted"
+                strokeWidth={1.5}
+              />
             )}
           </div>
 
@@ -271,7 +277,8 @@ function WorkSearchStep({
             !isSearchingAuthors &&
             authorResults.length === 0 && (
               <p className="text-xs text-fg-muted">
-                No existing author found. A new author &ldquo;{authorQuery.trim()}&rdquo; will be created.
+                No existing author found. A new author &ldquo;
+                {authorQuery.trim()}&rdquo; will be created.
               </p>
             )}
         </div>
@@ -285,10 +292,7 @@ function WorkSearchStep({
         >
           {isCreating ? (
             <>
-              <Loader2
-                className="h-3.5 w-3.5 animate-spin"
-                strokeWidth={1.5}
-              />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
               Creating...
             </>
           ) : (
@@ -343,7 +347,10 @@ function WorkSearchStep({
       )}
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" strokeWidth={1.5} />
+        <Search
+          className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted"
+          strokeWidth={1.5}
+        />
         <input
           type="text"
           value={query}
@@ -353,7 +360,10 @@ function WorkSearchStep({
           autoFocus
         />
         {isSearching && (
-          <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted" strokeWidth={1.5} />
+          <Loader2
+            className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-fg-muted"
+            strokeWidth={1.5}
+          />
         )}
       </div>
 
@@ -653,14 +663,24 @@ const INITIAL_DETAILS: DetailsForm = {
 
 const STEP_LABELS = ["Work", "Method", "Details", "Notes"];
 
-export function OrderCreateDialog() {
+export function OrderCreateDialog({
+  seed,
+}: {
+  seed?: Awaited<ReturnType<typeof getTargetOrderSeed>>;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!seed);
+  const [targetValue, setTargetValue] = useState<OrderTargetValue>({
+    acquisitionTargetId: seed?.target.id ?? "",
+    editionId: seed?.target.editionId ?? "",
+  });
   const [isPending, startTransition] = useTransition();
 
   // Form state
-  const [step, setStep] = useState(0);
-  const [selectedWork, setSelectedWork] = useState<WorkResult | null>(null);
+  const [step, setStep] = useState(seed ? 1 : 0);
+  const [selectedWork, setSelectedWork] = useState<WorkResult | null>(
+    seed?.work ?? null,
+  );
   const [method, setMethod] = useState<AcquisitionMethod>("online_order");
   const [status, setStatus] = useState<OrderStatus>("placed");
   const [details, setDetails] = useState<DetailsForm>(() => ({
@@ -672,6 +692,7 @@ export function OrderCreateDialog() {
   function resetForm() {
     setStep(0);
     setSelectedWork(null);
+    setTargetValue({ acquisitionTargetId: "", editionId: "" });
     setMethod("online_order");
     setStatus("placed");
     setDetails({ ...INITIAL_DETAILS, currency: getInitialCurrency() });
@@ -711,11 +732,12 @@ export function OrderCreateDialog() {
 
     // H1: use !== "" instead of falsy check so "0" is preserved
     const priceVal = details.price !== "" ? details.price : null;
-    const shippingVal = details.shippingCost !== "" ? details.shippingCost : null;
+    const shippingVal =
+      details.shippingCost !== "" ? details.shippingCost : null;
     const total =
       priceVal != null && shippingVal != null
         ? String(parseFloat(priceVal) + parseFloat(shippingVal))
-        : priceVal ?? shippingVal ?? null;
+        : (priceVal ?? shippingVal ?? null);
 
     startTransition(async () => {
       try {
@@ -725,6 +747,8 @@ export function OrderCreateDialog() {
         }
         await createOrder({
           workId: selectedWork.id,
+          acquisitionTargetId: targetValue.acquisitionTargetId || null,
+          editionId: targetValue.editionId || null,
           acquisitionMethod: method,
           status,
           orderDate: details.orderDate,
@@ -789,7 +813,10 @@ export function OrderCreateDialog() {
           {step === 0 && (
             <WorkSearchStep
               selectedWork={selectedWork}
-              onSelect={setSelectedWork}
+              onSelect={(work) => {
+                setSelectedWork(work);
+                setTargetValue({ acquisitionTargetId: "", editionId: "" });
+              }}
             />
           )}
           {step === 1 && (
@@ -807,10 +834,17 @@ export function OrderCreateDialog() {
               onChange={handleDetailsChange}
             />
           )}
-          {step === 3 && (
-            <NotesStep notes={notes} onChange={setNotes} />
-          )}
+          {step === 3 && <NotesStep notes={notes} onChange={setNotes} />}
         </div>
+
+        {step === 1 && selectedWork && (
+          <OrderTargetFields
+            key={selectedWork.id}
+            workId={selectedWork.id}
+            value={targetValue}
+            onChange={setTargetValue}
+          />
+        )}
 
         {/* Footer navigation */}
         <div className="mt-5 flex items-center justify-between border-t border-glass-border pt-4">
@@ -849,7 +883,10 @@ export function OrderCreateDialog() {
             >
               {isPending ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                  <Loader2
+                    className="h-3.5 w-3.5 animate-spin"
+                    strokeWidth={1.5}
+                  />
                   Creating
                 </>
               ) : (

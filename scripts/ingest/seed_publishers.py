@@ -83,12 +83,25 @@ def seed_publishing_houses(cur, wb, *, dry_run: bool = False) -> tuple[int, int]
                 r = cur.fetchone()
                 country_id = r[0] if r else None
 
-        house_id = upsert_returning_id(
-            cur, "publishing_houses",
-            ["name", "slug", "country", "country_id"],
-            (name, slug, country_text, country_id),
-            "name",
+        cur.execute(
+            "SELECT id FROM publishing_houses WHERE name = %s AND country IS NOT DISTINCT FROM %s AND kind = 'publisher'",
+            (name, country_text),
         )
+        matches = cur.fetchall()
+        if len(matches) > 1:
+            console.print(f"[yellow]Ambiguous publisher: {name} ({country_text}) — skipped[/yellow]")
+            continue
+        if matches:
+            house_id = matches[0][0]
+        else:
+            # UUID suffix avoids collisions between unrelated same-name houses.
+            from uuid import uuid4
+            publisher_id = uuid4()
+            cur.execute(
+                "INSERT INTO publishing_houses (id, name, slug, country, country_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (str(publisher_id), name, f"{slug}-{str(publisher_id)[:8]}", country_text, country_id),
+            )
+            house_id = cur.fetchone()[0]
         houses_count += 1
 
         # Link specialties

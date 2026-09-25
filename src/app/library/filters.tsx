@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import {
   FilterDropdown,
   type FilterGroup,
 } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
+
+import { getPublisherOptions } from "@/lib/actions/publishers";
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Recent" },
@@ -77,10 +79,25 @@ export function LibraryFilters({
   gridColumns = 6,
   availableViewModes,
 }: LibraryFiltersProps) {
+  const [publishers, setPublishers] = useState<
+    { id: string; name: string; country: string | null }[]
+  >([]);
+  useEffect(() => {
+    let active = true;
+    getPublisherOptions()
+      .then((rows) => {
+        if (active) setPublishers(rows);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const activeFilters: Record<string, string[]> = {
+    publisher: searchParams.get("publisher")?.split(",").filter(Boolean) ?? [],
     rare: searchParams.get("rare")?.split(",").filter(Boolean) ?? [],
     status: searchParams.get("status")?.split(",").filter(Boolean) ?? [],
     priority: searchParams.get("priority")?.split(",").filter(Boolean) ?? [],
@@ -104,6 +121,7 @@ export function LibraryFilters({
 
   const handleClearAll = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("publisher");
     params.delete("rare");
     params.delete("status");
     params.delete("priority");
@@ -129,7 +147,17 @@ export function LibraryFilters({
       className="flex flex-1 items-center gap-3"
     >
       <FilterDropdown
-        groups={FILTER_GROUPS}
+        groups={[
+          ...FILTER_GROUPS,
+          {
+            key: "publisher",
+            label: "Publisher",
+            options: publishers.map((p) => ({
+              value: p.id,
+              label: `${p.name}${p.country ? ` · ${p.country}` : ""}`,
+            })),
+          },
+        ]}
         activeFilters={activeFilters}
         onFilterChange={handleFilterChange}
         onClearAll={handleClearAll}

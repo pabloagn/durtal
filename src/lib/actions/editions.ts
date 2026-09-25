@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { atomic } from "@/lib/db/atomic";
 import { db } from "@/lib/db";
 import {
   editions,
@@ -7,7 +9,7 @@ import {
   editionGenres,
   editionTags,
 } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import {
   createEditionSchema,
   type CreateEditionInput,
@@ -20,6 +22,7 @@ export async function getEdition(id: string) {
     where: eq(editions.id, id),
     with: {
       work: true,
+      publisherLinks: { with: { publisher: true } },
       instances: {
         with: {
           location: true,
@@ -42,8 +45,14 @@ export async function getEdition(id: string) {
 
 export async function createEdition(input: CreateEditionInput) {
   const parsed = createEditionSchema.parse(input);
-  const { contributorIds, genreIds, tagIds, coverSourceUrl, ...editionData } =
-    parsed;
+  const {
+    publisherIds,
+    contributorIds,
+    genreIds,
+    tagIds,
+    coverSourceUrl,
+    ...editionData
+  } = parsed;
 
   // Check for duplicate ISBN-13 before inserting
   if (editionData.isbn13) {
@@ -61,10 +70,25 @@ export async function createEdition(input: CreateEditionInput) {
   // Process cover if URL provided
   let coverKeys: { coverS3Key?: string; thumbnailS3Key?: string } = {};
 
-  const [edition] = await db
-    .insert(editions)
-    .values(editionData)
-    .returning();
+  const editionId = randomUUID();
+  const results = await atomic((d) => [
+    d
+      .insert(editions)
+      .values({
+        ...editionData,
+        id: editionId,
+        publisherLinksConfirmed: publisherIds !== undefined,
+      })
+      .returning(),
+    ...(publisherIds !== undefined
+      ? [
+          d.execute(
+            sql`select set_edition_publishers(${editionId}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(publisherIds)}::jsonb)::uuid))`,
+          ),
+        ]
+      : []),
+  ]);
+  const [edition] = results[0] as (typeof editions.$inferSelect)[];
 
   if (coverSourceUrl) {
     const result = await processAndUploadCover(edition.id, coverSourceUrl);
@@ -129,8 +153,19 @@ export async function updateEdition(
   id: string,
   input: Partial<CreateEditionInput>,
 ) {
-  const { contributorIds, genreIds, tagIds, coverSourceUrl, ...editionData } =
-    input;
+  const parsed = createEditionSchema.partial().parse(input);
+  // Zod defaults also run inside partial schemas. Never apply defaults to omitted edits.
+  for (const key of Object.keys(parsed) as (keyof typeof parsed)[]) {
+    if (input[key] === undefined) delete parsed[key];
+  }
+  const {
+    publisherIds,
+    contributorIds,
+    genreIds,
+    tagIds,
+    coverSourceUrl,
+    ...editionData
+  } = parsed;
 
   const updates: Record<string, unknown> = {
     ...editionData,
@@ -147,7 +182,16 @@ export async function updateEdition(
     }
   }
 
-  await db.update(editions).set(updates).where(eq(editions.id, id));
+  await atomic((d) => [
+    d.update(editions).set(updates).where(eq(editions.id, id)),
+    ...(publisherIds !== undefined
+      ? [
+          d.execute(
+            sql`select set_edition_publishers(${id}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(publisherIds)}::jsonb)::uuid))`,
+          ),
+        ]
+      : []),
+  ]);
 
   if (contributorIds) {
     await db
@@ -253,6 +297,13 @@ export async function rematchEdition(
   source: string,
   sourceId: string,
 ) {
+  const current = await db.query.editions.findFirst({
+    where: eq(editions.id, editionId),
+    columns: { metadataLocked: true },
+  });
+  if (!current) throw new Error("Edition not found");
+  if (current.metadataLocked)
+    throw new Error("Unlock this edition before refreshing metadata");
   // Fetch full metadata from the source API
   let coverUrl: string | undefined;
   const updates: Record<string, unknown> = {
@@ -272,7 +323,8 @@ export async function rematchEdition(
     if (!res.ok) {
       // Fallback: search by sourceId
       const results = await searchGoogleBooks(sourceId, 1);
-      if (results.length === 0) throw new Error("Could not fetch from Google Books");
+      if (results.length === 0)
+        throw new Error("Could not fetch from Google Books");
       const r = results[0];
       updates.title = r.title;
       updates.subtitle = r.subtitle ?? null;
@@ -299,9 +351,11 @@ export async function rematchEdition(
       const identifiers: { type: string; identifier: string }[] =
         info.industryIdentifiers ?? [];
       updates.isbn13 =
-        identifiers.find((i: { type: string }) => i.type === "ISBN_13")?.identifier ?? null;
+        identifiers.find((i: { type: string }) => i.type === "ISBN_13")
+          ?.identifier ?? null;
       updates.isbn10 =
-        identifiers.find((i: { type: string }) => i.type === "ISBN_10")?.identifier ?? null;
+        identifiers.find((i: { type: string }) => i.type === "ISBN_10")
+          ?.identifier ?? null;
       updates.description = info.description ?? null;
       updates.googleBooksId = sourceId;
       // Best cover
@@ -338,7 +392,13 @@ export async function rematchEdition(
     if (data.languages?.[0]?.key) {
       const langKey = data.languages[0].key;
       // "/languages/eng" -> "en"
-      const langMap: Record<string, string> = { eng: "en", fra: "fr", deu: "de", spa: "es", ita: "it" };
+      const langMap: Record<string, string> = {
+        eng: "en",
+        fra: "fr",
+        deu: "de",
+        spa: "es",
+        ita: "it",
+      };
       const code = langKey.split("/").pop() ?? "";
       updates.language = langMap[code] ?? code;
     }

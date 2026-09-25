@@ -8,6 +8,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { acquisitionTargets } from "./publisher-links";
 import { works } from "./works";
 import { editions } from "./editions";
 import { instances } from "./instances";
@@ -17,65 +18,74 @@ import { locations, subLocations } from "./locations";
 import { orderStatusEnum, acquisitionMethodEnum } from "./enums";
 import { orderStatusHistory } from "./order-status-history";
 
-export const orders = pgTable("orders", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  workId: uuid("work_id")
-    .notNull()
-    .references(() => works.id, { onDelete: "cascade" }),
-  editionId: uuid("edition_id").references(() => editions.id, {
-    onDelete: "set null",
-  }),
-  instanceId: uuid("instance_id").references(() => instances.id, {
-    onDelete: "set null",
-  }),
-  venueId: uuid("venue_id").references(() => venues.id, {
-    onDelete: "set null",
-  }),
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workId: uuid("work_id")
+      .notNull()
+      .references(() => works.id, { onDelete: "cascade" }),
+    acquisitionTargetId: uuid("acquisition_target_id").references(
+      () => acquisitionTargets.id,
+      { onDelete: "restrict" },
+    ),
+    editionId: uuid("edition_id").references(() => editions.id, {
+      onDelete: "set null",
+    }),
+    instanceId: uuid("instance_id").references(() => instances.id, {
+      onDelete: "set null",
+    }),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
 
-  acquisitionMethod: acquisitionMethodEnum("acquisition_method").notNull(),
-  status: orderStatusEnum("status").notNull().default("placed"),
+    acquisitionMethod: acquisitionMethodEnum("acquisition_method").notNull(),
+    status: orderStatusEnum("status").notNull().default("placed"),
 
-  orderDate: date("order_date").notNull(),
-  orderConfirmation: text("order_confirmation"),
-  orderUrl: text("order_url"),
+    orderDate: date("order_date").notNull(),
+    orderConfirmation: text("order_confirmation"),
+    orderUrl: text("order_url"),
 
-  price: numeric("price", { precision: 10, scale: 2 }),
-  shippingCost: numeric("shipping_cost", { precision: 10, scale: 2 }),
-  totalCost: numeric("total_cost", { precision: 10, scale: 2 }),
-  currency: text("currency"),
+    price: numeric("price", { precision: 10, scale: 2 }),
+    shippingCost: numeric("shipping_cost", { precision: 10, scale: 2 }),
+    totalCost: numeric("total_cost", { precision: 10, scale: 2 }),
+    currency: text("currency"),
 
-  carrier: text("carrier"),
-  trackingNumber: text("tracking_number"),
-  trackingUrl: text("tracking_url"),
-  shippedDate: date("shipped_date"),
-  estimatedDeliveryDate: date("estimated_delivery_date"),
-  actualDeliveryDate: date("actual_delivery_date"),
+    carrier: text("carrier"),
+    trackingNumber: text("tracking_number"),
+    trackingUrl: text("tracking_url"),
+    shippedDate: date("shipped_date"),
+    estimatedDeliveryDate: date("estimated_delivery_date"),
+    actualDeliveryDate: date("actual_delivery_date"),
 
-  originDescription: text("origin_description"),
-  originPlaceId: uuid("origin_place_id").references(() => places.id, {
-    onDelete: "set null",
-  }),
-  destinationLocationId: uuid("destination_location_id").references(
-    () => locations.id,
-    { onDelete: "set null" },
-  ),
-  destinationSubLocationId: uuid("destination_sub_location_id").references(
-    () => subLocations.id,
-    { onDelete: "set null" },
-  ),
+    originDescription: text("origin_description"),
+    originPlaceId: uuid("origin_place_id").references(() => places.id, {
+      onDelete: "set null",
+    }),
+    destinationLocationId: uuid("destination_location_id").references(
+      () => locations.id,
+      { onDelete: "set null" },
+    ),
+    destinationSubLocationId: uuid("destination_sub_location_id").references(
+      () => subLocations.id,
+      { onDelete: "set null" },
+    ),
 
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (t) => [
-  index("orders_work_id_idx").on(t.workId),
-  index("orders_status_idx").on(t.status),
-  index("orders_created_at_idx").on(t.createdAt),
-]);
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("orders_acquisition_target_idx").on(t.acquisitionTargetId),
+    index("orders_work_id_idx").on(t.workId),
+    index("orders_status_idx").on(t.status),
+    index("orders_created_at_idx").on(t.createdAt),
+  ],
+);
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   work: one(works, {

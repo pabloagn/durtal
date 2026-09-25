@@ -2,11 +2,35 @@ import { z } from "zod/v4";
 
 export const createOrderSchema = z.object({
   workId: z.string().uuid(),
+  acquisitionTargetId: z.uuid().nullable().optional(),
   editionId: z.string().uuid().nullable().optional(),
   instanceId: z.string().uuid().nullable().optional(),
   venueId: z.string().uuid().nullable().optional(),
-  acquisitionMethod: z.enum(["online_order", "in_store_purchase", "gift", "digital_purchase", "auction", "event_purchase"]),
-  status: z.enum(["placed", "confirmed", "processing", "shipped", "in_transit", "out_for_delivery", "delivered", "purchased", "received", "bid", "won", "cancelled", "returned"]).optional(),
+  acquisitionMethod: z.enum([
+    "online_order",
+    "in_store_purchase",
+    "gift",
+    "digital_purchase",
+    "auction",
+    "event_purchase",
+  ]),
+  status: z
+    .enum([
+      "placed",
+      "confirmed",
+      "processing",
+      "shipped",
+      "in_transit",
+      "out_for_delivery",
+      "delivered",
+      "purchased",
+      "received",
+      "bid",
+      "won",
+      "cancelled",
+      "returned",
+    ])
+    .optional(),
   orderDate: z.string().min(1),
   orderConfirmation: z.string().nullable().optional(),
   orderUrl: z.string().nullable().optional(),

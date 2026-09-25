@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  publisherWorkCondition,
+  catalogueStatusCondition,
+} from "@/lib/publishers/conditions";
 import { db } from "@/lib/db";
 import {
   works,
@@ -7,6 +11,8 @@ import {
   workSubjects,
   workRecommenders,
   editions,
+  editionPublishers,
+  publishingHouses,
   instances,
   authors,
   media,
@@ -14,15 +20,29 @@ import {
   activityEvents,
   galleryLayouts,
 } from "@/lib/db/schema";
-import { eq, desc, asc, ilike, like, count, and, or, inArray, gte, isNotNull, notInArray } from "drizzle-orm";
+import {
+  sql,
+  eq,
+  desc,
+  asc,
+  ilike,
+  like,
+  count,
+  and,
+  or,
+  inArray,
+  gte,
+  isNotNull,
+  notInArray,
+} from "drizzle-orm";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
-type CatalogueStatus = typeof works.catalogueStatus.enumValues[number];
-type AcquisitionPriority = typeof works.acquisitionPriority.enumValues[number];
+type AcquisitionPriority =
+  (typeof works.acquisitionPriority.enumValues)[number];
 
 /**
  * Build a search condition that matches works by title, author, ISBN,
@@ -79,6 +99,18 @@ async function buildSearchCondition(search: string) {
     .from(editions)
     .where(ilike(editions.publisher, `%${search}%`));
   for (const r of publisherMatches) relatedWorkIds.add(r.workId);
+  const identityMatches = await db
+    .selectDistinct({ workId: editions.workId })
+    .from(editions)
+    .innerJoin(editionPublishers, eq(editionPublishers.editionId, editions.id))
+    .innerJoin(
+      publishingHouses,
+      eq(publishingHouses.id, editionPublishers.publisherId),
+    )
+    .where(
+      sql`strpos(lower(${publishingHouses.name}),lower(${search})) > 0 or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and strpos(lower(a.name),lower(${search})) > 0)`,
+    );
+  for (const r of identityMatches) relatedWorkIds.add(r.workId);
 
   // Build OR condition: title match OR series name match OR related-table matches
   const orConditions = [
@@ -95,18 +127,32 @@ export async function getWorks(opts?: {
   search?: string;
   limit?: number;
   offset?: number;
-  sort?: "title" | "recent" | "year" | "rating" | "authorFirstName" | "authorLastName";
+  sort?:
+    | "title"
+    | "recent"
+    | "year"
+    | "rating"
+    | "authorFirstName"
+    | "authorLastName";
   order?: "asc" | "desc";
   filters?: {
     catalogueStatus?: string[];
     isRare?: boolean;
+    publisherIds?: string[];
     acquisitionPriority?: string[];
     minRating?: number;
     locationId?: string;
     hasPoster?: boolean;
   };
 }) {
-  const { search, limit = 50, offset = 0, sort = "recent", order, filters } = opts ?? {};
+  const {
+    search,
+    limit = 50,
+    offset = 0,
+    sort = "recent",
+    order,
+    filters,
+  } = opts ?? {};
 
   // Default sort directions per sort type
   const defaultOrders: Record<string, "asc" | "desc"> = {
@@ -128,7 +174,7 @@ export async function getWorks(opts?: {
     year: orderFn(works.originalYear),
     rating: orderFn(works.rating),
     authorFirstName: orderFn(works.createdAt), // placeholder; sorted post-query
-    authorLastName: orderFn(works.createdAt),   // placeholder; sorted post-query
+    authorLastName: orderFn(works.createdAt), // placeholder; sorted post-query
   }[sort];
 
   // Build where clause combining search + filters
@@ -136,14 +182,21 @@ export async function getWorks(opts?: {
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
+  if (filters?.publisherIds?.length)
+    conditions.push(publisherWorkCondition(filters.publisherIds));
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));
   }
   if (filters?.catalogueStatus?.length) {
-    conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
+    conditions.push(catalogueStatusCondition(filters.catalogueStatus));
   }
   if (filters?.acquisitionPriority?.length) {
-    conditions.push(inArray(works.acquisitionPriority, filters.acquisitionPriority as AcquisitionPriority[]));
+    conditions.push(
+      inArray(
+        works.acquisitionPriority,
+        filters.acquisitionPriority as AcquisitionPriority[],
+      ),
+    );
   }
   if (filters?.minRating) {
     conditions.push(gte(works.rating, filters.minRating));
@@ -154,7 +207,7 @@ export async function getWorks(opts?: {
       .from(instances)
       .innerJoin(editions, eq(instances.editionId, editions.id))
       .where(eq(instances.locationId, filters.locationId));
-    const workIds = [...new Set(matchingInstances.map(r => r.workId))];
+    const workIds = [...new Set(matchingInstances.map((r) => r.workId))];
     if (workIds.length > 0) {
       conditions.push(inArray(works.id, workIds));
     } else {
@@ -165,8 +218,14 @@ export async function getWorks(opts?: {
     const posterRows = await db
       .select({ workId: media.workId })
       .from(media)
-      .where(and(eq(media.type, "poster"), eq(media.isActive, true), isNotNull(media.workId)));
-    const posterWorkIds = [...new Set(posterRows.map(r => r.workId!))];
+      .where(
+        and(
+          eq(media.type, "poster"),
+          eq(media.isActive, true),
+          isNotNull(media.workId),
+        ),
+      );
+    const posterWorkIds = [...new Set(posterRows.map((r) => r.workId!))];
     if (filters.hasPoster) {
       // Only works WITH a poster
       if (posterWorkIds.length > 0) {
@@ -232,12 +291,28 @@ export async function getWorks(opts?: {
 
       let nameA: string, nameB: string;
       if (sort === "authorFirstName") {
-        nameA = (authorA?.firstName || authorA?.name?.split(/\s+/)[0] || "").toLowerCase();
-        nameB = (authorB?.firstName || authorB?.name?.split(/\s+/)[0] || "").toLowerCase();
+        nameA = (
+          authorA?.firstName ||
+          authorA?.name?.split(/\s+/)[0] ||
+          ""
+        ).toLowerCase();
+        nameB = (
+          authorB?.firstName ||
+          authorB?.name?.split(/\s+/)[0] ||
+          ""
+        ).toLowerCase();
       } else {
         // lastName: use sortName (format "Last, First") or fall back to last word of name
-        nameA = (authorA?.sortName?.split(",")[0] || authorA?.name?.split(/\s+/).pop() || "").toLowerCase();
-        nameB = (authorB?.sortName?.split(",")[0] || authorB?.name?.split(/\s+/).pop() || "").toLowerCase();
+        nameA = (
+          authorA?.sortName?.split(",")[0] ||
+          authorA?.name?.split(/\s+/).pop() ||
+          ""
+        ).toLowerCase();
+        nameB = (
+          authorB?.sortName?.split(",")[0] ||
+          authorB?.name?.split(/\s+/).pop() ||
+          ""
+        ).toLowerCase();
       }
 
       const cmp = nameA.localeCompare(nameB);
@@ -248,26 +323,37 @@ export async function getWorks(opts?: {
   return results;
 }
 
-export async function getWorkCount(search?: string, filters?: {
-  catalogueStatus?: string[];
-  isRare?: boolean;
-  acquisitionPriority?: string[];
-  minRating?: number;
-  locationId?: string;
-  hasPoster?: boolean;
-}) {
+export async function getWorkCount(
+  search?: string,
+  filters?: {
+    catalogueStatus?: string[];
+    isRare?: boolean;
+    publisherIds?: string[];
+    acquisitionPriority?: string[];
+    minRating?: number;
+    locationId?: string;
+    hasPoster?: boolean;
+  },
+) {
   const conditions = [];
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
+  if (filters?.publisherIds?.length)
+    conditions.push(publisherWorkCondition(filters.publisherIds));
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));
   }
   if (filters?.catalogueStatus?.length) {
-    conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
+    conditions.push(catalogueStatusCondition(filters.catalogueStatus));
   }
   if (filters?.acquisitionPriority?.length) {
-    conditions.push(inArray(works.acquisitionPriority, filters.acquisitionPriority as AcquisitionPriority[]));
+    conditions.push(
+      inArray(
+        works.acquisitionPriority,
+        filters.acquisitionPriority as AcquisitionPriority[],
+      ),
+    );
   }
   if (filters?.minRating) {
     conditions.push(gte(works.rating, filters.minRating));
@@ -278,7 +364,7 @@ export async function getWorkCount(search?: string, filters?: {
       .from(instances)
       .innerJoin(editions, eq(instances.editionId, editions.id))
       .where(eq(instances.locationId, filters.locationId));
-    const workIds = [...new Set(matchingInstances.map(r => r.workId))];
+    const workIds = [...new Set(matchingInstances.map((r) => r.workId))];
     if (workIds.length > 0) {
       conditions.push(inArray(works.id, workIds));
     } else {
@@ -289,8 +375,14 @@ export async function getWorkCount(search?: string, filters?: {
     const posterRows = await db
       .select({ workId: media.workId })
       .from(media)
-      .where(and(eq(media.type, "poster"), eq(media.isActive, true), isNotNull(media.workId)));
-    const posterWorkIds = [...new Set(posterRows.map(r => r.workId!))];
+      .where(
+        and(
+          eq(media.type, "poster"),
+          eq(media.isActive, true),
+          isNotNull(media.workId),
+        ),
+      );
+    const posterWorkIds = [...new Set(posterRows.map((r) => r.workId!))];
     if (filters.hasPoster) {
       if (posterWorkIds.length > 0) {
         conditions.push(inArray(works.id, posterWorkIds));
@@ -305,10 +397,7 @@ export async function getWorkCount(search?: string, filters?: {
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [result] = await db
-    .select({ count: count() })
-    .from(works)
-    .where(where);
+  const [result] = await db.select({ count: count() }).from(works).where(where);
   return result.count;
 }
 
@@ -326,6 +415,7 @@ export async function getWork(id: string) {
       editions: {
         orderBy: desc(editions.publicationYear),
         with: {
+          publisherLinks: { with: { publisher: true } },
           instances: {
             with: {
               location: true,
@@ -374,6 +464,7 @@ export async function getWorkBySlug(slug: string) {
       editions: {
         orderBy: desc(editions.publicationYear),
         with: {
+          publisherLinks: { with: { publisher: true } },
           instances: {
             with: {
               location: true,
@@ -458,9 +549,10 @@ export async function findDuplicateWork(opts: {
   // Check if any candidate has a matching author
   const authorLower = opts.authorName.trim().toLowerCase();
   const match = candidates.find((w) =>
-    w.workAuthors.some((wa) =>
-      wa.author.name.toLowerCase().includes(authorLower) ||
-      authorLower.includes(wa.author.name.toLowerCase()),
+    w.workAuthors.some(
+      (wa) =>
+        wa.author.name.toLowerCase().includes(authorLower) ||
+        authorLower.includes(wa.author.name.toLowerCase()),
     ),
   );
 
@@ -533,15 +625,14 @@ export async function createWork(input: CreateWorkInput) {
     .where(eq(works.id, work.id))
     .returning();
 
-  recordActivity("work", updated.id, "work.created", { newValue: workData.title });
+  recordActivity("work", updated.id, "work.created", {
+    newValue: workData.title,
+  });
   invalidate(CACHE_TAGS.works);
   return updated;
 }
 
-export async function updateWork(
-  id: string,
-  input: Partial<CreateWorkInput>,
-) {
+export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
   const { authorIds, subjectIds, recommenderIds, ...workData } = input;
 
   // Snapshot current state for activity diffing
@@ -631,7 +722,8 @@ export async function updateWork(
       const newTitle = workData.title ?? oldTitle;
       const newPrimaryAuthorId = authorIds?.[0]?.authorId ?? oldPrimaryAuthorId;
       const titleChanged = newTitle !== oldTitle;
-      const authorChanged = authorIds !== undefined && newPrimaryAuthorId !== oldPrimaryAuthorId;
+      const authorChanged =
+        authorIds !== undefined && newPrimaryAuthorId !== oldPrimaryAuthorId;
 
       if (titleChanged || authorChanged) {
         const primaryAuthorName =
@@ -647,7 +739,11 @@ export async function updateWork(
           });
           effectiveAuthorName = newAuthor?.name ?? "unknown";
         }
-        const baseSlug = generateWorkSlug(effectiveTitle, effectiveAuthorName, id);
+        const baseSlug = generateWorkSlug(
+          effectiveTitle,
+          effectiveAuthorName,
+          id,
+        );
 
         // Exclude own current slug from uniqueness check
         const existing = await db
@@ -675,7 +771,21 @@ export async function updateWork(
 /** Emit per-field activity events by diffing previous state against incoming input. */
 function recordWorkDiffs(
   id: string,
-  prev: { title: string; originalYear: number | null; originalLanguage: string | null; catalogueStatus: string | null; acquisitionPriority: string | null; rating: number | null; seriesId: string | null; workAuthors: { authorId: string; author: { id: string; name: string } }[] } | undefined,
+  prev:
+    | {
+        title: string;
+        originalYear: number | null;
+        originalLanguage: string | null;
+        catalogueStatus: string | null;
+        acquisitionPriority: string | null;
+        rating: number | null;
+        seriesId: string | null;
+        workAuthors: {
+          authorId: string;
+          author: { id: string; name: string };
+        }[];
+      }
+    | undefined,
   workData: Record<string, unknown>,
   authorIds?: { authorId: string; role?: string }[],
 ) {
@@ -691,9 +801,15 @@ function recordWorkDiffs(
   ];
 
   for (const [field, eventKey] of fieldMap) {
-    if (field in workData && workData[field] !== (prev as Record<string, unknown>)[field]) {
+    if (
+      field in workData &&
+      workData[field] !== (prev as Record<string, unknown>)[field]
+    ) {
       recordActivity("work", id, eventKey, {
-        oldValue: (prev as Record<string, unknown>)[field] as string | number | null,
+        oldValue: (prev as Record<string, unknown>)[field] as
+          | string
+          | number
+          | null,
         newValue: workData[field] as string | number | null,
       });
     }
@@ -711,7 +827,9 @@ function recordWorkDiffs(
     const newIds = new Set(authorIds.map((a) => a.authorId));
     for (const a of authorIds) {
       if (!oldIds.has(a.authorId)) {
-        recordActivity("work", id, "work.author_added", { targetId: a.authorId });
+        recordActivity("work", id, "work.author_added", {
+          targetId: a.authorId,
+        });
       }
     }
     for (const wa of prev.workAuthors) {
@@ -729,9 +847,25 @@ export async function deleteWork(id: string) {
   recordActivity("work", id, "work.deleted");
 
   // Clean up polymorphic records (not covered by FK cascades)
-  await db.delete(comments).where(and(eq(comments.entityType, "work"), eq(comments.entityId, id)));
-  await db.delete(activityEvents).where(and(eq(activityEvents.entityType, "work"), eq(activityEvents.entityId, id)));
-  await db.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "work"), eq(galleryLayouts.entityId, id)));
+  await db
+    .delete(comments)
+    .where(and(eq(comments.entityType, "work"), eq(comments.entityId, id)));
+  await db
+    .delete(activityEvents)
+    .where(
+      and(
+        eq(activityEvents.entityType, "work"),
+        eq(activityEvents.entityId, id),
+      ),
+    );
+  await db
+    .delete(galleryLayouts)
+    .where(
+      and(
+        eq(galleryLayouts.entityType, "work"),
+        eq(galleryLayouts.entityId, id),
+      ),
+    );
 
   await db.delete(works).where(eq(works.id, id));
   invalidate(CACHE_TAGS.works);
@@ -778,7 +912,17 @@ export async function getWorksByAuthorId(
         },
       },
       media: {
-        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
+        columns: {
+          s3Key: true,
+          thumbnailS3Key: true,
+          type: true,
+          isActive: true,
+          cropX: true,
+          cropY: true,
+          cropZoom: true,
+          brightness: true,
+          contrast: true,
+        },
       },
     },
   });
@@ -807,7 +951,17 @@ export async function getLibraryStats() {
       },
     },
     media: {
-      columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
+      columns: {
+        s3Key: true,
+        thumbnailS3Key: true,
+        type: true,
+        isActive: true,
+        cropX: true,
+        cropY: true,
+        cropZoom: true,
+        brightness: true,
+        contrast: true,
+      },
     },
   } as const;
 
@@ -857,7 +1011,12 @@ export async function getLibraryStats() {
                 country: { columns: { name: true } },
                 workAuthors: { columns: { workId: true } },
                 media: {
-                  columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true },
+                  columns: {
+                    s3Key: true,
+                    thumbnailS3Key: true,
+                    type: true,
+                    isActive: true,
+                  },
                 },
               },
             },
@@ -887,10 +1046,12 @@ export async function getLibraryStats() {
       seenAuthorIds.add(author.id);
       // Prefer active poster from media table, fall back to legacy photoS3Key
       const activePoster = author.media?.find(
-        (m: { type: string; isActive: boolean }) => m.type === "poster" && m.isActive,
+        (m: { type: string; isActive: boolean }) =>
+          m.type === "poster" && m.isActive,
       );
       const photoKey =
-        (activePoster as { thumbnailS3Key?: string; s3Key: string } | undefined)?.thumbnailS3Key ??
+        (activePoster as { thumbnailS3Key?: string; s3Key: string } | undefined)
+          ?.thumbnailS3Key ??
         (activePoster as { s3Key: string } | undefined)?.s3Key ??
         author.photoS3Key;
       recentAuthors.push({

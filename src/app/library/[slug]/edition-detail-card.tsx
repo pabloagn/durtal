@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { EditionPublishers } from "@/components/publishers/edition-publishers";
+import type { PublisherOption } from "@/components/publishers/publisher-picker";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InstanceDetail } from "./instance-detail";
@@ -6,10 +8,7 @@ import { EditionEditDialog } from "./edition-edit-dialog";
 import { EditionDeleteButton } from "./edition-delete-button";
 import { InstanceAddDialog } from "./instance-add-dialog";
 import { EditionMatchButton } from "./edition-match-button";
-import {
-  formatDimensions,
-  formatDate,
-} from "@/lib/utils/format";
+import { formatDimensions, formatDate } from "@/lib/utils/format";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import type {
   Edition,
@@ -34,6 +33,7 @@ type InstanceWithLocation = Instance & {
 };
 
 type EditionFull = Edition & {
+  publisherLinks?: { publisher: PublisherOption }[];
   instances: InstanceWithLocation[];
   contributors: Contributor[];
   editionGenres: { genre: Genre }[];
@@ -107,7 +107,8 @@ export function EditionDetailCard({
     return acc;
   }, {});
 
-  const hasActionProps = availableAuthors.length > 0 || availableLocations.length > 0;
+  const hasActionProps =
+    availableAuthors.length > 0 || availableLocations.length > 0;
 
   return (
     <Card>
@@ -121,9 +122,7 @@ export function EditionDetailCard({
               )}
             </h3>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
-              {edition.publisher && (
-                <span>{edition.publisher}</span>
-              )}
+              {edition.publisher && <span>{edition.publisher}</span>}
               {edition.imprint && edition.imprint !== edition.publisher && (
                 <span className="text-fg-muted">{edition.imprint}</span>
               )}
@@ -147,9 +146,7 @@ export function EditionDetailCard({
                   {edition.isbn13}
                 </span>
               )}
-              {edition.isFirstEdition && (
-                <Badge variant="gold">1st ed.</Badge>
-              )}
+              {edition.isFirstEdition && <Badge variant="gold">1st ed.</Badge>}
               {edition.isLimitedEdition && (
                 <Badge variant="rose">Limited</Badge>
               )}
@@ -222,7 +219,9 @@ export function EditionDetailCard({
               </DetailRow>
             )}
             {edition.publicationCountry && (
-              <DetailRow label="Country">{edition.publicationCountry}</DetailRow>
+              <DetailRow label="Country">
+                {edition.publicationCountry}
+              </DetailRow>
             )}
             {publicationDateFormatted && (
               <DetailRow label="Publication Date">
@@ -233,7 +232,9 @@ export function EditionDetailCard({
               <DetailRow label="Translated">Yes</DetailRow>
             )}
             {edition.illustrationType && (
-              <DetailRow label="Illustrations">{edition.illustrationType}</DetailRow>
+              <DetailRow label="Illustrations">
+                {edition.illustrationType}
+              </DetailRow>
             )}
             {edition.isLimitedEdition && edition.limitedEditionCount && (
               <DetailRow label="Limited Edition Count">
@@ -298,7 +299,9 @@ export function EditionDetailCard({
           <div className="flex flex-wrap gap-4">
             {Object.entries(contributorsByRole).map(([role, contributors]) => (
               <div key={role}>
-                <span className="text-xs text-fg-muted capitalize">{role}: </span>
+                <span className="text-xs text-fg-muted capitalize">
+                  {role}:{" "}
+                </span>
                 {contributors.map((c, i) => (
                   <span key={`${c.authorId}-${c.role}`}>
                     {i > 0 && ", "}
@@ -324,6 +327,13 @@ export function EditionDetailCard({
 
       {/* Instances */}
       <CardContent>
+        <div id={`edition-${edition.id}`} className="mb-4 scroll-mt-8">
+          <EditionPublishers
+            editionId={edition.id}
+            confirmed={edition.publisherLinksConfirmed}
+            linked={edition.publisherLinks?.map((l) => l.publisher)}
+          />
+        </div>
         {edition.instances.length > 0 ? (
           <div className="space-y-2">
             {edition.instances.map((instance) => (
