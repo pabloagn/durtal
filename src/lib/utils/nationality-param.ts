@@ -45,6 +45,25 @@ export function nationalityFilterHref(codes: string | string[]): string {
 }
 
 /**
+ * Build the authors list URL for one nationality, keeping the other active
+ * params (search, filters, sort). The page resets to 1.
+ */
+export function withNationalityFilter(
+  params: URLSearchParams | { toString(): string },
+  code: string,
+): string {
+  const next = new URLSearchParams(params.toString());
+  next.set("nationality", code.toUpperCase());
+  next.delete("page");
+  return `/authors?${next.toString()}`;
+}
+
+/** Short display form of an official country name: "Hungary, Republic of" -> "Hungary". */
+export function shortCountryName(name: string): string {
+  return name.split(",")[0].trim();
+}
+
+/**
  * Resolve an old name-based param (e.g. "Hungary, Republic of,Japan") to codes.
  * Names can contain ", ", so consecutive tokens are re-joined: at each position
  * the longest run of tokens that forms a known country name wins. Tokens that

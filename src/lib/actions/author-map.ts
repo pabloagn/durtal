@@ -16,6 +16,9 @@ export interface AuthorMapPoint {
   posterUrl: string | null;
   birthYear: number | null;
   deathYear: number | null;
+  /** ISO 3166-1 alpha-2 code of the author's nationality */
+  nationalityCode: string | null;
+  nationalityName: string | null;
 }
 
 export async function getAuthorsForMap(opts?: {
@@ -59,6 +62,7 @@ export async function getAuthorsForMap(opts?: {
       country: {
         columns: {
           name: true,
+          alpha2: true,
           latitude: true,
           longitude: true,
         },
@@ -132,6 +136,8 @@ export async function getAuthorsForMap(opts?: {
         : null,
       birthYear: row.birthYear ?? null,
       deathYear: row.deathYear ?? null,
+      nationalityCode: row.country?.alpha2 ?? null,
+      nationalityName: row.country?.name ?? null,
     });
   }
 
