@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { toUpdateSchema } from "./helpers";
 
 export const createWorkSchema = z.object({
   title: z.string().min(1, "Title is required").max(500),
@@ -24,12 +25,8 @@ export const createWorkSchema = z.object({
   metadataSourceId: z.string().max(200).nullable().optional(),
 });
 
-export const updateWorkSchema = createWorkSchema.partial().omit({ authorIds: undefined }).extend({
-  authorIds: z.array(z.object({
-    authorId: z.string().uuid(),
-    role: z.enum(["author", "co_author"]).default("author"),
-  })).optional(),
-});
+/** Partial update: no defaults, unknown keys rejected (see toUpdateSchema). */
+export const updateWorkSchema = toUpdateSchema(createWorkSchema);
 
 export type CreateWorkInput = z.input<typeof createWorkSchema>;
 export type UpdateWorkInput = z.input<typeof updateWorkSchema>;

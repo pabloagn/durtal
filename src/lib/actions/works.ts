@@ -19,6 +19,8 @@ import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
+import { updateWorkSchema, type UpdateWorkInput } from "@/lib/validations/works";
+import { parseId } from "@/lib/validations/helpers";
 
 type CatalogueStatus = typeof works.catalogueStatus.enumValues[number];
 type AcquisitionPriority = typeof works.acquisitionPriority.enumValues[number];
@@ -525,9 +527,10 @@ export async function createWork(input: CreateWorkInput) {
 
 export async function updateWork(
   id: string,
-  input: Partial<CreateWorkInput>,
+  input: UpdateWorkInput,
 ) {
-  const { authorIds, subjectIds, recommenderIds, ...workData } = input;
+  parseId(id);
+  const { authorIds, subjectIds, recommenderIds, ...workData } = updateWorkSchema.parse(input);
 
   // Snapshot current state for activity diffing
   const prev = await db.query.works.findFirst({

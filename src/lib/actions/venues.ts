@@ -16,7 +16,8 @@ import {
 import type { SQL } from "drizzle-orm";
 import { slugify, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { createVenueSchema } from "@/lib/validations/venues";
+import { createVenueSchema, updateVenueSchema, type UpdateVenueInput } from "@/lib/validations/venues";
+import { parseId } from "@/lib/validations/helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -289,7 +290,9 @@ export async function createVenue(input: CreateVenueInput) {
   return updated;
 }
 
-export async function updateVenue(id: string, input: Partial<CreateVenueInput>) {
+export async function updateVenue(id: string, input: UpdateVenueInput) {
+  parseId(id);
+  input = updateVenueSchema.parse(input);
   const updatePayload: Record<string, unknown> = {
     ...input,
     updatedAt: new Date(),

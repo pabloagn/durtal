@@ -1,4 +1,7 @@
 import { z } from "zod/v4";
+import { toUpdateSchema } from "./helpers";
+
+export const orderStatusSchema = z.enum(["placed", "confirmed", "processing", "shipped", "in_transit", "out_for_delivery", "delivered", "purchased", "received", "bid", "won", "cancelled", "returned"]);
 
 export const createOrderSchema = z.object({
   workId: z.string().uuid(),
@@ -6,7 +9,7 @@ export const createOrderSchema = z.object({
   instanceId: z.string().uuid().nullable().optional(),
   venueId: z.string().uuid().nullable().optional(),
   acquisitionMethod: z.enum(["online_order", "in_store_purchase", "gift", "digital_purchase", "auction", "event_purchase"]),
-  status: z.enum(["placed", "confirmed", "processing", "shipped", "in_transit", "out_for_delivery", "delivered", "purchased", "received", "bid", "won", "cancelled", "returned"]).optional(),
+  status: orderStatusSchema.optional(),
   orderDate: z.string().min(1),
   orderConfirmation: z.string().nullable().optional(),
   orderUrl: z.string().nullable().optional(),
@@ -27,4 +30,8 @@ export const createOrderSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
+/** Partial update: no defaults, unknown keys rejected. */
+export const updateOrderSchema = toUpdateSchema(createOrderSchema);
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+export type UpdateOrderInput = z.input<typeof updateOrderSchema>;

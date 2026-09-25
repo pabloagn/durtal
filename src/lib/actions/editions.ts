@@ -14,6 +14,8 @@ import {
 } from "@/lib/validations";
 import { processAndUploadCover } from "@/lib/s3/covers";
 import { recordActivity } from "@/lib/activity/record";
+import { updateEditionSchema, type UpdateEditionInput } from "@/lib/validations/editions";
+import { parseId } from "@/lib/validations/helpers";
 
 export async function getEdition(id: string) {
   return db.query.editions.findFirst({
@@ -127,10 +129,11 @@ export async function createEdition(input: CreateEditionInput) {
 
 export async function updateEdition(
   id: string,
-  input: Partial<CreateEditionInput>,
+  input: UpdateEditionInput,
 ) {
+  parseId(id);
   const { contributorIds, genreIds, tagIds, coverSourceUrl, ...editionData } =
-    input;
+    updateEditionSchema.parse(input);
 
   const updates: Record<string, unknown> = {
     ...editionData,
@@ -189,15 +192,13 @@ export async function updateEdition(
     }
   }
 
-  // Record activity — resolve workId from editionData or fetch from DB
-  const workId =
-    editionData.workId ??
-    (
-      await db.query.editions.findFirst({
-        where: eq(editions.id, id),
-        columns: { workId: true },
-      })
-    )?.workId;
+  // Record activity (an update cannot move an edition to another work)
+  const workId = (
+    await db.query.editions.findFirst({
+      where: eq(editions.id, id),
+      columns: { workId: true },
+    })
+  )?.workId;
   if (workId) {
     recordActivity("work", workId, "work.edition_updated", { targetId: id });
   }

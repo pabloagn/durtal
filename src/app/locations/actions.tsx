@@ -10,13 +10,16 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { AddressInput, EMPTY_ADDRESS, type AddressFields } from "@/components/locations/address-input";
 import { createLocation } from "@/lib/actions/locations";
+import type { CreateLocationInput } from "@/lib/validations/locations";
+
+type LocationType = CreateLocationInput["type"];
 
 export function LocationActions() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
-  const [type, setType] = useState("physical");
+  const [type, setType] = useState<LocationType>("physical");
   const [address, setAddress] = useState<AddressFields>(EMPTY_ADDRESS);
 
   function resetForm() {
@@ -82,7 +85,7 @@ export function LocationActions() {
             label="Type"
             id="location-type"
             value={type}
-            onChange={(e) => setType(e.target.value)}
+            onChange={(e) => setType(e.target.value as LocationType)}
             options={[
               { value: "physical", label: "Physical" },
               { value: "digital", label: "Digital" },

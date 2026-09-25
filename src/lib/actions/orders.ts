@@ -31,7 +31,9 @@ import {
 } from "@/lib/constants/orders";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { createOrderSchema } from "@/lib/validations/orders";
+import { createOrderSchema, updateOrderSchema, orderStatusSchema } from "@/lib/validations/orders";
+import { parseId } from "@/lib/validations/helpers";
+import { z } from "zod/v4";
 
 /**
  * Derive the correct work catalogueStatus by looking at ALL orders for the work.
@@ -442,7 +444,9 @@ export async function createOrder(input: CreateOrderInput) {
   return order;
 }
 
-export async function updateOrder(id: string, input: UpdateOrderInput) {
+export async function updateOrder(id: string, rawInput: UpdateOrderInput) {
+  parseId(id);
+  const input = updateOrderSchema.parse(rawInput);
   // H3: fetch current state to record what changed
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
@@ -523,6 +527,9 @@ export async function updateOrderStatus(
   newStatus: OrderStatus,
   notes?: string,
 ) {
+  parseId(id);
+  newStatus = orderStatusSchema.parse(newStatus);
+  notes = z.string().max(5000).optional().parse(notes);
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
     columns: { status: true, acquisitionMethod: true, shippedDate: true, actualDeliveryDate: true, workId: true },

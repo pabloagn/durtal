@@ -8,6 +8,8 @@ import {
   type CreateInstanceInput,
 } from "@/lib/validations";
 import { recordActivity } from "@/lib/activity/record";
+import { updateInstanceSchema, type UpdateInstanceInput } from "@/lib/validations/instances";
+import { parseId } from "@/lib/validations/helpers";
 
 export async function createInstance(input: CreateInstanceInput) {
   const parsed = createInstanceSchema.parse(input);
@@ -28,11 +30,13 @@ export async function createInstance(input: CreateInstanceInput) {
 
 export async function updateInstance(
   id: string,
-  input: Partial<CreateInstanceInput>,
+  input: UpdateInstanceInput,
 ) {
+  parseId(id);
+  const data = updateInstanceSchema.parse(input);
   await db
     .update(instances)
-    .set({ ...input, updatedAt: new Date() })
+    .set({ ...data, updatedAt: new Date() })
     .where(eq(instances.id, id));
 
   const inst = await db.query.instances.findFirst({

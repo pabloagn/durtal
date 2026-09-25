@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { toUpdateSchema } from "./helpers";
 
 export const createInstanceSchema = z.object({
   editionId: z.string().uuid(),
@@ -46,9 +47,8 @@ export const createInstanceSchema = z.object({
   lentDate: z.string().nullable().optional(),
 });
 
-export const updateInstanceSchema = createInstanceSchema.partial().omit({
-  editionId: undefined,
-});
+/** Partial update: no defaults (a status or flag is never reset), unknown keys rejected. */
+export const updateInstanceSchema = toUpdateSchema(createInstanceSchema.omit({ editionId: true }));
 
 export type CreateInstanceInput = z.input<typeof createInstanceSchema>;
 export type UpdateInstanceInput = z.input<typeof updateInstanceSchema>;

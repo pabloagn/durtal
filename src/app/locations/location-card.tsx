@@ -16,6 +16,9 @@ import {
   type AddressFields,
 } from "@/components/locations/address-input";
 import { updateLocation, deleteLocation } from "@/lib/actions/locations";
+import type { CreateLocationInput } from "@/lib/validations/locations";
+
+type LocationType = CreateLocationInput["type"];
 
 interface SubLocation {
   id: string;
@@ -62,7 +65,7 @@ export function LocationCard({
 
   // Edit form state
   const [editName, setEditName] = useState(name);
-  const [editType, setEditType] = useState(type);
+  const [editType, setEditType] = useState<LocationType>(type as LocationType);
   const [editAddress, setEditAddress] = useState<AddressFields>({
     street: street ?? "",
     city: city ?? "",
@@ -199,7 +202,7 @@ export function LocationCard({
             label="Type"
             id="edit-location-type"
             value={editType}
-            onChange={(e) => setEditType(e.target.value)}
+            onChange={(e) => setEditType(e.target.value as LocationType)}
             options={[
               { value: "physical", label: "Physical" },
               { value: "digital", label: "Digital" },

@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { toUpdateSchema } from "./helpers";
 
 export const createEditionSchema = z.object({
   workId: z.string().uuid(),
@@ -66,7 +67,8 @@ export const createEditionSchema = z.object({
   tagIds: z.array(z.string().uuid()).optional(),
 });
 
-export const updateEditionSchema = createEditionSchema.partial().omit({ workId: undefined });
+/** Partial update: no defaults, unknown keys rejected; an edition cannot move to another work. */
+export const updateEditionSchema = toUpdateSchema(createEditionSchema.omit({ workId: true }));
 
 export type CreateEditionInput = z.input<typeof createEditionSchema>;
 export type UpdateEditionInput = z.input<typeof updateEditionSchema>;

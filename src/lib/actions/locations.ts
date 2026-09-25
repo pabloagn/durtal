@@ -4,6 +4,17 @@ import { db } from "@/lib/db";
 import { locations, subLocations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
+import {
+  createLocationSchema,
+  updateLocationSchema,
+  createSubLocationSchema,
+  updateSubLocationSchema,
+  type CreateLocationInput,
+  type UpdateLocationInput,
+  type CreateSubLocationInput,
+  type UpdateSubLocationInput,
+} from "@/lib/validations/locations";
+import { parseId } from "@/lib/validations/helpers";
 
 export const getLocations = cached(
   () =>
@@ -33,46 +44,15 @@ export async function getLocation(id: string) {
   });
 }
 
-export async function createLocation(input: {
-  name: string;
-  type: string;
-  street?: string | null;
-  city?: string | null;
-  region?: string | null;
-  country?: string | null;
-  countryCode?: string | null;
-  postalCode?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  icon?: string | null;
-  color?: string | null;
-  sortOrder?: number;
-}) {
-  const [location] = await db.insert(locations).values(input).returning();
+export async function createLocation(input: CreateLocationInput) {
+  const [location] = await db.insert(locations).values(createLocationSchema.parse(input)).returning();
   invalidate(CACHE_TAGS.locations);
   return location;
 }
 
-export async function updateLocation(
-  id: string,
-  input: Partial<{
-    name: string;
-    type: string;
-    street: string | null;
-    city: string | null;
-    region: string | null;
-    country: string | null;
-    countryCode: string | null;
-    postalCode: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    icon: string | null;
-    color: string | null;
-    sortOrder: number;
-    isActive: boolean;
-  }>,
-) {
-  await db.update(locations).set(input).where(eq(locations.id, id));
+export async function updateLocation(id: string, input: UpdateLocationInput) {
+  parseId(id);
+  await db.update(locations).set(updateLocationSchema.parse(input)).where(eq(locations.id, id));
   invalidate(CACHE_TAGS.locations);
   return { id };
 }
@@ -83,21 +63,15 @@ export async function deleteLocation(id: string) {
   return { id };
 }
 
-export async function createSubLocation(input: {
-  locationId: string;
-  name: string;
-  sortOrder?: number;
-}) {
-  const [sub] = await db.insert(subLocations).values(input).returning();
+export async function createSubLocation(input: CreateSubLocationInput) {
+  const [sub] = await db.insert(subLocations).values(createSubLocationSchema.parse(input)).returning();
   invalidate(CACHE_TAGS.locations);
   return sub;
 }
 
-export async function updateSubLocation(
-  id: string,
-  input: Partial<{ name: string; sortOrder: number }>,
-) {
-  await db.update(subLocations).set(input).where(eq(subLocations.id, id));
+export async function updateSubLocation(id: string, input: UpdateSubLocationInput) {
+  parseId(id);
+  await db.update(subLocations).set(updateSubLocationSchema.parse(input)).where(eq(subLocations.id, id));
   invalidate(CACHE_TAGS.locations);
   return { id };
 }

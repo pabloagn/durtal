@@ -4,6 +4,13 @@ import { db } from "@/lib/db";
 import { collections, collectionEditions, editions, works, workAuthors, authors } from "@/lib/db/schema";
 import { eq, asc, and, ilike, or, sql, inArray } from "drizzle-orm";
 import { recordActivity } from "@/lib/activity/record";
+import {
+  createCollectionSchema,
+  updateCollectionSchema,
+  type CreateCollectionInput,
+  type UpdateCollectionInput,
+} from "@/lib/validations/collections";
+import { parseId } from "@/lib/validations/helpers";
 
 export async function getCollections() {
   return db.query.collections.findMany({
@@ -44,33 +51,24 @@ export async function getCollection(id: string) {
   });
 }
 
-export async function createCollection(input: {
-  name: string;
-  description?: string | null;
-  sortOrder?: number;
-}) {
+export async function createCollection(input: CreateCollectionInput) {
+  const data = createCollectionSchema.parse(input);
   const [collection] = await db
     .insert(collections)
-    .values(input)
+    .values(data)
     .returning();
   return collection;
 }
 
 export async function updateCollection(
   id: string,
-  input: Partial<{
-    name: string;
-    description: string | null;
-    coverS3Key: string | null;
-    posterS3Key: string | null;
-    posterThumbnailS3Key: string | null;
-    backgroundS3Key: string | null;
-    sortOrder: number;
-  }>,
+  input: UpdateCollectionInput,
 ) {
+  parseId(id);
+  const data = updateCollectionSchema.parse(input);
   await db
     .update(collections)
-    .set({ ...input, updatedAt: new Date() })
+    .set({ ...data, updatedAt: new Date() })
     .where(eq(collections.id, id));
   return { id };
 }

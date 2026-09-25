@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { toUpdateSchema } from "./helpers";
 
 export const createVenueSchema = z.object({
   name: z.string().min(1).max(500),
@@ -31,4 +32,8 @@ export const createVenueSchema = z.object({
   lastVisitDate: z.string().nullable().optional(),
 });
 
+/** Partial update: no defaults, unknown keys rejected. */
+export const updateVenueSchema = toUpdateSchema(createVenueSchema);
+
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
+export type UpdateVenueInput = z.input<typeof updateVenueSchema>;

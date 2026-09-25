@@ -12,6 +12,8 @@ import {
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
+import { updateAuthorSchema, type UpdateAuthorInput } from "@/lib/validations/authors";
+import { parseId } from "@/lib/validations/helpers";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -393,7 +395,9 @@ export async function searchAuthorsLite(query: string) {
   });
 }
 
-export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>) {
+export async function updateAuthor(id: string, input: UpdateAuthorInput) {
+  parseId(id);
+  input = updateAuthorSchema.parse(input);
   // Snapshot for activity diffing + zodiac recomputation
   const prev = await db.query.authors.findFirst({
     where: eq(authors.id, id),
