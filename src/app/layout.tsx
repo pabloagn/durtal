@@ -34,6 +34,12 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+// Every page shows live catalogue data, so render per request and never at
+// build time: a pre-rendered page would show build-time data forever, and the
+// build would need database credentials. Reference data stays cached through
+// `cached()` (src/lib/cache.ts), which is independent of this setting.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "Durtal",

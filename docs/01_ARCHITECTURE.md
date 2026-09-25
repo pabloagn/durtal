@@ -190,7 +190,11 @@ This keeps the data layer colocated with the UI layer and eliminates HTTP serial
 
 ### Force-Dynamic on All Data Pages
 
-Every page that reads from the database uses `export const dynamic = "force-dynamic"`. This ensures fresh data on every request. There is no ISR or static generation — the catalogue changes frequently and stale data is unacceptable.
+The root layout (`src/app/layout.tsx`) sets `export const dynamic = "force-dynamic"`, so every page renders per request. This ensures fresh data on every request. There is no ISR or static generation — the catalogue changes frequently and stale data is unacceptable. It also keeps `next build` free of database credentials (the Docker build has none).
+
+Guard: `getDb()` (`src/lib/db/index.ts`) throws when called during `next build` (`NEXT_PHASE === "phase-production-build"`). A route that starts pre-rendering with build-time data fails the build instead.
+
+Reference data read through `cached()` (`src/lib/cache.ts`, `unstable_cache` with tags) is still cached per request; the matching server actions invalidate its tags.
 
 ### Cascading Deletes
 
