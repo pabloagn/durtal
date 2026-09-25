@@ -1,6 +1,6 @@
 # Task 0123: Rare flag icon toggle
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-09-25
 **Priority**: HIGH
 **Type**: Fix
@@ -20,4 +20,4 @@ SLN-315 correction: replace the category-based hunting form with a boolean rare 
 
 ## Completion Notes
 
-Tested with disposable PostgreSQL including conversion of both legacy labels and an unmarked record, date preservation, one-click save/clear, validation and filtering. Browser checks cover historical date editing, on/off toggles, keyboard dismissal, and popup fit at 640×360 and 400×300 (115px tall, no internal scrolling). Live activation follows these checks under the user's explicit migration authorization.
+Tested with disposable PostgreSQL including conversion of both legacy labels and an unmarked record, date preservation, one-click save/clear, validation and filtering. Browser checks cover historical date editing, on/off toggles, keyboard dismissal, and popup fit at 640×360 and 400×300 (115px tall, no internal scrolling). 290 tests, typecheck and lint passed. Applied migration 0024 to live Neon under explicit user authorization and activated the redesign on localhost:3100. Before/after fingerprints verified all 348 books retained dates and unrelated values and all flags converted correctly. Verified the live Fictions page shows the icon beside the year/rating and no old text button. No real-book flag was changed for testing.
