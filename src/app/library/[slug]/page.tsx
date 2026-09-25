@@ -38,6 +38,7 @@ import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { AmbientCrystals } from "./ambient-crystals";
 import type { CrystalColor, ColorPalette } from "@/lib/types";
+import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -175,11 +176,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 src={backgroundUrl!}
                 alt=""
                 className="h-full w-full object-cover"
-                style={{
-                  objectPosition: `${background.cropX}% ${background.cropY}%`,
-                  transform: `scale(${background.cropZoom / 100})`,
-                  transformOrigin: `${background.cropX}% ${background.cropY}%`,
-                }}
+                style={mediaImageStyle(mediaCrop(background))}
               />
               {/* Dark overlay for readability */}
               <div className="absolute inset-0 bg-black/70" />
@@ -212,9 +209,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <WorkPosterImage
             src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
             alt={`${work.title} poster`}
-            cropX={poster.cropX}
-            cropY={poster.cropY}
-            cropZoom={poster.cropZoom}
+            crop={mediaCrop(poster)}
             palette={crystalPalette}
           />
         )}
@@ -488,7 +483,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                     }
                     coverCrop={
                       rwPoster
-                        ? { x: rwPoster.cropX, y: rwPoster.cropY, zoom: rwPoster.cropZoom }
+                        ? mediaCrop(rwPoster)
                         : null
                     }
                     publicationYear={

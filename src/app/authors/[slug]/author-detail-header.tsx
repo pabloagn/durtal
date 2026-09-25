@@ -16,12 +16,9 @@ import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
+import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
-interface PosterCrop {
-  x: number;
-  y: number;
-  zoom: number;
-}
+type PosterCrop = MediaCrop;
 
 interface AuthorDetailHeaderProps {
   authorId: string;
@@ -137,16 +134,7 @@ export function AuthorDetailHeader({
                 fill
                 sizes="192px"
                 className="protected-image object-cover transition-transform duration-300 hover:scale-[1.03]"
-                style={
-                  posterCrop &&
-                  (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100)
-                    ? {
-                        objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
-                        transform: `scale(${posterCrop.zoom / 100})`,
-                        transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
-                      }
-                    : undefined
-                }
+                style={mediaImageStyle(posterCrop)}
                 unoptimized
               />
             </div>

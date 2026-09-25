@@ -10,6 +10,7 @@ import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
 import { LibraryShell } from "./library-shell";
 import { LibraryFiltersBar } from "./library-filters-bar";
 import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
+import { mediaCrop } from "@/lib/utils/media-style";
 
 interface PageProps {
   searchParams: Promise<{
@@ -153,7 +154,7 @@ async function LibraryContent({
         ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
         : null,
       coverCrop: activePoster
-        ? { x: activePoster.cropX, y: activePoster.cropY, zoom: activePoster.cropZoom }
+        ? mediaCrop(activePoster)
         : null,
       publicationYear: firstEdition?.publicationYear ?? work.originalYear,
       language: firstEdition?.language,

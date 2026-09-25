@@ -52,7 +52,7 @@ export async function getSeriesDetail(id: string) {
             limit: 1,
           },
           media: {
-            columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+            columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
           },
         },
       },

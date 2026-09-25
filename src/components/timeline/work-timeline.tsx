@@ -11,6 +11,7 @@ import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
 import { WorkTimelineMarker, MARKER_LANE_HEIGHT } from "./work-timeline-marker";
 import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
+import { mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -141,7 +142,13 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
           <img
             src={work.coverUrl}
             alt={work.title}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              ...mediaImageStyle(work.coverCrop),
+            }}
             onError={() => setImgError(true)}
           />
         ) : (

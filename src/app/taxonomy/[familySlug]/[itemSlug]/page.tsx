@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
+import { mediaCrop } from "@/lib/utils/media-style";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,8 @@ async function getWorksByIds(ids: string[]) {
           cropX: true,
           cropY: true,
           cropZoom: true,
+          brightness: true,
+          contrast: true,
         },
       },
     },
@@ -164,13 +167,7 @@ async function ItemContent({
                 primaryEdition?.coverS3Key;
               const coverUrl = coverKey ? getImageUrl(coverKey) : null;
 
-              const coverCrop = poster
-                ? {
-                    x: poster.cropX ?? 50,
-                    y: poster.cropY ?? 50,
-                    zoom: poster.cropZoom ?? 100,
-                  }
-                : null;
+              const coverCrop = poster ? mediaCrop(poster) : null;
 
               const instanceCount = work.editions?.reduce(
                 (sum, ed) => sum + (ed.instances?.length ?? 0),

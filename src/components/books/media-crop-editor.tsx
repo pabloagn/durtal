@@ -1,14 +1,23 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { RotateCcw, Save, Loader2, ZoomIn } from "lucide-react";
+import { RotateCcw, Save, Loader2, ZoomIn, Sun, Contrast } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { mediaFilter } from "@/lib/utils/media-style";
 
 interface CropValues {
   cropX: number;
   cropY: number;
   cropZoom: number;
+  /** Percent, 100 = unchanged */
+  brightness: number;
+  /** Percent, 100 = unchanged */
+  contrast: number;
 }
+
+/** Slider range for brightness and contrast, in percent */
+const ADJUST_MIN = 50;
+const ADJUST_MAX = 150;
 
 interface MediaCropEditorProps {
   imageUrl: string;
@@ -33,6 +42,8 @@ export function MediaCropEditor({
   const [cropX, setCropX] = useState(initial.cropX);
   const [cropY, setCropY] = useState(initial.cropY);
   const [cropZoom, setCropZoom] = useState(initial.cropZoom);
+  const [brightness, setBrightness] = useState(initial.brightness);
+  const [contrast, setContrast] = useState(initial.contrast);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -43,12 +54,16 @@ export function MediaCropEditor({
     setCropX(initial.cropX);
     setCropY(initial.cropY);
     setCropZoom(initial.cropZoom);
-  }, [initial.cropX, initial.cropY, initial.cropZoom]);
+    setBrightness(initial.brightness);
+    setContrast(initial.contrast);
+  }, [initial.cropX, initial.cropY, initial.cropZoom, initial.brightness, initial.contrast]);
 
   const isDirty =
     cropX !== initial.cropX ||
     cropY !== initial.cropY ||
-    cropZoom !== initial.cropZoom;
+    cropZoom !== initial.cropZoom ||
+    brightness !== initial.brightness ||
+    contrast !== initial.contrast;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -87,6 +102,8 @@ export function MediaCropEditor({
     setCropX(50);
     setCropY(50);
     setCropZoom(100);
+    setBrightness(100);
+    setContrast(100);
   }
 
   const ratio = ASPECT_RATIOS[aspect] ?? 2 / 3;
@@ -96,7 +113,7 @@ export function MediaCropEditor({
   return (
     <div className="space-y-3">
       <p className="text-xs font-medium text-fg-secondary">
-        Adjust position
+        Adjust position, brightness and contrast
       </p>
 
       {/* Preview — fixed dimensions preserving exact aspect ratio */}
@@ -118,6 +135,7 @@ export function MediaCropEditor({
             objectPosition: `${cropX}% ${cropY}%`,
             transform: `scale(${cropZoom / 100})`,
             transformOrigin: `${cropX}% ${cropY}%`,
+            filter: mediaFilter({ x: cropX, y: cropY, zoom: cropZoom, brightness, contrast }),
           }}
         />
         {/* Crosshair guides */}
@@ -140,9 +158,46 @@ export function MediaCropEditor({
             value={cropZoom}
             onChange={(e) => setCropZoom(Number(e.target.value))}
             className="crop-range-slider flex-1"
+            aria-label="Zoom"
           />
           <span className="w-10 shrink-0 text-right font-mono text-micro text-fg-muted">
             {cropZoom}%
+          </span>
+        </div>
+
+        {/* Brightness slider */}
+        <div className="flex min-w-[180px] flex-1 items-center gap-2">
+          <Sun className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
+          <input
+            type="range"
+            min={ADJUST_MIN}
+            max={ADJUST_MAX}
+            step={1}
+            value={brightness}
+            onChange={(e) => setBrightness(Number(e.target.value))}
+            className="crop-range-slider flex-1"
+            aria-label="Brightness"
+          />
+          <span className="w-10 shrink-0 text-right font-mono text-micro text-fg-muted">
+            {brightness}%
+          </span>
+        </div>
+
+        {/* Contrast slider */}
+        <div className="flex min-w-[180px] flex-1 items-center gap-2">
+          <Contrast className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
+          <input
+            type="range"
+            min={ADJUST_MIN}
+            max={ADJUST_MAX}
+            step={1}
+            value={contrast}
+            onChange={(e) => setContrast(Number(e.target.value))}
+            className="crop-range-slider flex-1"
+            aria-label="Contrast"
+          />
+          <span className="w-10 shrink-0 text-right font-mono text-micro text-fg-muted">
+            {contrast}%
           </span>
         </div>
 
@@ -170,7 +225,7 @@ export function MediaCropEditor({
           <Button
             variant="primary"
             size="sm"
-            onClick={() => onSave({ cropX, cropY, cropZoom })}
+            onClick={() => onSave({ cropX, cropY, cropZoom, brightness, contrast })}
             disabled={!isDirty || saving}
           >
             {saving ? (
@@ -181,7 +236,7 @@ export function MediaCropEditor({
             ) : (
               <Save className="h-3 w-3" strokeWidth={1.5} />
             )}
-            Save position
+            Save
           </Button>
         </div>
       </div>

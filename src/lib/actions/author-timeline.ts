@@ -6,6 +6,7 @@ import { and, asc, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
+import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 
 export interface AuthorTimelineItem {
   id: string;
@@ -15,7 +16,7 @@ export interface AuthorTimelineItem {
   deathYear: number | null;
   nationality: string | null;
   posterUrl: string | null;
-  posterCrop: { x: number; y: number; zoom: number } | null;
+  posterCrop: MediaCrop | null;
   worksCount: number;
 }
 
@@ -63,6 +64,8 @@ export async function getAuthorsForTimeline(opts?: {
           cropX: true,
           cropY: true,
           cropZoom: true,
+          brightness: true,
+          contrast: true,
         },
       },
     },
@@ -87,14 +90,7 @@ export async function getAuthorsForTimeline(opts?: {
     const photoKey =
       activePoster?.thumbnailS3Key ?? activePoster?.s3Key ?? null;
 
-    const posterCrop =
-      activePoster != null
-        ? {
-            x: activePoster.cropX,
-            y: activePoster.cropY,
-            zoom: activePoster.cropZoom,
-          }
-        : null;
+    const posterCrop = activePoster != null ? mediaCrop(activePoster) : null;
 
     items.push({
       id: row.id,

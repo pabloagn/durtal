@@ -3,12 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
+import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
-interface PosterCrop {
-  x: number;
-  y: number;
-  zoom: number;
-}
+type PosterCrop = MediaCrop;
 
 interface AuthorListItemProps {
   id: string;
@@ -102,15 +99,7 @@ export function AuthorListItem({
               fill
               sizes="28px"
               className="protected-image object-cover"
-              style={
-                posterCrop && (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100)
-                  ? {
-                      objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
-                      transform: `scale(${posterCrop.zoom / 100})`,
-                      transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
-                    }
-                  : undefined
-              }
+              style={mediaImageStyle(posterCrop)}
               unoptimized
             />
           ) : (

@@ -8,6 +8,7 @@ import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { ColumnDef } from "@/components/books/column-config-dialog";
 import type { CatalogueStatus } from "@/lib/types";
 import type { CoverCrop } from "./book-card";
+import { mediaImageStyle } from "@/lib/utils/media-style";
 
 export interface DetailedBookItem {
   workId: string;
@@ -67,18 +68,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
                 fill
                 sizes="56px"
                 className="object-cover"
-                style={
-                  book.coverCrop &&
-                  (book.coverCrop.x !== 50 ||
-                    book.coverCrop.y !== 50 ||
-                    book.coverCrop.zoom !== 100)
-                    ? {
-                        objectPosition: `${book.coverCrop.x}% ${book.coverCrop.y}%`,
-                        transform: `scale(${book.coverCrop.zoom / 100})`,
-                        transformOrigin: `${book.coverCrop.x}% ${book.coverCrop.y}%`,
-                      }
-                    : undefined
-                }
+                style={mediaImageStyle(book.coverCrop)}
               unoptimized
               />
             ) : (

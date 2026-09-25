@@ -8,6 +8,7 @@ import { BookCard } from "@/components/books/book-card";
 import { AuthorDetailHeader } from "./author-detail-header";
 import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -47,7 +48,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
     ? `/api/s3/read?key=${encodeURIComponent(poster.thumbnailS3Key ?? poster.s3Key)}`
     : null;
   const posterCrop = poster
-    ? { x: poster.cropX, y: poster.cropY, zoom: poster.cropZoom }
+    ? mediaCrop(poster)
     : null;
 
   const activeBackground = author.media?.find(
@@ -95,11 +96,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
               src={backgroundUrl}
               alt=""
               className="protected-image h-full w-full object-cover"
-              style={{
-                objectPosition: `${bgMedia.cropX}% ${bgMedia.cropY}%`,
-                transform: `scale(${bgMedia.cropZoom / 100})`,
-                transformOrigin: `${bgMedia.cropX}% ${bgMedia.cropY}%`,
-              }}
+              style={mediaImageStyle(mediaCrop(bgMedia))}
             />
             {/* Dark overlay for readability */}
             <div className="absolute inset-0 bg-black/70" />
@@ -203,7 +200,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
                   coverUrl={coverUrl}
                   coverCrop={
                     workActivePoster
-                      ? { x: workActivePoster.cropX, y: workActivePoster.cropY, zoom: workActivePoster.cropZoom }
+                      ? mediaCrop(workActivePoster)
                       : null
                   }
                   publicationYear={work.editions[0]?.publicationYear}

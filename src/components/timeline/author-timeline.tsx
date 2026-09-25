@@ -11,6 +11,7 @@ import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
 import { AuthorTimelineRow, ROW_HEIGHT } from "./author-timeline-row";
+import { mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,11 +23,6 @@ const BOTTOM_CHROME_HEIGHT = 68;
 // ── Tooltip content ──────────────────────────────────────────────────────────
 
 function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
-  const hasCrop =
-    author.posterCrop &&
-    (author.posterCrop.x !== 50 ||
-      author.posterCrop.y !== 50 ||
-      author.posterCrop.zoom !== 100);
 
   const lifeDates = author.deathYear
     ? `${author.birthYear} — ${author.deathYear}`
@@ -60,18 +56,12 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
           <img
             src={author.posterUrl}
             alt={author.name}
-            style={
-              hasCrop
-                ? {
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    objectPosition: `${author.posterCrop!.x}% ${author.posterCrop!.y}%`,
-                    transform: `scale(${author.posterCrop!.zoom / 100})`,
-                    transformOrigin: `${author.posterCrop!.x}% ${author.posterCrop!.y}%`,
-                  }
-                : { width: "100%", height: "100%", objectFit: "cover" }
-            }
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              ...mediaImageStyle(author.posterCrop),
+            }}
           />
         ) : (
           <span

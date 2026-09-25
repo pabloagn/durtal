@@ -20,6 +20,7 @@ import {
   CURRENCY_SELECT_OPTIONS,
   DEFAULT_CURRENCY,
 } from "@/lib/constants/currencies";
+import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,8 @@ interface WorkResult {
     cropX: number | null;
     cropY: number | null;
     cropZoom: number | null;
+    brightness: number | null;
+    contrast: number | null;
   }>;
 }
 
@@ -86,6 +89,12 @@ function getPosterUrl(work: WorkResult): string | null {
   if (!poster) return null;
   const key = poster.thumbnailS3Key ?? poster.s3Key;
   return `/api/s3/read?key=${encodeURIComponent(key)}`;
+}
+
+/** Crop and brightness/contrast of the work's active poster */
+function getPosterStyle(work: WorkResult) {
+  const poster = work.media.find((m) => m.type === "poster" && m.isActive);
+  return poster ? mediaImageStyle(mediaCrop(poster)) : undefined;
 }
 
 function getAuthorName(work: WorkResult): string {
@@ -308,6 +317,7 @@ function WorkSearchStep({
                 alt={selectedWork.title}
                 fill
                 className="object-cover"
+                style={getPosterStyle(selectedWork)}
                 unoptimized
               />
             ) : (
@@ -369,6 +379,7 @@ function WorkSearchStep({
                       alt={work.title}
                       fill
                       className="object-cover"
+                      style={getPosterStyle(work)}
                       unoptimized
                     />
                   ) : (

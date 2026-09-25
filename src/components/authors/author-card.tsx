@@ -4,12 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
+import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
-interface PosterCrop {
-  x: number;
-  y: number;
-  zoom: number;
-}
+type PosterCrop = MediaCrop;
 
 interface AuthorCardProps {
   id: string;
@@ -48,7 +45,6 @@ export function AuthorCard({
     ? `${birthYear}–${deathYear ?? ""}`
     : null;
 
-  const hasCrop = posterCrop && (posterCrop.x !== 50 || posterCrop.y !== 50 || posterCrop.zoom !== 100);
 
   const href = `/authors/${slug}`;
 
@@ -85,15 +81,7 @@ export function AuthorCard({
                   fill
                   sizes="(min-width: 1280px) 200px, (min-width: 768px) 180px, 160px"
                   className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                  style={
-                    hasCrop
-                      ? {
-                          objectPosition: `${posterCrop.x}% ${posterCrop.y}%`,
-                          transform: `scale(${posterCrop.zoom / 100})`,
-                          transformOrigin: `${posterCrop.x}% ${posterCrop.y}%`,
-                        }
-                      : undefined
-                  }
+                  style={mediaImageStyle(posterCrop)}
                   unoptimized
                 />
               ) : (

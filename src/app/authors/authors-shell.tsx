@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import type { AuthorMapPoint } from "@/lib/actions/author-map";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
+import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
 interface PaginationData {
   page: number;
@@ -66,11 +67,7 @@ const COL_CLASSES: Record<number, string> = {
   8: "grid-cols-8",
 };
 
-export interface PosterCrop {
-  x: number;
-  y: number;
-  zoom: number;
-}
+export type PosterCrop = MediaCrop;
 
 export interface AuthorItem {
   id: string;
@@ -113,7 +110,6 @@ const DEFAULT_COLUMN_CONFIG = ALL_AUTHOR_COLUMNS.map((c) => ({
 function renderAuthorCell(author: AuthorItem, key: string) {
   switch (key) {
     case "name": {
-      const hasCrop = author.posterCrop && (author.posterCrop.x !== 50 || author.posterCrop.y !== 50 || author.posterCrop.zoom !== 100);
       return (
         <Link
           href={`/authors/${author.slug}`}
@@ -125,15 +121,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
                 src={author.photoUrl}
                 alt={author.name}
                 className="h-full w-full object-cover"
-                style={
-                  hasCrop
-                    ? {
-                        objectPosition: `${author.posterCrop!.x}% ${author.posterCrop!.y}%`,
-                        transform: `scale(${author.posterCrop!.zoom / 100})`,
-                        transformOrigin: `${author.posterCrop!.x}% ${author.posterCrop!.y}%`,
-                      }
-                    : undefined
-                }
+                style={mediaImageStyle(author.posterCrop)}
               />
             ) : (
               <span className="font-serif text-xs text-fg-muted/40">{author.name[0]}</span>

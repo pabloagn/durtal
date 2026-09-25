@@ -8,12 +8,9 @@ import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
 import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
+import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
-export interface CoverCrop {
-  x: number;
-  y: number;
-  zoom: number;
-}
+export type CoverCrop = MediaCrop;
 
 interface BookCardProps {
   workId: string;
@@ -63,7 +60,6 @@ function CoverImage({
     return <CoverPlaceholder letter={fallbackLetter} />;
   }
 
-  const hasCrop = crop && (crop.x !== 50 || crop.y !== 50 || crop.zoom !== 100);
   // Append retry count to bust the browser's failed-request cache
   const retrySrc = retries > 0 ? `${src}&_r=${retries}` : src;
 
@@ -75,15 +71,7 @@ function CoverImage({
       fill
       sizes="(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px"
       className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-      style={
-        hasCrop
-          ? {
-              objectPosition: `${crop.x}% ${crop.y}%`,
-              transform: `scale(${crop.zoom / 100})`,
-              transformOrigin: `${crop.x}% ${crop.y}%`,
-            }
-          : undefined
-      }
+      style={mediaImageStyle(crop)}
       onError={() => {
         // Retry after a short delay — the server was likely just overloaded
         setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));

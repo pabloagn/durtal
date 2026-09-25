@@ -213,6 +213,8 @@ export async function getWorks(opts?: {
           cropX: true,
           cropY: true,
           cropZoom: true,
+          brightness: true,
+          contrast: true,
         },
       },
     },
@@ -768,7 +770,7 @@ export async function getWorksByAuthorId(
         },
       },
       media: {
-        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
       },
     },
   });
@@ -797,7 +799,7 @@ export async function getLibraryStats() {
       },
     },
     media: {
-      columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+      columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
     },
   } as const;
 

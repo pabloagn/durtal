@@ -38,6 +38,8 @@ interface MediaItem {
   cropX: number;
   cropY: number;
   cropZoom: number;
+  brightness: number;
+  contrast: number;
   createdAt: Date;
 }
 
@@ -287,6 +289,8 @@ export function MediaManagerDialog({
                       cropX: activeItem.cropX,
                       cropY: activeItem.cropY,
                       cropZoom: activeItem.cropZoom,
+                      brightness: activeItem.brightness,
+                      contrast: activeItem.contrast,
                     }}
                     saving={savingCrop}
                     onSave={async (values) => {
@@ -296,9 +300,9 @@ export function MediaManagerDialog({
                         await fetchItems();
                         router.refresh();
       triggerActivityRefresh();
-                        toast.success("Position saved");
+                        toast.success("Image settings saved");
                       } catch {
-                        toast.error("Failed to save position");
+                        toast.error("Failed to save image settings");
                       } finally {
                         setSavingCrop(false);
                       }

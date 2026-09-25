@@ -43,6 +43,7 @@ import {
   getValidTransitions,
 } from "@/lib/constants/orders";
 import { OrderEditDialog } from "./order-edit-dialog";
+import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,8 @@ interface MediaItem {
   cropX: number | null;
   cropY: number | null;
   cropZoom: number | null;
+  brightness: number | null;
+  contrast: number | null;
 }
 
 interface OrderWork {
@@ -199,6 +202,12 @@ function getPosterUrl(work: OrderWork): string | null {
   if (!poster) return null;
   const key = poster.thumbnailS3Key ?? poster.s3Key;
   return `/api/s3/read?key=${encodeURIComponent(key)}`;
+}
+
+/** Crop and brightness/contrast of the work's active poster */
+function getPosterStyle(work: OrderWork) {
+  const poster = work.media.find((m) => m.type === "poster" && m.isActive);
+  return poster ? mediaImageStyle(mediaCrop(poster)) : undefined;
 }
 
 function getAuthorName(work: OrderWork): string {
@@ -356,6 +365,7 @@ function PipelineOrderCard({
               alt={order.work.title}
               fill
               className="object-cover"
+              style={getPosterStyle(order.work)}
               unoptimized
             />
           ) : (
@@ -615,6 +625,7 @@ function OrderDetailPanel({
                   alt={order.work.title}
                   fill
                   className="object-cover"
+                  style={getPosterStyle(order.work)}
                   unoptimized
                 />
               ) : (
@@ -1120,6 +1131,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                           alt={order.work.title}
                           fill
                           className="object-cover"
+                          style={getPosterStyle(order.work)}
                           unoptimized
                         />
                       ) : (
@@ -1182,6 +1194,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                           alt={order.work.title}
                           fill
                           className="object-cover"
+                          style={getPosterStyle(order.work)}
                           unoptimized
                         />
                       ) : (

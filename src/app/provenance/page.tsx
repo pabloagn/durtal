@@ -30,6 +30,8 @@ async function ProvenanceContent() {
         cropX: m.cropX,
         cropY: m.cropY,
         cropZoom: m.cropZoom,
+        brightness: m.brightness,
+        contrast: m.contrast,
       })),
     },
     venue: o.venue

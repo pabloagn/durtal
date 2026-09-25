@@ -24,6 +24,7 @@ import { AuthorsShell, type AuthorItem } from "./authors-shell";
 import { AuthorsFiltersBar } from "./authors-filters-bar";
 import { AuthorCreateDialog } from "./author-create-dialog";
 import { hasListQuery } from "@/lib/utils/list-params";
+import { mediaCrop } from "@/lib/utils/media-style";
 
 interface PageProps {
   searchParams: Promise<{
@@ -155,7 +156,7 @@ async function AuthorsContent({
         ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
         : null,
       posterCrop: activePoster
-        ? { x: activePoster.cropX, y: activePoster.cropY, zoom: activePoster.cropZoom }
+        ? mediaCrop(activePoster)
         : null,
       website: a.website,
       bio: a.bio,

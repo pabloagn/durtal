@@ -10,6 +10,7 @@ import {
   isNotNull,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 
 type CatalogueStatus = (typeof works.catalogueStatus.enumValues)[number];
 
@@ -27,7 +28,7 @@ export interface WorkTimelineItem {
   originalYear: number;
   authorName: string;
   coverUrl: string | null;
-  coverCrop: { x: number; y: number; zoom: number } | null;
+  coverCrop: MediaCrop | null;
   catalogueStatus: string;
   rating: number | null;
   editions: WorkEditionTimelineItem[];
@@ -107,6 +108,8 @@ export async function getWorksForTimeline(opts?: {
           cropX: true,
           cropY: true,
           cropZoom: true,
+          brightness: true,
+          contrast: true,
         },
       },
     },
@@ -132,14 +135,7 @@ export async function getWorksForTimeline(opts?: {
     const coverKey =
       activePoster?.thumbnailS3Key ?? activePoster?.s3Key ?? null;
 
-    const coverCrop =
-      activePoster != null
-        ? {
-            x: activePoster.cropX,
-            y: activePoster.cropY,
-            zoom: activePoster.cropZoom,
-          }
-        : null;
+    const coverCrop = activePoster != null ? mediaCrop(activePoster) : null;
 
     const authorName = row.workAuthors[0]?.author?.name ?? "";
 

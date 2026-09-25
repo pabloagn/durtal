@@ -100,7 +100,7 @@ export async function getAuthors(opts?: {
         country: { columns: { name: true } },
         workAuthors: { columns: { workId: true } },
         media: {
-          columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+          columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
         },
       },
     });
@@ -139,7 +139,7 @@ export async function getAuthors(opts?: {
         columns: { workId: true },
       },
       media: {
-        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+        columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
       },
     },
   });
@@ -292,7 +292,7 @@ export async function getAuthorBySlug(slug: string) {
                 },
               },
               media: {
-                columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true },
+                columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
               },
               workAuthors: {
                 with: { author: { columns: { name: true } } },

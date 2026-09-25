@@ -4,22 +4,19 @@ import { useState } from "react";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { PosterGlow } from "./ambient-crystals";
 import type { CrystalColor } from "@/lib/types";
+import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
 interface WorkPosterImageProps {
   src: string;
   alt: string;
-  cropX: number;
-  cropY: number;
-  cropZoom: number;
+  crop: MediaCrop;
   palette?: CrystalColor[];
 }
 
 export function WorkPosterImage({
   src,
   alt,
-  cropX,
-  cropY,
-  cropZoom,
+  crop,
   palette,
 }: WorkPosterImageProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -51,11 +48,7 @@ export function WorkPosterImage({
             src={src}
             alt={alt}
             className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
-            style={{
-              objectPosition: `${cropX}% ${cropY}%`,
-              transform: `scale(${cropZoom / 100})`,
-              transformOrigin: `${cropX}% ${cropY}%`,
-            }}
+            style={mediaImageStyle(crop)}
           />
         </div>
       </div>

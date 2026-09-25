@@ -3,6 +3,7 @@
 import { useState, useCallback, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
+import { mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -188,7 +189,13 @@ export function WorkTimelineMarker({
             <img
               src={work.coverUrl}
               alt={work.title}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+                ...mediaImageStyle(work.coverCrop),
+              }}
               onError={() => setImgError(true)}
             />
           ) : (

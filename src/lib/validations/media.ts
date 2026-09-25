@@ -62,6 +62,9 @@ export const updateMediaCropSchema = z.object({
   cropX: z.number().min(0).max(100),
   cropY: z.number().min(0).max(100),
   cropZoom: z.number().min(100).max(300),
+  // Display adjustments in percent (100 = unchanged); CSS filter at render time
+  brightness: z.number().min(0).max(200).optional(),
+  contrast: z.number().min(0).max(200).optional(),
 });
 
 export type CreateMediaInput = z.input<typeof createMediaSchema>;

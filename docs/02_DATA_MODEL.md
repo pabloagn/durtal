@@ -926,6 +926,8 @@ Images attached to works or authors. Polymorphic ownership.
 | `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position`. |
 | `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position`. |
 | `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
+| `brightness` | REAL | NOT NULL, default `100`. Display brightness percentage (100 = unchanged; editor range 50-150, valid 0-200). Applied as CSS `filter: brightness()`. |
+| `contrast` | REAL | NOT NULL, default `100`. Display contrast percentage (100 = unchanged; editor range 50-150, valid 0-200). Applied as CSS `filter: contrast()`. |
 | `original_s3_key` | TEXT | nullable. S3 key for the pre-processing color original. Set only for author media with monochrome processing. |
 | `processing_params` | JSONB | nullable. Monochrome processing parameters: `{ grayscale: true, contrast: number, sharpness: number, gamma: number, brightness: number }`. Author media only. |
 | `color_palette` | JSONB | nullable. Extracted color palette for poster images. Contains raw Vibrant swatches (vibrant, muted, darkVibrant, darkMuted, lightVibrant, lightMuted), dominant color from sharp stats, and a post-processed `crystal` array of 3-4 colors ready for ambient rendering. Extracted at upload time via node-vibrant. |
@@ -938,6 +940,8 @@ Images attached to works or authors. Polymorphic ownership.
 **Active selection**: Multiple posters/backgrounds can exist for a work, but only one is active at a time. Uploading a new poster deactivates the previous one (without deleting it). Users can switch the active poster/background or permanently delete unwanted items.
 
 **Crop positioning**: The `crop_x`, `crop_y`, and `crop_zoom` fields store CSS-only positioning metadata. They control how an image is displayed within its container via `object-position` and `transform: scale()`, without modifying the original S3 files. Users adjust these values through a drag-and-zoom editor in the media manager.
+
+**Brightness and contrast** (migration `0022_media_brightness_contrast`, task 0116): `brightness` and `contrast` work like the crop fields: CSS-only (`filter: brightness() contrast()`), edited with two sliders in the same editor, never written to S3. Every render site builds its style through `mediaImageStyle()` (`src/lib/utils/media-style.ts`), which adds the crop only when it differs from the default and the filter only when a value differs from 100. Not the same as the author monochrome `processing_params` below, which rewrites the S3 image.
 
 **Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
 

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
+import { mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,11 +36,6 @@ function Portrait({
   author: AuthorTimelineItem;
   size: number;
 }) {
-  const hasCrop =
-    author.posterCrop &&
-    (author.posterCrop.x !== 50 ||
-      author.posterCrop.y !== 50 ||
-      author.posterCrop.zoom !== 100);
 
   const containerStyle: CSSProperties = {
     flexShrink: 0,
@@ -55,16 +51,12 @@ function Portrait({
   };
 
   if (author.posterUrl) {
-    const imgStyle: CSSProperties = hasCrop
-      ? {
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: `${author.posterCrop!.x}% ${author.posterCrop!.y}%`,
-          transform: `scale(${author.posterCrop!.zoom / 100})`,
-          transformOrigin: `${author.posterCrop!.x}% ${author.posterCrop!.y}%`,
-        }
-      : { width: "100%", height: "100%", objectFit: "cover" };
+    const imgStyle: CSSProperties = {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      ...mediaImageStyle(author.posterCrop),
+    };
 
     return (
       <div style={containerStyle}>

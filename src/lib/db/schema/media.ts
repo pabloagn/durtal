@@ -46,6 +46,11 @@ export const media = pgTable(
     cropY: real("crop_y").notNull().default(50), // 0-100 vertical %
     cropZoom: real("crop_zoom").notNull().default(100), // 100 = no zoom
 
+    // Display adjustments (CSS filter, percent; 100 = unchanged). Like crop,
+    // applied at render time only: the S3 file is never modified.
+    brightness: real("brightness").notNull().default(100),
+    contrast: real("contrast").notNull().default(100),
+
     // Author monochrome processing — original (color) S3 key + tuning params
     originalS3Key: text("original_s3_key"),
     processingParams: jsonb("processing_params"),

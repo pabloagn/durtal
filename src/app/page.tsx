@@ -21,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { BookCard } from "@/components/books/book-card";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
+import { mediaCrop } from "@/lib/utils/media-style";
 
 function StatCard({
   label,
@@ -102,6 +103,8 @@ function workToCardProps(work: {
     cropX: number;
     cropY: number;
     cropZoom: number;
+    brightness: number;
+    contrast: number;
   }>;
 }) {
   const edition = work.editions[0];
@@ -129,7 +132,7 @@ function workToCardProps(work: {
       ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
       : null,
     coverCrop: activePoster
-      ? { x: activePoster.cropX, y: activePoster.cropY, zoom: activePoster.cropZoom }
+      ? mediaCrop(activePoster)
       : null,
     publicationYear: edition?.publicationYear ?? work.originalYear,
     language: edition?.language,

@@ -6,6 +6,7 @@ import { getSeriesDetail } from "@/lib/actions/series";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -87,18 +88,7 @@ async function SeriesContent({ id }: { id: string }) {
                       src={`/api/s3/read?key=${encodeURIComponent(thumb)}`}
                       alt=""
                       className="h-12 w-8 shrink-0 rounded-sm object-cover"
-                      style={
-                        activePoster &&
-                        (activePoster.cropX !== 50 ||
-                          activePoster.cropY !== 50 ||
-                          activePoster.cropZoom !== 100)
-                          ? {
-                              objectPosition: `${activePoster.cropX}% ${activePoster.cropY}%`,
-                              transform: `scale(${activePoster.cropZoom / 100})`,
-                              transformOrigin: `${activePoster.cropX}% ${activePoster.cropY}%`,
-                            }
-                          : undefined
-                      }
+                      style={activePoster ? mediaImageStyle(mediaCrop(activePoster)) : undefined}
                     />
                   ) : (
                     <div className="h-12 w-8 shrink-0 rounded-sm bg-bg-tertiary" />
