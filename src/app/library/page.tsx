@@ -5,6 +5,8 @@ import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NoResults } from "@/components/shared/no-results";
+import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
 import { LibraryShell } from "./library-shell";
 import { LibraryFiltersBar } from "./library-filters-bar";
 import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
@@ -90,27 +92,32 @@ async function LibraryContent({
   ]);
 
   if (works.length === 0 && timelineWorks.length === 0) {
-    const hasFilters = !!(search || statusFilter?.length || priorityFilter?.length || ratingParam || locationId || posterParam);
+    const params = new URLSearchParams(
+      Object.entries(searchParams).filter((e): e is [string, string] => typeof e[1] === "string"),
+    );
+    if (hasListQuery(params)) {
+      // The filters bar is rendered by the page, so it stays visible here
+      return (
+        <NoResults
+          noun="works"
+          search={search}
+          hasFilters={!!(statusFilter?.length || priorityFilter?.length || ratingParam || locationId || posterParam)}
+          clearHref={clearedListHref("/library", params)}
+        />
+      );
+    }
     return (
       <EmptyState
         icon={Library}
-        title={hasFilters ? "No results" : "Your library is empty"}
-        description={
-          search
-            ? `No works matching "${search}"`
-            : hasFilters
-              ? "No works match the current filters"
-              : "Add your first book to get started"
-        }
+        title="Your library is empty"
+        description="Add your first book to get started"
         action={
-          !hasFilters ? (
-            <Link href="/library/new">
-              <Button variant="primary">
-                <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Add book
-              </Button>
-            </Link>
-          ) : undefined
+          <Link href="/library/new">
+            <Button variant="primary">
+              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Add book
+            </Button>
+          </Link>
         }
       />
     );

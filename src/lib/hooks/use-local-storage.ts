@@ -1,17 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const LOCAL_STORAGE_EVENT = "durtal-local-storage";
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(initialValue);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Latest value, so setValue can resolve updater functions without running
+  // side effects inside a React state updater (updaters run during render).
+  const valueRef = useRef<T>(initialValue);
 
   useEffect(() => {
     try {
       const item = window.localStorage.getItem(key);
-      if (item) setStoredValue(JSON.parse(item));
+      if (item) {
+        const parsed = JSON.parse(item) as T;
+        valueRef.current = parsed;
+        setStoredValue(parsed);
+      }
     } catch {
       // ignore
     }
@@ -25,7 +32,11 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       if (detail?.key !== key) return;
       try {
         const item = window.localStorage.getItem(key);
-        if (item) setStoredValue(JSON.parse(item));
+        if (item) {
+          const parsed = JSON.parse(item) as T;
+          valueRef.current = parsed;
+          setStoredValue(parsed);
+        }
       } catch {
         // ignore
       }
@@ -36,18 +47,18 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
-      setStoredValue((prev) => {
-        const next = value instanceof Function ? value(prev) : value;
-        try {
-          window.localStorage.setItem(key, JSON.stringify(next));
-          window.dispatchEvent(
-            new CustomEvent(LOCAL_STORAGE_EVENT, { detail: { key } }),
-          );
-        } catch {
-          // ignore
-        }
-        return next;
-      });
+      const next = value instanceof Function ? value(valueRef.current) : value;
+      valueRef.current = next;
+      setStoredValue(next);
+      try {
+        window.localStorage.setItem(key, JSON.stringify(next));
+        // Notify other instances with the same key (outside of render)
+        window.dispatchEvent(
+          new CustomEvent(LOCAL_STORAGE_EVENT, { detail: { key } }),
+        );
+      } catch {
+        // ignore
+      }
     },
     [key],
   );

@@ -1,19 +1,13 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
-import { EntityFilters } from "@/components/shared/entity-filters";
-import { FilterDropdown, type AnyFilterGroup } from "@/components/shared/filter-dropdown";
 import { VenueCard } from "@/components/venues/venue-card";
 import { VenueListItem } from "@/components/venues/venue-list-item";
+import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import type { VenueType } from "@/lib/actions/venues";
-
-const SORT_OPTIONS = [
-  { value: "name", label: "Name" },
-  { value: "recent", label: "Recent" },
-  { value: "rating", label: "Rating" },
-];
+import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 
 const COL_CLASSES: Record<number, string> = {
   2: "grid-cols-2",
@@ -23,36 +17,6 @@ const COL_CLASSES: Record<number, string> = {
   6: "grid-cols-6",
   7: "grid-cols-7",
   8: "grid-cols-8",
-};
-
-const ALL_VENUE_TYPES: VenueType[] = [
-  "bookshop",
-  "online_store",
-  "cafe",
-  "library",
-  "museum",
-  "gallery",
-  "auction_house",
-  "market",
-  "fair",
-  "publisher",
-  "individual",
-  "other",
-];
-
-const VENUE_TYPE_LABELS: Record<VenueType, string> = {
-  bookshop: "Bookshop",
-  online_store: "Online Store",
-  cafe: "Cafe",
-  library: "Library",
-  museum: "Museum",
-  gallery: "Gallery",
-  auction_house: "Auction House",
-  market: "Market",
-  fair: "Fair",
-  publisher: "Publisher",
-  individual: "Individual",
-  other: "Other",
 };
 
 export interface VenueItem {
@@ -72,89 +36,46 @@ export interface VenueItem {
 
 interface PlacesShellProps {
   venues: VenueItem[];
+  /** Total venues matching the current search and filters (all pages) */
+  total: number;
 }
 
-export function PlacesShell({ venues }: PlacesShellProps) {
-  const router = useRouter();
+/** URL params (besides the search term) that filter the venue list */
+const PLACE_FILTER_PARAMS = ["type", "favorite"];
+
+export function PlacesShell({ venues, total }: PlacesShellProps) {
   const searchParams = useSearchParams();
 
-  const [viewMode, setViewMode] = useLocalStorage<ViewMode>(
+  // Written by PlacesFiltersBar; kept in sync through useLocalStorage events
+  const [storedViewMode] = useLocalStorage<ViewMode>(
     "durtal-places-view-mode",
     "grid",
   );
-  const [gridColumns, setGridColumns] = useLocalStorage(
+  const [gridColumns] = useLocalStorage(
     "durtal-places-grid-columns",
     4,
   );
+  // Only grid and list exist for places; older stored modes fall back to grid
+  const viewMode = storedViewMode === "list" ? "list" : "grid";
 
-  // --- Active filter values from URL ---
-  const activeFilters: Record<string, string[]> = {
-    type: searchParams.get("type")?.split(",").filter(Boolean) ?? [],
-    favorite: searchParams.get("favorite") ? [searchParams.get("favorite")!] : [],
-  };
-
-  const filterGroups: AnyFilterGroup[] = [
-    {
-      key: "type",
-      label: "Type",
-      options: ALL_VENUE_TYPES.map((t) => ({
-        value: t,
-        label: VENUE_TYPE_LABELS[t],
-      })),
-    },
-    {
-      key: "favorite",
-      label: "Favorites",
-      options: [{ value: "true", label: "Favorites only" }],
-    },
-  ];
-
-  function handleFilterChange(key: string, values: string[]) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (key === "favorite") {
-      if (values.length > 0) {
-        params.set("favorite", "true");
-      } else {
-        params.delete("favorite");
-      }
-    } else if (values.length > 0) {
-      params.set(key, values.join(","));
-    } else {
-      params.delete(key);
-    }
-    params.delete("page");
-    router.push(`/places?${params.toString()}`);
+  if (total === 0) {
+    return (
+      <NoResults
+        noun="venues"
+        search={searchParams.get("q")}
+        hasFilters={PLACE_FILTER_PARAMS.some((key) => searchParams.get(key))}
+        clearHref={clearedListHref("/places", searchParams)}
+      />
+    );
   }
 
-  function handleClearAll() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("type");
-    params.delete("favorite");
-    params.delete("page");
-    router.push(`/places?${params.toString()}`);
+  // Page number past the last page
+  if (venues.length === 0) {
+    return <PageOutOfRange firstPageHref={firstPageHref("/places", searchParams)} />;
   }
 
   return (
     <>
-      <EntityFilters
-        basePath="/places"
-        sortOptions={SORT_OPTIONS}
-        searchPlaceholder="Search venues..."
-        defaultSort="name"
-        defaultSortOrders={{ name: "asc", recent: "desc", rating: "desc" }}
-        viewMode={viewMode}
-        gridColumns={gridColumns}
-        onViewModeChange={setViewMode}
-        onGridColumnsChange={setGridColumns}
-      >
-        <FilterDropdown
-          groups={filterGroups}
-          activeFilters={activeFilters}
-          onFilterChange={handleFilterChange}
-          onClearAll={handleClearAll}
-        />
-      </EntityFilters>
-
       {viewMode === "grid" && (
         <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-4"}`}>
           {venues.map((v) => (

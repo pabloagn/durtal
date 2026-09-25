@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { PlacesShell, type VenueItem } from "./places-shell";
+import { PlacesFiltersBar } from "./places-filters-bar";
 import { VenueCreateDialog } from "./venue-create-dialog";
+import { hasListQuery } from "@/lib/utils/list-params";
 
 interface PageProps {
   searchParams: Promise<{
@@ -55,16 +57,19 @@ async function PlacesContent({
     getVenueCount({ search, filters }),
   ]);
 
-  if (rawVenues.length === 0) {
+  // Full-page empty state only when there are no venues at all. A search or
+  // filter with no match is handled by the shell, below the toolbar.
+  const hasQuery = hasListQuery(
+    new URLSearchParams(
+      Object.entries(searchParams).filter((e): e is [string, string] => typeof e[1] === "string"),
+    ),
+  );
+  if (total === 0 && !hasQuery) {
     return (
       <EmptyState
         icon={MapPin}
-        title={search ? "No venues found" : "No venues yet"}
-        description={
-          search
-            ? `No venues matching "${search}"`
-            : "Add your first venue to start building your places catalogue"
-        }
+        title="No venues yet"
+        description="Add your first venue to start building your places catalogue"
         action={<VenueCreateDialog />}
       />
     );
@@ -99,10 +104,10 @@ async function PlacesContent({
 
   return (
     <>
-      <PlacesShell venues={venues} />
+      <PlacesShell venues={venues} total={total} />
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {venues.length > 0 && totalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2">
           {page > 1 && (
             <Link
@@ -128,9 +133,11 @@ async function PlacesContent({
         </div>
       )}
 
-      <p className="mt-4 text-center font-mono text-xs text-fg-muted">
-        {total} {total === 1 ? "venue" : "venues"}
-      </p>
+      {venues.length > 0 && (
+        <p className="mt-4 text-center font-mono text-xs text-fg-muted">
+          {total} {total === 1 ? "venue" : "venues"}
+        </p>
+      )}
     </>
   );
 }
@@ -145,6 +152,8 @@ export default async function PlacesPage({ searchParams }: PageProps) {
         description="Bookshops, cafes, libraries, and other venues"
         actions={<VenueCreateDialog />}
       />
+
+      <PlacesFiltersBar />
 
       <Suspense
         key={JSON.stringify(params)}

@@ -21,7 +21,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorsShell, type AuthorItem } from "./authors-shell";
+import { AuthorsFiltersBar } from "./authors-filters-bar";
 import { AuthorCreateDialog } from "./author-create-dialog";
+import { hasListQuery } from "@/lib/utils/list-params";
 
 interface PageProps {
   searchParams: Promise<{
@@ -103,29 +105,27 @@ async function AuthorsContent({
     alive: aliveParam,
   };
 
-  const [rawAuthors, total, nationalities, genders, zodiacSigns, birthYearRange, deathYearRange, mapAuthors, timelineAuthors] =
-    await Promise.all([
-      getAuthors({ search, sort, order, limit, offset, filters }),
-      getAuthorCount({ search, filters }),
-      getDistinctNationalities(),
-      getDistinctGenders(),
-      getDistinctZodiacSigns(),
-      getAuthorBirthYearRange(),
-      getAuthorDeathYearRange(),
-      getAuthorsForMap({ search, filters }),
-      getAuthorsForTimeline({ search, filters: timelineFilters }),
-    ]);
+  const [rawAuthors, total, mapAuthors, timelineAuthors] = await Promise.all([
+    getAuthors({ search, sort, order, limit, offset, filters }),
+    getAuthorCount({ search, filters }),
+    getAuthorsForMap({ search, filters }),
+    getAuthorsForTimeline({ search, filters: timelineFilters }),
+  ]);
 
-  if (rawAuthors.length === 0) {
+  // Full-page empty state only when the catalogue has no authors at all.
+  // A search or filter with no match is handled by the shell, below the
+  // toolbar, so the query can still be edited.
+  const hasQuery = hasListQuery(
+    new URLSearchParams(
+      Object.entries(searchParams).filter((e): e is [string, string] => typeof e[1] === "string"),
+    ),
+  );
+  if (total === 0 && !hasQuery) {
     return (
       <EmptyState
         icon={Users}
-        title={search ? "No authors found" : "No authors yet"}
-        description={
-          search
-            ? `No authors matching "${search}"`
-            : "Authors are created when you add books"
-        }
+        title="No authors yet"
+        description="Authors are created when you add books"
       />
     );
   }
@@ -184,11 +184,6 @@ async function AuthorsContent({
         authors={authors}
         mapAuthors={mapAuthors}
         timelineAuthors={timelineAuthors}
-        nationalities={nationalities}
-        genders={genders}
-        zodiacSigns={zodiacSigns}
-        birthYearRange={birthYearRange}
-        deathYearRange={deathYearRange}
         pagination={{
           page,
           totalPages,
@@ -197,6 +192,31 @@ async function AuthorsContent({
         }}
       />
     </>
+  );
+}
+
+/**
+ * Toolbar data does not depend on the URL. Its Suspense boundary has no key,
+ * so the toolbar stays mounted (and keeps focus) while results reload.
+ */
+async function AuthorsToolbar() {
+  const [nationalities, genders, zodiacSigns, birthYearRange, deathYearRange] =
+    await Promise.all([
+      getDistinctNationalities(),
+      getDistinctGenders(),
+      getDistinctZodiacSigns(),
+      getAuthorBirthYearRange(),
+      getAuthorDeathYearRange(),
+    ]);
+
+  return (
+    <AuthorsFiltersBar
+      nationalities={nationalities}
+      genders={genders}
+      zodiacSigns={zodiacSigns}
+      birthYearRange={birthYearRange}
+      deathYearRange={deathYearRange}
+    />
   );
 }
 
@@ -225,6 +245,10 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
         description="Browse all authors in your catalogue"
         actions={<AuthorCreateDialog />}
       />
+
+      <Suspense fallback={<div className="mb-6 h-8" aria-hidden />}>
+        <AuthorsToolbar />
+      </Suspense>
 
       <Suspense
         key={JSON.stringify(params)}

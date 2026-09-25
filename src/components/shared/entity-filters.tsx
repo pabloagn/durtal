@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Search, ArrowUp, ArrowDown } from "lucide-react";
 import {
   ViewModeSwitcher,
@@ -52,6 +52,16 @@ export function EntityFilters({
     currentOrder ?? defaultSortOrders?.[currentSort] ?? "asc";
   const currentQuery = searchParams.get("q") ?? "";
 
+  // The input is uncontrolled so typing never fights the URL. When the URL
+  // changes from outside (a "clear" link, back/forward), copy the new query
+  // into the input, unless the user is typing in it right now.
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input || document.activeElement === input) return;
+    if (input.value !== currentQuery) input.value = currentQuery;
+  }, [currentQuery]);
+
   const updateParams = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -72,6 +82,7 @@ export function EntityFilters({
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
         <input
+          ref={inputRef}
           type="text"
           placeholder={searchPlaceholder}
           defaultValue={currentQuery}
