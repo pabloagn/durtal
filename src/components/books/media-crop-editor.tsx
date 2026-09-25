@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { Fragment, useState, useRef, useCallback, useEffect, useId } from "react";
 import { RotateCcw, Save, Loader2, ZoomIn, Sun, Contrast } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mediaFilter } from "@/lib/utils/media-style";
@@ -14,6 +14,10 @@ interface CropValues {
   /** Percent, 100 = unchanged */
   contrast: number;
 }
+
+/** Slider range for zoom, in percent */
+const ZOOM_MIN = 100;
+const ZOOM_MAX = 300;
 
 /** Slider range for brightness and contrast, in percent */
 const ADJUST_MIN = 50;
@@ -45,6 +49,7 @@ export function MediaCropEditor({
   const [brightness, setBrightness] = useState(initial.brightness);
   const [contrast, setContrast] = useState(initial.contrast);
 
+  const idPrefix = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
@@ -110,17 +115,23 @@ export function MediaCropEditor({
   const previewHeight = aspect === "poster" ? 320 : 220;
   const previewWidth = Math.round(previewHeight * ratio);
 
+  const sliders = [
+    { key: "zoom", label: "Zoom", Icon: ZoomIn, min: ZOOM_MIN, max: ZOOM_MAX, value: cropZoom, onChange: setCropZoom },
+    { key: "brightness", label: "Brightness", Icon: Sun, min: ADJUST_MIN, max: ADJUST_MAX, value: brightness, onChange: setBrightness },
+    { key: "contrast", label: "Contrast", Icon: Contrast, min: ADJUST_MIN, max: ADJUST_MAX, value: contrast, onChange: setContrast },
+  ];
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <p className="text-xs font-medium text-fg-secondary">
         Adjust position, brightness and contrast
       </p>
 
-      {/* Preview — fixed dimensions preserving exact aspect ratio */}
+      {/* Preview — exact aspect ratio, shrinks to fit narrow screens */}
       <div
         ref={containerRef}
-        className="relative mx-auto cursor-grab overflow-hidden rounded-sm border border-glass-border active:cursor-grabbing"
-        style={{ width: previewWidth, height: previewHeight }}
+        className="relative mx-auto max-w-full cursor-grab touch-none overflow-hidden rounded-sm border border-glass-border active:cursor-grabbing"
+        style={{ width: previewWidth, aspectRatio: String(ratio) }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -145,99 +156,78 @@ export function MediaCropEditor({
         </div>
       </div>
 
-      {/* Controls — below the preview, single row that wraps */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        {/* Zoom slider */}
-        <div className="flex min-w-[180px] flex-1 items-center gap-2">
-          <ZoomIn className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={1.5} />
-          <input
-            type="range"
-            min={100}
-            max={300}
-            step={1}
-            value={cropZoom}
-            onChange={(e) => setCropZoom(Number(e.target.value))}
-            className="crop-range-slider flex-1"
-            aria-label="Zoom"
-          />
-          <span className="w-10 shrink-0 text-right font-mono text-micro text-fg-muted">
-            {cropZoom}%
-          </span>
+      {/* Controls — one row per slider, stacked; the value column grows to fit */}
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <div className="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center gap-x-3 gap-y-3">
+          {sliders.map(({ key, label, Icon, min, max, value, onChange }) => {
+            const id = `${idPrefix}-${key}`;
+            return (
+              <Fragment key={key}>
+                <label htmlFor={id} className="flex items-center gap-2 text-xs text-fg-secondary">
+                  <Icon className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
+                  {label}
+                </label>
+                <input
+                  id={id}
+                  type="range"
+                  min={min}
+                  max={max}
+                  step={1}
+                  value={value}
+                  onChange={(e) => onChange(Number(e.target.value))}
+                  className="crop-range-slider w-full"
+                  aria-label={label}
+                />
+                <output
+                  htmlFor={id}
+                  className="min-w-[4ch] text-right font-mono text-micro tabular-nums text-fg-muted"
+                >
+                  {value}%
+                </output>
+              </Fragment>
+            );
+          })}
         </div>
 
-        {/* Brightness slider */}
-        <div className="flex min-w-[180px] flex-1 items-center gap-2">
-          <Sun className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
-          <input
-            type="range"
-            min={ADJUST_MIN}
-            max={ADJUST_MAX}
-            step={1}
-            value={brightness}
-            onChange={(e) => setBrightness(Number(e.target.value))}
-            className="crop-range-slider flex-1"
-            aria-label="Brightness"
-          />
-          <span className="w-10 shrink-0 text-right font-mono text-micro text-fg-muted">
-            {brightness}%
-          </span>
-        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Position readout */}
+          <div className="flex items-center gap-3">
+            <span className="text-micro text-fg-muted">
+              X <span className="font-mono tabular-nums text-fg-secondary">{cropX.toFixed(1)}%</span>
+            </span>
+            <span className="text-micro text-fg-muted">
+              Y <span className="font-mono tabular-nums text-fg-secondary">{cropY.toFixed(1)}%</span>
+            </span>
+          </div>
 
-        {/* Contrast slider */}
-        <div className="flex min-w-[180px] flex-1 items-center gap-2">
-          <Contrast className="h-3 w-3 shrink-0 text-fg-muted" strokeWidth={1.5} aria-hidden />
-          <input
-            type="range"
-            min={ADJUST_MIN}
-            max={ADJUST_MAX}
-            step={1}
-            value={contrast}
-            onChange={(e) => setContrast(Number(e.target.value))}
-            className="crop-range-slider flex-1"
-            aria-label="Contrast"
-          />
-          <span className="w-10 shrink-0 text-right font-mono text-micro text-fg-muted">
-            {contrast}%
-          </span>
-        </div>
-
-        {/* Position readout */}
-        <div className="flex items-center gap-3">
-          <span className="text-micro text-fg-muted">
-            X <span className="font-mono text-fg-secondary">{cropX.toFixed(1)}%</span>
-          </span>
-          <span className="text-micro text-fg-muted">
-            Y <span className="font-mono text-fg-secondary">{cropY.toFixed(1)}%</span>
-          </span>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            disabled={saving}
-          >
-            <RotateCcw className="h-3 w-3" strokeWidth={1.5} />
-            Reset
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onSave({ cropX, cropY, cropZoom, brightness, contrast })}
-            disabled={!isDirty || saving}
-          >
-            {saving ? (
-              <Loader2
-                className="h-3 w-3 animate-spin"
-                strokeWidth={1.5}
-              />
-            ) : (
-              <Save className="h-3 w-3" strokeWidth={1.5} />
-            )}
-            Save
-          </Button>
+          {/* Buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              disabled={saving}
+            >
+              <RotateCcw className="h-3 w-3" strokeWidth={1.5} />
+              Reset
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => onSave({ cropX, cropY, cropZoom, brightness, contrast })}
+              disabled={!isDirty || saving}
+            >
+              {saving ? (
+                <Loader2
+                  className="h-3 w-3 animate-spin"
+                  strokeWidth={1.5}
+                />
+              ) : (
+                <Save className="h-3 w-3" strokeWidth={1.5} />
+              )}
+              Save
+            </Button>
+          </div>
         </div>
       </div>
     </div>
