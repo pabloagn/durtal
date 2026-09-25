@@ -61,7 +61,9 @@ async function AuthorsContent({
   };
 }) {
   const search = searchParams.q;
-  const sort = (searchParams.sort ?? "name") as
+  // A search orders by best match unless the user picks another sort
+  const sort = (searchParams.sort ?? (search?.trim() ? "relevance" : "name")) as
+    | "relevance"
     | "name"
     | "lastName"
     | "recent"

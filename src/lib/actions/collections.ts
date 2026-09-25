@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { collections, collectionEditions, editions, works, workAuthors, authors } from "@/lib/db/schema";
 import { eq, asc, and, ilike, or, sql, inArray } from "drizzle-orm";
 import { recordActivity } from "@/lib/activity/record";
+import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
 export async function getCollections() {
   return db.query.collections.findMany({
@@ -144,7 +145,8 @@ export async function searchEditionsForPicker(search: string, limit = 20) {
       or(
         ilike(editions.title, term),
         ilike(works.title, term),
-        ilike(authors.name, term),
+        // Accent/case-insensitive, any word order (no typo matching here)
+        authorSearchCondition(search, { fuzzy: false }),
       ),
     )
     .orderBy(editions.id, asc(editions.title))

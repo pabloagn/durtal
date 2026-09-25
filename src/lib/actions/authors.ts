@@ -2,9 +2,14 @@
 
 import { db } from "@/lib/db";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
-import { eq, and, asc, desc, ilike, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
+import { eq, and, asc, desc, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
+import {
+  authorNameEquals,
+  authorSearchCondition,
+  authorSearchRank,
+} from "@/lib/actions/utils/author-search";
 import type { NationalityOption } from "@/lib/utils/nationality-param";
 import {
   createAuthorSchema,
@@ -18,7 +23,8 @@ export async function getAuthors(opts?: {
   search?: string;
   limit?: number;
   offset?: number;
-  sort?: "name" | "lastName" | "recent" | "birth" | "works";
+  /** "relevance" orders by search match quality (needs `search`) */
+  sort?: "relevance" | "name" | "lastName" | "recent" | "birth" | "works";
   order?: "asc" | "desc";
   filters?: {
     nationalities?: string[];
@@ -31,15 +37,16 @@ export async function getAuthors(opts?: {
     alive?: boolean;
   };
 }) {
-  const { search, limit = 48, offset = 0, sort = "name", order, filters } = opts ?? {};
+  const { search, limit = 48, offset = 0, order, filters } = opts ?? {};
+  // Relevance only makes sense with a search term; fall back to name order
+  const sort = opts?.sort === "relevance" && !search?.trim() ? "name" : (opts?.sort ?? "name");
 
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return [];
 
   const conditions: SQL[] = [...filterConditions];
-  if (search) {
-    conditions.push(ilike(authors.name, `%${search}%`));
-  }
+  const searchCondition = search ? authorSearchCondition(search) : undefined;
+  if (searchCondition) conditions.push(searchCondition);
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -50,6 +57,7 @@ export async function getAuthors(opts?: {
         switch (sort) {
           case "recent":
           case "works":
+          case "relevance":
             return desc;
           case "birth":
           case "name":
@@ -106,6 +114,8 @@ export async function getAuthors(opts?: {
 
   const orderBy = (() => {
     switch (sort) {
+      case "relevance":
+        return [dirFn(authorSearchRank(search!)), asc(authors.name)];
       case "recent":
         return dirFn(authors.createdAt);
       case "birth":
@@ -156,9 +166,8 @@ export async function getAuthorCount(opts?: {
   if (filterConditions === null) return 0;
 
   const conditions: SQL[] = [...filterConditions];
-  if (search) {
-    conditions.push(ilike(authors.name, `%${search}%`));
-  }
+  const searchCondition = search ? authorSearchCondition(search) : undefined;
+  if (searchCondition) conditions.push(searchCondition);
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -367,13 +376,15 @@ export async function createAuthor(input: CreateAuthorInput) {
 }
 
 /**
- * Find an existing author by name (case-insensitive) or create a new one.
- * Prevents duplicate author creation in the add-book wizard.
+ * Find an existing author by name or create a new one. The match ignores
+ * accents, case and punctuation, so "Peter Nadas" reuses "Péter Nádas"
+ * instead of creating a duplicate. An exact spelling wins, then the oldest.
  */
 export async function findOrCreateAuthor(name: string) {
   const trimmed = name.trim();
   const existing = await db.query.authors.findFirst({
-    where: ilike(authors.name, trimmed),
+    where: authorNameEquals(trimmed),
+    orderBy: [desc(sql`${authors.name} = ${trimmed}`), asc(authors.createdAt)],
   });
   if (existing) return existing;
   return createAuthor({ name: trimmed });
@@ -384,11 +395,12 @@ export async function findOrCreateAuthor(name: string) {
  * Returns id + name only.
  */
 export async function searchAuthorsLite(query: string) {
-  if (!query.trim()) return [];
+  const where = authorSearchCondition(query);
+  if (!where) return [];
   return db.query.authors.findMany({
-    where: ilike(authors.name, `%${query.trim()}%`),
+    where,
     columns: { id: true, name: true },
-    orderBy: asc(authors.name),
+    orderBy: [desc(authorSearchRank(query)), asc(authors.name)],
     limit: 10,
   });
 }

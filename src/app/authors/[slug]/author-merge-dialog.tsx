@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { mergeAuthors } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { filterBySearch } from "@/lib/utils/search-text";
 
 interface AuthorMergeDialogProps {
   open: boolean;
@@ -34,9 +35,7 @@ export function AuthorMergeDialog({
   );
 
   const filtered = search.trim()
-    ? candidates.filter((a) =>
-        a.name.toLowerCase().includes(search.trim().toLowerCase()),
-      )
+    ? filterBySearch(candidates, search, (a) => a.name)
     : candidates.slice(0, 15);
 
   const selectedSources = sourceIds

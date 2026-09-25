@@ -13,6 +13,7 @@ import { updateWork } from "@/lib/actions/works";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { LANGUAGES } from "@/lib/constants/languages";
+import { filterBySearch } from "@/lib/utils/search-text";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -140,9 +141,7 @@ export function WorkEditDialog({
 
   // Filtered authors for combobox
   const filteredAuthors = authorSearch.trim()
-    ? availableAuthors.filter((a) =>
-        a.name.toLowerCase().includes(authorSearch.trim().toLowerCase()),
-      )
+    ? filterBySearch(availableAuthors, authorSearch, (a) => a.name)
     : availableAuthors.slice(0, 10);
 
   const authorAlreadyAdded = (id: string) => authors.some((a) => a.id === id);

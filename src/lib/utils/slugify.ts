@@ -39,6 +39,11 @@ const TRANSLITERATION_RE = new RegExp(
   "g",
 );
 
+/** Replace Latin letters that do not decompose under NFD (ł → l, ß → ss, æ → ae, ...). */
+export function transliterate(text: string): string {
+  return text.replace(TRANSLITERATION_RE, (ch) => TRANSLITERATION_MAP[ch] ?? ch);
+}
+
 /**
  * Convert arbitrary text to a URL-safe slug.
  * - Transliterates special Latin characters (ł → l, ß → ss, æ → ae, etc.)
@@ -49,8 +54,7 @@ const TRANSLITERATION_RE = new RegExp(
  * - Trims leading/trailing hyphens
  */
 export function slugify(text: string): string {
-  return text
-    .replace(TRANSLITERATION_RE, (ch) => TRANSLITERATION_MAP[ch] ?? ch)
+  return transliterate(text)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // strip diacritics
     .toLowerCase()

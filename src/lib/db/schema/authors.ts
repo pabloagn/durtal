@@ -9,7 +9,7 @@ import {
   primaryKey,
   index,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { works } from "./works";
 import { editions } from "./editions";
 import { media } from "./media";
@@ -50,8 +50,14 @@ export const authors = pgTable("authors", {
   metadataSourceId: text("metadata_source_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  // Accent-free, lower-case text of every name form, for author search.
+  // search_normalize() is created by migration 0021 (unaccent + pg_trgm).
+  searchText: text("search_text").generatedAlwaysAs(
+    sql`search_normalize(coalesce(name, '') || ' ' || coalesce(real_name, '') || ' ' || coalesce(sort_name, '') || ' ' || coalesce(first_name, '') || ' ' || coalesce(last_name, ''))`,
+  ),
 }, (t) => [
   index("authors_birth_year_idx").on(t.birthYear),
+  index("authors_search_text_trgm_idx").using("gin", t.searchText.op("gin_trgm_ops")),
 ]);
 
 export const authorsRelations = relations(authors, ({ one, many }) => ({

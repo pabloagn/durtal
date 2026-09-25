@@ -330,8 +330,18 @@ Persons who create, translate, edit, or otherwise contribute to works and editio
 | `metadata_source_id` | TEXT | nullable | |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `search_text` | TEXT | GENERATED ALWAYS (stored) | `search_normalize(name, real_name, sort_name, first_name, last_name)`: accent-free, lower-case, punctuation as spaces. Used by author search only; never written by the app |
+
+**Indexes**: `authors_birth_year_idx` (`birth_year`), `authors_search_text_trgm_idx` (GIN, `search_text gin_trgm_ops`)
 
 **Relations**: `workAuthors` (N:M via junction), `editionContributors` (N:M), `media` (1:N), `authorContributionTypes` (N:M), `birthPlace` (N:1 → `places`), `deathPlace` (N:1 → `places`)
+
+**Search** (migration `0021_author_search`, task 0119):
+
+- Extensions: `unaccent`, `pg_trgm` (schema `public`).
+- Function `search_normalize(text) → text` (IMMUTABLE): `unaccent`, strip leftover combining marks, `lower`, collapse punctuation and whitespace to one space. "Péter Nádas" → `peter nadas`. Mirrored in TypeScript by `normalizeSearchText()` (`src/lib/utils/search-text.ts`).
+- Match (`src/lib/actions/utils/author-search.ts`): every query word appears in `search_text` (any order); with typo tolerance, a word of 4+ letters may instead have `strict_word_similarity >= 0.4`, and a multi-word query may match as a whole at `>= 0.6`.
+- Rank: exact name > name prefix > word prefix > all words as word prefixes > all words anywhere, plus trigram similarity.
 
 ---
 

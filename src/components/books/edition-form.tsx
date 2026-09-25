@@ -11,6 +11,7 @@ import {
   BINDING_TYPES,
   EDITION_CONTRIBUTOR_ROLES,
 } from "@/lib/types/index";
+import { filterBySearch } from "@/lib/utils/search-text";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -211,10 +212,8 @@ export function EditionForm({
     update("tagIds", next);
   }
 
-  const filteredAuthors = authorSearch
-    ? availableAuthors.filter((a) =>
-        a.name.toLowerCase().includes(authorSearch.toLowerCase()),
-      )
+  const filteredAuthors = authorSearch.trim()
+    ? filterBySearch(availableAuthors, authorSearch, (a) => a.name)
     : availableAuthors.slice(0, 8);
 
   async function handleSubmit(e: React.FormEvent) {

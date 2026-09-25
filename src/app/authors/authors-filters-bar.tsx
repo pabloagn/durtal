@@ -11,6 +11,9 @@ import {
   type NationalityOption,
 } from "@/lib/utils/nationality-param";
 
+/** Offered only while a search is active; it is then the default sort */
+const RELEVANCE_SORT = { value: "relevance", label: "Best match" };
+
 const SORT_OPTIONS = [
   { value: "name", label: "Name" },
   { value: "lastName", label: "Last Name" },
@@ -43,6 +46,7 @@ export function AuthorsFiltersBar({
 }: AuthorsFiltersBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isSearching = !!searchParams.get("q")?.trim();
 
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>(
     "durtal-authors-view-mode",
@@ -225,10 +229,10 @@ export function AuthorsFiltersBar({
   return (
     <EntityFilters
       basePath="/authors"
-      sortOptions={SORT_OPTIONS}
+      sortOptions={isSearching ? [RELEVANCE_SORT, ...SORT_OPTIONS] : SORT_OPTIONS}
       searchPlaceholder="Search authors..."
-      defaultSort="name"
-      defaultSortOrders={{ name: "asc", lastName: "asc", recent: "desc", birth: "asc", works: "desc" }}
+      defaultSort={isSearching ? "relevance" : "name"}
+      defaultSortOrders={{ relevance: "desc", name: "asc", lastName: "asc", recent: "desc", birth: "asc", works: "desc" }}
       viewMode={viewMode}
       gridColumns={gridColumns}
       onViewModeChange={setViewMode}

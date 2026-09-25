@@ -19,6 +19,7 @@ import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
+import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
 type CatalogueStatus = typeof works.catalogueStatus.enumValues[number];
 type AcquisitionPriority = typeof works.acquisitionPriority.enumValues[number];
@@ -60,13 +61,17 @@ async function buildSearchCondition(search: string) {
     }
   }
 
-  // 2. Author name match
-  const authorMatches = await db
-    .select({ workId: workAuthors.workId })
-    .from(workAuthors)
-    .innerJoin(authors, eq(workAuthors.authorId, authors.id))
-    .where(ilike(authors.name, `%${search}%`));
-  for (const r of authorMatches) relatedWorkIds.add(r.workId);
+  // 2. Author name match (accent/case-insensitive, any word order; no typo
+  //    matching here, so book results stay precise)
+  const authorCondition = authorSearchCondition(search, { fuzzy: false });
+  if (authorCondition) {
+    const authorMatches = await db
+      .select({ workId: workAuthors.workId })
+      .from(workAuthors)
+      .innerJoin(authors, eq(workAuthors.authorId, authors.id))
+      .where(authorCondition);
+    for (const r of authorMatches) relatedWorkIds.add(r.workId);
+  }
 
   // 3. Publisher match (via editions)
   const publisherMatches = await db

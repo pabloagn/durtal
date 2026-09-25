@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { authors } from "@/lib/db/schema";
-import { and, ilike } from "drizzle-orm";
+import { and } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
+import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
 export interface AuthorMapPoint {
   id: string;
@@ -41,9 +41,8 @@ export async function getAuthorsForMap(opts?: {
 
   const conditions: SQL[] = [...filterConditions];
 
-  if (search) {
-    conditions.push(ilike(authors.name, `%${search}%`));
-  }
+  const searchCondition = search ? authorSearchCondition(search) : undefined;
+  if (searchCondition) conditions.push(searchCondition);
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 

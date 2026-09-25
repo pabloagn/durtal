@@ -17,6 +17,7 @@ import { getSeries } from "@/lib/actions/series";
 import { getWorkTypes } from "@/lib/actions/taxonomy";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { LANGUAGES } from "@/lib/constants/languages";
+import { filterBySearch } from "@/lib/utils/search-text";
 
 interface AuthorRow {
   id: string;
@@ -181,9 +182,7 @@ export function WorkQuickEditDialog({
   }, [open]);
 
   const filteredAuthors = authorSearch.trim()
-    ? allAuthors.filter((a) =>
-        a.name.toLowerCase().includes(authorSearch.trim().toLowerCase()),
-      )
+    ? filterBySearch(allAuthors, authorSearch, (a) => a.name)
     : allAuthors.slice(0, 10);
 
   const authorAlreadyAdded = (id: string) => authors.some((a) => a.id === id);

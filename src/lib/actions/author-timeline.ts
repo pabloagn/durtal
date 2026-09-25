@@ -2,9 +2,10 @@
 
 import { db } from "@/lib/db";
 import { authors } from "@/lib/db/schema";
-import { and, asc, ilike, isNotNull } from "drizzle-orm";
+import { and, asc, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
+import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
 export interface AuthorTimelineItem {
   id: string;
@@ -38,9 +39,8 @@ export async function getAuthorsForTimeline(opts?: {
 
   const conditions: SQL[] = [isNotNull(authors.birthYear), ...filterConditions];
 
-  if (search) {
-    conditions.push(ilike(authors.name, `%${search}%`));
-  }
+  const searchCondition = search ? authorSearchCondition(search) : undefined;
+  if (searchCondition) conditions.push(searchCondition);
 
   const where = and(...conditions);
 
