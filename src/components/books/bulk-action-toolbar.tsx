@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star } from "lucide-react";
+import { Trash2, X, Tag, Signal, Star, Gem } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +12,8 @@ import {
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
+import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
+import { localToday } from "@/lib/constants/hunting";
 import { toast } from "sonner";
 import {
   STATUS_CONFIG,
@@ -93,6 +95,26 @@ export function BulkActionToolbar({
     } finally {
       setIsDeleting(false);
       setDeleteOpen(false);
+    }
+  }
+
+  async function setRare(isRare: boolean) {
+    setIsUpdating(true);
+    try {
+      const { updated } = await bulkUpdateHuntAssessment(
+        Array.from(selectedIds),
+        isRare
+          ? { isRare: true, huntAssessedOn: localToday() }
+          : { isRare: false, huntAssessedOn: null },
+      );
+      toast.success(updated === 0
+        ? "No rare flags changed"
+        : `${updated} ${updated === 1 ? "book" : "books"} ${isRare ? "marked as rare" : "unmarked"}`);
+      router.refresh();
+    } catch {
+      toast.error("Could not update rare flags. Please try again.");
+    } finally {
+      setIsUpdating(false);
     }
   }
 
@@ -178,6 +200,25 @@ export function BulkActionToolbar({
               {config.label}
             </DropdownMenuItem>
           ))}
+        </DropdownMenu>
+
+        {/* Rare flag */}
+        <DropdownMenu
+          align="center"
+          side="top"
+          trigger={
+            <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting}>
+              <Gem className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Rare
+            </Button>
+          }
+        >
+          <DropdownMenuItem onClick={() => setRare(true)} disabled={isUpdating || isDeleting}>
+            Mark as rare
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setRare(false)} disabled={isUpdating || isDeleting}>
+            Unmark rare
+          </DropdownMenuItem>
         </DropdownMenu>
 
         {/* Edit Rating */}

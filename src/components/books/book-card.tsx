@@ -185,7 +185,7 @@ export function BookCard({
                     </div>
                   );
                 })()}
-                <HuntBadge isRare={isRare} huntAssessedOn={huntAssessedOn} />
+                <HuntBadge isRare={isRare} huntAssessedOn={huntAssessedOn} cover />
                 {hasDigitalEdition && <DigitalEditionBadge />}
               </div>
             )}

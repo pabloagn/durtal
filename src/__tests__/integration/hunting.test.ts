@@ -45,7 +45,10 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: { works: "works", activity: "activity" },
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
-import { updateHuntAssessment } from "@/lib/actions/hunting";
+import {
+  bulkUpdateHuntAssessment,
+  updateHuntAssessment,
+} from "@/lib/actions/hunting";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { recordActivity } from "@/lib/activity/record";
@@ -82,6 +85,77 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
       await db.select().from(schema.works).where(eq(schema.works.id, id))
     )[0];
   }
+  it("bulk marks only selected unmarked books, preserving existing dates and other fields", async () => {
+    const existing = await book();
+    const selected = await book();
+    const untouched = await book();
+    await updateHuntAssessment(existing.id, {
+      isRare: true,
+      huntAssessedOn: "2024-02-29",
+    });
+    const previous = await read(existing.id);
+    vi.clearAllMocks();
+    expect(
+      await bulkUpdateHuntAssessment([existing.id, selected.id, selected.id], {
+        isRare: true,
+        huntAssessedOn: "2026-09-25",
+      }),
+    ).toEqual({ updated: 1 });
+    expect(await read(existing.id)).toEqual(previous);
+    expect(await read(untouched.id)).toEqual(untouched);
+    const changed = await read(selected.id);
+    expect(changed).toEqual({
+      ...selected,
+      isRare: true,
+      huntAssessedOn: "2026-09-25",
+      updatedAt: changed.updatedAt,
+    });
+    expect(recordActivity).toHaveBeenCalledTimes(1);
+  });
+  it("bulk unmarks the selection, clears dates, and leaves unselected rare books alone", async () => {
+    const first = await book();
+    const second = await book();
+    const untouched = await book();
+    await bulkUpdateHuntAssessment([first.id, second.id, untouched.id], {
+      isRare: true,
+      huntAssessedOn: "2025-03-01",
+    });
+    const original = await read(untouched.id);
+    expect(
+      await bulkUpdateHuntAssessment([first.id, second.id], {
+        isRare: false,
+        huntAssessedOn: null,
+      }),
+    ).toEqual({ updated: 2 });
+    for (const id of [first.id, second.id])
+      expect(await read(id)).toMatchObject({
+        isRare: false,
+        huntAssessedOn: null,
+      });
+    expect(await read(untouched.id)).toEqual(original);
+    expect(
+      await bulkUpdateHuntAssessment([first.id, second.id], {
+        isRare: false,
+        huntAssessedOn: null,
+      }),
+    ).toEqual({ updated: 0 });
+  });
+  it("validates the entire bulk request before writing any book", async () => {
+    const original = await book();
+    const assessment = { isRare: true as const, huntAssessedOn: "2026-09-25" };
+    await expect(
+      bulkUpdateHuntAssessment([original.id, "invalid"], assessment),
+    ).rejects.toThrow();
+    await expect(bulkUpdateHuntAssessment([], assessment)).rejects.toThrow();
+    await expect(
+      bulkUpdateHuntAssessment([original.id], {
+        ...assessment,
+        huntAssessedOn: "2025-02-29",
+      }),
+    ).rejects.toThrow();
+    expect(await read(original.id)).toEqual(original);
+    expect(recordActivity).not.toHaveBeenCalled();
+  });
   it("migrates both legacy labels to true and preserves dates and unrelated values", async () => {
     await client!.begin(async (tx) => {
       await tx.unsafe(
