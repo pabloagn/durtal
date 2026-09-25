@@ -130,8 +130,8 @@ function generateBlobParams(palette: CrystalColor[]) {
  * Ambient color gradients sampled from the book's poster.
  *
  * Renders as its own absolutely-positioned layer at the page root.
- * Uses a CSS mask-image to feather ALL edges (top, bottom, left, right)
- * into transparency — no overflow-hidden, no hard cutoffs anywhere.
+ * Clip the oversized, rotated blobs to this decorative layer, then feather
+ * the composited result on all four edges so the clip never becomes visible.
  */
 export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
   if (!palette || palette.length === 0) return null;
@@ -140,8 +140,13 @@ export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
 
   return (
     <div
-      className="pointer-events-none absolute -left-6 -top-6 -right-6 z-0 h-[650px]"
+      className="pointer-events-none absolute -left-6 -top-6 -right-6 z-0 h-[650px] overflow-hidden"
       aria-hidden="true"
+      style={{
+        maskImage:
+          "linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 5%, #000 65%, transparent)",
+        maskComposite: "intersect",
+      }}
     >
       {/* Blobs — individually blurred at different radii for depth */}
       <div
