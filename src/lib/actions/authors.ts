@@ -5,6 +5,7 @@ import { authors, workAuthors, editionContributors, countries, comments, activit
 import { eq, and, asc, desc, ilike, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
+import type { NationalityOption } from "@/lib/utils/nationality-param";
 import {
   createAuthorSchema,
   type CreateAuthorInput,
@@ -168,13 +169,12 @@ export async function getAuthorCount(opts?: {
   return result.count;
 }
 
-export async function getDistinctNationalities(): Promise<string[]> {
-  const result = await db
-    .selectDistinct({ name: countries.name })
+export async function getDistinctNationalities(): Promise<NationalityOption[]> {
+  return db
+    .selectDistinct({ code: countries.alpha2, name: countries.name })
     .from(countries)
     .innerJoin(authors, eq(authors.nationalityId, countries.id))
     .orderBy(asc(countries.name));
-  return result.map((r) => r.name);
 }
 
 export async function getDistinctGenders(): Promise<string[]> {
@@ -264,7 +264,7 @@ export async function getAuthorBySlug(slug: string) {
   return db.query.authors.findFirst({
     where: eq(authors.slug, slug),
     with: {
-      country: { columns: { id: true, name: true } },
+      country: { columns: { id: true, name: true, alpha2: true } },
       workAuthors: {
         with: {
           work: {

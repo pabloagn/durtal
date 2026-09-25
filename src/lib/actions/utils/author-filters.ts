@@ -2,10 +2,23 @@ import { db } from "@/lib/db";
 import { authors, countries } from "@/lib/db/schema";
 import { gte, lte, isNull, isNotNull, inArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { resolveLegacyNationalityNames } from "@/lib/utils/nationality-param";
+
+/**
+ * Resolve an old name-based `nationality` URL param to ISO alpha-2 codes.
+ */
+export async function resolveLegacyNationalityParam(raw: string): Promise<string[]> {
+  const rows = await db
+    .select({ code: countries.alpha2, name: countries.name })
+    .from(countries);
+  return resolveLegacyNationalityNames(raw, rows);
+}
 
 /**
  * Build common author filter conditions used across getAuthors, getAuthorsForMap,
  * and getAuthorsForTimeline.
+ *
+ * `nationalities` holds ISO 3166-1 alpha-2 country codes.
  *
  * Returns `null` when the nationality filter resolves to zero matching countries,
  * signalling the caller to short-circuit with an empty result.
@@ -22,12 +35,13 @@ export async function buildAuthorFilterConditions(filters?: {
 }): Promise<SQL[] | null> {
   const conditions: SQL[] = [];
 
-  // Nationality filtering: resolve country names to IDs
+  // Nationality filtering: resolve country codes to IDs
   if (filters?.nationalities?.length) {
+    const codes = filters.nationalities.map((c) => c.toUpperCase());
     const countryRows = await db
       .select({ id: countries.id })
       .from(countries)
-      .where(inArray(countries.name, filters.nationalities));
+      .where(inArray(countries.alpha2, codes));
     const countryIds = countryRows.map((c) => c.id);
     if (countryIds.length > 0) {
       conditions.push(inArray(authors.nationalityId, countryIds));

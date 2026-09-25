@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import {
   getAuthors,
@@ -11,6 +12,11 @@ import {
 } from "@/lib/actions/authors";
 import { getAuthorsForMap } from "@/lib/actions/author-map";
 import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
+import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
+import {
+  formatNationalityParam,
+  parseNationalityCodes,
+} from "@/lib/utils/nationality-param";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
@@ -60,7 +66,7 @@ async function AuthorsContent({
     | "birth"
     | "works";
   const order = (searchParams.order ?? undefined) as "asc" | "desc" | undefined;
-  const nationalityFilter = searchParams.nationality?.split(",").filter(Boolean);
+  const nationalityFilter = parseNationalityCodes(searchParams.nationality) ?? [];
   const genderFilter = searchParams.gender?.split(",").filter(Boolean);
   const zodiacFilter = searchParams.zodiac?.split(",").filter(Boolean);
   const birthYearMin = searchParams.birthYearMin ? parseInt(searchParams.birthYearMin, 10) : undefined;
@@ -75,7 +81,7 @@ async function AuthorsContent({
   const offset = (page - 1) * limit;
 
   const filters = {
-    nationalities: nationalityFilter?.length ? nationalityFilter : undefined,
+    nationalities: nationalityFilter.length ? nationalityFilter : undefined,
     genders: genderFilter?.length ? genderFilter : undefined,
     zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
     birthYearMin,
@@ -87,7 +93,7 @@ async function AuthorsContent({
 
   // getAuthorsForTimeline uses alive as a string ("true"|"false"), not boolean
   const timelineFilters = {
-    nationalities: nationalityFilter?.length ? nationalityFilter : undefined,
+    nationalities: nationalityFilter.length ? nationalityFilter : undefined,
     genders: genderFilter?.length ? genderFilter : undefined,
     zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
     birthYearMin,
@@ -196,6 +202,21 @@ async function AuthorsContent({
 
 export default async function AuthorsPage({ searchParams }: PageProps) {
   const params = await searchParams;
+
+  // Old links used country names ("Hungary, Republic of"), which contain the
+  // list delimiter. Redirect them to the code-based format ("HU").
+  if (params.nationality && parseNationalityCodes(params.nationality) === null) {
+    const codes = await resolveLegacyNationalityParam(params.nationality);
+    const next = new URLSearchParams(
+      Object.entries(params).filter((e): e is [string, string] => typeof e[1] === "string"),
+    );
+    if (codes.length > 0) {
+      next.set("nationality", formatNationalityParam(codes));
+    } else {
+      next.delete("nationality");
+    }
+    redirect(`/authors?${next.toString()}`);
+  }
 
   return (
     <>

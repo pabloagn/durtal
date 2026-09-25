@@ -15,6 +15,7 @@ import { ExportMenu } from "@/components/shared/export-menu";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
+import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 
 interface PosterCrop {
   x: number;
@@ -29,6 +30,7 @@ interface AuthorDetailHeaderProps {
   lastName?: string | null;
   realName?: string | null;
   countryName?: string | null;
+  countryCode?: string | null;
   lifeDates?: string | null;
   gender?: string | null;
   posterUrl?: string | null;
@@ -44,6 +46,7 @@ export function AuthorDetailHeader({
   lastName,
   realName,
   countryName,
+  countryCode,
   lifeDates,
   gender,
   posterUrl,
@@ -181,14 +184,17 @@ export function AuthorDetailHeader({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-            {countryName && (
-              <Link
-                href={`/authors?nationality=${encodeURIComponent(countryName)}`}
-                className="text-fg-primary font-medium transition-colors hover:text-accent-rose"
-              >
-                {countryName}
-              </Link>
-            )}
+            {countryName &&
+              (countryCode ? (
+                <Link
+                  href={nationalityFilterHref(countryCode)}
+                  className="text-fg-primary font-medium transition-colors hover:text-accent-rose"
+                >
+                  {countryName}
+                </Link>
+              ) : (
+                <span className="text-fg-primary font-medium">{countryName}</span>
+              ))}
             {lifeDates && (
               <span className="font-mono text-xs text-fg-secondary">
                 {lifeDates}

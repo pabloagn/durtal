@@ -132,6 +132,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
             lastName={author.lastName}
             realName={author.realName}
             countryName={author.country?.name}
+            countryCode={author.country?.alpha2}
             lifeDates={lifeDates}
             gender={author.gender}
             posterUrl={posterUrl}

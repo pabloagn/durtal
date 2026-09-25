@@ -19,6 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { ZODIAC_LABELS, ZODIAC_SIGNS } from "@/lib/utils/zodiac";
 import type { AuthorMapPoint } from "@/lib/actions/author-map";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
+import {
+  parseNationalityCodes,
+  type NationalityOption,
+} from "@/lib/utils/nationality-param";
 
 interface PaginationData {
   page: number;
@@ -203,7 +207,7 @@ interface AuthorsShellProps {
   authors: AuthorItem[];
   mapAuthors: AuthorMapPoint[];
   timelineAuthors: AuthorTimelineItem[];
-  nationalities: string[];
+  nationalities: NationalityOption[];
   genders: string[];
   zodiacSigns: string[];
   birthYearRange: { min: number | null; max: number | null };
@@ -244,7 +248,7 @@ export function AuthorsShell({
 
   // --- Active filter values from URL ---
   const activeFilters: Record<string, string[]> = {
-    nationality: searchParams.get("nationality")?.split(",").filter(Boolean) ?? [],
+    nationality: parseNationalityCodes(searchParams.get("nationality")) ?? [],
     gender: searchParams.get("gender")?.split(",").filter(Boolean) ?? [],
     zodiac: searchParams.get("zodiac")?.split(",").filter(Boolean) ?? [],
     alive: searchParams.get("alive") ? [searchParams.get("alive")!] : [],
@@ -291,7 +295,7 @@ export function AuthorsShell({
     {
       key: "nationality",
       label: "Nationality",
-      options: nationalities.map((n) => ({ value: n, label: n })),
+      options: nationalities.map((n) => ({ value: n.code, label: n.name })),
     },
     ...(genders.length > 0
       ? [
