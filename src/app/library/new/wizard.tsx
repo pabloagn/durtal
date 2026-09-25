@@ -49,6 +49,7 @@ import {
   updateWorkTaxonomy,
 } from "@/lib/actions/taxonomy";
 import { getCollections, addEditionToCollection } from "@/lib/actions/collections";
+import { draftsToCreate, pickDefaultLocationId } from "@/lib/utils/instance-drafts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,6 +186,10 @@ export function AddBookWizard() {
   const [instanceDrafts, setInstanceDrafts] = useState<InstanceDraft[]>([
     { ...EMPTY_INSTANCE },
   ]);
+  // True when the user chose to skip copies: no copy is created on submit,
+  // whatever the drafts hold (the book is not owned yet).
+  const [skipCopies, setSkipCopies] = useState(false);
+  const copiesToCreate = draftsToCreate(instanceDrafts, skipCopies);
 
   // Categorization
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
@@ -213,6 +218,7 @@ export function AddBookWizard() {
   const [keywords, setKeywords] = useState<RefDataItem[]>([]);
   const [attributes, setAttributes] = useState<RefDataItem[]>([]);
   const [refDataLoaded, setRefDataLoaded] = useState(false);
+  const [defaultLocationId, setDefaultLocationId] = useState("");
   const [recommendersLoaded, setRecommendersLoaded] = useState(false);
 
   // Fetch recommenders when details step is reached
@@ -255,23 +261,7 @@ export function AddBookWizard() {
         })),
       }));
       setLocations(mappedLocations);
-
-      // Auto-select first preferred location for drafts without one
-      const preferred = ["amsterdam", "mexico city"];
-      const sorted = [...mappedLocations].sort((a, b) => {
-        const ai = preferred.findIndex((p) => a.name.toLowerCase().includes(p));
-        const bi = preferred.findIndex((p) => b.name.toLowerCase().includes(p));
-        if (ai >= 0 && bi >= 0) return ai - bi;
-        if (ai >= 0) return -1;
-        if (bi >= 0) return 1;
-        return 0;
-      });
-      const defaultLocationId = sorted[0]?.id ?? "";
-      if (defaultLocationId) {
-        setInstanceDrafts((prev) =>
-          prev.map((d) => (d.locationId ? d : { ...d, locationId: defaultLocationId })),
-        );
-      }
+      setDefaultLocationId(pickDefaultLocationId(mappedLocations));
       setSubjects(subs.map((s) => ({ id: s.id, name: s.name })));
       setGenres(gens.map((g) => ({ id: g.id, name: g.name })));
       setTags(tgs.map((t) => ({ id: t.id, name: t.name })));
@@ -290,6 +280,15 @@ export function AddBookWizard() {
       setAttributes(attrs.map((a) => ({ id: a.id, name: a.name })));
     });
   }, [step, refDataLoaded]);
+
+  // Pre-select the default location only on the copies step. Filling it on
+  // later steps would turn an untouched draft into a copy the user skipped.
+  useEffect(() => {
+    if (step !== "instance" || !defaultLocationId) return;
+    setInstanceDrafts((prev) =>
+      prev.map((d) => (d.locationId ? d : { ...d, locationId: defaultLocationId })),
+    );
+  }, [step, defaultLocationId]);
 
   // ── Search ───────────────────────────────────────────────────────────────
 
@@ -429,9 +428,8 @@ export function AddBookWizard() {
             selectedTagIds.length > 0 ? selectedTagIds : undefined,
         });
 
-        // 4. Create instances
-        for (const draft of instanceDrafts) {
-          if (!draft.locationId) continue;
+        // 4. Create instances (none when copies were skipped)
+        for (const draft of copiesToCreate) {
           try {
             await createInstance({
               editionId: edition.id,
@@ -980,12 +978,23 @@ export function AddBookWizard() {
             </Button>
             <div className="flex gap-2">
               {isWishlistStatus && (
-                <Button variant="ghost" onClick={() => setStep("categorize")}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSkipCopies(true);
+                    setStep("categorize");
+                  }}
+                >
                   <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Skip copies
                 </Button>
               )}
-              <Button onClick={() => setStep("instance")}>
+              <Button
+                onClick={() => {
+                  setSkipCopies(false);
+                  setStep("instance");
+                }}
+              >
                 {isWishlistStatus ? "Add copies anyway" : "Add copies"}
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1047,13 +1056,22 @@ export function AddBookWizard() {
               Back
             </Button>
             <div className="flex gap-2">
-              {!instanceDrafts.some((d) => d.locationId) && (
-                <Button variant="ghost" onClick={() => setStep("categorize")}>
-                  <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Skip
-                </Button>
-              )}
-              <Button onClick={() => setStep("categorize")}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSkipCopies(true);
+                  setStep("categorize");
+                }}
+              >
+                <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Skip copies
+              </Button>
+              <Button
+                onClick={() => {
+                  setSkipCopies(false);
+                  setStep("categorize");
+                }}
+              >
                 Categorize
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1102,7 +1120,10 @@ export function AddBookWizard() {
           />
 
           <div className="flex justify-between">
-            <Button variant="ghost" onClick={() => setStep("instance")}>
+            <Button
+              variant="ghost"
+              onClick={() => setStep(skipCopies ? "edition" : "instance")}
+            >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
@@ -1224,57 +1245,58 @@ export function AddBookWizard() {
               <div className="flex items-start justify-between">
                 <div className="w-full">
                   <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
-                    Copies ({instanceDrafts.filter((d) => d.locationId).length})
+                    Copies ({copiesToCreate.length})
                   </p>
                   <div className="mt-2 space-y-2">
-                    {instanceDrafts.filter((d) => d.locationId).length === 0 ? (
+                    {copiesToCreate.length === 0 ? (
                       <p className="text-xs text-fg-muted">
                         No copies -- you can add them later from the book detail page.
                       </p>
                     ) : (
-                      instanceDrafts
-                        .filter((d) => d.locationId)
-                        .map((d, i) => {
-                          const loc = locations.find(
-                            (l) => l.id === d.locationId,
-                          );
-                          return (
-                            <div
-                              key={i}
-                              className="flex items-center gap-2 text-xs text-fg-secondary"
-                            >
-                              <span className="text-fg-primary">
-                                {loc?.name ?? "Unknown"}
+                      copiesToCreate.map((d, i) => {
+                        const loc = locations.find(
+                          (l) => l.id === d.locationId,
+                        );
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center gap-2 text-xs text-fg-secondary"
+                          >
+                            <span className="text-fg-primary">
+                              {loc?.name ?? "Unknown"}
+                            </span>
+                            {d.format && (
+                              <Badge variant="muted">{d.format}</Badge>
+                            )}
+                            {d.condition && (
+                              <Badge variant="sage">
+                                {d.condition.replace(/_/g, " ")}
+                              </Badge>
+                            )}
+                            {d.isSigned && (
+                              <Badge variant="gold">Signed</Badge>
+                            )}
+                            {d.isFirstPrinting && (
+                              <Badge variant="gold">1st printing</Badge>
+                            )}
+                            {d.acquisitionPrice && d.acquisitionCurrency && (
+                              <span className="font-mono text-fg-muted">
+                                {d.acquisitionPrice} {d.acquisitionCurrency}
                               </span>
-                              {d.format && (
-                                <Badge variant="muted">{d.format}</Badge>
-                              )}
-                              {d.condition && (
-                                <Badge variant="sage">
-                                  {d.condition.replace(/_/g, " ")}
-                                </Badge>
-                              )}
-                              {d.isSigned && (
-                                <Badge variant="gold">Signed</Badge>
-                              )}
-                              {d.isFirstPrinting && (
-                                <Badge variant="gold">1st printing</Badge>
-                              )}
-                              {d.acquisitionPrice && d.acquisitionCurrency && (
-                                <span className="font-mono text-fg-muted">
-                                  {d.acquisitionPrice} {d.acquisitionCurrency}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setStep("instance")}
+                  onClick={() => {
+                    setSkipCopies(false);
+                    setStep("instance");
+                  }}
                 >
                   Edit
                 </Button>
