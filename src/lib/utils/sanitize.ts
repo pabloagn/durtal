@@ -48,6 +48,37 @@ export function sanitizeDescriptionHtml(html: string): string {
 }
 
 /**
+ * Sanitize an author bio. Keeps only the formatting the bio editor produces
+ * (paragraphs, line breaks, bold, italic, underline, strike, lists, quotes,
+ * links). Links must be http(s) or mailto and always open in a new tab
+ * without access to the opener.
+ */
+export function sanitizeBioHtml(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: ["p", "div", "br", "b", "strong", "i", "em", "u", "s", "ul", "ol", "li", "blockquote", "a"],
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowProtocolRelative: false,
+    transformTags: {
+      a: sanitizeHtml.simpleTransform("a", { target: "_blank", rel: "noopener noreferrer nofollow" }),
+    },
+  });
+}
+
+/**
+ * Prepare a bio for storage: sanitized HTML, or null when it has no visible
+ * text. `undefined` means "not provided" and is passed through unchanged.
+ */
+export function cleanBioForStorage(bio: string | null | undefined): string | null | undefined {
+  if (bio === undefined) return undefined;
+  if (bio === null) return null;
+  const clean = sanitizeBioHtml(bio).trim();
+  return stripHtmlToText(clean) ? clean : null;
+}
+
+/**
  * Strip all HTML tags from a string and return clean plain text.
  * Converts block-level tags and <br> to newlines, collapses whitespace.
  * Lightweight — no external dependency, safe to use client-side.

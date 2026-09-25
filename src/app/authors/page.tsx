@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorsShell, type AuthorItem } from "./authors-shell";
 import { AuthorCreateDialog } from "./author-create-dialog";
+import { sanitizeBioHtml, stripHtmlToText } from "@/lib/utils/sanitize";
 
 interface PageProps {
   searchParams: Promise<{
@@ -150,7 +151,8 @@ async function AuthorsContent({
         ? { x: activePoster.cropX, y: activePoster.cropY, zoom: activePoster.cropZoom }
         : null,
       website: a.website,
-      bio: a.bio,
+      // Bios are stored as HTML; the list shows a one-line text preview
+      bio: a.bio ? stripHtmlToText(sanitizeBioHtml(a.bio)) : null,
       worksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
     };

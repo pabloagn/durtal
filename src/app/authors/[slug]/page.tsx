@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { getAuthorBySlug, getAuthors } from "@/lib/actions/authors";
+import { sanitizeBioHtml } from "@/lib/utils/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { AuthorDetailHeader } from "./author-detail-header";
@@ -148,7 +149,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           <h2 className="mb-3 font-serif text-2xl text-fg-primary">About</h2>
           <div
             className="bio-content max-w-2xl text-sm leading-relaxed text-fg-secondary"
-            dangerouslySetInnerHTML={{ __html: author.bio }}
+            dangerouslySetInnerHTML={{ __html: sanitizeBioHtml(author.bio) }}
           />
         </section>
       )}

@@ -12,6 +12,7 @@ import {
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
+import { sanitizeBioHtml, cleanBioForStorage } from "@/lib/utils/sanitize";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -220,8 +221,14 @@ export async function getAuthorDeathYearRange(): Promise<{ min: number | null; m
   return { min: result?.min ?? null, max: result?.max ?? null };
 }
 
+/** Bios are rendered as HTML: every read hands them out sanitized. */
+function withSafeBio<T extends { bio: string | null } | undefined>(author: T): T {
+  if (author?.bio) author.bio = sanitizeBioHtml(author.bio);
+  return author;
+}
+
 export async function getAuthor(id: string) {
-  return db.query.authors.findFirst({
+  const author = await db.query.authors.findFirst({
     where: eq(authors.id, id),
     with: {
       country: { columns: { name: true } },
@@ -258,10 +265,11 @@ export async function getAuthor(id: string) {
       media: true,
     },
   });
+  return withSafeBio(author);
 }
 
 export async function getAuthorBySlug(slug: string) {
-  return db.query.authors.findFirst({
+  const author = await db.query.authors.findFirst({
     where: eq(authors.slug, slug),
     with: {
       country: { columns: { id: true, name: true } },
@@ -311,6 +319,7 @@ export async function getAuthorBySlug(slug: string) {
       media: true,
     },
   });
+  return withSafeBio(author);
 }
 
 export async function getCountries() {
@@ -342,7 +351,7 @@ export async function createAuthor(input: CreateAuthorInput) {
 
   const [author] = await db
     .insert(authors)
-    .values({ ...parsed, sortName, zodiacSign })
+    .values({ ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign })
     .returning();
 
   // Generate and set slug
@@ -414,6 +423,7 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
 
   const updatePayload = {
     ...input,
+    ...(input.bio !== undefined ? { bio: cleanBioForStorage(input.bio) } : {}),
     ...(zodiacSign !== undefined ? { zodiacSign } : {}),
     updatedAt: new Date(),
   };
@@ -452,7 +462,7 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
       ["deathYear", "author.death_year_changed", prev.deathYear, input.deathYear],
       ["gender", "author.gender_changed", prev.gender, input.gender],
       ["nationalityId", "author.nationality_changed", prev.nationalityId, input.nationalityId],
-      ["bio", "author.biography_changed", prev.bio, input.bio],
+      ["bio", "author.biography_changed", prev.bio, updatePayload.bio],
     ];
     for (const [field, eventKey, oldVal, newVal] of diffs) {
       if (newVal !== undefined && newVal !== oldVal) {
