@@ -97,6 +97,24 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     expect(new Set(layouts.map((layout) => layout?.id)).size).toBe(1);
     expect(await db.select().from(schema.galleryLayouts)).toHaveLength(1);
   });
+  it("automatically links Fast Track ISBN publisher text after migration 0025", async () => {
+    const name = `Fast Track Press ${randomUUID()}`;
+    const [house] = await db
+      .insert(schema.publishingHouses)
+      .values({ name, slug: `test-${randomUUID()}` })
+      .returning();
+    const input = minimal();
+    input.edition.publisher = name;
+    const result = await fastTrackBook(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect(
+      await db
+        .select()
+        .from(schema.editionPublishers)
+        .where(eq(schema.editionPublishers.editionId, result.editionId)),
+    ).toEqual([{ editionId: result.editionId, publisherId: house.id }]);
+  });
   it("creates one work and edition with unchanged defaults, no copy, and audit events", async () => {
     const result = await fastTrackBook(minimal());
     expect(result.ok).toBe(true);

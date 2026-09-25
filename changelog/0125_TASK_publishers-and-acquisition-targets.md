@@ -26,7 +26,7 @@ SLN-319. Make publishing houses a first-class collecting destination while prese
 
 ## Completion Notes
 
-Implementation complete; live activation pending approval. Isolated branch `codex/publishers-and-acquisition-targets`, starting at checkpoint `566da03`.
+Implementation complete; live activation approved and completed on 2026-09-25. Isolated branch `codex/publishers-and-acquisition-targets`, starting at checkpoint `566da03`.
 
 Live read-only preflight at 2026-09-25: 172 publishers, 368 editions; 49 fully match exact identities, 91 require review, and 228 have no publisher text. No live migration or data writes performed. Counts are a point-in-time snapshot while the catalogue remains in use.
 
@@ -35,3 +35,15 @@ Validation: 314 tests across 20 files, including 16 publisher database cases, th
 Browser validation on an isolated synthetic database: directory and scoped counts; publisher creation with alias/specialty; favourite toggle; correct NYRB ownership; explicit US/Australia Wakefield resolution; target-driven order creation offers only matching editions; a second edition order preserves existing ownership; explicit copy fulfilment leaves other targets unchanged. The temporary PostgreSQL preview adapter was restored to the production Neon adapter before validation and commit.
 
 A regression check also verifies that partial edition edits do not apply Zod defaults to omitted language, collector flags, or metadata-lock fields.
+
+
+## Live Activation — 2026-09-25
+
+- User explicitly approved applying migrations 0025–0026 and activating the feature. Integrated Fast Track commit `2665634` cleanly in merge `7f64755` before activation.
+- Verified only 0025–0026 were pending. One legacy migration (0001) has an older journal timestamp; its content hash exactly matches the committed migration. Existing migration history was preserved.
+- Applied both committed migrations together using the official Drizzle PostgreSQL migrator, which wraps pending migrations in one transaction. Post-migration history has no pending entries.
+- Private pre-migration snapshot and comparison: all existing fields and IDs preserved across 366 works, 2,088 authors, 373 editions, 196 instances, 2 orders and 172 publishing houses. No missing or changed existing rows.
+- Backfill created 54 unambiguous edition/publisher links. Review queue contains 91 editions; 228 editions have no publisher text. Original metadata remains intact.
+- The first verification query encountered a cached prepared SELECT plan after columns were added; verification was rerun on a fresh connection, without rerunning migrations, and passed completely.
+- Combined validation: 331 tests across 21 files all pass, including Fast Track auto-linking to a publisher, publisher migration preservation and rarity regressions. Typecheck, scoped lint and production webpack compile-only build pass. Stale generated preview route types were regenerated for the combined route set.
+- Activated in the main local checkout. Live browser checks passed for the sidebar, publisher directory/search, Wakefield's 20-edition profile, publisher-filtered library, unresolved-name review and the Fast Track Details button. No test books, publishers or orders were created in live data.
