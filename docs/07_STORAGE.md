@@ -94,7 +94,13 @@ Triggered when creating or updating an edition with a `coverSourceUrl`.
 External URL (Google Books, Open Library)
        |
        v
-  Download image
+  Download image through safeFetchImage() (src/lib/net/safe-fetch.ts):
+    - public hosts only: private, loopback, link-local, CGNAT/Tailscale
+      and other reserved addresses are refused, checked again when the
+      socket connects and on every redirect hop (max 5)
+    - 30 s deadline, 50 MB limit (enforced while streaming)
+    - the bytes must be JPEG, PNG, GIF or WebP
+  (/api/media/from-url uses the same helper, https only)
        |
        v
   Resize with Sharp:

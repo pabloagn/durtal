@@ -3,10 +3,21 @@ import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/med
 import { createMedia, setActiveMedia } from "@/lib/actions/media";
 import { updateCollection } from "@/lib/actions/collections";
 import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
-import { isSafeUrl, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
+import { safeFetchImage, SafeFetchError, type SafeFetchErrorCode } from "@/lib/net/safe-fetch";
 import { extractColorPalette } from "@/lib/color/extract-palette";
 import type { MediaEntityType } from "@/lib/s3/keys";
 import type { ColorPalette, MediaType } from "@/lib/types";
+
+const FROM_URL_ERRORS: Partial<Record<SafeFetchErrorCode, string>> = {
+  blocked_url: "URL not allowed. Only HTTPS URLs to public hosts are accepted.",
+  blocked_address: "URL not allowed. The host resolves to a private or reserved address.",
+  bad_status: "Failed to download image from URL.",
+  too_large: "Downloaded image too large. Maximum size: 50 MB.",
+  not_image: "The URL does not point to a JPEG, PNG, GIF or WebP image.",
+  timeout: "The image download timed out.",
+  too_many_redirects: "The URL redirects too many times.",
+  network: "Failed to download image from URL.",
+};
 
 /**
  * POST /api/media/from-url
@@ -63,49 +74,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate URL is safe (SSRF prevention)
-    if (!isSafeUrl(imageUrl)) {
-      return NextResponse.json(
-        { error: "URL not allowed. Only HTTPS URLs to public hosts are accepted." },
-        { status: 400 },
-      );
-    }
-
-    // Download the image from the URL
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    const response = await fetch(imageUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; Durtal/1.0; +https://durtal.app)",
-        "Accept": "image/*,*/*;q=0.8",
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!response.ok) {
-      console.error(`Image download failed: ${response.status} ${response.statusText} for ${imageUrl}`);
-      return NextResponse.json(
-        { error: `Failed to download image from URL (${response.status})` },
-        { status: 400 },
-      );
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    if (buffer.length === 0) {
-      return NextResponse.json(
-        { error: "Downloaded image is empty" },
-        { status: 400 },
-      );
-    }
-
-    if (buffer.length > MAX_MEDIA_SIZE_BYTES) {
-      return NextResponse.json(
-        { error: "Downloaded image too large. Maximum size: 50 MB." },
-        { status: 400 },
-      );
+    // Download through the SSRF, redirect, size, timeout and image-type guard
+    let buffer: Buffer;
+    try {
+      ({ buffer } = await safeFetchImage(imageUrl));
+    } catch (err) {
+      if (err instanceof SafeFetchError) {
+        console.warn(`Image download refused (${err.code}): ${err.message}`);
+        return NextResponse.json(
+          { error: FROM_URL_ERRORS[err.code] ?? err.message },
+          { status: 400 },
+        );
+      }
+      throw err;
     }
 
     const fileId = crypto.randomUUID();
