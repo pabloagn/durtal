@@ -1,7 +1,6 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { isHuntDifficulty } from "@/lib/constants/hunting";
 import {
   works,
   workAuthors,
@@ -100,7 +99,7 @@ export async function getWorks(opts?: {
   order?: "asc" | "desc";
   filters?: {
     catalogueStatus?: string[];
-    huntDifficulty?: string[];
+    isRare?: boolean;
     acquisitionPriority?: string[];
     minRating?: number;
     locationId?: string;
@@ -137,8 +136,8 @@ export async function getWorks(opts?: {
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
-  if (filters?.huntDifficulty?.length) {
-    conditions.push(inArray(works.huntDifficulty, filters.huntDifficulty.filter(isHuntDifficulty)));
+  if (filters?.isRare !== undefined) {
+    conditions.push(eq(works.isRare, filters.isRare));
   }
   if (filters?.catalogueStatus?.length) {
     conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
@@ -251,7 +250,7 @@ export async function getWorks(opts?: {
 
 export async function getWorkCount(search?: string, filters?: {
   catalogueStatus?: string[];
-  huntDifficulty?: string[];
+  isRare?: boolean;
   acquisitionPriority?: string[];
   minRating?: number;
   locationId?: string;
@@ -261,8 +260,8 @@ export async function getWorkCount(search?: string, filters?: {
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
-  if (filters?.huntDifficulty?.length) {
-    conditions.push(inArray(works.huntDifficulty, filters.huntDifficulty.filter(isHuntDifficulty)));
+  if (filters?.isRare !== undefined) {
+    conditions.push(eq(works.isRare, filters.isRare));
   }
   if (filters?.catalogueStatus?.length) {
     conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));

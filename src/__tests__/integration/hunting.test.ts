@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
   beforeAll,
   afterAll,
@@ -81,26 +82,49 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
       await db.select().from(schema.works).where(eq(schema.works.id, id))
     )[0];
   }
+  it("migrates both legacy labels to true and preserves dates and unrelated values", async () => {
+    await client!.begin(async (tx) => {
+      await tx.unsafe(
+        `CREATE TEMP TABLE works (title text, hunt_difficulty text, hunt_assessed_on date, CONSTRAINT works_hunt_assessment_check CHECK (true)) ON COMMIT DROP`,
+      );
+      await tx.unsafe(
+        `INSERT INTO works VALUES ('first', 'rare', '2024-02-29'), ('second', 'difficult_to_hunt', '2025-03-01'), ('third', NULL, NULL)`,
+      );
+      for (const statement of readFileSync(
+        "src/lib/db/migrations/0024_rare_boolean.sql",
+        "utf8",
+      ).split("--> statement-breakpoint"))
+        await tx.unsafe(statement);
+      const rows = await tx.unsafe(
+        `SELECT title, is_rare, hunt_assessed_on::text AS marked_on FROM works ORDER BY title`,
+      );
+      expect([...rows]).toEqual([
+        { title: "first", is_rare: true, marked_on: "2024-02-29" },
+        { title: "second", is_rare: true, marked_on: "2025-03-01" },
+        { title: "third", is_rare: false, marked_on: null },
+      ]);
+    });
+  });
   it("defaults existing-style books to unmarked, saves and reassesses without touching metadata", async () => {
     const original = await book();
-    expect(original.huntDifficulty).toBeNull();
+    expect(original.isRare).toBe(false);
     expect(original.huntAssessedOn).toBeNull();
     await updateHuntAssessment(original.id, {
-      huntDifficulty: "rare",
+      isRare: true,
       huntAssessedOn: "2025-04-01",
     });
     expect(await read(original.id)).toMatchObject({
-      huntDifficulty: "rare",
+      isRare: true,
       huntAssessedOn: "2025-04-01",
     });
     await updateHuntAssessment(original.id, {
-      huntDifficulty: "difficult_to_hunt",
+      isRare: true,
       huntAssessedOn: "2026-09-25",
     });
     const updated = await read(original.id);
     expect(updated).toEqual({
       ...original,
-      huntDifficulty: "difficult_to_hunt",
+      isRare: true,
       huntAssessedOn: "2026-09-25",
       updatedAt: updated.updatedAt,
     });
@@ -108,23 +132,23 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
       "work",
       original.id,
       "work.hunt_assessment_changed",
-      { newValue: "Difficult to Hunt · 2026-09-25" },
+      { newValue: "Rare · 2026-09-25" },
     );
   });
   it("clears the pair and preserves the book", async () => {
     const original = await book();
     await updateHuntAssessment(original.id, {
-      huntDifficulty: "rare",
+      isRare: true,
       huntAssessedOn: "2026-09-25",
     });
     await updateHuntAssessment(original.id, {
-      huntDifficulty: null,
+      isRare: false,
       huntAssessedOn: null,
     });
     expect(await read(original.id)).toMatchObject({
       title: original.title,
       catalogueStatus: "wanted",
-      huntDifficulty: null,
+      isRare: false,
       huntAssessedOn: null,
     });
   });
@@ -132,19 +156,19 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
     const original = await book();
     await expect(
       updateHuntAssessment(original.id, {
-        huntDifficulty: "rare",
+        isRare: true,
         huntAssessedOn: "2025-02-29",
       }),
     ).rejects.toThrow();
     await expect(
       updateHuntAssessment("not-a-uuid", {
-        huntDifficulty: null,
+        isRare: false,
         huntAssessedOn: null,
       }),
     ).rejects.toThrow();
     await expect(
       updateHuntAssessment("00000000-0000-4000-8000-000000000000", {
-        huntDifficulty: null,
+        isRare: false,
         huntAssessedOn: null,
       }),
     ).rejects.toThrow("Book not found");
@@ -154,9 +178,9 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
   it("enforces paired fields and supported values at the database boundary", async () => {
     const original = await book();
     for (const fields of [
-      sql`hunt_difficulty = 'rare'`,
+      sql`is_rare = true`,
       sql`hunt_assessed_on = '2026-09-25'`,
-      sql`hunt_difficulty = 'unknown', hunt_assessed_on = '2026-09-25'`,
+      sql`is_rare = NULL`,
     ]) {
       await expect(
         db.execute(sql`UPDATE works SET ${fields} WHERE id = ${original.id}`),
@@ -169,27 +193,22 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
     const difficult = await book();
     await book();
     await updateHuntAssessment(rare.id, {
-      huntDifficulty: "rare",
+      isRare: true,
       huntAssessedOn: "2025-01-01",
     });
     await updateHuntAssessment(difficult.id, {
-      huntDifficulty: "difficult_to_hunt",
+      isRare: true,
       huntAssessedOn: "2026-01-01",
     });
-    const filters = { huntDifficulty: ["rare"], catalogueStatus: ["wanted"] };
-    expect((await getWorks({ filters })).map((w) => w.id)).toEqual([rare.id]);
-    expect(await getWorkCount(undefined, filters)).toBe(1);
-    expect((await getWorksForTimeline({ filters })).map((w) => w.id)).toEqual([
-      rare.id,
-    ]);
-    expect(
-      await getWorkCount(undefined, {
-        huntDifficulty: ["rare", "difficult_to_hunt"],
-      }),
-    ).toBe(2);
-    expect(await getWorkCount(undefined, { huntDifficulty: ["unknown"] })).toBe(
-      0,
+    const filters = { isRare: true, catalogueStatus: ["wanted"] };
+    expect((await getWorks({ filters })).map((w) => w.id).sort()).toEqual(
+      [rare.id, difficult.id].sort(),
     );
+    expect(await getWorkCount(undefined, filters)).toBe(2);
+    expect(
+      (await getWorksForTimeline({ filters })).map((w) => w.id).sort(),
+    ).toEqual([rare.id, difficult.id].sort());
+    expect(await getWorkCount(undefined, { isRare: false })).toBe(1);
     expect(
       await getWorkCount(undefined, {
         ...filters,

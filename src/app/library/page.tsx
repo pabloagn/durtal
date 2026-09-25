@@ -19,7 +19,7 @@ interface PageProps {
     order?: string;
     status?: string;
     priority?: string;
-    hunt?: string;
+    rare?: string;
     rating?: string;
     location?: string;
     poster?: string;
@@ -36,7 +36,7 @@ async function LibraryContent({
     order?: string;
     status?: string;
     priority?: string;
-    hunt?: string;
+    rare?: string;
     rating?: string;
     location?: string;
     poster?: string;
@@ -58,7 +58,7 @@ async function LibraryContent({
 
   const statusFilter = searchParams.status?.split(",").filter(Boolean);
   const priorityFilter = searchParams.priority?.split(",").filter(Boolean);
-  const huntFilter = searchParams.hunt?.split(",").filter(Boolean);
+  const rareFilter = searchParams.rare === "true" ? true : undefined;
   const ratingParam = searchParams.rating;
   const minRating = ratingParam ? parseInt(ratingParam, 10) : undefined;
   const locationId = searchParams.location || undefined;
@@ -74,7 +74,7 @@ async function LibraryContent({
       offset,
       filters: {
         catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-        huntDifficulty: huntFilter,
+        isRare: rareFilter,
         acquisitionPriority: priorityFilter?.length ? priorityFilter : undefined,
         minRating,
         locationId,
@@ -83,7 +83,7 @@ async function LibraryContent({
     }),
     getWorkCount(search, {
       catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-      huntDifficulty: huntFilter,
+      isRare: rareFilter,
       acquisitionPriority: priorityFilter?.length ? priorityFilter : undefined,
       minRating,
       locationId,
@@ -93,7 +93,7 @@ async function LibraryContent({
       search,
       filters: {
         catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-        huntDifficulty: huntFilter,
+        isRare: rareFilter,
       },
     }),
   ]);
@@ -108,7 +108,7 @@ async function LibraryContent({
         <NoResults
           noun="works"
           search={search}
-          hasFilters={!!(statusFilter?.length || priorityFilter?.length || huntFilter?.length || ratingParam || locationId || posterParam)}
+          hasFilters={!!(statusFilter?.length || priorityFilter?.length || rareFilter || ratingParam || locationId || posterParam)}
           clearHref={clearedListHref("/library", params)}
         />
       );
@@ -168,7 +168,7 @@ async function LibraryContent({
       rating: work.rating,
       catalogueStatus: work.catalogueStatus,
       acquisitionPriority: work.acquisitionPriority,
-      huntDifficulty: work.huntDifficulty,
+      isRare: work.isRare,
       huntAssessedOn: work.huntAssessedOn,
       primaryEditionId: firstEdition?.id ?? null,
       hasDigitalEdition: digitalWorkIds.has(work.id),
@@ -182,7 +182,7 @@ async function LibraryContent({
     sort,
     ...(order ? { order } : {}),
     ...(searchParams.status ? { status: searchParams.status } : {}),
-    ...(searchParams.hunt ? { hunt: searchParams.hunt } : {}),
+    ...(searchParams.rare ? { rare: searchParams.rare } : {}),
     ...(searchParams.priority ? { priority: searchParams.priority } : {}),
     ...(searchParams.rating ? { rating: searchParams.rating } : {}),
     ...(searchParams.location ? { location: searchParams.location } : {}),

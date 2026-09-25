@@ -323,6 +323,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </span>
               </div>
             )}
+            <HuntAssessmentControl workId={work.id} isRare={work.isRare} huntAssessedOn={work.huntAssessedOn} />
             {work.workType && (
               <Badge variant="muted">{work.workType.name}</Badge>
             )}
@@ -352,8 +353,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
               </Badge>
             )}
           </div>
-
-          <HuntAssessmentControl workId={work.id} huntDifficulty={work.huntDifficulty} huntAssessedOn={work.huntAssessedOn} />
 
           {/* Recommended by */}
           {work.workRecommenders.length > 0 && (

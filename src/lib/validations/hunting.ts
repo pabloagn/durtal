@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { HUNT_DIFFICULTIES } from "@/lib/constants/hunting";
 
-export const huntAssessmentSchema = z.discriminatedUnion("huntDifficulty", [
+export const huntAssessmentSchema = z.discriminatedUnion("isRare", [
   z
     .object({
-      huntDifficulty: z.enum(HUNT_DIFFICULTIES),
-      huntAssessedOn: z.iso.date("Choose a valid assessment date"),
+      isRare: z.literal(true),
+      huntAssessedOn: z.iso.date("Choose a valid date"),
     })
     .strict(),
-  z.object({ huntDifficulty: z.null(), huntAssessedOn: z.null() }).strict(),
+  z.object({ isRare: z.literal(false), huntAssessedOn: z.null() }).strict(),
 ]);
 export type HuntAssessmentInput = z.infer<typeof huntAssessmentSchema>;

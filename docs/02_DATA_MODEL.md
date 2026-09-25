@@ -151,8 +151,8 @@ The abstract intellectual creation. A work exists independently of any particula
 | `rating` | SMALLINT | nullable, 1–5 | Personal rating |
 | `catalogue_status` | `catalogue_status_enum` | NOT NULL, default `'tracked'` | Work-level acquisition/ownership status |
 | `acquisition_priority` | `acquisition_priority_enum` | NOT NULL, default `'none'` | Urgency of acquisition intent |
-| `hunt_difficulty` | TEXT | nullable; `rare` or `difficult_to_hunt` | Personal assessment of how hard the work is to find; independent of lifecycle/priority and instance collector flags |
-| `hunt_assessed_on` | DATE | nullable; required when marked | Calendar date of the latest assessment, editable and defaulted to local today by the UI. Cleared together with the marker; paired fields enforced by a CHECK constraint. |
+| `is_rare` | BOOLEAN | NOT NULL, default `false` | Simple personal rare-book flag; independent of lifecycle/priority and instance collector flags |
+| `hunt_assessed_on` | DATE | nullable; required when marked | Calendar date of the latest assessment, editable and defaulted to local today by the UI. Cleared when `is_rare` becomes false; required when true, enforced by a CHECK constraint. |
 | `metadata_source` | TEXT | nullable | Where metadata was fetched from |
 | `metadata_source_id` | TEXT | nullable | ID in the source system |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |

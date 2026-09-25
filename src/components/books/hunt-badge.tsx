@@ -1,19 +1,23 @@
-import { Badge } from "@/components/ui/badge";
-import { HUNT_LABELS, type HuntAssessment } from "@/lib/constants/hunting";
+import { Gem } from "lucide-react";
+import type { HuntAssessment } from "@/lib/constants/hunting";
 
-export function HuntBadge({ huntDifficulty, huntAssessedOn }: HuntAssessment) {
-  if (!huntDifficulty) return null;
+export function HuntBadge({ isRare, huntAssessedOn }: HuntAssessment) {
+  if (!isRare) return null;
+  const label = huntAssessedOn ? `Rare · marked ${huntAssessedOn}` : "Rare";
   return (
-    <Badge variant="gold" className="max-w-full whitespace-normal">
-      <span>
-        {HUNT_LABELS[huntDifficulty]}
-        {huntAssessedOn && (
-          <>
-            {" "}
-            · <time dateTime={huntAssessedOn}>{huntAssessedOn}</time>
-          </>
-        )}
-      </span>
-    </Badge>
+    <span
+      className="inline-flex shrink-0 items-center text-accent-gold"
+      title={label}
+      role="img"
+      aria-label={label}
+    >
+      <Gem
+        className="h-3.5 w-3.5"
+        strokeWidth={1.5}
+        fill="currentColor"
+        fillOpacity={0.18}
+        aria-hidden="true"
+      />
+    </span>
   );
 }

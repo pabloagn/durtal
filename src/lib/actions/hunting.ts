@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { works } from "@/lib/db/schema";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
-import { HUNT_LABELS } from "@/lib/constants/hunting";
 import {
   huntAssessmentSchema,
   type HuntAssessmentInput,
@@ -26,9 +25,7 @@ export async function updateHuntAssessment(
     .returning({ id: works.id });
   if (!updated) throw new Error("Book not found");
   recordActivity("work", id, "work.hunt_assessment_changed", {
-    newValue: assessment.huntDifficulty
-      ? `${HUNT_LABELS[assessment.huntDifficulty]} · ${assessment.huntAssessedOn}`
-      : null,
+    newValue: assessment.isRare ? `Rare · ${assessment.huntAssessedOn}` : null,
   });
   invalidate(CACHE_TAGS.works, CACHE_TAGS.activity);
   return assessment;

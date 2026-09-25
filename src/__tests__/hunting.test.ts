@@ -3,14 +3,18 @@ import { huntAssessmentSchema } from "@/lib/validations/hunting";
 import { localToday } from "@/lib/constants/hunting";
 
 describe("hunting assessments", () => {
-  it("accepts both markers with an explicit calendar date", () => {
-    for (const huntDifficulty of ["rare", "difficult_to_hunt"]) {
+  it("accepts a boolean flag with an explicit calendar date", () => {
+    expect(
+      huntAssessmentSchema.safeParse({
+        isRare: true,
+        huntAssessedOn: "2024-02-29",
+      }).success,
+    ).toBe(true);
+    for (const isRare of ["rare", "difficult_to_hunt", "true", null]) {
       expect(
-        huntAssessmentSchema.safeParse({
-          huntDifficulty,
-          huntAssessedOn: "2024-02-29",
-        }).success,
-      ).toBe(true);
+        huntAssessmentSchema.safeParse({ isRare, huntAssessedOn: "2024-02-29" })
+          .success,
+      ).toBe(false);
     }
   });
   it.each([
@@ -22,26 +26,25 @@ describe("hunting assessments", () => {
     undefined,
   ])("rejects missing or impossible dates: %s", (huntAssessedOn) => {
     expect(
-      huntAssessmentSchema.safeParse({ huntDifficulty: "rare", huntAssessedOn })
-        .success,
+      huntAssessmentSchema.safeParse({ isRare: true, huntAssessedOn }).success,
     ).toBe(false);
   });
   it("clears both fields and rejects orphan dates or unrelated updates", () => {
     expect(
       huntAssessmentSchema.safeParse({
-        huntDifficulty: null,
+        isRare: false,
         huntAssessedOn: null,
       }).success,
     ).toBe(true);
     expect(
       huntAssessmentSchema.safeParse({
-        huntDifficulty: null,
+        isRare: false,
         huntAssessedOn: "2026-01-01",
       }).success,
     ).toBe(false);
     expect(
       huntAssessmentSchema.safeParse({
-        huntDifficulty: "rare",
+        isRare: true,
         huntAssessedOn: "2026-01-01",
         catalogueStatus: "accessioned",
       }).success,

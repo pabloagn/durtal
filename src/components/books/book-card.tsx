@@ -25,7 +25,7 @@ interface BookCardProps {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
-  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  isRare?: boolean;
   huntAssessedOn?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
@@ -97,7 +97,7 @@ export function BookCard({
   rating,
   catalogueStatus,
   acquisitionPriority,
-  huntDifficulty,
+  isRare,
   huntAssessedOn,
   primaryEditionId,
   hasDigitalEdition = false,
@@ -170,7 +170,7 @@ export function BookCard({
             )}
 
             {/* Bottom-left indicators: priority dot + digital edition badge */}
-            {(hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
+            {(isRare || hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
               <div className="absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2">
                 {acquisitionPriority && acquisitionPriority !== "none" && (() => {
                   const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
@@ -185,6 +185,7 @@ export function BookCard({
                     </div>
                   );
                 })()}
+                <HuntBadge isRare={isRare} huntAssessedOn={huntAssessedOn} />
                 {hasDigitalEdition && <DigitalEditionBadge />}
               </div>
             )}
@@ -202,12 +203,6 @@ export function BookCard({
           </div>
         )}
       </div>
-
-      {huntDifficulty && (
-        <div className="px-3 pt-2">
-          <HuntBadge huntDifficulty={huntDifficulty} huntAssessedOn={huntAssessedOn} />
-        </div>
-      )}
 
       {/* Selection checkbox -- top-left, visible in selection mode */}
       {isSelecting && (

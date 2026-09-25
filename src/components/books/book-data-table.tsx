@@ -23,7 +23,7 @@ export interface DetailedBookItem {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
-  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  isRare?: boolean;
   huntAssessedOn?: string | null;
   publisher?: string | null;
   binding?: string | null;

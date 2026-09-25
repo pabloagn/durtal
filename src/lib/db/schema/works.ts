@@ -46,7 +46,7 @@ export const works = pgTable("works", {
   acquisitionPriority: acquisitionPriorityEnum("acquisition_priority").notNull().default("none"),
 
   // Personal availability assessment, independent of catalogue status.
-  huntDifficulty: text("hunt_difficulty").$type<"rare" | "difficult_to_hunt">(),
+  isRare: boolean("is_rare").notNull().default(false),
   huntAssessedOn: date("hunt_assessed_on", { mode: "string" }),
 
   // Metadata provenance
@@ -62,8 +62,8 @@ export const works = pgTable("works", {
   index("works_created_at_idx").on(t.createdAt),
   index("works_rating_idx").on(t.rating),
   check("works_hunt_assessment_check", sql`(
-    (${t.huntDifficulty} IS NULL AND ${t.huntAssessedOn} IS NULL)
-    OR (${t.huntDifficulty} IS NOT NULL AND ${t.huntDifficulty} IN ('rare', 'difficult_to_hunt') AND ${t.huntAssessedOn} IS NOT NULL)
+    (NOT ${t.isRare} AND ${t.huntAssessedOn} IS NULL)
+    OR (${t.isRare} AND ${t.huntAssessedOn} IS NOT NULL)
   )`),
 ]);
 

@@ -21,7 +21,7 @@ interface BookListItem {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
-  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  isRare?: boolean;
   huntAssessedOn?: string | null;
   acquisitionPriority?: string | null;
 }
