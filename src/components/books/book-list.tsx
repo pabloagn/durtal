@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { HuntBadge } from "./hunt-badge";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
@@ -20,6 +21,8 @@ interface BookListItem {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  huntAssessedOn?: string | null;
   acquisitionPriority?: string | null;
 }
 
@@ -111,6 +114,8 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               {book.authorName}
             </p>
           </div>
+
+          <HuntBadge {...book} />
 
           {/* Meta */}
           <div className="flex flex-shrink-0 items-center gap-3">

@@ -1,0 +1,35 @@
+"use server";
+
+import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { works } from "@/lib/db/schema";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { recordActivity } from "@/lib/activity/record";
+import { HUNT_LABELS } from "@/lib/constants/hunting";
+import {
+  huntAssessmentSchema,
+  type HuntAssessmentInput,
+} from "@/lib/validations/hunting";
+
+export async function updateHuntAssessment(
+  workId: string,
+  input: HuntAssessmentInput,
+) {
+  const id = z.uuid().parse(workId);
+  const assessment = huntAssessmentSchema.parse(input);
+  // One write keeps the marker and its date together. No lifecycle fields change.
+  const [updated] = await db
+    .update(works)
+    .set({ ...assessment, updatedAt: new Date() })
+    .where(eq(works.id, id))
+    .returning({ id: works.id });
+  if (!updated) throw new Error("Book not found");
+  recordActivity("work", id, "work.hunt_assessment_changed", {
+    newValue: assessment.huntDifficulty
+      ? `${HUNT_LABELS[assessment.huntDifficulty]} · ${assessment.huntAssessedOn}`
+      : null,
+  });
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.activity);
+  return assessment;
+}

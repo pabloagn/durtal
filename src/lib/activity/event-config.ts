@@ -13,6 +13,7 @@ const RED = "#8b5c5c";
 const SAGE = "var(--color-accent-sage)";
 
 export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
+  "work.hunt_assessment_changed": { icon: "Settings2", color: GOLD, category: "update" },
   // ── Work events ──────────────────────────────────────────────────────────
   "work.created":                    { icon: "Plus",         color: SAGE,      category: "create" },
   "work.deleted":                    { icon: "Trash2",       color: RED,       category: "delete" },
@@ -100,6 +101,9 @@ function fieldChanged(
 }
 
 const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
+  "work.hunt_assessment_changed": (m) => m?.newValue
+    ? [text("Assessed availability as "), label(String(m.newValue))]
+    : [text("Cleared hunting assessment")],
   "work.created":                    () => [text("Created this work")],
   "work.deleted":                    () => [text("Deleted this work")],
   "work.title_changed":             (m) => fieldChanged("title", m),

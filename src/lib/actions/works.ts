@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { isHuntDifficulty } from "@/lib/constants/hunting";
 import {
   works,
   workAuthors,
@@ -99,6 +100,7 @@ export async function getWorks(opts?: {
   order?: "asc" | "desc";
   filters?: {
     catalogueStatus?: string[];
+    huntDifficulty?: string[];
     acquisitionPriority?: string[];
     minRating?: number;
     locationId?: string;
@@ -134,6 +136,9 @@ export async function getWorks(opts?: {
   const conditions = [];
   if (search) {
     conditions.push(await buildSearchCondition(search));
+  }
+  if (filters?.huntDifficulty?.length) {
+    conditions.push(inArray(works.huntDifficulty, filters.huntDifficulty.filter(isHuntDifficulty)));
   }
   if (filters?.catalogueStatus?.length) {
     conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));
@@ -246,6 +251,7 @@ export async function getWorks(opts?: {
 
 export async function getWorkCount(search?: string, filters?: {
   catalogueStatus?: string[];
+  huntDifficulty?: string[];
   acquisitionPriority?: string[];
   minRating?: number;
   locationId?: string;
@@ -254,6 +260,9 @@ export async function getWorkCount(search?: string, filters?: {
   const conditions = [];
   if (search) {
     conditions.push(await buildSearchCondition(search));
+  }
+  if (filters?.huntDifficulty?.length) {
+    conditions.push(inArray(works.huntDifficulty, filters.huntDifficulty.filter(isHuntDifficulty)));
   }
   if (filters?.catalogueStatus?.length) {
     conditions.push(inArray(works.catalogueStatus, filters.catalogueStatus as CatalogueStatus[]));

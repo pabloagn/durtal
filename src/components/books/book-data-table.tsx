@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { HuntBadge } from "./hunt-badge";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
@@ -22,6 +23,8 @@ export interface DetailedBookItem {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  huntAssessedOn?: string | null;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;
@@ -77,7 +80,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
               </div>
             )}
           </div>
-          <span className="truncate">{book.title}</span>
+          <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /></span>
         </Link>
       );
     case "catalogueStatus": {

@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { isHuntDifficulty } from "@/lib/constants/hunting";
 import { works, editions } from "@/lib/db/schema";
 import {
   and,
@@ -38,6 +39,7 @@ export async function getWorksForTimeline(opts?: {
   search?: string;
   filters?: {
     catalogueStatus?: string[];
+    huntDifficulty?: string[];
     language?: string[];
   };
 }): Promise<WorkTimelineItem[]> {
@@ -49,6 +51,9 @@ export async function getWorksForTimeline(opts?: {
     conditions.push(ilike(works.title, `%${search}%`));
   }
 
+  if (filters?.huntDifficulty?.length) {
+    conditions.push(inArray(works.huntDifficulty, filters.huntDifficulty.filter(isHuntDifficulty)));
+  }
   if (filters?.catalogueStatus?.length) {
     conditions.push(
       inArray(

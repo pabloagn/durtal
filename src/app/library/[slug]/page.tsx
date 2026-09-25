@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { ArrowLeft, Star, Route } from "lucide-react";
 import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
 import { getAuthors } from "@/lib/actions/authors";
@@ -351,6 +352,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
               </Badge>
             )}
           </div>
+
+          <HuntAssessmentControl workId={work.id} huntDifficulty={work.huntDifficulty} huntAssessedOn={work.huntAssessedOn} />
 
           {/* Recommended by */}
           {work.workRecommenders.length > 0 && (

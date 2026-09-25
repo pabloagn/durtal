@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { HuntBadge } from "./hunt-badge";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
@@ -24,6 +25,8 @@ interface BookCardProps {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  huntAssessedOn?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   /** Whether a digital edition exists in Calibre for this work */
@@ -94,6 +97,8 @@ export function BookCard({
   rating,
   catalogueStatus,
   acquisitionPriority,
+  huntDifficulty,
+  huntAssessedOn,
   primaryEditionId,
   hasDigitalEdition = false,
   isSelecting = false,
@@ -197,6 +202,12 @@ export function BookCard({
           </div>
         )}
       </div>
+
+      {huntDifficulty && (
+        <div className="px-3 pt-2">
+          <HuntBadge huntDifficulty={huntDifficulty} huntAssessedOn={huntAssessedOn} />
+        </div>
+      )}
 
       {/* Selection checkbox -- top-left, visible in selection mode */}
       {isSelecting && (

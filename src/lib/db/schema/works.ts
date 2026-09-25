@@ -1,5 +1,5 @@
-import { pgTable, uuid, text, smallint, boolean, timestamp, index } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, uuid, text, smallint, boolean, timestamp, index, date, check } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { catalogueStatusEnum, acquisitionPriorityEnum } from "./enums";
 import { editions } from "./editions";
 import { workAuthors } from "./authors";
@@ -45,6 +45,10 @@ export const works = pgTable("works", {
   catalogueStatus: catalogueStatusEnum("catalogue_status").notNull().default("tracked"),
   acquisitionPriority: acquisitionPriorityEnum("acquisition_priority").notNull().default("none"),
 
+  // Personal availability assessment, independent of catalogue status.
+  huntDifficulty: text("hunt_difficulty").$type<"rare" | "difficult_to_hunt">(),
+  huntAssessedOn: date("hunt_assessed_on", { mode: "string" }),
+
   // Metadata provenance
   metadataSource: text("metadata_source"),
   metadataSourceId: text("metadata_source_id"),
@@ -57,6 +61,10 @@ export const works = pgTable("works", {
   index("works_series_id_idx").on(t.seriesId),
   index("works_created_at_idx").on(t.createdAt),
   index("works_rating_idx").on(t.rating),
+  check("works_hunt_assessment_check", sql`(
+    (${t.huntDifficulty} IS NULL AND ${t.huntAssessedOn} IS NULL)
+    OR (${t.huntDifficulty} IS NOT NULL AND ${t.huntDifficulty} IN ('rare', 'difficult_to_hunt') AND ${t.huntAssessedOn} IS NOT NULL)
+  )`),
 ]);
 
 export const worksRelations = relations(works, ({ one, many }) => ({

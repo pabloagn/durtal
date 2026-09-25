@@ -41,6 +41,8 @@ interface BookItem {
   instanceCount: number;
   rating?: number | null;
   catalogueStatus?: string | null;
+  huntDifficulty?: import("@/lib/constants/hunting").HuntDifficulty | null;
+  huntAssessedOn?: string | null;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   hasDigitalEdition?: boolean;

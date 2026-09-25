@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
+import { HUNT_DIFFICULTIES, HUNT_LABELS } from "@/lib/constants/hunting";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import {
   FilterDropdown,
@@ -55,6 +56,7 @@ const POSTER_OPTIONS = [
 ];
 
 const FILTER_GROUPS: FilterGroup[] = [
+  { key: "hunt", label: "Hunting", options: HUNT_DIFFICULTIES.map(value => ({ value, label: HUNT_LABELS[value] })) },
   { key: "status", label: "Status", options: STATUS_OPTIONS },
   { key: "priority", label: "Priority", options: PRIORITY_OPTIONS },
   { key: "rating", label: "Min Rating", options: RATING_OPTIONS },
@@ -80,6 +82,7 @@ export function LibraryFilters({
   const searchParams = useSearchParams();
 
   const activeFilters: Record<string, string[]> = {
+    hunt: searchParams.get("hunt")?.split(",").filter(Boolean) ?? [],
     status: searchParams.get("status")?.split(",").filter(Boolean) ?? [],
     priority: searchParams.get("priority")?.split(",").filter(Boolean) ?? [],
     rating: searchParams.get("rating")?.split(",").filter(Boolean) ?? [],
@@ -102,6 +105,7 @@ export function LibraryFilters({
 
   const handleClearAll = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("hunt");
     params.delete("status");
     params.delete("priority");
     params.delete("rating");
