@@ -77,8 +77,11 @@ export async function computeAndStoreLayout(
         seed: resolvedSeed,
         imageCount: items.length,
       })
+      // Concurrent first renders can both observe no layout. Keep the first
+      // insert instead of failing the newly created book's detail page.
+      .onConflictDoNothing({ target: [galleryLayouts.entityType, galleryLayouts.entityId] })
       .returning();
-    return row;
+    return row ?? getGalleryLayout(entityType, entityId);
   }
 }
 
