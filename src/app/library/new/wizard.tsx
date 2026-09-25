@@ -28,6 +28,7 @@ import {
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
+import { fastTrackBook } from "@/lib/actions/fast-track";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import type { CreateWorkInput } from "@/lib/validations";
 import { createEdition } from "@/lib/actions/editions";
@@ -117,6 +118,9 @@ const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
 export function AddBookWizard() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const fastTrackInFlight = useRef(false);
+  const [fastTrackSaving, setFastTrackSaving] = useState(false);
+  const [fastTrackError, setFastTrackError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("search");
 
   // Search autocomplete
@@ -361,6 +365,86 @@ export function AddBookWizard() {
 
   // ── Submit ───────────────────────────────────────────────────────────────
 
+  // Both entry points use the same Details values and edition defaults.
+  function workDetails() {
+    return {
+      title: title.trim(),
+      originalLanguage,
+      originalYear: originalYear ? parseInt(originalYear, 10) : undefined,
+      description: description || undefined,
+      seriesName: seriesName || undefined,
+      seriesPosition: seriesPosition || undefined,
+      catalogueStatus: catalogueStatus as CreateWorkInput["catalogueStatus"],
+      acquisitionPriority:
+        acquisitionPriority as CreateWorkInput["acquisitionPriority"],
+      recommenderIds:
+        selectedRecommenderIds.length > 0 ? selectedRecommenderIds : undefined,
+      metadataSource: metadataSource || undefined,
+      metadataSourceId: metadataSourceId || undefined,
+    };
+  }
+
+  function editionDetails() {
+    const cleanIsbn = isbn13.replace(/-/g, "");
+    return {
+      title: title.trim(),
+      isbn13: cleanIsbn.length === 13 ? cleanIsbn : undefined,
+      publisher: publisher || undefined,
+      publicationYear: publicationYear
+        ? parseInt(publicationYear, 10)
+        : undefined,
+      language,
+      pageCount: pageCount ? parseInt(pageCount, 10) : undefined,
+      binding: binding || undefined,
+      coverSourceUrl: coverUrl || undefined,
+      metadataSource: metadataSource || undefined,
+    };
+  }
+
+  function handleFastTrack() {
+    // A synchronous guard covers rapid clicks before React disables the button.
+    if (
+      existingWorkId ||
+      fastTrackInFlight.current ||
+      !title.trim() ||
+      !authorName.trim()
+    )
+      return;
+    fastTrackInFlight.current = true;
+    setFastTrackSaving(true);
+    setFastTrackError(null);
+    startTransition(async () => {
+      try {
+        const result = await fastTrackBook({
+          authorName,
+          work: workDetails(),
+          edition: {
+            ...editionDetails(),
+            // Do not silently discard a malformed identifier in the shortcut.
+            isbn13: isbn13.replace(/[\s-]/g, "") || undefined,
+          },
+        });
+        if (!result.ok) {
+          setFastTrackError(result.error);
+          fastTrackInFlight.current = false;
+          setFastTrackSaving(false);
+          return;
+        }
+        toast.success("Book added to catalogue");
+        if (result.coverUnavailable)
+          toast.warning(
+            "The cover could not be downloaded. Its source URL was saved.",
+          );
+        // Keep the guard until navigation completes, including no-ISBN books.
+        router.push(`/library/${result.slug}`);
+      } catch {
+        setFastTrackError("Could not add the book. Please try again.");
+        fastTrackInFlight.current = false;
+        setFastTrackSaving(false);
+      }
+    });
+  }
+
   async function handleSubmit() {
     startTransition(async () => {
       try {
@@ -373,20 +457,8 @@ export function AddBookWizard() {
         // 2. Create work (or use existing)
         if (!workId) {
           const work = await createWork({
-            title: title.trim(),
-            originalLanguage,
-            originalYear: originalYear
-              ? parseInt(originalYear, 10)
-              : undefined,
-            description: description || undefined,
-            seriesName: seriesName || undefined,
-            seriesPosition: seriesPosition || undefined,
-            catalogueStatus: catalogueStatus as CreateWorkInput["catalogueStatus"],
-            acquisitionPriority: acquisitionPriority as CreateWorkInput["acquisitionPriority"],
+            ...workDetails(),
             authorIds: [{ authorId: author.id, role: "author" as const }],
-            recommenderIds: selectedRecommenderIds.length > 0 ? selectedRecommenderIds : undefined,
-            metadataSource: metadataSource || undefined,
-            metadataSourceId: metadataSourceId || undefined,
           });
           workId = work.id;
           workSlug = work.slug ?? undefined;
@@ -408,20 +480,9 @@ export function AddBookWizard() {
         }
 
         // 3. Create edition
-        const cleanIsbn = isbn13.replace(/-/g, "");
         const edition = await createEdition({
           workId: workId!,
-          title: title.trim(),
-          isbn13: cleanIsbn.length === 13 ? cleanIsbn : undefined,
-          publisher: publisher || undefined,
-          publicationYear: publicationYear
-            ? parseInt(publicationYear, 10)
-            : undefined,
-          language,
-          pageCount: pageCount ? parseInt(pageCount, 10) : undefined,
-          binding: binding || undefined,
-          coverSourceUrl: coverUrl || undefined,
-          metadataSource: metadataSource || undefined,
+          ...editionDetails(),
           genreIds:
             selectedGenreIds.length > 0 ? selectedGenreIds : undefined,
           tagIds:
@@ -522,7 +583,7 @@ export function AddBookWizard() {
               )}
               <button
                 type="button"
-                disabled={!isCompleted}
+                disabled={!isCompleted || fastTrackSaving}
                 onClick={() => isCompleted && setStep(s.key)}
                 className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
                   isCurrent
@@ -734,7 +795,11 @@ export function AddBookWizard() {
 
       {/* ── Step: Work Details ────────────────────────────────────────── */}
       {step === "details" && (
-        <div className="space-y-6">
+        <fieldset
+          disabled={fastTrackSaving}
+          className="min-w-0 space-y-6"
+          aria-busy={fastTrackSaving}
+        >
           <div className="space-y-4">
             <Input
               label="Title"
@@ -884,17 +949,38 @@ export function AddBookWizard() {
             </div>
           </div>
 
-          <div className="flex justify-between">
+          {fastTrackError && (
+            <p role="alert" className="text-sm text-accent-red">
+              {fastTrackError}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-between gap-2">
             <Button variant="ghost" onClick={() => setStep("search")}>
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <Button onClick={() => setStep("edition")}>
-              Edition details
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </Button>
+            <div className="ml-auto flex gap-2">
+              {!existingWorkId && (
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleFastTrack}
+                  disabled={fastTrackSaving || !title.trim() || !authorName.trim()}
+                  title="Save now, skipping copies and categorization"
+                >
+                  {fastTrackSaving && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                  )}
+                  Fast Track
+                </Button>
+              )}
+              <Button onClick={() => setStep("edition")}>
+                Edition details
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Button>
+            </div>
           </div>
-        </div>
+        </fieldset>
       )}
 
       {/* ── Step: Edition Details ─────────────────────────────────────── */}
