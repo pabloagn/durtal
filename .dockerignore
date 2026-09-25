@@ -1,0 +1,45 @@
+# Durtal — Docker build context
+# Only what `next build` needs goes into the image. Secrets are passed at
+# runtime (docker run --env-file / compose env_file), never at build time.
+
+# Secrets
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+
+# Version control, editors, agents, OS files
+.git
+.claude
+.direnv
+.idea
+.vscode
+.DS_Store
+
+# Dependencies and build output (rebuilt inside the image)
+node_modules
+.next
+out
+.turbo
+*.tsbuildinfo
+next-env.d.ts
+
+# Not part of the web app
+scripts
+data
+.venv
+__pycache__
+pyproject.toml
+uv.lock
+flake.nix
+flake.lock
+nix
+docs
+changelog
+*.md
+Taskfile.yml
+docker-compose.yml
+Dockerfile
+.dockerignore

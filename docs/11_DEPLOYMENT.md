@@ -36,11 +36,13 @@ Stage 3: runner    Node 22 Alpine  → Copy standalone output only (~150MB final
 
 ### Build Commands
 
-```bash
-# Local build
-docker build -t durtal:latest .
+Secrets are runtime-only. `.dockerignore` keeps `.env*` (and `.git`, docs, Python scripts) out of the build context, and no page reads the database at build time, so the image contains no credentials. The only build argument is the public, browser-visible `NEXT_PUBLIC_MAPBOX_TOKEN`, which Next.js inlines into the client bundle.
 
-# Run locally
+```bash
+# Local build (the Mapbox token is read from the shell environment)
+docker build --build-arg NEXT_PUBLIC_MAPBOX_TOKEN -t durtal:latest .
+
+# Run locally: secrets are passed when the container starts
 docker run --rm -p 3000:3000 --env-file .env.local durtal:latest
 
 # Via Taskfile
@@ -58,9 +60,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
     container_name: durtal-dev
     ports:
-      - "3000:3000"
+      - "3100:3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
@@ -68,6 +72,9 @@ services:
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET=${S3_BUCKET}
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+      - ISBNDN_API_KEY=${ISBNDN_API_KEY}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
       - NODE_ENV=production
     restart: unless-stopped
 ```

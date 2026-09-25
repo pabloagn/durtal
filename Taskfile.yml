@@ -100,7 +100,7 @@ tasks:
   docker:build:
     desc: Build production Docker image
     cmds:
-      - docker build -t durtal:latest .
+      - docker build --build-arg NEXT_PUBLIC_MAPBOX_TOKEN -t durtal:latest .
 
   docker:run:
     desc: Run production Docker image locally

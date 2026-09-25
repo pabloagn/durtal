@@ -10,6 +10,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Public browser value, inlined at build time. Secrets stay runtime-only.
+        - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
     container_name: durtal-dev
     ports:
       - "3100:3000"
@@ -20,5 +23,8 @@ services:
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET=${S3_BUCKET}
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+      - ISBNDN_API_KEY=${ISBNDN_API_KEY}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
       - NODE_ENV=production
     restart: unless-stopped

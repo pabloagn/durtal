@@ -4,6 +4,12 @@
 # Stage 1: Install dependencies
 # Stage 2: Build Next.js application
 # Stage 3: Production runtime (minimal image)
+#
+# Secrets (DATABASE_URL, AWS keys, API keys) are never part of the build: the
+# build context excludes .env* (.dockerignore) and no page touches the
+# database at build time. Pass them when the container starts:
+#   docker run --env-file .env.local durtal:latest
+# Only browser-visible NEXT_PUBLIC_* values are build arguments.
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -31,7 +37,13 @@ WORKDIR /app
 
 # Copy dependencies from stage 1
 COPY --from=deps /app/node_modules ./node_modules
+# .dockerignore keeps .env*, .git and non-app files out of the context
 COPY . .
+
+# NEXT_PUBLIC_* values are inlined into the browser bundle at build time.
+# They are public by design; never pass a secret this way.
+ARG NEXT_PUBLIC_MAPBOX_TOKEN
+ENV NEXT_PUBLIC_MAPBOX_TOKEN=$NEXT_PUBLIC_MAPBOX_TOKEN
 
 # Set Next.js to produce standalone output
 ENV NEXT_TELEMETRY_DISABLED=1
