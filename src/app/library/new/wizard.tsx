@@ -27,12 +27,10 @@ import {
 } from "@/components/books/instance-form";
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
-import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
+import { findDuplicateWork } from "@/lib/actions/works";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import type { CreateWorkInput } from "@/lib/validations";
-import { createEdition } from "@/lib/actions/editions";
-import { createInstance } from "@/lib/actions/instances";
-import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { createBookFromWizard, isIsbnInUse } from "@/lib/actions/wizard";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { getLocations } from "@/lib/actions/locations";
 import {
@@ -46,9 +44,8 @@ import {
   getArtMovements,
   getKeywords,
   getAttributes,
-  updateWorkTaxonomy,
 } from "@/lib/actions/taxonomy";
-import { getCollections, addEditionToCollection } from "@/lib/actions/collections";
+import { getCollections } from "@/lib/actions/collections";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -365,34 +362,30 @@ export function AddBookWizard() {
   async function handleSubmit() {
     startTransition(async () => {
       try {
-        let workId = existingWorkId;
-        let workSlug: string | undefined;
-
-        // 1. Find or create author
-        const author = await findOrCreateAuthor(authorName.trim());
-
-        // 2. Create work (or use existing)
-        if (!workId) {
-          const work = await createWork({
-            title: title.trim(),
-            originalLanguage,
-            originalYear: originalYear
-              ? parseInt(originalYear, 10)
-              : undefined,
-            description: description || undefined,
-            seriesName: seriesName || undefined,
-            seriesPosition: seriesPosition || undefined,
-            catalogueStatus: catalogueStatus as CreateWorkInput["catalogueStatus"],
-            acquisitionPriority: acquisitionPriority as CreateWorkInput["acquisitionPriority"],
-            authorIds: [{ authorId: author.id, role: "author" as const }],
-            recommenderIds: selectedRecommenderIds.length > 0 ? selectedRecommenderIds : undefined,
-            metadataSource: metadataSource || undefined,
-            metadataSourceId: metadataSourceId || undefined,
-          });
-          workId = work.id;
-          workSlug = work.slug ?? undefined;
-          // Save all work-level taxonomy
-          await updateWorkTaxonomy(workId!, {
+        const cleanIsbn = isbn13.replace(/-/g, "");
+        // One server action validates everything and writes it atomically:
+        // a failure (for example a duplicate ISBN) leaves nothing behind.
+        const result = await createBookFromWizard({
+          authorName: authorName.trim(),
+          existingWorkId: existingWorkId ?? undefined,
+          work: existingWorkId
+            ? undefined
+            : {
+                title: title.trim(),
+                originalLanguage,
+                originalYear: originalYear
+                  ? parseInt(originalYear, 10)
+                  : undefined,
+                description: description || undefined,
+                seriesName: seriesName || undefined,
+                seriesPosition: seriesPosition || undefined,
+                catalogueStatus: catalogueStatus as CreateWorkInput["catalogueStatus"],
+                acquisitionPriority: acquisitionPriority as CreateWorkInput["acquisitionPriority"],
+                recommenderIds: selectedRecommenderIds.length > 0 ? selectedRecommenderIds : undefined,
+                metadataSource: metadataSource || undefined,
+                metadataSourceId: metadataSourceId || undefined,
+              },
+          taxonomy: {
             subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
             categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
             themeIds: selectedThemeIds.length > 0 ? selectedThemeIds : undefined,
@@ -401,40 +394,27 @@ export function AddBookWizard() {
             artMovementIds: selectedArtMovementIds.length > 0 ? selectedArtMovementIds : undefined,
             keywordIds: selectedKeywordIds.length > 0 ? selectedKeywordIds : undefined,
             attributeIds: selectedAttributeIds.length > 0 ? selectedAttributeIds : undefined,
-          });
-        } else {
-          // Existing work — fetch its slug for navigation
-          const existingWork = await getWork(workId);
-          workSlug = existingWork?.slug ?? undefined;
-        }
-
-        // 3. Create edition
-        const cleanIsbn = isbn13.replace(/-/g, "");
-        const edition = await createEdition({
-          workId: workId!,
-          title: title.trim(),
-          isbn13: cleanIsbn.length === 13 ? cleanIsbn : undefined,
-          publisher: publisher || undefined,
-          publicationYear: publicationYear
-            ? parseInt(publicationYear, 10)
-            : undefined,
-          language,
-          pageCount: pageCount ? parseInt(pageCount, 10) : undefined,
-          binding: binding || undefined,
-          coverSourceUrl: coverUrl || undefined,
-          metadataSource: metadataSource || undefined,
-          genreIds:
-            selectedGenreIds.length > 0 ? selectedGenreIds : undefined,
-          tagIds:
-            selectedTagIds.length > 0 ? selectedTagIds : undefined,
-        });
-
-        // 4. Create instances
-        for (const draft of instanceDrafts) {
-          if (!draft.locationId) continue;
-          try {
-            await createInstance({
-              editionId: edition.id,
+          },
+          edition: {
+            title: title.trim(),
+            isbn13: cleanIsbn.length === 13 ? cleanIsbn : undefined,
+            publisher: publisher || undefined,
+            publicationYear: publicationYear
+              ? parseInt(publicationYear, 10)
+              : undefined,
+            language,
+            pageCount: pageCount ? parseInt(pageCount, 10) : undefined,
+            binding: binding || undefined,
+            coverSourceUrl: coverUrl || undefined,
+            metadataSource: metadataSource || undefined,
+            genreIds:
+              selectedGenreIds.length > 0 ? selectedGenreIds : undefined,
+            tagIds:
+              selectedTagIds.length > 0 ? selectedTagIds : undefined,
+          },
+          copies: instanceDrafts
+            .filter((draft) => draft.locationId)
+            .map((draft) => ({
               locationId: draft.locationId,
               subLocationId: draft.subLocationId || undefined,
               format: draft.format || undefined,
@@ -460,24 +440,17 @@ export function AddBookWizard() {
                 ? parseInt(draft.fileSizeBytes, 10)
                 : undefined,
               notes: draft.notes || undefined,
-            });
-          } catch (err) {
-            console.error("Failed to create instance:", err);
-            toast.error("Failed to create one of the copies");
-          }
-        }
+            })),
+          collectionIds: selectedCollectionIds,
+        });
 
-        // 5. Add to collections
-        for (const colId of selectedCollectionIds) {
-          try {
-            await addEditionToCollection(colId, edition.id);
-          } catch {
-            // non-critical
-          }
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
         }
 
         toast.success("Book added to catalogue");
-        router.push(`/library/${workSlug ?? ""}`);
+        router.push(`/library/${result.slug ?? ""}`);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to add book";
@@ -485,6 +458,23 @@ export function AddBookWizard() {
         console.error(err);
       }
     });
+  }
+
+  /** Leave the edition step only when the ISBN is not taken by another edition. */
+  async function leaveEditionStep(next: Step) {
+    const cleanIsbn = isbn13.replace(/-/g, "");
+    if (cleanIsbn.length === 13) {
+      try {
+        const clash = await isIsbnInUse(cleanIsbn);
+        if (clash.inUse) {
+          toast.error(`An edition with ISBN ${cleanIsbn} already exists${clash.title ? ` ("${clash.title}")` : ""}`);
+          return;
+        }
+      } catch {
+        // The final submit checks again; do not block the step on a network error.
+      }
+    }
+    setStep(next);
   }
 
   // ── Instance helpers ─────────────────────────────────────────────────────
@@ -980,12 +970,12 @@ export function AddBookWizard() {
             </Button>
             <div className="flex gap-2">
               {isWishlistStatus && (
-                <Button variant="ghost" onClick={() => setStep("categorize")}>
+                <Button variant="ghost" onClick={() => leaveEditionStep("categorize")}>
                   <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Skip copies
                 </Button>
               )}
-              <Button onClick={() => setStep("instance")}>
+              <Button onClick={() => leaveEditionStep("instance")}>
                 {isWishlistStatus ? "Add copies anyway" : "Add copies"}
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>

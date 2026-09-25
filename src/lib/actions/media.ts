@@ -2,6 +2,7 @@
 
 import { eq, and, asc, desc, inArray, not } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import { media } from "@/lib/db/schema";
 import { deleteFromS3 } from "@/lib/s3";
 import type { CreateMediaInput, UpdateMediaInput, UpdateMediaCropInput } from "@/lib/validations/media";
@@ -133,13 +134,14 @@ export async function setActiveMedia(id: string) {
   // Deactivate all others of same type for this owner, then activate target
   const ownerCol = item.workId ? media.workId : media.authorId;
   const ownerId = item.workId ?? item.authorId!;
-  await db.update(media)
-    .set({ isActive: false })
-    .where(and(eq(ownerCol, ownerId), eq(media.type, item.type), not(eq(media.id, id))));
-
-  await db.update(media)
-    .set({ isActive: true })
-    .where(eq(media.id, id));
+  await atomic((d) => [
+    d.update(media)
+      .set({ isActive: false })
+      .where(and(eq(ownerCol, ownerId), eq(media.type, item.type), not(eq(media.id, id)))),
+    d.update(media)
+      .set({ isActive: true })
+      .where(eq(media.id, id)),
+  ]);
 
   // Backfill color palette if this is a work poster without one
   if (item.workId && item.type === "poster" && !item.colorPalette && item.s3Key) {

@@ -102,6 +102,8 @@ Schema changes produce SQL migration files that can be reviewed before applying.
 
 Neon provides a PostgreSQL database accessible over HTTP, which aligns with the serverless execution model of Next.js server components and server actions. The HTTP driver (`@neondatabase/serverless`) avoids maintaining persistent TCP connections in a request/response environment.
 
+The HTTP driver has no interactive transactions (`db.transaction()` throws). Writes that must succeed or fail together go through `atomic()` in `src/lib/db/atomic.ts`, which sends them as one `db.batch()` (Neon runs a batch as a single transaction). Do the reads and checks first, give new rows their ids up front (`randomUUID()`), then build every write inside `atomic((d) => [...])` without awaiting them. The add-book wizard submits through one server action (`createBookFromWizard` in `src/lib/actions/wizard.ts`) for this reason.
+
 ### Tailwind CSS 4
 
 Version 4 replaces `tailwind.config.ts` with CSS-based configuration via `@theme` blocks. All design tokens (colors, fonts, radii) are defined in `src/styles/globals.css` as CSS custom properties, making the design system the single source of truth.

@@ -1,6 +1,8 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import { orders, orderStatusHistory, works, workStatusHistory } from "@/lib/db/schema";
 import {
   eq,
@@ -79,17 +81,15 @@ async function syncWorkCatalogueStatusFromAllOrders(
 
   const fromStatus = work.catalogueStatus;
 
-  await db
-    .update(works)
-    .set({ catalogueStatus: targetStatus })
-    .where(eq(works.id, workId));
-
-  await db.insert(workStatusHistory).values({
-    workId,
-    fromStatus,
-    toStatus: targetStatus,
-    notes,
-  });
+  await atomic((d) => [
+    d.update(works).set({ catalogueStatus: targetStatus }).where(eq(works.id, workId)),
+    d.insert(workStatusHistory).values({
+      workId,
+      fromStatus,
+      toStatus: targetStatus,
+      notes,
+    }),
+  ]);
 
   recordActivity("work", workId, "work.catalogue_status_changed", {
     oldValue: fromStatus,
@@ -394,43 +394,48 @@ export async function createOrder(input: CreateOrderInput) {
   const validated = createOrderSchema.parse(input);
   const status: OrderStatus = validated.status ?? "placed";
 
-  const [order] = await db
-    .insert(orders)
-    .values({
-      workId: validated.workId,
-      editionId: validated.editionId ?? null,
-      instanceId: validated.instanceId ?? null,
-      venueId: validated.venueId ?? null,
-      acquisitionMethod: validated.acquisitionMethod,
-      status,
-      orderDate: validated.orderDate,
-      orderConfirmation: validated.orderConfirmation ?? null,
-      orderUrl: validated.orderUrl ?? null,
-      price: validated.price ?? null,
-      shippingCost: validated.shippingCost ?? null,
-      totalCost: validated.totalCost ?? null,
-      currency: validated.currency ?? null,
-      carrier: validated.carrier ?? null,
-      trackingNumber: validated.trackingNumber ?? null,
-      trackingUrl: validated.trackingUrl ?? null,
-      shippedDate: validated.shippedDate ?? null,
-      estimatedDeliveryDate: validated.estimatedDeliveryDate ?? null,
-      actualDeliveryDate: validated.actualDeliveryDate ?? null,
-      originDescription: validated.originDescription ?? null,
-      originPlaceId: validated.originPlaceId ?? null,
-      destinationLocationId: validated.destinationLocationId ?? null,
-      destinationSubLocationId: validated.destinationSubLocationId ?? null,
-      notes: validated.notes ?? null,
-    })
-    .returning();
-
-  // Create initial status history entry
-  await db.insert(orderStatusHistory).values({
-    orderId: order.id,
-    fromStatus: null,
-    toStatus: status,
-    notes: "Order created",
-  });
+  // The order and its first history row go out as one atomic write
+  const orderId = randomUUID();
+  const [inserted] = await atomic((d) => [
+    d
+      .insert(orders)
+      .values({
+        id: orderId,
+        workId: validated.workId,
+        editionId: validated.editionId ?? null,
+        instanceId: validated.instanceId ?? null,
+        venueId: validated.venueId ?? null,
+        acquisitionMethod: validated.acquisitionMethod,
+        status,
+        orderDate: validated.orderDate,
+        orderConfirmation: validated.orderConfirmation ?? null,
+        orderUrl: validated.orderUrl ?? null,
+        price: validated.price ?? null,
+        shippingCost: validated.shippingCost ?? null,
+        totalCost: validated.totalCost ?? null,
+        currency: validated.currency ?? null,
+        carrier: validated.carrier ?? null,
+        trackingNumber: validated.trackingNumber ?? null,
+        trackingUrl: validated.trackingUrl ?? null,
+        shippedDate: validated.shippedDate ?? null,
+        estimatedDeliveryDate: validated.estimatedDeliveryDate ?? null,
+        actualDeliveryDate: validated.actualDeliveryDate ?? null,
+        originDescription: validated.originDescription ?? null,
+        originPlaceId: validated.originPlaceId ?? null,
+        destinationLocationId: validated.destinationLocationId ?? null,
+        destinationSubLocationId: validated.destinationSubLocationId ?? null,
+        notes: validated.notes ?? null,
+      })
+      .returning(),
+    // Initial status history entry
+    d.insert(orderStatusHistory).values({
+      orderId,
+      fromStatus: null,
+      toStatus: status,
+      notes: "Order created",
+    }),
+  ]);
+  const [order] = inserted as (typeof orders.$inferSelect)[];
 
   // Sync work catalogue status from all orders for this work
   await syncWorkCatalogueStatusFromAllOrders(
@@ -561,18 +566,21 @@ export async function updateOrderStatus(
     additionalFields.actualDeliveryDate = today;
   }
 
-  const [updated] = await db
-    .update(orders)
-    .set({ status: newStatus, ...additionalFields, updatedAt: new Date() })
-    .where(eq(orders.id, id))
-    .returning();
-
-  await db.insert(orderStatusHistory).values({
-    orderId: id,
-    fromStatus,
-    toStatus: newStatus,
-    notes: notes ?? null,
-  });
+  // The status change and its history row go out as one atomic write
+  const [changed] = await atomic((d) => [
+    d
+      .update(orders)
+      .set({ status: newStatus, ...additionalFields, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning(),
+    d.insert(orderStatusHistory).values({
+      orderId: id,
+      fromStatus,
+      toStatus: newStatus,
+      notes: notes ?? null,
+    }),
+  ]);
+  const [updated] = changed as (typeof orders.$inferSelect)[];
 
   // C1: always sync work status from all orders (handles cancel, return, delivery)
   await syncWorkCatalogueStatusFromAllOrders(

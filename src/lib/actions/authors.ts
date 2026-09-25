@@ -1,6 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
+import { defaultSortName } from "@/lib/utils/author-names";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
 import { eq, and, asc, desc, ilike, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -325,14 +327,7 @@ export async function createAuthor(input: CreateAuthorInput) {
   const parsed = createAuthorSchema.parse(input);
 
   // Auto-generate sortName if not provided (Last, First)
-  const sortName =
-    parsed.sortName ??
-    (() => {
-      const parts = parsed.name.trim().split(/\s+/);
-      if (parts.length <= 1) return parsed.name;
-      const last = parts.pop()!;
-      return `${last}, ${parts.join(" ")}`;
-    })();
+  const sortName = parsed.sortName ?? defaultSortName(parsed.name);
 
   // Auto-compute zodiac sign from birth month/day
   const zodiacSign =
@@ -340,13 +335,8 @@ export async function createAuthor(input: CreateAuthorInput) {
       ? computeZodiacSign(parsed.birthMonth, parsed.birthDay)
       : null;
 
-  const [author] = await db
-    .insert(authors)
-    .values({ ...parsed, sortName, zodiacSign })
-    .returning();
-
-  // Generate and set slug
-  const baseSlug = generateAuthorSlug(author.name);
+  // Generate the slug first, so the author is inserted complete in one write
+  const baseSlug = generateAuthorSlug(parsed.name);
   const existing = await db
     .select({ slug: authors.slug })
     .from(authors)
@@ -357,9 +347,8 @@ export async function createAuthor(input: CreateAuthorInput) {
   const slug = makeUnique(baseSlug, existingSlugs);
 
   const [updated] = await db
-    .update(authors)
-    .set({ slug })
-    .where(eq(authors.id, author.id))
+    .insert(authors)
+    .values({ ...parsed, sortName, zodiacSign, slug })
     .returning();
 
   recordActivity("author", updated.id, "author.created", { newValue: parsed.name });
@@ -418,31 +407,24 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
     updatedAt: new Date(),
   };
 
+  // Regenerate slug when name changes, in the same write as the name
+  let slug: string | undefined;
+  if (input.name !== undefined && prev) {
+    const baseSlug = generateAuthorSlug(input.name);
+    const existing = await db
+      .select({ slug: authors.slug })
+      .from(authors)
+      .where(like(authors.slug, `${baseSlug}%`));
+    const existingSlugs = existing
+      .map((r) => r.slug)
+      .filter((s): s is string => s !== null && s !== prev.slug);
+    slug = makeUnique(baseSlug, existingSlugs);
+  }
+
   await db
     .update(authors)
-    .set(updatePayload)
+    .set(slug ? { ...updatePayload, slug } : updatePayload)
     .where(eq(authors.id, id));
-
-  // Regenerate slug when name changes
-  if (input.name !== undefined) {
-    const currentAuthor = await db.query.authors.findFirst({
-      where: eq(authors.id, id),
-      columns: { name: true, slug: true },
-    });
-
-    if (currentAuthor) {
-      const baseSlug = generateAuthorSlug(currentAuthor.name);
-      const existing = await db
-        .select({ slug: authors.slug })
-        .from(authors)
-        .where(like(authors.slug, `${baseSlug}%`));
-      const existingSlugs = existing
-        .map((r) => r.slug)
-        .filter((s): s is string => s !== null && s !== currentAuthor.slug);
-      const slug = makeUnique(baseSlug, existingSlugs);
-      await db.update(authors).set({ slug }).where(eq(authors.id, id));
-    }
-  }
 
   // Record activity diffs
   if (prev) {
@@ -499,114 +481,79 @@ export async function mergeAuthors(sourceId: string, targetId: string) {
 
   const { authorContributionTypes } = await import("@/lib/db/schema");
 
-  // 1. Transfer workAuthors — skip rows that would conflict on (workId, targetId, role)
-  const sourceWorkAuthors = await db
-    .select()
-    .from(workAuthors)
-    .where(eq(workAuthors.authorId, sourceId));
+  // Read everything first, then move the links and delete the source author
+  // in ONE atomic write: a failure leaves both authors exactly as they were.
+  const [sourceWorkAuthors, targetWorkAuthors, sourceEdContribs, targetEdContribs, sourceACT, targetACT] =
+    await Promise.all([
+      db.select().from(workAuthors).where(eq(workAuthors.authorId, sourceId)),
+      db.select().from(workAuthors).where(eq(workAuthors.authorId, targetId)),
+      db.select().from(editionContributors).where(eq(editionContributors.authorId, sourceId)),
+      db.select().from(editionContributors).where(eq(editionContributors.authorId, targetId)),
+      db.select().from(authorContributionTypes).where(eq(authorContributionTypes.authorId, sourceId)),
+      db.select().from(authorContributionTypes).where(eq(authorContributionTypes.authorId, targetId)),
+    ]);
 
-  const targetWorkAuthors = await db
-    .select()
-    .from(workAuthors)
-    .where(eq(workAuthors.authorId, targetId));
+  // Rows that would conflict with the target are skipped; the cascade removes
+  // them with the source author.
+  const targetWAKeys = new Set(targetWorkAuthors.map((r) => `${r.workId}::${r.role}`));
+  const targetECKeys = new Set(targetEdContribs.map((r) => `${r.editionId}::${r.role}`));
+  const targetACTKeys = new Set(targetACT.map((r) => r.contributionTypeId));
 
-  const targetWAKeys = new Set(
-    targetWorkAuthors.map((r) => `${r.workId}::${r.role}`),
-  );
-
-  for (const row of sourceWorkAuthors) {
-    const key = `${row.workId}::${row.role}`;
-    if (!targetWAKeys.has(key)) {
-      // Transfer: delete old, insert new (can't update composite PK)
-      await db
-        .delete(workAuthors)
-        .where(
+  await atomic((d) => [
+    // 1. Transfer workAuthors: delete old, insert new (can't update composite PK)
+    ...sourceWorkAuthors
+      .filter((row) => !targetWAKeys.has(`${row.workId}::${row.role}`))
+      .flatMap((row) => [
+        d.delete(workAuthors).where(
           and(
             eq(workAuthors.workId, row.workId),
             eq(workAuthors.authorId, sourceId),
             eq(workAuthors.role, row.role),
           ),
-        );
-      await db.insert(workAuthors).values({
-        workId: row.workId,
-        authorId: targetId,
-        role: row.role,
-        sortOrder: row.sortOrder,
-      });
-    }
-    // Conflicting rows will be cascade-deleted when source author is removed
-  }
-
-  // 2. Transfer editionContributors — skip conflicts on (editionId, targetId, role)
-  const sourceEdContribs = await db
-    .select()
-    .from(editionContributors)
-    .where(eq(editionContributors.authorId, sourceId));
-
-  const targetEdContribs = await db
-    .select()
-    .from(editionContributors)
-    .where(eq(editionContributors.authorId, targetId));
-
-  const targetECKeys = new Set(
-    targetEdContribs.map((r) => `${r.editionId}::${r.role}`),
-  );
-
-  for (const row of sourceEdContribs) {
-    const key = `${row.editionId}::${row.role}`;
-    if (!targetECKeys.has(key)) {
-      await db
-        .delete(editionContributors)
-        .where(
+        ),
+        d.insert(workAuthors).values({
+          workId: row.workId,
+          authorId: targetId,
+          role: row.role,
+          sortOrder: row.sortOrder,
+        }),
+      ]),
+    // 2. Transfer editionContributors
+    ...sourceEdContribs
+      .filter((row) => !targetECKeys.has(`${row.editionId}::${row.role}`))
+      .flatMap((row) => [
+        d.delete(editionContributors).where(
           and(
             eq(editionContributors.editionId, row.editionId),
             eq(editionContributors.authorId, sourceId),
             eq(editionContributors.role, row.role),
           ),
-        );
-      await db.insert(editionContributors).values({
-        editionId: row.editionId,
-        authorId: targetId,
-        role: row.role,
-        sortOrder: row.sortOrder,
-      });
-    }
-  }
-
-  // 3. Transfer authorContributionTypes — skip conflicts
-  const sourceACT = await db
-    .select()
-    .from(authorContributionTypes)
-    .where(eq(authorContributionTypes.authorId, sourceId));
-
-  const targetACT = await db
-    .select()
-    .from(authorContributionTypes)
-    .where(eq(authorContributionTypes.authorId, targetId));
-
-  const targetACTKeys = new Set(
-    targetACT.map((r) => r.contributionTypeId),
-  );
-
-  for (const row of sourceACT) {
-    if (!targetACTKeys.has(row.contributionTypeId)) {
-      await db
-        .delete(authorContributionTypes)
-        .where(
+        ),
+        d.insert(editionContributors).values({
+          editionId: row.editionId,
+          authorId: targetId,
+          role: row.role,
+          sortOrder: row.sortOrder,
+        }),
+      ]),
+    // 3. Transfer authorContributionTypes
+    ...sourceACT
+      .filter((row) => !targetACTKeys.has(row.contributionTypeId))
+      .flatMap((row) => [
+        d.delete(authorContributionTypes).where(
           and(
             eq(authorContributionTypes.authorId, sourceId),
             eq(authorContributionTypes.contributionTypeId, row.contributionTypeId),
           ),
-        );
-      await db.insert(authorContributionTypes).values({
-        authorId: targetId,
-        contributionTypeId: row.contributionTypeId,
-      });
-    }
-  }
-
-  // 4. Delete source author (cascade removes any remaining references)
-  await db.delete(authors).where(eq(authors.id, sourceId));
+        ),
+        d.insert(authorContributionTypes).values({
+          authorId: targetId,
+          contributionTypeId: row.contributionTypeId,
+        }),
+      ]),
+    // 4. Delete source author (cascade removes any remaining references)
+    d.delete(authors).where(eq(authors.id, sourceId)),
+  ]);
 
   return { targetId, sourceName: source.name, targetName: target.name };
 }

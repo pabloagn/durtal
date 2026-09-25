@@ -14,18 +14,13 @@ import {
   keywords,
   attributes,
   workSubjects,
-  workCategories,
-  workThemes,
-  workLiteraryMovements,
-  workArtTypes,
-  workArtMovements,
-  workKeywords,
-  workAttributes,
   works,
 } from "@/lib/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
+import { atomic } from "@/lib/db/atomic";
+import { workTaxonomyWrites } from "@/lib/db/work-taxonomy";
 
 // ── Work Types ────────────────────────────────────────────────────────────────
 
@@ -230,89 +225,11 @@ export async function updateWorkTaxonomy(
     attributeIds?: string[];
   },
 ) {
-  if (input.subjectIds !== undefined) {
-    await db.delete(workSubjects).where(eq(workSubjects.workId, workId));
-    if (input.subjectIds.length > 0) {
-      await db.insert(workSubjects).values(
-        input.subjectIds.map((subjectId) => ({ workId, subjectId })),
-      );
-    }
-  }
-
-  if (input.categoryIds !== undefined) {
-    await db.delete(workCategories).where(eq(workCategories.workId, workId));
-    if (input.categoryIds.length > 0) {
-      await db.insert(workCategories).values(
-        input.categoryIds.map((categoryId) => ({ workId, categoryId })),
-      );
-    }
-  }
-
-  if (input.themeIds !== undefined) {
-    await db.delete(workThemes).where(eq(workThemes.workId, workId));
-    if (input.themeIds.length > 0) {
-      await db.insert(workThemes).values(
-        input.themeIds.map((themeId) => ({ workId, themeId })),
-      );
-    }
-  }
-
-  if (input.literaryMovementIds !== undefined) {
-    await db
-      .delete(workLiteraryMovements)
-      .where(eq(workLiteraryMovements.workId, workId));
-    if (input.literaryMovementIds.length > 0) {
-      await db.insert(workLiteraryMovements).values(
-        input.literaryMovementIds.map((literaryMovementId) => ({
-          workId,
-          literaryMovementId,
-        })),
-      );
-    }
-  }
-
-  if (input.artTypeIds !== undefined) {
-    await db.delete(workArtTypes).where(eq(workArtTypes.workId, workId));
-    if (input.artTypeIds.length > 0) {
-      await db.insert(workArtTypes).values(
-        input.artTypeIds.map((artTypeId) => ({ workId, artTypeId })),
-      );
-    }
-  }
-
-  if (input.artMovementIds !== undefined) {
-    await db
-      .delete(workArtMovements)
-      .where(eq(workArtMovements.workId, workId));
-    if (input.artMovementIds.length > 0) {
-      await db.insert(workArtMovements).values(
-        input.artMovementIds.map((artMovementId) => ({ workId, artMovementId })),
-      );
-    }
-  }
-
-  if (input.keywordIds !== undefined) {
-    await db.delete(workKeywords).where(eq(workKeywords.workId, workId));
-    if (input.keywordIds.length > 0) {
-      await db.insert(workKeywords).values(
-        input.keywordIds.map((keywordId) => ({ workId, keywordId })),
-      );
-    }
-  }
-
-  if (input.attributeIds !== undefined) {
-    await db.delete(workAttributes).where(eq(workAttributes.workId, workId));
-    if (input.attributeIds.length > 0) {
-      await db.insert(workAttributes).values(
-        input.attributeIds.map((attributeId) => ({ workId, attributeId })),
-      );
-    }
-  }
-
-  await db
-    .update(works)
-    .set({ updatedAt: new Date() })
-    .where(eq(works.id, workId));
+  // All replacements and the timestamp go out as one atomic write.
+  await atomic((d) => [
+    ...workTaxonomyWrites(d, workId, input, { replace: true }),
+    d.update(works).set({ updatedAt: new Date() }).where(eq(works.id, workId)),
+  ]);
 
   recordActivity("work", workId, "work.taxonomy_added", {
     extra: { updated: true },

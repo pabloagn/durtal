@@ -1,6 +1,8 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import {
   editions,
   editionContributors,
@@ -12,7 +14,7 @@ import {
   createEditionSchema,
   type CreateEditionInput,
 } from "@/lib/validations";
-import { processAndUploadCover } from "@/lib/s3/covers";
+import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
 import { recordActivity } from "@/lib/activity/record";
 
 export async function getEdition(id: string) {
@@ -58,62 +60,42 @@ export async function createEdition(input: CreateEditionInput) {
     }
   }
 
-  // Process cover if URL provided
-  let coverKeys: { coverS3Key?: string; thumbnailS3Key?: string } = {};
+  // The cover is stored under the new edition's id before the write; the
+  // edition and its links then go out as one atomic write.
+  const editionId = randomUUID();
+  const cover = coverSourceUrl ? await processAndUploadCover(editionId, coverSourceUrl) : null;
+  const coverKeys = cover ? { coverS3Key: cover.coverKey, thumbnailS3Key: cover.thumbnailKey } : {};
 
-  const [edition] = await db
-    .insert(editions)
-    .values(editionData)
-    .returning();
-
-  if (coverSourceUrl) {
-    const result = await processAndUploadCover(edition.id, coverSourceUrl);
-    if (result) {
-      coverKeys = {
-        coverS3Key: result.coverKey,
-        thumbnailS3Key: result.thumbnailKey,
-      };
-      await db
-        .update(editions)
-        .set({
-          coverS3Key: result.coverKey,
-          thumbnailS3Key: result.thumbnailKey,
-          coverSourceUrl,
-        })
-        .where(eq(editions.id, edition.id));
-    }
-  }
-
-  // Link contributors
-  if (contributorIds && contributorIds.length > 0) {
-    await db.insert(editionContributors).values(
-      contributorIds.map((c, i) => ({
-        editionId: edition.id,
-        authorId: c.authorId,
-        role: c.role,
-        sortOrder: i,
-      })),
-    );
-  }
-
-  // Link genres
-  if (genreIds && genreIds.length > 0) {
-    await db.insert(editionGenres).values(
-      genreIds.map((genreId) => ({
-        editionId: edition.id,
-        genreId,
-      })),
-    );
-  }
-
-  // Link tags
-  if (tagIds && tagIds.length > 0) {
-    await db.insert(editionTags).values(
-      tagIds.map((tagId) => ({
-        editionId: edition.id,
-        tagId,
-      })),
-    );
+  let edition: typeof editions.$inferSelect;
+  try {
+    const [inserted] = await atomic((d) => [
+      d
+        .insert(editions)
+        .values({ ...editionData, id: editionId, ...coverKeys, ...(cover ? { coverSourceUrl } : {}) })
+        .returning(),
+      ...(contributorIds && contributorIds.length > 0
+        ? [
+            d.insert(editionContributors).values(
+              contributorIds.map((c, i) => ({
+                editionId,
+                authorId: c.authorId,
+                role: c.role,
+                sortOrder: i,
+              })),
+            ),
+          ]
+        : []),
+      ...(genreIds && genreIds.length > 0
+        ? [d.insert(editionGenres).values(genreIds.map((genreId) => ({ editionId, genreId })))]
+        : []),
+      ...(tagIds && tagIds.length > 0
+        ? [d.insert(editionTags).values(tagIds.map((tagId) => ({ editionId, tagId })))]
+        : []),
+    ]);
+    [edition] = inserted as (typeof editions.$inferSelect)[];
+  } catch (err) {
+    if (cover) await Promise.allSettled([deleteFromS3(cover.coverKey), deleteFromS3(cover.thumbnailKey)]);
+    throw err;
   }
 
   recordActivity("work", editionData.workId, "work.edition_added", {
@@ -147,47 +129,43 @@ export async function updateEdition(
     }
   }
 
-  await db.update(editions).set(updates).where(eq(editions.id, id));
-
-  if (contributorIds) {
-    await db
-      .delete(editionContributors)
-      .where(eq(editionContributors.editionId, id));
-    if (contributorIds.length > 0) {
-      await db.insert(editionContributors).values(
-        contributorIds.map((c, i) => ({
-          editionId: id,
-          authorId: c.authorId,
-          role: c.role,
-          sortOrder: i,
-        })),
-      );
-    }
-  }
-
-  if (genreIds) {
-    await db.delete(editionGenres).where(eq(editionGenres.editionId, id));
-    if (genreIds.length > 0) {
-      await db.insert(editionGenres).values(
-        genreIds.map((genreId) => ({
-          editionId: id,
-          genreId,
-        })),
-      );
-    }
-  }
-
-  if (tagIds) {
-    await db.delete(editionTags).where(eq(editionTags.editionId, id));
-    if (tagIds.length > 0) {
-      await db.insert(editionTags).values(
-        tagIds.map((tagId) => ({
-          editionId: id,
-          tagId,
-        })),
-      );
-    }
-  }
+  // The edition row and its link replacements go out as one atomic write
+  await atomic((d) => [
+    d.update(editions).set(updates).where(eq(editions.id, id)),
+    ...(contributorIds
+      ? [
+          d.delete(editionContributors).where(eq(editionContributors.editionId, id)),
+          ...(contributorIds.length > 0
+            ? [
+                d.insert(editionContributors).values(
+                  contributorIds.map((c, i) => ({
+                    editionId: id,
+                    authorId: c.authorId,
+                    role: c.role,
+                    sortOrder: i,
+                  })),
+                ),
+              ]
+            : []),
+        ]
+      : []),
+    ...(genreIds
+      ? [
+          d.delete(editionGenres).where(eq(editionGenres.editionId, id)),
+          ...(genreIds.length > 0
+            ? [d.insert(editionGenres).values(genreIds.map((genreId) => ({ editionId: id, genreId })))]
+            : []),
+        ]
+      : []),
+    ...(tagIds
+      ? [
+          d.delete(editionTags).where(eq(editionTags.editionId, id)),
+          ...(tagIds.length > 0
+            ? [d.insert(editionTags).values(tagIds.map((tagId) => ({ editionId: id, tagId })))]
+            : []),
+        ]
+      : []),
+  ]);
 
   // Record activity — resolve workId from editionData or fetch from DB
   const workId =

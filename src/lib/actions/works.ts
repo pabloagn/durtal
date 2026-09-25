@@ -1,6 +1,8 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import {
   works,
   workAuthors,
@@ -456,53 +458,20 @@ export async function createWork(input: CreateWorkInput) {
   const parsed = createWorkSchema.parse(input);
   const { authorIds, subjectIds, recommenderIds, ...workData } = parsed;
 
-  const [work] = await db.insert(works).values(workData).returning();
+  // The slug needs the id and the primary author, so both are known before
+  // the insert; the work and its links then go out as one atomic write.
+  const workId = randomUUID();
+  const primaryAuthorName =
+    authorIds.length > 0
+      ? (
+          await db.query.authors.findFirst({
+            where: eq(authors.id, authorIds[0].authorId),
+            columns: { name: true },
+          })
+        )?.name ?? "unknown"
+      : "unknown";
 
-  // Link authors
-  if (authorIds.length > 0) {
-    await db.insert(workAuthors).values(
-      authorIds.map((a, i) => ({
-        workId: work.id,
-        authorId: a.authorId,
-        role: a.role,
-        sortOrder: i,
-      })),
-    );
-  }
-
-  // Link subjects
-  if (subjectIds && subjectIds.length > 0) {
-    await db.insert(workSubjects).values(
-      subjectIds.map((subjectId) => ({
-        workId: work.id,
-        subjectId,
-      })),
-    );
-  }
-
-  // Link recommenders
-  if (recommenderIds && recommenderIds.length > 0) {
-    await db.insert(workRecommenders).values(
-      recommenderIds.map((recommenderId) => ({
-        workId: work.id,
-        recommenderId,
-      })),
-    );
-  }
-
-  // Generate slug: look up primary author name, then set slug on work
-  const primaryAuthorName = await (async () => {
-    if (authorIds.length > 0) {
-      const authorRow = await db.query.authors.findFirst({
-        where: eq(authors.id, authorIds[0].authorId),
-        columns: { name: true },
-      });
-      return authorRow?.name ?? "unknown";
-    }
-    return "unknown";
-  })();
-
-  const baseSlug = generateWorkSlug(work.title, primaryAuthorName, work.id);
+  const baseSlug = generateWorkSlug(workData.title, primaryAuthorName, workId);
   const existing = await db
     .select({ slug: works.slug })
     .from(works)
@@ -512,11 +481,28 @@ export async function createWork(input: CreateWorkInput) {
     .filter((s): s is string => s !== null);
   const slug = makeUnique(baseSlug, existingSlugs);
 
-  const [updated] = await db
-    .update(works)
-    .set({ slug })
-    .where(eq(works.id, work.id))
-    .returning();
+  const [inserted] = await atomic((d) => [
+    d.insert(works).values({ ...workData, id: workId, slug }).returning(),
+    ...(authorIds.length > 0
+      ? [
+          d.insert(workAuthors).values(
+            authorIds.map((a, i) => ({
+              workId,
+              authorId: a.authorId,
+              role: a.role,
+              sortOrder: i,
+            })),
+          ),
+        ]
+      : []),
+    ...(subjectIds && subjectIds.length > 0
+      ? [d.insert(workSubjects).values(subjectIds.map((subjectId) => ({ workId, subjectId })))]
+      : []),
+    ...(recommenderIds && recommenderIds.length > 0
+      ? [d.insert(workRecommenders).values(recommenderIds.map((recommenderId) => ({ workId, recommenderId })))]
+      : []),
+  ]);
+  const [updated] = inserted as (typeof works.$inferSelect)[];
 
   recordActivity("work", updated.id, "work.created", { newValue: workData.title });
   invalidate(CACHE_TAGS.works);
@@ -534,6 +520,7 @@ export async function updateWork(
     where: eq(works.id, id),
     columns: {
       title: true,
+      slug: true,
       originalYear: true,
       originalLanguage: true,
       catalogueStatus: true,
@@ -550,111 +537,84 @@ export async function updateWork(
     },
   });
 
-  if (Object.keys(workData).length > 0) {
-    await db
-      .update(works)
-      .set({ ...workData, updatedAt: new Date() })
-      .where(eq(works.id, id));
-  }
+  // Regenerate the slug only if the title or the primary author ACTUALLY
+  // changes. It is worked out first, so every write goes out in one batch.
+  let newSlug: string | undefined;
+  if (prev && (workData.title !== undefined || authorIds !== undefined)) {
+    const oldPrimaryAuthorId = prev.workAuthors[0]?.author.id;
+    const newTitle = workData.title ?? prev.title;
+    const newPrimaryAuthorId = authorIds === undefined ? oldPrimaryAuthorId : authorIds[0]?.authorId;
+    const titleChanged = newTitle !== prev.title;
+    const authorChanged = newPrimaryAuthorId !== oldPrimaryAuthorId;
 
-  if (authorIds) {
-    await db.delete(workAuthors).where(eq(workAuthors.workId, id));
-    if (authorIds.length > 0) {
-      await db.insert(workAuthors).values(
-        authorIds.map((a, i) => ({
-          workId: id,
-          authorId: a.authorId,
-          role: a.role,
-          sortOrder: i,
-        })),
-      );
-    }
-  }
-
-  if (subjectIds) {
-    await db.delete(workSubjects).where(eq(workSubjects.workId, id));
-    if (subjectIds.length > 0) {
-      await db.insert(workSubjects).values(
-        subjectIds.map((subjectId) => ({
-          workId: id,
-          subjectId,
-        })),
-      );
-    }
-  }
-
-  if (recommenderIds) {
-    await db.delete(workRecommenders).where(eq(workRecommenders.workId, id));
-    if (recommenderIds.length > 0) {
-      await db.insert(workRecommenders).values(
-        recommenderIds.map((recommenderId) => ({
-          workId: id,
-          recommenderId,
-        })),
-      );
-    }
-  }
-
-  // Regenerate slug only if title or authors ACTUALLY changed
-  if (workData.title !== undefined || authorIds !== undefined) {
-    const currentWork = await db.query.works.findFirst({
-      where: eq(works.id, id),
-      columns: { title: true, slug: true },
-      with: {
-        workAuthors: {
-          with: { author: { columns: { id: true, name: true } } },
-          orderBy: asc(workAuthors.sortOrder),
-          limit: 1,
-        },
-      },
-    });
-
-    if (currentWork) {
-      // Check if title or primary author actually changed
-      const oldTitle = currentWork.title;
-      const oldPrimaryAuthorId = currentWork.workAuthors[0]?.author.id;
-      const newTitle = workData.title ?? oldTitle;
-      const newPrimaryAuthorId = authorIds?.[0]?.authorId ?? oldPrimaryAuthorId;
-      const titleChanged = newTitle !== oldTitle;
-      const authorChanged = authorIds !== undefined && newPrimaryAuthorId !== oldPrimaryAuthorId;
-
-      if (titleChanged || authorChanged) {
-        const primaryAuthorName =
-          currentWork.workAuthors[0]?.author.name ?? "unknown";
-        // Use the NEW title for slug generation (it was already written to DB above)
-        const effectiveTitle = workData.title ?? currentWork.title;
-        // If author changed, look up the new author name
-        let effectiveAuthorName = primaryAuthorName;
-        if (authorChanged && authorIds && authorIds.length > 0) {
-          const newAuthor = await db.query.authors.findFirst({
-            where: eq(authors.id, authorIds[0].authorId),
-            columns: { name: true },
-          });
-          effectiveAuthorName = newAuthor?.name ?? "unknown";
-        }
-        const baseSlug = generateWorkSlug(effectiveTitle, effectiveAuthorName, id);
-
-        // Exclude own current slug from uniqueness check
-        const existing = await db
-          .select({ slug: works.slug })
-          .from(works)
-          .where(like(works.slug, `${baseSlug}%`));
-        const existingSlugs = existing
-          .map((r) => r.slug)
-          .filter((s): s is string => s !== null && s !== currentWork.slug);
-        const newSlug = makeUnique(baseSlug, existingSlugs);
-
-        await db.update(works).set({ slug: newSlug }).where(eq(works.id, id));
-        recordWorkDiffs(id, prev, workData, authorIds);
-        invalidate(CACHE_TAGS.works);
-        return { id, slug: newSlug };
+    if (titleChanged || authorChanged) {
+      let effectiveAuthorName = prev.workAuthors[0]?.author.name ?? "unknown";
+      if (authorChanged) {
+        const newAuthor = newPrimaryAuthorId
+          ? await db.query.authors.findFirst({
+              where: eq(authors.id, newPrimaryAuthorId),
+              columns: { name: true },
+            })
+          : undefined;
+        effectiveAuthorName = newAuthor?.name ?? "unknown";
       }
+      const baseSlug = generateWorkSlug(newTitle, effectiveAuthorName, id);
+
+      // Exclude own current slug from uniqueness check
+      const existing = await db
+        .select({ slug: works.slug })
+        .from(works)
+        .where(like(works.slug, `${baseSlug}%`));
+      const existingSlugs = existing
+        .map((r) => r.slug)
+        .filter((s): s is string => s !== null && s !== prev.slug);
+      newSlug = makeUnique(baseSlug, existingSlugs);
     }
   }
+
+  const fields = { ...workData, ...(newSlug ? { slug: newSlug } : {}) };
+  await atomic((d) => [
+    ...(Object.keys(fields).length > 0
+      ? [d.update(works).set({ ...fields, updatedAt: new Date() }).where(eq(works.id, id))]
+      : []),
+    ...(authorIds
+      ? [
+          d.delete(workAuthors).where(eq(workAuthors.workId, id)),
+          ...(authorIds.length > 0
+            ? [
+                d.insert(workAuthors).values(
+                  authorIds.map((a, i) => ({
+                    workId: id,
+                    authorId: a.authorId,
+                    role: a.role,
+                    sortOrder: i,
+                  })),
+                ),
+              ]
+            : []),
+        ]
+      : []),
+    ...(subjectIds
+      ? [
+          d.delete(workSubjects).where(eq(workSubjects.workId, id)),
+          ...(subjectIds.length > 0
+            ? [d.insert(workSubjects).values(subjectIds.map((subjectId) => ({ workId: id, subjectId })))]
+            : []),
+        ]
+      : []),
+    ...(recommenderIds
+      ? [
+          d.delete(workRecommenders).where(eq(workRecommenders.workId, id)),
+          ...(recommenderIds.length > 0
+            ? [d.insert(workRecommenders).values(recommenderIds.map((recommenderId) => ({ workId: id, recommenderId })))]
+            : []),
+        ]
+      : []),
+  ]);
 
   recordWorkDiffs(id, prev, workData, authorIds);
   invalidate(CACHE_TAGS.works);
-  return { id };
+  return newSlug ? { id, slug: newSlug } : { id };
 }
 
 /** Emit per-field activity events by diffing previous state against incoming input. */

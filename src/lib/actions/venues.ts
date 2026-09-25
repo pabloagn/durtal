@@ -238,10 +238,22 @@ export async function createVenue(input: CreateVenueInput) {
     }
   }
 
-  const [venue] = await db
+  // Generate the slug first, so the venue is inserted complete in one write
+  const baseSlug = generateVenueSlug(validated.name);
+  const existing = await db
+    .select({ slug: venues.slug })
+    .from(venues)
+    .where(like(venues.slug, `${baseSlug}%`));
+  const existingSlugs = existing
+    .map((r) => r.slug)
+    .filter((s): s is string => s !== null);
+  const slug = makeUnique(baseSlug, existingSlugs);
+
+  const [updated] = await db
     .insert(venues)
     .values({
       name: validated.name,
+      slug,
       type: validated.type,
       subtype: validated.subtype ?? null,
       description: validated.description ?? null,
@@ -268,23 +280,6 @@ export async function createVenue(input: CreateVenueInput) {
     })
     .returning();
 
-  // Generate slug after insert so we have the ID if needed
-  const baseSlug = generateVenueSlug(venue.name);
-  const existing = await db
-    .select({ slug: venues.slug })
-    .from(venues)
-    .where(like(venues.slug, `${baseSlug}%`));
-  const existingSlugs = existing
-    .map((r) => r.slug)
-    .filter((s): s is string => s !== null);
-  const slug = makeUnique(baseSlug, existingSlugs);
-
-  const [updated] = await db
-    .update(venues)
-    .set({ slug })
-    .where(eq(venues.id, venue.id))
-    .returning();
-
   invalidate(CACHE_TAGS.venues);
   return updated;
 }
@@ -295,16 +290,14 @@ export async function updateVenue(id: string, input: Partial<CreateVenueInput>) 
     updatedAt: new Date(),
   };
 
-  await db.update(venues).set(updatePayload).where(eq(venues.id, id));
-
-  // Regenerate slug if name changed
+  // Regenerate slug if name changed, in the same write as the name
   if (input.name !== undefined) {
     const current = await db.query.venues.findFirst({
       where: eq(venues.id, id),
-      columns: { name: true, slug: true },
+      columns: { slug: true },
     });
     if (current) {
-      const baseSlug = generateVenueSlug(current.name);
+      const baseSlug = generateVenueSlug(input.name);
       const existing = await db
         .select({ slug: venues.slug })
         .from(venues)
@@ -312,10 +305,11 @@ export async function updateVenue(id: string, input: Partial<CreateVenueInput>) 
       const existingSlugs = existing
         .map((r) => r.slug)
         .filter((s): s is string => s !== null && s !== current.slug);
-      const slug = makeUnique(baseSlug, existingSlugs);
-      await db.update(venues).set({ slug }).where(eq(venues.id, id));
+      updatePayload.slug = makeUnique(baseSlug, existingSlugs);
     }
   }
+
+  await db.update(venues).set(updatePayload).where(eq(venues.id, id));
 
   invalidate(CACHE_TAGS.venues);
   return { id };
