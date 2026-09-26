@@ -22,7 +22,23 @@ import type { ColorPalette, MediaType } from "@/lib/types";
  */
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      const requestId = crypto.randomUUID();
+      // No storage or database operation has happened: this response is safe to retry.
+      console.warn("[media/upload] Invalid multipart body", {
+        requestId,
+        contentLength: req.headers.get("content-length"),
+        aborted: req.signal.aborted,
+      });
+      return NextResponse.json({
+        code: "INVALID_MULTIPART",
+        requestId,
+        error: "The image did not arrive intact. Please drop it again or save it and choose the file.",
+      }, { status: 400 });
+    }
     const file = formData.get("file") as File | null;
     const entityType = formData.get("entityType") as MediaEntityType | null;
     const entityId = formData.get("entityId") as string | null;

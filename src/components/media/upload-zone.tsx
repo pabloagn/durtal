@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useRef } from "react";
+import { uploadMediaFile, mediaResponseError } from "@/lib/utils/media-upload";
 import { Upload } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
@@ -17,9 +18,10 @@ interface UploadZoneProps {
 }
 
 interface UploadState {
+  id: string;
   filename: string;
-  progress: number;
-  status: "uploading" | "processing" | "done" | "error";
+  error?: string;
+  status: "uploading" | "done" | "error";
 }
 
 /**
@@ -100,57 +102,50 @@ export function UploadZone({
 
   const processFile = useCallback(
     async (file: File) => {
-      const idx = uploads.length;
+      const id = crypto.randomUUID();
       setUploads((prev) => [
         ...prev,
-        { filename: file.name, progress: 0, status: "uploading" },
+        { id, filename: file.name, status: "uploading" },
       ]);
 
       try {
-        setUploads((prev) =>
-          prev.map((u, i) => (i === idx ? { ...u, progress: 20 } : u)),
-        );
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("entityType", entityType);
-        formData.append("entityId", entityId);
-        formData.append("mediaType", mediaType);
-        if (processingParams) {
-          formData.append("processingParams", JSON.stringify(processingParams));
-        }
-
-        setUploads((prev) =>
-          prev.map((u, i) =>
-            i === idx ? { ...u, progress: 50, status: "processing" } : u,
-          ),
-        );
-
-        const res = await fetch("/api/media/upload", {
-          method: "POST",
-          body: formData,
+        await uploadMediaFile(() => {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("entityType", entityType);
+          formData.append("entityId", entityId);
+          formData.append("mediaType", mediaType);
+          if (processingParams)
+            formData.append(
+              "processingParams",
+              JSON.stringify(processingParams),
+            );
+          return formData;
         });
 
-        if (!res.ok) {
-          throw new Error("Upload failed");
-        }
-
         setUploads((prev) =>
-          prev.map((u, i) =>
-            i === idx ? { ...u, progress: 100, status: "done" } : u,
-          ),
+          prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)),
         );
 
         onUploadComplete?.();
-      } catch {
+      } catch (error) {
         setUploads((prev) =>
-          prev.map((u, i) =>
-            i === idx ? { ...u, status: "error" } : u,
+          prev.map((u) =>
+            u.id === id
+              ? {
+                  ...u,
+                  status: "error",
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "The connection was interrupted. Check the media list before trying again.",
+                }
+              : u,
           ),
         );
       }
     },
-    [entityType, entityId, mediaType, onUploadComplete, uploads.length],
+    [entityType, entityId, mediaType, onUploadComplete, processingParams],
   );
 
   const processUrl = useCallback(
@@ -159,19 +154,10 @@ export function UploadZone({
         imageUrl.split("/").pop()?.split("?")[0]?.slice(0, 40) ||
         "dragged-image";
 
-      const idx = uploads.length;
-      setUploads((prev) => [
-        ...prev,
-        { filename, progress: 0, status: "uploading" },
-      ]);
+      const id = crypto.randomUUID();
+      setUploads((prev) => [...prev, { id, filename, status: "uploading" }]);
 
       try {
-        setUploads((prev) =>
-          prev.map((u, i) =>
-            i === idx ? { ...u, progress: 30, status: "processing" } : u,
-          ),
-        );
-
         const res = await fetch("/api/media/from-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -184,24 +170,31 @@ export function UploadZone({
           }),
         });
 
-        if (!res.ok) throw new Error("Upload failed");
+        if (!res.ok) throw await mediaResponseError(res);
 
         setUploads((prev) =>
-          prev.map((u, i) =>
-            i === idx ? { ...u, progress: 100, status: "done" } : u,
-          ),
+          prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)),
         );
 
         onUploadComplete?.();
-      } catch {
+      } catch (error) {
         setUploads((prev) =>
-          prev.map((u, i) =>
-            i === idx ? { ...u, status: "error" } : u,
+          prev.map((u) =>
+            u.id === id
+              ? {
+                  ...u,
+                  status: "error",
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "The connection was interrupted. Check the media list before trying again.",
+                }
+              : u,
           ),
         );
       }
     },
-    [entityType, entityId, mediaType, onUploadComplete, uploads.length],
+    [entityType, entityId, mediaType, onUploadComplete, processingParams],
   );
 
   const handleFiles = useCallback(
@@ -277,26 +270,53 @@ export function UploadZone({
           accept={accept}
           multiple={multiple}
           className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = "";
+          }}
         />
       </div>
 
       {/* Upload progress */}
       {activeUploads.length > 0 && (
         <div className="mt-2 space-y-1">
-          {activeUploads.map((u, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
-                <div
-                  className={`h-full transition-all ${
-                    u.status === "error" ? "bg-accent-red" : "bg-accent-rose"
-                  }`}
-                  style={{ width: `${u.progress}%` }}
-                />
+          {activeUploads.map((u) => (
+            <div
+              key={u.id}
+              className="text-xs"
+              role={u.status === "error" ? "alert" : "status"}
+            >
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-fg-muted">
+                  {u.filename}
+                </span>
+                <span
+                  className={
+                    u.status === "error"
+                      ? "text-accent-red"
+                      : "animate-pulse text-fg-muted"
+                  }
+                >
+                  {u.status === "error"
+                    ? "Failed"
+                    : "Uploading and processing…"}
+                </span>
+                {u.status === "error" && (
+                  <button
+                    type="button"
+                    className="text-fg-muted hover:text-fg-primary"
+                    aria-label={`Dismiss error for ${u.filename}`}
+                    onClick={() =>
+                      setUploads((prev) =>
+                        prev.filter((item) => item.id !== u.id),
+                      )
+                    }
+                  >
+                    Dismiss
+                  </button>
+                )}
               </div>
-              <span className="text-micro text-fg-muted">
-                {u.status === "error" ? "Failed" : u.status === "processing" ? "Processing..." : `${u.progress}%`}
-              </span>
+              {u.error && <p className="mt-1 text-accent-red">{u.error}</p>}
             </div>
           ))}
         </div>
