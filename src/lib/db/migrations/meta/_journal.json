@@ -190,6 +190,13 @@
       "when": 1790360689420,
       "tag": "0026_target_accessioned_copies",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790433172659,
+      "tag": "0027_shared_image_adjustments",
+      "breakpoints": true
     }
   ]
 }

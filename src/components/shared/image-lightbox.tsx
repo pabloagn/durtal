@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -14,6 +15,7 @@ interface ImageLightboxProps {
 export function ImageLightbox({ src, alt, open, onClose }: ImageLightboxProps) {
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      if (document.querySelector("dialog[open]")) return;
       if (e.key === "Escape") onClose();
     },
     [onClose],
@@ -46,6 +48,7 @@ export function ImageLightbox({ src, alt, open, onClose }: ImageLightboxProps) {
         aria-hidden="true"
       />
 
+      <ImageAdjustButton source={src} className="absolute right-16 top-4 z-20" />
       {/* Close button */}
       <button
         onClick={onClose}

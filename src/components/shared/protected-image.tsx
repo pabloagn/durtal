@@ -9,9 +9,8 @@ interface ProtectedImageWrapperProps {
 }
 
 /**
- * Wraps any image element to prevent right-click saving, dragging,
- * and other download mechanisms. Adds an invisible overlay that
- * intercepts all pointer interactions directed at the image.
+ * Wraps images to prevent right-click saving and dragging. The overlay lets clicks reach image/lightbox controls;
+ * context-menu and drag events are still blocked on the wrapper.
  */
 export function ProtectedImageWrapper({
   children,
@@ -36,9 +35,9 @@ export function ProtectedImageWrapper({
       onDragStart={handleDragStart}
     >
       {children}
-      {/* Invisible overlay to prevent direct image interaction */}
+      {/* Let image controls receive clicks; protection handlers live on the wrapper. */}
       <div
-        className="absolute inset-0 z-[1]"
+        className="pointer-events-none absolute inset-0 z-[1]"
         style={{ background: "transparent" }}
         aria-hidden="true"
       />

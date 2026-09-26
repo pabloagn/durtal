@@ -95,6 +95,7 @@ export function Dialog({
           <button
             type="button"
             onClick={onClose}
+            aria-label={`Close ${title}`}
             className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />

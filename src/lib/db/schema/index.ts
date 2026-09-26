@@ -175,3 +175,5 @@ export {
   acquisitionTargets,
   acquisitionTargetCopies,
 } from "./publisher-links";
+
+export { imageAdjustments } from "./image-adjustments";

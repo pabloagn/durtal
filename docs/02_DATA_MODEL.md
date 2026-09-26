@@ -962,8 +962,8 @@ Images attached to works or authors. Polymorphic ownership.
 | `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position`. |
 | `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position`. |
 | `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
-| `brightness` | REAL | NOT NULL, default `100`. Display brightness percentage (100 = unchanged; editor range 50-150, valid 0-200). Applied as CSS `filter: brightness()`. |
-| `contrast` | REAL | NOT NULL, default `100`. Display contrast percentage (100 = unchanged; editor range 50-150, valid 0-200). Applied as CSS `filter: contrast()`. |
+| `brightness` | REAL | NOT NULL, default `100`. Display brightness percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: brightness()`. |
+| `contrast` | REAL | NOT NULL, default `100`. Display contrast percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: contrast()`. |
 | `original_s3_key` | TEXT | nullable. S3 key for the pre-processing color original. Set only for author media with monochrome processing. |
 | `processing_params` | JSONB | nullable. Monochrome processing parameters: `{ grayscale: true, contrast: number, sharpness: number, gamma: number, brightness: number }`. Author media only. |
 | `color_palette` | JSONB | nullable. Extracted color palette for poster images. Contains raw Vibrant swatches (vibrant, muted, darkVibrant, darkMuted, lightVibrant, lightMuted), dominant color from sharp stats, and a post-processed `crystal` array of 3-4 colors ready for ambient rendering. Extracted at upload time via node-vibrant. |
@@ -982,6 +982,24 @@ Images attached to works or authors. Polymorphic ownership.
 **Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
 
 **Color palette extraction**: For poster images (`type = 'poster'`), a color palette is extracted at upload time using node-vibrant. The multi-pass algorithm extracts six semantic swatches (Vibrant, Muted, DarkVibrant, DarkMuted, LightVibrant, LightMuted) and the dominant color via sharp stats. These are then processed through a crystal pipeline that enforces diversity (delta-E > 25 between selected colors), clamps saturation/lightness to the design language bounds (S: 12-65%, L: 18-45%), and assigns 3-4 roles (primary, secondary, accent, halo) with per-color opacity recommendations (0.08-0.18). The resulting `crystal` array drives the ambient color crystallization effect on book detail pages.
+
+### `image_adjustments`
+
+Shared display-only settings for stored image assets (migration `0027_shared_image_adjustments`). The table starts empty; existing media, files, crops, and defaults are unchanged.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `asset_key` | TEXT | PK, canonical full-image S3 key |
+| `sources` | JSONB | NOT NULL, canonical app URLs for full image, thumbnail and optional Reader cover route |
+| `settings` | JSONB | NOT NULL, validated exposure, brightness, contrast, saturation, grayscale, sepia and softness |
+| `monochrome` | BOOLEAN | NOT NULL, default false; derived from author ownership by the server |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, default now() |
+
+Exposure uses stops (-2 to +2); brightness/contrast/saturation use 0–200% with neutral 100%; grayscale/sepia use 0–100% with neutral 0%; softness uses 0–8px with neutral 0. Author assets force grayscale 100%, saturation 100%, and sepia 0, including Reset. Color originals used by the existing author processing pipeline are not editable through this feature.
+
+A single shared editor resolves registered assets from media, editions, author photos, venues, collections, image attachments and Calibre covers. The app provider applies the same filter as the preview to exact asset URLs across cards, lightboxes and thumbnails. Only explicitly saved images receive rules. Preview images opt out to avoid double application. For media, existing brightness/contrast values seed the editor and are synchronized atomically on save; framed posters/backgrounds retain their crop controls. Gallery and other images receive filters without introducing unsupported cropping. Originals and extracted ambient palettes are never rewritten. Reset restores neutral display settings, not the pre-processing color original.
+
+Collection posters, backgrounds and distinct legacy covers have separate identities. Entries are keyed by image identity rather than entity ID: replacing an image with a new S3 key starts neutral; deleting a file leaves harmless display metadata whose exact URLs no longer render. Settings are internal presentation metadata and are not baked into exported/downloaded files.
 
 ### `gallery_layouts`
 

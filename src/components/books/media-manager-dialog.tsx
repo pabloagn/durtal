@@ -14,9 +14,8 @@ import {
   setActiveMedia,
   deleteMedia,
   bulkDeleteMedia,
-  updateMediaCrop,
 } from "@/lib/actions/media";
-import { MediaCropEditor } from "./media-crop-editor";
+import { ImageAdjustmentEditor, ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "sonner";
 
@@ -84,13 +83,13 @@ export function MediaManagerDialog({
   const [deleting, setDeleting] = useState(false);
   const [settingActive, setSettingActive] = useState<string | null>(null);
   const [deletingSingle, setDeletingSingle] = useState<string | null>(null);
-  const [savingCrop, setSavingCrop] = useState(false);
 
   // URL paste state
   const [showUrlSection, setShowUrlSection] = useState(false);
   const [url, setUrl] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
 
+  const [adjustmentVersion, setAdjustmentVersion] = useState(0);
   const isGallery = activeTab === "gallery";
 
   const fetchItems = useCallback(async () => {
@@ -282,31 +281,10 @@ export function MediaManagerDialog({
             {!isGallery && (
               <div className="space-y-3">
                 {activeItem ? (
-                  <MediaCropEditor
-                    imageUrl={`/api/s3/read?key=${encodeURIComponent(activeItem.s3Key)}`}
-                    aspect={activeTab as "poster" | "background"}
-                    initial={{
-                      cropX: activeItem.cropX,
-                      cropY: activeItem.cropY,
-                      cropZoom: activeItem.cropZoom,
-                      brightness: activeItem.brightness,
-                      contrast: activeItem.contrast,
-                    }}
-                    saving={savingCrop}
-                    onSave={async (values) => {
-                      setSavingCrop(true);
-                      try {
-                        await updateMediaCrop(activeItem.id, values);
-                        await fetchItems();
-                        router.refresh();
-      triggerActivityRefresh();
-                        toast.success("Image settings saved");
-                      } catch {
-                        toast.error("Failed to save image settings");
-                      } finally {
-                        setSavingCrop(false);
-                      }
-                    }}
+                  <ImageAdjustmentEditor
+                    key={`${activeItem.id}-${adjustmentVersion}`}
+                    source={`/api/s3/read?key=${encodeURIComponent(activeItem.s3Key)}`}
+                    onSaved={() => { void fetchItems(); router.refresh(); triggerActivityRefresh(); }}
                   />
                 ) : (
                   <p className="py-3 text-sm text-fg-muted">
@@ -341,6 +319,7 @@ export function MediaManagerDialog({
 
                     return (
                       <div key={item.id} className="group relative">
+                        <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent(item.s3Key)}`} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
                           type="button"

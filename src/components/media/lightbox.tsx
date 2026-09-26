@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -34,6 +35,7 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLElement && e.target.closest("dialog") !== dialogRef.current) return;
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight") goNext();
       if (e.key === "ArrowLeft") goPrev();
@@ -48,12 +50,14 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
     <dialog
       ref={dialogRef}
       className="fixed inset-0 z-50 m-0 h-screen w-screen max-h-none max-w-none bg-bg-primary/95 p-0 backdrop:bg-transparent"
-      onClose={onClose}
+      onClose={(event) => { if (event.target === dialogRef.current) onClose(); }}
     >
       <div className="flex h-full w-full items-center justify-center">
+        <ImageAdjustButton key={current.src} source={current.src} className="absolute right-16 top-4 z-20" />
         {/* Close */}
         <button
           onClick={onClose}
+          aria-label="Close image"
           className="absolute right-4 top-4 z-10 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
         >
           <X className="h-5 w-5" strokeWidth={1.5} />

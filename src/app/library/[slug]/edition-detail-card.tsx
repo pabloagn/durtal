@@ -1,3 +1,4 @@
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import Link from "next/link";
 import { EditionPublishers } from "@/components/publishers/edition-publishers";
 import type { PublisherOption } from "@/components/publishers/publisher-picker";
@@ -153,6 +154,7 @@ export function EditionDetailCard({
             </div>
             {hasActionProps && (
               <div className="flex items-center gap-1">
+                {(edition.coverS3Key || edition.thumbnailS3Key) && <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent((edition.coverS3Key || edition.thumbnailS3Key)!)}`} label="Adjust edition cover" />}
                 {workId && (
                   <EditionMatchButton
                     workId={workId}

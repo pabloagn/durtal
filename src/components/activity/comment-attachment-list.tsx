@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { FileIcon } from "lucide-react";
 
 interface CommentAttachment {
@@ -33,22 +34,21 @@ export function CommentAttachmentList({
     <div className="mt-2 flex flex-wrap gap-2">
       {attachments.map((attachment) =>
         attachment.isImage ? (
+          <div key={attachment.id} className="relative">
           <a
-            key={attachment.id}
             href={attachment.thumbnailUrl ?? `/api/media/files/${attachment.s3Key}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary"
           >
             <img
-              src={
-                attachment.thumbnailUrl ??
-                `/api/media/files/${attachment.s3Key}`
-              }
+              src={`/api/s3/read?key=${encodeURIComponent(attachment.s3Key)}`}
               alt={attachment.fileName}
               className="h-16 w-16 object-cover"
             />
           </a>
+          <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent(attachment.s3Key)}`} className="absolute bottom-0.5 right-0.5" />
+          </div>
         ) : (
           <div
             key={attachment.id}

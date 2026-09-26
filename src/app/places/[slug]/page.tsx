@@ -1,3 +1,4 @@
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -91,7 +92,7 @@ async function PlaceContent({ slug }: { slug: string }) {
         {/* Image */}
         {displayImage && (
           <div
-            className="h-40 w-56 flex-shrink-0 overflow-hidden rounded-sm bg-bg-secondary"
+            className="relative h-40 w-56 flex-shrink-0 overflow-hidden rounded-sm bg-bg-secondary"
             style={venue.color ? { backgroundColor: venue.color } : undefined}
           >
             <img
@@ -99,6 +100,7 @@ async function PlaceContent({ slug }: { slug: string }) {
               alt={venue.name}
               className="h-full w-full object-cover"
             />
+            <ImageAdjustButton source={displayImage} className="absolute bottom-2 right-2" />
           </div>
         )}
 

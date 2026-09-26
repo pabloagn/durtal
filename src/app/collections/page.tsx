@@ -1,3 +1,4 @@
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { redirect } from "next/navigation";
 import { parsePagination, lastPage, pageHref, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
@@ -78,6 +79,10 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
                 </div>
               )}
 
+              <div className="absolute right-2 top-2 flex gap-1">
+                {posterKey && <ImageAdjustButton source={getImageUrl(posterKey)} label="Adjust collection poster" />}
+                {backgroundKey && <ImageAdjustButton source={getImageUrl(backgroundKey)} label="Adjust collection background" />}
+              </div>
               {/* Gradient overlay at bottom */}
               <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg-primary/90 to-transparent" />
 

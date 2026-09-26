@@ -4,6 +4,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { Shell } from "@/components/layout/shell";
 import { ImageGuard } from "@/components/shared/image-guard";
 import "@/styles/globals.css";
+import { getImageAdjustmentStyles } from "@/lib/actions/image-adjustments";
+import { ImageAdjustmentProvider } from "@/components/media/image-adjustment-provider";
 
 const serif = localFont({
   src: [
@@ -42,11 +44,12 @@ export const metadata: Metadata = {
   description: "Personal book catalogue and library index",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const adjustments = await getImageAdjustmentStyles();
   return (
     <html
       lang="en"
@@ -54,7 +57,7 @@ export default function RootLayout({
     >
       <body>
         <ImageGuard />
-        <Shell>{children}</Shell>
+        <ImageAdjustmentProvider initial={adjustments}><Shell>{children}</Shell></ImageAdjustmentProvider>
       </body>
     </html>
   );

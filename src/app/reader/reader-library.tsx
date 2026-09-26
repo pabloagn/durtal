@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { Pagination } from "@/components/shared/pagination";
@@ -145,6 +146,7 @@ function ReaderBookCard({
   const hasPdf = formats.some((f) => f.format.toLowerCase() === "pdf");
 
   return (
+    <div className="relative">
     <Link
       href={`/reader/${book.calibreId}`}
       className="group relative flex flex-col overflow-hidden rounded-sm border border-glass-border bg-bg-secondary transition-all duration-200 hover:border-fg-muted/20 hover:shadow-lg hover:shadow-black/20"
@@ -206,5 +208,7 @@ function ReaderBookCard({
         )}
       </div>
     </Link>
+    {book.coverS3Key && <ImageAdjustButton source={`/api/reader/${book.calibreId}/cover`} label="Adjust reader cover" className="absolute left-1.5 top-1.5" />}
+    </div>
   );
 }

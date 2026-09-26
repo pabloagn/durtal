@@ -1,5 +1,7 @@
 "use server";
 
+import { getImagePresentation, saveImagePresentation } from "./image-adjustments";
+import { s3ImageSource } from "@/lib/utils/image-adjustments";
 import { eq, and, asc, desc, inArray, not } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
@@ -167,13 +169,15 @@ export async function setActiveMedia(id: string) {
 
 export async function updateMediaCrop(id: string, input: UpdateMediaCropInput) {
   const data = updateMediaCropSchema.parse(input);
-  const [row] = await db
-    .update(media)
-    .set(data)
-    .where(eq(media.id, id))
-    .returning();
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
-  return row;
+  const item = await db.query.media.findFirst({ where: eq(media.id, id) });
+  if (!item) throw new Error("Media not found");
+  const source = s3ImageSource(item.s3Key);
+  const current = await getImagePresentation(source);
+  await saveImagePresentation(source, {
+    settings: { ...current.settings, brightness: data.brightness ?? current.settings.brightness, contrast: data.contrast ?? current.settings.contrast },
+    ...(item.type !== "gallery" ? { crop: { cropX: data.cropX, cropY: data.cropY, cropZoom: data.cropZoom } } : {}),
+  });
+  return db.query.media.findFirst({ where: eq(media.id, id) });
 }
 
 export async function reorderMedia(ids: string[]) {
