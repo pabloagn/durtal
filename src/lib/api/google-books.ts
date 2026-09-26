@@ -1,4 +1,5 @@
 import type { SearchResult } from "./types";
+import { reportSearchFailure } from "./search-diagnostics";
 
 interface GoogleBooksVolume {
   id: string;
@@ -95,7 +96,10 @@ export async function searchGoogleBooks(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    reportSearchFailure("google_books", res.status);
+    return [];
+  }
 
   const data: GoogleBooksResponse = await res.json();
   return (data.items ?? []).map(volumeToResult);

@@ -1,4 +1,5 @@
 import type { SearchResult } from "./types";
+import { reportSearchFailure } from "./search-diagnostics";
 
 interface OpenLibraryDoc {
   key: string;
@@ -74,7 +75,10 @@ export async function searchOpenLibrary(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    reportSearchFailure("open_library", res.status);
+    return [];
+  }
 
   const data: OpenLibrarySearchResponse = await res.json();
   return data.docs.map(docToResult);
@@ -93,7 +97,10 @@ export async function searchOpenLibraryByIsbn(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    reportSearchFailure("open_library", res.status);
+    return null;
+  }
 
   const data: OpenLibrarySearchResponse = await res.json();
   return data.docs[0] ? docToResult(data.docs[0]) : null;
@@ -114,7 +121,10 @@ export async function searchOpenLibraryByAuthor(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    reportSearchFailure("open_library", res.status);
+    return [];
+  }
 
   const data: OpenLibrarySearchResponse = await res.json();
   return data.docs.map(docToResult);
@@ -137,7 +147,10 @@ export async function searchOpenLibrarySplit(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    reportSearchFailure("open_library", res.status);
+    return [];
+  }
 
   const data: OpenLibrarySearchResponse = await res.json();
   return data.docs.map(docToResult);

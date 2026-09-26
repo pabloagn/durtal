@@ -1,4 +1,5 @@
 import type { SearchResult } from "./types";
+import { reportSearchFailure } from "./search-diagnostics";
 
 interface IsbndbBook {
   title: string;
@@ -22,7 +23,8 @@ interface IsbndbBookResponse {
 
 interface IsbndbSearchResponse {
   total: number;
-  data: IsbndbBook[];
+  books?: IsbndbBook[];
+  data?: IsbndbBook[];
 }
 
 const BASE_URL = "https://api2.isbndb.com";
@@ -70,7 +72,10 @@ export async function searchIsbndbByIsbn(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    reportSearchFailure("isbndb", res.status);
+    return null;
+  }
 
   const data: IsbndbBookResponse = await res.json();
   return data.book ? bookToResult(data.book) : null;
@@ -92,10 +97,13 @@ export async function searchIsbndb(
       next: { revalidate: 3600 },
     },
   );
-  if (!res.ok) return [];
+  if (!res.ok) {
+    reportSearchFailure("isbndb", res.status);
+    return [];
+  }
 
   const data: IsbndbSearchResponse = await res.json();
-  return (data.data ?? []).map(bookToResult);
+  return (data.books ?? data.data ?? []).map(bookToResult);
 }
 
 export async function searchIsbndbByAuthor(
@@ -115,8 +123,11 @@ export async function searchIsbndbByAuthor(
       next: { revalidate: 3600 },
     },
   );
-  if (!res.ok) return [];
+  if (!res.ok) {
+    reportSearchFailure("isbndb", res.status);
+    return [];
+  }
 
   const data: IsbndbSearchResponse = await res.json();
-  return (data.data ?? []).map(bookToResult);
+  return (data.books ?? data.data ?? []).map(bookToResult);
 }

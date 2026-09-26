@@ -1,4 +1,5 @@
 import type { SearchResult } from "./types";
+import { reportSearchFailure } from "./search-diagnostics";
 import {
   classifyQuery,
   type ClassifiedQuery,
@@ -220,6 +221,7 @@ function rankResults(
 // ── Search strategies ──────────────────────────────────────────────────────────
 
 async function safeSearch(
+  provider: SearchResult["source"],
   fn: () => Promise<SearchResult[] | SearchResult | null>,
 ): Promise<SearchResult[]> {
   try {
@@ -227,6 +229,7 @@ async function safeSearch(
     if (!result) return [];
     return Array.isArray(result) ? result : [result];
   } catch {
+    reportSearchFailure(provider, "request_failed");
     return [];
   }
 }
@@ -260,10 +263,10 @@ async function raceSearches(
 
 async function searchByIsbn(isbn: string): Promise<SearchResult[]> {
   // ISBNdb is primary; Google Books + Open Library are secondary
-  const primary = safeSearch(() => searchIsbndbByIsbn(isbn));
+  const primary = safeSearch("isbndb", () => searchIsbndbByIsbn(isbn));
   const secondary = Promise.all([
-    safeSearch(() => searchGoogleBooksByIsbn(isbn)),
-    safeSearch(() => searchOpenLibraryByIsbn(isbn)),
+    safeSearch("google_books", () => searchGoogleBooksByIsbn(isbn)),
+    safeSearch("open_library", () => searchOpenLibraryByIsbn(isbn)),
   ]).then((r) => r.flat());
 
   return raceSearches(primary, secondary);
@@ -272,8 +275,8 @@ async function searchByIsbn(isbn: string): Promise<SearchResult[]> {
 /**
  * Comprehensive search strategy for non-ISBN queries.
  *
- * Runs free-text search on Google Books (fast) as primary, and
- * Open Library + supplementary queries as secondary with a grace period.
+ * Runs free-text search on ISBNdb as primary, and
+ * Google Books + Open Library + supplementary queries as secondary with a grace period.
  * Only adds one author/title split (most likely) instead of all permutations.
  */
 async function searchComprehensive(
@@ -283,12 +286,12 @@ async function searchComprehensive(
   const words = q.split(/\s+/);
 
   // Primary: ISBNdb free-text search
-  const primary = safeSearch(() => searchIsbndb(q, 10));
+  const primary = safeSearch("isbndb", () => searchIsbndb(q, 10));
 
   // Secondary: Google Books + Open Library + targeted queries
   const secondarySearches: Promise<SearchResult[]>[] = [
-    safeSearch(() => searchGoogleBooks(q, 10)),
-    safeSearch(() => searchOpenLibrary(q, 10)),
+    safeSearch("google_books", () => searchGoogleBooks(q, 10)),
+    safeSearch("open_library", () => searchOpenLibrary(q, 10)),
   ];
 
   // Multi-word queries: add a single best-guess split
@@ -297,12 +300,12 @@ async function searchComprehensive(
     const right = words.slice(1).join(" ");
 
     secondarySearches.push(
-      safeSearch(() =>
+      safeSearch("google_books", () =>
         searchGoogleBooks(`inauthor:${left} intitle:${right}`, 3),
       ),
     );
     secondarySearches.push(
-      safeSearch(() =>
+      safeSearch("google_books", () =>
         searchGoogleBooks(`inauthor:${right} intitle:${left}`, 3),
       ),
     );
@@ -311,17 +314,17 @@ async function searchComprehensive(
   // High author confidence: add dedicated author searches
   if (query.authorScore >= 0.7) {
     secondarySearches.push(
-      safeSearch(() => searchIsbndbByAuthor(q, 5)),
+      safeSearch("isbndb", () => searchIsbndbByAuthor(q, 5)),
     );
     secondarySearches.push(
-      safeSearch(() => searchGoogleBooksByAuthor(q, 5)),
+      safeSearch("google_books", () => searchGoogleBooksByAuthor(q, 5)),
     );
   }
 
   // Low author confidence (likely title): add targeted title search
   if (query.authorScore <= 0.3) {
     secondarySearches.push(
-      safeSearch(() => searchGoogleBooks(`intitle:"${q}"`, 5)),
+      safeSearch("google_books", () => searchGoogleBooks(`intitle:"${q}"`, 5)),
     );
   }
 
