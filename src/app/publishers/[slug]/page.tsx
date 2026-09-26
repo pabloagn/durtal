@@ -1,6 +1,8 @@
+import { PaginatedSection } from "@/components/shared/pagination";
+import { parsePagination, pageHref, lastPage, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import Link from "next/link";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getPublisher, getPublisherCatalogue } from "@/lib/actions/publishers";
 import { PageHeader } from "@/components/layout/page-header";
 import { PublisherFavourite } from "@/components/publishers/favourite-button";
@@ -10,25 +12,27 @@ export default async function PublisherPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<ListSearchParams>;
 }) {
   const { slug } = await params;
   const query = await searchParams;
   const p = await getPublisher(slug);
   if (!p) notFound();
+  const filterValue = toSearchParams(query).get("filter");
   const filter = ["all", "owned", "wanted", "on_order"].includes(
-    query.filter ?? "",
+    filterValue ?? "",
   )
-    ? query.filter!
+    ? filterValue!
     : "all";
-  const page = Math.max(1, Number(query.page) || 1);
+  const { page, perPage } = parsePagination(query);
   const { rows, totals, pendingTargets } = await getPublisherCatalogue(
     p.id,
     filter,
     page,
+    perPage,
   );
+  if (page > lastPage(totals.works, perPage)) redirect(pageHref(`/publishers/${slug}`, query, lastPage(totals.works, perPage)));
   const groups = Map.groupBy(rows, (r) => r.work.id);
-  const href = (n: number) => `/publishers/${slug}?filter=${filter}&page=${n}`;
   return (
     <>
       <Link href="/publishers" className="text-sm text-fg-muted">
@@ -117,7 +121,7 @@ export default async function PublisherPage({
         ].map(([value, label]) => (
           <Link
             key={value}
-            href={`/publishers/${slug}?filter=${value}`}
+            href={pageHref(`/publishers/${slug}`, { ...query, filter: value }, 1)}
             aria-current={filter === value ? "page" : undefined}
             className={
               filter === value
@@ -157,6 +161,7 @@ export default async function PublisherPage({
           ))}
         </div>
       )}
+      <PaginatedSection page={page} perPage={perPage} total={totals.works} noun="books">
       <div className="space-y-5">
         {[...groups].map(([id, items]) => (
           <section
@@ -227,10 +232,7 @@ export default async function PublisherPage({
       {!rows.length && !pendingTargets.length && (
         <p className="py-10 text-fg-muted">No editions match this view.</p>
       )}
-      <div className="mt-6 flex gap-4 text-sm text-accent-blue">
-        {page > 1 && <Link href={href(page - 1)}>Previous</Link>}
-        {page * 24 < totals.works && <Link href={href(page + 1)}>Next</Link>}
-      </div>
+      </PaginatedSection>
     </>
   );
 }

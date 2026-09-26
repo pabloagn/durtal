@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+import { PaginatedSection } from "@/components/shared/pagination";
+import { parsePagination, pageHref, lastPage, type ListSearchParams } from "@/lib/utils/pagination";
 import Link from "next/link";
 import {
   getPublisherReview,
@@ -8,10 +11,12 @@ import { PageHeader } from "@/components/layout/page-header";
 export default async function ReviewPublisherMatches({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<ListSearchParams>;
 }) {
-  const page = Math.max(1, Number((await searchParams).page) || 1);
-  const { rows, total } = await getPublisherReview(page);
+  const query = await searchParams;
+  const { page, perPage } = parsePagination(query);
+  const { rows, total } = await getPublisherReview(page, perPage);
+  if (page > lastPage(total, perPage)) redirect(pageHref("/publishers/review", query, lastPage(total, perPage)));
   const links = await Promise.all(
     rows.map((r) => getEditionPublisherLinks(r.edition.id)),
   );
@@ -24,6 +29,7 @@ export default async function ReviewPublisherMatches({
       <Link href="/publishers" className="text-sm text-accent-blue">
         ← Publishers
       </Link>
+      <PaginatedSection page={page} perPage={perPage} total={total} noun="editions">
       <div className="mt-5 space-y-3">
         {rows.map(({ edition: e, work: w }, i) => (
           <div key={e.id} className="space-y-2 border border-glass-border p-4">
@@ -49,10 +55,7 @@ export default async function ReviewPublisherMatches({
       {!rows.length && (
         <p className="mt-6 text-fg-muted">No unmatched publisher names.</p>
       )}
-      <div className="mt-5 flex gap-4 text-sm text-accent-blue">
-        {page > 1 && <Link href={`?page=${page - 1}`}>Previous</Link>}
-        {page * 24 < total && <Link href={`?page=${page + 1}`}>Next</Link>}
-      </div>
+      </PaginatedSection>
     </>
   );
 }

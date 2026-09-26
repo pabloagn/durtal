@@ -538,5 +538,24 @@ describe.skipIf(!url)(
         publisher: "NYRB",
       });
     });
+    it("paginates publisher catalogues and review queues with shared page sizes and stable boundaries", async () => {
+      const p = await publisher();
+      const books = await db.insert(schema.works).values(Array.from({ length: 49 }, () => ({ title: "Same title" }))).returning();
+      const editions = await db.insert(schema.editions).values(books.map((w) => ({ workId: w.id, title: "Edition", publisher: "Unresolved fixture house" }))).returning();
+      await db.insert(schema.editionPublishers).values(editions.map((e) => ({ editionId: e.id, publisherId: p.id })));
+      const first = await getPublisherCatalogue(p.id, "all", 1, 48);
+      const second = await getPublisherCatalogue(p.id, "all", 2, 48);
+      expect(first.totals.works).toBe(49);
+      expect(first.rows).toHaveLength(48);
+      expect(second.rows).toHaveLength(1);
+      expect(new Set([...first.rows, ...second.rows].map((r) => r.work.id)).size).toBe(49);
+      expect((await getPublisherCatalogue(p.id, "all", NaN, 24)).rows).toHaveLength(24);
+      const reviewFirst = await getPublisherReview(1, 48);
+      const reviewSecond = await getPublisherReview(2, 48);
+      expect(reviewFirst.total).toBe(49);
+      expect(reviewFirst.rows).toHaveLength(48);
+      expect(reviewSecond.rows).toHaveLength(1);
+      expect(new Set([...reviewFirst.rows, ...reviewSecond.rows].map((r) => r.edition.id)).size).toBe(49);
+    });
   },
 );

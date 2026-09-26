@@ -33,8 +33,6 @@ import { targetState } from "@/lib/publishers/conditions";
 function changed() {
   invalidate(CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.orders);
 }
-const pageNumber = (page: number) =>
-  z.number().int().min(1).max(100000).parse(page);
 
 export async function getPublisherOptions() {
   return db
@@ -341,7 +339,9 @@ export async function getPublisherCatalogue(
   id: string,
   filter = "all",
   page = 1,
+  perPage = 24,
 ) {
+  const paging = parsePagination({ page: String(page), perPage: String(perPage) }, { defaultPerPage: 24 });
   z.uuid().parse(id);
   z.enum(["all", "owned", "wanted", "on_order"]).parse(filter);
   const belongs = sql`exists (select 1 from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where ep.edition_id = ${editions.id} and (p.id = ${id} or p.parent_id = ${id}))`;
@@ -366,8 +366,8 @@ export async function getPublisherCatalogue(
     .innerJoin(works, eq(works.id, editions.workId))
     .where(condition)
     .orderBy(asc(works.title), asc(editions.workId))
-    .limit(24)
-    .offset((pageNumber(page) - 1) * 24);
+    .limit(paging.perPage)
+    .offset(paging.offset);
   const [workRows, [totals], pendingTargets] = await Promise.all([
     workPage,
     db
@@ -433,7 +433,8 @@ export async function getPublisherCatalogue(
   };
 }
 
-export async function getPublisherReview(page = 1) {
+export async function getPublisherReview(page = 1, perPage = 24) {
+  const paging = parsePagination({ page: String(page), perPage: String(perPage) }, { defaultPerPage: 24 });
   const condition = and(
     eq(editions.publisherLinksConfirmed, false),
     sql`exists (select 1 from (values (${editions.publisher}), (${editions.imprint})) names(name) where nullif(trim(name), '') is not null and (select count(*) from publisher_candidates(name)) <> 1)`,
@@ -445,8 +446,8 @@ export async function getPublisherReview(page = 1) {
       .innerJoin(works, eq(works.id, editions.workId))
       .where(condition)
       .orderBy(asc(works.title), asc(editions.id))
-      .limit(24)
-      .offset((pageNumber(page) - 1) * 24),
+      .limit(paging.perPage)
+      .offset(paging.offset),
     db.select({ count: count() }).from(editions).where(condition),
   ]);
   return { rows, total: total.count };
