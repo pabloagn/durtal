@@ -1,15 +1,20 @@
+import { redirect } from "next/navigation";
+import { parsePagination, lastPage, pageHref, type ListSearchParams } from "@/lib/utils/pagination";
+import { PaginatedSection } from "@/components/shared/pagination";
 import { Suspense } from "react";
 import { Layers } from "lucide-react";
 import Link from "next/link";
-import { getSeries } from "@/lib/actions/series";
+import { getSeries, getSeriesCount } from "@/lib/actions/series";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 
-async function SeriesContent() {
-  const allSeries = await getSeries();
+async function SeriesContent({ params }: { params: ListSearchParams }) {
+  const { page, perPage, offset } = parsePagination(params);
+  const [allSeries, total] = await Promise.all([getSeries({ limit: perPage, offset }), getSeriesCount()]);
+  if (page > lastPage(total, perPage)) redirect(pageHref("/series", params, lastPage(total, perPage)));
 
   if (allSeries.length === 0) {
     return (
@@ -21,7 +26,10 @@ async function SeriesContent() {
     );
   }
 
+  const paging = { page, perPage, total };
+
   return (
+    <PaginatedSection {...paging} noun="series">
     <div className="space-y-2">
       {allSeries.map((s) => {
         const workCount = s.works.length;
@@ -62,24 +70,26 @@ async function SeriesContent() {
         );
       })}
     </div>
+    </PaginatedSection>
   );
 }
 
-export default function SeriesPage() {
+export default async function SeriesPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader
         title="Series"
         description="Book series in your catalogue"
       />
-      <Suspense
+      <Suspense key={JSON.stringify(params)}
         fallback={
           <div className="flex items-center justify-center py-16">
             <Spinner className="h-6 w-6" />
           </div>
         }
       >
-        <SeriesContent />
+        <SeriesContent params={params} />
       </Suspense>
     </>
   );

@@ -245,7 +245,7 @@ export async function getWorks(opts?: {
 
   const results = await db.query.works.findMany({
     where,
-    orderBy,
+    orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(works.id)],
     limit,
     offset,
     with: {

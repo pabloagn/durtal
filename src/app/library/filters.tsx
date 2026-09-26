@@ -1,5 +1,7 @@
 "use client";
 
+import { firstPageHref } from "@/lib/utils/list-params";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
 import { EntityFilters } from "@/components/shared/entity-filters";
@@ -113,8 +115,7 @@ export function LibraryFilters({
       } else {
         params.delete(key);
       }
-      params.delete("page");
-      router.push(`/library?${params.toString()}`);
+      router.push(firstPageHref("/library", params));
     },
     [router, searchParams],
   );
@@ -128,8 +129,7 @@ export function LibraryFilters({
     params.delete("rating");
     params.delete("location");
     params.delete("poster");
-    params.delete("page");
-    router.push(`/library?${params.toString()}`);
+      router.push(firstPageHref("/library", params));
   }, [router, searchParams]);
 
   return (

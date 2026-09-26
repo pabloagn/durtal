@@ -1,5 +1,8 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { paginateItems } from "@/lib/utils/pagination";
+import { PaginatedSection } from "@/components/shared/pagination";
 import { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
@@ -217,6 +220,7 @@ export function TaxonomyTree({
   onDelete,
   onMerge,
 }: TaxonomyTreeProps) {
+  const searchParams = useSearchParams();
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -257,6 +261,8 @@ export function TaxonomyTree({
     }
     return flattenTree(treeNodes, collapsedIds);
   }, [items, hierarchical, treeNodes, collapsedIds]);
+
+  const paging = paginateItems(visibleRows, searchParams);
 
   const sortableIds = useMemo(
     () => visibleRows.map((r) => r.item.id),
@@ -315,6 +321,7 @@ export function TaxonomyTree({
   }
 
   return (
+    <PaginatedSection {...paging} noun="items">
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
@@ -326,7 +333,7 @@ export function TaxonomyTree({
         strategy={verticalListSortingStrategy}
       >
         <div className="divide-y-0">
-          {visibleRows.map(({ item, depth }) => {
+          {paging.items.map(({ item, depth }) => {
             const treeNode = treeNodeMap.get(item.id);
             const hasChildren = treeNode
               ? treeNode.children.length > 0
@@ -360,5 +367,6 @@ export function TaxonomyTree({
         {activeItem ? <DragOverlayRow item={activeItem} /> : null}
       </DragOverlay>
     </DndContext>
+    </PaginatedSection>
   );
 }

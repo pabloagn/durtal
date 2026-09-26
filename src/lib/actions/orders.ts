@@ -298,7 +298,7 @@ export async function getOrderTimeline(
   const [results, countResult] = await Promise.all([
     db.query.orders.findMany({
       where,
-      orderBy: desc(orders.orderDate),
+      orderBy: [desc(orders.orderDate), desc(orders.id)],
       limit,
       offset,
       with: {

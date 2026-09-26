@@ -1,10 +1,11 @@
+import { pageHref } from "./pagination";
 /**
  * URL helpers for list pages (/authors, /places, /library) that keep their
  * search, filters, sort and page in the query string.
  */
 
 /** Params that describe how a list is shown, not what it contains. */
-const PRESENTATION_PARAMS = ["sort", "order"];
+const PRESENTATION_PARAMS = ["sort", "order", "perPage"];
 
 /**
  * Build the list URL with the search and every filter removed.
@@ -29,10 +30,7 @@ export function firstPageHref(
   basePath: string,
   params: URLSearchParams | { toString(): string },
 ): string {
-  const next = new URLSearchParams(params.toString());
-  next.delete("page");
-  const qs = next.toString();
-  return qs ? `${basePath}?${qs}` : basePath;
+  return pageHref(basePath, params, 1);
 }
 
 /**

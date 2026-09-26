@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { firstPageHref } from "@/lib/utils/list-params";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Plus, Search, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -47,11 +48,17 @@ export function TaxonomyFamilyShell({
   items,
 }: TaxonomyFamilyShellProps) {
   const router = useRouter();
+  const params = useSearchParams();
+  function setFilter(key: string, value: string) {
+    const next = new URLSearchParams(params.toString());
+    if (value) next.set(key, value); else next.delete(key);
+    router.replace(firstPageHref(`/taxonomy/${family.slug}`, next), { scroll: false });
+  }
   const [isPending, startTransition] = useTransition();
 
   // Local state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const searchQuery = params.get("q") ?? "";
+  const sortMode = (params.get("sort") ?? "manual") as SortMode;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Dialog state
@@ -235,7 +242,7 @@ export function TaxonomyFamilyShell({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setFilter("q", e.target.value)}
             placeholder="Filter items..."
             className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-8 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
           />
@@ -244,7 +251,7 @@ export function TaxonomyFamilyShell({
         {/* Sort dropdown */}
         <select
           value={sortMode}
-          onChange={(e) => setSortMode(e.target.value as SortMode)}
+          onChange={(e) => setFilter("sort", e.target.value)}
           className="h-8 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-sm text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"
         >
           <option value="manual">Manual order</option>

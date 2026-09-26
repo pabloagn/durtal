@@ -128,7 +128,7 @@ export async function getVenues(opts?: {
 
   return db.query.venues.findMany({
     where,
-    orderBy,
+    orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(venues.id)],
     limit,
     offset,
     with: {

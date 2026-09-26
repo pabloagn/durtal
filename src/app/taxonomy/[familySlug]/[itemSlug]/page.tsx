@@ -1,3 +1,5 @@
+import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
+import { PaginatedSection } from "@/components/shared/pagination";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -72,9 +74,11 @@ async function getWorksByIds(ids: string[]) {
 async function ItemContent({
   familySlug,
   itemSlug,
+  searchParams,
 }: {
   familySlug: string;
   itemSlug: string;
+  searchParams: ListSearchParams;
 }) {
   const [family, item] = await Promise.all([
     getTaxonomyFamily(familySlug),
@@ -87,6 +91,8 @@ async function ItemContent({
   const entityIds = item.entityIds ?? [];
   const entityWorks =
     family.entityLevel === "work" ? await getWorksByIds(entityIds) : [];
+
+  const paging = paginateItems(entityWorks, searchParams);
 
   return (
     <div>
@@ -147,8 +153,9 @@ async function ItemContent({
           <h2 className="mb-4 font-serif text-xl text-fg-primary">
             Associated Works
           </h2>
+          <PaginatedSection {...paging} noun="works">
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {entityWorks.map((work) => {
+            {paging.items.map((work) => {
               const authorName = work.workAuthors
                 .map((wa) => wa.author?.name ?? "Unknown")
                 .join(", ");
@@ -194,6 +201,7 @@ async function ItemContent({
               );
             })}
           </div>
+          </PaginatedSection>
         </div>
       )}
 
@@ -224,20 +232,23 @@ async function ItemContent({
 
 export default async function TaxonomyItemPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ familySlug: string; itemSlug: string }>;
+  searchParams: Promise<ListSearchParams>;
 }) {
   const { familySlug, itemSlug } = await params;
+  const query = await searchParams;
 
   return (
-    <Suspense
+    <Suspense key={JSON.stringify(query)}
       fallback={
         <div className="flex items-center justify-center py-16">
           <Spinner className="h-6 w-6" />
         </div>
       }
     >
-      <ItemContent familySlug={familySlug} itemSlug={itemSlug} />
+      <ItemContent familySlug={familySlug} itemSlug={itemSlug} searchParams={query} />
     </Suspense>
   );
 }

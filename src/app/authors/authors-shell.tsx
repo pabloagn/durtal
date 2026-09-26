@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
 import { CheckSquare } from "lucide-react";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
@@ -20,12 +21,6 @@ import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 
-interface PaginationData {
-  page: number;
-  totalPages: number;
-  total: number;
-  paginationParams: Record<string, string>;
-}
 
 const AuthorsMap = dynamic(
   () =>
@@ -278,6 +273,8 @@ export function AuthorsShell({
         </div>
       )}
 
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" compact />}
+
       {viewMode === "grid" && (
         <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-5"}`}>
           {authors.map((a) => (
@@ -350,40 +347,7 @@ export function AuthorsShell({
         onExitSelection={selection.exitSelectionMode}
       />
 
-      {/* Pagination — hidden in map and timeline views which show all items */}
-      {viewMode !== "map" && viewMode !== "timeline" && (
-        <>
-          {pagination.totalPages > 1 && (
-            <div className="mt-8 flex items-center justify-center gap-2">
-              {pagination.page > 1 && (
-                <Link
-                  href={`/authors?${new URLSearchParams({ ...pagination.paginationParams, page: String(pagination.page - 1) })}`}
-                >
-                  <Button variant="ghost" size="sm">
-                    Previous
-                  </Button>
-                </Link>
-              )}
-              <span className="font-mono text-xs text-fg-muted">
-                {pagination.page} / {pagination.totalPages}
-              </span>
-              {pagination.page < pagination.totalPages && (
-                <Link
-                  href={`/authors?${new URLSearchParams({ ...pagination.paginationParams, page: String(pagination.page + 1) })}`}
-                >
-                  <Button variant="ghost" size="sm">
-                    Next
-                  </Button>
-                </Link>
-              )}
-            </div>
-          )}
-
-          <p className="mt-4 text-center font-mono text-xs text-fg-muted">
-            {pagination.total} {pagination.total === 1 ? "author" : "authors"}
-          </p>
-        </>
-      )}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" />}
     </>
   );
 }

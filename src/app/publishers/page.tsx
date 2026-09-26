@@ -1,3 +1,6 @@
+import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
+import { redirect } from "next/navigation";
+import { Pagination } from "@/components/shared/pagination";
 import Link from "next/link";
 import { getPublishers } from "@/lib/actions/publishers";
 import { PageHeader } from "@/components/layout/page-header";
@@ -7,17 +10,17 @@ const fieldClass =
 export default async function PublishersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; favourites?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; favourites?: string; page?: string; perPage?: string }>;
 }) {
   const params = await searchParams;
-  const page = Math.max(1, Number(params.page) || 1);
+  const { page, perPage } = parsePagination(params);
   const { rows, total } = await getPublishers(
     params.q,
     params.favourites === "true",
     page,
+    perPage,
   );
-  const link = (n: number) =>
-    `/publishers?${new URLSearchParams({ q: params.q ?? "", favourites: params.favourites ?? "", page: String(n) })}`;
+  if (page > lastPage(total, perPage)) redirect(pageHref("/publishers", params, lastPage(total, perPage)));
   return (
     <>
       <PageHeader
@@ -30,6 +33,7 @@ export default async function PublishersPage({
         }
       />
       <form className="mb-6 flex flex-wrap items-center gap-3">
+        <input type="hidden" name="perPage" value={perPage} />
         <input
           name="q"
           aria-label="Search publishers"
@@ -57,6 +61,7 @@ export default async function PublishersPage({
       <p className="mb-3 text-xs text-fg-muted">
         {total} publishers · edition counts refer to your Durtal catalogue
       </p>
+      <Pagination page={page} perPage={perPage} total={total} noun="publishers" compact />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rows.map(({ publisher: p, editionCount }) => (
           <div
@@ -83,10 +88,7 @@ export default async function PublishersPage({
           No publishers match these filters.
         </p>
       )}
-      <div className="mt-6 flex gap-4 text-sm text-accent-blue">
-        {page > 1 && <Link href={link(page - 1)}>Previous</Link>}
-        {page * 48 < total && <Link href={link(page + 1)}>Next</Link>}
-      </div>
+      <Pagination page={page} perPage={perPage} total={total} noun="publishers" />
     </>
   );
 }

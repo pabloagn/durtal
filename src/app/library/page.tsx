@@ -1,3 +1,7 @@
+import { Suspense } from "react";
+import { Spinner } from "@/components/ui/spinner";
+import { redirect } from "next/navigation";
+import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import Link from "next/link";
 import { Plus, Library } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
@@ -25,6 +29,7 @@ interface PageProps {
     location?: string;
     poster?: string;
     page?: string;
+    perPage?: string;
   }>;
 }
 
@@ -43,6 +48,7 @@ async function LibraryContent({
     location?: string;
     poster?: string;
     page?: string;
+    perPage?: string;
   };
 }) {
   const search = searchParams.q;
@@ -54,9 +60,7 @@ async function LibraryContent({
     | "authorFirstName"
     | "authorLastName";
   const order = (searchParams.order ?? undefined) as "asc" | "desc" | undefined;
-  const page = parseInt(searchParams.page ?? "1", 10);
-  const limit = 48;
-  const offset = (page - 1) * limit;
+  const { page, perPage: limit, offset } = parsePagination(searchParams);
 
   const statusFilter = searchParams.status?.split(",").filter(Boolean);
   const priorityFilter = searchParams.priority?.split(",").filter(Boolean);
@@ -115,6 +119,8 @@ async function LibraryContent({
       },
     }),
   ]);
+
+  if (page > lastPage(total, limit)) redirect(pageHref("/library", searchParams, lastPage(total, limit)));
 
   if (works.length === 0 && timelineWorks.length === 0) {
     const params = new URLSearchParams(
@@ -202,54 +208,10 @@ async function LibraryContent({
     };
   });
 
-  const totalPages = Math.ceil(total / limit);
-
-  const paginationParams = {
-    ...(search ? { q: search } : {}),
-    sort,
-    ...(order ? { order } : {}),
-    ...(searchParams.status ? { status: searchParams.status } : {}),
-    ...(searchParams.rare ? { rare: searchParams.rare } : {}),
-    ...(searchParams.priority ? { priority: searchParams.priority } : {}),
-    ...(searchParams.rating ? { rating: searchParams.rating } : {}),
-    ...(searchParams.location ? { location: searchParams.location } : {}),
-    ...(searchParams.poster ? { poster: searchParams.poster } : {}),
-  };
 
   return (
     <>
-      <LibraryShell books={books} timelineWorks={timelineWorks}>
-        {/* Pagination — hidden in timeline mode by LibraryShell */}
-        {totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-center gap-2">
-            {page > 1 && (
-              <Link
-                href={`/library?${new URLSearchParams({ ...paginationParams, page: String(page - 1) })}`}
-              >
-                <Button variant="ghost" size="sm">
-                  Previous
-                </Button>
-              </Link>
-            )}
-            <span className="font-mono text-xs text-fg-muted">
-              {page} / {totalPages}
-            </span>
-            {page < totalPages && (
-              <Link
-                href={`/library?${new URLSearchParams({ ...paginationParams, page: String(page + 1) })}`}
-              >
-                <Button variant="ghost" size="sm">
-                  Next
-                </Button>
-              </Link>
-            )}
-          </div>
-        )}
-
-        <p className="mt-4 text-center font-mono text-xs text-fg-muted">
-          {total} {total === 1 ? "work" : "works"}
-        </p>
-      </LibraryShell>
+      <LibraryShell books={books} timelineWorks={timelineWorks} pagination={{ page, perPage: limit, total }} />
     </>
   );
 }
@@ -273,7 +235,7 @@ export default async function LibraryPage({ searchParams }: PageProps) {
       />
 
       <LibraryFiltersBar />
-      <LibraryContent searchParams={params} />
+      <Suspense key={JSON.stringify(params)} fallback={<div className="py-16"><Spinner /></div>}><LibraryContent searchParams={params} /></Suspense>
     </>
   );
 }

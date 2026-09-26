@@ -130,7 +130,7 @@ export async function getAuthors(opts?: {
 
   const results = await db.query.authors.findMany({
     where,
-    orderBy,
+    orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(authors.id)],
     limit,
     offset,
     with: {

@@ -1,10 +1,11 @@
+import { PaginatedSection } from "@/components/shared/pagination";
+import { redirect } from "next/navigation";
+import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Suspense } from "react";
-import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { getVenues, getVenueCount } from "@/lib/actions/venues";
 import type { VenueType } from "@/lib/actions/venues";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { PlacesShell, type VenueItem } from "./places-shell";
@@ -18,6 +19,7 @@ interface PageProps {
     sort?: string;
     order?: string;
     page?: string;
+    perPage?: string;
     type?: string;
     favorite?: string;
   }>;
@@ -31,6 +33,7 @@ async function PlacesContent({
     sort?: string;
     order?: string;
     page?: string;
+    perPage?: string;
     type?: string;
     favorite?: string;
   };
@@ -43,9 +46,7 @@ async function PlacesContent({
     .filter(Boolean) as VenueType[] | undefined;
   const favoriteFilter = searchParams.favorite === "true" ? true : undefined;
 
-  const page = parseInt(searchParams.page ?? "1", 10);
-  const limit = 48;
-  const offset = (page - 1) * limit;
+  const { page, perPage: limit, offset } = parsePagination(searchParams);
 
   const filters = {
     types: typeFilter?.length ? typeFilter : undefined,
@@ -56,6 +57,8 @@ async function PlacesContent({
     getVenues({ search, sort, order, limit, offset, filters }),
     getVenueCount({ search, filters }),
   ]);
+
+  if (page > lastPage(total, limit)) redirect(pageHref("/places", searchParams, lastPage(total, limit)));
 
   // Full-page empty state only when there are no venues at all. A search or
   // filter with no match is handled by the shell, below the toolbar.
@@ -92,52 +95,10 @@ async function PlacesContent({
     createdAt: new Date(v.createdAt).toLocaleDateString(),
   }));
 
-  const totalPages = Math.ceil(total / limit);
-
-  const paginationParams = {
-    ...(search ? { q: search } : {}),
-    sort,
-    ...(searchParams.order ? { order: searchParams.order } : {}),
-    ...(searchParams.type ? { type: searchParams.type } : {}),
-    ...(searchParams.favorite ? { favorite: searchParams.favorite } : {}),
-  };
 
   return (
     <>
-      <PlacesShell venues={venues} total={total} />
-
-      {/* Pagination */}
-      {venues.length > 0 && totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          {page > 1 && (
-            <Link
-              href={`/places?${new URLSearchParams({ ...paginationParams, page: String(page - 1) })}`}
-            >
-              <Button variant="ghost" size="sm">
-                Previous
-              </Button>
-            </Link>
-          )}
-          <span className="font-mono text-xs text-fg-muted">
-            {page} / {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link
-              href={`/places?${new URLSearchParams({ ...paginationParams, page: String(page + 1) })}`}
-            >
-              <Button variant="ghost" size="sm">
-                Next
-              </Button>
-            </Link>
-          )}
-        </div>
-      )}
-
-      {venues.length > 0 && (
-        <p className="mt-4 text-center font-mono text-xs text-fg-muted">
-          {total} {total === 1 ? "venue" : "venues"}
-        </p>
-      )}
+      <PaginatedSection page={page} perPage={limit} total={total} noun="venues"><PlacesShell venues={venues} total={total} /></PaginatedSection>
     </>
   );
 }

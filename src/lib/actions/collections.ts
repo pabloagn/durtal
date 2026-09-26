@@ -2,19 +2,26 @@
 
 import { db } from "@/lib/db";
 import { collections, collectionEditions, editions, works, workAuthors, authors } from "@/lib/db/schema";
-import { eq, asc, and, ilike, or, sql, inArray } from "drizzle-orm";
+import { eq, asc, count, and, ilike, or, sql, inArray } from "drizzle-orm";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
-export async function getCollections() {
+export async function getCollections(pagination?: { limit: number; offset: number }) {
   return db.query.collections.findMany({
-    orderBy: asc(collections.sortOrder),
+    orderBy: [asc(collections.sortOrder), asc(collections.id)],
+    limit: pagination?.limit,
+    offset: pagination?.offset,
     with: {
       collectionEditions: {
         columns: { editionId: true },
       },
     },
   });
+}
+
+export async function getCollectionCount() {
+  const [result] = await db.select({ count: count() }).from(collections);
+  return result.count;
 }
 
 export async function getCollection(id: string) {

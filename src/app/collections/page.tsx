@@ -1,7 +1,10 @@
+import { redirect } from "next/navigation";
+import { parsePagination, lastPage, pageHref, type ListSearchParams } from "@/lib/utils/pagination";
+import { PaginatedSection } from "@/components/shared/pagination";
 import { Suspense } from "react";
 import Image from "next/image";
 import { FolderOpen } from "lucide-react";
-import { getCollections } from "@/lib/actions/collections";
+import { getCollections, getCollectionCount } from "@/lib/actions/collections";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,8 +14,10 @@ function getImageUrl(s3Key: string) {
   return `/api/s3/read?key=${encodeURIComponent(s3Key)}`;
 }
 
-async function CollectionsContent() {
-  const collections = await getCollections();
+async function CollectionsContent({ params }: { params: ListSearchParams }) {
+  const { page, perPage, offset } = parsePagination(params);
+  const [collections, total] = await Promise.all([getCollections({ limit: perPage, offset }), getCollectionCount()]);
+  if (page > lastPage(total, perPage)) redirect(pageHref("/collections", params, lastPage(total, perPage)));
 
   if (collections.length === 0) {
     return (
@@ -25,7 +30,10 @@ async function CollectionsContent() {
     );
   }
 
+  const paging = { page, perPage, total };
+
   return (
+    <PaginatedSection {...paging} noun="collections">
     <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {collections.map((collection) => {
         const editionCount = collection.collectionEditions?.length ?? 0;
@@ -96,10 +104,12 @@ async function CollectionsContent() {
         );
       })}
     </div>
+    </PaginatedSection>
   );
 }
 
-export default function CollectionsPage() {
+export default async function CollectionsPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
+  const params = await searchParams;
   return (
     <>
       <PageHeader
@@ -107,14 +117,14 @@ export default function CollectionsPage() {
         description="Curated groups of books"
         actions={<CreateCollectionDialog />}
       />
-      <Suspense
+      <Suspense key={JSON.stringify(params)}
         fallback={
           <div className="flex items-center justify-center py-16">
             <Spinner className="h-6 w-6" />
           </div>
         }
       >
-        <CollectionsContent />
+        <CollectionsContent params={params} />
       </Suspense>
     </>
   );

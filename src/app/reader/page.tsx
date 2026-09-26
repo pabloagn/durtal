@@ -1,3 +1,5 @@
+import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCalibreBooks, getRecentlyRead } from "@/lib/calibre/queries";
 import { ReaderLibrary } from "./reader-library";
@@ -9,17 +11,18 @@ export const metadata: Metadata = {
 export default async function ReaderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; perPage?: string }>;
 }) {
-  const { q, page } = await searchParams;
-  const currentPage = parseInt(page ?? "1", 10);
-  const limit = 48;
-  const offset = (currentPage - 1) * limit;
+  const params = await searchParams;
+  const q = params.q;
+  const { page: currentPage, perPage: limit, offset } = parsePagination(params);
 
   const [{ books, total }, recentlyRead] = await Promise.all([
     getCalibreBooks({ query: q, limit, offset }),
     getRecentlyRead(6),
   ]);
+
+  if (currentPage > lastPage(total, limit)) redirect(pageHref("/reader", params, lastPage(total, limit)));
 
   return (
     <ReaderLibrary

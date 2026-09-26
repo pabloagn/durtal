@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, or, sql, count } from "drizzle-orm";
 import { z } from "zod/v4";
+import { parsePagination } from "@/lib/utils/pagination";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
@@ -52,7 +53,8 @@ export async function getPublisherOptions() {
     .orderBy(asc(houses.name), asc(houses.country), asc(houses.id));
 }
 
-export async function getPublishers(search = "", favourites = false, page = 1) {
+export async function getPublishers(search = "", favourites = false, page = 1, perPage = 48) {
+  const paging = parsePagination({ page: String(page), perPage: String(perPage) });
   const q = z.string().max(200).parse(search).trim();
   const where = and(
     favourites ? eq(houses.isFavourite, true) : undefined,
@@ -69,8 +71,8 @@ export async function getPublishers(search = "", favourites = false, page = 1) {
       .from(houses)
       .where(where)
       .orderBy(desc(houses.isFavourite), asc(houses.name), asc(houses.id))
-      .limit(48)
-      .offset((pageNumber(page) - 1) * 48),
+      .limit(paging.perPage)
+      .offset(paging.offset),
     db.select({ count: count() }).from(houses).where(where),
   ]);
   return { rows, total: total.count };

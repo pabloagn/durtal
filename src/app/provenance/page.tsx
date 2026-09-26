@@ -1,6 +1,10 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { parsePagination, lastPage, pageHref, type ListSearchParams } from "@/lib/utils/pagination";
+import { PaginatedSection } from "@/components/shared/pagination";
 import { getTargetOrderSeed } from "@/lib/actions/publishers";
 import { Suspense } from "react";
-import { getActiveOrders, getProvenanceStats } from "@/lib/actions/orders";
+import { getActiveOrders, getProvenanceStats, getOrderTimeline } from "@/lib/actions/orders";
 import { PageHeader } from "@/components/layout/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { ProvenanceShell } from "./provenance-shell";
@@ -76,12 +80,29 @@ async function ProvenanceContent() {
   return <ProvenanceShell activeOrders={orders} stats={provenanceStats} />;
 }
 
+async function OrderHistory({ params }: { params: ListSearchParams }) {
+  const { page, perPage, offset } = parsePagination(params);
+  const { orders, total } = await getOrderTimeline(undefined, { limit: perPage, offset });
+  if (page > lastPage(total, perPage)) redirect(pageHref("/provenance", params, lastPage(total, perPage)));
+  return <section className="mt-10">
+    <h2 className="font-serif text-2xl text-fg-primary">Acquisition history</h2>
+    <PaginatedSection page={page} perPage={perPage} total={total} noun="orders">
+      <div className="space-y-2">{orders.map((order) => <Link key={order.id} href={`/library/${order.work.slug}`} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-glass-border p-3 hover:bg-bg-secondary">
+        <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-muted">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>
+        <span className="font-mono text-xs text-fg-muted">{order.orderDate} · {order.status.replace(/_/g, " ")}{order.venue ? ` · ${order.venue.name}` : ""}</span>
+      </Link>)}</div>
+      {!total && <p className="py-6 text-sm text-fg-muted">No acquisitions yet.</p>}
+    </PaginatedSection>
+  </section>;
+}
+
 export default async function ProvenancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ target?: string }>;
+  searchParams: Promise<ListSearchParams>;
 }) {
-  const { target } = await searchParams;
+  const params = await searchParams;
+  const target = typeof params.target === "string" ? params.target : undefined;
   const seed =
     target && /^[0-9a-f-]{36}$/i.test(target)
       ? await getTargetOrderSeed(target)
@@ -105,6 +126,7 @@ export default async function ProvenancePage({
       >
         <ProvenanceContent />
       </Suspense>
+      <Suspense key={JSON.stringify(params)} fallback={<Spinner />}><OrderHistory params={params} /></Suspense>
     </>
   );
 }

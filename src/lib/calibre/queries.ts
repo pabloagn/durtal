@@ -54,7 +54,7 @@ export async function getCalibreBooks(opts: {
       .select()
       .from(calibreBooks)
       .where(conditions)
-      .orderBy(orderBy)
+      .orderBy(orderBy, asc(calibreBooks.id))
       .limit(limit)
       .offset(offset),
     db

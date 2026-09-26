@@ -1,5 +1,6 @@
 "use client";
 
+import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { useLibrarySelection } from "@/lib/hooks/use-library-selection";
@@ -51,12 +52,12 @@ interface BookItem {
 interface LibraryShellProps {
   books: BookItem[];
   timelineWorks?: WorkTimelineItem[];
-  children?: React.ReactNode;
+  pagination: PaginationData;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function LibraryShell({ books, timelineWorks = [], children }: LibraryShellProps) {
+export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryShellProps) {
   const [viewMode] = useLocalStorage<ViewMode>(
     "durtal-view-mode",
     "grid",
@@ -100,6 +101,8 @@ export function LibraryShell({ books, timelineWorks = [], children }: LibraryShe
         </div>
       )}
 
+      {!isTimeline && <Pagination {...pagination} noun="works" compact />}
+
       {/* Standard list/grid/detailed views */}
       {!isTimeline && (
         <LibraryView
@@ -124,7 +127,7 @@ export function LibraryShell({ books, timelineWorks = [], children }: LibraryShe
         />
       )}
 
-      {!isTimeline && children}
+      {!isTimeline && <Pagination {...pagination} noun="works" />}
     </>
   );
 }

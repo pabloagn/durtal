@@ -1,10 +1,13 @@
 "use client";
 
+import { firstPageHref } from "@/lib/utils/list-params";
+
+import { Pagination } from "@/components/shared/pagination";
 import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, BookOpenText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, BookOpenText } from "lucide-react";
 import type { CalibreBookRow } from "@/lib/calibre/queries";
 
 interface ReaderLibraryProps {
@@ -31,7 +34,7 @@ export function ReaderLibrary({
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState(query);
 
-  const totalPages = Math.ceil(total / limit);
+
 
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
@@ -42,23 +45,9 @@ export function ReaderLibrary({
       } else {
         params.delete("q");
       }
-      params.delete("page");
-      router.push(`/reader?${params.toString()}`);
+      router.push(firstPageHref("/reader", params));
     },
     [searchValue, searchParams, router],
-  );
-
-  const navigatePage = useCallback(
-    (page: number) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (page > 1) {
-        params.set("page", String(page));
-      } else {
-        params.delete("page");
-      }
-      router.push(`/reader?${params.toString()}`);
-    },
-    [searchParams, router],
   );
 
   return (
@@ -105,6 +94,8 @@ export function ReaderLibrary({
         </section>
       )}
 
+      <Pagination page={currentPage} perPage={limit} total={total} noun="books" compact />
+
       {/* All books */}
       <section>
         {query && (
@@ -132,28 +123,7 @@ export function ReaderLibrary({
               ))}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-center gap-2">
-                <button
-                  onClick={() => navigatePage(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                  className="flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary disabled:opacity-30 disabled:pointer-events-none"
-                >
-                  <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-                <span className="font-mono text-micro text-fg-muted">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  onClick={() => navigatePage(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary disabled:opacity-30 disabled:pointer-events-none"
-                >
-                  <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              </div>
-            )}
+            <Pagination page={currentPage} perPage={limit} total={total} noun="books" />
           </>
         )}
       </section>

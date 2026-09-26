@@ -1,5 +1,7 @@
 "use client";
 
+import { firstPageHref } from "@/lib/utils/list-params";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { Search, ArrowUp, ArrowDown } from "lucide-react";
@@ -70,8 +72,7 @@ export function EntityFilters({
       } else {
         params.delete(key);
       }
-      params.delete("page");
-      router.push(`${basePath}?${params.toString()}`);
+      router.push(firstPageHref(basePath, params));
     },
     [router, searchParams, basePath],
   );
@@ -120,8 +121,7 @@ export function EntityFilters({
                 params.set("sort", opt.value);
                 params.delete("order"); // reset to default for new sort field
               }
-              params.delete("page");
-              router.push(`${basePath}?${params.toString()}`);
+      router.push(firstPageHref(basePath, params));
             }}
             className={`rounded-sm px-2.5 py-1 text-xs transition-colors ${
               currentSort === opt.value

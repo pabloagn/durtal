@@ -1,3 +1,5 @@
+import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
+import { PaginatedSection } from "@/components/shared/pagination";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -12,9 +14,10 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<ListSearchParams>;
 }
 
-export default async function AuthorDetailPage({ params }: PageProps) {
+export default async function AuthorDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const [author, allAuthorRows] = await Promise.all([
     getAuthorBySlug(slug),
@@ -33,6 +36,8 @@ export default async function AuthorDetailPage({ params }: PageProps) {
     ...wa.work,
     role: wa.role,
   }));
+
+  const paging = paginateItems(works, await searchParams);
 
   const contributions = author.editionContributors.map((ec) => ({
     ...ec.edition,
@@ -171,8 +176,9 @@ export default async function AuthorDetailPage({ params }: PageProps) {
           <h2 className="mb-4 font-serif text-2xl text-fg-primary">
             Works ({works.length})
           </h2>
+          <PaginatedSection {...paging} noun="works">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {works.map((work) => {
+            {paging.items.map((work) => {
               const workActivePoster = work.media?.find(
                 (m) => m.type === "poster" && m.isActive,
               );
@@ -214,6 +220,7 @@ export default async function AuthorDetailPage({ params }: PageProps) {
               );
             })}
           </div>
+          </PaginatedSection>
         </section>
       )}
 

@@ -4,11 +4,13 @@ import { db } from "@/lib/db";
 import { series, works, workAuthors } from "@/lib/db/schema";
 import { eq, asc, ilike, count } from "drizzle-orm";
 
-export async function getSeries(opts?: { search?: string }) {
+export async function getSeries(opts?: { search?: string; limit?: number; offset?: number }) {
   const { search } = opts ?? {};
   return db.query.series.findMany({
     where: search ? ilike(series.title, `%${search}%`) : undefined,
-    orderBy: asc(series.title),
+    orderBy: [asc(series.title), asc(series.id)],
+    limit: opts?.limit,
+    offset: opts?.offset,
     with: {
       works: {
         columns: { id: true, seriesPosition: true, catalogueStatus: true },

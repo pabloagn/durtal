@@ -1,3 +1,4 @@
+import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
@@ -31,6 +32,7 @@ interface PageProps {
     q?: string;
     sort?: string;
     page?: string;
+    perPage?: string;
     order?: string;
     nationality?: string;
     gender?: string;
@@ -50,6 +52,7 @@ async function AuthorsContent({
     q?: string;
     sort?: string;
     page?: string;
+    perPage?: string;
     order?: string;
     nationality?: string;
     gender?: string;
@@ -81,9 +84,7 @@ async function AuthorsContent({
   const aliveParam = searchParams.alive;
   const alive = aliveParam === "true" ? true : aliveParam === "false" ? false : undefined;
 
-  const page = parseInt(searchParams.page ?? "1", 10);
-  const limit = 48;
-  const offset = (page - 1) * limit;
+  const { page, perPage: limit, offset } = parsePagination(searchParams);
 
   const filters = {
     nationalities: nationalityFilter.length ? nationalityFilter : undefined,
@@ -114,6 +115,8 @@ async function AuthorsContent({
     getAuthorsForMap({ search, filters }),
     getAuthorsForTimeline({ search, filters: timelineFilters }),
   ]);
+
+  if (page > lastPage(total, limit)) redirect(pageHref("/authors", searchParams, lastPage(total, limit)));
 
   // Full-page empty state only when the catalogue has no authors at all.
   // A search or filter with no match is handled by the shell, below the
@@ -165,21 +168,6 @@ async function AuthorsContent({
     };
   });
 
-  const totalPages = Math.ceil(total / limit);
-
-  const paginationParams = {
-    ...(search ? { q: search } : {}),
-    sort,
-    ...(searchParams.order ? { order: searchParams.order } : {}),
-    ...(searchParams.nationality ? { nationality: searchParams.nationality } : {}),
-    ...(searchParams.gender ? { gender: searchParams.gender } : {}),
-    ...(searchParams.zodiac ? { zodiac: searchParams.zodiac } : {}),
-    ...(searchParams.birthYearMin ? { birthYearMin: searchParams.birthYearMin } : {}),
-    ...(searchParams.birthYearMax ? { birthYearMax: searchParams.birthYearMax } : {}),
-    ...(searchParams.deathYearMin ? { deathYearMin: searchParams.deathYearMin } : {}),
-    ...(searchParams.deathYearMax ? { deathYearMax: searchParams.deathYearMax } : {}),
-    ...(searchParams.alive ? { alive: searchParams.alive } : {}),
-  };
 
   return (
     <>
@@ -189,9 +177,8 @@ async function AuthorsContent({
         timelineAuthors={timelineAuthors}
         pagination={{
           page,
-          totalPages,
+          perPage: limit,
           total,
-          paginationParams,
         }}
       />
     </>

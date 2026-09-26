@@ -1,5 +1,7 @@
 "use client";
 
+import { firstPageHref } from "@/lib/utils/list-params";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { EntityFilters } from "@/components/shared/entity-filters";
@@ -101,16 +103,14 @@ export function PlacesFiltersBar() {
     } else {
       params.delete(key);
     }
-    params.delete("page");
-    router.push(`/places?${params.toString()}`);
+      router.push(firstPageHref("/places", params));
   }
 
   function handleClearAll() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("type");
     params.delete("favorite");
-    params.delete("page");
-    router.push(`/places?${params.toString()}`);
+      router.push(firstPageHref("/places", params));
   }
 
   return (
