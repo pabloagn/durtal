@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { bookLinksSchema } from "./book-links";
 
 export const createWorkSchema = z.object({
   title: z.string().min(1, "Title is required").max(500),
@@ -22,6 +23,8 @@ export const createWorkSchema = z.object({
   subjectIds: z.array(z.string().uuid()).optional(),
   metadataSource: z.string().max(100).nullable().optional(),
   metadataSourceId: z.string().max(200).nullable().optional(),
+  goodreadsUrl: bookLinksSchema.shape.goodreadsUrl,
+  storygraphUrl: bookLinksSchema.shape.storygraphUrl,
 });
 
 export const updateWorkSchema = createWorkSchema.partial().omit({ authorIds: undefined }).extend({

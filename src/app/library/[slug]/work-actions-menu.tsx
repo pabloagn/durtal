@@ -40,6 +40,8 @@ interface WorkData {
   rating: number | null;
   catalogueStatus: string;
   acquisitionPriority: string;
+  goodreadsUrl: string | null;
+  storygraphUrl: string | null;
   recommenderIds: string[];
 }
 

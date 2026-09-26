@@ -18,6 +18,11 @@ import { getWorkTypes } from "@/lib/actions/taxonomy";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { filterBySearch } from "@/lib/utils/search-text";
+import {
+  BookLinksFields,
+  bookLinkValues,
+  parseBookLinkValues,
+} from "@/components/books/book-links-fields";
 
 interface AuthorRow {
   id: string;
@@ -97,6 +102,7 @@ export function WorkQuickEditDialog({
   const [originalYear, setOriginalYear] = useState("");
   const [workTypeId, setWorkTypeId] = useState("");
   const [isAnthology, setIsAnthology] = useState(false);
+  const [links, setLinks] = useState(() => bookLinkValues({}));
   const [catalogueStatus, setCatalogueStatus] = useState("tracked");
   const [acquisitionPriority, setAcquisitionPriority] = useState("none");
   const [rating, setRating] = useState("");
@@ -143,6 +149,7 @@ export function WorkQuickEditDialog({
       );
       setWorkTypeId(work.workTypeId ?? "");
       setIsAnthology(work.isAnthology);
+      setLinks(bookLinkValues(work));
       setCatalogueStatus(work.catalogueStatus);
       setAcquisitionPriority(work.acquisitionPriority);
       setRating(work.rating != null ? String(work.rating) : "");
@@ -243,6 +250,11 @@ export function WorkQuickEditDialog({
       toast.error("At least one author is required");
       return;
     }
+    const parsedLinks = parseBookLinkValues(links);
+    if (!parsedLinks.ok) {
+      toast.error(parsedLinks.error);
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -271,6 +283,8 @@ export function WorkQuickEditDialog({
           recommenderIds,
           seriesId: seriesId || null,
           seriesPosition: seriesPosition.trim() || null,
+          goodreadsUrl: parsedLinks.links.goodreadsUrl,
+          storygraphUrl: parsedLinks.links.storygraphUrl,
           authorIds: authors.map((a) => ({
             authorId: a.id,
             role: a.role as "author" | "co_author",
@@ -363,6 +377,12 @@ export function WorkQuickEditDialog({
                   </div>
                 </div>
               </section>
+
+              <BookLinksFields
+                idPrefix="quick-edit"
+                values={links}
+                onChange={setLinks}
+              />
 
               {/* Status */}
               <section>

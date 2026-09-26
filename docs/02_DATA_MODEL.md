@@ -153,6 +153,8 @@ The abstract intellectual creation. A work exists independently of any particula
 | `acquisition_priority` | `acquisition_priority_enum` | NOT NULL, default `'none'` | Urgency of acquisition intent |
 | `is_rare` | BOOLEAN | NOT NULL, default `false` | Simple personal rare-book flag; independent of lifecycle/priority and instance collector flags |
 | `hunt_assessed_on` | DATE | nullable; required when marked | Calendar date of the latest assessment, editable and defaulted to local today by the UI. Cleared when `is_rare` becomes false; required when true, enforced by a CHECK constraint. |
+| `goodreads_url` | TEXT | nullable | Goodreads page for the book. Stored as a canonical `https` URL on `goodreads.com` or a subdomain; validated by the app on write and again before render. Work-level, shared by all editions. |
+| `storygraph_url` | TEXT | nullable | The StoryGraph page for the book. Same rules as `goodreads_url`, on `thestorygraph.com` or a subdomain. |
 | `metadata_source` | TEXT | nullable | Where metadata was fetched from |
 | `metadata_source_id` | TEXT | nullable | ID in the source system |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |

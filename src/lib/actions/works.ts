@@ -36,6 +36,7 @@ import {
   notInArray,
 } from "drizzle-orm";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
+import { bookLinksSchema } from "@/lib/validations/book-links";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
@@ -633,7 +634,25 @@ export async function createWork(input: CreateWorkInput) {
 }
 
 export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
-  const { authorIds, subjectIds, recommenderIds, ...workData } = input;
+  const {
+    authorIds,
+    subjectIds,
+    recommenderIds,
+    goodreadsUrl,
+    storygraphUrl,
+    ...rest
+  } = input;
+  // Book links are checked here too: only https pages on the site's own domain.
+  const links = bookLinksSchema.parse({ goodreadsUrl, storygraphUrl });
+  const workData = {
+    ...rest,
+    ...(links.goodreadsUrl !== undefined
+      ? { goodreadsUrl: links.goodreadsUrl }
+      : {}),
+    ...(links.storygraphUrl !== undefined
+      ? { storygraphUrl: links.storygraphUrl }
+      : {}),
+  };
 
   // Snapshot current state for activity diffing
   const prev = await db.query.works.findFirst({

@@ -69,7 +69,8 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
       const [order] =
         await c`insert into orders(work_id,edition_id,acquisition_method,order_date,status) values (${w.id},${e.id},'gift','2024-02-29','received') returning *`;
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
-      expect((await c`select * from works where id=${w.id}`)[0]).toEqual(w);
+      // Later migrations may add work columns; every existing value must survive.
+      expect((await c`select * from works where id=${w.id}`)[0]).toMatchObject(w);
       expect((await c`select * from instances where id=${copy.id}`)[0]).toEqual(
         copy,
       );

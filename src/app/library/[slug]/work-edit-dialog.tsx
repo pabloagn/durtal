@@ -14,6 +14,11 @@ import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { filterBySearch } from "@/lib/utils/search-text";
+import {
+  BookLinksFields,
+  bookLinkValues,
+  parseBookLinkValues,
+} from "@/components/books/book-links-fields";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,6 +45,8 @@ interface WorkEditDialogProps {
     rating: number | null;
     catalogueStatus: string;
     acquisitionPriority: string;
+    goodreadsUrl: string | null;
+    storygraphUrl: string | null;
     recommenderIds: string[];
   };
   authors: AuthorRow[];
@@ -119,6 +126,9 @@ export function WorkEditDialog({
   const [workTypeId, setWorkTypeId] = useState(work.workTypeId ?? "");
   const [isAnthology, setIsAnthology] = useState(work.isAnthology);
 
+  // Form state — Book Links
+  const [links, setLinks] = useState(() => bookLinkValues(work));
+
   // Form state — Status
   const [catalogueStatus, setCatalogueStatus] = useState(work.catalogueStatus);
   const [acquisitionPriority, setAcquisitionPriority] = useState(work.acquisitionPriority);
@@ -153,6 +163,7 @@ export function WorkEditDialog({
     setOriginalYear(work.originalYear != null ? String(work.originalYear) : "");
     setWorkTypeId(work.workTypeId ?? "");
     setIsAnthology(work.isAnthology);
+    setLinks(bookLinkValues(work));
     setCatalogueStatus(work.catalogueStatus);
     setAcquisitionPriority(work.acquisitionPriority);
     setRating(work.rating != null ? String(work.rating) : "");
@@ -180,6 +191,7 @@ export function WorkEditDialog({
       setOriginalYear(work.originalYear != null ? String(work.originalYear) : "");
       setWorkTypeId(work.workTypeId ?? "");
       setIsAnthology(work.isAnthology);
+      setLinks(bookLinkValues(work));
       setCatalogueStatus(work.catalogueStatus);
       setAcquisitionPriority(work.acquisitionPriority);
       setRating(work.rating != null ? String(work.rating) : "");
@@ -247,6 +259,11 @@ export function WorkEditDialog({
       toast.error("At least one author is required");
       return;
     }
+    const parsedLinks = parseBookLinkValues(links);
+    if (!parsedLinks.ok) {
+      toast.error(parsedLinks.error);
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -275,6 +292,8 @@ export function WorkEditDialog({
           recommenderIds,
           seriesId: seriesId || null,
           seriesPosition: seriesPosition.trim() || null,
+          goodreadsUrl: parsedLinks.links.goodreadsUrl,
+          storygraphUrl: parsedLinks.links.storygraphUrl,
           authorIds: authors.map((a) => ({
             authorId: a.id,
             role: a.role as "author" | "co_author",
@@ -370,6 +389,12 @@ export function WorkEditDialog({
                 </div>
               </div>
             </section>
+
+            <BookLinksFields
+              idPrefix="edit"
+              values={links}
+              onChange={setLinks}
+            />
 
             {/* Section: Status */}
             <section>

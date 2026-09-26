@@ -8,6 +8,7 @@ import { AcquisitionTargets } from "@/components/publishers/acquisition-targets"
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
+import { BookLinks } from "@/components/books/book-links";
 import { ArrowLeft, Star, Route } from "lucide-react";
 import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
 import { getAuthors } from "@/lib/actions/authors";
@@ -262,6 +263,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
                       rating: work.rating ?? null,
                       catalogueStatus: work.catalogueStatus,
                       acquisitionPriority: work.acquisitionPriority,
+                      goodreadsUrl: work.goodreadsUrl ?? null,
+                      storygraphUrl: work.storygraphUrl ?? null,
                       recommenderIds: work.workRecommenders.map(
                         (wr) => wr.recommender.id,
                       ),
@@ -406,6 +409,10 @@ export default async function WorkDetailPage({ params }: PageProps) {
                   workId={work.id}
                   isRare={work.isRare}
                   huntAssessedOn={work.huntAssessedOn}
+                />
+                <BookLinks
+                  goodreadsUrl={work.goodreadsUrl}
+                  storygraphUrl={work.storygraphUrl}
                 />
                 {work.workType && (
                   <Badge variant="muted">{work.workType.name}</Badge>

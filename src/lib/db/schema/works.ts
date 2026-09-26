@@ -49,6 +49,10 @@ export const works = pgTable("works", {
   isRare: boolean("is_rare").notNull().default(false),
   huntAssessedOn: date("hunt_assessed_on", { mode: "string" }),
 
+  // External catalogue pages (validated https links; shared by all editions)
+  goodreadsUrl: text("goodreads_url"),
+  storygraphUrl: text("storygraph_url"),
+
   // Metadata provenance
   metadataSource: text("metadata_source"),
   metadataSourceId: text("metadata_source_id"),
