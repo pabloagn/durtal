@@ -148,9 +148,10 @@ export function AuthorDetailHeader({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
+          {/* Actions wrap below the name when the column is narrow */}
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0">
+              <h1 className="font-serif text-4xl tracking-tight text-fg-primary break-words">
                 {name}
               </h1>
               {realName && realName !== name && (

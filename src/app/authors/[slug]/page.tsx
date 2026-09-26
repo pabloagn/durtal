@@ -11,6 +11,7 @@ import { AuthorDetailHeader } from "./author-detail-header";
 import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -94,9 +95,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     <>
       {/* Cinematic backdrop + header */}
       <div className={bgMedia ? "relative -mx-6 -mt-6 mb-8" : ""}>
-        {/* Background image layer */}
+        {/* Background image layer: always spans the full main area */}
         {bgMedia && backgroundUrl && (
-          <div className="absolute inset-0 -z-0 overflow-hidden">
+          <FullBleedLayer className="-z-0">
             <img
               src={backgroundUrl}
               alt=""
@@ -113,7 +114,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   "linear-gradient(to top, var(--color-bg-primary) 0%, var(--color-bg-primary) 5%, transparent 100%)",
               }}
             />
-          </div>
+          </FullBleedLayer>
         )}
 
         {/* Content on top of the backdrop */}
