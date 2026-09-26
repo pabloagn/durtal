@@ -1,3 +1,4 @@
+import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
 import {
   getAcquisitionTargets,
@@ -242,6 +243,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                   {work.title}
                 </h1>
                 <div className="flex shrink-0 items-center gap-2">
+                  <CollectionButton workId={work.id} title={work.title} />
                   <CopyBookButton title={work.title} authorNames={primaryAuthors.map((a) => a.name)} />
                   <WorkActionsMenu
                     work={{

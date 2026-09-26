@@ -1,8 +1,9 @@
 "use client";
 
+import { AddToCollectionDialog } from "./add-to-collection-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star, Gem } from "lucide-react";
+import { Trash2, X, Tag, Signal, Star, Gem, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -42,6 +43,7 @@ export function BulkActionToolbar({
   onExitSelection,
 }: BulkActionToolbarProps) {
   const router = useRouter();
+  const [collectionOpen, setCollectionOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -252,6 +254,10 @@ export function BulkActionToolbar({
 
         <div className="h-4 w-px bg-glass-border" />
 
+        <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => setCollectionOpen(true)}>
+          <FolderPlus size={14} strokeWidth={1.5} />
+          Collections
+        </Button>
         {/* Export */}
         <ExportMenu entity="works" ids={selectedIds} />
 
@@ -278,6 +284,14 @@ export function BulkActionToolbar({
         </button>
       </div>
 
+      {collectionOpen && (
+        <AddToCollectionDialog
+          open={collectionOpen}
+          onClose={() => setCollectionOpen(false)}
+          workIds={Array.from(selectedIds)}
+          title={`${selectedCount} selected books`}
+        />
+      )}
       <DeleteConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}

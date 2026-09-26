@@ -35,7 +35,7 @@ export function BookCardActionsMenu({
   workId,
   title,
   authorName,
-  primaryEditionId,
+  primaryEditionId: _primaryEditionId,
 }: BookCardActionsMenuProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -96,7 +96,6 @@ export function BookCardActionsMenu({
         <DropdownMenuItem
           icon={<FolderPlus className="h-4 w-4" strokeWidth={1.5} />}
           onClick={() => setCollectionOpen(true)}
-          disabled={!primaryEditionId}
         >
           Add to collection
         </DropdownMenuItem>
@@ -125,14 +124,12 @@ export function BookCardActionsMenu({
         title={title}
       />
 
-      {primaryEditionId && (
-        <AddToCollectionDialog
-          open={collectionOpen}
-          onClose={() => setCollectionOpen(false)}
-          editionId={primaryEditionId}
-          title={title}
-        />
-      )}
+      <AddToCollectionDialog
+        open={collectionOpen}
+        onClose={() => setCollectionOpen(false)}
+        workIds={[workId]}
+        title={title}
+      />
 
       <MatchAgainDialog
         open={matchOpen}
