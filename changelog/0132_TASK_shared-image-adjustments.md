@@ -1,6 +1,6 @@
 # Task 0132: Shared image adjustments
 
-**Status**: Implemented; awaiting live migration approval
+**Status**: Completed and activated
 **Created**: 2026-09-26
 **Priority**: HIGH
 **Type**: Feature
@@ -19,7 +19,7 @@ One compact editor now adjusts stored pictures across covers, author portraits, 
 - A compact control selector shows one accessible slider at a time, Compare toggles the last saved appearance, Reset restores neutral presentation, and Save retains drafts when persistence fails. Position sliders supplement existing dragging. A shared backed icon opens the editor on other assets.
 - Nested gallery dialogs handle Escape without closing the gallery. Image protection still blocks context menus/dragging while allowing author portrait clicks through its transparent overlay. Dialog close controls have accessible names.
 - New S3 keys start neutral. Deleted assets may leave harmless metadata keyed to URLs that no longer render. Adjustments are presentation metadata, not baked into exports/downloads.
-- No dependencies or environment files changed. Migration 0027 only creates an empty table; do not activate this branch before that migration is approved and applied.
+- No dependencies or environment files changed. Migration 0027 only creates an empty table; it was approved and applied before activating this branch.
 
 ## Validation
 
@@ -27,8 +27,12 @@ One compact editor now adjusts stored pictures across covers, author portraits, 
 - `pnpm typecheck`, ESLint and `git diff --check` pass.
 - Production compilation passed via `next build --webpack --experimental-build-mode compile`. Existing optional Parquet/WebSocket native-module warnings remain; this was compilation, not production activation.
 - Browser preview used synthetic images and an isolated local PostgreSQL database. Verified cover preview/Compare/save, persisted thumbnail and lightbox filters, author policy/Reset, gallery saturation and nested Escape, collection save, optimized Reader-cover styling, and place/edition entry points. Dialog controls fit without internal scrolling at the tested 1280×720 viewport. Physical mobile devices were not tested.
-- Temporary preview database/image route adapters were restored byte-for-byte, preview stopped, and browser tab closed. Live Neon data and S3 assets were not modified.
+- Temporary preview database/image route adapters were restored byte-for-byte, preview stopped, and browser tab closed. During pre-activation testing, live Neon data and S3 assets were not modified.
 
 ## Activation
 
-Requires explicit approval under `HANDOVER.md` before applying migration 0027. Apply transactionally, verify the new table is empty and existing records unchanged, then fast-forward the active checkout to this branch. Pagination and copy-title work are already active independently.
+Activated on 2026-09-26 after explicit user approval. Applied the official Drizzle PostgreSQL migration transactionally against the current live database; verified the exact 0027 migration hash in the ledger. No database restore or catalogue writes were performed.
+
+All 65 existing public tables retained identical row counts and content fingerprints across the migration. Verified 389 works, 396 editions, 197 instances and 599 media records; the new settings table had zero rows. This preserves the user's recent localhost edits.
+
+Fast-forwarded the active checkout to `d2af64e`. Live browser checks opened the Fictions cover editor and Borges portrait editor, confirmed loaded images, neutral defaults, disabled Save when unchanged, and locked author monochrome, then closed without saving. `pnpm typecheck` passed in the active checkout. Pagination and one-click copy remain active.
