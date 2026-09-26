@@ -1,0 +1,106 @@
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { PublisherFavourite } from "./favourite-button";
+
+export interface PublisherItem {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  country: string | null;
+  parentName: string | null;
+  website: string | null;
+  isFavourite: boolean;
+  editionCount: number;
+  createdAt: string;
+}
+
+function editionsLabel(count: number) {
+  return `${count} ${count === 1 ? "edition" : "editions"}`;
+}
+
+/** Grid card: publishers have no artwork, so the card leads with the name. */
+export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
+  return (
+    <div className="group relative flex flex-col rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+      <Link
+        href={`/publishers/${p.slug}`}
+        aria-label={`Open ${p.name}`}
+        className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
+      />
+      <div className="flex items-start gap-2 p-4 pb-2">
+        <h3 className="line-clamp-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
+          {p.name}
+        </h3>
+        <div className="relative z-20 -mr-2 -mt-2">
+          <PublisherFavourite id={p.id} favourite={p.isFavourite} />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 px-4">
+        {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
+        {p.country && <Badge variant="muted">{p.country}</Badge>}
+      </div>
+      {p.parentName && (
+        <p className="mt-2 line-clamp-1 px-4 text-xs text-fg-muted">
+          Imprint of {p.parentName}
+        </p>
+      )}
+      <div className="mt-auto flex items-center justify-between gap-2 px-4 pb-3.5 pt-3">
+        <span className="font-mono text-micro text-fg-muted">
+          {editionsLabel(p.editionCount)}
+        </span>
+        {p.website && (
+          <a
+            href={p.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${p.name} website`}
+            className="relative z-20 text-fg-muted transition-colors hover:text-accent-rose"
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** List row, matching the author and place list rows. */
+export function PublisherListItem({
+  publisher: p,
+}: {
+  publisher: PublisherItem;
+}) {
+  return (
+    <div className="group relative flex items-center gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
+      <Link
+        href={`/publishers/${p.slug}`}
+        className="flex min-w-0 flex-1 items-center gap-3"
+      >
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
+          <span className="font-serif text-sm text-fg-muted/50">
+            {p.name[0]}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+            {p.name}
+          </h3>
+          <p className="truncate text-xs text-fg-muted">
+            {[p.country, p.parentName ? `Imprint of ${p.parentName}` : null]
+              .filter(Boolean)
+              .join(" · ") || " "}
+          </p>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-3">
+          {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
+          <span className="w-20 text-right font-mono text-micro text-fg-muted">
+            {editionsLabel(p.editionCount)}
+          </span>
+        </div>
+      </Link>
+      <PublisherFavourite id={p.id} favourite={p.isFavourite} />
+    </div>
+  );
+}

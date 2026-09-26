@@ -1,94 +1,163 @@
-import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import { redirect } from "next/navigation";
-import { Pagination } from "@/components/shared/pagination";
+import { Suspense } from "react";
 import Link from "next/link";
-import { getPublishers } from "@/lib/actions/publishers";
+import { redirect } from "next/navigation";
+import { Building2, ListChecks, Plus } from "lucide-react";
+import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
+import { hasListQuery } from "@/lib/utils/list-params";
+import {
+  getPublishers,
+  getPublisherCountries,
+  type PublisherListOptions,
+} from "@/lib/actions/publishers";
 import { PageHeader } from "@/components/layout/page-header";
-import { PublisherFavourite } from "@/components/publishers/favourite-button";
-const fieldClass =
-  "rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary";
-export default async function PublishersPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; favourites?: string; page?: string; perPage?: string }>;
-}) {
-  const params = await searchParams;
-  const { page, perPage } = parsePagination(params);
-  const { rows, total } = await getPublishers(
-    params.q,
-    params.favourites === "true",
+import { EmptyState } from "@/components/ui/empty-state";
+import { Spinner } from "@/components/ui/spinner";
+import { buttonClass } from "@/components/ui/button";
+import type { PublisherItem } from "@/components/publishers/publisher-card";
+import { PublishersFiltersBar } from "./publishers-filters-bar";
+import { PublishersShell } from "./publishers-shell";
+
+type Params = Record<string, string | string[] | undefined>;
+
+function one(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+function many(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value : value ? [value] : []).filter(Boolean);
+}
+function flatParams(params: Params) {
+  const flat = new URLSearchParams();
+  for (const [key, value] of Object.entries(params))
+    for (const v of many(value)) flat.append(key, v);
+  return flat;
+}
+
+async function PublishersContent({ params }: { params: Params }) {
+  const flat = flatParams(params);
+  const { page, perPage } = parsePagination({
+    page: one(params.page),
+    perPage: one(params.perPage),
+  });
+  const kinds = one(params.kind)
+    ?.split(",")
+    .filter((k) => k === "publisher" || k === "imprint") as
+    | PublisherListOptions["kinds"]
+    | undefined;
+  const sort = one(params.sort);
+  const order = one(params.order);
+  const { rows, total } = await getPublishers({
+    search: one(params.q),
+    sort: ["relevance", "name", "editions", "recent"].includes(sort ?? "")
+      ? (sort as PublisherListOptions["sort"])
+      : undefined,
+    order: order === "asc" || order === "desc" ? order : undefined,
+    favourites: one(params.favourites) === "true",
+    kinds,
+    countries: many(params.country),
     page,
     perPage,
-  );
-  if (page > lastPage(total, perPage)) redirect(pageHref("/publishers", params, lastPage(total, perPage)));
-  return (
-    <>
-      <PageHeader
-        title="Publishers"
-        description="Publishing houses and imprints you collect"
-        actions={
-          <Link href="/publishers/new" className="text-sm text-accent-blue">
+  });
+  if (page > lastPage(total, perPage))
+    redirect(pageHref("/publishers", flat, lastPage(total, perPage)));
+
+  // Full-page empty state only when there are no publishers at all. A search
+  // or filter with no match is handled by the shell, below the toolbar.
+  if (total === 0 && !hasListQuery(flat)) {
+    return (
+      <EmptyState
+        icon={Building2}
+        title="No publishers yet"
+        description="Add the publishing houses and imprints you collect"
+        action={
+          <Link
+            href="/publishers/new"
+            className={buttonClass("secondary", "sm")}
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
             Add publisher
           </Link>
         }
       />
-      <form className="mb-6 flex flex-wrap items-center gap-3">
-        <input type="hidden" name="perPage" value={perPage} />
-        <input
-          name="q"
-          aria-label="Search publishers"
-          placeholder="Search publishers…"
-          className={`${fieldClass} max-w-sm`}
-          defaultValue={params.q}
-        />
-        <label className="flex items-center gap-2 text-sm text-fg-secondary">
-          <input
-            type="checkbox"
-            name="favourites"
-            value="true"
-            defaultChecked={params.favourites === "true"}
-          />
-          Favourites
-        </label>
-        <button className="text-sm text-accent-blue">Search</button>
-        <Link
-          href="/publishers/review"
-          className="ml-auto text-xs text-fg-muted"
-        >
-          Review unmatched editions
-        </Link>
-      </form>
-      <p className="mb-3 text-xs text-fg-muted">
-        {total} publishers · edition counts refer to your Durtal catalogue
-      </p>
-      <Pagination page={page} perPage={perPage} total={total} noun="publishers" compact />
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {rows.map(({ publisher: p, editionCount }) => (
-          <div
-            key={p.id}
-            className="flex items-start rounded-sm border border-glass-border bg-bg-secondary p-4"
-          >
-            <Link href={`/publishers/${p.slug}`} className="min-w-0 flex-1">
-              <h2 className="font-serif text-xl">{p.name}</h2>
-              <p className="mt-1 text-xs text-fg-muted">
-                {[p.country, p.kind === "imprint" ? "Imprint" : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              <p className="mt-3 text-sm text-fg-secondary">
-                {editionCount} edition{editionCount === 1 ? "" : "s"}
-              </p>
+    );
+  }
+
+  const publishers: PublisherItem[] = rows.map(
+    ({ publisher: p, editionCount, parentName }) => ({
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      kind: p.kind,
+      country: p.country,
+      parentName,
+      website: p.website,
+      isFavourite: p.isFavourite,
+      editionCount,
+      createdAt: new Date(p.createdAt).toLocaleDateString(),
+    }),
+  );
+
+  return (
+    <PublishersShell
+      publishers={publishers}
+      pagination={{ page, perPage, total }}
+    />
+  );
+}
+
+/**
+ * Toolbar data does not depend on the URL. Its Suspense boundary has no key,
+ * so the toolbar stays mounted (and keeps focus) while results reload.
+ */
+async function PublishersToolbar() {
+  const countries = await getPublisherCountries();
+  return <PublishersFiltersBar countries={countries} />;
+}
+
+export default async function PublishersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Params>;
+}) {
+  const params = await searchParams;
+  return (
+    <>
+      <PageHeader
+        title="Publishers"
+        description="Publishing houses and imprints you collect · edition counts refer to your catalogue"
+        actions={
+          <div className="flex items-center gap-2">
+            <Link
+              href="/publishers/review"
+              className={buttonClass("ghost", "sm")}
+            >
+              <ListChecks className="h-4 w-4" strokeWidth={1.5} />
+              Review unmatched editions
             </Link>
-            <PublisherFavourite id={p.id} favourite={p.isFavourite} />
+            <Link
+              href="/publishers/new"
+              className={buttonClass("secondary", "sm")}
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
+              Add Publisher
+            </Link>
           </div>
-        ))}
-      </div>
-      {!rows.length && (
-        <p className="py-10 text-fg-muted">
-          No publishers match these filters.
-        </p>
-      )}
-      <Pagination page={page} perPage={perPage} total={total} noun="publishers" />
+        }
+      />
+
+      <Suspense fallback={<div className="mb-6 h-8" aria-hidden />}>
+        <PublishersToolbar />
+      </Suspense>
+
+      <Suspense
+        key={JSON.stringify(params)}
+        fallback={
+          <div className="flex items-center justify-center py-16">
+            <Spinner className="h-6 w-6" />
+          </div>
+        }
+      >
+        <PublishersContent params={params} />
+      </Suspense>
     </>
   );
 }

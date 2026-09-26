@@ -25,6 +25,11 @@ const sizeStyles: Record<Size, string> = {
   lg: "h-9 px-4 text-sm gap-2",
 };
 
+/** Button styles for a link that should look like a Button. */
+export function buttonClass(variant: Variant = "secondary", size: Size = "md") {
+  return `inline-flex items-center justify-center rounded-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose focus-visible:ring-offset-1 focus-visible:ring-offset-bg-primary ${variantStyles[variant]} ${sizeStyles[size]}`;
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "secondary", size = "md", className = "", ...props }, ref) => {
     return (

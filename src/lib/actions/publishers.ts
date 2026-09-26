@@ -29,6 +29,10 @@ import {
 } from "@/lib/validations/publishers";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { targetState } from "@/lib/publishers/conditions";
+import {
+  textSearchCondition,
+  textSearchRank,
+} from "@/lib/actions/utils/text-search";
 
 function changed() {
   invalidate(CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.orders);
@@ -51,29 +55,84 @@ export async function getPublisherOptions() {
     .orderBy(asc(houses.name), asc(houses.country), asc(houses.id));
 }
 
-export async function getPublishers(search = "", favourites = false, page = 1, perPage = 48) {
-  const paging = parsePagination({ page: String(page), perPage: String(perPage) });
-  const q = z.string().max(200).parse(search).trim();
+/** Normalized name and aliases of a publisher, for the shared text search. */
+const publisherHaystack = sql`search_normalize(${houses.name} || ' ' || coalesce((select string_agg(a.name, ' ') from publisher_aliases a where a.publisher_id = ${houses.id}), ''))`;
+const publisherEditionCount = sql<number>`(select count(distinct ep.edition_id)::int from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where p.id = "publishing_houses"."id" or p.parent_id = "publishing_houses"."id")`;
+
+const publisherListSchema = z.object({
+  search: z.string().max(200).optional(),
+  sort: z.enum(["relevance", "name", "editions", "recent"]).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
+  favourites: z.boolean().optional(),
+  kinds: z.array(z.enum(["publisher", "imprint"])).max(2).optional(),
+  countries: z.array(z.string().max(120)).max(100).optional(),
+  page: z.number().int().optional(),
+  perPage: z.number().int().optional(),
+});
+export type PublisherListOptions = z.input<typeof publisherListSchema>;
+
+/**
+ * Publisher list with the same search engine as authors (accent-insensitive,
+ * typo-tolerant, ranked; names and aliases), sorts and filters.
+ */
+export async function getPublishers(options: PublisherListOptions = {}) {
+  const o = publisherListSchema.parse(options);
+  const paging = parsePagination({
+    page: String(o.page ?? 1),
+    perPage: String(o.perPage ?? 48),
+  });
+  const q = (o.search ?? "").trim();
+  const sort = o.sort ?? (q ? "relevance" : "name");
+  const defaultOrder = sort === "name" ? "asc" : "desc";
+  const dir = (o.order ?? defaultOrder) === "asc" ? asc : desc;
   const where = and(
-    favourites ? eq(houses.isFavourite, true) : undefined,
-    q
-      ? sql`(strpos(lower(${houses.name}), lower(${q})) > 0 or exists (select 1 from publisher_aliases a where a.publisher_id = ${houses.id} and strpos(lower(a.name), lower(${q})) > 0))`
+    o.favourites ? eq(houses.isFavourite, true) : undefined,
+    o.kinds?.length ? inArray(houses.kind, o.kinds) : undefined,
+    // A publisher may list several countries ("United States; France")
+    o.countries?.length
+      ? sql`exists (select 1 from regexp_split_to_table(${houses.country}, '\\s*[;/]\\s*') c where trim(c) in (${sql.join(
+          o.countries.map((c) => sql`${c}`),
+          sql`, `,
+        )}))`
       : undefined,
+    textSearchCondition(publisherHaystack, q),
   );
+  const orderBy =
+    sort === "relevance" && q
+      ? [dir(textSearchRank(publisherHaystack, sql`${houses.name}`, q)), asc(houses.name)]
+      : sort === "editions"
+        ? [dir(publisherEditionCount), asc(houses.name)]
+        : sort === "recent"
+          ? [dir(houses.createdAt), asc(houses.name)]
+          : [dir(sql`lower(${houses.name})`)];
   const [rows, [total]] = await Promise.all([
     db
       .select({
         publisher: houses,
-        editionCount: sql<number>`(select count(distinct ep.edition_id)::int from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where p.id = "publishing_houses"."id" or p.parent_id = "publishing_houses"."id")`,
+        editionCount: publisherEditionCount,
+        parentName: sql<
+          string | null
+        >`(select parent.name from publishing_houses parent where parent.id = "publishing_houses"."parent_id")`,
       })
       .from(houses)
       .where(where)
-      .orderBy(desc(houses.isFavourite), asc(houses.name), asc(houses.id))
+      .orderBy(...orderBy, asc(houses.id))
       .limit(paging.perPage)
       .offset(paging.offset),
     db.select({ count: count() }).from(houses).where(where),
   ]);
   return { rows, total: total.count };
+}
+
+/** Single countries that publishers belong to, for the filter ("United States; France" counts for both). */
+export async function getPublisherCountries() {
+  const result = await db.execute(
+    sql`select distinct trim(c) as country from publishing_houses, regexp_split_to_table(country, '\\s*[;/]\\s*') c where trim(c) <> '' order by 1`,
+  );
+  const rows = (Array.isArray(result) ? result : result.rows) as {
+    country: string;
+  }[];
+  return rows.map((r) => r.country);
 }
 
 export async function getPublisher(slug: string) {

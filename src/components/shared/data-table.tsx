@@ -24,6 +24,8 @@ interface DataTableProps<T> {
   renderCell: (item: T, columnKey: string) => ReactNode;
   defaultSortKey?: string;
   defaultSortDir?: "asc" | "desc";
+  /** Keep the given (server) order until a column header is clicked */
+  preserveOrder?: boolean;
   getSortValue?: (item: T, key: string) => string | number;
   isSelecting?: boolean;
   selectedIds?: Set<string>;
@@ -39,12 +41,15 @@ export function DataTable<T>({
   renderCell,
   defaultSortKey,
   defaultSortDir = "asc",
+  preserveOrder = false,
   getSortValue,
   isSelecting = false,
   selectedIds,
   onSelect,
 }: DataTableProps<T>) {
-  const resolvedSortKey = defaultSortKey ?? allColumns[0]?.key ?? "";
+  const resolvedSortKey = preserveOrder
+    ? ""
+    : (defaultSortKey ?? allColumns[0]?.key ?? "");
   const [sortKey, setSortKey] = useState(resolvedSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
   const [showConfig, setShowConfig] = useState(false);
@@ -60,6 +65,7 @@ export function DataTable<T>({
   );
 
   const sortedItems = useMemo(() => {
+    if (!sortKey) return items;
     return [...items].sort((a, b) => {
       const aVal = getSortValue
         ? getSortValue(a, sortKey)
