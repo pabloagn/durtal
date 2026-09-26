@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { BookLinks } from "@/components/books/book-links";
-import { ArrowLeft, Star, Route } from "lucide-react";
+import { ArrowLeft, Star, Route, ExternalLink } from "lucide-react";
 import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
 import { getAuthors } from "@/lib/actions/authors";
 import { getOrdersForWork } from "@/lib/actions/orders";
@@ -450,19 +450,23 @@ export default async function WorkDetailPage({ params }: PageProps) {
                       {i > 0 && (
                         <span className="text-xs text-fg-muted">, </span>
                       )}
-                      {wr.recommender.url ? (
+                      <Link
+                        href={`/recommenders/${wr.recommender.id}`}
+                        className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
+                      >
+                        {wr.recommender.name}
+                      </Link>
+                      {wr.recommender.url && (
                         <a
                           href={wr.recommender.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
+                          aria-label={`${wr.recommender.name} website`}
+                          title={`${wr.recommender.name} website`}
+                          className="ml-1 inline-flex align-middle text-fg-muted transition-colors hover:text-accent-rose"
                         >
-                          {wr.recommender.name}
+                          <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                         </a>
-                      ) : (
-                        <span className="text-xs text-fg-secondary">
-                          {wr.recommender.name}
-                        </span>
                       )}
                     </span>
                   ))}

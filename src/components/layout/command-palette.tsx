@@ -18,6 +18,7 @@ import {
   Tags,
   Archive,
   Route,
+  ThumbsUp,
 } from "lucide-react";
 
 interface CommandPaletteProps {
@@ -34,6 +35,12 @@ const NAVIGATION_ITEMS = [
     label: "Publishers",
     href: "/publishers",
     icon: Building2,
+    group: "Navigate",
+  },
+  {
+    label: "Recommenders",
+    href: "/recommenders",
+    icon: ThumbsUp,
     group: "Navigate",
   },
   { label: "Series", href: "/series", icon: Layers, group: "Navigate" },

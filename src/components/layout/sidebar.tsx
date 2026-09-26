@@ -17,6 +17,7 @@ import {
   Search,
   Archive,
   Route,
+  ThumbsUp,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/reader", label: "Reader", icon: BookOpenText },
   { href: "/authors", label: "Authors", icon: Users },
   { href: "/publishers", label: "Publishers", icon: Building2 },
+  { href: "/recommenders", label: "Recommenders", icon: ThumbsUp },
   { href: "/series", label: "Series", icon: Layers },
   { href: "/places", label: "Places", icon: MapPin },
   { href: "/provenance", label: "Provenance", icon: Route },
