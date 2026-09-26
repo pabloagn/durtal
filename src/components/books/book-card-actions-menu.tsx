@@ -120,7 +120,7 @@ export function BookCardActionsMenu({
       <MediaManagerDialog
         open={mediaOpen}
         onClose={() => setMediaOpen(false)}
-        workId={workId}
+        entityId={workId}
         title={title}
       />
 

@@ -14,6 +14,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { works } from "./works";
 import { authors } from "./authors";
+import { collections } from "./collections";
 
 export const media = pgTable(
   "media",
@@ -23,6 +24,9 @@ export const media = pgTable(
     // Polymorphic owner — exactly one must be set
     workId: uuid("work_id").references(() => works.id, { onDelete: "cascade" }),
     authorId: uuid("author_id").references(() => authors.id, {
+      onDelete: "cascade",
+    }),
+    collectionId: uuid("collection_id").references(() => collections.id, {
       onDelete: "cascade",
     }),
 
@@ -69,14 +73,23 @@ export const media = pgTable(
   (t) => [
     check(
       "media_owner_check",
-      sql`(work_id IS NOT NULL) != (author_id IS NOT NULL)`,
+      sql`num_nonnulls(${t.workId}, ${t.authorId}, ${t.collectionId}) = 1`,
     ),
     index("media_work_id_type_active_idx").on(t.workId, t.type, t.isActive),
     index("media_author_id_active_idx").on(t.authorId, t.isActive),
+    index("media_collection_id_type_active_idx").on(
+      t.collectionId,
+      t.type,
+      t.isActive,
+    ),
   ],
 );
 
 export const mediaRelations = relations(media, ({ one }) => ({
   work: one(works, { fields: [media.workId], references: [works.id] }),
   author: one(authors, { fields: [media.authorId], references: [authors.id] }),
+  collection: one(collections, {
+    fields: [media.collectionId],
+    references: [collections.id],
+  }),
 }));

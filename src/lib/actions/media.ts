@@ -11,6 +11,32 @@ import { createMediaSchema, updateMediaSchema, updateMediaCropSchema } from "@/l
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 
+type MediaRow = typeof media.$inferSelect;
+export type MediaOwnerType = "work" | "author" | "collection";
+
+const OWNER_COLUMN = {
+  work: media.workId,
+  author: media.authorId,
+  collection: media.collectionId,
+} as const;
+
+function ownerOf(item: MediaRow): { type: MediaOwnerType; id: string } {
+  if (item.workId) return { type: "work", id: item.workId };
+  if (item.authorId) return { type: "author", id: item.authorId };
+  return { type: "collection", id: item.collectionId! };
+}
+
+/** Collections have no activity timeline; works and authors do. */
+function recordMediaActivity(item: MediaRow, event: string) {
+  const owner = ownerOf(item);
+  if (owner.type === "collection") return;
+  recordActivity(owner.type, owner.id, `${owner.type}.${item.type}_${event}`);
+}
+
+function mediaChanged() {
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.media, CACHE_TAGS.collections);
+}
+
 // ── Queries ─────────────────────────────────────────────────────────────────
 
 export async function getMediaForWork(workId: string) {
@@ -27,25 +53,30 @@ export async function getMediaForAuthor(authorId: string) {
   });
 }
 
-export async function getPoster(entityType: "work" | "author", entityId: string) {
-  const col = entityType === "work" ? media.workId : media.authorId;
+export async function getPoster(entityType: MediaOwnerType, entityId: string) {
+  const col = OWNER_COLUMN[entityType];
   return db.query.media.findFirst({
     where: and(eq(col, entityId), eq(media.type, "poster"), eq(media.isActive, true)),
     orderBy: [asc(media.sortOrder)],
   });
 }
 
-export async function getBackground(entityType: "work" | "author", entityId: string) {
-  const col = entityType === "work" ? media.workId : media.authorId;
+export async function getBackground(entityType: MediaOwnerType, entityId: string) {
+  const col = OWNER_COLUMN[entityType];
   return db.query.media.findFirst({
     where: and(eq(col, entityId), eq(media.type, "background"), eq(media.isActive, true)),
     orderBy: [asc(media.sortOrder)],
   });
 }
 
-export async function getMediaByType(workId: string, type: string) {
+export async function getMediaByType(
+  workId: string,
+  type: string,
+  ownerType: MediaOwnerType = "work",
+) {
+  if (!(ownerType in OWNER_COLUMN)) throw new Error("Unknown media owner");
   return db.query.media.findMany({
-    where: and(eq(media.workId, workId), eq(media.type, type)),
+    where: and(eq(OWNER_COLUMN[ownerType], workId), eq(media.type, type)),
     orderBy: [desc(media.isActive), asc(media.sortOrder), desc(media.createdAt)],
   });
 }
@@ -55,19 +86,15 @@ export async function getMediaByType(workId: string, type: string) {
 export async function createMedia(input: CreateMediaInput) {
   const data = createMediaSchema.parse(input);
   const [row] = await db.insert(media).values(data).returning();
-
-  const entityType = data.workId ? "work" : "author";
-  const entityId = (data.workId ?? data.authorId)!;
-  recordActivity(entityType as "work" | "author", entityId, `${entityType}.${data.type}_uploaded`);
-
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+  recordMediaActivity(row, "uploaded");
+  mediaChanged();
   return row;
 }
 
 export async function updateMedia(id: string, input: UpdateMediaInput) {
   const data = updateMediaSchema.parse(input);
   const [row] = await db.update(media).set(data).where(eq(media.id, id)).returning();
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+  mediaChanged();
   return row;
 }
 
@@ -85,18 +112,15 @@ export async function deleteMedia(id: string) {
   }
   await Promise.all(deletions);
 
-  const entityType = existing.workId ? "work" : "author";
-  const entityId = (existing.workId ?? existing.authorId)!;
-  recordActivity(entityType as "work" | "author", entityId, `${entityType}.${existing.type}_deleted`);
+  recordMediaActivity(existing, "deleted");
 
   await db.delete(media).where(eq(media.id, id));
 
   // If the deleted item was active, auto-promote the next one
   if (existing.isActive) {
-    const ownerCol = existing.workId ? media.workId : media.authorId;
-    const ownerId = existing.workId ?? existing.authorId!;
+    const owner = ownerOf(existing);
     const next = await db.query.media.findFirst({
-      where: and(eq(ownerCol, ownerId), eq(media.type, existing.type)),
+      where: and(eq(OWNER_COLUMN[owner.type], owner.id), eq(media.type, existing.type)),
       orderBy: asc(media.sortOrder),
     });
     if (next) {
@@ -104,7 +128,7 @@ export async function deleteMedia(id: string) {
     }
   }
 
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+  mediaChanged();
 }
 
 export async function bulkDeleteMedia(ids: string[]) {
@@ -122,7 +146,7 @@ export async function bulkDeleteMedia(ids: string[]) {
   await Promise.all(deletions);
   // Delete DB records
   await db.delete(media).where(inArray(media.id, ids));
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+  mediaChanged();
 }
 
 /**
@@ -133,11 +157,10 @@ export async function setActiveMedia(id: string) {
   if (!item) return;
 
   // Deactivate all others of same type for this owner, then activate target
-  const ownerCol = item.workId ? media.workId : media.authorId;
-  const ownerId = item.workId ?? item.authorId!;
+  const owner = ownerOf(item);
   await db.update(media)
     .set({ isActive: false })
-    .where(and(eq(ownerCol, ownerId), eq(media.type, item.type), not(eq(media.id, id))));
+    .where(and(eq(OWNER_COLUMN[owner.type], owner.id), eq(media.type, item.type), not(eq(media.id, id))));
 
   await db.update(media)
     .set({ isActive: true })
@@ -160,11 +183,8 @@ export async function setActiveMedia(id: string) {
     }
   }
 
-  const entityType = item.workId ? "work" : "author";
-  const entityId = (item.workId ?? item.authorId)!;
-  recordActivity(entityType as "work" | "author", entityId, `${entityType}.${item.type}_default_changed`);
-
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+  recordMediaActivity(item, "default_changed");
+  mediaChanged();
 }
 
 export async function updateMediaCrop(id: string, input: UpdateMediaCropInput) {
@@ -186,5 +206,5 @@ export async function reorderMedia(ids: string[]) {
       db.update(media).set({ sortOrder: i }).where(eq(media.id, id)),
     ),
   );
-  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+  mediaChanged();
 }

@@ -81,7 +81,7 @@ export function WorkMediaInline({
       <MediaManagerDialog
         open={mediaOpen}
         onClose={() => setMediaOpen(false)}
-        workId={workId}
+        entityId={workId}
         title={title}
       />
     </section>

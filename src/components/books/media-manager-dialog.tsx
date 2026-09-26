@@ -45,7 +45,9 @@ interface MediaItem {
 interface MediaManagerDialogProps {
   open: boolean;
   onClose: () => void;
-  workId: string;
+  /** Owner of the images: a work (poster, background, gallery) or a collection (poster, background) */
+  entityType?: "work" | "collection";
+  entityId: string;
   title: string;
   /** Which tab to open on: defaults to "poster" */
   initialTab?: TabType;
@@ -56,6 +58,8 @@ const TABS: { key: TabType; label: string }[] = [
   { key: "background", label: "Background" },
   { key: "gallery", label: "Gallery" },
 ];
+
+const COLLECTION_TABS = TABS.filter((tab) => tab.key !== "gallery");
 
 const ASPECT_CLASSES: Record<TabType, string> = {
   poster: "aspect-[2/3]",
@@ -71,10 +75,12 @@ function thumbnailUrl(item: MediaItem): string {
 export function MediaManagerDialog({
   open,
   onClose,
-  workId,
+  entityType = "work",
+  entityId,
   title,
   initialTab = "poster",
 }: MediaManagerDialogProps) {
+  const tabs = entityType === "collection" ? COLLECTION_TABS : TABS;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -95,14 +101,14 @@ export function MediaManagerDialog({
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMediaByType(workId, activeTab);
+      const data = await getMediaByType(entityId, activeTab, entityType);
       setItems(data as MediaItem[]);
     } catch {
       toast.error("Failed to load media");
     } finally {
       setLoading(false);
     }
-  }, [workId, activeTab]);
+  }, [entityId, activeTab, entityType]);
 
   // Fetch on open and tab change
   useEffect(() => {
@@ -217,7 +223,8 @@ export function MediaManagerDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          workId,
+          entityType,
+          entityId,
           mediaType: activeTab,
           imageUrl: trimmed,
         }),
@@ -255,7 +262,7 @@ export function MediaManagerDialog({
       <div className="space-y-4">
         {/* Tabs */}
         <div className="flex gap-1 border-b border-glass-border pb-2">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -422,8 +429,8 @@ export function MediaManagerDialog({
             {/* Upload section */}
             <div className="border-t border-glass-border pt-4">
               <UploadZone
-                entityType="work"
-                entityId={workId}
+                entityType={entityType}
+                entityId={entityId}
                 mediaType={activeTab}
                 multiple={isGallery}
                 onUploadComplete={handleUploadComplete}

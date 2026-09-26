@@ -41,6 +41,14 @@ import { EditionDetailCard } from "./edition-detail-card";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkActionsMenu } from "./work-actions-menu";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
+import {
+  getCollectionsForWork,
+  getCollectionCoverPreviews,
+} from "@/lib/actions/collections";
+import {
+  CollectionCard,
+  collectionPoster,
+} from "@/components/collections/collection-card";
 import { BookCard } from "@/components/books/book-card";
 import { WorkPosterImage } from "./work-poster-image";
 import { GallerySection } from "@/components/shared/gallery-section";
@@ -120,6 +128,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     relatedWorks,
     acquisitionTargets,
     publisherOptions,
+    workCollections,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -128,7 +137,14 @@ export default async function WorkDetailPage({ params }: PageProps) {
       : Promise.resolve([]),
     getAcquisitionTargets(work.id),
     getPublisherOptions(),
+    getCollectionsForWork(work.id),
   ]);
+  // Member-cover collage only for collections without a poster
+  const collectionCovers = await getCollectionCoverPreviews(
+    workCollections
+      .filter((c) => !collectionPoster(c.media))
+      .map((c) => c.id),
+  );
 
   const primaryAuthors = work.workAuthors.map((wa) => wa.author);
   const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
@@ -602,6 +618,40 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </div>
               );
             })}
+          </HorizontalCarousel>
+        </section>
+      )}
+
+      {/* Collections holding this book */}
+      {workCollections.length > 0 && (
+        <section className="mb-8">
+          <HorizontalCarousel title="Collections" titleHref="/collections">
+            {workCollections.map((collection) => (
+              <div
+                key={collection.id}
+                className="w-[160px] flex-shrink-0 snap-start"
+              >
+                <CollectionCard
+                  collection={collection}
+                  covers={collectionCovers
+                    .filter((p) => p.collectionId === collection.id)
+                    .map((p) => p.s3Key)}
+                  footer={
+                    work.editions.length > 1 && (
+                      <p className="mt-1.5 line-clamp-2 text-micro text-fg-muted">
+                        {collection.heldEditions
+                          .map((e) =>
+                            [e.editionTitle, e.publicationYear]
+                              .filter(Boolean)
+                              .join(", "),
+                          )
+                          .join(" · ")}
+                      </p>
+                    )
+                  }
+                />
+              </div>
+            ))}
           </HorizontalCarousel>
         </section>
       )}

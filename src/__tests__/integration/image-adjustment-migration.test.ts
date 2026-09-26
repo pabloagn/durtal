@@ -61,7 +61,8 @@ describe.skipIf(!url)("image adjustment migration", () => {
       // Later migrations may add work columns; every existing value must survive.
       expect((await c`select * from works`)[0]).toMatchObject(work);
       expect((await c`select * from authors`)[0]).toEqual(author);
-      expect((await c`select * from media`)[0]).toEqual(media);
+      // Later migrations may add media columns; every existing value must survive.
+      expect((await c`select * from media`)[0]).toMatchObject(media);
       expect((await c`select * from editions`)[0]).toEqual(edition);
       expect(await c`select * from image_adjustments`).toHaveLength(0);
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });

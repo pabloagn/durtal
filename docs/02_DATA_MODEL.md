@@ -927,14 +927,13 @@ Nested subdivisions within a location (shelf, drawer, room).
 
 ### `collections`
 
-User-curated groups of editions.
+User-curated groups of editions. Poster and background images are rows in `media` with `collection_id` set (migration `0029_collection_media`), managed like work images: several per type, one active, crop and adjustments. The former `cover_s3_key`, `poster_s3_key`, `poster_thumbnail_s3_key` and `background_s3_key` columns were moved into `media` and dropped by that migration. Grids and cards show the active poster; the collection page shows the active background as its banner.
 
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | UUID | PK |
 | `name` | TEXT | NOT NULL |
 | `description` | TEXT | nullable |
-| `cover_s3_key` | TEXT | nullable |
 | `sort_order` | INTEGER | NOT NULL, default `0` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
@@ -945,14 +944,15 @@ User-curated groups of editions.
 
 ### `media`
 
-Images attached to works or authors. Polymorphic ownership.
+Images attached to works, authors or collections. Polymorphic ownership.
 
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | UUID | PK |
 | `work_id` | UUID | FK → `works.id`, CASCADE, nullable |
 | `author_id` | UUID | FK → `authors.id`, CASCADE, nullable |
-| `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`) |
+| `collection_id` | UUID | FK → `collections.id`, CASCADE, nullable (migration `0029_collection_media`) |
+| `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background only) |
 | `s3_key` | TEXT | NOT NULL |
 | `thumbnail_s3_key` | TEXT | nullable |
 | `original_filename` | TEXT | nullable |
@@ -973,7 +973,9 @@ Images attached to works or authors. Polymorphic ownership.
 | `caption` | TEXT | nullable |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-**Check constraint**: `(work_id IS NOT NULL) != (author_id IS NOT NULL)` — exactly one owner.
+**Check constraint** `media_owner_check`: `num_nonnulls(work_id, author_id, collection_id) = 1` — exactly one owner.
+
+**Indexes**: `(work_id, type, is_active)`, `(author_id, is_active)`, `(collection_id, type, is_active)`.
 
 **Active selection**: Multiple posters/backgrounds can exist for a work, but only one is active at a time. Uploading a new poster deactivates the previous one (without deleting it). Users can switch the active poster/background or permanently delete unwanted items.
 

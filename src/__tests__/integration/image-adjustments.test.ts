@@ -187,27 +187,40 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       expect(saved.sources).toHaveLength(2);
     }
   });
-  it("keeps collection poster, background and separate legacy cover independent", async () => {
-    await db
+  it("keeps collection poster and background independent, with framing like book media", async () => {
+    const [collection] = await db
       .insert(schema.collections)
-      .values({
-        name: "Collection",
-        posterS3Key: "poster.jpg",
-        posterThumbnailS3Key: "thumb.jpg",
-        backgroundS3Key: "background.jpg",
-        coverS3Key: "legacy.jpg",
-      });
+      .values({ name: "Collection" })
+      .returning();
+    await db.insert(schema.media).values([
+      {
+        collectionId: collection.id,
+        type: "poster",
+        s3Key: "poster.jpg",
+        thumbnailS3Key: "thumb.jpg",
+      },
+      {
+        collectionId: collection.id,
+        type: "background",
+        s3Key: "background.jpg",
+      },
+    ]);
     expect(
       (
         await saveImagePresentation(s3ImageSource("thumb.jpg"), {
           settings: { exposure: 1 },
+          crop: { cropX: 30, cropY: 40, cropZoom: 120 },
         })
       ).sources,
     ).toEqual([s3ImageSource("poster.jpg"), s3ImageSource("thumb.jpg")]);
-    for (const key of ["background.jpg", "legacy.jpg"])
-      expect(
-        (await getImagePresentation(s3ImageSource(key))).settings.exposure,
-      ).toBe(0);
+    const poster = await getImagePresentation(s3ImageSource("poster.jpg"));
+    expect(poster.crop).toEqual({ cropX: 30, cropY: 40, cropZoom: 120 });
+    expect(poster.aspect).toBe(2 / 3);
+    const background = await getImagePresentation(
+      s3ImageSource("background.jpg"),
+    );
+    expect(background.settings.exposure).toBe(0);
+    expect(background.aspect).toBe(16 / 9);
   });
   it("supports legacy author photos and reader cover aliases", async () => {
     await db

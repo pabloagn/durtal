@@ -42,7 +42,6 @@ export async function cleanupCollectionArtwork(
     )}]::text[]`;
     const result = await db.execute(sql`select k from unnest(${values}) k where
       exists(select 1 from media where k in(s3_key,thumbnail_s3_key,original_s3_key)) or
-      exists(select 1 from collections where k in(cover_s3_key,poster_s3_key,poster_thumbnail_s3_key,background_s3_key)) or
       exists(select 1 from editions where k in(cover_s3_key,thumbnail_s3_key)) or
       exists(select 1 from authors where k=photo_s3_key) or
       exists(select 1 from venues where k in(poster_s3_key,thumbnail_s3_key)) or

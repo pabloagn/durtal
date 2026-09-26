@@ -232,7 +232,7 @@ export function WorkActionsMenu({
       <MediaManagerDialog
         open={mediaOpen}
         onClose={() => setMediaOpen(false)}
-        workId={work.id}
+        entityId={work.id}
         title={work.title}
       />
 

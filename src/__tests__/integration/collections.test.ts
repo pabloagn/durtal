@@ -97,17 +97,21 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
   it("creates with a name only and preserves existing artwork when renaming", async () => {
     const c = await createCollection({ name: "  Strange tales  " });
     expect(c.name).toBe("Strange tales");
-    await updateCollection(c.id, {
-      posterS3Key: "existing-poster.jpg",
-      backgroundS3Key: "existing-background.jpg",
-    });
+    await db.insert(schema.media).values([
+      { collectionId: c.id, type: "poster", s3Key: "existing-poster.jpg" },
+      { collectionId: c.id, type: "background", s3Key: "existing-background.jpg" },
+    ]);
     await updateCollection(c.id, { name: "New name", description: "Notes" });
-    expect(await getCollection(c.id)).toMatchObject({
-      name: "New name",
-      description: "Notes",
-      posterS3Key: "existing-poster.jpg",
-      backgroundS3Key: "existing-background.jpg",
-    });
+    const saved = await getCollection(c.id);
+    expect(saved).toMatchObject({ name: "New name", description: "Notes" });
+    expect(saved!.media.map((m) => [m.type, m.s3Key]).sort()).toEqual([
+      ["background", "existing-background.jpg"],
+      ["poster", "existing-poster.jpg"],
+    ]);
+    // Artwork is not a collection field any more.
+    await expect(
+      updateCollection(c.id, { posterS3Key: "x.jpg" } as never),
+    ).rejects.toThrow();
     await expect(updateCollection(c.id, { name: "  " })).rejects.toThrow();
     expect((await getCollection(c.id))!.name).toBe("New name");
   });
@@ -214,16 +218,23 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
   it("deletes only collection membership and asks cleanup for its own artwork", async () => {
     const b = await book();
     const c = await createCollection({ name: "Delete me" }, [b.editions[0].id]);
-    await updateCollection(c.id, {
-      posterS3Key: `gold/media/collection/${c.id}/poster/a.webp`,
+    await db.insert(schema.media).values({
+      collectionId: c.id,
+      type: "poster",
+      s3Key: `gold/media/collection/${c.id}/poster/a.webp`,
     });
+    const [bookPoster] = await db
+      .insert(schema.media)
+      .values({ workId: b.work.id, type: "poster", s3Key: "book-poster.webp" })
+      .returning();
     await deleteCollection(c.id);
     expect(await getCollection(c.id)).toBeUndefined();
     expect(await db.select().from(schema.works)).toHaveLength(1);
     expect((await db.select().from(schema.editions))[0]).toEqual(b.editions[0]);
-    expect(cleanupCollectionArtwork).toHaveBeenCalledWith(c.id, [
-      `gold/media/collection/${c.id}/poster/a.webp`,
-    ]);
+    // Collection media rows go with it; the book's own poster stays.
+    expect(await db.select().from(schema.media)).toEqual([bookPoster]);
+    // The cleanup sweeps the collection's own S3 namespace.
+    expect(cleanupCollectionArtwork).toHaveBeenCalledWith(c.id, []);
     expect(
       (await db.select().from(schema.activityEvents)).filter(
         (e) => e.eventKey === "work.collection_removed",

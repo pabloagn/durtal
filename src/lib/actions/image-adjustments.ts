@@ -9,7 +9,6 @@ import {
   authors,
   editions,
   venues,
-  collections,
   commentAttachments,
   calibreBooks,
   imageAdjustments,
@@ -56,7 +55,8 @@ async function resolveImage(source: string) {
       media: item,
     };
 
-  const [author, edition, venue, collection, attachment, calibre] =
+  // Collection posters and backgrounds are media rows, resolved above.
+  const [author, edition, venue, attachment, calibre] =
     await Promise.all([
       db.query.authors.findFirst({
         where: eq(authors.photoS3Key, key),
@@ -72,14 +72,6 @@ async function resolveImage(source: string) {
       db.query.venues.findFirst({
         where: or(eq(venues.posterS3Key, key), eq(venues.thumbnailS3Key, key)),
         columns: { posterS3Key: true, thumbnailS3Key: true },
-      }),
-      db.query.collections.findFirst({
-        where: or(
-          eq(collections.coverS3Key, key),
-          eq(collections.posterS3Key, key),
-          eq(collections.posterThumbnailS3Key, key),
-          eq(collections.backgroundS3Key, key),
-        ),
       }),
       db.query.commentAttachments.findFirst({
         where: and(
@@ -97,14 +89,6 @@ async function resolveImage(source: string) {
   if (author) keys = [author.photoS3Key];
   else if (edition) keys = [edition.coverS3Key, edition.thumbnailS3Key];
   else if (venue) keys = [venue.posterS3Key, venue.thumbnailS3Key];
-  else if (collection)
-    keys =
-      key === collection.backgroundS3Key
-        ? [collection.backgroundS3Key]
-        : key === collection.posterS3Key ||
-            key === collection.posterThumbnailS3Key
-          ? [collection.posterS3Key, collection.posterThumbnailS3Key]
-          : [collection.coverS3Key];
   else if (attachment) keys = [attachment.s3Key];
   else if (calibre) keys = [calibre.coverS3Key];
   else throw new Error("Image not found");

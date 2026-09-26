@@ -142,6 +142,7 @@ export function AddToCollectionDialog({
                 collectionEditions: selected.map((editionId) => ({
                   editionId,
                 })),
+                media: [],
               },
             ],
           },

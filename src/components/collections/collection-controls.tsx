@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
+import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import {
   updateCollection,
   deleteCollection,
@@ -29,9 +29,6 @@ type Collection = {
   id: string;
   name: string;
   description: string | null;
-  posterS3Key: string | null;
-  backgroundS3Key: string | null;
-  coverS3Key: string | null;
 };
 export function CollectionControls({
   collection,
@@ -206,151 +203,14 @@ export function CollectionControls({
           </Button>
         </div>
       </Dialog>
-      {artwork && (
-        <CollectionArtwork
-          collection={collection}
-          onClose={() => setArtwork(false)}
-        />
-      )}
+      <MediaManagerDialog
+        open={artwork}
+        onClose={() => setArtwork(false)}
+        entityType="collection"
+        entityId={collection.id}
+        title={collection.name}
+      />
     </>
-  );
-}
-
-function CollectionArtwork({
-  collection,
-  onClose,
-}: {
-  collection: Collection;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const [uploading, setUploading] = useState<string | null>(null);
-  const busy = useRef(false);
-  async function upload(type: "poster" | "background", file: File) {
-    if (busy.current) return;
-    if (
-      !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
-        file.type,
-      ) ||
-      file.size > 20 * 1024 * 1024
-    ) {
-      toast.error("Choose a JPG, PNG, WebP or GIF image up to 20 MB.");
-      return;
-    }
-    busy.current = true;
-    setUploading(type);
-    try {
-      const presign = await fetch("/api/media/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "presign",
-          entityType: "collection",
-          entityId: collection.id,
-          filename: file.name,
-          contentType: file.type,
-        }),
-      });
-      if (!presign.ok) throw new Error("presign");
-      const { url, bronzeKey, fileId } = await presign.json();
-      const uploaded = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!uploaded.ok) throw new Error("upload");
-      const processed = await fetch("/api/media/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "process",
-          entityType: "collection",
-          entityId: collection.id,
-          mediaType: type,
-          fileId,
-          bronzeKey,
-          originalFilename: file.name,
-          mimeType: file.type,
-          sizeBytes: file.size,
-        }),
-      });
-      if (!processed.ok) throw new Error("process");
-      router.refresh();
-      toast.success("Collection artwork updated");
-    } catch {
-      toast.error(
-        "Could not upload artwork. Your collection and books are saved.",
-      );
-    } finally {
-      busy.current = false;
-      setUploading(null);
-    }
-  }
-  return (
-    <Dialog
-      open
-      onClose={() => {
-        if (!busy.current) onClose();
-      }}
-      title="Collection artwork"
-      className="max-w-lg"
-      expandable={false}
-    >
-      <div className="grid grid-cols-2 gap-4">
-        {(["poster", "background"] as const).map((type) => {
-          const key =
-            type === "poster"
-              ? (collection.posterS3Key ?? collection.coverS3Key)
-              : collection.backgroundS3Key;
-          return (
-            <div key={type} className="space-y-3">
-              <p className="text-sm capitalize">{type}</p>
-              <div className="relative flex h-36 items-center justify-center rounded-sm border border-glass-border bg-bg-primary">
-                {key ? (
-                  <>
-                    <img
-                      src={`/api/s3/read?key=${encodeURIComponent(key)}`}
-                      alt={`Collection ${type}`}
-                      className="h-full w-full object-contain"
-                    />
-                    <ImageAdjustButton
-                      source={`/api/s3/read?key=${encodeURIComponent(key)}`}
-                      className="absolute bottom-2 right-2"
-                    />
-                  </>
-                ) : (
-                  <ImageIcon size={24} strokeWidth={1} />
-                )}
-              </div>
-              <label className="block text-xs text-fg-secondary">
-                {uploading === type
-                  ? "Uploading…"
-                  : key
-                    ? "Replace image"
-                    : "Choose image"}
-                <input
-                  aria-label={`Upload ${type}`}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="mt-2 block w-full text-xs"
-                  disabled={!!uploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void upload(type, file);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-4 flex justify-end">
-        <Button disabled={!!uploading} onClick={onClose}>
-          Done
-        </Button>
-      </div>
-    </Dialog>
   );
 }
 

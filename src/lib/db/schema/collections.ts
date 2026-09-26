@@ -8,15 +8,13 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { editions } from "./editions";
+import { media } from "./media";
 
 export const collections = pgTable("collections", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  coverS3Key: text("cover_s3_key"),
-  posterS3Key: text("poster_s3_key"),
-  posterThumbnailS3Key: text("poster_thumbnail_s3_key"),
-  backgroundS3Key: text("background_s3_key"),
+  // Poster and background images live in `media` (collection_id), like works and authors.
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -24,6 +22,7 @@ export const collections = pgTable("collections", {
 
 export const collectionsRelations = relations(collections, ({ many }) => ({
   collectionEditions: many(collectionEditions),
+  media: many(media),
 }));
 
 export const collectionEditions = pgTable(

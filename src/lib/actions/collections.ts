@@ -9,6 +9,7 @@ import {
   collectionEditions,
   editions,
   works,
+  media,
 } from "@/lib/db/schema";
 import { eq, asc, count, ilike, or, sql, inArray } from "drizzle-orm";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
@@ -27,6 +28,12 @@ function changed() {
     CACHE_TAGS.media,
   );
 }
+/** Active poster and background rows, the same presentation data works and authors use. */
+const activeArtwork = {
+  where: eq(media.isActive, true),
+  orderBy: [asc(media.type), asc(media.sortOrder)],
+};
+
 function rows<T>(result: unknown): T[] {
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
 }
@@ -69,7 +76,10 @@ export async function getCollections(pagination?: {
     ],
     limit: pagination?.limit,
     offset: pagination?.offset,
-    with: { collectionEditions: { columns: { editionId: true } } },
+    with: {
+      collectionEditions: { columns: { editionId: true } },
+      media: activeArtwork,
+    },
   });
 }
 export async function getCollectionCount(query = "") {
@@ -89,6 +99,7 @@ export async function getCollection(id: string) {
   return db.query.collections.findFirst({
     where: eq(collections.id, id),
     with: {
+      media: activeArtwork,
       collectionEditions: {
         orderBy: [
           asc(collectionEditions.sortOrder),
@@ -336,15 +347,8 @@ export async function deleteCollection(id: string) {
   if (!removed) return { id, cleanupPending: false };
   const { cleanupCollectionArtwork } =
     await import("@/lib/s3/collection-cleanup");
-  const cleanupPending = await cleanupCollectionArtwork(
-    id,
-    [
-      removed.cover_s3_key,
-      removed.poster_s3_key,
-      removed.poster_thumbnail_s3_key,
-      removed.background_s3_key,
-    ].filter((key): key is string => typeof key === "string"),
-  );
+  // Media rows went with the collection (cascade); sweep its S3 namespace.
+  const cleanupPending = await cleanupCollectionArtwork(id, []);
   return { id, cleanupPending };
 }
 
@@ -358,4 +362,47 @@ export async function getCollectionCoverPreviews(collectionIds: string[]) {
     from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=any(${idArray(ids)})
   ) previews where position<=4 and cover is not null order by collection_id,position`);
   return rows<{ collectionId: string; s3Key: string }>(result);
+}
+
+/**
+ * Collections that hold any edition of a work, for the book page. Each entry
+ * lists which of the work's editions it holds, its size, and its active poster.
+ */
+export async function getCollectionsForWork(workId: string) {
+  z.string().uuid().parse(workId);
+  const memberships = await db
+    .select({
+      collectionId: collectionEditions.collectionId,
+      editionId: editions.id,
+      editionTitle: editions.title,
+      publicationYear: editions.publicationYear,
+    })
+    .from(collectionEditions)
+    .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
+    .where(eq(editions.workId, workId));
+  const ids = [...new Set(memberships.map((m) => m.collectionId))];
+  if (!ids.length) return [];
+  const found = await db.query.collections.findMany({
+    where: inArray(collections.id, ids),
+    orderBy: [
+      asc(collections.sortOrder),
+      asc(collections.name),
+      asc(collections.id),
+    ],
+    with: {
+      collectionEditions: { columns: { editionId: true } },
+      media: activeArtwork,
+    },
+  });
+  return found.map((collection) => ({
+    ...collection,
+    editionCount: collection.collectionEditions.length,
+    heldEditions: memberships
+      .filter((m) => m.collectionId === collection.id)
+      .map(({ editionId, editionTitle, publicationYear }) => ({
+        editionId,
+        editionTitle,
+        publicationYear,
+      })),
+  }));
 }

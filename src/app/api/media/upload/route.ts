@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/media";
 import { createMedia, setActiveMedia } from "@/lib/actions/media";
-import { updateCollection } from "@/lib/actions/collections";
+import {
+  isMediaEntityType,
+  mediaOwnerFields,
+  supportsMediaType,
+} from "@/lib/media/owner";
 import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
 import { isAllowedImageType, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
 import { extractColorPalette } from "@/lib/color/extract-palette";
@@ -53,6 +57,13 @@ export async function POST(req: NextRequest) {
 
     if (!["poster", "background", "gallery"].includes(mediaType)) {
       return NextResponse.json({ error: "Invalid mediaType" }, { status: 400 });
+    }
+
+    if (!isMediaEntityType(entityType) || !supportsMediaType(entityType, mediaType)) {
+      return NextResponse.json(
+        { error: "This owner does not accept that image type" },
+        { status: 400 },
+      );
     }
 
     if (file.size > MAX_MEDIA_SIZE_BYTES) {
@@ -121,24 +132,6 @@ export async function POST(req: NextRequest) {
       buffer,
     );
 
-    // For collections, store S3 keys directly on the collection record
-    if (entityType === "collection") {
-      const updateData: Record<string, string | null> = {};
-      if (mediaType === "poster") {
-        updateData.posterS3Key = result.s3Key;
-        updateData.posterThumbnailS3Key = result.thumbnailS3Key;
-      } else if (mediaType === "background") {
-        updateData.backgroundS3Key = result.s3Key;
-      }
-      await updateCollection(entityId, updateData);
-      return NextResponse.json({
-        s3Key: result.s3Key,
-        thumbnailS3Key: result.thumbnailS3Key,
-        width: result.width,
-        height: result.height,
-      });
-    }
-
     // Extract color palette for poster uploads (buffer is still in memory)
     let colorPalette: ColorPalette | undefined;
     if (mediaType === "poster" && entityType === "work") {
@@ -149,9 +142,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // For works/authors, create a media DB record
+    // Create the media record for the work or collection
     const record = await createMedia({
-      ...(entityType === "work" ? { workId: entityId } : { authorId: entityId }),
+      ...mediaOwnerFields(entityType, entityId),
       type: mediaType,
       s3Key: result.s3Key,
       thumbnailS3Key: result.thumbnailS3Key,

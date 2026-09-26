@@ -11,12 +11,5 @@ export const collectionIdsSchema = z
   .array(z.string().uuid())
   .max(1000)
   .transform((ids) => [...new Set(ids)]);
-export const collectionUpdateSchema = collectionDetailsSchema
-  .partial()
-  .extend({
-    coverS3Key: z.string().max(1024).nullable().optional(),
-    posterS3Key: z.string().max(1024).nullable().optional(),
-    posterThumbnailS3Key: z.string().max(1024).nullable().optional(),
-    backgroundS3Key: z.string().max(1024).nullable().optional(),
-  })
-  .strict();
+// Artwork is managed through `media` (collection owner), not collection fields.
+export const collectionUpdateSchema = collectionDetailsSchema.partial().strict();
