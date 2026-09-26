@@ -1,5 +1,7 @@
 "use client";
 
+import { CopyBookButton } from "./copy-book-button";
+
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,6 +20,7 @@ interface BookCardProps {
   slug: string;
   title: string;
   authorName: string;
+  authorNames?: string[];
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
@@ -89,6 +92,7 @@ export function BookCard({
   slug,
   title,
   authorName,
+  authorNames,
   coverUrl,
   coverCrop,
   publicationYear,
@@ -192,6 +196,10 @@ export function BookCard({
           </div>
           </div>
         </Link>
+
+        {!isSelecting && <div className="absolute bottom-1 right-8 z-20 @[220px]:bottom-2 @[220px]:right-10">
+          <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} className="border border-white/15 bg-black/65" />
+        </div>}
 
         {/* Three-dot menu — lives outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (

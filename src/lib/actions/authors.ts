@@ -297,7 +297,6 @@ export async function getAuthorBySlug(slug: string) {
               workAuthors: {
                 with: { author: { columns: { name: true } } },
                 orderBy: asc(workAuthors.sortOrder),
-                limit: 1,
               },
             },
           },

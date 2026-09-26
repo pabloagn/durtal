@@ -1,3 +1,4 @@
+import { CopyBookButton } from "@/components/books/copy-book-button";
 import {
   getAcquisitionTargets,
   getPublisherOptions,
@@ -240,7 +241,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
                   {work.title}
                 </h1>
-                <div className="flex-shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
+                  <CopyBookButton title={work.title} authorNames={primaryAuthors.map((a) => a.name)} />
                   <WorkActionsMenu
                     work={{
                       id: work.id,
@@ -568,6 +570,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                     slug={rw.slug ?? ""}
                     title={rw.title}
                     authorName={authorName}
+                    authorNames={rw.workAuthors.map((wa) => wa.author.name)}
                     coverUrl={
                       rwCoverKey
                         ? `/api/s3/read?key=${encodeURIComponent(rwCoverKey)}`

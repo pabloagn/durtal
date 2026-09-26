@@ -188,6 +188,7 @@ async function ItemContent({
                   slug={work.slug ?? work.id}
                   title={work.title}
                   authorName={authorName}
+                  authorNames={work.workAuthors.map((wa) => wa.author.name)}
                   coverUrl={coverUrl}
                   coverCrop={coverCrop}
                   publicationYear={primaryEdition?.publicationYear}

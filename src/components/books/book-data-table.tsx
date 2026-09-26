@@ -1,5 +1,7 @@
 "use client";
 
+import { CopyBookButton } from "./copy-book-button";
+
 import Link from "next/link";
 import Image from "next/image";
 import { HuntBadge } from "./hunt-badge";
@@ -16,6 +18,7 @@ export interface DetailedBookItem {
   slug: string;
   title: string;
   authorName: string;
+  authorNames?: string[];
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
@@ -59,6 +62,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
   switch (key) {
     case "title":
       return (
+        <div className="flex items-center gap-2">
         <Link
           href={`/library/${book.slug}`}
           className="flex items-center gap-2 hover:text-accent-rose"
@@ -82,6 +86,8 @@ function renderBookCell(book: DetailedBookItem, key: string) {
           </div>
           <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /></span>
         </Link>
+        <CopyBookButton {...book} />
+        </div>
       );
     case "catalogueStatus": {
       const statusInfo = val ? STATUS_CONFIG[val as CatalogueStatus] : null;

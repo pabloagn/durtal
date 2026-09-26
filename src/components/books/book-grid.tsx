@@ -6,6 +6,7 @@ interface BookGridItem {
   slug: string;
   title: string;
   authorName: string;
+  authorNames?: string[];
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
   publicationYear?: number | null;

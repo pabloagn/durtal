@@ -1,5 +1,7 @@
 "use client";
 
+import { CopyBookButton } from "./copy-book-button";
+
 import Image from "next/image";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
@@ -14,6 +16,7 @@ interface BookListItem {
   slug: string;
   title: string;
   authorName: string;
+  authorNames?: string[];
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
   publicationYear?: number | null;
@@ -152,6 +155,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
             </span>
           </div>
           </Link>
+          {!isSelecting && <CopyBookButton {...book} />}
         </div>
         );
       })}

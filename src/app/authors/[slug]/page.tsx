@@ -203,6 +203,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   slug={work.slug ?? ""}
                   title={work.title}
                   authorName={authorName}
+                  authorNames={work.workAuthors.map((wa) => wa.author.name)}
                   coverUrl={coverUrl}
                   coverCrop={
                     workActivePoster

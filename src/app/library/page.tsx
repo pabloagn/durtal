@@ -191,6 +191,7 @@ async function LibraryContent({
       slug: work.slug ?? "",
       title: work.title,
       authorName: primaryAuthor?.name ?? "Unknown",
+      authorNames: work.workAuthors.map((wa) => wa.author.name),
       coverUrl: coverS3Key
         ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
         : null,

@@ -1,5 +1,6 @@
 "use client";
 
+import { copyBookText } from "@/lib/utils/copy-book";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -92,7 +93,7 @@ interface WorkActionsMenuProps {
 export function WorkActionsMenu({
   work,
   workAuthors,
-  authorName,
+  authorName: _authorName,
   editionCount,
   instanceCount,
   posterCount: _posterCount,
@@ -116,9 +117,14 @@ export function WorkActionsMenu({
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(`${work.title}, ${authorName}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await copyBookText(work.title, workAuthors.map((a) => a.name));
+      setCopied(true);
+      toast.success("Book title and author copied");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Could not copy. Allow clipboard access and try again.");
+    }
   }
 
   async function handleDelete() {

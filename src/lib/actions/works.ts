@@ -897,7 +897,6 @@ export async function getWorksByAuthorId(
       workAuthors: {
         with: { author: { columns: { name: true } } },
         orderBy: asc(workAuthors.sortOrder),
-        limit: 1,
       },
       editions: {
         columns: {
