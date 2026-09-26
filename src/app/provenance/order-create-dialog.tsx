@@ -24,6 +24,9 @@ import { getValidInitialStatuses } from "@/lib/constants/orders";
 import {
   CURRENCY_SELECT_OPTIONS,
   DEFAULT_CURRENCY,
+  currencySymbol,
+  preferredCurrency,
+  rememberCurrency,
 } from "@/lib/constants/currencies";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
@@ -577,26 +580,25 @@ function DetailsStep({
       )}
 
       <div className="grid grid-cols-3 gap-3">
+        <Select
+          label="Currency"
+          options={CURRENCY_SELECT_OPTIONS}
+          value={form.currency}
+          onChange={(e) => onChange("currency", e.target.value)}
+        />
         <Input
-          label="Price"
+          label={`Price (${currencySymbol(form.currency) ?? form.currency})`}
           type="number"
           value={form.price}
           onChange={(e) => onChange("price", e.target.value)}
           placeholder="0.00"
         />
         <Input
-          label="Shipping"
+          label={`Shipping (${currencySymbol(form.currency) ?? form.currency})`}
           type="number"
           value={form.shippingCost}
           onChange={(e) => onChange("shippingCost", e.target.value)}
           placeholder="0.00"
-        />
-        <Select
-          label="Currency"
-          options={CURRENCY_SELECT_OPTIONS}
-          value={form.currency}
-          onChange={(e) => onChange("currency", e.target.value)}
-          placeholder="Select"
         />
       </div>
     </div>
@@ -641,11 +643,6 @@ interface DetailsForm {
   originDescription: string;
 }
 
-function getInitialCurrency(): string {
-  if (typeof window === "undefined") return DEFAULT_CURRENCY;
-  return localStorage.getItem("durtal:preferred-currency") ?? DEFAULT_CURRENCY;
-}
-
 const INITIAL_DETAILS: DetailsForm = {
   orderDate: new Date().toISOString().split("T")[0],
   venueName: "",
@@ -685,7 +682,7 @@ export function OrderCreateDialog({
   const [status, setStatus] = useState<OrderStatus>("placed");
   const [details, setDetails] = useState<DetailsForm>(() => ({
     ...INITIAL_DETAILS,
-    currency: getInitialCurrency(),
+    currency: preferredCurrency(),
   }));
   const [notes, setNotes] = useState("");
 
@@ -695,7 +692,7 @@ export function OrderCreateDialog({
     setTargetValue({ acquisitionTargetId: "", editionId: "" });
     setMethod("online_order");
     setStatus("placed");
-    setDetails({ ...INITIAL_DETAILS, currency: getInitialCurrency() });
+    setDetails({ ...INITIAL_DETAILS, currency: preferredCurrency() });
     setNotes("");
   }
 
@@ -742,9 +739,7 @@ export function OrderCreateDialog({
     startTransition(async () => {
       try {
         // Remember the currency preference for next order
-        if (details.currency) {
-          localStorage.setItem("durtal:preferred-currency", details.currency);
-        }
+        rememberCurrency(details.currency);
         await createOrder({
           workId: selectedWork.id,
           acquisitionTargetId: targetValue.acquisitionTargetId || null,
@@ -761,7 +756,7 @@ export function OrderCreateDialog({
           price: priceVal,
           shippingCost: shippingVal,
           totalCost: total,
-          currency: details.currency || null,
+          currency: details.currency,
           originDescription: details.originDescription || null,
           notes: notes || null,
         });

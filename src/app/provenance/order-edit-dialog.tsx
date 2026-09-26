@@ -15,7 +15,13 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { updateOrder } from "@/lib/actions/orders";
-import { CURRENCY_SELECT_OPTIONS } from "@/lib/constants/currencies";
+import {
+  CURRENCY_SELECT_OPTIONS,
+  currencySymbol,
+  isSupportedCurrency,
+  preferredCurrency,
+  rememberCurrency,
+} from "@/lib/constants/currencies";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 
 interface OrderData {
@@ -79,7 +85,10 @@ export function OrderEditDialog({
   const [orderUrl, setOrderUrl] = useState(order.orderUrl ?? "");
   const [price, setPrice] = useState(order.price ?? "");
   const [shippingCost, setShippingCost] = useState(order.shippingCost ?? "");
-  const [currency, setCurrency] = useState(order.currency ?? "EUR");
+  // Orders saved without a currency get the last-used one; saving stores it.
+  const [currency, setCurrency] = useState(() =>
+    isSupportedCurrency(order.currency) ? order.currency : preferredCurrency(),
+  );
   const [carrier, setCarrier] = useState(order.carrier ?? "");
   const [trackingNumber, setTrackingNumber] = useState(
     order.trackingNumber ?? "",
@@ -131,7 +140,7 @@ export function OrderEditDialog({
           price: priceVal,
           shippingCost: shippingVal,
           totalCost: total,
-          currency: currency || null,
+          currency,
           carrier: carrierVal,
           trackingNumber: trackingNumberVal,
           trackingUrl: trackingUrlVal,
@@ -140,9 +149,7 @@ export function OrderEditDialog({
           actualDeliveryDate: actualDeliveryDateVal,
           notes: notes || null,
         });
-        if (currency) {
-          localStorage.setItem("durtal:preferred-currency", currency);
-        }
+        rememberCurrency(currency);
         toast.success("Order updated");
         onClose();
         router.refresh();
@@ -247,26 +254,25 @@ export function OrderEditDialog({
         )}
 
         <div className="grid grid-cols-3 gap-3">
+          <Select
+            label="Currency"
+            options={CURRENCY_SELECT_OPTIONS}
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+          />
           <Input
-            label="Price"
+            label={`Price (${currencySymbol(currency) ?? currency})`}
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="0.00"
           />
           <Input
-            label="Shipping"
+            label={`Shipping (${currencySymbol(currency) ?? currency})`}
             type="number"
             value={shippingCost}
             onChange={(e) => setShippingCost(e.target.value)}
             placeholder="0.00"
-          />
-          <Select
-            label="Currency"
-            options={CURRENCY_SELECT_OPTIONS}
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            placeholder="Select"
           />
         </div>
 

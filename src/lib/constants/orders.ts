@@ -40,6 +40,9 @@ export const IN_TRANSIT_STATUSES: OrderStatus[] = [
   "out_for_delivery",
 ];
 
+// Orders whose money was never spent or was refunded; excluded from "Total Spent".
+export const UNSPENT_STATUSES: OrderStatus[] = ["cancelled", "returned"];
+
 export const PIPELINE_STATUSES: OrderStatus[] = [
   "placed",
   "confirmed",

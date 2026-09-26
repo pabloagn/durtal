@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Package,
   Truck,
-  DollarSign,
+  Wallet,
   CalendarDays,
   ExternalLink,
   ChevronRight,
@@ -44,6 +44,8 @@ import {
 } from "@/lib/constants/orders";
 import { OrderEditDialog } from "./order-edit-dialog";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { formatMoney, type CurrencyTotal } from "@/lib/utils/money";
+import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -101,7 +103,7 @@ export interface OrderItem {
 }
 
 export interface ProvenanceStats {
-  totalSpent: string;
+  spentByCurrency: CurrencyTotal[];
   avgOrderCost: string;
   orderCount: number;
   activeOrders: number;
@@ -294,22 +296,9 @@ function getTimelineSteps(
   ];
 }
 
-function formatCurrency(
-  amount: string | null,
-  currency: string | null,
-): string {
-  if (!amount) return "—";
-  const num = parseFloat(amount);
-  if (isNaN(num)) return "—";
-  const cur = currency ?? "USD";
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: cur,
-    }).format(num);
-  } catch {
-    return `${cur} ${num.toFixed(2)}`;
-  }
+function formatSpend({ currency, total }: CurrencyTotal): string {
+  const amount = formatMoney(total, currency);
+  return currency ? amount : `${amount} (no currency)`;
 }
 
 // ── KPI Cards ─────────────────────────────────────────────────────────────────
@@ -766,7 +755,7 @@ function OrderDetailPanel({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-fg-muted">Price</span>
                     <span className="font-mono text-micro text-fg-primary">
-                      {formatCurrency(order.price, order.currency)}
+                      {formatMoney(order.price, order.currency)}
                     </span>
                   </div>
                 )}
@@ -774,7 +763,7 @@ function OrderDetailPanel({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-fg-muted">Shipping</span>
                     <span className="font-mono text-micro text-fg-primary">
-                      {formatCurrency(order.shippingCost, order.currency)}
+                      {formatMoney(order.shippingCost, order.currency)}
                     </span>
                   </div>
                 )}
@@ -784,7 +773,7 @@ function OrderDetailPanel({
                       Total
                     </span>
                     <span className="font-mono text-xs font-medium text-fg-primary">
-                      {formatCurrency(order.totalCost, order.currency)}
+                      {formatMoney(order.totalCost, order.currency)}
                     </span>
                   </div>
                 )}
@@ -1050,17 +1039,15 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
     (o) => o.acquisitionMethod === "auction",
   );
 
-  // M5: format without hardcoded currency — show raw number
-  const totalSpentFormatted = stats.totalSpent
-    ? (() => {
-        const num = parseFloat(stats.totalSpent);
-        if (isNaN(num)) return "—";
-        return new Intl.NumberFormat("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(num);
-      })()
-    : "—";
+  // One total per currency: the main one large, any others underneath.
+  const [mainSpend, ...otherSpend] = stats.spentByCurrency;
+  const totalSpentFormatted = mainSpend
+    ? formatSpend(mainSpend)
+    : formatMoney(0, DEFAULT_CURRENCY);
+  const totalSpentSubtext =
+    otherSpend.length > 0
+      ? `+ ${otherSpend.map(formatSpend).join(" + ")} · all time`
+      : "all time";
 
   return (
     <div className="flex gap-6">
@@ -1091,10 +1078,10 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
             subtext="non-terminal"
           />
           <StatCard
-            icon={DollarSign}
+            icon={Wallet}
             label="Total Spent"
             value={totalSpentFormatted}
-            subtext="all time"
+            subtext={totalSpentSubtext}
           />
         </div>
 

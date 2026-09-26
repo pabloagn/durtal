@@ -1,4 +1,11 @@
 import { z } from "zod/v4";
+import { isSupportedCurrency } from "@/lib/constants/currencies";
+
+/** An ISO 4217 code from the supported list, or null for orders without money. */
+export const orderCurrencySchema = z
+  .string()
+  .refine(isSupportedCurrency, "Unsupported currency")
+  .nullable();
 
 export const createOrderSchema = z.object({
   workId: z.string().uuid(),
@@ -37,7 +44,7 @@ export const createOrderSchema = z.object({
   price: z.string().nullable().optional(),
   shippingCost: z.string().nullable().optional(),
   totalCost: z.string().nullable().optional(),
-  currency: z.string().nullable().optional(),
+  currency: orderCurrencySchema.optional(),
   carrier: z.string().nullable().optional(),
   trackingNumber: z.string().nullable().optional(),
   trackingUrl: z.string().nullable().optional(),

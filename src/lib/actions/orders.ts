@@ -35,11 +35,13 @@ import {
   TERMINAL_STATUSES,
   IN_TRANSIT_STATUSES,
   BOOK_IN_HAND_STATUSES,
+  UNSPENT_STATUSES,
   getValidTransitions,
 } from "@/lib/constants/orders";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { createOrderSchema } from "@/lib/validations/orders";
+import { createOrderSchema, orderCurrencySchema } from "@/lib/validations/orders";
+import { sortCurrencyTotals } from "@/lib/utils/money";
 
 /**
  * Derive the correct work catalogueStatus by looking at ALL orders for the work.
@@ -359,18 +361,31 @@ export async function getProvenanceStats(dateRange?: {
 
   const [
     totalStatsResult,
+    spentByCurrencyResult,
     activeCountResult,
     inTransitCountResult,
     arrivingThisWeekResult,
   ] = await Promise.all([
     db
       .select({
-        totalSpent: sum(orders.totalCost),
         avgOrderCost: avg(orders.totalCost),
         orderCount: count(),
       })
       .from(orders)
       .where(where),
+
+    // Amounts in different currencies cannot be added; total each one apart.
+    db
+      .select({ currency: orders.currency, total: sum(orders.totalCost) })
+      .from(orders)
+      .where(
+        and(
+          notInArray(orders.status, UNSPENT_STATUSES),
+          isNotNull(orders.totalCost),
+          where,
+        ),
+      )
+      .groupBy(orders.currency),
 
     db
       .select({ count: count() })
@@ -408,7 +423,12 @@ export async function getProvenanceStats(dateRange?: {
   ]);
 
   return {
-    totalSpent: totalStatsResult[0]?.totalSpent ?? "0",
+    spentByCurrency: sortCurrencyTotals(
+      spentByCurrencyResult.map((row) => ({
+        currency: row.currency,
+        total: row.total ?? "0",
+      })),
+    ),
     avgOrderCost: totalStatsResult[0]?.avgOrderCost ?? "0",
     orderCount: totalStatsResult[0]?.orderCount ?? 0,
     activeOrders: activeCountResult[0]?.count ?? 0,
@@ -473,6 +493,8 @@ export async function createOrder(input: CreateOrderInput) {
 }
 
 export async function updateOrder(id: string, input: UpdateOrderInput) {
+  if (input.currency !== undefined) orderCurrencySchema.parse(input.currency);
+
   // H3: fetch current state to record what changed
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
