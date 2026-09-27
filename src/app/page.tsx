@@ -22,6 +22,7 @@ import { BookCard } from "@/components/books/book-card";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 function StatCard({
   label,
@@ -60,9 +61,13 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-5 flex items-center justify-between">
-      <div className="flex items-center gap-2">
+      {/* The row carries the heading's type: the icon sits on its
+          cap-height center */}
+      <div className="flex items-start gap-2 font-serif text-xl">
         {Icon && (
-          <Icon className="h-4 w-4 text-fg-muted" strokeWidth={1.5} />
+          <CapAligned height={16}>
+            <Icon className="block h-4 w-4 text-fg-muted" strokeWidth={1.5} />
+          </CapAligned>
         )}
         <h2 className="font-serif text-xl text-fg-primary">{title}</h2>
       </div>

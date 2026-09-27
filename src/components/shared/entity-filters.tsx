@@ -129,16 +129,17 @@ export function EntityFilters({
                 : "text-fg-muted hover:bg-bg-tertiary hover:text-fg-secondary"
             }`}
           >
+            {/* The arrow sits on the label's cap-height center */}
             {opt.label}
             {currentSort === opt.value &&
               (effectiveOrder === "asc" ? (
                 <ArrowUp
-                  className="ml-0.5 inline h-3 w-3"
+                  className="ml-0.5 inline h-3 w-3 align-[calc(0.5cap-6px)]"
                   strokeWidth={1.5}
                 />
               ) : (
                 <ArrowDown
-                  className="ml-0.5 inline h-3 w-3"
+                  className="ml-0.5 inline h-3 w-3 align-[calc(0.5cap-6px)]"
                   strokeWidth={1.5}
                 />
               ))}

@@ -1,9 +1,13 @@
 "use client";
 
 import { ActivityEventIcon } from "./activity-event-icon";
-import { formatEventDescriptionSegments, type DescriptionSegment } from "@/lib/activity/event-config";
+import {
+  formatEventDescriptionSegments,
+  type DescriptionSegment,
+} from "@/lib/activity/event-config";
 import { formatRelativeTime, formatFullDate } from "@/lib/utils/relative-time";
 import type { ActivityMetadata } from "@/lib/db/schema/activity-events";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 interface ActivityEventItemProps {
   eventKey: string;
@@ -43,21 +47,22 @@ export function ActivityEventItem({
   const full = formatFullDate(createdAt);
 
   return (
-    <div className="relative flex items-center gap-3 py-1.5">
+    // The row carries the description's type: the dot sits on the cap-height
+    // center of its first line, and the time on the same baseline
+    <div className="relative flex items-start gap-3 py-1.5 text-[13px] leading-snug">
       {/* Icon dot sitting on the timeline line */}
-      <div className="relative z-10 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-bg-primary">
-        <ActivityEventIcon eventKey={eventKey} className="h-3.5 w-3.5" />
-      </div>
+      <CapAligned height={20} className="relative z-10">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-bg-primary">
+          <ActivityEventIcon eventKey={eventKey} className="h-3.5 w-3.5" />
+        </div>
+      </CapAligned>
 
       {/* Description + timestamp */}
-      <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
         <p className="min-w-0 text-[13px] leading-snug text-fg-secondary">
           <DescriptionText segments={segments} />
         </p>
-        <time
-          className="flex-shrink-0 text-[11px] text-fg-muted"
-          title={full}
-        >
+        <time className="flex-shrink-0 text-[11px] text-fg-muted" title={full}>
           {relative}
         </time>
       </div>

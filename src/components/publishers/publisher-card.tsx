@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PublisherFavourite } from "./favourite-button";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 export interface PublisherItem {
   id: string;
@@ -29,13 +30,15 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         aria-label={`Open ${p.name}`}
         className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
       />
-      <div className="flex items-start gap-2 p-4 pb-2">
+      {/* The row carries the name's type: the star sits on the cap-height
+          center of the name's first line */}
+      <div className="flex items-start gap-2 p-4 pb-2 font-serif text-xl leading-snug">
         <h3 className="lines-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
           {p.name}
         </h3>
-        <div className="relative z-20 -mr-2 -mt-2">
+        <CapAligned height={32} className="relative z-20 -mr-2">
           <PublisherFavourite id={p.id} favourite={p.isFavourite} />
-        </div>
+        </CapAligned>
       </div>
       {/* Fixed rows: every publisher card has the same height */}
       <div className="flex h-5 min-w-0 items-center gap-1.5 overflow-hidden px-4">

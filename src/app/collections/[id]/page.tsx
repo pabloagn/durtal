@@ -27,6 +27,7 @@ import {
   pageHref,
   type ListSearchParams,
 } from "@/lib/utils/pagination";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 export default async function CollectionPage({
   params,
@@ -101,17 +102,21 @@ export default async function CollectionPage({
               )}
             </div>
             <div className="min-w-0 flex-1 basis-64">
-              <div className="-ml-2 flex items-center gap-1.5">
-                <CollectionIconPicker
-                  collectionId={collection.id}
-                  value={collection.icon}
-                >
-                  <CollectionIcon
-                    icon={collection.icon}
-                    className="h-7 w-7"
-                    absoluteStrokeWidth
-                  />
-                </CollectionIconPicker>
+              {/* The row carries the title's type: the icon sits on the
+                  title's cap-height center (first line) */}
+              <div className="-ml-2 flex items-start gap-1.5 font-serif text-4xl tracking-tight">
+                <CapAligned height={44}>
+                  <CollectionIconPicker
+                    collectionId={collection.id}
+                    value={collection.icon}
+                  >
+                    <CollectionIcon
+                      icon={collection.icon}
+                      className="h-7 w-7"
+                      absoluteStrokeWidth
+                    />
+                  </CollectionIconPicker>
+                </CapAligned>
                 <h1 className="min-w-0 break-words font-serif text-4xl tracking-tight text-fg-primary">
                   {collection.name}
                 </h1>

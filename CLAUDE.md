@@ -29,6 +29,7 @@
 - **ALWAYS** run `pnpm typecheck` before considering TypeScript changes complete
 - **ALWAYS** use Drizzle migrations for schema changes (never raw SQL in production)
 - **ALWAYS** ask the user if uncertain rather than guessing
+- **ALWAYS** check every front-end change for pixel-perfect alignment in the browser before calling it done: run `scripts/qa/alignment-audit.js` on each page it touches and fix every deviation over 0.5px. Measure; never judge alignment from a screenshot
 
 ---
 
@@ -106,6 +107,11 @@ Key constraints:
 - Typography: Serif headings (EB Garamond), sans body (Inter)
 - Icons: Lucide, 1.5px stroke, 16px max
 - Glassmorphism: Navigation bar and command palette ONLY
+- Alignment is pixel-perfect:
+  - An icon or small button beside text sits on the cap-height center of the text's first line: use `CapAligned` (`src/components/shared/cap-aligned.tsx`), never plain `items-center` beside serif text
+  - Siblings in a row keep equal gaps
+  - Cards of one kind share one height: fixed text lines with `lines-1` / `lines-2`
+  - Book cover badges share one size and inset (`src/components/books/cover-chip.ts`)
 
 ---
 

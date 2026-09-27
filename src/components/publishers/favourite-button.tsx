@@ -22,7 +22,7 @@ export function PublisherFavourite({
       }
       aria-pressed={favourite}
       title={favourite ? "Remove favourite" : "Favourite publisher"}
-      className="shrink-0 p-2 text-accent-gold disabled:opacity-40"
+      className="block shrink-0 p-2 text-accent-gold disabled:opacity-40"
       onClick={() =>
         start(async () => {
           try {
@@ -35,7 +35,7 @@ export function PublisherFavourite({
       }
     >
       <Star
-        className="h-4 w-4"
+        className="block h-4 w-4"
         strokeWidth={1.5}
         fill={favourite ? "currentColor" : "none"}
       />

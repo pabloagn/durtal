@@ -3,6 +3,7 @@ import { FolderOpen } from "lucide-react";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CollectionIcon } from "./collection-icon";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 type ArtworkRow = {
   type: string;
@@ -111,13 +112,13 @@ export function CollectionCard({
       <div className="p-3.5">
         <h3 className="flex gap-1.5 font-serif text-lg leading-snug text-fg-primary">
           {collection.icon && (
-            // Centered on the first line of the name
-            <span className="flex h-[1lh] shrink-0 items-center">
+            // On the cap-height center of the name's first line
+            <CapAligned height={16}>
               <CollectionIcon
                 icon={collection.icon}
-                className="h-4 w-4 text-fg-secondary"
+                className="block h-4 w-4 text-fg-secondary"
               />
-            </span>
+            </CapAligned>
           )}
           <span className="lines-2 min-w-0">{collection.name}</span>
         </h3>

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CapAligned } from "./cap-aligned";
 
 interface HorizontalCarouselProps {
   title: string;
@@ -50,7 +51,9 @@ export function HorizontalCarousel({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      {/* The row carries the title's type: the arrows sit on the title's
+          cap-height center */}
+      <div className="flex items-start justify-between font-serif text-lg">
         <h3 className="font-serif text-lg text-fg-primary">
           {titleHref ? (
             <a
@@ -64,24 +67,26 @@ export function HorizontalCarousel({
           )}
         </h3>
         {(canScrollLeft || canScrollRight) && (
-          <div className="flex gap-1">
-            <button
-              onClick={() => scroll("left")}
-              disabled={!canScrollLeft}
-              aria-label="Scroll left"
-              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30"
-            >
-              <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={() => scroll("right")}
-              disabled={!canScrollRight}
-              aria-label="Scroll right"
-              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
-            </button>
-          </div>
+          <CapAligned height={24}>
+            <div className="flex gap-1">
+              <button
+                onClick={() => scroll("left")}
+                disabled={!canScrollLeft}
+                aria-label="Scroll left"
+                className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-fg-muted disabled:opacity-30"
+              >
+                <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => scroll("right")}
+                disabled={!canScrollRight}
+                aria-label="Scroll right"
+                className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-fg-muted disabled:opacity-30"
+              >
+                <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </div>
+          </CapAligned>
         )}
       </div>
 

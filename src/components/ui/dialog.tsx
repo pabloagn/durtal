@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { X, Maximize2, Minimize2 } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 interface DialogProps {
   open: boolean;
@@ -57,7 +58,7 @@ export function Dialog({
   if (!open) return null;
 
   // When expanded, override width to max-w-5xl
-  const sizeClass = expanded ? "max-w-5xl" : (className || "max-w-2xl");
+  const sizeClass = expanded ? "max-w-5xl" : className || "max-w-2xl";
 
   return (
     <dialog
@@ -71,8 +72,9 @@ export function Dialog({
         if (e.target === dialogRef.current) onClose();
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-glass-border px-6 py-4">
+      {/* Header. The row carries the title's type: the buttons sit on the
+          title's cap-height center, also when a description follows */}
+      <div className="flex items-start justify-between border-b border-glass-border px-6 py-4 font-serif text-2xl leading-tight">
         <div className="min-w-0 flex-1">
           <h2 className="font-serif text-2xl leading-tight text-fg-primary">
             {title}
@@ -81,30 +83,32 @@ export function Dialog({
             <p className="mt-1 text-sm text-fg-secondary">{description}</p>
           )}
         </div>
-        <div className="flex flex-shrink-0 items-center gap-1 ml-4">
-          {expandable && (
+        <CapAligned height={28} className="ml-4">
+          <div className="flex items-center gap-1">
+            {expandable && (
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => !prev)}
+                title={expanded ? "Collapse" : "Expand"}
+                className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-fg-muted"
+              >
+                {expanded ? (
+                  <Minimize2 className="h-4 w-4" strokeWidth={1.5} />
+                ) : (
+                  <Maximize2 className="h-4 w-4" strokeWidth={1.5} />
+                )}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setExpanded((prev) => !prev)}
-              title={expanded ? "Collapse" : "Expand"}
-              className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+              onClick={onClose}
+              aria-label={`Close ${title}`}
+              className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-fg-muted"
             >
-              {expanded ? (
-                <Minimize2 className="h-4 w-4" strokeWidth={1.5} />
-              ) : (
-                <Maximize2 className="h-4 w-4" strokeWidth={1.5} />
-              )}
+              <X className="h-4 w-4" strokeWidth={1.5} />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={`Close ${title}`}
-            className="rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-        </div>
+          </div>
+        </CapAligned>
       </div>
 
       {/* Body */}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import * as LucideIcons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 interface FamilyCardProps {
   family: {
@@ -21,8 +22,9 @@ interface FamilyCardProps {
 export function FamilyCard({ family }: FamilyCardProps) {
   // Resolve Lucide icon by name, fallback to Tag
   const IconComponent: LucideIcons.LucideIcon = family.icon
-    ? ((LucideIcons as Record<string, unknown>)[family.icon] as LucideIcons.LucideIcon) ??
-      LucideIcons.Tag
+    ? (((LucideIcons as Record<string, unknown>)[
+        family.icon
+      ] as LucideIcons.LucideIcon) ?? LucideIcons.Tag)
     : LucideIcons.Tag;
 
   return (
@@ -30,28 +32,31 @@ export function FamilyCard({ family }: FamilyCardProps) {
       href={`/taxonomy/${family.slug}`}
       className="group block rounded-sm border border-glass-border bg-bg-secondary/60 p-4 transition-all hover:border-fg-muted/10 hover:bg-bg-tertiary/40"
     >
-      {/* Header row: icon + name + system badge */}
-      <div className="flex items-start gap-3">
-        <div
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-sm"
-          style={{
-            backgroundColor: family.color
-              ? `${family.color}15`
-              : "rgba(193, 198, 196, 0.03)",
-            borderColor: family.color
-              ? `${family.color}20`
-              : "rgba(193, 198, 196, 0.06)",
-            borderWidth: "1px",
-          }}
-        >
-          <IconComponent
-            className="h-4 w-4"
-            strokeWidth={1.5}
-            style={{ color: family.color ?? undefined }}
-          />
-        </div>
+      {/* Header row: icon + name + system badge. The row carries the name's
+          type: the icon tile sits on the name's cap-height center */}
+      <div className="flex items-start gap-3 font-serif text-base">
+        <CapAligned height={32}>
+          <div
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-sm"
+            style={{
+              backgroundColor: family.color
+                ? `${family.color}15`
+                : "rgba(193, 198, 196, 0.03)",
+              borderColor: family.color
+                ? `${family.color}20`
+                : "rgba(193, 198, 196, 0.06)",
+              borderWidth: "1px",
+            }}
+          >
+            <IconComponent
+              className="h-4 w-4"
+              strokeWidth={1.5}
+              style={{ color: family.color ?? undefined }}
+            />
+          </div>
+        </CapAligned>
         <div className="min-w-0 flex-1">
-          <div className="flex h-6 items-center gap-2">
+          <div className="flex items-baseline gap-2">
             <h3 className="truncate font-serif text-base text-fg-primary transition-colors group-hover:text-accent-rose">
               {family.name}
             </h3>
