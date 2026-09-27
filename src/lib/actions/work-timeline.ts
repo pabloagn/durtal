@@ -9,6 +9,8 @@ import { works, editions } from "@/lib/db/schema";
 import { and, eq, asc, ilike, inArray, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
+import { marksCondition } from "@/lib/actions/utils/work-marks";
+import type { WorkMarkKey } from "@/lib/constants/marks";
 
 export interface WorkEditionTimelineItem {
   id: string;
@@ -36,6 +38,7 @@ export async function getWorksForTimeline(opts?: {
     catalogueStatus?: string[];
     isRare?: boolean;
     isPoison?: boolean;
+    marks?: WorkMarkKey[];
     publisherIds?: string[];
     language?: string[];
   };
@@ -56,6 +59,8 @@ export async function getWorksForTimeline(opts?: {
   if (filters?.isPoison !== undefined) {
     conditions.push(eq(works.isPoison, filters.isPoison));
   }
+  const marks = marksCondition(filters?.marks ?? []);
+  if (marks) conditions.push(marks);
   if (filters?.catalogueStatus?.length) {
     conditions.push(catalogueStatusCondition(filters.catalogueStatus));
   }

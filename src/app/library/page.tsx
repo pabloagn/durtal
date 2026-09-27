@@ -15,6 +15,7 @@ import { LibraryShell } from "./library-shell";
 import { LibraryFiltersBar } from "./library-filters-bar";
 import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { parseMarks } from "@/lib/constants/marks";
 
 interface PageProps {
   searchParams: Promise<{
@@ -24,7 +25,7 @@ interface PageProps {
     status?: string;
     priority?: string;
     rare?: string;
-    poison?: string;
+    mark?: string;
     publisher?: string;
     rating?: string;
     location?: string;
@@ -44,7 +45,7 @@ async function LibraryContent({
     status?: string;
     priority?: string;
     rare?: string;
-    poison?: string;
+    mark?: string;
     publisher?: string;
     rating?: string;
     location?: string;
@@ -66,13 +67,10 @@ async function LibraryContent({
 
   const statusFilter = searchParams.status?.split(",").filter(Boolean);
   const priorityFilter = searchParams.priority?.split(",").filter(Boolean);
-  const rareFilter = searchParams.rare === "true" ? true : undefined;
-  // "true" keeps only poison works, "false" hides them; both or neither: no filter
-  const poisonValues = new Set(
-    searchParams.poison?.split(",").filter((v) => v === "true" || v === "false"),
+  // One "Marks" group; the old `rare=true` link still selects Rare
+  const markFilter = parseMarks(
+    [searchParams.mark, searchParams.rare === "true" ? "rare" : ""].join(","),
   );
-  const poisonFilter =
-    poisonValues.size === 1 ? poisonValues.has("true") : undefined;
   const ratingParam = searchParams.rating;
   const minRating = ratingParam ? parseInt(ratingParam, 10) : undefined;
   const locationId = searchParams.location || undefined;
@@ -93,8 +91,7 @@ async function LibraryContent({
       offset,
       filters: {
         catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-        isRare: rareFilter,
-        isPoison: poisonFilter,
+        marks: markFilter,
         publisherIds: searchParams.publisher
           ?.split(",")
           .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
@@ -108,8 +105,7 @@ async function LibraryContent({
     }),
     getWorkCount(search, {
       catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-      isRare: rareFilter,
-      isPoison: poisonFilter,
+      marks: markFilter,
       publisherIds: searchParams.publisher
         ?.split(",")
         .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
@@ -122,8 +118,7 @@ async function LibraryContent({
       search,
       filters: {
         catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-        isRare: rareFilter,
-        isPoison: poisonFilter,
+        marks: markFilter,
         publisherIds: searchParams.publisher
           ?.split(",")
           .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
@@ -149,8 +144,7 @@ async function LibraryContent({
             !!(
               statusFilter?.length ||
               priorityFilter?.length ||
-              rareFilter ||
-              poisonFilter !== undefined ||
+              markFilter.length > 0 ||
               ratingParam ||
               locationId ||
               posterParam

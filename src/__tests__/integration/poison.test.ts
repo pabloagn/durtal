@@ -136,6 +136,30 @@ describe.skipIf(!url)("poison mark with PostgreSQL", () => {
     expect((await poisonOf("Maldoror")).isPoison).toBe(false);
   });
 
+  it("filters by marks: any of the chosen marks, like other groups", async () => {
+    await setPoison(ids.Crash, true);
+    await db
+      .update(schema.works)
+      .set({ isRare: true, huntAssessedOn: "2026-09-27" })
+      .where(eq(schema.works.id, ids.Fictions));
+    const titles = async (marks: ("rare" | "poison")[]) =>
+      (await getWorks({ sort: "title", order: "asc", filters: { marks } })).map(
+        (w) => w.title,
+      );
+    expect(await titles(["poison"])).toEqual(["Crash"]);
+    expect(await titles(["rare"])).toEqual(["Fictions"]);
+    expect(await titles(["rare", "poison"])).toEqual(["Crash", "Fictions"]);
+    expect(await titles([])).toHaveLength(3);
+    expect(await getWorkCount(undefined, { marks: ["rare", "poison"] })).toBe(
+      2,
+    );
+    expect(
+      (await getWorksForTimeline({ filters: { marks: ["rare"] } })).map(
+        (w) => w.title,
+      ),
+    ).toEqual(["Fictions"]);
+  });
+
   it("filters the library, its count and the timeline both ways", async () => {
     await bulkSetPoison([ids.Maldoror, ids.Crash], true);
     const titles = async (isPoison?: boolean) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import { firstPageHref } from "@/lib/utils/list-params";
-import { POISON_LABEL } from "@/lib/constants/poison";
+import { MARKS_LABEL, WORK_MARKS, parseMarks } from "@/lib/constants/marks";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
@@ -60,14 +60,10 @@ const POSTER_OPTIONS = [
 ];
 
 const FILTER_GROUPS: FilterGroup[] = [
-  { key: "rare", label: "Rarity", options: [{ value: "true", label: "Rare" }] },
   {
-    key: "poison",
-    label: POISON_LABEL,
-    options: [
-      { value: "true", label: `Only ${POISON_LABEL.toLowerCase()}` },
-      { value: "false", label: `Hide ${POISON_LABEL.toLowerCase()}` },
-    ],
+    key: "mark",
+    label: MARKS_LABEL,
+    options: WORK_MARKS.map((m) => ({ value: m.key, label: m.label })),
   },
   { key: "status", label: "Status", options: STATUS_OPTIONS },
   { key: "priority", label: "Priority", options: PRIORITY_OPTIONS },
@@ -109,8 +105,10 @@ export function LibraryFilters({
 
   const activeFilters: Record<string, string[]> = {
     publisher: searchParams.get("publisher")?.split(",").filter(Boolean) ?? [],
-    rare: searchParams.get("rare")?.split(",").filter(Boolean) ?? [],
-    poison: searchParams.get("poison")?.split(",").filter(Boolean) ?? [],
+    // The old `rare=true` link counts as the Rare mark
+    mark: parseMarks(
+      [searchParams.get("mark"), searchParams.get("rare") === "true" ? "rare" : ""].join(","),
+    ),
     status: searchParams.get("status")?.split(",").filter(Boolean) ?? [],
     priority: searchParams.get("priority")?.split(",").filter(Boolean) ?? [],
     rating: searchParams.get("rating")?.split(",").filter(Boolean) ?? [],
@@ -120,6 +118,8 @@ export function LibraryFilters({
   const handleFilterChange = useCallback(
     (key: string, values: string[]) => {
       const params = new URLSearchParams(searchParams.toString());
+      // `mark` replaces the old `rare` param
+      if (key === "mark") params.delete("rare");
       if (values.length > 0) {
         params.set(key, values.join(","));
       } else {
@@ -133,8 +133,8 @@ export function LibraryFilters({
   const handleClearAll = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("publisher");
+    params.delete("mark");
     params.delete("rare");
-    params.delete("poison");
     params.delete("status");
     params.delete("priority");
     params.delete("rating");

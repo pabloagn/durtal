@@ -3,18 +3,20 @@
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star, Gem, Skull, FolderPlus } from "lucide-react";
+import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
+import { MARKS_LABEL } from "@/lib/constants/marks";
 import { bulkSetPoison } from "@/lib/actions/poison";
 import {
   POISON_LABEL,
@@ -226,36 +228,26 @@ export function BulkActionToolbar({
           ))}
         </DropdownMenu>
 
-        {/* Rare flag */}
+        {/* Marks: one menu for every book mark */}
         <DropdownMenu
           align="center"
           side="top"
           trigger={
             <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting}>
-              <Gem className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Rare
+              <Stamp className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {MARKS_LABEL}
             </Button>
           }
         >
+          <DropdownMenuLabel>Rare</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setRare(true)} disabled={isUpdating || isDeleting}>
             Mark as rare
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setRare(false)} disabled={isUpdating || isDeleting}>
             Unmark rare
           </DropdownMenuItem>
-        </DropdownMenu>
-
-        {/* Poison mark */}
-        <DropdownMenu
-          align="center"
-          side="top"
-          trigger={
-            <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting}>
-              <Skull className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {POISON_LABEL}
-            </Button>
-          }
-        >
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{POISON_LABEL}</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setPoison(true)} disabled={isUpdating || isDeleting}>
             {POISON_MARK}
           </DropdownMenuItem>

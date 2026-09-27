@@ -42,6 +42,8 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
+import { marksCondition } from "@/lib/actions/utils/work-marks";
+import type { WorkMarkKey } from "@/lib/constants/marks";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -141,6 +143,7 @@ export async function getWorks(opts?: {
     catalogueStatus?: string[];
     isRare?: boolean;
     isPoison?: boolean;
+    marks?: WorkMarkKey[];
     publisherIds?: string[];
     acquisitionPriority?: string[];
     minRating?: number;
@@ -193,6 +196,8 @@ export async function getWorks(opts?: {
   if (filters?.isPoison !== undefined) {
     conditions.push(eq(works.isPoison, filters.isPoison));
   }
+  const marks = marksCondition(filters?.marks ?? []);
+  if (marks) conditions.push(marks);
   if (filters?.catalogueStatus?.length) {
     conditions.push(catalogueStatusCondition(filters.catalogueStatus));
   }
@@ -335,6 +340,7 @@ export async function getWorkCount(
     catalogueStatus?: string[];
     isRare?: boolean;
     isPoison?: boolean;
+    marks?: WorkMarkKey[];
     publisherIds?: string[];
     acquisitionPriority?: string[];
     minRating?: number;
@@ -354,6 +360,8 @@ export async function getWorkCount(
   if (filters?.isPoison !== undefined) {
     conditions.push(eq(works.isPoison, filters.isPoison));
   }
+  const marks = marksCondition(filters?.marks ?? []);
+  if (marks) conditions.push(marks);
   if (filters?.catalogueStatus?.length) {
     conditions.push(catalogueStatusCondition(filters.catalogueStatus));
   }
