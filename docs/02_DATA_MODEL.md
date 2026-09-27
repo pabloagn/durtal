@@ -935,6 +935,7 @@ User-curated groups of editions. Poster and background images are rows in `media
 | `id` | UUID | PK |
 | `name` | TEXT | NOT NULL |
 | `description` | TEXT | nullable |
+| `icon` | TEXT | nullable; a Lucide icon name (PascalCase key of `lucide-react` `icons`, e.g. `BookOpen`), checked by the app on write. Shown beside the collection name. |
 | `sort_order` | INTEGER | NOT NULL, default `0` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |

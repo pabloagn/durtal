@@ -14,6 +14,8 @@ export const collections = pgTable("collections", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  // Lucide icon name (PascalCase key of lucide-react `icons`), shown beside the name.
+  icon: text("icon"),
   // Poster and background images live in `media` (collection_id), like works and authors.
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

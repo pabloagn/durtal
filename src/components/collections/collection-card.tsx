@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FolderOpen } from "lucide-react";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { CollectionIcon } from "./collection-icon";
 
 type ArtworkRow = {
   type: string;
@@ -18,6 +19,7 @@ type ArtworkRow = {
 export interface CollectionCardData {
   id: string;
   name: string;
+  icon?: string | null;
   description?: string | null;
   editionCount: number;
   media?: ArtworkRow[];
@@ -111,8 +113,12 @@ export function CollectionCard({
       </div>
 
       <div className="p-3.5">
-        <h3 className="line-clamp-1 font-serif text-lg leading-snug text-fg-primary">
-          {collection.name}
+        <h3 className="flex items-center gap-1.5 font-serif text-lg leading-snug text-fg-primary">
+          <CollectionIcon
+            icon={collection.icon}
+            className="h-4 w-4 shrink-0 text-fg-secondary"
+          />
+          <span className="line-clamp-1">{collection.name}</span>
         </h3>
         {collection.description && (
           <p className="mt-1 line-clamp-2 text-micro leading-relaxed text-fg-muted">

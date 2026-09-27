@@ -13,6 +13,8 @@ import {
   collectionPoster,
 } from "@/components/collections/collection-card";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
+import { CollectionIcon } from "@/components/collections/collection-icon";
+import { CollectionIconPicker } from "@/components/collections/collection-icon-picker";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 function imageUrl(key: string) {
@@ -99,9 +101,21 @@ export default async function CollectionPage({
               )}
             </div>
             <div className="min-w-0 flex-1 basis-64">
-              <h1 className="break-words font-serif text-4xl tracking-tight text-fg-primary">
-                {collection.name}
-              </h1>
+              <div className="-ml-2 flex items-center gap-1.5">
+                <CollectionIconPicker
+                  collectionId={collection.id}
+                  value={collection.icon}
+                >
+                  <CollectionIcon
+                    icon={collection.icon}
+                    className="h-7 w-7"
+                    absoluteStrokeWidth
+                  />
+                </CollectionIconPicker>
+                <h1 className="min-w-0 break-words font-serif text-4xl tracking-tight text-fg-primary">
+                  {collection.name}
+                </h1>
+              </div>
               {collection.description && (
                 <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-fg-secondary">
                   {collection.description}

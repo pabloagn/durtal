@@ -13,6 +13,7 @@ import {
   removeEditionsFromCollection,
 } from "@/lib/actions/collections";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 interface Props {
@@ -292,6 +293,13 @@ export function AddToCollectionDialog({
                         ) : amount ? (
                           <Minus size={12} />
                         ) : null}
+                      </span>
+                      {/* Same slot for every row, so names line up */}
+                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-fg-secondary">
+                        <CollectionIconLazy
+                          icon={c.icon}
+                          className="h-3.5 w-3.5"
+                        />
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {c.name}

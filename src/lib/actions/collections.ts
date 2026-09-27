@@ -19,6 +19,7 @@ import {
   collectionUpdateSchema,
 } from "@/lib/validations/collections";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { icons } from "lucide-react";
 
 function changed() {
   invalidate(
@@ -329,6 +330,25 @@ export async function searchEditionsForPicker(search: string, limit = 30) {
     )
     .orderBy(asc(works.title), asc(editions.publicationYear), asc(editions.id))
     .limit(size);
+}
+
+/** Sets or clears a collection's icon. Only real Lucide icon names are stored. */
+export async function setCollectionIcon(id: string, icon: string | null) {
+  z.string().uuid().parse(id);
+  const value = z
+    .string()
+    .max(64)
+    .refine((name) => Object.hasOwn(icons, name), "Unknown icon")
+    .nullable()
+    .parse(icon);
+  const [row] = await db
+    .update(collections)
+    .set({ icon: value, updatedAt: new Date() })
+    .where(eq(collections.id, id))
+    .returning({ icon: collections.icon });
+  if (!row) throw new Error("Collection not found");
+  changed();
+  return row;
 }
 
 export async function deleteCollection(id: string) {

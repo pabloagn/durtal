@@ -218,6 +218,13 @@
       "when": 1790526196322,
       "tag": "0030_poison_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790526748776,
+      "tag": "0031_collection_icon",
+      "breakpoints": true
     }
   ]
 }

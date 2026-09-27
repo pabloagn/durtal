@@ -135,14 +135,19 @@ describe.skipIf(!url)("collection media migration", () => {
       // Old columns are gone; names and descriptions survive.
       const columns =
         await c`select column_name from information_schema.columns where table_name='collections' order by column_name`;
-      expect(columns.map((r) => r.column_name)).toEqual([
-        "created_at",
-        "description",
-        "id",
-        "name",
-        "sort_order",
-        "updated_at",
-      ]);
+      // The image columns are gone; later migrations may add other columns.
+      const names = columns.map((r) => r.column_name);
+      expect(names).toEqual(
+        expect.arrayContaining([
+          "created_at",
+          "description",
+          "id",
+          "name",
+          "sort_order",
+          "updated_at",
+        ]),
+      );
+      expect(names.filter((n) => n.endsWith("s3_key"))).toEqual([]);
       expect(
         (
           await c`select name,description from collections where id=${bare.id}`
