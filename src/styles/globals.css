@@ -188,6 +188,25 @@ dialog::backdrop {
   }
 }
 
+/* Text that always takes exactly one or two lines: longer text is clamped
+   with an ellipsis, shorter or empty text keeps the space. Cards use these
+   so every card of a kind has the same height, whatever its text. */
+@utility lines-1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  height: 1lh;
+}
+
+@utility lines-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  height: 2lh;
+}
+
 /* ── Crop range slider ─────────────────────────────────────────────────── */
 .crop-range-slider {
   appearance: none;

@@ -1,4 +1,5 @@
 import { BookOpen } from "lucide-react";
+import { COVER_CHIP, COVER_CHIP_ICON } from "@/components/books/cover-chip";
 
 /**
  * Small badge overlaid on book cards to indicate a digital
@@ -7,11 +8,11 @@ import { BookOpen } from "lucide-react";
 export function DigitalEditionBadge() {
   return (
     <div
-      className="flex items-center justify-center rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md h-4 w-4 @[220px]:h-5 @[220px]:w-5"
+      className={COVER_CHIP}
       title="Digital edition available"
     >
       <BookOpen
-        className="h-2.5 w-2.5 @[220px]:h-3 @[220px]:w-3 text-accent-blue"
+        className={`${COVER_CHIP_ICON} text-accent-blue`}
         strokeWidth={1.5}
       />
     </div>

@@ -50,7 +50,7 @@ export const works = pgTable("works", {
   huntAssessedOn: date("hunt_assessed_on", { mode: "string" }),
 
   // Personal warning: explicit, transgressive works not to recommend.
-  // The UI calls this mark "Anathema" (src/lib/constants/poison.ts).
+  // The UI calls this mark "Anathema" (src/lib/constants/marks.ts).
   isPoison: boolean("is_poison").notNull().default(false),
 
   // External catalogue pages (validated https links; shared by all editions)

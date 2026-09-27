@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import { Skull } from "lucide-react";
 import { toast } from "sonner";
 import { setPoison } from "@/lib/actions/poison";
-import {
-  POISON_HINT,
-  POISON_LABEL,
-  POISON_MARK,
-  POISON_UNMARK,
-} from "@/lib/constants/poison";
+import { MARKS } from "@/lib/constants/marks";
+
+const MARK = MARKS.poison;
 
 /** One-click skull toggle beside the rare gem on the book page. */
 export function PoisonToggle({
@@ -37,7 +34,7 @@ export function PoisonToggle({
         router.refresh();
       } catch {
         toast.error(
-          `Could not update the ${POISON_LABEL.toLowerCase()} mark. Try again.`,
+          `Could not update the ${MARK.label} mark. Try again.`,
         );
       }
     });
@@ -49,11 +46,11 @@ export function PoisonToggle({
       disabled={pending}
       aria-pressed={marked}
       aria-busy={pending}
-      aria-label={marked ? POISON_UNMARK : POISON_MARK}
+      aria-label={marked ? MARK.unmarkAction : MARK.markAction}
       title={
         marked
-          ? `${POISON_LABEL} · ${POISON_HINT}. Click to unmark`
-          : `${POISON_MARK}: ${POISON_HINT.toLowerCase()}`
+          ? `${MARK.label} · ${MARK.hint}. Click to unmark`
+          : `${MARK.markAction}: ${MARK.hint.toLowerCase()}`
       }
       onClick={toggle}
       className={`inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent-red disabled:opacity-50 ${marked ? "text-accent-red" : "text-fg-muted hover:text-accent-red"}`}

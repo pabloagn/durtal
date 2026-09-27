@@ -11,6 +11,7 @@ import {
   type HuntAssessmentInput,
 } from "@/lib/validations/hunting";
 import { updateHuntAssessment } from "@/lib/actions/hunting";
+import { MARKS } from "@/lib/constants/marks";
 
 export function HuntAssessmentControl({
   workId,
@@ -87,7 +88,7 @@ export function HuntAssessmentControl({
         else setPosition(null);
         router.refresh();
       } catch {
-        toast.error("Could not update the rare flag. Try again.");
+        toast.error(`Could not update the ${MARKS.rare.label} mark. Try again.`);
       }
     });
   }
@@ -100,11 +101,11 @@ export function HuntAssessmentControl({
         disabled={pending}
         aria-pressed={saved.isRare}
         aria-busy={pending}
-        aria-label={saved.isRare ? "Unmark rare" : "Mark as rare"}
+        aria-label={saved.isRare ? MARKS.rare.unmarkAction : MARKS.rare.markAction}
         title={
           saved.isRare
-            ? `Rare · ${saved.huntAssessedOn}. Click to unmark`
-            : "Mark as rare"
+            ? `${MARKS.rare.label} · ${saved.huntAssessedOn}. Click to unmark`
+            : `${MARKS.rare.markAction}: ${MARKS.rare.hint.toLowerCase()}`
         }
         className={`inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent-gold disabled:opacity-50 ${saved.isRare ? "text-accent-gold" : "text-fg-muted hover:text-accent-gold"}`}
         onClick={() =>

@@ -251,19 +251,18 @@ async function DashboardContent() {
                   )}
                 </div>
                 <div className="p-3">
-                  <h3 className="line-clamp-2 font-serif text-base leading-snug text-fg-primary">
+                  {/* Fixed lines: every author card has the same height */}
+                  <h3 className="lines-2 font-serif text-base leading-snug text-fg-primary">
                     {author.name}
                   </h3>
-                  {author.nationality && (
-                    <p className="mt-1 line-clamp-1 text-sm text-fg-secondary">
-                      {author.nationality}
-                    </p>
-                  )}
-                  {author.birthYear && (
-                    <p className="mt-1.5 font-mono text-micro text-fg-muted">
-                      {author.birthYear}–{author.deathYear ?? ""}
-                    </p>
-                  )}
+                  <p className="mt-1 lines-1 text-sm text-fg-secondary">
+                    {author.nationality}
+                  </p>
+                  <p className="mt-1.5 lines-1 font-mono text-micro text-fg-muted">
+                    {author.birthYear
+                      ? `${author.birthYear}–${author.deathYear ?? ""}`
+                      : null}
+                  </p>
                 </div>
               </Link>
             ))}
@@ -292,7 +291,7 @@ async function DashboardContent() {
                   className="group rounded-sm border border-glass-border bg-bg-secondary p-4 card-interactive"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="line-clamp-2 font-serif text-lg leading-tight text-fg-primary">
+                    <h3 className="lines-2 font-serif text-lg leading-tight text-fg-primary">
                       {work.title}
                     </h3>
                     {statusInfo && (
@@ -301,12 +300,10 @@ async function DashboardContent() {
                       </Badge>
                     )}
                   </div>
-                  {author && (
-                    <p className="mt-1.5 line-clamp-1 text-sm text-fg-secondary">
-                      {author.name}
-                    </p>
-                  )}
-                  <div className="mt-3 flex items-center gap-2">
+                  <p className="mt-1.5 lines-1 text-sm text-fg-secondary">
+                    {author?.name}
+                  </p>
+                  <div className="mt-3 flex h-5 items-center gap-2">
                     {edition?.publicationYear && (
                       <span className="font-mono text-micro text-fg-muted">
                         {edition.publicationYear}

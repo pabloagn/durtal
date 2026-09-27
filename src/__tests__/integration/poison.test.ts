@@ -43,7 +43,7 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 import { setPoison, bulkSetPoison } from "@/lib/actions/poison";
-import { getWorks, getWorkCount } from "@/lib/actions/works";
+import { getWorks, getWorkCount, getWorksWithMark } from "@/lib/actions/works";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { recordActivity } from "@/lib/activity/record";
 
@@ -134,6 +134,31 @@ describe.skipIf(!url)("poison mark with PostgreSQL", () => {
       await bulkSetPoison([ids.Maldoror, ids.Crash, ids.Fictions], false),
     ).toEqual({ updated: 2 });
     expect((await poisonOf("Maldoror")).isPoison).toBe(false);
+  });
+
+  it("lists other books with a mark for the book page rows, newest first", async () => {
+    await bulkSetPoison([ids.Maldoror, ids.Crash, ids.Fictions], true);
+    // Newest first: Fictions was added last
+    await db
+      .update(schema.works)
+      .set({ createdAt: new Date("2020-01-01") })
+      .where(eq(schema.works.id, ids.Maldoror));
+    const titles = async (
+      mark: "rare" | "poison",
+      id: string,
+      limit?: number,
+    ) => (await getWorksWithMark(mark, id, limit)).map((w) => w.title);
+    expect(await titles("poison", ids.Crash)).toEqual(["Fictions", "Maldoror"]);
+    expect(await titles("poison", ids.Crash, 1)).toEqual(["Fictions"]);
+    expect(await titles("rare", ids.Crash)).toEqual([]);
+    // Card data comes with each work
+    const [first] = await getWorksWithMark("poison", ids.Crash);
+    expect(first.isPoison).toBe(true);
+    expect(first.workAuthors).toEqual([]);
+    await expect(
+      getWorksWithMark("evil" as "rare", ids.Crash),
+    ).rejects.toThrow();
+    await expect(getWorksWithMark("rare", "nope")).rejects.toThrow();
   });
 
   it("filters by marks: any of the chosen marks, like other groups", async () => {

@@ -1,5 +1,7 @@
 import { Gem } from "lucide-react";
 import type { HuntAssessment } from "@/lib/constants/hunting";
+import { MARKS } from "@/lib/constants/marks";
+import { COVER_CHIP, COVER_CHIP_ICON } from "./cover-chip";
 
 export function HuntBadge({
   isRare,
@@ -7,18 +9,18 @@ export function HuntBadge({
   cover = false,
 }: HuntAssessment & { cover?: boolean }) {
   if (!isRare) return null;
-  const label = huntAssessedOn ? `Rare · marked ${huntAssessedOn}` : "Rare";
+  const label = huntAssessedOn
+    ? `${MARKS.rare.label} · marked ${huntAssessedOn}`
+    : MARKS.rare.label;
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center text-accent-gold ${cover ? "h-4 w-4 rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md @[220px]:h-5 @[220px]:w-5" : ""}`}
+      className={`text-accent-gold ${cover ? COVER_CHIP : "inline-flex shrink-0 items-center justify-center"}`}
       title={label}
       role="img"
       aria-label={label}
     >
       <Gem
-        className={
-          cover ? "h-2.5 w-2.5 @[220px]:h-3.5 @[220px]:w-3.5" : "h-3.5 w-3.5"
-        }
+        className={cover ? COVER_CHIP_ICON : "h-3.5 w-3.5"}
         strokeWidth={1.5}
         fill="currentColor"
         fillOpacity={0.18}

@@ -30,22 +30,25 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
       />
       <div className="flex items-start gap-2 p-4 pb-2">
-        <h3 className="line-clamp-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
+        <h3 className="lines-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
           {p.name}
         </h3>
         <div className="relative z-20 -mr-2 -mt-2">
           <PublisherFavourite id={p.id} favourite={p.isFavourite} />
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 px-4">
+      {/* Fixed rows: every publisher card has the same height */}
+      <div className="flex h-5 min-w-0 items-center gap-1.5 overflow-hidden px-4">
         {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
-        {p.country && <Badge variant="muted">{p.country}</Badge>}
+        {p.country && (
+          <Badge variant="muted" className="min-w-0">
+            <span className="truncate">{p.country}</span>
+          </Badge>
+        )}
       </div>
-      {p.parentName && (
-        <p className="mt-2 line-clamp-1 px-4 text-xs text-fg-muted">
-          Imprint of {p.parentName}
-        </p>
-      )}
+      <p className="mt-2 lines-1 px-4 text-xs text-fg-muted">
+        {p.parentName ? `Imprint of ${p.parentName}` : null}
+      </p>
       <div className="mt-auto flex items-center justify-between gap-2 px-4 pb-3.5 pt-3">
         <span className="font-mono text-micro text-fg-muted">
           {editionsLabel(p.editionCount)}

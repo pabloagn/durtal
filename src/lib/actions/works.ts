@@ -34,7 +34,9 @@ import {
   gte,
   isNotNull,
   notInArray,
+  ne,
 } from "drizzle-orm";
+import { z } from "zod";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { bookLinksSchema } from "@/lib/validations/book-links";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
@@ -42,8 +44,8 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
-import { marksCondition } from "@/lib/actions/utils/work-marks";
-import type { WorkMarkKey } from "@/lib/constants/marks";
+import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
+import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -929,6 +931,23 @@ export async function getWorksByAuthorId(
     where: inArray(works.id, workIds),
     limit,
     orderBy: desc(works.createdAt),
+    with: workCardWith,
+  });
+}
+
+/** Other works with a mark, newest first, for the book page's mark rows. */
+export async function getWorksWithMark(
+  mark: WorkMarkKey,
+  excludeWorkId: string,
+  limit = 12,
+) {
+  const key = z.enum(WORK_MARKS.map((m) => m.key)).parse(mark);
+  const id = z.uuid().parse(excludeWorkId);
+  z.number().int().min(1).max(50).parse(limit);
+  return db.query.works.findMany({
+    where: and(eq(markColumn(key), true), ne(works.id, id)),
+    limit,
+    orderBy: [desc(works.createdAt), asc(works.id)],
     with: workCardWith,
   });
 }

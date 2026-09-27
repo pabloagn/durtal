@@ -64,14 +64,13 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
         )}
       </div>
       <div className="p-3.5">
-        <h3 className="line-clamp-2 font-serif text-lg leading-snug text-fg-primary group-hover:text-accent-rose">
+        {/* Fixed lines: every series card has the same height */}
+        <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary group-hover:text-accent-rose">
           {s.title}
         </h3>
-        {s.originalTitle && s.originalTitle !== s.title && (
-          <p className="mt-0.5 line-clamp-1 text-xs italic text-fg-muted">
-            {s.originalTitle}
-          </p>
-        )}
+        <p className="mt-0.5 lines-1 text-xs italic text-fg-muted">
+          {s.originalTitle !== s.title ? s.originalTitle : null}
+        </p>
         <p className="mt-2 font-mono text-micro text-fg-muted">
           {countsLabel(s)}
         </p>

@@ -1,13 +1,39 @@
 import { describe, it, expect } from "vitest";
-import { WORK_MARKS, parseMarks } from "@/lib/constants/marks";
-import { POISON_LABEL } from "@/lib/constants/poison";
+import {
+  MARKS,
+  WORK_MARKS,
+  marksOf,
+  otherMarkedTitle,
+  parseMarks,
+} from "@/lib/constants/marks";
 
 describe("book marks", () => {
-  it("lists Rare and the poison mark as one group", () => {
-    expect(WORK_MARKS.map((m) => [m.key, m.label])).toEqual([
-      ["rare", "Rare"],
-      ["poison", POISON_LABEL],
+  it("defines Rare and Anathema with a full vocabulary", () => {
+    expect(
+      WORK_MARKS.map((m) => [m.key, m.field, m.label, m.noun, m.plural]),
+    ).toEqual([
+      ["rare", "isRare", "Rare", "Rarity", "Rarities"],
+      ["poison", "isPoison", "Anathema", "Anathema", "Anathemas"],
     ]);
+    for (const mark of WORK_MARKS) {
+      expect(mark.markAction).toMatch(/^Mark as /);
+      expect(mark.unmarkAction).toMatch(/^Unmark /);
+      expect(mark.hint.length).toBeGreaterThan(0);
+    }
+    expect(MARKS.poison).toBe(WORK_MARKS[1]);
+  });
+
+  it("titles the book-page rows from each mark's plural", () => {
+    expect(otherMarkedTitle(MARKS.rare)).toBe("Other Rarities");
+    expect(otherMarkedTitle(MARKS.poison)).toBe("Other Anathemas");
+  });
+
+  it("lists the marks a work has, in registry order", () => {
+    expect(marksOf({ isRare: true, isPoison: true }).map((m) => m.key)).toEqual(
+      ["rare", "poison"],
+    );
+    expect(marksOf({ isPoison: true }).map((m) => m.key)).toEqual(["poison"]);
+    expect(marksOf({ isRare: false, isPoison: null })).toEqual([]);
   });
 
   it("parses known marks from a URL value, once each", () => {

@@ -51,7 +51,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex h-6 items-center gap-2">
             <h3 className="truncate font-serif text-base text-fg-primary transition-colors group-hover:text-accent-rose">
               {family.name}
             </h3>
@@ -61,16 +61,15 @@ export function FamilyCard({ family }: FamilyCardProps) {
               </Badge>
             )}
           </div>
-          {family.description && (
-            <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-fg-secondary">
-              {family.description}
-            </p>
-          )}
+          {/* Two lines kept even without a description: equal card heights */}
+          <p className="mt-0.5 lines-2 text-xs leading-relaxed text-fg-secondary">
+            {family.description}
+          </p>
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="mt-3 flex items-center gap-3 border-t border-glass-border/40 pt-2.5">
+      <div className="mt-3 flex items-center gap-3 overflow-hidden whitespace-nowrap border-t border-glass-border/40 pt-2.5">
         <span className="font-mono text-micro text-fg-muted">
           {family.itemCount} item{family.itemCount === 1 ? "" : "s"}
         </span>

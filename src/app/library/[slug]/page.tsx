@@ -11,7 +11,12 @@ import { HuntAssessmentControl } from "@/components/books/hunt-assessment-contro
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { ArrowLeft, Star, Route, ExternalLink } from "lucide-react";
-import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
+import {
+  getWorkBySlug,
+  getWorksByAuthorId,
+  getWorksWithMark,
+} from "@/lib/actions/works";
+import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
 import { getAuthors } from "@/lib/actions/authors";
 import { getOrdersForWork } from "@/lib/actions/orders";
 import { getSeries } from "@/lib/actions/series";
@@ -132,6 +137,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     publisherOptions,
     workCollections,
     similarWorks,
+    markRows,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -142,6 +148,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
     getPublisherOptions(),
     getCollectionsForWork(work.id),
     getSimilarWorks(work.id, 12),
+    // One row of other books for each mark this book has
+    Promise.all(
+      marksOf(work).map(async (mark) => ({
+        mark,
+        works: await getWorksWithMark(mark.key, work.id, 12),
+      })),
+    ),
   ]);
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
@@ -425,12 +438,20 @@ export default async function WorkDetailPage({ params }: PageProps) {
                     </span>
                   </div>
                 )}
-                <HuntAssessmentControl
-                  workId={work.id}
-                  isRare={work.isRare}
-                  huntAssessedOn={work.huntAssessedOn}
-                />
-                <PoisonToggle workId={work.id} isPoison={work.isPoison} />
+                {/* Marks: one group; the negative margin cancels the
+                    buttons' padding so every icon sits 12px from its neighbour */}
+                <div
+                  role="group"
+                  aria-label={MARKS_LABEL}
+                  className="-mx-1.5 flex items-center"
+                >
+                  <HuntAssessmentControl
+                    workId={work.id}
+                    isRare={work.isRare}
+                    huntAssessedOn={work.huntAssessedOn}
+                  />
+                  <PoisonToggle workId={work.id} isPoison={work.isPoison} />
+                </div>
                 <BookLinks
                   goodreadsUrl={work.goodreadsUrl}
                   storygraphUrl={work.storygraphUrl}
@@ -606,17 +627,15 @@ export default async function WorkDetailPage({ params }: PageProps) {
                     .filter((p) => p.collectionId === collection.id)
                     .map((p) => p.s3Key)}
                   footer={
-                    work.editions.length > 1 && (
-                      <p className="mt-1.5 line-clamp-2 text-micro text-fg-muted">
-                        {collection.heldEditions
+                    work.editions.length > 1
+                      ? collection.heldEditions
                           .map((e) =>
                             [e.editionTitle, e.publicationYear]
                               .filter(Boolean)
                               .join(", "),
                           )
-                          .join(" · ")}
-                      </p>
-                    )
+                          .join(" · ")
+                      : undefined
                   }
                 />
               </div>
@@ -643,7 +662,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             caption={
               workCollections.length > 1
                 ? (w) => (
-                    <p className="mt-1.5 line-clamp-2 text-micro text-fg-muted">
+                    <p className="mt-1.5 lines-2 text-micro text-fg-muted">
                       {w.reasons.map((r) => r.name).join(" · ")}
                     </p>
                   )
@@ -652,6 +671,19 @@ export default async function WorkDetailPage({ params }: PageProps) {
           />
         </section>
       )}
+
+      {/* Other books with each of this book's marks: "Other Rarities" */}
+      {markRows
+        .filter((row) => row.works.length > 0)
+        .map(({ mark, works: marked }) => (
+          <section key={mark.key} className="mb-8">
+            <WorkCarousel
+              title={otherMarkedTitle(mark)}
+              titleHref={`/library?mark=${mark.key}`}
+              works={marked}
+            />
+          </section>
+        ))}
 
       {/* Orders */}
       {workOrders.length > 0 && (

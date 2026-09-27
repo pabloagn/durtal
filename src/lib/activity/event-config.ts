@@ -1,5 +1,5 @@
 import type { ActivityMetadata } from "./types";
-import { POISON_LABEL } from "@/lib/constants/poison";
+import { MARKS } from "@/lib/constants/marks";
 
 export interface EventDisplayConfig {
   icon: string;
@@ -107,8 +107,8 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
     ? [text("Assessed availability as "), label(String(m.newValue))]
     : [text("Cleared hunting assessment")],
   "work.poison_changed": (m) => m?.newValue
-    ? [text("Marked as "), label(POISON_LABEL)]
-    : [text("Removed the "), label(POISON_LABEL), text(" mark")],
+    ? [text("Marked as "), label(MARKS.poison.label)]
+    : [text("Removed the "), label(MARKS.poison.label), text(" mark")],
   "work.created":                    () => [text("Created this work")],
   "work.deleted":                    () => [text("Deleted this work")],
   "work.title_changed":             (m) => fieldChanged("title", m),

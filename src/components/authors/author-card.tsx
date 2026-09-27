@@ -149,15 +149,14 @@ export function AuthorCard({
         tabIndex={isSelecting ? -1 : undefined}
       >
         <div className="p-3.5">
-          <h3 className="line-clamp-2 font-serif text-lg leading-snug text-fg-primary">
+          {/* Fixed lines: every author card has the same height */}
+          <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary">
             {name}
           </h3>
-          {nationality && (
-            <p className="mt-1 line-clamp-1 text-sm text-fg-secondary">
-              {nationality}
-            </p>
-          )}
-          <div className="mt-2.5 flex items-center gap-2">
+          <p className="mt-1 lines-1 text-sm text-fg-secondary">
+            {nationality}
+          </p>
+          <div className="mt-2.5 flex h-5 items-center gap-2">
             {years && (
               <span className="font-mono text-micro text-fg-muted">{years}</span>
             )}

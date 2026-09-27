@@ -1,7 +1,7 @@
 "use client";
 
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,8 @@ import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
-import { MARKS_LABEL } from "@/lib/constants/marks";
+import { MARKS_LABEL, WORK_MARKS, type WorkMark } from "@/lib/constants/marks";
 import { bulkSetPoison } from "@/lib/actions/poison";
-import {
-  POISON_LABEL,
-  POISON_MARK,
-  POISON_UNMARK,
-} from "@/lib/constants/poison";
 import { toast } from "sonner";
 import {
   STATUS_CONFIG,
@@ -108,37 +103,28 @@ export function BulkActionToolbar({
     }
   }
 
-  async function setRare(isRare: boolean) {
+  async function setMark(mark: WorkMark, on: boolean) {
     setIsUpdating(true);
     try {
-      const { updated } = await bulkUpdateHuntAssessment(
-        Array.from(selectedIds),
-        isRare
-          ? { isRare: true, huntAssessedOn: localToday() }
-          : { isRare: false, huntAssessedOn: null },
+      const ids = Array.from(selectedIds);
+      // Rarity keeps its assessment date; other marks are plain flags
+      const { updated } =
+        mark.key === "rare"
+          ? await bulkUpdateHuntAssessment(
+              ids,
+              on
+                ? { isRare: true, huntAssessedOn: localToday() }
+                : { isRare: false, huntAssessedOn: null },
+            )
+          : await bulkSetPoison(ids, on);
+      toast.success(
+        updated === 0
+          ? `${mark.label}: no books changed`
+          : `${mark.label}: ${updated} ${updated === 1 ? "book" : "books"} ${on ? "marked" : "unmarked"}`,
       );
-      toast.success(updated === 0
-        ? "No rare flags changed"
-        : `${updated} ${updated === 1 ? "book" : "books"} ${isRare ? "marked as rare" : "unmarked"}`);
       router.refresh();
     } catch {
-      toast.error("Could not update rare flags. Please try again.");
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
-  async function setPoison(isPoison: boolean) {
-    setIsUpdating(true);
-    const name = POISON_LABEL.toLowerCase();
-    try {
-      const { updated } = await bulkSetPoison(Array.from(selectedIds), isPoison);
-      toast.success(updated === 0
-        ? `No ${name} marks changed`
-        : `${updated} ${updated === 1 ? "book" : "books"} ${isPoison ? `marked as ${name}` : "unmarked"}`);
-      router.refresh();
-    } catch {
-      toast.error(`Could not update ${name} marks. Please try again.`);
+      toast.error(`Could not update the ${mark.label} mark. Please try again.`);
     } finally {
       setIsUpdating(false);
     }
@@ -239,21 +225,18 @@ export function BulkActionToolbar({
             </Button>
           }
         >
-          <DropdownMenuLabel>Rare</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setRare(true)} disabled={isUpdating || isDeleting}>
-            Mark as rare
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setRare(false)} disabled={isUpdating || isDeleting}>
-            Unmark rare
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>{POISON_LABEL}</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setPoison(true)} disabled={isUpdating || isDeleting}>
-            {POISON_MARK}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setPoison(false)} disabled={isUpdating || isDeleting}>
-            {POISON_UNMARK}
-          </DropdownMenuItem>
+          {WORK_MARKS.map((mark, index) => (
+            <Fragment key={mark.key}>
+              {index > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel>{mark.label}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setMark(mark, true)} disabled={isUpdating || isDeleting}>
+                {mark.markAction}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setMark(mark, false)} disabled={isUpdating || isDeleting}>
+                {mark.unmarkAction}
+              </DropdownMenuItem>
+            </Fragment>
+          ))}
         </DropdownMenu>
 
         {/* Edit Rating */}

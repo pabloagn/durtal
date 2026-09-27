@@ -174,27 +174,26 @@ export default async function CollectionPage({
                         <BookOpen size={24} className="text-fg-muted" />
                       )}
                     </Link>
-                    <div className="min-w-0 flex-1">
+                    {/* Fixed lines: every member card has the same height */}
+                    <div className="flex min-w-0 flex-1 flex-col">
                       <Link
                         href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
-                        className="font-serif text-xl"
+                        className="lines-2 font-serif text-xl"
                       >
                         {e.title}
                       </Link>
-                      <p className="mt-1 text-sm text-fg-secondary">
+                      <p className="mt-1 lines-1 text-sm text-fg-secondary">
                         {names.join(" & ")}
                       </p>
-                      <p className="mt-2 text-xs text-fg-muted">
+                      <p className="mt-2 lines-1 text-xs text-fg-muted">
                         {[e.publisher, e.publicationYear, e.language, e.binding]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
-                      {e.isbn13 && (
-                        <p className="mt-1 font-mono text-xs text-fg-muted">
-                          {e.isbn13}
-                        </p>
-                      )}
-                      <div className="mt-3 flex items-center justify-between">
+                      <p className="mt-1 lines-1 font-mono text-xs text-fg-muted">
+                        {e.isbn13}
+                      </p>
+                      <div className="mt-auto flex items-center justify-between pt-3">
                         <CopyBookButton
                           title={work.title}
                           authorNames={names}

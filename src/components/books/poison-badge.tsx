@@ -1,5 +1,6 @@
 import { Skull } from "lucide-react";
-import { POISON_HINT, POISON_LABEL } from "@/lib/constants/poison";
+import { MARKS } from "@/lib/constants/marks";
+import { COVER_CHIP, COVER_CHIP_ICON } from "./cover-chip";
 
 /** Skull shown on poison works, styled like the rare gem (`HuntBadge`). */
 export function PoisonBadge({
@@ -10,18 +11,16 @@ export function PoisonBadge({
   cover?: boolean;
 }) {
   if (!isPoison) return null;
-  const label = `${POISON_LABEL} · ${POISON_HINT}`;
+  const label = `${MARKS.poison.label} · ${MARKS.poison.hint}`;
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center text-accent-red ${cover ? "h-4 w-4 rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md @[220px]:h-5 @[220px]:w-5" : ""}`}
+      className={`text-accent-red ${cover ? COVER_CHIP : "inline-flex shrink-0 items-center justify-center"}`}
       title={label}
       role="img"
       aria-label={label}
     >
       <Skull
-        className={
-          cover ? "h-2.5 w-2.5 @[220px]:h-3.5 @[220px]:w-3.5" : "h-3.5 w-3.5"
-        }
+        className={cover ? COVER_CHIP_ICON : "h-3.5 w-3.5"}
         strokeWidth={1.5}
         fill="currentColor"
         fillOpacity={0.18}

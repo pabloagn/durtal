@@ -52,7 +52,7 @@ export function CollectionCard({
   collection: CollectionCardData;
   /** Member cover keys (first four), used only without a poster */
   covers?: string[];
-  /** Optional extra line under the name, e.g. which edition is included */
+  /** Short text in the info row, e.g. which of the book's editions it holds */
   footer?: React.ReactNode;
 }) {
   const poster = collectionPoster(collection.media);
@@ -104,28 +104,32 @@ export function CollectionCard({
             />
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-bg-primary/90 to-transparent" />
-        <div className="absolute bottom-2.5 right-2.5">
-          <span className="rounded-sm bg-bg-primary/70 px-2 py-0.5 font-mono text-micro text-fg-secondary backdrop-blur-sm">
+      </div>
+
+      {/* The book card's layout, line for line: 2-line title, 1 line of
+          text, 1 info row. Collection and book cards are the same height. */}
+      <div className="p-3.5">
+        <h3 className="flex gap-1.5 font-serif text-lg leading-snug text-fg-primary">
+          {collection.icon && (
+            // Centered on the first line of the name
+            <span className="flex h-[1lh] shrink-0 items-center">
+              <CollectionIcon
+                icon={collection.icon}
+                className="h-4 w-4 text-fg-secondary"
+              />
+            </span>
+          )}
+          <span className="lines-2 min-w-0">{collection.name}</span>
+        </h3>
+        <p className="mt-1 lines-1 text-sm text-fg-secondary">
+          {collection.description}
+        </p>
+        <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-muted">
+          {footer && <span className="min-w-0 truncate">{footer}</span>}
+          <span className="ml-auto shrink-0">
             {count} {count === 1 ? "edition" : "editions"}
           </span>
         </div>
-      </div>
-
-      <div className="p-3.5">
-        <h3 className="flex items-center gap-1.5 font-serif text-lg leading-snug text-fg-primary">
-          <CollectionIcon
-            icon={collection.icon}
-            className="h-4 w-4 shrink-0 text-fg-secondary"
-          />
-          <span className="line-clamp-1">{collection.name}</span>
-        </h3>
-        {collection.description && (
-          <p className="mt-1 line-clamp-2 text-micro leading-relaxed text-fg-muted">
-            {collection.description}
-          </p>
-        )}
-        {footer}
       </div>
     </div>
   );

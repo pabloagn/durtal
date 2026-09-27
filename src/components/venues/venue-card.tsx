@@ -107,8 +107,9 @@ export function VenueCard({
       {/* Meta */}
       <Link href={href} className="block">
         <div className="p-3.5">
+          {/* Fixed rows: every place card has the same height */}
           <div className="mb-1.5 flex items-start justify-between gap-2">
-            <h3 className="line-clamp-2 font-serif text-lg leading-snug text-fg-primary">
+            <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary">
               {name}
             </h3>
             <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
@@ -116,14 +117,16 @@ export function VenueCard({
             </Badge>
           </div>
 
-          {location && (
-            <p className="mb-2 flex items-center gap-1 text-xs text-fg-muted">
-              <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-              <span className="line-clamp-1">{location}</span>
-            </p>
-          )}
+          <p className="mb-2 flex h-4 items-center gap-1 text-xs text-fg-muted">
+            {location && (
+              <>
+                <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+                <span className="lines-1 min-w-0">{location}</span>
+              </>
+            )}
+          </p>
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex h-4 items-center justify-between gap-2">
             {/* Rating dots */}
             {personalRating != null && personalRating > 0 && (
               <div className="flex items-center gap-0.5">

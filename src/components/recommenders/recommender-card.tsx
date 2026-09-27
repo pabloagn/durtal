@@ -41,14 +41,15 @@ export function RecommenderCard({
         aria-label={`Open ${r.name}`}
         className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
       />
-      <h3 className="line-clamp-2 p-4 pb-2 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
-        {r.name}
-      </h3>
-      {r.url && (
-        <div className="flex min-w-0 px-4">
-          <WebsiteLink url={r.url} name={r.name} />
-        </div>
-      )}
+      {/* Fixed rows: every recommender card has the same height */}
+      <div className="p-4 pb-2">
+        <h3 className="lines-2 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
+          {r.name}
+        </h3>
+      </div>
+      <div className="flex h-4 min-w-0 items-center px-4">
+        {r.url && <WebsiteLink url={r.url} name={r.name} />}
+      </div>
       <p className="mt-auto px-4 pb-3.5 pt-3 font-mono text-micro text-fg-muted">
         {booksLabel(r.bookCount)}
       </p>

@@ -7,6 +7,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
+import {
+  COVER_CHIP,
+  COVER_CHIP_TEXT,
+  COVER_CHIP_TONE,
+  COVER_CORNER,
+} from "./cover-chip";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
@@ -155,35 +161,38 @@ export function BookCard({
 
             {/* Status badge -- top-left */}
             {statusInfo && (
-              <div className="absolute left-1 top-1 @[220px]:left-2 @[220px]:top-2">
-                <Badge
-                  variant={statusInfo.variant}
-                  className="backdrop-blur-md border-white/15"
+              <div className={COVER_CORNER.topLeft}>
+                <span
+                  className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE[statusInfo.variant]}`}
+                  title={statusInfo.label}
                 >
                   <span className="hidden @[220px]:inline">{statusInfo.label}</span>
                   <span className="@[220px]:hidden">{statusInfo.shortLabel}</span>
-                </Badge>
+                </span>
               </div>
             )}
 
             {/* Rating overlay */}
             {rating && (
-              <div className="absolute right-1 top-1 @[220px]:right-2 @[220px]:top-2">
-                <Badge variant="gold" className="backdrop-blur-md border-white/15">
+              <div className={COVER_CORNER.topRight}>
+                <span
+                  className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE.gold}`}
+                  title={`Rated ${rating}/5`}
+                >
                   <span className="hidden @[220px]:inline">{rating}/5</span>
                   <span className="@[220px]:hidden">{rating}</span>
-                </Badge>
+                </span>
               </div>
             )}
 
             {/* Bottom-left indicators: priority dot + digital edition badge */}
             {(isRare || isPoison || hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
-              <div className="absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2">
+              <div className={COVER_CORNER.bottomLeft}>
                 {acquisitionPriority && acquisitionPriority !== "none" && (() => {
                   const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
                   return (
                     <div
-                      className="flex items-center justify-center rounded-[2px] border border-white/15 bg-black/50 backdrop-blur-md h-4 w-4 @[220px]:h-5 @[220px]:w-5"
+                      className={COVER_CHIP}
                       title={`${pConfig?.label ?? acquisitionPriority} priority`}
                     >
                       <span
@@ -251,13 +260,14 @@ export function BookCard({
         tabIndex={isSelecting ? -1 : undefined}
       >
         <div className="p-3.5">
-          <h3 className="line-clamp-2 font-serif text-lg leading-snug text-fg-primary">
+          {/* Fixed lines: every book card has the same height */}
+          <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary">
             {title}
           </h3>
-          <p className="mt-1 line-clamp-1 text-sm text-fg-secondary">
+          <p className="mt-1 lines-1 text-sm text-fg-secondary">
             {authorName}
           </p>
-          <div className="mt-2.5 flex items-center gap-2">
+          <div className="mt-2.5 flex h-5 items-center gap-2">
             {publicationYear && (
               <span className="font-mono text-micro text-fg-muted">
                 {publicationYear}
