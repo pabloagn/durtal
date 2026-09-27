@@ -49,6 +49,10 @@ export const works = pgTable("works", {
   isRare: boolean("is_rare").notNull().default(false),
   huntAssessedOn: date("hunt_assessed_on", { mode: "string" }),
 
+  // Personal warning: explicit, transgressive works not to recommend.
+  // The UI calls this mark "Anathema" (src/lib/constants/poison.ts).
+  isPoison: boolean("is_poison").notNull().default(false),
+
   // External catalogue pages (validated https links; shared by all editions)
   goodreadsUrl: text("goodreads_url"),
   storygraphUrl: text("storygraph_url"),

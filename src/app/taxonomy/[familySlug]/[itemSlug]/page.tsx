@@ -197,6 +197,9 @@ async function ItemContent({
                   rating={work.rating}
                   catalogueStatus={work.catalogueStatus}
                   acquisitionPriority={work.acquisitionPriority}
+                  isRare={work.isRare}
+                  huntAssessedOn={work.huntAssessedOn}
+                  isPoison={work.isPoison}
                   primaryEditionId={primaryEdition?.id}
                 />
               );

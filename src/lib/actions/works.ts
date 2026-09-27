@@ -140,6 +140,7 @@ export async function getWorks(opts?: {
   filters?: {
     catalogueStatus?: string[];
     isRare?: boolean;
+    isPoison?: boolean;
     publisherIds?: string[];
     acquisitionPriority?: string[];
     minRating?: number;
@@ -188,6 +189,9 @@ export async function getWorks(opts?: {
     conditions.push(publisherWorkCondition(filters.publisherIds));
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));
+  }
+  if (filters?.isPoison !== undefined) {
+    conditions.push(eq(works.isPoison, filters.isPoison));
   }
   if (filters?.catalogueStatus?.length) {
     conditions.push(catalogueStatusCondition(filters.catalogueStatus));
@@ -330,6 +334,7 @@ export async function getWorkCount(
   filters?: {
     catalogueStatus?: string[];
     isRare?: boolean;
+    isPoison?: boolean;
     publisherIds?: string[];
     acquisitionPriority?: string[];
     minRating?: number;
@@ -345,6 +350,9 @@ export async function getWorkCount(
     conditions.push(publisherWorkCondition(filters.publisherIds));
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));
+  }
+  if (filters?.isPoison !== undefined) {
+    conditions.push(eq(works.isPoison, filters.isPoison));
   }
   if (filters?.catalogueStatus?.length) {
     conditions.push(catalogueStatusCondition(filters.catalogueStatus));

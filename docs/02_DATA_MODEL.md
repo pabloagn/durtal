@@ -153,6 +153,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `acquisition_priority` | `acquisition_priority_enum` | NOT NULL, default `'none'` | Urgency of acquisition intent |
 | `is_rare` | BOOLEAN | NOT NULL, default `false` | Simple personal rare-book flag; independent of lifecycle/priority and instance collector flags |
 | `hunt_assessed_on` | DATE | nullable; required when marked | Calendar date of the latest assessment, editable and defaulted to local today by the UI. Cleared when `is_rare` becomes false; required when true, enforced by a CHECK constraint. |
+| `is_poison` | BOOLEAN | NOT NULL, default `false` | Personal warning flag, shown as "Anathema" with a skull: an explicit, transgressive work that is dangerous to recommend. Independent of every other flag. No date; the activity log records changes. |
 | `goodreads_url` | TEXT | nullable | Goodreads page for the book. Stored as a canonical `https` URL on `goodreads.com` or a subdomain; validated by the app on write and again before render. Work-level, shared by all editions. |
 | `storygraph_url` | TEXT | nullable | The StoryGraph page for the book. Same rules as `goodreads_url`, on `thestorygraph.com` or a subdomain. |
 | `metadata_source` | TEXT | nullable | Where metadata was fetched from |

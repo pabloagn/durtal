@@ -5,6 +5,7 @@ import { CopyBookButton } from "./copy-book-button";
 import Image from "next/image";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
+import { PoisonBadge } from "./poison-badge";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
@@ -26,6 +27,7 @@ interface BookListItem {
   catalogueStatus?: string | null;
   isRare?: boolean;
   huntAssessedOn?: string | null;
+  isPoison?: boolean;
   acquisitionPriority?: string | null;
 }
 
@@ -119,6 +121,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           </div>
 
           <HuntBadge {...book} />
+          <PoisonBadge isPoison={book.isPoison} />
 
           {/* Meta */}
           <div className="flex flex-shrink-0 items-center gap-3">

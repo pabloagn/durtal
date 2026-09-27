@@ -1,6 +1,7 @@
 "use client";
 
 import { firstPageHref } from "@/lib/utils/list-params";
+import { POISON_LABEL } from "@/lib/constants/poison";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
@@ -60,6 +61,14 @@ const POSTER_OPTIONS = [
 
 const FILTER_GROUPS: FilterGroup[] = [
   { key: "rare", label: "Rarity", options: [{ value: "true", label: "Rare" }] },
+  {
+    key: "poison",
+    label: POISON_LABEL,
+    options: [
+      { value: "true", label: `Only ${POISON_LABEL.toLowerCase()}` },
+      { value: "false", label: `Hide ${POISON_LABEL.toLowerCase()}` },
+    ],
+  },
   { key: "status", label: "Status", options: STATUS_OPTIONS },
   { key: "priority", label: "Priority", options: PRIORITY_OPTIONS },
   { key: "rating", label: "Min Rating", options: RATING_OPTIONS },
@@ -101,6 +110,7 @@ export function LibraryFilters({
   const activeFilters: Record<string, string[]> = {
     publisher: searchParams.get("publisher")?.split(",").filter(Boolean) ?? [],
     rare: searchParams.get("rare")?.split(",").filter(Boolean) ?? [],
+    poison: searchParams.get("poison")?.split(",").filter(Boolean) ?? [],
     status: searchParams.get("status")?.split(",").filter(Boolean) ?? [],
     priority: searchParams.get("priority")?.split(",").filter(Boolean) ?? [],
     rating: searchParams.get("rating")?.split(",").filter(Boolean) ?? [],
@@ -124,6 +134,7 @@ export function LibraryFilters({
     const params = new URLSearchParams(searchParams.toString());
     params.delete("publisher");
     params.delete("rare");
+    params.delete("poison");
     params.delete("status");
     params.delete("priority");
     params.delete("rating");

@@ -1,0 +1,1 @@
+ALTER TABLE "works" ADD COLUMN "is_poison" boolean DEFAULT false NOT NULL;

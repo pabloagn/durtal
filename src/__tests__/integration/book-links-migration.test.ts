@@ -56,7 +56,8 @@ describe.skipIf(!url)("book links migration", () => {
 
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
       const [after] = await c`select * from works`;
-      expect(after).toEqual({
+      // Later migrations add more work columns, so match the known ones.
+      expect(after).toMatchObject({
         ...work,
         goodreads_url: null,
         storygraph_url: null,

@@ -86,6 +86,9 @@ function workToCardProps(work: {
   rating: number | null;
   catalogueStatus: string;
   acquisitionPriority: string;
+  isRare: boolean;
+  huntAssessedOn: string | null;
+  isPoison: boolean;
   originalYear: number | null;
   workAuthors: Array<{ author: { name: string } }>;
   editions: Array<{
@@ -140,6 +143,9 @@ function workToCardProps(work: {
     rating: work.rating,
     catalogueStatus: work.catalogueStatus,
     acquisitionPriority: work.acquisitionPriority,
+    isRare: work.isRare,
+    huntAssessedOn: work.huntAssessedOn,
+    isPoison: work.isPoison,
   };
 }
 

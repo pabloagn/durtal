@@ -8,6 +8,7 @@ import { AcquisitionTargets } from "@/components/publishers/acquisition-targets"
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
+import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { ArrowLeft, Star, Route, ExternalLink } from "lucide-react";
 import { getWorkBySlug, getWorksByAuthorId } from "@/lib/actions/works";
@@ -429,6 +430,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                   isRare={work.isRare}
                   huntAssessedOn={work.huntAssessedOn}
                 />
+                <PoisonToggle workId={work.id} isPoison={work.isPoison} />
                 <BookLinks
                   goodreadsUrl={work.goodreadsUrl}
                   storygraphUrl={work.storygraphUrl}

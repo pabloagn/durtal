@@ -24,6 +24,7 @@ import {
   Globe,
   MapPin,
   List,
+  Skull,
   type LucideIcon,
 } from "lucide-react";
 import { EVENT_CONFIG } from "@/lib/activity/event-config";
@@ -52,6 +53,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Globe,
   MapPin,
   List,
+  Skull,
 };
 
 interface ActivityEventIconProps {

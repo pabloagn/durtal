@@ -5,6 +5,7 @@ import { CopyBookButton } from "./copy-book-button";
 import Link from "next/link";
 import Image from "next/image";
 import { HuntBadge } from "./hunt-badge";
+import { PoisonBadge } from "./poison-badge";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
@@ -28,6 +29,7 @@ export interface DetailedBookItem {
   catalogueStatus?: string | null;
   isRare?: boolean;
   huntAssessedOn?: string | null;
+  isPoison?: boolean;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;
@@ -84,7 +86,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
               </div>
             )}
           </div>
-          <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /></span>
+          <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /><PoisonBadge isPoison={book.isPoison} /></span>
         </Link>
         <CopyBookButton {...book} />
         </div>

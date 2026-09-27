@@ -6,6 +6,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
+import { PoisonBadge } from "./poison-badge";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
@@ -30,6 +31,7 @@ interface BookCardProps {
   catalogueStatus?: string | null;
   isRare?: boolean;
   huntAssessedOn?: string | null;
+  isPoison?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   /** Whether a digital edition exists in Calibre for this work */
@@ -103,6 +105,7 @@ export function BookCard({
   acquisitionPriority,
   isRare,
   huntAssessedOn,
+  isPoison,
   primaryEditionId,
   hasDigitalEdition = false,
   isSelecting = false,
@@ -174,7 +177,7 @@ export function BookCard({
             )}
 
             {/* Bottom-left indicators: priority dot + digital edition badge */}
-            {(isRare || hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
+            {(isRare || isPoison || hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
               <div className="absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2">
                 {acquisitionPriority && acquisitionPriority !== "none" && (() => {
                   const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
@@ -190,6 +193,7 @@ export function BookCard({
                   );
                 })()}
                 <HuntBadge isRare={isRare} huntAssessedOn={huntAssessedOn} cover />
+                <PoisonBadge isPoison={isPoison} cover />
                 {hasDigitalEdition && <DigitalEditionBadge />}
               </div>
             )}

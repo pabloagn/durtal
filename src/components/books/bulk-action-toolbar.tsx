@@ -3,7 +3,7 @@
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star, Gem, FolderPlus } from "lucide-react";
+import { Trash2, X, Tag, Signal, Star, Gem, Skull, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +15,12 @@ import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
+import { bulkSetPoison } from "@/lib/actions/poison";
+import {
+  POISON_LABEL,
+  POISON_MARK,
+  POISON_UNMARK,
+} from "@/lib/constants/poison";
 import { toast } from "sonner";
 import {
   STATUS_CONFIG,
@@ -120,6 +126,22 @@ export function BulkActionToolbar({
     }
   }
 
+  async function setPoison(isPoison: boolean) {
+    setIsUpdating(true);
+    const name = POISON_LABEL.toLowerCase();
+    try {
+      const { updated } = await bulkSetPoison(Array.from(selectedIds), isPoison);
+      toast.success(updated === 0
+        ? `No ${name} marks changed`
+        : `${updated} ${updated === 1 ? "book" : "books"} ${isPoison ? `marked as ${name}` : "unmarked"}`);
+      router.refresh();
+    } catch {
+      toast.error(`Could not update ${name} marks. Please try again.`);
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
   const statusEntries = Object.entries(STATUS_CONFIG) as [
     CatalogueStatus,
     (typeof STATUS_CONFIG)[CatalogueStatus],
@@ -220,6 +242,25 @@ export function BulkActionToolbar({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setRare(false)} disabled={isUpdating || isDeleting}>
             Unmark rare
+          </DropdownMenuItem>
+        </DropdownMenu>
+
+        {/* Poison mark */}
+        <DropdownMenu
+          align="center"
+          side="top"
+          trigger={
+            <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting}>
+              <Skull className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {POISON_LABEL}
+            </Button>
+          }
+        >
+          <DropdownMenuItem onClick={() => setPoison(true)} disabled={isUpdating || isDeleting}>
+            {POISON_MARK}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPoison(false)} disabled={isUpdating || isDeleting}>
+            {POISON_UNMARK}
           </DropdownMenuItem>
         </DropdownMenu>
 

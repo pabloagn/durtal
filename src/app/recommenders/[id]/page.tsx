@@ -116,6 +116,7 @@ export default async function RecommenderPage({
                     acquisitionPriority={work.acquisitionPriority}
                     isRare={work.isRare}
                     huntAssessedOn={work.huntAssessedOn}
+                    isPoison={work.isPoison}
                     primaryEditionId={work.editions[0]?.id}
                   />
                 );

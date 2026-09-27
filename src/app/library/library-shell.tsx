@@ -45,6 +45,7 @@ interface BookItem {
   catalogueStatus?: string | null;
   isRare?: boolean;
   huntAssessedOn?: string | null;
+  isPoison?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   hasDigitalEdition?: boolean;
