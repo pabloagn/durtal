@@ -41,6 +41,7 @@ import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
+import { workCardWith } from "@/lib/actions/utils/work-card-query";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -912,37 +913,7 @@ export async function getWorksByAuthorId(
     where: inArray(works.id, workIds),
     limit,
     orderBy: desc(works.createdAt),
-    with: {
-      workAuthors: {
-        with: { author: { columns: { name: true } } },
-        orderBy: asc(workAuthors.sortOrder),
-      },
-      editions: {
-        columns: {
-          id: true,
-          thumbnailS3Key: true,
-          publicationYear: true,
-          language: true,
-        },
-        limit: 1,
-        with: {
-          instances: { columns: { id: true } },
-        },
-      },
-      media: {
-        columns: {
-          s3Key: true,
-          thumbnailS3Key: true,
-          type: true,
-          isActive: true,
-          cropX: true,
-          cropY: true,
-          cropZoom: true,
-          brightness: true,
-          contrast: true,
-        },
-      },
-    },
+    with: workCardWith,
   });
 }
 

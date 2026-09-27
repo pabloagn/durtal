@@ -49,7 +49,8 @@ import {
   CollectionCard,
   collectionPoster,
 } from "@/components/collections/collection-card";
-import { BookCard } from "@/components/books/book-card";
+import { WorkCarousel } from "@/components/books/work-carousel";
+import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { WorkPosterImage } from "./work-poster-image";
 import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
@@ -129,6 +130,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     acquisitionTargets,
     publisherOptions,
     workCollections,
+    similarWorks,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -138,6 +140,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     getAcquisitionTargets(work.id),
     getPublisherOptions(),
     getCollectionsForWork(work.id),
+    getSimilarWorks(work.id, 12),
   ]);
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
@@ -576,49 +579,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Works by same author */}
       {relatedWorks.length > 0 && primaryAuthor && (
         <section className="mb-8">
-          <HorizontalCarousel
+          <WorkCarousel
             title={`More by ${primaryAuthor.name}`}
             titleHref={
               primaryAuthor.slug ? `/authors/${primaryAuthor.slug}` : undefined
             }
-          >
-            {relatedWorks.map((rw) => {
-              const edition = rw.editions[0];
-              const authorName = rw.workAuthors[0]?.author?.name ?? "Unknown";
-              const rwPoster = rw.media?.find(
-                (m) => m.type === "poster" && m.isActive,
-              );
-              const rwCoverKey =
-                rwPoster?.thumbnailS3Key ??
-                rwPoster?.s3Key ??
-                edition?.thumbnailS3Key;
-              return (
-                <div key={rw.id} className="w-[160px] flex-shrink-0 snap-start">
-                  <BookCard
-                    workId={rw.id}
-                    slug={rw.slug ?? ""}
-                    title={rw.title}
-                    authorName={authorName}
-                    authorNames={rw.workAuthors.map((wa) => wa.author.name)}
-                    coverUrl={
-                      rwCoverKey
-                        ? `/api/s3/read?key=${encodeURIComponent(rwCoverKey)}`
-                        : null
-                    }
-                    coverCrop={rwPoster ? mediaCrop(rwPoster) : null}
-                    publicationYear={
-                      edition?.publicationYear ?? rw.originalYear
-                    }
-                    language={edition?.language}
-                    instanceCount={edition?.instances?.length ?? 0}
-                    rating={rw.rating}
-                    catalogueStatus={rw.catalogueStatus}
-                    acquisitionPriority={rw.acquisitionPriority}
-                  />
-                </div>
-              );
-            })}
-          </HorizontalCarousel>
+            works={relatedWorks}
+          />
         </section>
       )}
 
@@ -653,6 +620,34 @@ export default async function WorkDetailPage({ params }: PageProps) {
               </div>
             ))}
           </HorizontalCarousel>
+        </section>
+      )}
+
+      {/* Other books in this book's collections, most similar first */}
+      {similarWorks.length > 0 && (
+        <section className="mb-8">
+          <WorkCarousel
+            title={
+              workCollections.length === 1
+                ? `More in ${workCollections[0].name}`
+                : "More from these collections"
+            }
+            titleHref={
+              workCollections.length === 1
+                ? `/collections/${workCollections[0].id}`
+                : undefined
+            }
+            works={similarWorks}
+            caption={
+              workCollections.length > 1
+                ? (w) => (
+                    <p className="mt-1.5 line-clamp-2 text-micro text-fg-muted">
+                      {w.reasons.map((r) => r.name).join(" · ")}
+                    </p>
+                  )
+                : undefined
+            }
+          />
         </section>
       )}
 
