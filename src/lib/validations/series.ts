@@ -1,7 +1,11 @@
 import { z } from "zod/v4";
 
 export const seriesInputSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(300, "Title is too long"),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title is required")
+    .max(300, "Title is too long"),
   originalTitle: z
     .string()
     .trim()

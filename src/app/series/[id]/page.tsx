@@ -1,27 +1,56 @@
-import { Suspense } from "react";
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { getSeriesDetail } from "@/lib/actions/series";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Layers } from "lucide-react";
+import { getSeriesDetail, getSeriesSuggestions } from "@/lib/actions/series";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
-import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { SeriesActions } from "@/components/series/series-actions";
+import { SeriesBooks, type SeriesBook } from "@/components/series/series-books";
+import { SeriesSuggestions } from "@/components/series/series-suggestions";
+import { STATUS_CONFIG } from "@/lib/constants/catalogue";
+import type { CatalogueStatus } from "@/lib/types";
+import { mediaCrop } from "@/lib/utils/media-style";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ add?: string }>;
 }
 
-async function SeriesContent({ id }: { id: string }) {
-  const s = await getSeriesDetail(id);
-
+export default async function SeriesDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { id } = await params;
+  const [s, suggestions, query] = await Promise.all([
+    getSeriesDetail(id),
+    getSeriesSuggestions(id).catch(() => []),
+    searchParams,
+  ]);
   if (!s) notFound();
 
-  const ownedCount = s.works.filter((w) =>
-    w.editions.some((e) =>
-      e.instances.some((i) => i.status !== "deaccessioned"),
-    ),
-  ).length;
+  const books: SeriesBook[] = s.works.map((w) => {
+    const poster = w.media?.find((m) => m.type === "poster" && m.isActive);
+    return {
+      id: w.id,
+      slug: w.slug ?? w.id,
+      title: w.title,
+      authors: w.workAuthors.map((wa) => wa.author.name).join(" & "),
+      position: w.seriesPosition,
+      cover:
+        poster?.thumbnailS3Key ??
+        poster?.s3Key ??
+        w.editions[0]?.thumbnailS3Key ??
+        null,
+      coverCrop: poster ? mediaCrop(poster) : null,
+      owned: w.editions.some((e) =>
+        e.instances.some((i) => i.status !== "deaccessioned"),
+      ),
+      status:
+        STATUS_CONFIG[w.catalogueStatus as CatalogueStatus]?.label ??
+        w.catalogueStatus,
+    };
+  });
+  const owned = books.filter((b) => b.owned).length;
+  const count = books.length;
 
   return (
     <>
@@ -33,113 +62,75 @@ async function SeriesContent({ id }: { id: string }) {
         Back to series
       </Link>
 
-      <div className="mb-8">
-        <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
-          {s.title}
-        </h1>
-        {s.originalTitle && s.originalTitle !== s.title && (
-          <p className="mt-1 text-sm text-fg-muted italic">
-            {s.originalTitle}
-          </p>
-        )}
-        <div className="mt-3 flex items-center gap-2">
-          <Badge variant="muted">
-            {s.works.length} work{s.works.length !== 1 ? "s" : ""}
-          </Badge>
-          <Badge variant="sage">
-            {ownedCount} of {s.totalVolumes ?? s.works.length} owned
-          </Badge>
-          {s.isComplete && <Badge variant="gold">Complete series</Badge>}
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="break-words font-serif text-4xl tracking-tight text-fg-primary">
+            {s.title}
+          </h1>
+          {s.originalTitle && s.originalTitle !== s.title && (
+            <p className="mt-1 text-sm italic text-fg-muted">
+              {s.originalTitle}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge variant="muted">
+              {count} {count === 1 ? "book" : "books"}
+              {s.totalVolumes ? ` of ${s.totalVolumes}` : ""}
+            </Badge>
+            {count > 0 && (
+              <Badge variant="sage">
+                {owned} of {s.totalVolumes ?? count} owned
+              </Badge>
+            )}
+            {s.isComplete && <Badge variant="gold">Complete series</Badge>}
+          </div>
+          {s.description && (
+            <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
+              {s.description}
+            </p>
+          )}
         </div>
-        {s.description && (
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-fg-secondary">
-            {s.description}
-          </p>
+        <SeriesActions
+          series={{
+            id: s.id,
+            title: s.title,
+            originalTitle: s.originalTitle,
+            description: s.description,
+            totalVolumes: s.totalVolumes,
+            isComplete: s.isComplete,
+          }}
+          bookCount={count}
+          initialAdd={query.add === "1"}
+        />
+      </header>
+
+      <section className="mb-8">
+        <h2 className="mb-4 font-serif text-2xl text-fg-primary">Books</h2>
+        {count ? (
+          <SeriesBooks seriesId={s.id} books={books} />
+        ) : (
+          <div className="rounded-sm border border-dashed border-glass-border px-6 py-12 text-center">
+            <Layers
+              className="mx-auto mb-3 text-fg-muted"
+              size={24}
+              strokeWidth={1}
+            />
+            <p className="text-sm text-fg-muted">
+              No books yet. Use Add books, or pick this series in a book&apos;s
+              Edit dialog.
+            </p>
+          </div>
         )}
-      </div>
+      </section>
 
-      <div className="space-y-2">
-        {s.works.map((work) => {
-          const author = work.workAuthors[0]?.author;
-          const edition = work.editions[0];
-          const hasInstance = edition?.instances.some(
-            (i) => i.status !== "deaccessioned",
-          );
-          const activePoster = work.media?.find(
-            (m) => m.type === "poster" && m.isActive,
-          );
-          const thumb =
-            activePoster?.thumbnailS3Key ??
-            activePoster?.s3Key ??
-            edition?.thumbnailS3Key;
-
-          return (
-            <Link key={work.id} href={`/library/${work.slug ?? ""}`}>
-              <Card hover>
-                <CardContent className="flex items-center gap-4 py-3">
-                  {/* Position number */}
-                  <span className="w-6 text-right font-mono text-xs text-fg-muted">
-                    {work.seriesPosition ?? "—"}
-                  </span>
-
-                  {/* Thumbnail */}
-                  {thumb ? (
-                    <img
-                      src={`/api/s3/read?key=${encodeURIComponent(thumb)}`}
-                      alt=""
-                      className="h-12 w-8 shrink-0 rounded-sm object-cover"
-                      style={activePoster ? mediaImageStyle(mediaCrop(activePoster)) : undefined}
-                    />
-                  ) : (
-                    <div className="h-12 w-8 shrink-0 rounded-sm bg-bg-tertiary" />
-                  )}
-
-                  {/* Details */}
-                  <div className="min-w-0 flex-1">
-                    <h3 className="line-clamp-1 font-serif text-lg text-fg-primary">
-                      {work.title}
-                    </h3>
-                    {author && (
-                      <p className="mt-0.5 text-xs text-fg-secondary">
-                        {author.name}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Status */}
-                  {hasInstance ? (
-                    <Badge variant="sage">Owned</Badge>
-                  ) : (
-                    <Badge variant="muted">
-                      {work.catalogueStatus === "wanted"
-                        ? "Wanted"
-                        : work.catalogueStatus === "shortlisted"
-                          ? "Shortlisted"
-                          : "Not owned"}
-                    </Badge>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+      {suggestions.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-4 font-serif text-2xl text-fg-primary">
+            Suggested books
+          </h2>
+          <SeriesSuggestions suggestions={suggestions} />
+        </section>
+      )}
     </>
-  );
-}
-
-export default async function SeriesDetailPage({ params }: PageProps) {
-  const { id } = await params;
-
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-16">
-          <Spinner className="h-6 w-6" />
-        </div>
-      }
-    >
-      <SeriesContent id={id} />
-    </Suspense>
   );
 }

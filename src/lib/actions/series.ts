@@ -38,7 +38,9 @@ export async function getSeries(opts?: {
 }) {
   const { search } = opts ?? {};
   return db.query.series.findMany({
-    where: search ? textSearchCondition(sql`search_normalize(${series.title})`, search) : undefined,
+    where: search
+      ? textSearchCondition(sql`search_normalize(${series.title})`, search)
+      : undefined,
     orderBy: [asc(series.title), asc(series.id)],
     limit: opts?.limit,
     offset: opts?.offset,
@@ -73,11 +75,15 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
   const o = listSchema.parse(options);
   const q = (o.search ?? "").trim();
   const sort = o.sort ?? (q ? "relevance" : "title");
-  const dir = (o.order ?? (sort === "title" ? "asc" : "desc")) === "asc" ? asc : desc;
+  const dir =
+    (o.order ?? (sort === "title" ? "asc" : "desc")) === "asc" ? asc : desc;
   const where = textSearchCondition(haystack, q);
   const orderBy =
     sort === "relevance" && q
-      ? [dir(textSearchRank(haystack, sql`${series.title}`, q)), asc(series.title)]
+      ? [
+          dir(textSearchRank(haystack, sql`${series.title}`, q)),
+          asc(series.title),
+        ]
       : sort === "books"
         ? [dir(bookCount), asc(series.title)]
         : sort === "recent"
@@ -142,7 +148,10 @@ export async function getSeriesDetail(id: string) {
     where: eq(series.id, id),
     with: {
       works: {
-        orderBy: () => [sql`${positionOrder} nulls last`, sql`lower(${works.title})`],
+        orderBy: () => [
+          sql`${positionOrder} nulls last`,
+          sql`lower(${works.title})`,
+        ],
         with: {
           workAuthors: {
             with: { author: true },
@@ -180,7 +189,10 @@ export async function getSeriesDetail(id: string) {
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 function invalid(error: z.ZodError): { ok: false; error: string } {
-  return { ok: false, error: error.issues[0]?.message ?? "Check the series details" };
+  return {
+    ok: false,
+    error: error.issues[0]?.message ?? "Check the series details",
+  };
 }
 
 async function uniqueSlug(title: string, exceptId?: string) {
@@ -188,8 +200,16 @@ async function uniqueSlug(title: string, exceptId?: string) {
   const taken = await db
     .select({ slug: series.slug })
     .from(series)
-    .where(and(sql`${series.slug} like ${`${base}%`}`, exceptId ? ne(series.id, exceptId) : undefined));
-  return makeUnique(base, taken.map((r) => r.slug));
+    .where(
+      and(
+        sql`${series.slug} like ${`${base}%`}`,
+        exceptId ? ne(series.id, exceptId) : undefined,
+      ),
+    );
+  return makeUnique(
+    base,
+    taken.map((r) => r.slug),
+  );
 }
 
 export async function createSeries(
@@ -199,7 +219,11 @@ export async function createSeries(
   if (!parsed.success) return invalid(parsed.error);
   const [row] = await db
     .insert(series)
-    .values({ ...parsed.data, isComplete: parsed.data.isComplete ?? false, slug: await uniqueSlug(parsed.data.title) })
+    .values({
+      ...parsed.data,
+      isComplete: parsed.data.isComplete ?? false,
+      slug: await uniqueSlug(parsed.data.title),
+    })
     .returning();
   changed();
   return { ok: true, value: row };
@@ -237,7 +261,10 @@ export async function deleteSeries(id: string) {
     d.delete(series).where(eq(series.id, id)),
   ]);
   for (const m of members)
-    recordActivity("work", m.id, "work.series_changed", { oldValue: id, newValue: null });
+    recordActivity("work", m.id, "work.series_changed", {
+      oldValue: id,
+      newValue: null,
+    });
   changed();
   return { removedFrom: members.length };
 }
@@ -251,7 +278,10 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
   z.uuid().parse(seriesId);
   const ids = [...new Set(z.array(z.uuid()).max(500).parse(workIds))];
   if (!ids.length) return { added: 0 };
-  const [target] = await db.select({ id: series.id }).from(series).where(eq(series.id, seriesId));
+  const [target] = await db
+    .select({ id: series.id })
+    .from(series)
+    .where(eq(series.id, seriesId));
   if (!target) throw new Error("This series no longer exists");
   const [current, members] = await Promise.all([
     db
@@ -264,7 +294,10 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
       .where(eq(works.seriesId, seriesId)),
   ]);
   let next = Math.floor(
-    Math.max(0, ...members.map((m) => positionValue(m.position)).filter(Number.isFinite)),
+    Math.max(
+      0,
+      ...members.map((m) => positionValue(m.position)).filter(Number.isFinite),
+    ),
   );
   const incoming = current
     .filter((w) => w.seriesId !== seriesId)
@@ -274,12 +307,19 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
     incoming.map((w) =>
       d
         .update(works)
-        .set({ seriesId, seriesPosition: String(++next), updatedAt: new Date() })
+        .set({
+          seriesId,
+          seriesPosition: String(++next),
+          updatedAt: new Date(),
+        })
         .where(eq(works.id, w.id)),
     ),
   );
   for (const w of incoming)
-    recordActivity("work", w.id, "work.series_changed", { oldValue: w.seriesId, newValue: seriesId });
+    recordActivity("work", w.id, "work.series_changed", {
+      oldValue: w.seriesId,
+      newValue: seriesId,
+    });
   changed();
   return { added: incoming.length };
 }
@@ -293,7 +333,10 @@ export async function removeWorkFromSeries(seriesId: string, workId: string) {
     .where(and(eq(works.id, workId), eq(works.seriesId, seriesId)))
     .returning({ id: works.id });
   if (row) {
-    recordActivity("work", workId, "work.series_changed", { oldValue: seriesId, newValue: null });
+    recordActivity("work", workId, "work.series_changed", {
+      oldValue: seriesId,
+      newValue: null,
+    });
     changed();
   }
   return { removed: row ? 1 : 0 };
@@ -323,19 +366,29 @@ export async function setSeriesPosition(
  * swapped with the neighbour; if any member has no position yet, the whole
  * series is first numbered 1, 2, 3… in its current order.
  */
-export async function moveSeriesWork(seriesId: string, workId: string, direction: -1 | 1) {
+export async function moveSeriesWork(
+  seriesId: string,
+  workId: string,
+  direction: -1 | 1,
+) {
   z.uuid().parse(seriesId);
   z.uuid().parse(workId);
   z.union([z.literal(-1), z.literal(1)]).parse(direction);
   const members = await db
-    .select({ id: works.id, position: works.seriesPosition, title: works.title })
+    .select({
+      id: works.id,
+      position: works.seriesPosition,
+      title: works.title,
+    })
     .from(works)
     .where(eq(works.seriesId, seriesId))
     .orderBy(sql`${positionOrder} nulls last`, sql`lower(${works.title})`);
   const index = members.findIndex((m) => m.id === workId);
   const other = members[index + direction];
   if (index < 0 || !other) return;
-  const numbered = members.every((m) => Number.isFinite(positionValue(m.position)));
+  const numbered = members.every((m) =>
+    Number.isFinite(positionValue(m.position)),
+  );
   const positions = numbered
     ? members.map((m) => m.position!)
     : members.map((_, i) => String(i + 1));
@@ -345,7 +398,10 @@ export async function moveSeriesWork(seriesId: string, workId: string, direction
   ];
   await atomic((d) =>
     members.map((m, i) =>
-      d.update(works).set({ seriesPosition: positions[i] }).where(eq(works.id, m.id)),
+      d
+        .update(works)
+        .set({ seriesPosition: positions[i] })
+        .where(eq(works.id, m.id)),
     ),
   );
   changed();
@@ -372,24 +428,26 @@ export async function getSeriesSuggestions(seriesId?: string) {
   const only = seriesId ? sql`s.id = ${seriesId}::uuid` : sql`true`;
   const result = await db.execute(sql`
     with parts as (
-      select s.id as sid, s.title as stitle, trim(p) as part
-      from series s, regexp_split_to_table(s.title, '\\s*,\\s*(and\\s+)?|\\s+and\\s+') p
+      select s.id as sid, s.title as stitle, trim(p.part) as part, p.n::int as n
+      from series s, regexp_split_to_table(s.title, '\\s*,\\s*(and\\s+)?|\\s+and\\s+') with ordinality as p(part, n)
       where ${only}
       union
-      select s.id, s.title, s.title from series s where ${only}
+      select s.id, s.title, s.title, 0 from series s where ${only}
     ), expanded as (
-      select sid, stitle, part from parts
+      select sid, stitle, part, n from parts
       union
-      select sid, stitle, trim(substring(part from position(': ' in part) + 2)) from parts where position(': ' in part) > 0
+      select sid, stitle, trim(substring(part from position(': ' in part) + 2)), n from parts where position(': ' in part) > 0
     )
-    select distinct x.sid as "seriesId", x.stitle as "seriesTitle", w.id as "workId", w.title as "workTitle",
+    select x.sid as "seriesId", x.stitle as "seriesTitle", w.id as "workId", w.title as "workTitle",
       (select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id) as "authors",
       w.series_id as "currentSeriesId", cs.title as "currentSeriesTitle"
     from expanded x
     join works w on search_normalize(w.title) = search_normalize(x.part)
     left join series cs on cs.id = w.series_id
     where length(search_normalize(x.part)) > 0 and w.series_id is distinct from x.sid
-    order by "seriesTitle", "workTitle"`);
+    group by x.sid, x.stitle, w.id, w.title, w.series_id, cs.title
+    -- Books in the order the series title names them, so "Link all" numbers them right
+    order by "seriesTitle", min(x.n), "workTitle"`);
   return rows<SeriesSuggestion>(result);
 }
 
@@ -403,12 +461,21 @@ export async function searchWorksForSeries(query: string) {
       id: works.id,
       title: works.title,
       seriesId: works.seriesId,
-      seriesTitle: sql<string | null>`(select s.title from series s where s.id = "works"."series_id")`,
-      authors: sql<string | null>`(select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = "works"."id")`,
-      cover: sql<string | null>`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active limit 1)`,
+      seriesTitle: sql<
+        string | null
+      >`(select s.title from series s where s.id = "works"."series_id")`,
+      authors: sql<
+        string | null
+      >`(select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = "works"."id")`,
+      cover: sql<
+        string | null
+      >`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active limit 1)`,
     })
     .from(works)
     .where(textSearchCondition(titleHaystack, q))
-    .orderBy(desc(textSearchRank(titleHaystack, sql`${works.title}`, q)), asc(works.title))
+    .orderBy(
+      desc(textSearchRank(titleHaystack, sql`${works.title}`, q)),
+      asc(works.title),
+    )
     .limit(30);
 }
