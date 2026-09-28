@@ -15,6 +15,7 @@ import {
   type CreateEditionInput,
 } from "@/lib/validations";
 import { processAndUploadCover } from "@/lib/s3/covers";
+import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
 
 export async function getEdition(id: string) {
@@ -250,20 +251,32 @@ export async function updateEdition(
 }
 
 export async function deleteEdition(id: string) {
-  const edition = await db.query.editions.findFirst({
-    where: eq(editions.id, id),
-    columns: { workId: true, title: true },
+  const [edition] = await db
+    .delete(editions)
+    .where(eq(editions.id, id))
+    .returning({
+      workId: editions.workId,
+      title: editions.title,
+      coverS3Key: editions.coverS3Key,
+      thumbnailS3Key: editions.thumbnailS3Key,
+    });
+  if (!edition) return { id, cleanupPending: false };
+
+  recordActivity("work", edition.workId, "work.edition_deleted", {
+    targetName: edition.title ?? undefined,
+    targetId: id,
   });
 
-  if (edition) {
-    recordActivity("work", edition.workId, "work.edition_deleted", {
-      targetName: edition.title ?? undefined,
-      targetId: id,
-    });
-  }
-
-  await db.delete(editions).where(eq(editions.id, id));
-  return { id };
+  const cleanupPending = await deleteUnusedObjects(
+    {
+      keys: keysOf([
+        { cover: edition.coverS3Key, thumb: edition.thumbnailS3Key },
+      ]),
+      prefixes: ownedPrefixes.edition(id),
+    },
+    `edition ${id}`,
+  );
+  return { id, cleanupPending };
 }
 
 /**

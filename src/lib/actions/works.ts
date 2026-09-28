@@ -5,6 +5,8 @@ import {
   catalogueStatusCondition,
 } from "@/lib/publishers/conditions";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
+import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
 import {
   works,
   workAuthors,
@@ -882,32 +884,38 @@ function recordWorkDiffs(
 }
 
 export async function deleteWork(id: string) {
-  recordActivity("work", id, "work.deleted");
+  // Read the file keys first: the cascade removes the rows that name them.
+  const stored = await workObjects(id);
 
-  // Clean up polymorphic records (not covered by FK cascades)
-  await db
-    .delete(comments)
-    .where(and(eq(comments.entityType, "work"), eq(comments.entityId, id)));
-  await db
-    .delete(activityEvents)
-    .where(
-      and(
-        eq(activityEvents.entityType, "work"),
-        eq(activityEvents.entityId, id),
+  // Polymorphic records have no FK cascade; they go in the same write.
+  const results = await atomic((d) => [
+    d
+      .delete(comments)
+      .where(and(eq(comments.entityType, "work"), eq(comments.entityId, id))),
+    d
+      .delete(activityEvents)
+      .where(
+        and(
+          eq(activityEvents.entityType, "work"),
+          eq(activityEvents.entityId, id),
+        ),
       ),
-    );
-  await db
-    .delete(galleryLayouts)
-    .where(
-      and(
-        eq(galleryLayouts.entityType, "work"),
-        eq(galleryLayouts.entityId, id),
+    d
+      .delete(galleryLayouts)
+      .where(
+        and(
+          eq(galleryLayouts.entityType, "work"),
+          eq(galleryLayouts.entityId, id),
+        ),
       ),
-    );
+    d.delete(works).where(eq(works.id, id)).returning({ id: works.id }),
+  ]);
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
 
-  await db.delete(works).where(eq(works.id, id));
-  invalidate(CACHE_TAGS.works);
-  return { id };
+  const deleted = (results[3] as { id: string }[]).length > 0;
+  const cleanupPending =
+    deleted && (await deleteUnusedObjects(stored, `work ${id}`));
+  return { id, cleanupPending };
 }
 
 export async function getWorksByAuthorId(

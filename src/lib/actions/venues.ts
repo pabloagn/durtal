@@ -16,6 +16,7 @@ import {
 import type { SQL } from "drizzle-orm";
 import { slugify, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { deleteUnusedObjects, keysOf } from "@/lib/s3/cleanup";
 import { createVenueSchema } from "@/lib/validations/venues";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -322,7 +323,19 @@ export async function updateVenue(id: string, input: Partial<CreateVenueInput>) 
 }
 
 export async function deleteVenue(id: string) {
-  await db.delete(venues).where(eq(venues.id, id));
+  const [deleted] = await db
+    .delete(venues)
+    .where(eq(venues.id, id))
+    .returning({
+      posterS3Key: venues.posterS3Key,
+      thumbnailS3Key: venues.thumbnailS3Key,
+    });
   invalidate(CACHE_TAGS.venues);
-  return { id };
+  const cleanupPending =
+    !!deleted &&
+    (await deleteUnusedObjects(
+      { keys: keysOf([deleted]), prefixes: [] },
+      `venue ${id}`,
+    ));
+  return { id, cleanupPending };
 }

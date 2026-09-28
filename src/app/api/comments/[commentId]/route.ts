@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import { comments, activityEvents } from "@/lib/db/schema";
+import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { updateCommentSchema } from "@/lib/validations/comments";
@@ -43,27 +45,43 @@ export async function DELETE(
 ) {
   const { commentId } = await params;
 
-  // Delete the comment (cascade deletes attachments)
-  const [deleted] = await db
-    .delete(comments)
-    .where(eq(comments.id, commentId))
-    .returning();
-
-  if (!deleted) {
+  // Read the file keys first: the cascade removes the attachment rows.
+  const comment = await db.query.comments.findFirst({
+    where: eq(comments.id, commentId),
+    columns: { id: true, entityType: true, entityId: true },
+    with: { attachments: { columns: { s3Key: true } } },
+  });
+  if (!comment) {
     return NextResponse.json({ error: "Comment not found" }, { status: 404 });
   }
 
-  // Also delete the corresponding activity event
-  // Use raw SQL for JSONB match
-  await db
-    .delete(activityEvents)
-    .where(
-      and(
-        eq(activityEvents.entityType, deleted.entityType),
-        eq(activityEvents.entityId, deleted.entityId),
-        sql`${activityEvents.metadata}->>'commentId' = ${commentId}`,
+  // The comment and its timeline event go together (JSONB match for the event)
+  const results = await atomic((d) => [
+    d
+      .delete(activityEvents)
+      .where(
+        and(
+          eq(activityEvents.entityType, comment.entityType),
+          eq(activityEvents.entityId, comment.entityId),
+          sql`${activityEvents.metadata}->>'commentId' = ${commentId}`,
+        ),
       ),
-    );
+    d
+      .delete(comments)
+      .where(eq(comments.id, commentId))
+      .returning({ id: comments.id }),
+  ]);
+  if ((results[1] as { id: string }[]).length === 0) {
+    return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+  }
+
+  await deleteUnusedObjects(
+    {
+      keys: keysOf(comment.attachments),
+      prefixes: ownedPrefixes.comment(comment),
+    },
+    `comment ${commentId}`,
+  );
 
   return NextResponse.json({ success: true });
 }

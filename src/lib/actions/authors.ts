@@ -1,7 +1,9 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
+import { atomic } from "@/lib/db/atomic";
+import { authors, workAuthors, editionContributors, authorContributionTypes, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
+import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
 import { eq, and, asc, desc, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
@@ -479,22 +481,29 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
 }
 
 export async function deleteAuthor(id: string) {
-  recordActivity("author", id, "author.deleted");
+  // Read the file keys first: the cascade removes the rows that name them.
+  const stored = await authorObjects(id);
 
-  // Clean up polymorphic records (not covered by FK cascades)
-  await db.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id)));
-  await db.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id)));
-  await db.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id)));
+  // Polymorphic records have no FK cascade; they go in the same write.
+  const results = await atomic((d) => [
+    d.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id))),
+    d.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id))),
+    d.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id))),
+    d.delete(authors).where(eq(authors.id, id)).returning({ id: authors.id }),
+  ]);
 
-  await db.delete(authors).where(eq(authors.id, id));
-  return { id };
+  const deleted = (results[3] as { id: string }[]).length > 0;
+  const cleanupPending =
+    deleted && (await deleteUnusedObjects(stored, `author ${id}`));
+  return { id, cleanupPending };
 }
 
 /**
- * Merge source author into target author.
- * Transfers all work_authors, edition_contributors, and author_contribution_types
- * from source to target, skipping duplicates (same composite PK).
- * Then deletes the source author.
+ * Merge source author into target author, in one write.
+ * Moves work_authors, edition_contributors and author_contribution_types to
+ * the target, skipping rows the target already has (same composite PK).
+ * Moves the source's comments with the timeline events that show them.
+ * Then deletes the source author and its images.
  */
 export async function mergeAuthors(sourceId: string, targetId: string) {
   if (sourceId === targetId) {
@@ -508,116 +517,43 @@ export async function mergeAuthors(sourceId: string, targetId: string) {
   if (!source) throw new Error("Source author not found");
   if (!target) throw new Error("Target author not found");
 
-  const { authorContributionTypes } = await import("@/lib/db/schema");
+  // Comments move to the target, so their files stay.
+  const [stored, workLinks, editionLinks, contributionLinks] = await Promise.all([
+    authorObjects(sourceId, { withComments: false }),
+    db.select().from(workAuthors).where(eq(workAuthors.authorId, sourceId)),
+    db.select().from(editionContributors).where(eq(editionContributors.authorId, sourceId)),
+    db.select().from(authorContributionTypes).where(eq(authorContributionTypes.authorId, sourceId)),
+  ]);
+  const onSource = (t: typeof comments | typeof activityEvents | typeof galleryLayouts) =>
+    and(eq(t.entityType, "author"), eq(t.entityId, sourceId));
 
-  // 1. Transfer workAuthors — skip rows that would conflict on (workId, targetId, role)
-  const sourceWorkAuthors = await db
-    .select()
-    .from(workAuthors)
-    .where(eq(workAuthors.authorId, sourceId));
+  await atomic((d) => [
+    ...(workLinks.length
+      ? [d.insert(workAuthors).values(workLinks.map((row) => ({ ...row, authorId: targetId }))).onConflictDoNothing()]
+      : []),
+    ...(editionLinks.length
+      ? [d.insert(editionContributors).values(editionLinks.map((row) => ({ ...row, authorId: targetId }))).onConflictDoNothing()]
+      : []),
+    ...(contributionLinks.length
+      ? [d.insert(authorContributionTypes).values(contributionLinks.map((row) => ({ ...row, authorId: targetId }))).onConflictDoNothing()]
+      : []),
+    d.update(comments).set({ entityId: targetId }).where(onSource(comments)),
+    d
+      .update(activityEvents)
+      .set({ entityId: targetId })
+      .where(and(onSource(activityEvents), sql`${activityEvents.metadata}->>'commentId' is not null`)),
+    d.delete(activityEvents).where(onSource(activityEvents)),
+    d.delete(galleryLayouts).where(onSource(galleryLayouts)),
+    // The cascade removes the source's remaining links and its media rows
+    d.delete(authors).where(eq(authors.id, sourceId)),
+    d.insert(activityEvents).values({
+      entityType: "author",
+      entityId: targetId,
+      eventKey: "author.merged",
+      metadata: { targetId: sourceId, targetName: source.name },
+    }),
+  ]);
 
-  const targetWorkAuthors = await db
-    .select()
-    .from(workAuthors)
-    .where(eq(workAuthors.authorId, targetId));
-
-  const targetWAKeys = new Set(
-    targetWorkAuthors.map((r) => `${r.workId}::${r.role}`),
-  );
-
-  for (const row of sourceWorkAuthors) {
-    const key = `${row.workId}::${row.role}`;
-    if (!targetWAKeys.has(key)) {
-      // Transfer: delete old, insert new (can't update composite PK)
-      await db
-        .delete(workAuthors)
-        .where(
-          and(
-            eq(workAuthors.workId, row.workId),
-            eq(workAuthors.authorId, sourceId),
-            eq(workAuthors.role, row.role),
-          ),
-        );
-      await db.insert(workAuthors).values({
-        workId: row.workId,
-        authorId: targetId,
-        role: row.role,
-        sortOrder: row.sortOrder,
-      });
-    }
-    // Conflicting rows will be cascade-deleted when source author is removed
-  }
-
-  // 2. Transfer editionContributors — skip conflicts on (editionId, targetId, role)
-  const sourceEdContribs = await db
-    .select()
-    .from(editionContributors)
-    .where(eq(editionContributors.authorId, sourceId));
-
-  const targetEdContribs = await db
-    .select()
-    .from(editionContributors)
-    .where(eq(editionContributors.authorId, targetId));
-
-  const targetECKeys = new Set(
-    targetEdContribs.map((r) => `${r.editionId}::${r.role}`),
-  );
-
-  for (const row of sourceEdContribs) {
-    const key = `${row.editionId}::${row.role}`;
-    if (!targetECKeys.has(key)) {
-      await db
-        .delete(editionContributors)
-        .where(
-          and(
-            eq(editionContributors.editionId, row.editionId),
-            eq(editionContributors.authorId, sourceId),
-            eq(editionContributors.role, row.role),
-          ),
-        );
-      await db.insert(editionContributors).values({
-        editionId: row.editionId,
-        authorId: targetId,
-        role: row.role,
-        sortOrder: row.sortOrder,
-      });
-    }
-  }
-
-  // 3. Transfer authorContributionTypes — skip conflicts
-  const sourceACT = await db
-    .select()
-    .from(authorContributionTypes)
-    .where(eq(authorContributionTypes.authorId, sourceId));
-
-  const targetACT = await db
-    .select()
-    .from(authorContributionTypes)
-    .where(eq(authorContributionTypes.authorId, targetId));
-
-  const targetACTKeys = new Set(
-    targetACT.map((r) => r.contributionTypeId),
-  );
-
-  for (const row of sourceACT) {
-    if (!targetACTKeys.has(row.contributionTypeId)) {
-      await db
-        .delete(authorContributionTypes)
-        .where(
-          and(
-            eq(authorContributionTypes.authorId, sourceId),
-            eq(authorContributionTypes.contributionTypeId, row.contributionTypeId),
-          ),
-        );
-      await db.insert(authorContributionTypes).values({
-        authorId: targetId,
-        contributionTypeId: row.contributionTypeId,
-      });
-    }
-  }
-
-  // 4. Delete source author (cascade removes any remaining references)
-  await db.delete(authors).where(eq(authors.id, sourceId));
-
+  await deleteUnusedObjects(stored, `author ${sourceId} merged into ${targetId}`);
   return { targetId, sourceName: source.name, targetName: target.name };
 }
