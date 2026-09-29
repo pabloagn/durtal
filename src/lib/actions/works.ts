@@ -45,6 +45,8 @@ import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
+import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
+import { compareWorks } from "@/lib/utils/title-order";
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
 import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
@@ -160,7 +162,7 @@ export async function getWorks(opts?: {
     search,
     limit = 50,
     offset = 0,
-    sort = "recent",
+    sort = "title",
     order,
     filters,
   } = opts ?? {};
@@ -259,11 +261,17 @@ export async function getWorks(opts?: {
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+  const titleIds =
+    sort === "title"
+      ? await alphabeticalWorkIds(where, limit, offset, resolvedOrder)
+      : undefined;
+  if (titleIds?.length === 0) return [];
+
   const results = await db.query.works.findMany({
-    where,
+    where: titleIds ? inArray(works.id, titleIds) : where,
     orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(works.id)],
     limit,
-    offset,
+    offset: titleIds ? 0 : offset,
     with: {
       workAuthors: {
         with: { author: true },
@@ -298,6 +306,10 @@ export async function getWorks(opts?: {
       },
     },
   });
+
+  if (sort === "title") {
+    results.sort((a, b) => compareWorks(a, b, resolvedOrder));
+  }
 
   // Post-query sort for author name sorts (Drizzle relational queries can't order by joined columns)
   if (sort === "authorFirstName" || sort === "authorLastName") {
@@ -950,15 +962,16 @@ export async function getWorksByAuthorId(
 
   if (workIds.length === 0) return [];
 
-  return db.query.works.findMany({
-    where: inArray(works.id, workIds),
-    limit,
-    orderBy: desc(works.createdAt),
+  const ids = await alphabeticalWorkIds(inArray(works.id, workIds), limit);
+  if (!ids.length) return [];
+  const results = await db.query.works.findMany({
+    where: inArray(works.id, ids),
     with: workCardWith,
   });
+  return results.sort(compareWorks);
 }
 
-/** Other works with a mark, newest first, for the book page's mark rows. */
+/** Other works with a mark, alphabetically, for the book page's mark rows. */
 export async function getWorksWithMark(
   mark: WorkMarkKey,
   excludeWorkId: string,
@@ -967,12 +980,16 @@ export async function getWorksWithMark(
   const key = z.enum(WORK_MARKS.map((m) => m.key)).parse(mark);
   const id = z.uuid().parse(excludeWorkId);
   z.number().int().min(1).max(50).parse(limit);
-  return db.query.works.findMany({
-    where: and(eq(markColumn(key), true), ne(works.id, id)),
+  const ids = await alphabeticalWorkIds(
+    and(eq(markColumn(key), true), ne(works.id, id)),
     limit,
-    orderBy: [desc(works.createdAt), asc(works.id)],
+  );
+  if (!ids.length) return [];
+  const results = await db.query.works.findMany({
+    where: inArray(works.id, ids),
     with: workCardWith,
   });
+  return results.sort(compareWorks);
 }
 
 /** Dashboard stats */
@@ -1012,6 +1029,10 @@ export async function getLibraryStats() {
     },
   } as const;
 
+  const wantedIds = await alphabeticalWorkIds(
+    inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
+    8,
+  );
   const [
     [workCount],
     [editionCount],
@@ -1041,9 +1062,7 @@ export async function getLibraryStats() {
     }),
     // Wanted / shortlisted
     db.query.works.findMany({
-      where: inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
-      orderBy: desc(works.createdAt),
-      limit: 8,
+      where: inArray(works.id, wantedIds),
       with: worksWith,
     }),
     // For recent authors: get more works so we can extract unique authors
@@ -1122,7 +1141,7 @@ export async function getLibraryStats() {
     authors: authorCount.count,
     recentWorks,
     topRatedWorks,
-    wantedWorks,
+    wantedWorks: wantedWorks.sort(compareWorks),
     recentAuthors,
   };
 }

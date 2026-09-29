@@ -1,7 +1,8 @@
+import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
 import { calibreBooks } from "@/lib/db/schema/calibre-books";
 import { readingProgress } from "@/lib/db/schema/reading-progress";
-import { eq, ilike, or, desc, asc, count, inArray } from "drizzle-orm";
+import { eq, ilike, or, desc, asc, count, inArray, and } from "drizzle-orm";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,14 +50,29 @@ export async function getCalibreBooks(opts: {
       ? desc(calibreBooks.lastSynced)
       : asc(calibreBooks.title);
 
+  const titleIds =
+    sort === "title"
+      ? (await db
+          .select({ id: calibreBooks.id, title: calibreBooks.title })
+          .from(calibreBooks)
+          .where(conditions))
+          .sort(compareWorks)
+          .slice(offset, offset + limit)
+          .map((book) => book.id)
+      : undefined;
+
   const [books, [{ total }]] = await Promise.all([
     db
       .select()
       .from(calibreBooks)
-      .where(conditions)
+      .where(
+        titleIds
+          ? and(conditions, inArray(calibreBooks.id, titleIds))
+          : conditions,
+      )
       .orderBy(orderBy, asc(calibreBooks.id))
       .limit(limit)
-      .offset(offset),
+      .offset(titleIds ? 0 : offset),
     db
       .select({ total: count() })
       .from(calibreBooks)
@@ -64,7 +80,9 @@ export async function getCalibreBooks(opts: {
   ]);
 
   return {
-    books: books as CalibreBookRow[],
+    books: (sort === "title"
+      ? books.sort(compareWorks)
+      : books) as CalibreBookRow[],
     total,
   };
 }

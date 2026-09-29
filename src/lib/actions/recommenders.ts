@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod/v4";
+import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
 import { recommenders } from "@/lib/db/schema";
 import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
@@ -118,7 +119,7 @@ export async function getRecommender(id: string) {
   if (!recommender) return undefined;
   const books = recommender.workRecommenders
     .map((wr) => wr.work)
-    .sort((a, b) => a.title.localeCompare(b.title));
+    .sort(compareWorks);
   return { ...recommender, books };
 }
 

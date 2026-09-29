@@ -148,7 +148,7 @@ export function LibraryFilters({
       basePath="/library"
       sortOptions={SORT_OPTIONS}
       searchPlaceholder="Search works..."
-      defaultSort="recent"
+      defaultSort="title"
       defaultSortOrders={DEFAULT_SORT_ORDERS}
       viewMode={viewMode}
       gridColumns={gridColumns}

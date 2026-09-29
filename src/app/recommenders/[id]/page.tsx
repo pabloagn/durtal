@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { BookCard } from "@/components/books/book-card";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { getRecommender } from "@/lib/actions/recommenders";
 import { websiteLabel } from "@/lib/validations/recommenders";
 import { mediaCrop } from "@/lib/utils/media-style";
@@ -63,14 +64,16 @@ export default async function RecommenderPage({
             </span>
           </div>
         </div>
-        <RecommenderActions
-          recommender={{
-            id: recommender.id,
-            name: recommender.name,
-            url: recommender.url,
-          }}
-          bookCount={count}
-        />
+        <CapAligned height={32} className="font-serif text-4xl tracking-tight">
+          <RecommenderActions
+            recommender={{
+              id: recommender.id,
+              name: recommender.name,
+              url: recommender.url,
+            }}
+            bookCount={count}
+          />
+        </CapAligned>
       </header>
 
       <section className="mb-8">

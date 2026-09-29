@@ -55,7 +55,7 @@ async function LibraryContent({
   };
 }) {
   const search = searchParams.q;
-  const sort = (searchParams.sort ?? "recent") as
+  const sort = (searchParams.sort ?? "title") as
     | "title"
     | "recent"
     | "year"

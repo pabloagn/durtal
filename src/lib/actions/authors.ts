@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { compareWorks } from "@/lib/utils/title-order";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
 import { eq, and, asc, desc, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -230,7 +231,7 @@ export async function getAuthorDeathYearRange(): Promise<{ min: number | null; m
 }
 
 export async function getAuthor(id: string) {
-  return db.query.authors.findFirst({
+  const author = await db.query.authors.findFirst({
     where: eq(authors.id, id),
     with: {
       country: { columns: { name: true } },
@@ -267,10 +268,12 @@ export async function getAuthor(id: string) {
       media: true,
     },
   });
+  author?.workAuthors.sort((a, b) => compareWorks(a.work, b.work));
+  return author;
 }
 
 export async function getAuthorBySlug(slug: string) {
-  return db.query.authors.findFirst({
+  const author = await db.query.authors.findFirst({
     where: eq(authors.slug, slug),
     with: {
       country: { columns: { id: true, name: true, alpha2: true } },
@@ -319,6 +322,8 @@ export async function getAuthorBySlug(slug: string) {
       media: true,
     },
   });
+  author?.workAuthors.sort((a, b) => compareWorks(a.work, b.work));
+  return author;
 }
 
 export async function getCountries() {

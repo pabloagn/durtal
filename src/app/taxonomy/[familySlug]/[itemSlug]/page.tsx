@@ -1,3 +1,4 @@
+import { compareWorks } from "@/lib/utils/title-order";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { Suspense } from "react";
@@ -66,7 +67,7 @@ async function getWorksByIds(ids: string[]) {
     },
   });
 
-  return results;
+  return results.sort(compareWorks);
 }
 
 // ── Content component ──────────────────────────────────────────────────────

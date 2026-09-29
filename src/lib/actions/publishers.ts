@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, or, sql, count } from "drizzle-orm";
 import { z } from "zod/v4";
 import { parsePagination } from "@/lib/utils/pagination";
+import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
@@ -419,16 +420,13 @@ export async function getPublisherCatalogue(
           ? onOrder
           : undefined,
   );
-  const workPage = db
-    .selectDistinct({ workId: editions.workId, title: works.title })
+  const matchingWorks = db
+    .selectDistinct({ id: editions.workId, title: works.title })
     .from(editions)
     .innerJoin(works, eq(works.id, editions.workId))
-    .where(condition)
-    .orderBy(asc(works.title), asc(editions.workId))
-    .limit(paging.perPage)
-    .offset(paging.offset);
-  const [workRows, [totals], pendingTargets] = await Promise.all([
-    workPage,
+    .where(condition);
+  const [allWorks, [totals], pendingTargets] = await Promise.all([
+    matchingWorks,
     db
       .select({
         works: sql<number>`count(distinct ${editions.workId})::int`,
@@ -455,6 +453,9 @@ export async function getPublisherCatalogue(
       )
       .orderBy(asc(works.title)),
   ]);
+  const workRows = allWorks
+    .sort(compareWorks)
+    .slice(paging.offset, paging.offset + paging.perPage);
   const rows = workRows.length
     ? await db
         .select({
@@ -472,7 +473,7 @@ export async function getPublisherCatalogue(
             condition,
             inArray(
               editions.workId,
-              workRows.map((w) => w.workId),
+              workRows.map((w) => w.id),
             ),
           ),
         )
@@ -483,7 +484,7 @@ export async function getPublisherCatalogue(
         )
     : [];
   return {
-    rows,
+    rows: rows.sort((a, b) => compareWorks(a.work, b.work)),
     totals,
     pendingTargets:
       filter === "owned"
