@@ -5,6 +5,8 @@ import {
   catalogueStatusCondition,
 } from "@/lib/publishers/conditions";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
+import { workSeriesPlan, resultRows } from "@/lib/series/work-series";
 import {
   works,
   workAuthors,
@@ -122,6 +124,7 @@ async function buildSearchCondition(search: string) {
   const orConditions = [
     ilike(works.title, `%${search}%`),
     ilike(works.seriesName, `%${search}%`),
+    sql`exists (select 1 from series where series.id = ${works.seriesId} and series.title ilike ${`%${search}%`})`,
   ];
   if (relatedWorkIds.size > 0) {
     orConditions.push(inArray(works.id, [...relatedWorkIds]));
@@ -583,7 +586,15 @@ export async function createWork(input: CreateWorkInput) {
   const parsed = createWorkSchema.parse(input);
   const { authorIds, subjectIds, recommenderIds, ...workData } = parsed;
 
-  const [work] = await db.insert(works).values(workData).returning();
+  const seriesPlan = workSeriesPlan(workData);
+  const results = await atomic((d) => [
+    ...seriesPlan.queries(d),
+    d
+      .insert(works)
+      .values({ ...workData, ...seriesPlan.values })
+      .returning(),
+  ]);
+  const [work] = resultRows<typeof works.$inferSelect>(results.at(-1));
 
   // Link authors
   if (authorIds.length > 0) {
@@ -648,7 +659,7 @@ export async function createWork(input: CreateWorkInput) {
   recordActivity("work", updated.id, "work.created", {
     newValue: workData.title,
   });
-  invalidate(CACHE_TAGS.works);
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
   return updated;
 }
 
@@ -663,8 +674,10 @@ export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
   } = input;
   // Book links are checked here too: only https pages on the site's own domain.
   const links = bookLinksSchema.parse({ goodreadsUrl, storygraphUrl });
+  const seriesPlan = workSeriesPlan(rest);
   const workData = {
     ...rest,
+    ...seriesPlan.values,
     ...(links.goodreadsUrl !== undefined
       ? { goodreadsUrl: links.goodreadsUrl }
       : {}),
@@ -694,11 +707,21 @@ export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
     },
   });
 
+  if (!prev) throw new Error("Work not found");
+  let savedSeriesId = prev.seriesId;
   if (Object.keys(workData).length > 0) {
-    await db
-      .update(works)
-      .set({ ...workData, updatedAt: new Date() })
-      .where(eq(works.id, id));
+    const results = await atomic((d) => [
+      ...seriesPlan.queries(d),
+      d
+        .update(works)
+        .set({ ...workData, updatedAt: new Date() })
+        .where(eq(works.id, id))
+        .returning({ seriesId: works.seriesId }),
+    ]);
+    savedSeriesId =
+      resultRows<{ seriesId: string | null }>(results.at(-1))[0]?.seriesId ??
+      null;
+    if ("seriesId" in workData) workData.seriesId = savedSeriesId;
   }
 
   if (authorIds) {
@@ -795,14 +818,14 @@ export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
 
         await db.update(works).set({ slug: newSlug }).where(eq(works.id, id));
         recordWorkDiffs(id, prev, workData, authorIds);
-        invalidate(CACHE_TAGS.works);
+        invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
         return { id, slug: newSlug };
       }
     }
   }
 
   recordWorkDiffs(id, prev, workData, authorIds);
-  invalidate(CACHE_TAGS.works);
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
   return { id };
 }
 
@@ -906,7 +929,7 @@ export async function deleteWork(id: string) {
     );
 
   await db.delete(works).where(eq(works.id, id));
-  invalidate(CACHE_TAGS.works);
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
   return { id };
 }
 

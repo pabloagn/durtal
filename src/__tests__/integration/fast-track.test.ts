@@ -184,6 +184,8 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     const { recommenderIds: _ids, ...expectedWork } = input.work;
     expect(saved.works[0]).toMatchObject({
       ...expectedWork,
+      seriesName: null,
+      seriesId: expect.any(String),
       title: "Edited title",
     });
     expect(saved.editions[0]).toMatchObject({

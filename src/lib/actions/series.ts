@@ -1,5 +1,6 @@
 "use server";
 
+import { workCardWith } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
@@ -256,7 +257,12 @@ export async function deleteSeries(id: string) {
   await atomic((d) => [
     d
       .update(works)
-      .set({ seriesId: null, seriesPosition: null, updatedAt: new Date() })
+      .set({
+        seriesId: null,
+        seriesName: null,
+        seriesPosition: null,
+        updatedAt: new Date(),
+      })
       .where(eq(works.seriesId, id)),
     d.delete(series).where(eq(series.id, id)),
   ]);
@@ -309,6 +315,7 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
         .update(works)
         .set({
           seriesId,
+          seriesName: null,
           seriesPosition: String(++next),
           updatedAt: new Date(),
         })
@@ -329,7 +336,12 @@ export async function removeWorkFromSeries(seriesId: string, workId: string) {
   z.uuid().parse(workId);
   const [row] = await db
     .update(works)
-    .set({ seriesId: null, seriesPosition: null, updatedAt: new Date() })
+    .set({
+      seriesId: null,
+      seriesName: null,
+      seriesPosition: null,
+      updatedAt: new Date(),
+    })
     .where(and(eq(works.id, workId), eq(works.seriesId, seriesId)))
     .returning({ id: works.id });
   if (row) {
@@ -478,4 +490,19 @@ export async function searchWorksForSeries(query: string) {
       asc(works.title),
     )
     .limit(30);
+}
+
+/** Sibling works in reading order, excluding the currently open book. */
+export async function getOtherWorksInSeries(seriesId: string, workId: string) {
+  z.uuid().parse(seriesId);
+  z.uuid().parse(workId);
+  return db.query.works.findMany({
+    where: and(eq(works.seriesId, seriesId), ne(works.id, workId)),
+    orderBy: [
+      sql`${positionOrder} nulls last`,
+      asc(works.title),
+      asc(works.id),
+    ],
+    with: workCardWith,
+  });
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { SeriesFields } from "@/components/books/series-fields";
+import { seriesPositionSchema } from "@/lib/validations/series";
 import { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Loader2 } from "lucide-react";
@@ -109,6 +111,7 @@ export function WorkQuickEditDialog({
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [recommenderIds, setRecommenderIds] = useState<string[]>([]);
+  const [seriesName, setSeriesName] = useState("");
   const [seriesId, setSeriesId] = useState("");
   const [seriesPosition, setSeriesPosition] = useState("");
   const [authors, setAuthors] = useState<AuthorRow[]>([]);
@@ -136,7 +139,9 @@ export function WorkQuickEditDialog({
 
       setAllAuthors(authorsData.map((a) => ({ id: a.id, name: a.name })));
       setAllSeries(seriesData.map((s) => ({ id: s.id, title: s.title })));
-      setAllWorkTypes(workTypesData.map((wt) => ({ id: wt.id, name: wt.name })));
+      setAllWorkTypes(
+        workTypesData.map((wt) => ({ id: wt.id, name: wt.name })),
+      );
       setAllRecommenders(
         recommendersData.map((r) => ({ id: r.id, name: r.name })),
       );
@@ -156,9 +161,12 @@ export function WorkQuickEditDialog({
       setDescription(work.description ?? "");
       setNotes(work.notes ?? "");
       setRecommenderIds(
-        work.workRecommenders?.map((wr: { recommender: { id: string } }) => wr.recommender.id) ?? [],
+        work.workRecommenders?.map(
+          (wr: { recommender: { id: string } }) => wr.recommender.id,
+        ) ?? [],
       );
       setSeriesId(work.seriesId ?? "");
+      setSeriesName(work.seriesName ?? "");
       setSeriesPosition(work.seriesPosition ?? "");
       setAuthors(
         work.workAuthors.map((wa) => ({
@@ -242,6 +250,16 @@ export function WorkQuickEditDialog({
   }
 
   function handleSubmit() {
+    if (seriesId === "__new" && !seriesName.trim()) {
+      toast.error("Enter a series name");
+      return;
+    }
+    const checkedPosition = seriesPositionSchema.safeParse(seriesPosition);
+    if (!checkedPosition.success) {
+      toast.error(checkedPosition.error.issues[0].message);
+      return;
+    }
+
     if (!title.trim()) {
       toast.error("Title is required");
       return;
@@ -281,7 +299,8 @@ export function WorkQuickEditDialog({
           description: description.trim() || null,
           notes: notes.trim() || null,
           recommenderIds,
-          seriesId: seriesId || null,
+          seriesId: seriesId === "__new" ? null : seriesId || null,
+          seriesName: seriesName.trim() || null,
           seriesPosition: seriesPosition.trim() || null,
           goodreadsUrl: parsedLinks.links.goodreadsUrl,
           storygraphUrl: parsedLinks.links.storygraphUrl,
@@ -484,26 +503,16 @@ export function WorkQuickEditDialog({
                 </div>
               </section>
 
-              {/* Series */}
-              <section>
-                <h3 className="mb-3 font-serif text-lg text-fg-secondary">
-                  Series
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    label="Series"
-                    options={seriesOptions}
-                    value={seriesId}
-                    onChange={(e) => setSeriesId(e.target.value)}
-                  />
-                  <Input
-                    label="Series Position"
-                    value={seriesPosition}
-                    onChange={(e) => setSeriesPosition(e.target.value)}
-                    placeholder="e.g. 1, 2.5"
-                  />
-                </div>
-              </section>
+              <SeriesFields
+                key={`${open}-${workId}`}
+                options={seriesOptions}
+                seriesId={seriesId}
+                seriesName={seriesName}
+                position={seriesPosition}
+                onId={setSeriesId}
+                onName={setSeriesName}
+                onPosition={setSeriesPosition}
+              />
 
               {/* Authors */}
               <section>
@@ -587,10 +596,7 @@ export function WorkQuickEditDialog({
                                 strokeWidth={1.5}
                               />
                             ) : (
-                              <Plus
-                                className="h-3.5 w-3.5"
-                                strokeWidth={1.5}
-                              />
+                              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                             )}
                             Create &ldquo;{authorSearch.trim()}&rdquo;
                           </button>

@@ -1,5 +1,7 @@
 "use client";
 
+import { SeriesFields } from "@/components/books/series-fields";
+import { seriesPositionSchema } from "@/lib/validations/series";
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, X, Plus, Loader2 } from "lucide-react";
@@ -61,7 +63,10 @@ interface WorkEditDialogProps {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({ value: l.value, label: l.label }));
+const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
+  value: l.value,
+  label: l.label,
+}));
 
 const CATALOGUE_STATUS_OPTIONS = [
   { value: "tracked", label: "Tracked" },
@@ -119,7 +124,9 @@ export function WorkEditDialog({
 
   // Form state — Core Details
   const [title, setTitle] = useState(work.title);
-  const [originalLanguage, setOriginalLanguage] = useState(work.originalLanguage);
+  const [originalLanguage, setOriginalLanguage] = useState(
+    work.originalLanguage,
+  );
   const [originalYear, setOriginalYear] = useState(
     work.originalYear != null ? String(work.originalYear) : "",
   );
@@ -131,17 +138,26 @@ export function WorkEditDialog({
 
   // Form state — Status
   const [catalogueStatus, setCatalogueStatus] = useState(work.catalogueStatus);
-  const [acquisitionPriority, setAcquisitionPriority] = useState(work.acquisitionPriority);
-  const [rating, setRating] = useState(work.rating != null ? String(work.rating) : "");
+  const [acquisitionPriority, setAcquisitionPriority] = useState(
+    work.acquisitionPriority,
+  );
+  const [rating, setRating] = useState(
+    work.rating != null ? String(work.rating) : "",
+  );
 
   // Form state — Description & Notes
   const [description, setDescription] = useState(work.description ?? "");
   const [notes, setNotes] = useState(work.notes ?? "");
-  const [recommenderIds, setRecommenderIds] = useState<string[]>(work.recommenderIds);
+  const [recommenderIds, setRecommenderIds] = useState<string[]>(
+    work.recommenderIds,
+  );
 
   // Form state — Series
+  const [seriesName, setSeriesName] = useState(work.seriesName ?? "");
   const [seriesId, setSeriesId] = useState(work.seriesId ?? "");
-  const [seriesPosition, setSeriesPosition] = useState(work.seriesPosition ?? "");
+  const [seriesPosition, setSeriesPosition] = useState(
+    work.seriesPosition ?? "",
+  );
 
   // Form state — Authors
   const [authors, setAuthors] = useState<AuthorRow[]>(initialAuthors);
@@ -171,6 +187,7 @@ export function WorkEditDialog({
     setNotes(work.notes ?? "");
     setRecommenderIds(work.recommenderIds);
     setSeriesId(work.seriesId ?? "");
+    setSeriesName(work.seriesName ?? "");
     setSeriesPosition(work.seriesPosition ?? "");
     setAuthors(initialAuthors);
     setAuthorSearch("");
@@ -188,7 +205,9 @@ export function WorkEditDialog({
     if (isControlled && open) {
       setTitle(work.title);
       setOriginalLanguage(work.originalLanguage);
-      setOriginalYear(work.originalYear != null ? String(work.originalYear) : "");
+      setOriginalYear(
+        work.originalYear != null ? String(work.originalYear) : "",
+      );
       setWorkTypeId(work.workTypeId ?? "");
       setIsAnthology(work.isAnthology);
       setLinks(bookLinkValues(work));
@@ -199,6 +218,7 @@ export function WorkEditDialog({
       setNotes(work.notes ?? "");
       setRecommenderIds(work.recommenderIds);
       setSeriesId(work.seriesId ?? "");
+      setSeriesName(work.seriesName ?? "");
       setSeriesPosition(work.seriesPosition ?? "");
       setAuthors(initialAuthors);
       setAuthorSearch("");
@@ -223,7 +243,10 @@ export function WorkEditDialog({
       toast.error(`${author.name} is already listed`);
       return;
     }
-    setAuthors((prev) => [...prev, { id: author.id, name: author.name, role: "author" }]);
+    setAuthors((prev) => [
+      ...prev,
+      { id: author.id, name: author.name, role: "author" },
+    ]);
     setAuthorSearch("");
     setShowAuthorAdd(false);
   }
@@ -251,6 +274,16 @@ export function WorkEditDialog({
   }
 
   function handleSubmit() {
+    if (seriesId === "__new" && !seriesName.trim()) {
+      toast.error("Enter a series name");
+      return;
+    }
+    const checkedPosition = seriesPositionSchema.safeParse(seriesPosition);
+    if (!checkedPosition.success) {
+      toast.error(checkedPosition.error.issues[0].message);
+      return;
+    }
+
     if (!title.trim()) {
       toast.error("Title is required");
       return;
@@ -290,7 +323,8 @@ export function WorkEditDialog({
           description: description.trim() || null,
           notes: notes.trim() || null,
           recommenderIds,
-          seriesId: seriesId || null,
+          seriesId: seriesId === "__new" ? null : seriesId || null,
+          seriesName: seriesName.trim() || null,
           seriesPosition: seriesPosition.trim() || null,
           goodreadsUrl: parsedLinks.links.goodreadsUrl,
           storygraphUrl: parsedLinks.links.storygraphUrl,
@@ -304,7 +338,9 @@ export function WorkEditDialog({
         router.refresh();
         triggerActivityRefresh();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to update work");
+        toast.error(
+          err instanceof Error ? err.message : "Failed to update work",
+        );
       }
     });
   }
@@ -328,11 +364,7 @@ export function WorkEditDialog({
         </Button>
       )}
 
-      <Dialog
-        open={open}
-        onClose={closeDialog}
-        title="Edit Work"
-      >
+      <Dialog open={open} onClose={closeDialog} title="Edit Work">
         <div className="max-h-[75vh] overflow-y-auto pr-1">
           <div className="space-y-6">
             {/* Section: Core Details */}
@@ -398,7 +430,9 @@ export function WorkEditDialog({
 
             {/* Section: Status */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">Status</h3>
+              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                Status
+              </h3>
               <div className="grid grid-cols-3 gap-3">
                 <Select
                   id="edit-catalogue-status"
@@ -453,7 +487,9 @@ export function WorkEditDialog({
                   {recommenderIds.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
                       {recommenderIds.map((id) => {
-                        const r = availableRecommenders.find((x) => x.id === id);
+                        const r = availableRecommenders.find(
+                          (x) => x.id === id,
+                        );
                         return r ? (
                           <span
                             key={id}
@@ -499,30 +535,22 @@ export function WorkEditDialog({
               </div>
             </section>
 
-            {/* Section: Series */}
-            <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">Series</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  id="edit-series"
-                  label="Series"
-                  options={seriesOptions}
-                  value={seriesId}
-                  onChange={(e) => setSeriesId(e.target.value)}
-                />
-                <Input
-                  id="edit-series-position"
-                  label="Series Position"
-                  value={seriesPosition}
-                  onChange={(e) => setSeriesPosition(e.target.value)}
-                  placeholder="e.g. 1, 2.5"
-                />
-              </div>
-            </section>
+            <SeriesFields
+              key={`${open}-${work.id}`}
+              options={seriesOptions}
+              seriesId={seriesId}
+              seriesName={seriesName}
+              position={seriesPosition}
+              onId={setSeriesId}
+              onName={setSeriesName}
+              onPosition={setSeriesPosition}
+            />
 
             {/* Section: Authors */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">Authors</h3>
+              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                Authors
+              </h3>
               <div className="space-y-2">
                 {authors.map((author) => (
                   <div
@@ -534,7 +562,9 @@ export function WorkEditDialog({
                     </span>
                     <select
                       value={author.role}
-                      onChange={(e) => updateAuthorRole(author.id, e.target.value)}
+                      onChange={(e) =>
+                        updateAuthorRole(author.id, e.target.value)
+                      }
                       className="h-7 appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"
                     >
                       {AUTHOR_ROLE_OPTIONS.map((opt) => (
@@ -572,19 +602,19 @@ export function WorkEditDialog({
                       }}
                     />
                     <div className="max-h-40 overflow-y-auto">
-                      {filteredAuthors.length > 0 ? (
-                        filteredAuthors.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => addExistingAuthor(a)}
-                            disabled={authorAlreadyAdded(a.id)}
-                            className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40"
-                          >
-                            {a.name}
-                          </button>
-                        ))
-                      ) : null}
+                      {filteredAuthors.length > 0
+                        ? filteredAuthors.map((a) => (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => addExistingAuthor(a)}
+                              disabled={authorAlreadyAdded(a.id)}
+                              className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40"
+                            >
+                              {a.name}
+                            </button>
+                          ))
+                        : null}
                       {authorSearch.trim() && (
                         <button
                           type="button"
@@ -593,7 +623,10 @@ export function WorkEditDialog({
                           className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
                         >
                           {isAddingAuthor ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                            <Loader2
+                              className="h-3.5 w-3.5 animate-spin"
+                              strokeWidth={1.5}
+                            />
                           ) : (
                             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                           )}
@@ -629,7 +662,12 @@ export function WorkEditDialog({
 
         {/* Footer */}
         <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-          <Button variant="secondary" size="sm" onClick={closeDialog} disabled={isPending}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={closeDialog}
+            disabled={isPending}
+          >
             Cancel
           </Button>
           <Button
@@ -640,7 +678,10 @@ export function WorkEditDialog({
           >
             {isPending ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                <Loader2
+                  className="h-3.5 w-3.5 animate-spin"
+                  strokeWidth={1.5}
+                />
                 Saving
               </>
             ) : (

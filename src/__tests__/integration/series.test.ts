@@ -42,6 +42,13 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: new Proxy({}, { get: (_, prop) => String(prop) }),
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
+import {
+  createWork,
+  updateWork,
+  getWorks,
+  getWorkCount,
+} from "@/lib/actions/works";
+import { fastTrackBook } from "@/lib/actions/fast-track";
 import { recordActivity } from "@/lib/activity/record";
 import {
   createSeries,
@@ -52,6 +59,7 @@ import {
   setSeriesPosition,
   moveSeriesWork,
   getSeriesDetail,
+  getOtherWorksInSeries,
   getSeriesList,
   getSeriesSuggestions,
   searchWorksForSeries,
@@ -272,5 +280,121 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(found.map((w) => [w.title, w.seriesTitle, w.cover])).toEqual([
       ["Justine", "The Alexandria Quartet", "justine.webp"],
     ]);
+  });
+  it("creates a real series through normal book creation and reuses an exact normalized title", async () => {
+    const [author] = await db
+      .insert(schema.authors)
+      .values({ name: "Series Author" })
+      .returning();
+    const one = await createWork({
+      title: "Volume One",
+      authorIds: [{ authorId: author.id }],
+      seriesName: "  On the Calculation   of Volume ",
+      seriesPosition: "1",
+    });
+    const two = await createWork({
+      title: "Volume Two",
+      authorIds: [{ authorId: author.id }],
+      seriesName: "on the calculation of volume",
+      seriesPosition: "2",
+    });
+    expect(one.seriesId).toBeTruthy();
+    expect(two.seriesId).toBe(one.seriesId);
+    expect(one.seriesName).toBeNull();
+    expect(
+      (await getWorks({ search: "calculation of volume" }))
+        .map((w) => w.id)
+        .sort(),
+    ).toEqual([one.id, two.id].sort());
+    expect(await getWorkCount("calculation of volume")).toBe(2);
+    const detail = await getSeriesDetail(one.seriesId!);
+    expect(detail?.works.map((w) => w.seriesPosition)).toEqual(["1", "2"]);
+  });
+  it("edits, changes and clears series without stale legacy names returning", async () => {
+    const w = await book("Editable", {
+      seriesName: "Legacy",
+      seriesPosition: "2",
+    });
+    await updateWork(w.id, {
+      seriesName: "New Series",
+      seriesId: null,
+      seriesPosition: "2",
+    });
+    const saved = await db.query.works.findFirst({
+      where: eq(schema.works.id, w.id),
+    });
+    expect(saved?.seriesId).toBeTruthy();
+    expect(saved?.seriesName).toBeNull();
+    await updateWork(w.id, { rating: 4 });
+    expect(
+      (await db.query.works.findFirst({ where: eq(schema.works.id, w.id) }))
+        ?.seriesId,
+    ).toBe(saved?.seriesId);
+    await updateWork(w.id, { seriesId: null });
+    expect(
+      await db.query.works.findFirst({ where: eq(schema.works.id, w.id) }),
+    ).toMatchObject({
+      seriesId: null,
+      seriesName: null,
+      seriesPosition: null,
+      rating: 4,
+    });
+  });
+  it("serializes concurrent series creation and orders sibling works numerically", async () => {
+    const books = await Promise.all(
+      ["10", "2.5", "2", "1"].map((n) => book(`Volume ${n}`)),
+    );
+    await Promise.all(
+      books.map((b, i) =>
+        updateWork(b.id, {
+          seriesName: "Concurrent Series",
+          seriesPosition: ["10", "2.5", "2", "1"][i],
+        }),
+      ),
+    );
+    const all = await db.select().from(schema.series);
+    expect(all).toHaveLength(1);
+    const siblings = await getOtherWorksInSeries(all[0].id, books[2].id);
+    expect(siblings.map((w) => w.seriesPosition)).toEqual(["1", "2.5", "10"]);
+  });
+  it("rejects invalid positions before creating any series", async () => {
+    const w = await book("Bad input");
+    await expect(
+      updateWork(w.id, { seriesName: "Must not exist", seriesPosition: "two" }),
+    ).rejects.toThrow();
+    expect(await db.select().from(schema.series)).toHaveLength(0);
+  });
+  it("rolls back a newly created series when Fast Track cannot save the book", async () => {
+    const result = await fastTrackBook({
+      authorName: "An Author",
+      work: {
+        title: "Atomic",
+        seriesName: "Not committed",
+        seriesPosition: "1",
+        recommenderIds: ["10000000-0000-4000-8000-000000000001"],
+      },
+      edition: {},
+    });
+    expect(result.ok).toBe(false);
+    expect(await db.select().from(schema.series)).toHaveLength(0);
+  });
+  it("Fast Track creates the normalized series and retains its position", async () => {
+    const result = await fastTrackBook({
+      authorName: "An Author",
+      work: {
+        title: "Fast Volume",
+        seriesName: "Fast Series",
+        seriesPosition: "3",
+      },
+      edition: {},
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const w = await db.query.works.findFirst({
+      where: eq(schema.works.id, result.workId),
+    });
+    expect(w?.seriesId).toBeTruthy();
+    expect(w?.seriesName).toBeNull();
+    expect(w?.seriesPosition).toBe("3");
   });
 });

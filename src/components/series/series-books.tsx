@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { toast } from "sonner";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -113,7 +114,7 @@ export function SeriesBooks({
           />
           <Link
             href={`/library/${book.slug}`}
-            className="flex min-w-0 flex-1 items-center gap-4"
+            aria-label={`Open ${book.title}`}
           >
             <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
               {book.cover && (
@@ -125,51 +126,59 @@ export function SeriesBooks({
                 />
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-1 font-serif text-lg text-fg-primary hover:text-accent-rose">
-                {book.title}
-              </h3>
-              <p className="line-clamp-1 text-xs text-fg-secondary">
-                {book.authors}
-              </p>
-            </div>
           </Link>
-          {book.owned ? (
-            <Badge variant="sage">Owned</Badge>
-          ) : (
-            <Badge variant="muted">{book.status}</Badge>
-          )}
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`Move ${book.title} earlier`}
-              title="Move earlier"
-              disabled={!!busy || index === 0}
-              onClick={() => act(book, "up")}
-            >
-              <ArrowUp size={14} />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`Move ${book.title} later`}
-              title="Move later"
-              disabled={!!busy || index === books.length - 1}
-              onClick={() => act(book, "down")}
-            >
-              <ArrowDown size={14} />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`Remove ${book.title} from the series`}
-              title="Remove from series"
-              disabled={!!busy}
-              onClick={() => act(book, "remove")}
-            >
-              <X size={14} />
-            </Button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-4 font-serif text-lg">
+              <Link href={`/library/${book.slug}`} className="min-w-0 flex-1">
+                <h3 className="line-clamp-1 text-fg-primary hover:text-accent-rose">
+                  {book.title}
+                </h3>
+              </Link>
+              <CapAligned height={32}>
+                <div className="flex h-8 items-center gap-3 font-sans text-sm">
+                  {book.owned ? (
+                    <Badge variant="sage">Owned</Badge>
+                  ) : (
+                    <Badge variant="muted">{book.status}</Badge>
+                  )}
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Move ${book.title} earlier`}
+                      title="Move earlier"
+                      disabled={!!busy || index === 0}
+                      onClick={() => act(book, "up")}
+                    >
+                      <ArrowUp size={14} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Move ${book.title} later`}
+                      title="Move later"
+                      disabled={!!busy || index === books.length - 1}
+                      onClick={() => act(book, "down")}
+                    >
+                      <ArrowDown size={14} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Remove ${book.title} from the series`}
+                      title="Remove from series"
+                      disabled={!!busy}
+                      onClick={() => act(book, "remove")}
+                    >
+                      <X size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </CapAligned>
+            </div>
+            <p className="line-clamp-1 text-xs text-fg-secondary">
+              {book.authors}
+            </p>
           </div>
         </li>
       ))}

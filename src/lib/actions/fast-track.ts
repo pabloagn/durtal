@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { asc, desc, eq, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { workSeriesPlan } from "@/lib/series/work-series";
 import { atomic } from "@/lib/db/atomic";
 import {
   authors,
@@ -95,6 +96,7 @@ export async function fastTrackBook(
       generateWorkSlug(work.title, author?.name ?? authorName, workId),
     );
     const { recommenderIds = [], ...workValues } = work;
+    const seriesPlan = workSeriesPlan(workValues);
 
     if (edition.coverSourceUrl)
       cover = await processAndUploadCover(editionId, edition.coverSourceUrl);
@@ -102,8 +104,11 @@ export async function fastTrackBook(
     // The ISBN and slug unique constraints also protect racing submissions.
     // Any failure rolls back the author, work and all relation rows together.
     await atomic((d) => [
+      ...seriesPlan.queries(d),
       ...(newAuthor ? [d.insert(authors).values(newAuthor)] : []),
-      d.insert(works).values({ ...workValues, id: workId, slug }),
+      d
+        .insert(works)
+        .values({ ...workValues, ...seriesPlan.values, id: workId, slug }),
       d
         .insert(workAuthors)
         .values({ workId, authorId, role: "author", sortOrder: 0 }),
@@ -155,7 +160,12 @@ export async function fastTrackBook(
         },
       ]),
     ]);
-    invalidate(CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.authors);
+    invalidate(
+      CACHE_TAGS.series,
+      CACHE_TAGS.works,
+      CACHE_TAGS.editions,
+      CACHE_TAGS.authors,
+    );
     return {
       ok: true,
       slug,

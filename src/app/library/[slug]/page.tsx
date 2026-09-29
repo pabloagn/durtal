@@ -19,7 +19,7 @@ import {
 import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
 import { getAuthors } from "@/lib/actions/authors";
 import { getOrdersForWork } from "@/lib/actions/orders";
-import { getSeries } from "@/lib/actions/series";
+import { getSeries, getOtherWorksInSeries } from "@/lib/actions/series";
 import {
   getWorkTypes,
   getSubjects,
@@ -138,6 +138,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     workCollections,
     similarWorks,
     markRows,
+    seriesWorks,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -155,12 +156,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
         works: await getWorksWithMark(mark.key, work.id, 12),
       })),
     ),
+    work.seriesId
+      ? getOtherWorksInSeries(work.seriesId, work.id)
+      : Promise.resolve([]),
   ]);
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
-    workCollections
-      .filter((c) => !collectionPoster(c.media))
-      .map((c) => c.id),
+    workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
   );
 
   const primaryAuthors = work.workAuthors.map((wa) => wa.author);
@@ -278,7 +280,10 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </h1>
                 <div className="flex shrink-0 items-center gap-2">
                   <CollectionButton workId={work.id} title={work.title} />
-                  <CopyBookButton title={work.title} authorNames={primaryAuthors.map((a) => a.name)} />
+                  <CopyBookButton
+                    title={work.title}
+                    authorNames={primaryAuthors.map((a) => a.name)}
+                  />
                   <WorkActionsMenu
                     work={{
                       id: work.id,
@@ -598,6 +603,23 @@ export default async function WorkDetailPage({ params }: PageProps) {
           ))}
         </div>
       </section>
+
+      {work.series && seriesWorks.length > 0 && (
+        <section className="mb-8" aria-label="More in this series">
+          <WorkCarousel
+            title={`More in ${work.series.title}`}
+            titleHref={`/series/${work.series.id}`}
+            works={seriesWorks}
+            caption={(w) => (
+              <p className="mt-1.5 lines-1 text-micro text-fg-muted">
+                {w.seriesPosition
+                  ? `Volume ${w.seriesPosition}`
+                  : "Position not set"}
+              </p>
+            )}
+          />
+        </section>
+      )}
 
       {/* Works by same author */}
       {relatedWorks.length > 0 && primaryAuthor && (
