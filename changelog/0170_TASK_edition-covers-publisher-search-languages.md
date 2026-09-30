@@ -1,6 +1,6 @@
 # Task 0170: Edition covers, publisher search box, language codes
 
-**Status**: Completed (live migration 0035 not applied yet)
+**Status**: Completed
 **Created**: 2026-09-30
 **Priority**: HIGH
 **Type**: Fix
@@ -28,4 +28,4 @@ Step 1 of the publishing houses and editions rework. Before this task:
 - Browser checks on the local copy: search finds NYRB from "new york rev" and Vintage from "vintge"; Enter picks and never submits the form; creating a house from the edition form works; saving the alias from the link box on "Idiocy" linked 20 more editions to NYRB (NYRB: 2 → 23 books). Placeholder editions show the book poster.
 - Alignment audit: 0 deviations over 0.5px on the book page (with the link box and the edit dialog open), the publisher page, the publisher editor and the add-book wizard. Checkboxes: 0.01px.
 - Tests: `src/__tests__/utils/language.test.ts`, `edition-image.test.ts`; publisher database tests for search, create, aliases and language codes. Full suite: 696 passed.
-- Migration 0035 is not applied to the live database. It needs approval.
+- Live activation 2026-10-01, approved by the owner: migrations 0034 and 0035 applied together after a full backup; 35 migrations recorded. Edition languages are now `en`, `es`, `fr`, `ja`; work languages `en`, `es`, `fr`, `ru`.

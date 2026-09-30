@@ -27,3 +27,8 @@ Books added by ISBN kept their ISBNdb publisher as plain text: 290 of 412 editio
 - Plan review found and fixed before any write: duplicate houses for spellings of one publisher, imprints of Penguin Random House not recognized, false family matches ("A&C Black" and "Black Coat Press", "University of Oklahoma" and "University of California", "New York" places), full-width junk and parent labels.
 - Browser checks on the copy: Apply linked 115 editions and created 57 houses; Undo returned "47North" to the inbox as "Needs you"; the publisher page shows the automatic origin. Alignment audit: 0 deviations over 0.5px; 124 checkboxes within 0.5px.
 - Tests: guardrail unit tests and database tests for automatic links, clean houses, every hold reason, spellings sharing a house, close names, wrong books, the daily brake, dry runs and undo. Full suite: 735 passed.
+
+## Live Activation — 2026-10-01
+- Owner approved ("1, build it and then go"). Merged into `fix/backlog-0116-0121` as a fast-forward; the uncommitted author-picker work (task 0151) was set aside and restored, with the two overlapping files merged by hand. Full suite on the combined tree: 735 passed.
+- Full `pg_dump` backup taken, then migrations 0034 and 0035 applied with Drizzle (35 recorded, existing links unchanged at 125).
+- `scripts/publishers/auto-resolve.ts` dry run on live matched the reviewed plan. `--apply`: 21 links, 57 new houses, 115 editions linked, 46 names left for the owner. Editions with a publisher name and a house: 122 → 237 of 412. NYRB: 26 books. 78 decisions logged and undoable.

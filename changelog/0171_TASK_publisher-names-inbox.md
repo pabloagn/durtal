@@ -1,6 +1,6 @@
 # Task 0171: Publisher names inbox and ISBN prefix rules
 
-**Status**: Completed (live migration 0034 not applied yet)
+**Status**: Completed
 **Created**: 2026-09-30
 **Priority**: HIGH
 **Type**: Feature
@@ -29,4 +29,4 @@ Step 2 of the publishing houses and editions rework. Matching links an edition t
 - Penguin: 10 spellings and 93 editions suggest Penguin Classics by ISBN only. This is left for the owner: the house structure for Penguin and its imprints is a decision, not a match.
 - Tests: `src/__tests__/utils/publisher-names.test.ts`; publisher database tests for grouping, suggestions, alias plus rules (a distributor-named edition links through the NYRB prefix), ISBN-only confirmation without alias, ignore and restore, create, ambiguous names and inbox paging. All 20 database suites and the unit suite pass: 696 tests.
 - Alignment audit: 0 deviations on `/publishers/review` (48 checkboxes within 0.5px), `/publishers`, a publisher page, its editor. One-line toasts only: a toast icon sits off-center when the text wraps.
-- Migration 0034 is not applied to the live database. It needs approval.
+- Live activation 2026-10-01 with task 0172 (see there).
