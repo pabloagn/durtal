@@ -274,6 +274,13 @@
       "when": 1790768765637,
       "tag": "0038_catalogue_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790770009276,
+      "tag": "0039_shared_curation",
+      "breakpoints": true
     }
   ]
 }

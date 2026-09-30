@@ -63,7 +63,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   // legacy field or relationship from the preservation comparison.
   function legacyRows(snapshot: Record<string, Record<string, unknown>[]>) {
     const projected = structuredClone(snapshot);
-    for (const work of projected.works) delete work.kind;
+    for (const work of projected.works) {
+      delete work.kind;
+      if ("is_favourite" in work) {
+        expect(work.is_favourite).toBe(false);
+        delete work.is_favourite;
+      }
+    }
     if (projected.taxonomy_applicability) {
       for (const definition of DOMAIN_TAXONOMIES) {
         const family = projected.taxonomy_families.find(

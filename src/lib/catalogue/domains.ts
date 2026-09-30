@@ -1,11 +1,25 @@
 import { WORK_KINDS, type WorkKind } from "./kinds";
 
+export const WORK_CAPABILITIES = [
+  "curation",
+  "personalHoldings",
+  "bookLifecycle",
+  "bookEditions",
+  "reading",
+  "perfumeVariants",
+  "filmVersions",
+  "artObjects",
+  "originalWhereabouts",
+] as const;
+export type WorkCapability = (typeof WORK_CAPABILITIES)[number];
+
 /** Presentation defaults, not a replacement for each domain's page composition. */
 interface WorkDomain {
   readonly label: string;
   readonly pluralLabel: string;
   readonly basePath: string;
   readonly enabled: boolean;
+  readonly capabilities: Readonly<Record<WorkCapability, boolean>>;
   readonly creatorRoles: readonly string[];
   readonly image: {
     readonly slot: "portrait" | "square" | "native";
@@ -25,6 +39,17 @@ export const WORK_DOMAINS = {
     pluralLabel: "Books",
     basePath: "/library",
     enabled: true,
+    capabilities: {
+      curation: true,
+      personalHoldings: true,
+      bookLifecycle: true,
+      bookEditions: true,
+      reading: true,
+      perfumeVariants: false,
+      filmVersions: false,
+      artObjects: false,
+      originalWhereabouts: false,
+    },
     creatorRoles: ["author", "co_author"],
     image: { slot: "portrait", fit: "contain", emphasis: "standard" },
   },
@@ -33,6 +58,17 @@ export const WORK_DOMAINS = {
     pluralLabel: "Films",
     basePath: "/films",
     enabled: false,
+    capabilities: {
+      curation: true,
+      personalHoldings: true,
+      bookLifecycle: false,
+      bookEditions: false,
+      reading: false,
+      perfumeVariants: false,
+      filmVersions: true,
+      artObjects: false,
+      originalWhereabouts: false,
+    },
     creatorRoles: ["director", "screenwriter"],
     image: { slot: "portrait", fit: "contain", emphasis: "standard" },
   },
@@ -41,6 +77,17 @@ export const WORK_DOMAINS = {
     pluralLabel: "Perfumes",
     basePath: "/perfumes",
     enabled: false,
+    capabilities: {
+      curation: true,
+      personalHoldings: true,
+      bookLifecycle: false,
+      bookEditions: false,
+      reading: false,
+      perfumeVariants: true,
+      filmVersions: false,
+      artObjects: false,
+      originalWhereabouts: false,
+    },
     creatorRoles: ["perfumer"],
     image: { slot: "square", fit: "contain", emphasis: "standard" },
   },
@@ -49,6 +96,17 @@ export const WORK_DOMAINS = {
     pluralLabel: "Paintings",
     basePath: "/paintings",
     enabled: false,
+    capabilities: {
+      curation: true,
+      personalHoldings: true,
+      bookLifecycle: false,
+      bookEditions: false,
+      reading: false,
+      perfumeVariants: false,
+      filmVersions: false,
+      artObjects: true,
+      originalWhereabouts: true,
+    },
     creatorRoles: ["painter"],
     image: { slot: "native", fit: "contain", emphasis: "large" },
   },
@@ -57,4 +115,19 @@ export const WORK_DOMAINS = {
 /** Safe for navigation: never advertise an unfinished domain. */
 export function getEnabledWorkKinds(): WorkKind[] {
   return WORK_KINDS.filter((kind) => WORK_DOMAINS[kind].enabled);
+}
+
+/** Structural support is distinct from rollout readiness. */
+export function kindsWithCapability(capability: WorkCapability): WorkKind[] {
+  return WORK_KINDS.filter(
+    (kind) => WORK_DOMAINS[kind].capabilities[capability],
+  );
+}
+export function canUseWorkCapability(
+  kind: WorkKind,
+  capability: WorkCapability,
+) {
+  return (
+    WORK_DOMAINS[kind].enabled && WORK_DOMAINS[kind].capabilities[capability]
+  );
 }

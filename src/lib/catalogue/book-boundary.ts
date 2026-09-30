@@ -2,6 +2,7 @@ import { and, eq, inArray, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { works } from "@/lib/db/schema";
+import { kindsWithCapability } from "./domains";
 
 /** The legacy library is a book adapter; domain-neutral code must not use this. */
 export const bookCondition = eq(works.kind, "book");
@@ -18,7 +19,12 @@ export async function requireBookWorks(workIds: string[]): Promise<void> {
   const found = await db
     .select({ id: works.id })
     .from(works)
-    .where(and(bookCondition, inArray(works.id, ids)));
+    .where(
+      and(
+        inArray(works.kind, kindsWithCapability("bookLifecycle")),
+        inArray(works.id, ids),
+      ),
+    );
   if (found.length !== ids.length)
     throw new Error("Book not found: this action only accepts existing books");
 }

@@ -47,6 +47,7 @@ export const works = pgTable("works", {
   // Personal
   notes: text("notes"),
   rating: smallint("rating"),
+  isFavourite: boolean("is_favourite").notNull().default(false),
 
   // Catalogue lifecycle
   catalogueStatus: catalogueStatusEnum("catalogue_status").notNull().default("tracked"),
@@ -76,6 +77,7 @@ export const works = pgTable("works", {
   // when their complete domain adapters and compatibility tests are ready.
   check("works_kind_enabled_check", sql`${t.kind} = 'book'`),
   check("works_book_series_check", sql`${t.kind} = 'book' OR (${t.seriesId} IS NULL AND ${t.seriesName} IS NULL AND ${t.seriesPosition} IS NULL)`),
+  check("works_nonbook_lifecycle_check", sql`${t.kind} = 'book' OR (${t.catalogueStatus} = 'tracked' AND ${t.acquisitionPriority} = 'none' AND NOT ${t.isRare} AND ${t.huntAssessedOn} IS NULL)`),
   index("works_catalogue_status_idx").on(t.catalogueStatus),
   index("works_series_id_idx").on(t.seriesId),
   index("works_created_at_idx").on(t.createdAt),

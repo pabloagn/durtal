@@ -1,0 +1,2 @@
+ALTER TABLE "works" ADD COLUMN "is_favourite" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "works" ADD CONSTRAINT "works_nonbook_lifecycle_check" CHECK ("works"."kind" = 'book' OR ("works"."catalogue_status" = 'tracked' AND "works"."acquisition_priority" = 'none' AND NOT "works"."is_rare" AND "works"."hunt_assessed_on" IS NULL));

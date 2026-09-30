@@ -39,6 +39,43 @@ scans exclude other kinds, and executable book merges require two books.
 
 ---
 
+## Personal curation and holdings contracts
+
+Migration `0039_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT
+false`. Shared notes/rating and `work_recommenders` keep their existing canonical
+storage. Being in the catalogue expresses personal curation; it never implies
+ownership, acquisition intent, reading or viewing. There is no duplicated curation
+record or generic ownership flag.
+
+`getWorkCuration` returns a snapshot fingerprint over only the personal fields and
+recommendations. `updateWorkCuration` accepts sparse, strictly validated personal
+edits, locks the work, checks that fingerprint and atomically updates all requested
+fields/links. Stale editors and missing recommendation targets leave the previous
+curation intact. These edits never change book statuses or create copies.
+
+`works_nonbook_lifecycle_check` reserves legacy `catalogue_status`,
+`acquisition_priority`, `is_rare` and `hunt_assessed_on` for books. Non-books retain
+the neutral compatibility defaults (`tracked`, `none`, false, null) until the
+typed acquisition model is added. The exhaustive domain capability matrix declares
+which controls each kind supports; availability also checks rollout readiness.
+Book mutation guards use the shared book-lifecycle capability.
+
+`catalogue/holdings.ts` provides typed domain projections. Books reuse the existing
+ownership and derived-status functions, including partial holdings and inconsistent
+deaccession states. Non-book personal holdings distinguish held, lent out, stored,
+missing and disposed objects; disposition excludes current ownership. Perfume
+summaries distinguish bottles/samples/decants, known remaining ml and unknown
+quantities; an empty retained bottle is still a container but contributes zero
+liquid. Film copies distinguish physical/digital holdings; a viewing is not a copy.
+Painting summaries count only explicitly personal originals, versions and
+reproductions. Institutional/private/unknown ownership never becomes personal
+ownership through a museum location; a personal object on loan remains owned.
+Duplicate projected object IDs are rejected instead of inflating counts.
+
+These pure projections define the contract consumed by the domain models. Their
+database queries and persistent non-book holdings arrive with SLN-356/358/359;
+there are no placeholder editions or generic untyped holding rows.
+
 ## Typed identifiers, source observations and uncertain dates
 
 Migration `0038_catalogue_provenance` adds these shared value structures. It does

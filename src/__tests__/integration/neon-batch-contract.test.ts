@@ -46,6 +46,12 @@ import {
   refreshSourceObservation,
   reviewSourceObservation,
 } from "@/lib/actions/catalogue-provenance";
+vi.mock("@/lib/cache", () => ({
+  invalidate: vi.fn(),
+  cached: (fn: unknown) => fn,
+  CACHE_TAGS: {},
+}));
+import { getWorkCuration, updateWorkCuration } from "@/lib/actions/curation";
 
 type Query = { query: string; params: (string | null)[] };
 
@@ -215,5 +221,34 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
       }),
     ).rejects.toThrow();
     expect(await c`select id from source_records`).toHaveLength(2);
+  });
+  it("keeps curation and recommendation changes atomic through the Neon driver", async () => {
+    const [book] =
+      await c`insert into works(title,notes) values ('Curated book','Keep this') returning id`;
+    const owner = { kind: "book" as const, id: book.id as string };
+    const before = (await getWorkCuration(owner))!;
+    await expect(
+      updateWorkCuration({
+        owner,
+        fingerprint: before.fingerprint,
+        patch: {
+          notes: "Must roll back",
+          isFavourite: true,
+          recommenderIds: [randomUUID()],
+        },
+      }),
+    ).rejects.toThrow();
+    expect(await getWorkCuration(owner)).toEqual(before);
+    const saved = await updateWorkCuration({
+      owner,
+      fingerprint: before.fingerprint,
+      patch: { isFavourite: true, rating: 5 },
+    });
+    expect(saved).toMatchObject({
+      notes: "Keep this",
+      isFavourite: true,
+      rating: 5,
+    });
+    expect(await c`select id from editions`).toHaveLength(0);
   });
 });

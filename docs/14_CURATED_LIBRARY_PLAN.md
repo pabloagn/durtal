@@ -236,5 +236,12 @@ civil dates. Legacy book provenance remains exposed without backfill. The full
 local suite passes 777 tests across 61 files, zero skipped, plus five Python checks.
 An additional Neon-driver contract verifies source refresh and lock behavior.
 
-See changelog tasks 0155–0161 for scope and verification. SLN-283 (database access
+Shared curation (SLN-354, migration 0039) now provides atomic notes/rating/favorite
+and recommendation edits independently of acquisition. Book lifecycle fields are
+guarded, and typed holdings projections specify personal ownership for each
+domain. Persistent non-book projections will be connected in their model tasks.
+The full local suite passes 795 tests across 63 files, zero skipped, plus five
+Python checks, including the Neon curation transaction contract.
+
+See changelog tasks 0155–0162 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.
