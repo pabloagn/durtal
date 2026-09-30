@@ -963,9 +963,11 @@ Images attached to works, authors or collections. Polymorphic ownership.
 | `height` | INTEGER | nullable |
 | `size_bytes` | INTEGER | nullable |
 | `is_active` | BOOLEAN | NOT NULL, default `true`. For poster/background: only one active per owner+type. For gallery: always true. |
-| `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position`. |
-| `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position`. |
-| `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
+| `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position` on the display file. |
+| `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position` on the display file. |
+| `crop_zoom` | REAL | NOT NULL, default `100`. Legacy CSS zoom (`transform: scale()`). A saved crop always sets it to `100`: the zoom is in the file. |
+| `uncropped_s3_key` | TEXT | nullable (migration `0033_media_applied_crop`). The full-size image before the crop. Never modified. Set when `s3_key` and `thumbnail_s3_key` hold a cropped image. |
+| `applied_crop` | JSONB | nullable (migration `0033_media_applied_crop`). `{ x, y, zoom }`: the editor crop that the display files hold, relative to `uncropped_s3_key`. |
 | `brightness` | REAL | NOT NULL, default `100`. Display brightness percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: brightness()`. |
 | `contrast` | REAL | NOT NULL, default `100`. Display contrast percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: contrast()`. |
 | `original_s3_key` | TEXT | nullable. S3 key for the pre-processing color original. Set only for author media with monochrome processing. |
@@ -977,15 +979,21 @@ Images attached to works, authors or collections. Polymorphic ownership.
 
 **Check constraint** `media_owner_check`: `num_nonnulls(work_id, author_id, collection_id) = 1` — exactly one owner.
 
+**Check constraint** `media_applied_crop_check`: `num_nonnulls(uncropped_s3_key, applied_crop) in (0, 2)` — both set, or neither.
+
 **Indexes**: `(work_id, type, is_active)`, `(author_id, is_active)`, `(collection_id, type, is_active)`.
 
 **Active selection**: Multiple posters/backgrounds can exist for a work, but only one is active at a time. Uploading a new poster deactivates the previous one (without deleting it). Users can switch the active poster/background or permanently delete unwanted items.
 
-**Crop positioning**: The `crop_x`, `crop_y`, and `crop_zoom` fields store CSS-only positioning metadata. They control how an image is displayed within its container via `object-position` and `transform: scale()`, without modifying the original S3 files. Users adjust these values through a drag-and-zoom editor in the media manager.
+**Crop** (migration `0033_media_applied_crop`, task 0155): the crop is in the image files, so every view shows it (cards, lists, timelines, map popups, lightboxes, thumbnails). Saving a crop in the editor (`src/lib/media/display.ts`) writes a cropped full image and thumbnail to new keys, points `s3_key` / `thumbnail_s3_key` at them, and keeps the image before the crop at `uncropped_s3_key`. The editor always crops from `uncropped_s3_key`. Reset points `s3_key` back at the uncropped image. The crop is the rectangle the editor frame shows (2:3 for posters, 16:9 for backgrounds): `cropRegion()` in `src/lib/media/crop.ts`.
+
+Safety rules: the uncropped image and `original_s3_key` are never modified; each new version uses fresh keys (no object is overwritten); the row is swapped in one transaction only when it is unchanged since it was read; replaced files are deleted after the swap and only when no row references them (`src/lib/s3/references.ts`, also used by media delete and collection cleanup). Display settings in `image_adjustments` follow the image to its new key.
+
+After a crop, `crop_x` / `crop_y` keep its focal point and `crop_zoom` is `100`. Views of another shape (wide banners, square avatars) then show the chosen part, and `object-position` only moves the image inside the cropped file. A crop that cuts nothing (the frame's own aspect, no zoom) writes no file. Crops saved before task 0155 as CSS framing were moved into files by `POST /api/media/apply-crops`.
 
 **Brightness and contrast** (migration `0022_media_brightness_contrast`, task 0116): `brightness` and `contrast` work like the crop fields: CSS-only (`filter: brightness() contrast()`), edited with two sliders in the same editor, never written to S3. Every render site builds its style through `mediaImageStyle()` (`src/lib/utils/media-style.ts`), which adds the crop only when it differs from the default and the filter only when a value differs from 100. Not the same as the author monochrome `processing_params` below, which rewrites the S3 image.
 
-**Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
+**Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss. It writes new files and applies the saved crop again: the new monochrome image becomes `uncropped_s3_key`.
 
 **Color palette extraction**: For poster images (`type = 'poster'`), a color palette is extracted at upload time using node-vibrant. The multi-pass algorithm extracts six semantic swatches (Vibrant, Muted, DarkVibrant, DarkMuted, LightVibrant, LightMuted) and the dominant color via sharp stats. These are then processed through a crystal pipeline that enforces diversity (delta-E > 25 between selected colors), clamps saturation/lightness to the design language bounds (S: 12-65%, L: 18-45%), and assigns 3-4 roles (primary, secondary, accent, halo) with per-color opacity recommendations (0.08-0.18). The resulting `crystal` array drives the ambient color crystallization effect on book detail pages.
 

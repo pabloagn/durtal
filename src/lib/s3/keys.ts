@@ -86,6 +86,26 @@ export function goldMediaOriginalKey(
   return `gold/media/${entityType}/${entityId}/${mediaType}/${fileId}_original.webp`;
 }
 
+/**
+ * Keys for a new version of a media item's display files. Each version gets
+ * fresh keys, so no stored object is overwritten and no browser shows a
+ * cached older version.
+ */
+export function goldMediaVersionKeys(
+  entityType: MediaEntityType,
+  entityId: string,
+  mediaType: string,
+  mediaId: string,
+  version: string,
+) {
+  const base = `gold/media/${entityType}/${entityId}/${mediaType}/${mediaId}_${version}`;
+  return {
+    full: `${base}.webp`,
+    thumbnail: `${base}_thumb.webp`,
+    uncropped: `${base}_uncropped.webp`,
+  };
+}
+
 // ── Comment attachments ─────────────────────────────────────────────────────
 
 export function goldCommentAttachmentKey(

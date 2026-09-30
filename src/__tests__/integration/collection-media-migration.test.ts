@@ -154,13 +154,14 @@ describe.skipIf(!url)("collection media migration", () => {
         )[0],
       ).toEqual({ name: "Bare", description: "kept" });
 
-      // Work and author media are untouched.
+      // Work and author media are untouched. Later migrations add columns.
+      const later = { collection_id: null, uncropped_s3_key: null, applied_crop: null };
       expect(
         (await c`select * from media where id=${workPoster.id}`)[0],
-      ).toEqual({ ...workPoster, collection_id: null });
+      ).toEqual({ ...workPoster, ...later });
       expect(
         (await c`select * from media where id=${authorPoster.id}`)[0],
-      ).toEqual({ ...authorPoster, collection_id: null });
+      ).toEqual({ ...authorPoster, ...later });
 
       // The adjustment record stays keyed by the same S3 key.
       expect(

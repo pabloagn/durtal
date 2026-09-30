@@ -3,7 +3,6 @@
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { atomic } from "@/lib/db/atomic";
 import {
   media,
   authors,
@@ -22,6 +21,13 @@ import {
   type StoredImageAdjustments,
 } from "@/lib/utils/image-adjustments";
 import { updateMediaCropSchema } from "@/lib/validations/media";
+import { mediaFrameAspect } from "@/lib/media/crop";
+import {
+  buildDisplayFiles,
+  commitDisplay,
+  displayFraming,
+  editorCrop,
+} from "@/lib/media/display";
 
 async function resolveImage(source: string) {
   const identity = imageSourceIdentity(z.string().max(4096).parse(source));
@@ -42,8 +48,13 @@ async function resolveImage(source: string) {
     };
   }
   const key = identity.key;
+  // The uncropped key also resolves, so an editor opened before a crop still saves
   const item = await db.query.media.findFirst({
-    where: or(eq(media.s3Key, key), eq(media.thumbnailS3Key, key)),
+    where: or(
+      eq(media.s3Key, key),
+      eq(media.thumbnailS3Key, key),
+      eq(media.uncroppedS3Key, key),
+    ),
   });
   if (item)
     return {
@@ -121,25 +132,19 @@ export async function getImagePresentation(source: string) {
       contrast: asset.media?.contrast ?? 100,
     },
   );
+  const framed = asset.media && mediaFrameAspect(asset.media.type) ? asset.media : null;
+  const crop = framed ? editorCrop(framed) : null;
   return {
     assetKey: asset.assetKey,
     source: s3ImageSource(asset.assetKey),
+    // The editor crops the uncropped image; every other view shows the crop
+    preview: s3ImageSource(framed?.uncroppedS3Key ?? asset.assetKey),
     monochrome: asset.monochrome,
     settings: enforceImagePolicy(settings, asset.monochrome),
-    crop:
-      asset.media && asset.media.type !== "gallery"
-        ? {
-            cropX: asset.media.cropX,
-            cropY: asset.media.cropY,
-            cropZoom: asset.media.cropZoom,
-          }
-        : null,
-    aspect:
-      asset.media?.type === "poster"
-        ? 2 / 3
-        : asset.media?.type === "background"
-          ? 16 / 9
-          : null,
+    crop: crop
+      ? { cropX: crop.x, cropY: crop.y, cropZoom: crop.zoom }
+      : null,
+    aspect: framed ? mediaFrameAspect(framed.type) : null,
   };
 }
 
@@ -158,34 +163,58 @@ export async function saveImagePresentation(
 ): Promise<StoredImageAdjustments> {
   const data = presentationSchema.parse(input);
   const asset = await resolveImage(source);
-  if (data.crop && (!asset.media || asset.media.type === "gallery"))
+  const item = asset.media;
+  if (data.crop && (!item || !mediaFrameAspect(item.type)))
     throw new Error("This image does not support framed cropping");
   const settings = enforceImagePolicy(data.settings, asset.monochrome);
-  const record = {
-    assetKey: asset.assetKey,
-    sources: asset.sources,
-    settings,
-    monochrome: asset.monochrome,
-    updatedAt: new Date(),
-  };
-  await atomic((d) => [
-    d
+
+  if (!item) {
+    const record = {
+      assetKey: asset.assetKey,
+      sources: asset.sources,
+      settings,
+      monochrome: asset.monochrome,
+      updatedAt: new Date(),
+    };
+    await db
       .insert(imageAdjustments)
       .values(record)
-      .onConflictDoUpdate({ target: imageAdjustments.assetKey, set: record }),
-    ...(asset.media
-      ? [
-          d
-            .update(media)
-            .set({
-              ...data.crop,
-              brightness: settings.brightness,
-              contrast: settings.contrast,
-            })
-            .where(eq(media.id, asset.media.id)),
-        ]
-      : []),
-  ]);
+      .onConflictDoUpdate({ target: imageAdjustments.assetKey, set: record });
+    invalidateImages();
+    return record;
+  }
+
+  // A crop is written into new files. The uncropped image is never modified.
+  const crop = data.crop && {
+    x: data.crop.cropX,
+    y: data.crop.cropY,
+    zoom: data.crop.cropZoom,
+  };
+  const files = crop ? await buildDisplayFiles(item, crop) : null;
+  const updated = await commitDisplay(
+    item,
+    files,
+    {
+      brightness: settings.brightness,
+      contrast: settings.contrast,
+      ...(crop && displayFraming(crop)),
+    },
+    { settings, monochrome: asset.monochrome },
+  );
+  if (!updated)
+    throw new Error("This image changed while you edited it. Reload and try again.");
+  invalidateImages();
+  return {
+    assetKey: updated.s3Key,
+    sources: [updated.s3Key, updated.thumbnailS3Key]
+      .filter((k): k is string => !!k)
+      .map(s3ImageSource),
+    settings,
+    monochrome: asset.monochrome,
+  };
+}
+
+function invalidateImages() {
   invalidate(
     CACHE_TAGS.media,
     CACHE_TAGS.works,
@@ -193,5 +222,4 @@ export async function saveImagePresentation(
     CACHE_TAGS.collections,
     CACHE_TAGS.venues,
   );
-  return record;
 }

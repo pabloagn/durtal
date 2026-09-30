@@ -45,6 +45,9 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3", () => ({ deleteFromS3: vi.fn(async () => undefined) }));
+vi.mock("@/lib/s3/references", () => ({
+  deleteUnreferencedS3Keys: vi.fn(async () => true),
+}));
 vi.mock("@/lib/s3/media", () => ({
   processAndUploadMedia: vi.fn(
     async (type: string, id: string, mediaType: string, fileId: string) => ({

@@ -70,13 +70,18 @@ gold/covers/{editionId}/thumb.webp
 bronze/media/{entityType}/{entityId}/{fileId}.{ext}
 gold/media/{entityType}/{entityId}/{mediaType}/{fileId}.webp
 gold/media/{entityType}/{entityId}/{mediaType}/{fileId}_thumb.webp
+gold/media/{entityType}/{entityId}/{mediaType}/{fileId}_original.webp
+gold/media/{entityType}/{entityId}/{mediaType}/{mediaId}_{version}.webp
+gold/media/{entityType}/{entityId}/{mediaType}/{mediaId}_{version}_thumb.webp
+gold/media/{entityType}/{entityId}/{mediaType}/{mediaId}_{version}_uncropped.webp
 ```
 
 Where:
-- `entityType`: `work` or `author`
-- `entityId`: UUID of the work or author
+- `entityType`: `work`, `author` or `collection`
+- `entityId`: UUID of the owner
 - `mediaType`: `poster`, `background`, or `gallery`
 - `fileId`: Generated UUID for the upload
+- `mediaId`, `version`: a new version of a media item's display files, written by a crop or a monochrome re-process (`goldMediaVersionKeys`). Each version has new keys: stored objects are never overwritten. `_uncropped` holds a re-processed image before its crop.
 
 ### Exports
 

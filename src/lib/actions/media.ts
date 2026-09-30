@@ -5,7 +5,7 @@ import { s3ImageSource } from "@/lib/utils/image-adjustments";
 import { eq, and, asc, desc, inArray, not } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
-import { deleteFromS3 } from "@/lib/s3";
+import { deleteUnreferencedS3Keys } from "@/lib/s3/references";
 import type { CreateMediaInput, UpdateMediaInput, UpdateMediaCropInput } from "@/lib/validations/media";
 import { createMediaSchema, updateMediaSchema, updateMediaCropSchema } from "@/lib/validations/media";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -35,6 +35,24 @@ function recordMediaActivity(item: MediaRow, event: string) {
 
 function mediaChanged() {
   invalidate(CACHE_TAGS.works, CACHE_TAGS.media, CACHE_TAGS.collections);
+}
+
+/** Every stored file of a media item: display, uncropped and color original. */
+function mediaFiles(item: MediaRow): string[] {
+  return [item.s3Key, item.thumbnailS3Key, item.uncroppedS3Key, item.originalS3Key].filter(
+    (key): key is string => !!key,
+  );
+}
+
+/** Delete files after their rows are gone. Files another row uses stay. */
+async function deleteMediaFiles(items: MediaRow[]) {
+  const keys = items.flatMap(mediaFiles);
+  try {
+    if (!(await deleteUnreferencedS3Keys(keys)))
+      console.error("Some media files were not deleted", keys);
+  } catch (err) {
+    console.error("Media file cleanup failed", keys, err);
+  }
 }
 
 // ── Queries ─────────────────────────────────────────────────────────────────
@@ -102,19 +120,10 @@ export async function deleteMedia(id: string) {
   const existing = await db.query.media.findFirst({ where: eq(media.id, id) });
   if (!existing) return;
 
-  // Delete S3 objects
-  const deletions = [deleteFromS3(existing.s3Key)];
-  if (existing.thumbnailS3Key) {
-    deletions.push(deleteFromS3(existing.thumbnailS3Key));
-  }
-  if (existing.originalS3Key) {
-    deletions.push(deleteFromS3(existing.originalS3Key));
-  }
-  await Promise.all(deletions);
-
   recordMediaActivity(existing, "deleted");
 
   await db.delete(media).where(eq(media.id, id));
+  await deleteMediaFiles([existing]);
 
   // If the deleted item was active, auto-promote the next one
   if (existing.isActive) {
@@ -136,16 +145,8 @@ export async function bulkDeleteMedia(ids: string[]) {
   const items = await db.query.media.findMany({
     where: inArray(media.id, ids),
   });
-  // Delete S3 objects
-  const deletions: Promise<void>[] = [];
-  for (const item of items) {
-    deletions.push(deleteFromS3(item.s3Key));
-    if (item.thumbnailS3Key) deletions.push(deleteFromS3(item.thumbnailS3Key));
-    if (item.originalS3Key) deletions.push(deleteFromS3(item.originalS3Key));
-  }
-  await Promise.all(deletions);
-  // Delete DB records
   await db.delete(media).where(inArray(media.id, ids));
+  await deleteMediaFiles(items);
   mediaChanged();
 }
 

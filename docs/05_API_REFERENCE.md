@@ -194,11 +194,22 @@ Fetch a single author with works and edition contributions.
 
 ### `DELETE /api/media/[id]`
 
-Delete a media record and its associated S3 objects (both full image and thumbnail).
+Delete a media record, then its S3 objects (full image, thumbnail, uncropped image and color original). An object that another record still references is kept.
 
 **Response** `200`:
 ```json
 { "success": true }
+```
+
+### `POST /api/media/apply-crops`
+
+One-time move of crops saved as CSS framing into cropped files (task 0155). The uncropped image stays at `uncropped_s3_key`. Rows already moved are skipped, so a second run changes nothing. Requires `x-admin-token` when `ADMIN_TOKEN` is set.
+
+**Query**: `dryRun=1` lists the rows and changes nothing. `id=<media id>` limits the run to one item.
+
+**Response** `200`:
+```json
+{ "total": 169, "applied": 168, "unchanged": 1, "failed": [] }
 ```
 
 ### `POST /api/media/process`

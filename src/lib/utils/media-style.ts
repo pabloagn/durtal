@@ -2,8 +2,11 @@
  * Display settings of a media image (poster or background) and the inline
  * style that applies them. Pure module, usable on server and client.
  *
- * Everything is CSS at render time: the S3 file is never modified.
- * - crop: focal point (object-position) and zoom (transform: scale)
+ * Everything here is CSS at render time.
+ * - crop: framing (object-position, and transform: scale for a legacy zoom).
+ *   A crop saved in the editor is written into the image files
+ *   (`src/lib/media/display.ts`) and keeps only its focal point here: it
+ *   moves the image inside its own file, so no view shows what was cut.
  * - brightness / contrast: CSS filter, in percent (100 = unchanged)
  */
 import type { CSSProperties } from "react";
@@ -62,7 +65,8 @@ export function mediaFilter(crop: MediaCrop | null | undefined): string | undefi
 export function mediaImageStyle(crop: MediaCrop | null | undefined): CSSProperties | undefined {
   if (!crop) return undefined;
   const style: CSSProperties = {};
-  if (crop.x !== 50 || crop.y !== 50 || crop.zoom !== 100) {
+  if (crop.x !== 50 || crop.y !== 50) style.objectPosition = `${crop.x}% ${crop.y}%`;
+  if (crop.zoom !== 100) {
     style.objectPosition = `${crop.x}% ${crop.y}%`;
     style.transform = `scale(${crop.zoom / 100})`;
     style.transformOrigin = `${crop.x}% ${crop.y}%`;

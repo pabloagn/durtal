@@ -8,7 +8,7 @@ import {
 import type { MonochromeParams } from "@/lib/validations/media";
 
 /** Per-type max dimensions (generous — we want gorgeous, sharp images) */
-const MEDIA_DIMENSIONS: Record<string, { w: number; h: number }> = {
+export const MEDIA_DIMENSIONS: Record<string, { w: number; h: number }> = {
   poster: { w: 1600, h: 2400 },
   background: { w: 2560, h: 1440 },
   gallery: { w: 2400, h: 2400 },
@@ -140,42 +140,4 @@ export async function processAndUploadAuthorMedia(
   ]);
 
   return { s3Key, thumbnailS3Key, originalS3Key, width: metadata.width ?? 0, height: metadata.height ?? 0 };
-}
-
-/**
- * Re-process an existing author media item from its stored original.
- * Fetches the color original from S3, applies new monochrome params, re-uploads.
- */
-export async function reprocessAuthorMedia(
-  record: { s3Key: string; thumbnailS3Key: string | null; originalS3Key: string },
-  params: MonochromeParams,
-): Promise<{ width: number; height: number }> {
-  const { GetObjectCommand } = await import("@aws-sdk/client-s3");
-  const { s3: s3Client, S3_BUCKET } = await import("./client");
-
-  const obj = await s3Client.send(
-    new GetObjectCommand({ Bucket: S3_BUCKET, Key: record.originalS3Key }),
-  );
-  const bytes = await obj.Body!.transformToByteArray();
-  const originalBuffer = Buffer.from(bytes);
-
-  const sharp = (await import("sharp")).default;
-  const monoBuffer = await applyMonochromeProcessing(originalBuffer, params);
-
-  const fullBuffer = await sharp(monoBuffer).webp({ quality: 90 }).toBuffer();
-  const metadata = await sharp(fullBuffer).metadata();
-
-  const thumbBuffer = await sharp(monoBuffer)
-    .resize(800, 1200, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 82 })
-    .toBuffer();
-
-  await Promise.all([
-    uploadToS3(record.s3Key, fullBuffer, "image/webp"),
-    ...(record.thumbnailS3Key
-      ? [uploadToS3(record.thumbnailS3Key, thumbBuffer, "image/webp")]
-      : []),
-  ]);
-
-  return { width: metadata.width ?? 0, height: metadata.height ?? 0 };
 }

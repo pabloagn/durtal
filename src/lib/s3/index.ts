@@ -27,5 +27,4 @@ export {
   processAndUploadMedia,
   processAndUploadAuthorMedia,
   applyMonochromeProcessing,
-  reprocessAuthorMedia,
 } from "./media";

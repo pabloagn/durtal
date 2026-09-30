@@ -15,6 +15,7 @@ import { relations, sql } from "drizzle-orm";
 import { works } from "./works";
 import { authors } from "./authors";
 import { collections } from "./collections";
+import type { AppliedCrop } from "@/lib/media/crop";
 
 export const media = pgTable(
   "media",
@@ -45,10 +46,17 @@ export const media = pgTable(
     // Active flag — for poster/background, only one active per owner+type
     isActive: boolean("is_active").notNull().default(true),
 
-    // Crop / focal-point positioning (CSS object-position + scale)
+    // Legacy CSS framing (object-position + scale) applied at render time.
+    // A saved crop moves into `appliedCrop` and resets these to the default.
     cropX: real("crop_x").notNull().default(50), // 0-100 horizontal %
     cropY: real("crop_y").notNull().default(50), // 0-100 vertical %
     cropZoom: real("crop_zoom").notNull().default(100), // 100 = no zoom
+
+    // Real crop: s3Key and thumbnailS3Key hold the cropped image. The
+    // full-size image before the crop stays at uncroppedS3Key, never modified.
+    // Both are set, or neither.
+    uncroppedS3Key: text("uncropped_s3_key"),
+    appliedCrop: jsonb("applied_crop").$type<AppliedCrop>(),
 
     // Display adjustments (CSS filter, percent; 100 = unchanged). Like crop,
     // applied at render time only: the S3 file is never modified.
@@ -74,6 +82,10 @@ export const media = pgTable(
     check(
       "media_owner_check",
       sql`num_nonnulls(${t.workId}, ${t.authorId}, ${t.collectionId}) = 1`,
+    ),
+    check(
+      "media_applied_crop_check",
+      sql`num_nonnulls(${t.uncroppedS3Key}, ${t.appliedCrop}) in (0, 2)`,
     ),
     index("media_work_id_type_active_idx").on(t.workId, t.type, t.isActive),
     index("media_author_id_active_idx").on(t.authorId, t.isActive),

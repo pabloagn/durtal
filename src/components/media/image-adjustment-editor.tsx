@@ -15,6 +15,7 @@ import {
   enforceImagePolicy,
   imageAdjustmentFilter,
   imageSourceIdentity,
+  s3ImageSource,
   type ImageAdjustments,
 } from "@/lib/utils/image-adjustments";
 import { useImageAdjustmentUpdate } from "./image-adjustment-provider";
@@ -87,6 +88,8 @@ function LoadedEditor({
   initial: Presentation;
   onSaved?: () => void;
 }) {
+  // A saved crop writes new files, so the image key can change after a save
+  const [source, setSource] = useState(initial.source);
   const [settings, setSettings] = useState(initial.settings);
   const [crop, setCrop] = useState(initial.crop);
   const [active, setActive] = useState("exposure");
@@ -121,10 +124,11 @@ function LoadedEditor({
     savingRef.current = true;
     setSaving(true);
     try {
-      const record = await saveImagePresentation(initial.source, {
+      const record = await saveImagePresentation(source, {
         settings,
         ...(crop ? { crop } : {}),
       });
+      setSource(s3ImageSource(record.assetKey));
       update(record);
       setBaseline({ settings: record.settings, crop });
       setSettings(record.settings);
@@ -186,7 +190,7 @@ function LoadedEditor({
       >
         <img
           data-adjustment-preview
-          src={initial.source}
+          src={initial.preview}
           alt="Image adjustment preview"
           draggable={false}
           className={`h-full w-full ${previewCrop ? "object-cover" : "object-contain"}`}
