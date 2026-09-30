@@ -85,6 +85,7 @@ export {
 export {
   publishingHouses,
   publishingHousesRelations,
+  publisherAliasesRelations,
   publisherSpecialties,
   publisherSpecialtiesRelations,
   publishingHouseSpecialties,
@@ -180,4 +181,5 @@ export {
 } from "./publisher-links";
 
 export { imageAdjustments } from "./image-adjustments";
+export { organizationRoles, organizationRolesRelations, organizationVenues, organizationVenuesRelations } from "./organizations";
 export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects } from "./harmonization";

@@ -216,5 +216,12 @@ passes 718 tests with zero skips, plus five Python ingestion tests. The expanded
 populated fixture also verifies historical custom roles and book domain backfill.
 People directories and the new domain interfaces remain separate delivery work.
 
-See changelog tasks 0155–0158 for scope and verification. SLN-283 (database access
+Shared organizations (SLN-350, migration 0036) retain publisher identities and
+aliases as the canonical root, with an optional book profile and independent
+non-book roles. Legacy publisher APIs and database links require that book
+profile. Organization/venue affiliations support multiple branches and protect
+linked records from deletion. The subsequent full local run passes 728 tests
+across 58 files, zero skipped, plus five Python checks.
+
+See changelog tasks 0155–0159 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

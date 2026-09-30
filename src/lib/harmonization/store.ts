@@ -35,7 +35,7 @@ export async function loadDataset(): Promise<Dataset> {
     config(name);
     return [
       sql`${name}::text`,
-      sql`coalesce((select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from ${ident(name)} r ${name === "works" ? sql`where r.kind = 'book'` : name === "authors" ? sql`where exists (select 1 from person_domains pd where pd.person_id = r.id and pd.kind = 'book')` : sql``}), '[]'::jsonb)`,
+      sql`coalesce((select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from ${ident(name)} r ${name === "works" ? sql`where r.kind = 'book'` : name === "authors" ? sql`where exists (select 1 from person_domains pd where pd.person_id = r.id and pd.kind = 'book')` : name === "publishing_houses" ? sql`where r.kind is not null` : sql``}), '[]'::jsonb)`,
     ];
   });
   const rows = resultRows<{ data: Dataset }>(

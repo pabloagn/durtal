@@ -767,7 +767,15 @@ People or channels who recommended a work. Many-to-many with works via `work_rec
 
 ### `publishing_houses`
 
-Stable publisher identities, including explicitly related imprints. Names are **not unique**: unrelated houses can share a name. Country and website help a person distinguish them. Slugs remain unique and stable across renames.
+Migration `0036_shared_organizations` extends the existing identity row into the
+shared organization root while retaining its physical table name and every
+publisher UUID. Common identity fields and aliases remain in one canonical
+store. The existing `kind`/`parent_id` pair is an optional book profile, not a
+classification for all organizations. Shared APIs use organization terminology;
+legacy publisher readers require a non-null book profile. Names are **not unique**:
+unrelated organizations can share a name. Country and website distinguish them.
+Existing URLs remain stable; new shared identities use a name plus UUID suffix
+for deterministic collision handling under concurrent creation.
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -776,19 +784,56 @@ Stable publisher identities, including explicitly related imprints. Names are **
 | `slug` | TEXT | UNIQUE, NOT NULL |
 | `country` | TEXT | nullable |
 | `country_id` | UUID | FK → `countries.id`, SET NULL |
-| `kind` | TEXT | NOT NULL, default publisher; CHECK permits publisher or imprint |
-| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; required for imprints, NULL for houses |
+| `kind` | TEXT | Nullable book profile: publisher or imprint; legacy default publisher |
+| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; required for imprints, NULL otherwise |
 | `is_favourite` | BOOLEAN | NOT NULL, default false |
 | `notes` | TEXT | Personal collecting notes, nullable |
 | `description` | TEXT | nullable |
 | `website` | TEXT | nullable; web writes accept HTTP(S) URLs |
+| `search_text` | TEXT | GENERATED ALWAYS from search_normalize(name), GIN trigram index |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-A trigger restricts parents to publishing houses (one level; no cycles). Type and parent cannot change once referenced by editions, targets, or child imprints. This avoids reinterpreting historical editions during corporate changes. Sellers remain `venues`, not publisher identities.
+A trigger restricts parents to publishing houses (one level; no cycles). Type
+and parent cannot change once referenced by editions, targets, child imprints or
+publisher specialties. The parent row is locked while validating references.
+Non-publishing organizations explicitly have `kind = NULL` and `parent_id = NULL`;
+shared creation never defaults a museum or retailer to publisher. Foreign-key
+and trigger guards reject them in book publisher links and acquisition targets.
+Shared CRUD and audited merges are transactional. Merges require compatible book
+profiles and country/parent scope; roles, aliases and venue links are preserved.
+The current audit engine retains the internal `publishers` entity key for this
+physical identity. Shared UI/route integration remains downstream work.
 
 ### `publisher_aliases`
 
-`publisher_id` (UUID, FK → publishing_houses, CASCADE) and `name` (TEXT, NOT NULL), composite PK. The same alias may belong to different houses; such a match is ambiguous. Aliases are explicitly maintained on publisher profiles.
+Canonical organization aliases: `publisher_id` (UUID, FK → publishing_houses,
+CASCADE) and `name` (TEXT, NOT NULL), composite PK. The physical legacy name is
+retained. Generated `search_text = search_normalize(name)` has a GIN trigram
+index. The same alias may belong to different identities; shared search presents
+those choices with consistent role-filtered counts and bounded pagination.
+The legacy `publisher_candidates` function considers only book profiles, so a
+same-named museum cannot create an ambiguous book publisher match. Non-publishing
+organization or alias edits do not rematch book editions.
+
+### `organization_roles`
+
+Composite PK `(organization_id, role)`; organization FK → `publishing_houses.id`,
+CASCADE. Allowed roles are `perfume_house`, `brand`, `manufacturer`, `retailer`,
+`production_company`, `distribution_company`, `museum`, `gallery`. A role-leading
+index supports directory filters. Book roles are derived from the canonical
+optional book profile, not duplicated here. An organization may have any number
+of independent roles. A house or brand is not inferred to be its manufacturer or
+retailer. Shared entry requires at least one explicit role; no address is required.
+
+### `organization_venues`
+
+Composite PK `(organization_id, venue_id, role)`, with role `operator` or `owner`.
+Both foreign keys use RESTRICT: deleting an organization or venue cannot silently
+discard its affiliation. An institution can operate multiple branches, and a
+venue can have separate owner and operator organizations. Explicit unlinking
+removes only that affiliation. This relationship does not imply original-art
+custody or ownership. Venue classification and dated retail observations are
+extended by their dedicated tasks.
 
 ### `edition_publishers`
 

@@ -93,6 +93,7 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
         parent_id: null,
         is_favourite: false,
         notes: null,
+        search_text: "nyrb",
       });
       expect([...(await c`select * from edition_publishers`)]).toEqual([
         { edition_id: e.id, publisher_id: p.id },

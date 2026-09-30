@@ -1,6 +1,8 @@
 "use server";
 
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
+import { publisherCondition } from "@/lib/catalogue/publisher-boundary";
+import { assertSql } from "@/lib/harmonization/store";
 
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, or, sql, count } from "drizzle-orm";
@@ -55,6 +57,7 @@ export async function getPublisherOptions() {
       >`(select parent.name from publishing_houses parent where parent.id = "publishing_houses"."parent_id")`,
     })
     .from(houses)
+    .where(publisherCondition)
     .orderBy(asc(houses.name), asc(houses.country), asc(houses.id));
 }
 
@@ -67,7 +70,10 @@ const publisherListSchema = z.object({
   sort: z.enum(["relevance", "name", "editions", "recent"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
   favourites: z.boolean().optional(),
-  kinds: z.array(z.enum(["publisher", "imprint"])).max(2).optional(),
+  kinds: z
+    .array(z.enum(["publisher", "imprint"]))
+    .max(2)
+    .optional(),
   countries: z.array(z.string().max(120)).max(100).optional(),
   page: z.number().int().optional(),
   perPage: z.number().int().optional(),
@@ -89,6 +95,7 @@ export async function getPublishers(options: PublisherListOptions = {}) {
   const defaultOrder = sort === "name" ? "asc" : "desc";
   const dir = (o.order ?? defaultOrder) === "asc" ? asc : desc;
   const where = and(
+    publisherCondition,
     o.favourites ? eq(houses.isFavourite, true) : undefined,
     o.kinds?.length ? inArray(houses.kind, o.kinds) : undefined,
     // A publisher may list several countries ("United States; France")
@@ -102,7 +109,10 @@ export async function getPublishers(options: PublisherListOptions = {}) {
   );
   const orderBy =
     sort === "relevance" && q
-      ? [dir(textSearchRank(publisherHaystack, sql`${houses.name}`, q)), asc(houses.name)]
+      ? [
+          dir(textSearchRank(publisherHaystack, sql`${houses.name}`, q)),
+          asc(houses.name),
+        ]
       : sort === "editions"
         ? [dir(publisherEditionCount), asc(houses.name)]
         : sort === "recent"
@@ -124,13 +134,19 @@ export async function getPublishers(options: PublisherListOptions = {}) {
       .offset(paging.offset),
     db.select({ count: count() }).from(houses).where(where),
   ]);
-  return { rows, total: total.count };
+  return {
+    rows: rows.map((row) => ({
+      ...row,
+      publisher: { ...row.publisher, kind: row.publisher.kind! },
+    })),
+    total: total.count,
+  };
 }
 
 /** Single countries that publishers belong to, for the filter ("United States; France" counts for both). */
 export async function getPublisherCountries() {
   const result = await db.execute(
-    sql`select distinct trim(c) as country from publishing_houses, regexp_split_to_table(country, '\\s*[;/]\\s*') c where trim(c) <> '' order by 1`,
+    sql`select distinct trim(c) as country from publishing_houses, regexp_split_to_table(country, '\\s*[;/]\\s*') c where kind is not null and trim(c) <> '' order by 1`,
   );
   const rows = (Array.isArray(result) ? result : result.rows) as {
     country: string;
@@ -142,7 +158,7 @@ export async function getPublisher(slug: string) {
   const [publisher] = await db
     .select()
     .from(houses)
-    .where(eq(houses.slug, slug));
+    .where(and(publisherCondition, eq(houses.slug, slug)));
   if (!publisher) return null;
   const [aliases, specialties, children, parent] = await Promise.all([
     db
@@ -169,6 +185,7 @@ export async function getPublisher(slug: string) {
   ]);
   return {
     ...publisher,
+    kind: publisher.kind!,
     aliases: aliases.map((a) => a.name),
     specialtyIds: specialties.map((s) => s.id),
     specialties,
@@ -189,8 +206,12 @@ export async function savePublisher(input: PublisherInput, id?: string) {
   const publisherId = id ? z.uuid().parse(id) : randomUUID();
   if (
     id &&
-    !(await db.select({ id: houses.id }).from(houses).where(eq(houses.id, id)))
-      .length
+    !(
+      await db
+        .select({ id: houses.id })
+        .from(houses)
+        .where(and(publisherCondition, eq(houses.id, id)))
+    ).length
   )
     throw new Error("Publisher not found");
   const { aliases, specialtyIds, ...data } = parsed;
@@ -210,6 +231,19 @@ export async function savePublisher(input: PublisherInput, id?: string) {
       .replace(/^-|-$/g, "") || "publisher"
   }-${publisherId.slice(0, 8)}`;
   await atomic((d) => [
+    ...(id
+      ? [
+          d.execute(
+            sql`select id from publishing_houses where id=${publisherId}::uuid for update`,
+          ),
+          d.execute(
+            assertSql(
+              sql`exists (select 1 from publishing_houses where id=${publisherId}::uuid and kind is not null)`,
+              "Publisher not found",
+            ),
+          ),
+        ]
+      : []),
     id
       ? d
           .update(houses)
@@ -250,7 +284,7 @@ export async function setPublisherFavourite(id: string, favourite: boolean) {
   const [row] = await db
     .update(houses)
     .set({ isFavourite: z.boolean().parse(favourite) })
-    .where(eq(houses.id, z.uuid().parse(id)))
+    .where(and(publisherCondition, eq(houses.id, z.uuid().parse(id))))
     .returning({ id: houses.id });
   if (!row) throw new Error("Publisher not found");
   changed();
@@ -404,7 +438,10 @@ export async function getPublisherCatalogue(
   page = 1,
   perPage = 24,
 ) {
-  const paging = parsePagination({ page: String(page), perPage: String(perPage) }, { defaultPerPage: 24 });
+  const paging = parsePagination(
+    { page: String(page), perPage: String(perPage) },
+    { defaultPerPage: 24 },
+  );
   z.uuid().parse(id);
   z.enum(["all", "owned", "wanted", "on_order"]).parse(filter);
   const belongs = sql`exists (select 1 from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where ep.edition_id = ${editions.id} and (p.id = ${id} or p.parent_id = ${id}))`;
@@ -497,7 +534,10 @@ export async function getPublisherCatalogue(
 }
 
 export async function getPublisherReview(page = 1, perPage = 24) {
-  const paging = parsePagination({ page: String(page), perPage: String(perPage) }, { defaultPerPage: 24 });
+  const paging = parsePagination(
+    { page: String(page), perPage: String(perPage) },
+    { defaultPerPage: 24 },
+  );
   const condition = and(
     eq(editions.publisherLinksConfirmed, false),
     sql`exists (select 1 from (values (${editions.publisher}), (${editions.imprint})) names(name) where nullif(trim(name), '') is not null and (select count(*) from publisher_candidates(name)) <> 1)`,

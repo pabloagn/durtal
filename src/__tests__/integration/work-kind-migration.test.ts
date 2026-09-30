@@ -63,6 +63,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   function legacyRows(snapshot: Record<string, Record<string, unknown>[]>) {
     const projected = structuredClone(snapshot);
     for (const work of projected.works) delete work.kind;
+    for (const table of ["publishing_houses", "publisher_aliases"])
+      for (const row of projected[table]) {
+        if ("search_text" in row) {
+          expect(row.search_text).toEqual(expect.any(String));
+          delete row.search_text;
+        }
+      }
     for (const table of ["work_authors", "edition_contributors"])
       for (const credit of projected[table]) {
         if ("id" in credit) {
@@ -79,6 +86,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "person_domains",
       "person_aliases",
       "work_credits",
+      "organization_roles",
+      "organization_venues",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical

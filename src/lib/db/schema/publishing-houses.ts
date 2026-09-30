@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { countries } from "./countries";
+import { organizationRoles, organizationVenues } from "./organizations";
 
 export const publishingHouses = pgTable(
   "publishing_houses",
@@ -22,9 +23,7 @@ export const publishingHouses = pgTable(
     countryId: uuid("country_id").references(() => countries.id, {
       onDelete: "set null",
     }),
-    kind: text("kind", { enum: ["publisher", "imprint"] })
-      .notNull()
-      .default("publisher"),
+    kind: text("kind", { enum: ["publisher", "imprint"] }).default("publisher"),
     parentId: uuid("parent_id").references(
       (): AnyPgColumn => publishingHouses.id,
       { onDelete: "restrict" },
@@ -33,6 +32,9 @@ export const publishingHouses = pgTable(
     notes: text("notes"),
     description: text("description"),
     website: text("website"),
+    searchText: text("search_text").generatedAlwaysAs(
+      sql`search_normalize(name)`,
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -40,9 +42,13 @@ export const publishingHouses = pgTable(
   (t) => [
     index("publishing_houses_name_idx").on(t.name),
     index("publishing_houses_parent_idx").on(t.parentId),
+    index("organization_search_idx").using(
+      "gin",
+      t.searchText.op("gin_trgm_ops"),
+    ),
     check(
       "publisher_kind_parent_check",
-      sql`(${t.kind} = 'publisher' AND ${t.parentId} IS NULL) OR (${t.kind} = 'imprint' AND ${t.parentId} IS NOT NULL AND ${t.parentId} <> ${t.id})`,
+      sql`case when ${t.kind} is null then ${t.parentId} is null else (${t.kind} = 'publisher' AND ${t.parentId} IS NULL) OR (${t.kind} = 'imprint' AND ${t.parentId} IS NOT NULL AND ${t.parentId} <> ${t.id}) end`,
     ),
   ],
 );
@@ -54,10 +60,17 @@ export const publisherAliases = pgTable(
       .notNull()
       .references(() => publishingHouses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    searchText: text("search_text").generatedAlwaysAs(
+      sql`search_normalize(name)`,
+    ),
   },
   (t) => [
     primaryKey({ columns: [t.publisherId, t.name] }),
     index("publisher_aliases_name_idx").on(t.name),
+    index("organization_alias_search_idx").using(
+      "gin",
+      t.searchText.op("gin_trgm_ops"),
+    ),
   ],
 );
 
@@ -69,6 +82,19 @@ export const publishingHousesRelations = relations(
       references: [countries.id],
     }),
     publishingHouseSpecialties: many(publishingHouseSpecialties),
+    roles: many(organizationRoles),
+    venues: many(organizationVenues),
+    aliases: many(publisherAliases),
+  }),
+);
+
+export const publisherAliasesRelations = relations(
+  publisherAliases,
+  ({ one }) => ({
+    organization: one(publishingHouses, {
+      fields: [publisherAliases.publisherId],
+      references: [publishingHouses.id],
+    }),
   }),
 );
 
