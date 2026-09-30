@@ -64,7 +64,7 @@ describe.skipIf(!url)("shared personal curation", () => {
     ids = {} as typeof ids;
     for (const kind of WORK_KINDS) {
       const [work] =
-        await c`insert into works(title,kind,notes,rating) values (${kind},${kind},'Curated note',4) returning id`;
+        await c`insert into works(title,kind,notes,rating,original_language) values (${kind},${kind},'Curated note',4,${kind === "book" ? "en" : null}) returning id`;
       ids[kind] = work.id;
     }
     const [recommender] =

@@ -85,7 +85,7 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
   beforeEach(async () => {
     await c`truncate works, authors, activity_events, comments, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
     const works =
-      await c`insert into works(title,slug,kind) values ('A book','a-book','book'),('A film','a-film','film'),('A fragrance','a-fragrance','perfume'),('A painting','a-painting','painting') returning id,kind`;
+      await c`insert into works(title,slug,kind,original_language) values ('A book','a-book','book','en'),('A film','a-film','film',null),('A fragrance','a-fragrance','perfume',null),('A painting','a-painting','painting',null) returning id,kind`;
     work = Object.fromEntries(works.map((w) => [w.kind, w.id]));
     const [edition] =
       await c`insert into editions(work_id,title) values (${work.book},'Translation') returning id`;

@@ -39,6 +39,64 @@ scans exclude other kinds, and executable book merges require two books.
 
 ---
 
+## Perfume domain model
+
+Migration `0040_perfume_model` adds a fragrance profile, formulations and personal
+containers. The domain remains disabled pending its services, UI and release gates.
+
+| Table | Key and relationships | Purpose |
+| --- | --- | --- |
+| `perfume_details` | Work UUID PK/FK; release/discontinuation date values and source | A profile may belong only to a perfume work |
+| `perfume_variants` | UUID; fragrance FK; concentration/label, formulation label; dates/source; perfumer override | Unknown concentration/formulation remain null; null-aware identity uniqueness prevents exact duplicate variants |
+| `perfume_organizations` | `(work_id, organization_id, role)`; ordered, optionally sourced | Explicit house, brand and manufacturer links require matching organization roles |
+| `perfume_notes` | `(work_id, item_id, position)`; order/source | Top, heart, base and unspecified notes use the perfume-note vocabulary |
+| `perfume_variant_overrides` | `(variant_id, family_id)` | Declares replacement for one applicable taxonomy family, even when intentionally empty |
+| `perfume_variant_taxa` | `(variant_id, item_id)`; source | Variant family/accord/custom classification under an explicit override |
+| `perfume_variant_notes` | `(variant_id, item_id, position)`; order/source | Positioned notes under the variant's perfume-note override |
+| `perfume_variant_perfumers` | UUID; variant/person FKs; credited-as, attribution, order, notes/source | Formulation-specific perfumers may replace inherited work perfumers; unknown/anonymous credits need no dummy person |
+| `perfume_bottles` | UUID; variant FK; container kind, quantities, status, location, acquisition and disposition | Personal bottle, sample or decant; size never creates a new work or formulation |
+
+Variant perfumers inherit the fragrance's ordered `perfume.perfumer` work credits
+unless `perfumers_override` is true. An explicit empty override means no attributed
+perfumer for that formulation. Variant credits retain stable UUIDs and credited-as
+text through person merges and protect people from deletion. Linking a person
+registers their perfume domain. Generic creative-director and other work credits
+remain in the shared credit model.
+
+Taxonomy inheritance is independently controlled per family: absent override means
+inherit; present override means use only variant assignments, including none.
+Notes are stored only in the positioned note tables, never a competing generic
+work/variant assignment. Family, domain and level checks protect every assignment.
+Used applicability scopes, vocabularies and nonempty overrides cannot be removed.
+Read helpers resolve effective classification and perfumers without per-item queries.
+
+Every source FK must reference an observation owned by the same perfume work.
+Release/discontinuation and acquisition/disposition dates reject definitely reversed
+intervals while preserving partial precision. Date value objects become immutable;
+editing a typed date creates and references a replacement, so another record cannot
+silently acquire changed dates. Profile/formulation work identity cannot be changed
+through ordinary updates.
+
+Containers retain capacity value/unit (ml or l), generated capacity ml, optional
+remaining ml, batch, condition, notes and personal holding status. Values support
+0.001 ml precision, including fractional-liter samples; unknown remaining quantity
+stays null. Capacity is positive and remaining amount is bounded by it. An empty
+retained bottle and a disposed bottle are distinct. Typed database projections feed
+the shared holdings contract; no edition or book instance is involved.
+
+Optional storage references a physical personal location and a matching sublocation;
+neither is fabricated when unknown. Acquisition references a date value, retailer
+organization, venue, and paired nonnegative price/currency. Disposition has its own
+date and reason. Referenced supplier roles, venues and locations are protected;
+location edits cannot turn a perfume shelf into digital storage. A variant or work
+with containers cannot be deleted implicitly. Typed order links remain SLN-374.
+
+The shared `works.original_language` column is now nullable, with a domain check:
+books retain their non-null language and legacy English insert default, while
+non-books must explicitly store null. Domain language information belongs in typed
+profiles, not a fabricated book language. Existing book detail APIs validate and
+narrow this invariant, preserving their return contracts and UI callers.
+
 ## Personal curation and holdings contracts
 
 Migration `0039_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT

@@ -133,18 +133,16 @@ export async function createPerson(input: CreatePersonInput) {
           );
     try {
       await atomic((d) => [
-        d
-          .insert(authors)
-          .values({
-            ...fields,
-            id,
-            slug,
-            sortName: fields.sortName ?? defaultSortName(fields.name),
-            zodiacSign: computeZodiacSign(
-              fields.birthMonth ?? 0,
-              fields.birthDay ?? 0,
-            ),
-          }),
+        d.insert(authors).values({
+          ...fields,
+          id,
+          slug,
+          sortName: fields.sortName ?? defaultSortName(fields.name),
+          zodiacSign: computeZodiacSign(
+            fields.birthMonth ?? 0,
+            fields.birthDay ?? 0,
+          ),
+        }),
         // Legacy inserts default to book membership. Shared creation supplies its
         // explicit domains in this same transaction, so no transient row is visible.
         d.delete(personDomains).where(eq(personDomains.personId, id)),
@@ -162,14 +160,12 @@ export async function createPerson(input: CreatePersonInput) {
                 ),
             ]
           : []),
-        d
-          .insert(activityEvents)
-          .values({
-            entityType: "author",
-            entityId: id,
-            eventKey: "author.created",
-            metadata: { newValue: fields.name },
-          }),
+        d.insert(activityEvents).values({
+          entityType: "author",
+          entityId: id,
+          eventKey: "author.created",
+          metadata: { newValue: fields.name },
+        }),
       ]);
       changed();
       return { id, slug };
@@ -230,14 +226,12 @@ export async function updatePerson(id: string, input: UpdatePersonInput) {
           d.delete(personAliases).where(eq(personAliases.personId, id)),
           ...(aliases.length
             ? [
-                d
-                  .insert(personAliases)
-                  .values(
-                    [...new Set(aliases)].map((name) => ({
-                      personId: id,
-                      name,
-                    })),
-                  ),
+                d.insert(personAliases).values(
+                  [...new Set(aliases)].map((name) => ({
+                    personId: id,
+                    name,
+                  })),
+                ),
               ]
             : []),
         ]
@@ -260,7 +254,7 @@ export async function deletePerson(id: string) {
     ),
     d.execute(
       assertSql(
-        sql`not exists (select 1 from work_credits where person_id = ${id}::uuid) and not exists (select 1 from work_authors where author_id = ${id}::uuid) and not exists (select 1 from edition_contributors where author_id = ${id}::uuid)`,
+        sql`not exists (select 1 from work_credits where person_id = ${id}::uuid) and not exists (select 1 from perfume_variant_perfumers where person_id = ${id}::uuid) and not exists (select 1 from work_authors where author_id = ${id}::uuid) and not exists (select 1 from edition_contributors where author_id = ${id}::uuid)`,
         "Remove this person's credits before deleting the identity",
       ),
     ),

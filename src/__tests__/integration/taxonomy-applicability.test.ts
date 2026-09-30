@@ -74,7 +74,7 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     await c`truncate works,subjects,genres,tags,themes,book_categories,art_types,custom_taxonomy_items,harmonization_operations,harmonization_redirects cascade`;
     await c`delete from taxonomy_families where not is_system`;
     const rows =
-      await c`insert into works(title,slug,kind) values ('Book','book','book'),('Film','film','film'),('Perfume','perfume','perfume'),('Painting','painting','painting') returning id,kind`;
+      await c`insert into works(title,slug,kind,original_language) values ('Book','book','book','en'),('Film','film','film',null),('Perfume','perfume','perfume',null),('Painting','painting','painting',null) returning id,kind`;
     work = Object.fromEntries(rows.map((r) => [r.kind, r.id]));
     const [edition] =
       await c`insert into editions(work_id,title) values (${work.book},'Edition') returning id`;

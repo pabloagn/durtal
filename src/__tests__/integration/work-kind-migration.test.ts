@@ -122,6 +122,15 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "catalogue_dates",
       "catalogue_identifiers",
       "source_records",
+      "perfume_details",
+      "perfume_variants",
+      "perfume_organizations",
+      "perfume_notes",
+      "perfume_variant_notes",
+      "perfume_variant_overrides",
+      "perfume_variant_taxa",
+      "perfume_bottles",
+      "perfume_variant_perfumers",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -343,7 +352,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     const accepted: string[] = [];
     for (const kind of WORK_KINDS) {
       try {
-        await c`insert into works(title,kind) values ('Readiness probe',${kind})`;
+        await c`insert into works(title,kind,original_language) values ('Readiness probe',${kind},${kind === "book" ? "en" : null})`;
         accepted.push(kind);
       } catch (error) {
         expect(error).toMatchObject({

@@ -83,7 +83,7 @@ describe.skipIf(!url)("typed provenance and uncertain dates", () => {
     owners = {} as typeof owners;
     for (const kind of ["book", "film", "perfume", "painting"] as const) {
       const [row] =
-        await c`insert into works(title,slug,kind) values (${kind},${kind},${kind}) returning id`;
+        await c`insert into works(title,slug,kind,original_language) values (${kind},${kind},${kind},${kind === "book" ? "en" : null}) returning id`;
       owners[kind] = { kind, id: row.id };
     }
     const [edition] =

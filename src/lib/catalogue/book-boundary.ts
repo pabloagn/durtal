@@ -3,6 +3,23 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { works } from "@/lib/db/schema";
 import { kindsWithCapability } from "./domains";
+import type { WorkKind } from "./kinds";
+
+/** Narrow the schema's shared nullable language at the existing book API boundary. */
+export function bookResult<
+  T extends { kind: WorkKind; originalLanguage: string | null },
+>(row: T | undefined) {
+  if (!row) return null;
+  if (row.kind !== "book" || row.originalLanguage === null)
+    throw new Error(
+      "Invalid book language or domain at the catalogue boundary",
+    );
+  return {
+    ...row,
+    kind: "book" as const,
+    originalLanguage: row.originalLanguage,
+  };
+}
 
 /** The legacy library is a book adapter; domain-neutral code must not use this. */
 export const bookCondition = eq(works.kind, "book");

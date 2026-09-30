@@ -243,5 +243,13 @@ domain. Persistent non-book projections will be connected in their model tasks.
 The full local suite passes 795 tests across 63 files, zero skipped, plus five
 Python checks, including the Neon curation transaction contract.
 
-See changelog tasks 0155–0162 for scope and verification. SLN-283 (database access
+The perfume relational model (SLN-356, migration 0040) now separates fragrance,
+formulation/concentration and personal containers. Positioned notes, family and
+perfumer inheritance, sourced partial dates and real inventory projections are
+implemented. Non-book roots no longer receive a fictional book language. The full
+local suite passes 817 tests across 65 files, zero skipped, plus five Python checks.
+Perfume services, retailer observations, screens and activation remain their own
+delivery gates.
+
+See changelog tasks 0155–0163 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

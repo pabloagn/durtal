@@ -127,10 +127,10 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
     await c`insert into work_authors(work_id,author_id,role) values (${books[0]},${a[0].id},'author'), (${books[1]},${a[1].id},'author')`;
     // Newer, higher-rated non-books would displace books if filtering happened after paging.
     others =
-      await c`insert into works(title,slug,kind,original_year,rating,catalogue_status,is_poison,created_at) values
-      ('Shared title','film-one','film',2001,5,'tracked',true,now()+interval '1 day'),
-      ('Shared title','perfume-one','perfume',2001,5,'tracked',true,now()+interval '2 days'),
-      ('Shared title','painting-one','painting',2001,5,'tracked',true,now()+interval '3 days') returning id,kind,slug`;
+      await c`insert into works(title,slug,kind,original_language,original_year,rating,catalogue_status,is_poison,created_at) values
+      ('Shared title','film-one','film',null,2001,5,'tracked',true,now()+interval '1 day'),
+      ('Shared title','perfume-one','perfume',null,2001,5,'tracked',true,now()+interval '2 days'),
+      ('Shared title','painting-one','painting',null,2001,5,'tracked',true,now()+interval '3 days') returning id,kind,slug`;
     [recommender] = (
       await c`insert into recommenders(name) values ('Reader') returning id`
     ).map((r) => r.id);

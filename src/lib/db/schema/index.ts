@@ -182,6 +182,7 @@ export {
 
 export { imageAdjustments } from "./image-adjustments";
 export { catalogueIdentifiers, sourceRecords, sourceRecordsRelations, catalogueDates } from "./provenance";
+export * from "./perfumes";
 export { taxonomyApplicability, taxonomyApplicabilityRelations } from "./taxonomy-applicability";
 export { organizationRoles, organizationRolesRelations, organizationVenues, organizationVenuesRelations } from "./organizations";
 export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects } from "./harmonization";

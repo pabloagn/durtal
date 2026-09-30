@@ -2,7 +2,11 @@
 
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
-import { bookCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
+import {
+  bookCondition,
+  requireBookWork,
+  bookResult,
+} from "@/lib/catalogue/book-boundary";
 
 import {
   publisherWorkCondition,
@@ -463,7 +467,7 @@ export async function getWork(id: string) {
     },
   });
 
-  return result ?? null;
+  return bookResult(result);
 }
 
 export async function getWorkBySlug(slug: string) {
@@ -512,7 +516,7 @@ export async function getWorkBySlug(slug: string) {
     },
   });
 
-  return result ?? null;
+  return bookResult(result);
 }
 
 /**
