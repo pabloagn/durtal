@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import {
   getPublisher,
-  getPublisherOptions,
   getPublisherSpecialties,
 } from "@/lib/actions/publishers";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,9 +11,8 @@ export default async function EditPublisherPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [publisher, options, specialties] = await Promise.all([
+  const [publisher, specialties] = await Promise.all([
     getPublisher(slug),
-    getPublisherOptions(),
     getPublisherSpecialties(),
   ]);
   if (!publisher) notFound();
@@ -23,7 +21,7 @@ export default async function EditPublisherPage({
       <PageHeader title={`Edit ${publisher.name}`} />
       <PublisherEditor
         publisher={publisher}
-        options={options}
+        parent={publisher.parent}
         specialties={specialties}
       />
     </>

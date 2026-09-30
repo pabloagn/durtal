@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
@@ -134,12 +135,12 @@ export function Pagination({
   ) {
     return disabled ? (
       <button type="button" className={control} disabled aria-label={label}>
-        {icon}
+        <CapAligned height={14}>{icon}</CapAligned>
         <span>{label}</span>
       </button>
     ) : (
       <Link className={control} href={href(p)} rel={rel} aria-label={label}>
-        {icon}
+        <CapAligned height={14}>{icon}</CapAligned>
         <span>{label}</span>
       </Link>
     );

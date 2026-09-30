@@ -139,7 +139,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
 | `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (format: `{title}-by-{author}`) |
-| `original_language` | TEXT | NOT NULL, default `'en'` | ISO 639-1 code |
+| `original_language` | TEXT | NOT NULL, default `'en'` | Language code; stored form set by trigger (see `languages`) |
 | `original_year` | SMALLINT | nullable | Year of first publication |
 | `description` | TEXT | nullable | Synopsis or summary |
 | `series_name` | TEXT | nullable | Series title (deprecated; migrating to `series_id` FK) |
@@ -195,7 +195,7 @@ A specific published form of a work. Carries all publication-level metadata.
 | `is_first_edition` | BOOLEAN | NOT NULL, default `false` | |
 | `is_limited_edition` | BOOLEAN | NOT NULL, default `false` | |
 | `limited_edition_count` | INTEGER | nullable | Total copies in limited run |
-| `language` | TEXT | NOT NULL, default `'en'` | ISO 639-1 code |
+| `language` | TEXT | NOT NULL, default `'en'` | Language code; stored form set by trigger (see `languages`) |
 | `is_translated` | BOOLEAN | NOT NULL, default `false` | |
 | `page_count` | INTEGER | nullable | |
 | `binding` | TEXT | nullable | See `BINDING_TYPES` enum |
@@ -512,6 +512,8 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 
 Normalized language reference data. ISO 639-1/2/3 compliant.
 
+**Stored language codes** (migration 0035): `editions.language` and `works.original_language` hold one form per language: the ISO 639-1 code when the language has one (`en`), otherwise ISO 639-3 (`grc`). The function `language_code(text)` resolves any code of a `languages` row (639-2 B or T: `fre`, `fra`), a regional tag (`en-US`, `en_GB`) or the English name (`English`), case-insensitively; it returns NULL for unknown values and for values that name two languages. BEFORE INSERT/UPDATE triggers on both columns store the resolved code. A value the table does not know is kept only when it already has the form of a code (2–3 lowercase letters), so a database without reference data still accepts codes; other text is rejected (`check_violation`). The app shows English names (`src/lib/utils/language.ts`).
+
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | UUID | PK |
@@ -688,6 +690,50 @@ A trigger restricts parents to publishing houses (one level; no cycles). Type an
 `edition_id` (UUID, FK → editions, CASCADE) and `publisher_id` (UUID, FK → publishing_houses, RESTRICT), composite PK; publisher lookup index. Supports co-publishing and imprint associations without duplicated editions. Parent views include directly linked imprints; an imprint view does not include siblings. All counts de-duplicate edition/work IDs.
 
 Migration 0025 adds exact matching at the database boundary for web, API and Python writes. `publisher_name_key` trims and collapses whitespace, then lowercases. Only one globally unique name/alias candidate links automatically. No fuzzy matching, inferred imprint membership, or source-text rewrites. Publisher/alias changes recompute unconfirmed links, including removing links that become ambiguous. `set_edition_publishers` locks the edition and atomically replaces links; `publisher_links_confirmed` prevents imports/rematching from altering them. The review page identifies unmatched or ambiguous nonempty source fields; missing text remains unknown.
+
+Migration 0034 extends the matching. Names in `ignored_publisher_names` are skipped. When neither the publisher nor the imprint text identifies exactly one house, the longest `publisher_isbn_prefixes` rule that starts the edition's ISBN links it (`edition_isbn_digits` reads `isbn_13`, or `978` + the first nine digits of `isbn_10`). ISBN changes now recompute an edition's links, and rule or ignored-name changes recompute every unconfirmed edition. Name matches always win over ISBN rules.
+
+The publisher names inbox (`/publishers/review`, `src/lib/actions/publisher-names.ts`) groups unconfirmed editions without a house by publisher/imprint text (`publisher_name_key`). It suggests a house by similar name (company words, accents, punctuation and parentheses removed; aliases included) and by ISBN publisher prefix (`isbn3` ranges; linked books of exactly one house share the prefix). One decision applies to every edition with the name: link (saves an alias; an ambiguous name, or an ISBN-only suggestion, confirms each edition instead), create a house, or mark the name as not a publisher. Saving the editions' ISBN prefixes as rules is optional; it is skipped for a prefix that books of another house already use.
+
+### `publisher_isbn_prefixes`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `prefix` | TEXT | PK; CHECK `^97[89][0-9]{2,10}$` (digits of GS1 prefix, group and registrant, e.g. `978159017`) |
+| `publisher_id` | UUID | NOT NULL, FK → `publishing_houses.id`, CASCADE; indexed |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+Edited as "ISBN prefixes" on publisher profiles (hyphens allowed on input) and saved from the inbox.
+
+### `ignored_publisher_names`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `name_key` | TEXT | PK; CHECK `name_key = publisher_name_key(name)` |
+| `name` | TEXT | NOT NULL; display spelling |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+Publisher text that names no publisher (a distributor or a printer). Such text never matches a house; the edition's ISBN rule still applies. Restored from the inbox.
+
+### `publisher_auto_decisions`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `name_key` | TEXT | NOT NULL, UNIQUE (`publisher_name_key` of the name) |
+| `name` | TEXT | NOT NULL; the source spelling |
+| `action` | TEXT | NOT NULL; CHECK `alias` or `create` |
+| `publisher_id` | UUID | FK → `publishing_houses.id`, SET NULL; indexed |
+| `reason` | TEXT | NOT NULL; the evidence shown to the reader |
+| `edition_count` | INTEGER | NOT NULL; editions that carried the name then |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+| `undone_at` | TIMESTAMPTZ | nullable |
+
+Log of automatic publisher decisions (`src/lib/publishers/resolution.ts`). When an edition is created, rematched or edited (publisher, imprint or ISBN), and from the inbox's "Apply safe decisions", a name without a house is decided only when it is safe:
+- **alias**: exactly one house has a similar loose name, the ISBNs point at no other house, the name passes the guardrails and the edition titles match their works;
+- **create**: no house is similar or related (shared two-word phrase or distinctive first word), every edition has a valid ISBN that no house uses, the name spans at most two ISBN publishers, no other new name shares its ISBN, spellings of one new name share one house, close new names are held, the name passes the guardrails and the titles match. The house gets the cleaned name ("Dedalus" for "Dedalus Limited"); the source spelling becomes its alias. At most 20 houses per 24 hours on the add-a-book path.
+
+Guardrails hold placeholders, print-on-demand platforms, distributors and parent labels, cut-off or multi-name text, web addresses, numbers and names equal to the book's author. Automatic decisions never save ISBN rules. Undo removes the alias, or deletes the created house with its automatic links while nothing else depends on it (no confirmed links, targets, imprints, rules, specialties or added details, and not a merge survivor). A name with a logged decision, undone or not, is never decided automatically again.
 
 ### `acquisition_targets`
 
@@ -1196,6 +1242,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `contribution_types` | `author_contribution_types` | CASCADE |
 | `publishing_houses` | `publishing_house_specialties` | CASCADE |
 | `publisher_specialties` | `publishing_house_specialties` | CASCADE |
+| `publishing_houses` | `publisher_isbn_prefixes` | CASCADE |
+| `publishing_houses` | `publisher_auto_decisions` | SET NULL |
 | `countries` | `publishing_houses.country_id` | SET NULL |
 | `series` | `works.series_id` | SET NULL |
 | `work_types` | `works.work_type_id` | SET NULL |
@@ -1221,7 +1269,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Taxonomy (work) | `subjects`, `book_categories`, `literary_movements`, `themes`, `art_types`, `art_movements`, `keywords`, `attributes` | `work_subjects`, `work_categories`, `work_literary_movements`, `work_themes`, `work_art_types`, `work_art_movements`, `work_keywords`, `work_attributes` |
 | Recommenders | `recommenders` | `work_recommenders` |
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
-| Publishing | `publishing_houses`, `publisher_specialties` | `publishing_house_specialties` |
+| Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |

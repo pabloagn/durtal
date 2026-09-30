@@ -6,23 +6,24 @@ import { savePublisher } from "@/lib/actions/publishers";
 import type { PublisherInput } from "@/lib/validations/publishers";
 import { Button } from "@/components/ui/button";
 import {
-  PublisherPicker,
+  PublisherChoice,
   fieldClass,
   type PublisherOption,
 } from "./publisher-picker";
 export function PublisherEditor({
   publisher,
-  options,
+  parent: initialParent = null,
   specialties,
 }: {
   publisher?: PublisherInput & { id: string };
-  options: PublisherOption[];
+  /** The current parent house of an imprint */
+  parent?: PublisherOption | null;
   specialties: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [kind, setKind] = useState(publisher?.kind ?? "publisher");
-  const [parent, setParent] = useState(publisher?.parentId ?? "");
+  const [parent, setParent] = useState<PublisherOption | null>(initialParent);
   const [chosen, setChosen] = useState(publisher?.specialtyIds ?? []);
   const [specialtySearch, setSpecialtySearch] = useState("");
   function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -39,8 +40,12 @@ export function PublisherEditor({
             description: text("description") || null,
             notes: text("notes") || null,
             kind,
-            parentId: kind === "imprint" ? parent : null,
+            parentId: kind === "imprint" ? (parent?.id ?? null) : null,
             aliases: text("aliases")
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean),
+            isbnPrefixes: text("isbnPrefixes")
               .split("\n")
               .map((s) => s.trim())
               .filter(Boolean),
@@ -97,11 +102,10 @@ export function PublisherEditor({
           </label>
         </div>
         {kind === "imprint" && (
-          <PublisherPicker
+          <PublisherChoice
             label="Parent publisher"
-            options={options.filter(
-              (p) => p.kind === "publisher" && p.id !== publisher?.id,
-            )}
+            kinds={["publisher"]}
+            exclude={publisher ? [publisher.id] : []}
             value={parent}
             onChange={setParent}
           />
@@ -113,6 +117,11 @@ export function PublisherEditor({
             "aliases",
             "Alternative names (one per line)",
             publisher?.aliases?.join("\n"),
+          ],
+          [
+            "isbnPrefixes",
+            "ISBN prefixes (one per line): books with them and no known publisher name link here",
+            publisher?.isbnPrefixes?.join("\n"),
           ],
         ].map(([name, label, value]) => (
           <label

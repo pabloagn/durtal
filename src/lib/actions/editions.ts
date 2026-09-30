@@ -16,6 +16,8 @@ import {
 } from "@/lib/validations";
 import { processAndUploadCover } from "@/lib/s3/covers";
 import { recordActivity } from "@/lib/activity/record";
+import { normalizeLanguage } from "@/lib/utils/language";
+import { autoResolveEditions } from "@/lib/publishers/resolution";
 
 export async function getEdition(id: string) {
   return db.query.editions.findFirst({
@@ -146,6 +148,9 @@ export async function createEdition(input: CreateEditionInput) {
     editionIsbn: edition.isbn13 ?? undefined,
   });
 
+  // A publisher name no house knows yet is decided when it is safe
+  await autoResolveEditions([edition.id]);
+
   return { ...edition, ...coverKeys };
 }
 
@@ -246,6 +251,13 @@ export async function updateEdition(
     recordActivity("work", workId, "work.edition_updated", { targetId: id });
   }
 
+  // A new publisher text or ISBN gets the same safe automatic decision
+  if (
+    ["publisher", "imprint", "isbn13", "isbn10"].some((k) => k in parsed) &&
+    publisherIds === undefined
+  )
+    await autoResolveEditions([id]);
+
   return { id };
 }
 
@@ -306,6 +318,8 @@ export async function rematchEdition(
     throw new Error("Unlock this edition before refreshing metadata");
   // Fetch full metadata from the source API
   let coverUrl: string | undefined;
+  // The source's language ("eng", "English"); an unknown one keeps the current
+  let language: string | undefined;
   const updates: Record<string, unknown> = {
     metadataSource: source,
     metadataLastFetched: new Date(),
@@ -331,7 +345,7 @@ export async function rematchEdition(
       updates.publisher = r.publisher ?? null;
       updates.publicationYear = r.publicationYear ?? null;
       updates.pageCount = r.pageCount ?? null;
-      updates.language = r.language ?? "en";
+      language = r.language;
       updates.isbn13 = r.isbn13 ?? null;
       updates.isbn10 = r.isbn10 ?? null;
       updates.description = r.description ?? null;
@@ -347,7 +361,7 @@ export async function rematchEdition(
         ? parseInt(info.publishedDate.match(/^(\d{4})/)?.[1] ?? "0", 10) || null
         : null;
       updates.pageCount = info.pageCount ?? null;
-      updates.language = info.language ?? "en";
+      language = info.language;
       const identifiers: { type: string; identifier: string }[] =
         info.industryIdentifiers ?? [];
       updates.isbn13 =
@@ -389,19 +403,9 @@ export async function rematchEdition(
       updates.publicationYear = yearMatch ? parseInt(yearMatch[1], 10) : null;
     }
     if (data.number_of_pages) updates.pageCount = data.number_of_pages;
-    if (data.languages?.[0]?.key) {
-      const langKey = data.languages[0].key;
-      // "/languages/eng" -> "en"
-      const langMap: Record<string, string> = {
-        eng: "en",
-        fra: "fr",
-        deu: "de",
-        spa: "es",
-        ita: "it",
-      };
-      const code = langKey.split("/").pop() ?? "";
-      updates.language = langMap[code] ?? code;
-    }
+    // "/languages/eng" -> "eng"
+    if (data.languages?.[0]?.key)
+      language = String(data.languages[0].key).split("/").pop();
     if (data.isbn_13) updates.isbn13 = data.isbn_13[0] ?? null;
     if (data.isbn_10) updates.isbn10 = data.isbn_10[0] ?? null;
 
@@ -429,7 +433,7 @@ export async function rematchEdition(
     updates.publisher = result.publisher ?? null;
     updates.publicationYear = result.publicationYear ?? null;
     updates.pageCount = result.pageCount ?? null;
-    updates.language = result.language ?? "en";
+    language = result.language;
     updates.isbn13 = result.isbn13 ?? null;
     updates.isbn10 = result.isbn10 ?? null;
     updates.description = result.description ?? null;
@@ -437,6 +441,9 @@ export async function rematchEdition(
   } else {
     throw new Error(`Unsupported source: ${source}`);
   }
+
+  const languageCode = normalizeLanguage(language);
+  if (languageCode) updates.language = languageCode;
 
   // Process cover if a new URL was found
   if (coverUrl) {
@@ -450,6 +457,7 @@ export async function rematchEdition(
 
   // Apply the update
   await db.update(editions).set(updates).where(eq(editions.id, editionId));
+  await autoResolveEditions([editionId]);
 
   // Return the updated edition
   const updated = await db.query.editions.findFirst({

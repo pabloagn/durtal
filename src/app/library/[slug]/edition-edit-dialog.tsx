@@ -34,8 +34,8 @@ function editionToFormValues(edition: EditionWithRelations): EditionFormValues {
     openLibraryKey: edition.openLibraryKey ?? "",
     googleBooksId: edition.googleBooksId ?? "",
     goodreadsId: edition.goodreadsId ?? "",
-    publisherIds: edition.publisherLinksConfirmed
-      ? (edition.publisherLinks?.map((l) => l.publisher.id) ?? [])
+    publishers: edition.publisherLinksConfirmed
+      ? (edition.publisherLinks?.map((l) => l.publisher) ?? [])
       : undefined,
     publisher: edition.publisher ?? "",
     imprint: edition.imprint ?? "",
@@ -118,7 +118,7 @@ export function EditionEditDialog({
         openLibraryKey: values.openLibraryKey || null,
         googleBooksId: values.googleBooksId || null,
         goodreadsId: values.goodreadsId || null,
-        publisherIds: values.publisherIds,
+        publisherIds: values.publishers?.map((p) => p.id),
         publisher: values.publisher || null,
         imprint: values.imprint || null,
         publicationYear: values.publicationYear

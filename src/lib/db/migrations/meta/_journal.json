@@ -239,6 +239,20 @@
       "when": 1790778172560,
       "tag": "0033_media_applied_crop",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790795226312,
+      "tag": "0034_publisher_name_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790795246376,
+      "tag": "0035_language_codes",
+      "breakpoints": true
     }
   ]
 }

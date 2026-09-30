@@ -19,6 +19,16 @@ export const publisherSchema = z
     kind: z.enum(["publisher", "imprint"]).default("publisher"),
     parentId: z.uuid().nullable().optional(),
     aliases: z.array(z.string().trim().min(1).max(200)).max(100).default([]),
+    /** ISBN publisher prefixes ("978-1-59017"); undefined leaves the saved rules */
+    isbnPrefixes: z
+      .array(
+        z
+          .string()
+          .transform((v) => v.replace(/[^0-9]/g, ""))
+          .pipe(z.string().regex(/^97[89][0-9]{2,10}$/, "Use an ISBN prefix such as 978-1-59017")),
+      )
+      .max(100)
+      .optional(),
     specialtyIds: z.array(z.uuid()).max(100).default([]),
   })
   .refine(

@@ -21,6 +21,8 @@ import {
   locations,
   orders,
   countries,
+  publisherIsbnPrefixes,
+  publisherAutoDecisions,
 } from "@/lib/db/schema";
 import {
   publisherSchema,
@@ -30,6 +32,8 @@ import {
 } from "@/lib/validations/publishers";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { targetState } from "@/lib/publishers/conditions";
+import type { PosterImage } from "@/lib/utils/edition-image";
+import { isbnPrefixLabel, publisherSlug } from "@/lib/publishers/names";
 import {
   textSearchCondition,
   textSearchRank,
@@ -39,25 +43,71 @@ function changed() {
   invalidate(CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.orders);
 }
 
+/** The columns of a publisher choice in pickers and filters */
+const publisherOptionColumns = {
+  id: houses.id,
+  name: houses.name,
+  slug: houses.slug,
+  country: houses.country,
+  kind: houses.kind,
+  parentId: houses.parentId,
+  parentName: sql<
+    string | null
+  >`(select parent.name from publishing_houses parent where parent.id = "publishing_houses"."parent_id")`,
+};
+
 export async function getPublisherOptions() {
   return db
-    .select({
-      id: houses.id,
-      name: houses.name,
-      slug: houses.slug,
-      country: houses.country,
-      kind: houses.kind,
-      parentId: houses.parentId,
-      parentName: sql<
-        string | null
-      >`(select parent.name from publishing_houses parent where parent.id = "publishing_houses"."parent_id")`,
-    })
+    .select(publisherOptionColumns)
     .from(houses)
     .orderBy(asc(houses.name), asc(houses.country), asc(houses.id));
 }
 
 /** Normalized name and aliases of a publisher, for the shared text search. */
 const publisherHaystack = sql`search_normalize(${houses.name} || ' ' || coalesce((select string_agg(a.name, ' ') from publisher_aliases a where a.publisher_id = ${houses.id}), ''))`;
+
+const publisherSearchSchema = z.object({
+  query: z.string().max(200),
+  kinds: z.array(z.enum(["publisher", "imprint"])).max(2).optional(),
+});
+
+/**
+ * Publisher picker search: the 10 best matches by name or alias, with the
+ * same engine as the publishers list. A blank query returns nothing.
+ */
+export async function searchPublisherOptions(
+  query: string,
+  kinds?: ("publisher" | "imprint")[],
+) {
+  const o = publisherSearchSchema.parse({ query, kinds });
+  const q = o.query.trim();
+  const match = textSearchCondition(publisherHaystack, q);
+  if (!match) return [];
+  return db
+    .select(publisherOptionColumns)
+    .from(houses)
+    .where(and(match, o.kinds?.length ? inArray(houses.kind, o.kinds) : undefined))
+    .orderBy(
+      desc(textSearchRank(publisherHaystack, sql`${houses.name}`, q)),
+      asc(houses.name),
+      asc(houses.id),
+    )
+    .limit(10);
+}
+
+/** A new publishing house from a name typed in a picker, as a picker choice */
+export async function createPublisherFromName(name: string) {
+  const saved = await savePublisher({ name });
+  return {
+    id: saved.id,
+    name: saved.name,
+    slug: saved.slug,
+    country: saved.country,
+    kind: saved.kind,
+    parentId: saved.parentId,
+    parentName: null,
+  };
+}
 const publisherEditionCount = sql<number>`(select count(distinct ep.edition_id)::int from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where p.id = "publishing_houses"."id" or p.parent_id = "publishing_houses"."id")`;
 
 const publisherListSchema = z.object({
@@ -142,7 +192,7 @@ export async function getPublisher(slug: string) {
     .from(houses)
     .where(eq(houses.slug, slug));
   if (!publisher) return null;
-  const [aliases, specialties, children, parent] = await Promise.all([
+  const [aliases, specialties, children, parent, prefixes, automatic] = await Promise.all([
     db
       .select()
       .from(publisherAliases)
@@ -164,10 +214,28 @@ export async function getPublisher(slug: string) {
     publisher.parentId
       ? db.select().from(houses).where(eq(houses.id, publisher.parentId))
       : Promise.resolve([]),
+    db
+      .select({ prefix: publisherIsbnPrefixes.prefix })
+      .from(publisherIsbnPrefixes)
+      .where(eq(publisherIsbnPrefixes.publisherId, publisher.id))
+      .orderBy(asc(publisherIsbnPrefixes.prefix)),
+    db
+      .select({ name: publisherAutoDecisions.name, createdAt: publisherAutoDecisions.createdAt })
+      .from(publisherAutoDecisions)
+      .where(
+        and(
+          eq(publisherAutoDecisions.publisherId, publisher.id),
+          eq(publisherAutoDecisions.action, "create"),
+          sql`${publisherAutoDecisions.undoneAt} is null`,
+        ),
+      ),
   ]);
   return {
     ...publisher,
     aliases: aliases.map((a) => a.name),
+    isbnPrefixes: prefixes.map((p) => isbnPrefixLabel(p.prefix)),
+    /** Set when the automatic path created this house from book data */
+    createdFrom: automatic[0] ?? null,
     specialtyIds: specialties.map((s) => s.id),
     specialties,
     children,
@@ -191,7 +259,7 @@ export async function savePublisher(input: PublisherInput, id?: string) {
       .length
   )
     throw new Error("Publisher not found");
-  const { aliases, specialtyIds, ...data } = parsed;
+  const { aliases, specialtyIds, isbnPrefixes, ...data } = parsed;
   const countryMatches = data.country
     ? await db
         .select({ id: countries.id })
@@ -199,14 +267,7 @@ export async function savePublisher(input: PublisherInput, id?: string) {
         .where(sql`lower(${countries.name}) = lower(${data.country})`)
     : [];
   const countryId = countryMatches.length === 1 ? countryMatches[0].id : null;
-  const slug = `${
-    data.name
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "publisher"
-  }-${publisherId.slice(0, 8)}`;
+  const slug = publisherSlug(data.name, publisherId);
   await atomic((d) => [
     id
       ? d
@@ -224,6 +285,29 @@ export async function savePublisher(input: PublisherInput, id?: string) {
             .values(
               [...new Set(aliases)].map((name) => ({ publisherId, name })),
             ),
+        ]
+      : []),
+    ...(isbnPrefixes
+      ? [
+          d
+            .delete(publisherIsbnPrefixes)
+            .where(eq(publisherIsbnPrefixes.publisherId, publisherId)),
+          ...(isbnPrefixes.length
+            ? [
+                d
+                  .insert(publisherIsbnPrefixes)
+                  .values(
+                    [...new Set(isbnPrefixes)].map((prefix) => ({
+                      prefix,
+                      publisherId,
+                    })),
+                  )
+                  .onConflictDoUpdate({
+                    target: publisherIsbnPrefixes.prefix,
+                    set: { publisherId },
+                  }),
+              ]
+            : []),
         ]
       : []),
     d
@@ -263,16 +347,92 @@ export async function getEditionPublisherLinks(editionId: string) {
     .orderBy(asc(houses.name));
 }
 
+/** Other unconfirmed editions whose publisher or imprint text is `name` */
+function sameNameEditions(name: string, editionId: string) {
+  const key = sql`publisher_name_key(${name})`;
+  return and(
+    sql`${editions.id} <> ${editionId}`,
+    eq(editions.publisherLinksConfirmed, false),
+    or(
+      sql`publisher_name_key(${editions.publisher}) = ${key}`,
+      sql`publisher_name_key(${editions.imprint}) = ${key}`,
+    ),
+  );
+}
+
+/**
+ * The edition's publisher and imprint text that no publishing house or alias
+ * matches, with the number of other unconfirmed editions that use the same
+ * text. Saving such a name as an alias links those editions too.
+ */
+export async function getUnmatchedEditionNames(editionId: string) {
+  const id = z.uuid().parse(editionId);
+  const result = await db.execute(sql`
+    select n.name,
+      (select count(*)::int from editions o where o.id <> e.id and not o.publisher_links_confirmed
+        and (publisher_name_key(o.publisher) = publisher_name_key(n.name)
+          or publisher_name_key(o.imprint) = publisher_name_key(n.name))) as others
+    from editions e
+    cross join lateral (
+      select distinct on (publisher_name_key(v)) trim(v) as name
+      from (values (e.publisher), (e.imprint)) as x(v)
+      where nullif(trim(v), '') is not null
+    ) n
+    where e.id = ${id} and not exists (select 1 from publisher_candidates(n.name))
+    order by n.name`);
+  return (Array.isArray(result) ? result : result.rows) as {
+    name: string;
+    others: number;
+  }[];
+}
+
+/**
+ * Confirm an edition's publishing houses. With one house, `aliases` saves the
+ * edition's unmatched publisher or imprint text as other names of that house,
+ * so every unconfirmed edition with the same text links too. A name that
+ * already matches a house or alias is never added: it would make that match
+ * ambiguous and remove its links. Returns how many other editions now link to
+ * the house through the new aliases.
+ */
 export async function setEditionPublisherLinks(
   editionId: string,
   publisherIds: string[],
+  aliases: string[] = [],
 ) {
   z.uuid().parse(editionId);
   const ids = z.array(z.uuid()).max(20).parse(publisherIds);
-  await db.execute(
-    sql`select set_edition_publishers(${editionId}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)::uuid))`,
-  );
+  const requested = z.array(z.string().trim().min(1).max(200)).max(2).parse(aliases);
+  const unmatched = requested.length ? await getUnmatchedEditionNames(editionId) : [];
+  const names = requested.filter((n) => unmatched.some((u) => u.name === n));
+  if (names.length !== requested.length)
+    throw new Error("Only an unmatched name of this edition can become an alias");
+  if (names.length && ids.length !== 1)
+    throw new Error("Choose exactly one publisher to save a name as its alias");
+  await atomic((d) => [
+    ...(names.length
+      ? [
+          d
+            .insert(publisherAliases)
+            .values(names.map((name) => ({ publisherId: ids[0], name })))
+            .onConflictDoNothing(),
+        ]
+      : []),
+    d.execute(
+      sql`select set_edition_publishers(${editionId}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)::uuid))`,
+    ),
+  ]);
   changed();
+  if (!names.length) return { linkedElsewhere: 0 };
+  const [{ linked }] = await db
+    .select({ linked: count() })
+    .from(editions)
+    .where(
+      and(
+        or(...names.map((name) => sameNameEditions(name, editionId))),
+        sql`exists (select 1 from edition_publishers ep where ep.edition_id = ${editions.id} and ep.publisher_id = ${ids[0]})`,
+      ),
+    );
+  return { linkedElsewhere: linked };
 }
 
 export async function resetEditionPublisherLinks(editionId: string) {
@@ -465,6 +625,8 @@ export async function getPublisherCatalogue(
           onOrder,
           wanted,
           authors: sql<string>`(select string_agg(a.name, ', ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${works.id})`,
+          // The book's active poster: the image of an edition without a cover
+          poster: sql<PosterImage | null>`(select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y, 'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast) from media m where m.work_id = ${works.id} and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1)`,
         })
         .from(editions)
         .innerJoin(works, eq(works.id, editions.workId))
@@ -491,26 +653,6 @@ export async function getPublisherCatalogue(
         ? []
         : pendingTargets.filter((t) => filter === "all" || t.state === filter),
   };
-}
-
-export async function getPublisherReview(page = 1, perPage = 24) {
-  const paging = parsePagination({ page: String(page), perPage: String(perPage) }, { defaultPerPage: 24 });
-  const condition = and(
-    eq(editions.publisherLinksConfirmed, false),
-    sql`exists (select 1 from (values (${editions.publisher}), (${editions.imprint})) names(name) where nullif(trim(name), '') is not null and (select count(*) from publisher_candidates(name)) <> 1)`,
-  );
-  const [rows, [total]] = await Promise.all([
-    db
-      .select({ edition: editions, work: works })
-      .from(editions)
-      .innerJoin(works, eq(works.id, editions.workId))
-      .where(condition)
-      .orderBy(asc(works.title), asc(editions.id))
-      .limit(paging.perPage)
-      .offset(paging.offset),
-    db.select({ count: count() }).from(editions).where(condition),
-  ]);
-  return { rows, total: total.count };
 }
 
 export async function getTargetOrderSeed(id: string) {

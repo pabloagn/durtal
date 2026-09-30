@@ -6,10 +6,11 @@ import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  PublisherPicker,
+  PublisherChoice,
   fieldClass,
   type PublisherOption,
 } from "./publisher-picker";
+import { languageName } from "@/lib/utils/language";
 import { updateOrderStatus } from "@/lib/actions/orders";
 import {
   fulfilTargetWithCopy,
@@ -20,12 +21,10 @@ import {
 export function AcquisitionTargets({
   workId,
   targets,
-  publishers,
   editions,
 }: {
   workId: string;
   targets: Awaited<ReturnType<typeof getAcquisitionTargets>>;
-  publishers: PublisherOption[];
   editions: {
     id: string;
     title: string;
@@ -37,7 +36,7 @@ export function AcquisitionTargets({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState("any");
-  const [publisher, setPublisher] = useState("");
+  const [publisher, setPublisher] = useState<PublisherOption | null>(null);
   const [edition, setEdition] = useState("");
   const [pending, start] = useTransition();
   function add() {
@@ -45,7 +44,7 @@ export function AcquisitionTargets({
       try {
         await createAcquisitionTarget({
           workId,
-          publisherId: kind === "publisher" ? publisher : null,
+          publisherId: kind === "publisher" ? (publisher?.id ?? null) : null,
           editionId: kind === "edition" ? edition : null,
         });
         setOpen(false);
@@ -87,7 +86,7 @@ export function AcquisitionTargets({
                   {p.name} edition
                 </Link>
               ) : e ? (
-                `${e.title} · ${e.publisher ?? "Publisher unspecified"} · ${e.isbn13 ?? e.language}`
+                `${e.title} · ${e.publisher ?? "Publisher unspecified"} · ${e.isbn13 ?? languageName(e.language)}`
               ) : (
                 "Any edition"
               )}
@@ -205,10 +204,10 @@ export function AcquisitionTargets({
             </select>
           </label>
           {kind === "publisher" && (
-            <PublisherPicker
-              options={publishers}
+            <PublisherChoice
               value={publisher}
               onChange={setPublisher}
+              allowCreate
             />
           )}{" "}
           {kind === "edition" && (
@@ -223,7 +222,7 @@ export function AcquisitionTargets({
                 {editions.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.title} · {e.publisher ?? "Unspecified publisher"} ·{" "}
-                    {e.isbn13 ?? e.language}
+                    {e.isbn13 ?? languageName(e.language)}
                   </option>
                 ))}
               </select>

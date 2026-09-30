@@ -27,6 +27,7 @@ import {
 } from "@/components/books/instance-form";
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
+import { languageName, normalizeLanguage } from "@/lib/utils/language";
 import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
@@ -328,12 +329,12 @@ export function AddBookWizard() {
     setTitle(result.title);
     setAuthorName(result.authors[0] ?? "");
     setOriginalYear(String(result.publicationYear ?? ""));
-    setOriginalLanguage(result.language ?? "en");
+    setOriginalLanguage(normalizeLanguage(result.language) ?? "en");
     setDescription(stripHtmlToText(result.description ?? ""));
     setIsbn13(result.isbn13 ?? "");
     setPublisher(result.publisher ?? "");
     setPublicationYear(String(result.publicationYear ?? ""));
-    setLanguage(result.language ?? "en");
+    setLanguage(normalizeLanguage(result.language) ?? "en");
     setPageCount(String(result.pageCount ?? ""));
     setCoverUrl(result.coverUrl ?? "");
     setMetadataSource(result.source);
@@ -1248,7 +1249,7 @@ export function AddBookWizard() {
                     {originalYear && (
                       <Badge variant="muted">{originalYear}</Badge>
                     )}
-                    <Badge variant="muted">{originalLanguage}</Badge>
+                    <Badge variant="muted">{languageName(originalLanguage)}</Badge>
                     {seriesName && (
                       <Badge variant="blue">
                         {seriesName}

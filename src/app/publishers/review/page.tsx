@@ -1,60 +1,69 @@
 import { redirect } from "next/navigation";
-import { PaginatedSection } from "@/components/shared/pagination";
-import { parsePagination, pageHref, lastPage, type ListSearchParams } from "@/lib/utils/pagination";
 import Link from "next/link";
+import { PaginatedSection } from "@/components/shared/pagination";
 import {
-  getPublisherReview,
-  getEditionPublisherLinks,
-} from "@/lib/actions/publishers";
-import { EditionPublishers } from "@/components/publishers/edition-publishers";
+  parsePagination,
+  pageHref,
+  lastPage,
+  toSearchParams,
+  type ListSearchParams,
+} from "@/lib/utils/pagination";
+import { getPublisher } from "@/lib/actions/publishers";
+import { getPublisherNameInbox } from "@/lib/actions/publisher-names";
+import { PublisherNameInbox } from "@/components/publishers/publisher-name-inbox";
 import { PageHeader } from "@/components/layout/page-header";
-export default async function ReviewPublisherMatches({
+
+export default async function ReviewPublisherNames({
   searchParams,
 }: {
   searchParams: Promise<ListSearchParams>;
 }) {
   const query = await searchParams;
   const { page, perPage } = parsePagination(query);
-  const { rows, total } = await getPublisherReview(page, perPage);
-  if (page > lastPage(total, perPage)) redirect(pageHref("/publishers/review", query, lastPage(total, perPage)));
-  const links = await Promise.all(
-    rows.map((r) => getEditionPublisherLinks(r.edition.id)),
-  );
+  // ?publisher=<slug> keeps the names suggested for one house
+  const slug = toSearchParams(query).get("publisher");
+  const house = slug ? await getPublisher(slug) : null;
+  const inbox = await getPublisherNameInbox({
+    page,
+    perPage,
+    house: house?.id,
+  });
+  if (page > lastPage(inbox.total, perPage))
+    redirect(pageHref("/publishers/review", query, lastPage(inbox.total, perPage)));
+  const editions = `${inbox.editions} edition${inbox.editions === 1 ? "" : "s"}`;
+  const names = `${inbox.total} name${inbox.total === 1 ? "" : "s"}`;
   return (
     <>
-      <PageHeader
-        title="Review publisher matches"
-        description={`${total} edition${total === 1 ? " has" : "s have"} names that need review. Original metadata is preserved.`}
-      />
-      <Link href="/publishers" className="text-sm text-accent-blue">
+      <Link href="/publishers" className="text-sm text-fg-muted">
         ← Publishers
       </Link>
-      <PaginatedSection page={page} perPage={perPage} total={total} noun="editions">
-      <div className="mt-5 space-y-3">
-        {rows.map(({ edition: e, work: w }, i) => (
-          <div key={e.id} className="space-y-2 border border-glass-border p-4">
-            <Link
-              href={`/library/${w.slug ?? w.id}#edition-${e.id}`}
-              className="font-serif text-xl"
-            >
-              {w.title}
-            </Link>
-            <p className="text-sm text-fg-secondary">
-              {[e.publisher, e.imprint, e.isbn13, e.publicationCountry]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            <EditionPublishers
-              editionId={e.id}
-              confirmed={e.publisherLinksConfirmed}
-              linked={links[i].map((l) => l.publisher)}
-            />
-          </div>
-        ))}
-      </div>
-      {!rows.length && (
-        <p className="mt-6 text-fg-muted">No unmatched publisher names.</p>
+      <PageHeader
+        title="Publisher names"
+        description={
+          house
+            ? `${editions} without a publishing house look like ${house.name}.`
+            : `${editions} without a publishing house carry ${names}. One decision per name links all its editions, now and in later imports.`
+        }
+      />
+      {house && (
+        <p className="mb-4 text-sm">
+          <Link href="/publishers/review" className="text-accent-blue">
+            Show every name
+          </Link>
+        </p>
       )}
+      <PaginatedSection
+        page={page}
+        perPage={perPage}
+        total={inbox.total}
+        noun="names"
+      >
+        <PublisherNameInbox
+          rows={inbox.rows}
+          ignored={inbox.ignored}
+          safe={inbox.safe}
+          decisions={inbox.decisions}
+        />
       </PaginatedSection>
     </>
   );
