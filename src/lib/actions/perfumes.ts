@@ -48,29 +48,32 @@ import {
   type UpdatePerfumeVariantInput,
 } from "@/lib/validations/perfumes";
 import {
-  STALE_PERFUME,
   bottleFingerprint,
-  insertCredits,
-  insertDates,
   insertNotes,
   insertOrganizations,
   insertVariantPerfumers,
   insertVariantTaxa,
-  insertWorkTaxa,
-  loadDates,
   loadPerfumeCards,
-  lockWork,
-  newDate,
   perfumeDomain,
   perfumeFingerprint,
   perfumeWhere,
+  variantFingerprint,
+} from "@/lib/catalogue/perfume-store";
+import {
+  STALE_RECORD,
+  insertCredits,
+  insertDates,
+  insertWorkTaxa,
+  loadDates,
+  lockWork as lockAnyWork,
+  newDate,
   readFingerprint,
   releaseDates,
   replaceDate,
   requireOwnIds,
   storedDate,
-  variantFingerprint,
-} from "@/lib/catalogue/perfume-store";
+  type Db,
+} from "@/lib/catalogue/work-store";
 import {
   loadPerfumeClassification,
   loadPerfumePerfumers,
@@ -85,6 +88,8 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { cleanupWorkArtwork } from "@/lib/s3/artwork-cleanup";
 
 const NOTES_FAMILY = "perfume-notes";
+
+const lockWork = (d: Db, workId: string) => lockAnyWork(d, workId, "perfume");
 
 /** Every write is one transaction; database rule messages reach the caller as written. */
 function write(build: Parameters<typeof atomic>[0]) {
@@ -104,7 +109,7 @@ function changedHoldings() {
 function fresh(expected: string) {
   return (actual: string | null) => {
     if (actual === null) throw new Error("Record not found");
-    if (actual !== expected) throw new Error(STALE_PERFUME);
+    if (actual !== expected) throw new Error(STALE_RECORD);
   };
 }
 async function perfumeCreditRoles(credits: { roleId: string }[]) {
@@ -443,7 +448,7 @@ export async function updatePerfume(
     d.execute(
       assertSql(
         sql`coalesce(${perfumeFingerprint(id)}=${expected},false)`,
-        STALE_PERFUME,
+        STALE_RECORD,
       ),
     ),
     d
@@ -726,7 +731,7 @@ export async function updatePerfumeVariant(
     d.execute(
       assertSql(
         sql`coalesce(${variantFingerprint(sql`${id}::uuid`)}=${expected},false)`,
-        STALE_PERFUME,
+        STALE_RECORD,
       ),
     ),
     d.execute(sameIdentity(variant.workId, identity, id)),
@@ -927,7 +932,7 @@ export async function updatePerfumeBottle(
     d.execute(
       assertSql(
         sql`coalesce(${bottleFingerprint(sql`${id}::uuid`)}=${expected},false)`,
-        STALE_PERFUME,
+        STALE_RECORD,
       ),
     ),
     ...(record.variantId !== stored.variantId

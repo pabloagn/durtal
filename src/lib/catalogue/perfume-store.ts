@@ -1,24 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "@/lib/db";
 import {
   works,
-  catalogueDates,
-  customTaxonomyItemWorks,
   perfumeNotes,
   perfumeOrganizations,
   perfumeVariantNotes,
   perfumeVariantPerfumers,
   perfumeVariantTaxa,
-  workCredits,
 } from "@/lib/db/schema";
-import {
-  CATALOGUE_DATE_REFERENCES,
-  dateColumns,
-  dateFromColumns,
-  type CatalogueDate,
-} from "./dates";
+import { dateFromColumns } from "./dates";
+import { orderWithin, uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
 import type {
@@ -26,23 +19,10 @@ import type {
   perfumeOrganizationInputSchema,
   perfumeQuerySchema,
 } from "@/lib/validations/perfumes";
-import type { creditInputSchema } from "@/lib/validations/people";
 import type { variantPerfumerSchema } from "./perfumes";
-
-type Db = typeof db;
-type Query = ReturnType<Db["execute"]>;
-export const STALE_PERFUME =
-  "This record changed while you were editing; reload before saving";
 
 /** Perfume works always carry their typed profile. */
 export const perfumeDomain = sql`${works.kind} = 'perfume' and exists(select 1 from perfume_details pd where pd.work_id = ${works.id})`;
-
-function uuids(ids: readonly string[]) {
-  return sql.join(
-    ids.map((id) => sql`${id}::uuid`),
-    sql`,`,
-  );
-}
 
 // ── Snapshots for optimistic concurrency ─────────────────────────────────────
 // Each fingerprint is the md5 of one record's full stored state. A save locks
@@ -71,95 +51,8 @@ export function variantFingerprint(id: SQL) {
 export function bottleFingerprint(id: SQL) {
   return sql`(select md5(to_jsonb(pb)::text) from perfume_bottles pb where pb.id=${id})`;
 }
-export async function readFingerprint(expression: SQL) {
-  return (
-    resultRows<{ fingerprint: string | null }>(
-      await db.execute(sql`select ${expression} as fingerprint`),
-    )[0]?.fingerprint ?? null
-  );
-}
-
-// ── Immutable date values ────────────────────────────────────────────────────
-
-export interface StoredDate {
-  id: string;
-  value: CatalogueDate;
-}
-export async function loadDates(ids: (string | null)[]) {
-  const list = [...new Set(ids.filter((id): id is string => !!id))];
-  if (!list.length) return new Map<string, CatalogueDate>();
-  const rows = await db
-    .select()
-    .from(catalogueDates)
-    .where(inArray(catalogueDates.id, list));
-  return new Map(rows.map((row) => [row.id, dateFromColumns(row)]));
-}
-export function storedDate(
-  dates: Map<string, CatalogueDate>,
-  id: string | null,
-): StoredDate | null {
-  return id ? { id, value: dates.get(id)! } : null;
-}
-/**
- * A replacement for an edited date, or undefined when the field is unchanged.
- * Date values are immutable: a change creates a new value and releases the old.
- */
-export function replaceDate(
-  current: StoredDate | null,
-  next: CatalogueDate | null | undefined,
-) {
-  if (next === undefined) return undefined;
-  const same =
-    current && next
-      ? JSON.stringify(dateColumns(current.value)) ===
-        JSON.stringify(dateColumns(next))
-      : !current && !next;
-  if (same) return undefined;
-  return {
-    row: next ? { id: randomUUID(), ...dateColumns(next) } : null,
-    oldId: current?.id ?? null,
-  };
-}
-export function newDate(value: CatalogueDate | null) {
-  return value ? { id: randomUUID(), ...dateColumns(value) } : null;
-}
-export function insertDates(
-  d: Db,
-  rows: (ReturnType<typeof newDate> | undefined)[],
-) {
-  const values = rows.filter((row): row is NonNullable<typeof row> => !!row);
-  return values.length ? [d.insert(catalogueDates).values(values)] : [];
-}
-/** Removes released values that no record references any more. */
-export function releaseDates(d: Db, ids: (string | null | undefined)[]) {
-  const list = [...new Set(ids.filter((id): id is string => !!id))];
-  if (!list.length) return [];
-  const referenced = sql.join(
-    CATALOGUE_DATE_REFERENCES.map(
-      ([table, column]) =>
-        sql`exists(select 1 from ${sql.identifier(table)} r where r.${sql.identifier(column)}=c.id)`,
-    ),
-    sql` or `,
-  );
-  return [
-    d.execute(
-      sql`delete from catalogue_dates c where c.id in (${uuids(list)}) and not (${referenced})`,
-    ),
-  ];
-}
-
 // ── Section writers (built on the transaction connection) ────────────────────
 
-/** Array order becomes the display order inside each group. */
-function orderWithin<T>(list: T[], group: (value: T) => string) {
-  const counts = new Map<string, number>();
-  return list.map((value) => {
-    const key = group(value);
-    const sortOrder = counts.get(key) ?? 0;
-    counts.set(key, sortOrder + 1);
-    return { ...value, sortOrder };
-  });
-}
 export function insertOrganizations(
   d: Db,
   workId: string,
@@ -192,15 +85,6 @@ export function insertNotes(
           .values(rows.map((n) => ({ ...n, variantId: owner.variantId }))),
       ];
 }
-export function insertWorkTaxa(d: Db, workId: string, itemIds: string[]) {
-  return itemIds.length
-    ? [
-        d
-          .insert(customTaxonomyItemWorks)
-          .values(itemIds.map((itemId) => ({ itemId, workId }))),
-      ]
-    : [];
-}
 export function insertVariantTaxa(
   d: Db,
   variantId: string,
@@ -211,27 +95,6 @@ export function insertVariantTaxa(
         d
           .insert(perfumeVariantTaxa)
           .values(itemIds.map((itemId) => ({ itemId, variantId }))),
-      ]
-    : [];
-}
-/** Kept credit IDs keep their creation time. */
-export function insertCredits(
-  d: Db,
-  workId: string,
-  list: z.output<typeof creditInputSchema>[],
-  existing: { id: string; createdAt: Date }[],
-) {
-  return list.length
-    ? [
-        d.insert(workCredits).values(
-          list.map((credit, sortOrder) => ({
-            ...credit,
-            id: credit.id ?? randomUUID(),
-            workId,
-            sortOrder,
-            createdAt: existing.find((old) => old.id === credit.id)?.createdAt,
-          })),
-        ),
       ]
     : [];
 }
@@ -253,22 +116,6 @@ export function insertVariantPerfumers(
       ]
     : [];
 }
-/** Supplied IDs must name rows the record already has. */
-export function requireOwnIds(
-  list: { id?: string }[],
-  existing: { id: string }[],
-  label: string,
-) {
-  const ids = new Set(existing.map((row) => row.id));
-  if (list.some((row) => row.id && !ids.has(row.id)))
-    throw new Error(`A ${label} ID belongs to another record or was removed`);
-}
-export function lockWork(d: Db, workId: string): Query {
-  return d.execute(
-    sql`select id from works where id=${workId}::uuid and kind='perfume' for update`,
-  );
-}
-
 // ── List filters ─────────────────────────────────────────────────────────────
 
 type PerfumeQuery = z.output<typeof perfumeQuerySchema>;

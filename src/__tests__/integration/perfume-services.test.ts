@@ -81,7 +81,7 @@ import {
 } from "@/lib/actions/perfume-retailers";
 import { z } from "zod";
 import type { CreatePerfumeInput, PerfumeQuery } from "@/lib/validations/perfumes";
-import { STALE_PERFUME } from "@/lib/catalogue/perfume-store";
+import { STALE_RECORD } from "@/lib/catalogue/work-store";
 
 /**
  * The message a caller sees. Database errors must arrive as their written
@@ -241,7 +241,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     expect(updated.credits.map((credit) => credit.id)).toEqual(perfume.credits.map((credit) => credit.id));
     expect(updated.curation).toEqual({ notes: "Signature", rating: 5, isFavourite: false });
     expect(updated.fingerprint).not.toBe(perfume.fingerprint);
-    await expect(updatePerfume(perfume.id, { title: "Lost edit" }, perfume.fingerprint)).rejects.toThrow(STALE_PERFUME);
+    await expect(updatePerfume(perfume.id, { title: "Lost edit" }, perfume.fingerprint)).rejects.toThrow(STALE_RECORD);
     await expect(updatePerfume(randomUUID(), { title: "Absent" }, perfume.fingerprint)).rejects.toThrow(/^Record not found$/);
   });
 
@@ -293,7 +293,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     );
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     for (const r of results.filter((r) => r.status === "rejected"))
-      expect((r as PromiseRejectedResult).reason.message).toBe(STALE_PERFUME);
+      expect((r as PromiseRejectedResult).reason.message).toBe(STALE_RECORD);
   });
 
   it("models formulations with inheritance, explicit empty replacements and unique identities", async () => {
@@ -337,7 +337,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     expect(inherited.overriddenFamilyIds).toEqual([]);
     const restored = await updatePerfumeVariant(extrait.id, { perfumers: null }, inherited.fingerprint);
     expect(restored.perfumers).toEqual([expect.objectContaining({ personId: people.beaux, inherited: true })]);
-    await expect(updatePerfumeVariant(extrait.id, { notes: "late" }, inherited.fingerprint)).rejects.toThrow(STALE_PERFUME);
+    await expect(updatePerfumeVariant(extrait.id, { notes: "late" }, inherited.fingerprint)).rejects.toThrow(STALE_RECORD);
   });
 
   it("keeps a flanker as its own fragrance", async () => {
@@ -382,7 +382,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     expect(disposed.dispositionDate?.value.start?.year).toBe(2024);
     expect((await getPerfume(perfume.id))!.holdings).toMatchObject({ activeCount: 1, disposedCount: 1, samples: 1, bottles: 0 });
     expect(await failure(updatePerfumeBottle(bottle.id, { status: "held" }, disposed.fingerprint))).toBe("Disposition details require a disposed container");
-    await expect(updatePerfumeBottle(bottle.id, { remainingMl: 10 }, bottle.fingerprint)).rejects.toThrow(STALE_PERFUME);
+    await expect(updatePerfumeBottle(bottle.id, { remainingMl: 10 }, bottle.fingerprint)).rejects.toThrow(STALE_RECORD);
     const restored = await updatePerfumeBottle(
       bottle.id,
       { status: "held", dispositionDate: null, dispositionReason: null, remainingMl: 70 },
