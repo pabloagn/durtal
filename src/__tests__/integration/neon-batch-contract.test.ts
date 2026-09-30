@@ -52,6 +52,19 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: {},
 }));
 import { getWorkCuration, updateWorkCuration } from "@/lib/actions/curation";
+vi.mock("@/lib/s3/artwork-cleanup", () => ({
+  cleanupWorkArtwork: vi.fn(async () => false),
+  cleanupCollectionArtwork: vi.fn(async () => false),
+}));
+import {
+  addPerfumeBottle,
+  createPerfume,
+  createPerfumeVariant,
+  deletePerfume,
+  deletePerfumeBottle,
+  updatePerfume,
+  updatePerfumeBottle,
+} from "@/lib/actions/perfumes";
 
 type Query = { query: string; params: (string | null)[] };
 
@@ -250,5 +263,71 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
       rating: 5,
     });
     expect(await c`select id from editions`).toHaveLength(0);
+  });
+
+  it("writes perfumes, formulations and containers as single Neon batches with readable errors", async () => {
+    await c`alter table works drop constraint works_kind_enabled_check`;
+    try {
+      const [family] =
+        await c`select id from taxonomy_families where slug='perfume-notes'`;
+      const [note] =
+        await c`insert into custom_taxonomy_items(family_id,name,slug) values (${family.id},'Iris',${`iris-${randomUUID()}`}) returning id`;
+      const year = (value: number) => ({
+        precision: "year" as const,
+        start: { year: value },
+      });
+      await expect(
+        createPerfume({
+          title: "Rolled back",
+          releaseDate: year(1990),
+          classificationItemIds: [note.id],
+        }),
+      ).rejects.toThrow(
+        /^Use positioned perfume notes instead of generic taxonomy assignment$/,
+      );
+      expect(await c`select id from works`).toHaveLength(0);
+      expect(await c`select id from catalogue_dates`).toHaveLength(0);
+      requests.length = 0;
+      const perfume = await createPerfume({
+        title: "Iris Poudre",
+        releaseDate: year(2000),
+        notePyramid: [{ itemId: note.id, position: "heart" }],
+      });
+      expect(requests.filter((request) => request.queries)).toHaveLength(1);
+      await expect(
+        updatePerfume(
+          perfume.id,
+          { discontinuedDate: year(1999) },
+          perfume.fingerprint,
+        ),
+      ).rejects.toThrow(/^The end date cannot precede the start date$/);
+      const variant = await createPerfumeVariant({
+        workId: perfume.id,
+        concentration: "eau_de_parfum",
+      });
+      const bottle = await addPerfumeBottle({
+        variantId: variant.id,
+        container: "bottle",
+        capacityValue: 100,
+        volumeUnit: "ml",
+        acquisitionDate: year(2020),
+      });
+      const disposed = await updatePerfumeBottle(
+        bottle.id,
+        { status: "disposed", dispositionReason: "Gift" },
+        bottle.fingerprint,
+      );
+      expect(disposed).toMatchObject({ status: "disposed", capacityMl: 100 });
+      await expect(deletePerfume(perfume.id)).rejects.toThrow(
+        /^Delete or move this perfume's bottles, samples and decants first$/,
+      );
+      await deletePerfumeBottle(bottle.id);
+      expect(await deletePerfume(perfume.id)).toMatchObject({ id: perfume.id });
+      expect(await c`select id from works`).toHaveLength(0);
+      expect(await c`select id from catalogue_dates`).toHaveLength(0);
+    } finally {
+      await c`delete from works where kind<>'book'`;
+      await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
+    }
   });
 });

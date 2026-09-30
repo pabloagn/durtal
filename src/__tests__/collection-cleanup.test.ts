@@ -7,6 +7,7 @@ vi.mock("@/lib/s3/client", () => ({
 }));
 vi.mock("@/lib/db", () => ({ db: { execute: mocks.execute } }));
 import { cleanupCollectionArtwork } from "@/lib/s3/collection-cleanup";
+import { cleanupWorkArtwork } from "@/lib/s3/artwork-cleanup";
 const id = "10000000-0000-4000-8000-000000000001";
 const own = `gold/media/collection/${id}/poster/a.webp`;
 beforeEach(() => {
@@ -75,5 +76,30 @@ describe("collection artwork deletion boundaries", () => {
     mocks.send.mockRejectedValue(new Error("offline"));
     expect(await cleanupCollectionArtwork(id, [own])).toBe(true);
     log.mockRestore();
+  });
+  it("limits work cleanup to that work's own media namespace", async () => {
+    const workKey = `gold/media/work/${id}/poster/a.webp`;
+    mocks.send.mockImplementation(async (command) =>
+      command instanceof ListObjectsV2Command
+        ? { Contents: [] }
+        : { Deleted: [{ Key: workKey }] },
+    );
+    expect(
+      await cleanupWorkArtwork(id, [
+        workKey,
+        own,
+        `gold/media/work/another/poster/b.webp`,
+      ]),
+    ).toBe(false);
+    const deletes = mocks.send.mock.calls
+      .map(([command]) => command)
+      .filter((command) => command instanceof DeleteObjectsCommand);
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0].input.Delete?.Objects).toEqual([{ Key: workKey }]);
+    expect(
+      mocks.send.mock.calls
+        .filter(([command]) => command instanceof ListObjectsV2Command)
+        .map(([command]) => command.input.Prefix),
+    ).toEqual([`gold/media/work/${id}/`, `bronze/media/work/${id}/`]);
   });
 });

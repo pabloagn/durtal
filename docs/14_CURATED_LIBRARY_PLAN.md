@@ -262,5 +262,18 @@ files, zero skipped, plus five Python checks. Venue pages were measured at 390, 
 and 1440px; desktop alignment is exact. Phone-width overflow is app-wide and
 remains SLN-312.
 
-See changelog tasks 0155–0164 for scope and verification. SLN-283 (database access
+Perfume services (SLN-357, no migration) create, read, update and delete
+fragrances, formulations and containers. Each write is one transaction that
+includes every section, guarded by a record fingerprint against concurrent edits.
+A supplied section replaces only that section; curation and sources are never
+overwritten. Lists filter by house, perfumer, family, accord or note (narrower
+items included), release years, holdings and favourites, with counts and results
+from one condition. Containers or retailer history block deletion; comments,
+activity, layouts and replaced date values go with the record, and artwork is
+cleaned after commit. Database rule messages now reach callers as written. The
+full local suite passes 853 tests across 69 files, zero skipped, plus five Python
+checks, including a Neon-driver contract for perfume writes. Perfume screens and
+activation remain SLN-366 and SLN-382; the flanker link itself is SLN-363.
+
+See changelog tasks 0155–0165 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

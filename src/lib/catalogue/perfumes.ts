@@ -96,41 +96,62 @@ export const perfumeBottleSchema = z
       .default(null),
     notes: z.string().max(10000).nullable().default(null),
   })
-  .superRefine((v, ctx) => {
-    const capacityMl = v.capacityValue * (v.volumeUnit === "l" ? 1000 : 1);
-    for (const [field, amount] of [
-      ["capacityValue", capacityMl],
-      ["remainingMl", v.remainingMl],
-    ] as const)
-      if (
-        amount !== null &&
-        Math.abs(amount * 1000 - Math.round(amount * 1000)) > 0.000001
-      )
-        ctx.addIssue({
-          code: "custom",
-          path: [field],
-          message: "Use volumes precise to at most 0.001 ml",
-        });
-    if (v.remainingMl !== null && v.remainingMl > capacityMl)
+  .superRefine((v, ctx) =>
+    checkPerfumeBottle(
+      { ...v, hasDisposition: !!v.dispositionDateId || !!v.dispositionReason },
+      ctx,
+    ),
+  );
+
+/** Cross-field container rules, shared by the stored-row and service schemas. */
+export function checkPerfumeBottle(
+  v: {
+    capacityValue: number;
+    volumeUnit: "ml" | "l";
+    remainingMl: number | null;
+    locationId: string | null;
+    subLocationId: string | null;
+    acquisitionPrice: number | null;
+    acquisitionCurrency: string | null;
+    status: (typeof PERSONAL_HOLDING_STATUSES)[number];
+    hasDisposition: boolean;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const capacityMl = v.capacityValue * (v.volumeUnit === "l" ? 1000 : 1);
+  for (const [field, amount] of [
+    ["capacityValue", capacityMl],
+    ["remainingMl", v.remainingMl],
+  ] as const)
+    if (
+      amount !== null &&
+      Math.abs(amount * 1000 - Math.round(amount * 1000)) > 0.000001
+    )
       ctx.addIssue({
         code: "custom",
-        path: ["remainingMl"],
-        message: "Remaining volume exceeds capacity",
+        path: [field],
+        message: "Use volumes precise to at most 0.001 ml",
       });
-    if (v.subLocationId && !v.locationId)
-      ctx.addIssue({
-        code: "custom",
-        path: ["subLocationId"],
-        message: "Choose a parent location",
-      });
-    if ((v.acquisitionPrice === null) !== (v.acquisitionCurrency === null))
-      ctx.addIssue({
-        code: "custom",
-        message: "Price and currency must be supplied together",
-      });
-    if (v.status !== "disposed" && (v.dispositionDateId || v.dispositionReason))
-      ctx.addIssue({
-        code: "custom",
-        message: "Disposition details require a disposed container",
-      });
-  });
+  if (v.remainingMl !== null && v.remainingMl > capacityMl)
+    ctx.addIssue({
+      code: "custom",
+      path: ["remainingMl"],
+      message: "Remaining volume exceeds capacity",
+    });
+  if (v.subLocationId && !v.locationId)
+    ctx.addIssue({
+      code: "custom",
+      path: ["subLocationId"],
+      message: "Choose a parent location",
+    });
+  if ((v.acquisitionPrice === null) !== (v.acquisitionCurrency === null))
+    ctx.addIssue({
+      code: "custom",
+      message: "Price and currency must be supplied together",
+    });
+  if (v.status !== "disposed" && v.hasDisposition)
+    ctx.addIssue({
+      code: "custom",
+      message: "Disposition details require a disposed container",
+    });
+}

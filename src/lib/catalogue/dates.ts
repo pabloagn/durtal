@@ -113,6 +113,48 @@ export function dateColumns(input: CatalogueDateInput) {
     label: value.label,
   };
 }
+/** The stored columns of one date value, back in input form. */
+export function dateFromColumns(row: {
+  precision: (typeof DATE_PRECISIONS)[number];
+  startYear: number | null;
+  startMonth: number | null;
+  startDay: number | null;
+  endYear: number | null;
+  endMonth: number | null;
+  endDay: number | null;
+  approximate: boolean;
+  label: string | null;
+}): CatalogueDate {
+  return catalogueDateSchema.parse({
+    precision: row.precision,
+    start:
+      row.startYear === null
+        ? null
+        : { year: row.startYear, month: row.startMonth, day: row.startDay },
+    end:
+      row.endYear === null
+        ? null
+        : { year: row.endYear, month: row.endMonth, day: row.endDay },
+    approximate: row.approximate,
+    label: row.label,
+  });
+}
+
+/**
+ * Every column that references a date value. Date values are immutable and
+ * owned by one record, so a replaced or deleted value is removed only when none
+ * of these still points at it. An integration test keeps this list equal to the
+ * database's foreign keys.
+ */
+export const CATALOGUE_DATE_REFERENCES = [
+  ["perfume_details", "release_date_id"],
+  ["perfume_details", "discontinued_date_id"],
+  ["perfume_variants", "release_date_id"],
+  ["perfume_variants", "discontinued_date_id"],
+  ["perfume_bottles", "acquisition_date_id"],
+  ["perfume_bottles", "disposition_date_id"],
+] as const;
+
 export function displayCatalogueDate(input: CatalogueDateInput) {
   const value = catalogueDateSchema.parse(input);
   if (value.label) return value.label;

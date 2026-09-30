@@ -77,6 +77,12 @@ editing a typed date creates and references a replacement, so another record can
 silently acquire changed dates. Profile/formulation work identity cannot be changed
 through ordinary updates.
 
+The perfume services (`src/lib/actions/perfumes.ts`, SLN-357) own each date value
+they create. In the same transaction as an edit or deletion, they remove a replaced
+value once no column in `CATALOGUE_DATE_REFERENCES` (`src/lib/catalogue/dates.ts`)
+still points at it. An integration test keeps that list equal to the database's
+foreign keys to `catalogue_dates`; a new referencing column must be added there.
+
 Containers retain capacity value/unit (ml or l), generated capacity ml, optional
 remaining ml, batch, condition, notes and personal holding status. Values support
 0.001 ml precision, including fractional-liter samples; unknown remaining quantity
