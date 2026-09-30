@@ -41,6 +41,11 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 import { atomic } from "@/lib/db/atomic";
+import {
+  recordSourceObservation,
+  refreshSourceObservation,
+  reviewSourceObservation,
+} from "@/lib/actions/catalogue-provenance";
 
 type Query = { query: string; params: (string | null)[] };
 
@@ -53,6 +58,11 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     await migrate(postgresDrizzle(c), {
       migrationsFolder: "src/lib/db/migrations",
     });
+    // Neon has already encoded HTTP parameters as PostgreSQL text. postgres-js
+    // normally serializes JS booleans with `value === true`; applying it again
+    // would turn the valid wire value "true" into false.
+    c.options.serializers[16] = (value: unknown) =>
+      typeof value === "boolean" ? (value ? "t" : "f") : String(value);
     // Use the actual Neon client and Drizzle driver. Only the HTTP endpoint is
     // replaced: its batch protocol executes against disposable PostgreSQL.
     // This verifies our driver path and SQL atomicity, not the hosted service.
@@ -158,5 +168,52 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     await expect(httpDb!.transaction(async () => undefined)).rejects.toThrow(
       "No transactions support",
     );
+  });
+  it("appends source history through Neon batches and preserves locked observations", async () => {
+    const [book] =
+      await c`insert into works(title) values ('Sourced book') returning id`;
+    const observation = await recordSourceObservation({
+      owner: { kind: "book", id: book.id },
+      provider: "test",
+      retrievedAt: new Date("2026-01-01"),
+      payload: { title: "Provider title" },
+    });
+    requests.length = 0;
+    const next = await refreshSourceObservation({
+      id: observation.id,
+      expectedRevision: 0,
+      retrievedAt: new Date("2026-02-01"),
+      payload: { title: "Refreshed title" },
+    });
+    expect(
+      requests.filter((r) => r.queries).map((r) => r.queries?.length),
+    ).toEqual([3]);
+    expect(next).toMatchObject({
+      supersedesId: observation.id,
+      reviewStatus: "pending",
+      payload: { title: "Refreshed title" },
+    });
+    const reviewed = await reviewSourceObservation({
+      id: next.id,
+      expectedRevision: 0,
+      reviewStatus: "accepted",
+      locked: true,
+      verifiedAt: new Date("2026-03-01"),
+    });
+    expect(reviewed.locked).toBe(true);
+    expect(
+      (
+        await c`select locked::text as locked from source_records where id=${reviewed.id}`
+      )[0].locked,
+    ).toBe("true");
+    await expect(
+      refreshSourceObservation({
+        id: reviewed.id,
+        expectedRevision: reviewed.revision,
+        retrievedAt: new Date("2026-04-01"),
+        payload: {},
+      }),
+    ).rejects.toThrow();
+    expect(await c`select id from source_records`).toHaveLength(2);
   });
 });

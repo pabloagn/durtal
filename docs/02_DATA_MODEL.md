@@ -39,6 +39,60 @@ scans exclude other kinds, and executable book merges require two books.
 
 ---
 
+## Typed identifiers, source observations and uncertain dates
+
+Migration `0038_catalogue_provenance` adds these shared value structures. It does
+not rewrite historic book/person provider strings, source IDs or edition locks.
+
+| Table | Identity and fields | Integrity |
+| --- | --- | --- |
+| `catalogue_identifiers` | UUID; provider, entity kind, external ID; created timestamp; one explicit work/edition/person/organization/venue FK | Unique `(provider, entity_kind, external_id)`; exactly one owner; work kind must match; namespace is immutable |
+| `source_records` | UUID; same typed owner; optional identifier; provider, HTTP(S) URL, attribution; retrieval and verification timestamps; JSON source payload and SHA-256; review status, manual lock, revision; optional previous observation | Immutable observation payload and identity; one successor per observation; same owner/provider/URL/identifier across history; verification cannot precede retrieval |
+| `catalogue_dates` | UUID; precision; nullable start/end civil year, month and day; approximate flag; original display label; generated lower/upper ordering bounds | Valid components, precision and range order; no year zero; index on bounds |
+
+Identifiers are idempotently registered for their existing owner. Claiming the
+same provider/kind/ID for another record is an explicit conflict, even if the
+titles match. Different providers or entity kinds may reuse the same external
+ID. Owner foreign keys cascade only when their catalogue record is deleted.
+Reparenting requires the exact audited harmonization move; deferred checks retain
+identifier/source consistency when a merge transfers them in separate statements.
+Merges preserve source UUIDs, payloads, locks and history in the survivor and audit.
+
+Source JSON is a provider observation, never the canonical domain metadata store.
+`recordSourceObservation` records it; `refreshSourceObservation` appends a pending
+successor and leaves the previous observation intact. A refresh locks and checks
+the predecessor, rejects older retrievals, manual locks and stale revisions, and
+allows one competing refresh to succeed. Review edits use a revision check too.
+The pure `proposeSourcedChanges` helper proposes only missing values, preserves
+nonempty curated values, and reports differing or locked fields for review.
+Provider-specific matching and promotion remain SLN-375–378; accepting an
+observation alone does not overwrite a work.
+
+`getCatalogueProvenance` exposes both the new records and an unchanged legacy
+view of work/person `metadata_source`/`metadata_source_id` and edition
+`metadata_source`/`metadata_last_fetched`/`metadata_locked`. Ambiguous historic
+provider strings are not silently assigned a new namespace. New source links
+reject credentials and non-HTTP protocols. Source snapshots are limited to 1 MB
+through the action contract. Owner/date and identifier indexes support retrieval;
+observation history uses bounded, deterministic pagination.
+
+Date precision is `unknown`, `year`, `month`, `day` or `range`, independently of
+`approximate` and the original label. Typed future domain columns reference these
+values; there is no generic field-key table. A year remains year-only in storage.
+The bounds are numeric ordering keys (`civil_year * 10000 + month * 100 + day`),
+not dates to display as if known: 1905 has bounds 19050101–19051231 and null month
+and day. Unknown dates have null bounds. A range may use partial endpoints; it is
+valid when the earliest possible start does not exceed the latest possible end.
+Components use proleptic Gregorian rules, civil BCE numbering and years from
+-999999 through 999999, excluding zero. Historical labels remain available when
+a source uses a different calendar or less precise wording. Invalid legacy years
+require review rather than silent coercion. Existing book year columns remain.
+
+Shared measurement validation keeps dimensions (mm/cm/m/in), perfume volumes
+(ml/l), and film durations (s/min/h) distinct, normalizing to mm, ml and seconds.
+It rejects nonfinite/nonpositive values, foreign units and ambiguous fluid ounces.
+Domain models retain the specific measurement meaning and original unit as needed.
+
 ## Three-Tier Model
 
 ```

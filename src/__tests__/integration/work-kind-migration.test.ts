@@ -113,6 +113,9 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "organization_roles",
       "organization_venues",
       "taxonomy_applicability",
+      "catalogue_dates",
+      "catalogue_identifiers",
+      "source_records",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -165,6 +168,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         ${type.id},${series.id},'2') returning id
     `;
     bookId = book.id;
+    await c`update works set metadata_source='Historic provider / mixed', metadata_source_id='raw:work/42' where id=${bookId}`;
+    await c`update authors set metadata_source='wikidata', metadata_source_id='Q42' where id=${author.id}`;
     await c`insert into work_authors(work_id,author_id,role,sort_order) values (${bookId},${author.id},'author',3)`;
     await c`insert into work_authors(work_id,author_id,role,sort_order) values (${bookId},${author.id},'historical collaborator',4)`;
     const [edition] = await c`
@@ -174,6 +179,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     const [translation] = await c`
       insert into editions(work_id,title,language,notes) values (${bookId},'De la peinture','fr','Translation') returning id
     `;
+    await c`update editions set metadata_source='openlibrary',metadata_last_fetched='2026-01-01T00:00:00Z',metadata_locked=true where id=${edition.id}`;
     await c`insert into edition_contributors(edition_id,author_id,role,sort_order) values (${translation.id},${author.id},'translator',1)`;
     await c`insert into edition_contributors(edition_id,author_id,role,sort_order) values (${translation.id},${author.id},'historical annotator',2)`;
     const [customFamily] =

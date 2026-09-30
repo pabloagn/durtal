@@ -230,5 +230,11 @@ hierarchy changes are guarded. Domain child tables will reuse that contract in
 their own migrations. The full local suite passes 738 tests across 59 files,
 zero skipped, plus five Python checks.
 
-See changelog tasks 0155–0160 for scope and verification. SLN-283 (database access
+Typed provenance and dates (SLN-355, migration 0038) now support provider/kind/ID
+namespaces, immutable observations, reviewed refreshes, manual locks and uncertain
+civil dates. Legacy book provenance remains exposed without backfill. The full
+local suite passes 777 tests across 61 files, zero skipped, plus five Python checks.
+An additional Neon-driver contract verifies source refresh and lock behavior.
+
+See changelog tasks 0155–0161 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.
