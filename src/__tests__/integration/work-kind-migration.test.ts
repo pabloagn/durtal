@@ -58,6 +58,36 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     return result;
   }
 
+  // Explicitly reconcile additive shared-person schema changes; never omit a
+  // legacy field or relationship from the preservation comparison.
+  function legacyRows(snapshot: Record<string, Record<string, unknown>[]>) {
+    const projected = structuredClone(snapshot);
+    for (const work of projected.works) delete work.kind;
+    for (const table of ["work_authors", "edition_contributors"])
+      for (const credit of projected[table]) {
+        if ("id" in credit) {
+          expect(credit.id).toEqual(expect.any(String));
+          expect(credit.credited_as).toBeNull();
+          expect(credit.attribution).toBe("unspecified");
+          delete credit.id;
+          delete credit.credited_as;
+          delete credit.attribution;
+        }
+      }
+    for (const table of [
+      "credit_roles",
+      "person_domains",
+      "person_aliases",
+      "work_credits",
+    ])
+      delete projected[table];
+    // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
+    // legacy rows rather than accidentally requiring the new random IDs to sort.
+    for (const rows of Object.values(projected))
+      rows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    return projected;
+  }
+
   beforeAll(async () => {
     await c.unsafe(
       "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; DROP SCHEMA IF EXISTS drizzle CASCADE;",
@@ -102,6 +132,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     `;
     bookId = book.id;
     await c`insert into work_authors(work_id,author_id,role,sort_order) values (${bookId},${author.id},'author',3)`;
+    await c`insert into work_authors(work_id,author_id,role,sort_order) values (${bookId},${author.id},'historical collaborator',4)`;
     const [edition] = await c`
       insert into editions(work_id,title,isbn_13,language,cover_s3_key)
       values (${bookId},'On Painting','9780141183022','en','gold/covers/keep.webp') returning id
@@ -110,6 +141,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       insert into editions(work_id,title,language,notes) values (${bookId},'De la peinture','fr','Translation') returning id
     `;
     await c`insert into edition_contributors(edition_id,author_id,role,sort_order) values (${translation.id},${author.id},'translator',1)`;
+    await c`insert into edition_contributors(edition_id,author_id,role,sort_order) values (${translation.id},${author.id},'historical annotator',2)`;
     const [location] =
       await c`insert into locations(name,type) values ('Study','physical') returning id`;
     const [digital] =
@@ -153,7 +185,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       insert into harmonization_redirects(source_id,entity,source_slug,target_id)
       values ('11111111-1111-4111-8111-111111111111','works','old-book-slug',${bookId})
     `;
-    before = await snapshot();
+    before = legacyRows(await snapshot());
     // Apply and reconcile each expansion migration independently. A later step
     // cannot hide a destructive intermediate change by recreating the data.
     for (const entry of expansionEntries) {
@@ -167,9 +199,31 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         JSON.stringify(journal),
       );
       await migrate(db!, { migrationsFolder: folder });
-      const afterStep = await snapshot();
-      expect(afterStep.works.every((work) => work.kind === "book")).toBe(true);
-      for (const work of afterStep.works) delete work.kind;
+      const fullStep = await snapshot();
+      expect(fullStep.works.every((work) => work.kind === "book")).toBe(true);
+      if (fullStep.person_domains) {
+        expect(fullStep.person_domains).toHaveLength(before.authors.length);
+        for (const author of before.authors)
+          expect(fullStep.person_domains).toContainEqual({
+            person_id: author.id,
+            kind: "book",
+          });
+        for (const [table, level] of [
+          ["work_authors", "work"],
+          ["edition_contributors", "edition"],
+        ])
+          for (const credit of before[table])
+            expect(fullStep.credit_roles).toContainEqual(
+              expect.objectContaining({
+                kind: "book",
+                level,
+                legacy_role: credit.role,
+              }),
+            );
+        expect(fullStep.person_aliases).toEqual([]);
+        expect(fullStep.work_credits).toEqual([]);
+      }
+      const afterStep = legacyRows(fullStep);
       expect(afterStep, `Preserved catalogue after ${entry.tag}`).toEqual(
         before,
       );
@@ -205,8 +259,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     const after = await snapshot();
     expect(after.works).toHaveLength(1);
     expect(after.works[0].kind).toBe("book");
-    delete after.works[0].kind;
-    expect(after).toEqual(before);
+    expect(legacyRows(after)).toEqual(before);
   });
 
   it("keeps legacy SQL inserts working with the book default", async () => {

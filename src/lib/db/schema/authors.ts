@@ -16,7 +16,8 @@ import { media } from "./media";
 import { contributionTypes } from "./contribution-types";
 import { countries } from "./countries";
 import { places } from "./places";
-import { genderEnum } from "./enums";
+import { genderEnum, attributionEnum } from "./enums";
+import { personDomains, personAliases, workCredits } from "./people";
 
 export const authors = pgTable("authors", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -76,6 +77,9 @@ export const authorsRelations = relations(authors, ({ one, many }) => ({
     relationName: "authorDeathPlace",
   }),
   workAuthors: many(workAuthors),
+  domains: many(personDomains),
+  aliases: many(personAliases),
+  credits: many(workCredits),
   editionContributors: many(editionContributors),
   authorContributionTypes: many(authorContributionTypes),
   media: many(media),
@@ -85,6 +89,9 @@ export const authorsRelations = relations(authors, ({ one, many }) => ({
 export const workAuthors = pgTable(
   "work_authors",
   {
+    id: uuid("id").notNull().defaultRandom().unique(),
+    creditedAs: text("credited_as"),
+    attribution: attributionEnum("attribution").notNull().default("unspecified"),
     workId: uuid("work_id")
       .notNull()
       .references(() => works.id, { onDelete: "cascade" }),
@@ -112,6 +119,9 @@ export const workAuthorsRelations = relations(workAuthors, ({ one }) => ({
 export const editionContributors = pgTable(
   "edition_contributors",
   {
+    id: uuid("id").notNull().defaultRandom().unique(),
+    creditedAs: text("credited_as"),
+    attribution: attributionEnum("attribution").notNull().default("unspecified"),
     editionId: uuid("edition_id")
       .notNull()
       .references(() => editions.id, { onDelete: "cascade" }),

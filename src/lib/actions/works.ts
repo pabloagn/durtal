@@ -1,11 +1,14 @@
 "use server";
 
+import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+
 import { bookCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import {
   publisherWorkCondition,
   catalogueStatusCondition,
 } from "@/lib/publishers/conditions";
+import { bookAuthorQueries } from "@/lib/catalogue/book-credits";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { workSeriesPlan, resultRows } from "@/lib/series/work-series";
@@ -714,19 +717,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
     if ("seriesId" in workData) workData.seriesId = savedSeriesId;
   }
 
-  if (authorIds) {
-    await db.delete(workAuthors).where(eq(workAuthors.workId, id));
-    if (authorIds.length > 0) {
-      await db.insert(workAuthors).values(
-        authorIds.map((a, i) => ({
-          workId: id,
-          authorId: a.authorId,
-          role: a.role,
-          sortOrder: i,
-        })),
-      );
-    }
-  }
+  if (authorIds) await atomic((d) => bookAuthorQueries(d, id, authorIds));
 
   if (subjectIds) {
     await db.delete(workSubjects).where(eq(workSubjects.workId, id));
@@ -1028,7 +1019,7 @@ export async function getLibraryStats() {
     db.select({ count: count() }).from(works).where(bookCondition),
     db.select({ count: count() }).from(editions),
     db.select({ count: count() }).from(instances),
-    db.select({ count: count() }).from(authors),
+    db.select({ count: count() }).from(authors).where(bookPersonCondition),
     // Recent additions
     db.query.works.findMany({
       where: bookCondition,

@@ -1,6 +1,7 @@
 // ── Enums ───────────────────────────────────────────────────────────────────
 export {
   genderEnum,
+  attributionEnum,
   workKindEnum,
   catalogueStatusEnum,
   acquisitionPriorityEnum,
@@ -13,6 +14,7 @@ export {
 
 // ── Core tables ─────────────────────────────────────────────────────────────
 export { works, worksRelations } from "./works";
+export { personDomains, personDomainsRelations, personAliases, personAliasesRelations, creditRoles, workCredits, workCreditsRelations } from "./people";
 export { editions, editionsRelations } from "./editions";
 export { instances, instancesRelations } from "./instances";
 

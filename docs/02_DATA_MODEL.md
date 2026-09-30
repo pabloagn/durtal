@@ -18,8 +18,8 @@ presentation defaults. Unready domains must not be advertised in navigation.
 Kind is immutable. The `works_kind_immutable` trigger rejects a changed kind,
 even after a future activation migration widens the enabled-kind check.
 Book create and fast-track inputs accept only `book`; the update schema and
-action reject an explicit kind. This release adds no non-book data tables or
-pages. No current IDs, slugs, edition/copy relations or media keys are rewritten.
+action reject an explicit kind. Domain pages remain gated while shared data
+tables are introduced. No current IDs, slugs, edition/copy relations or media keys are rewritten.
 
 Migration `0034_book_boundaries` preserves that separation after future domain
 activation. The `book_parent_required` triggers reject non-book parents on
@@ -337,7 +337,12 @@ Audit trail for instance-level status changes.
 
 ### `authors`
 
-Persons who create, translate, edit, or otherwise contribute to works and editions.
+Canonical person identities across books, films, perfumes and paintings. Migration
+`0035_shared_people_credits` retains the physical `authors` table, its UUIDs,
+slugs, biographies and media; shared person APIs use the same rows. No duplicate
+person table or synchronized copy is maintained. Legacy author routes and book
+directories filter `person_domains.kind = 'book'`; identity pickers can find any
+person so that a filmmaker who writes a book is reused.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
@@ -378,6 +383,65 @@ Persons who create, translate, edit, or otherwise contribute to works and editio
 
 **Relations**: `workAuthors` (N:M via junction), `editionContributors` (N:M), `media` (1:N), `authorContributionTypes` (N:M), `birthPlace` (N:1 → `places`), `deathPlace` (N:1 → `places`)
 
+Shared relations: `domains` (1:N), `aliases` (1:N), `credits` (1:N → `work_credits`).
+Shared creation, sparse editing, deletion and audited merges are atomic. Shared
+deletion refuses credited people. The legacy book deletion action retains its
+book behavior, but non-book credits restrict deletion and roll back associated
+comment/activity cleanup. Distinct credit IDs survive merges; duplicate book
+memberships keep the target credit and retain the source in the merge archive.
+Shared edits keep the URL stable; same-name creation retries slug collisions.
+
+### `person_domains` and `person_aliases`
+
+`person_domains` has composite PK `(person_id, kind)`, with a cascading FK to
+`authors.id` and `work_kind_enum`. Existing people receive book membership.
+Legacy author inserts default to book membership; shared creation replaces this
+with explicitly selected domains in the same transaction. Adding a credit adds
+the corresponding domain. Removing a credit does not erase a person's domain.
+
+`person_aliases` has composite PK `(person_id, name)` and a cascading person FK.
+Names must contain 1–300 trimmed characters. Generated `search_text` uses
+`search_normalize(name)` and a GIN trigram index. Shared search matches canonical
+names and aliases, with domain filtering and deterministic pagination before
+returning at most 100 lightweight identities; its count uses the same predicate.
+
+### `credit_roles` and `work_credits`
+
+`credit_roles` defines an immutable `id`, `kind`, `level` (`work` or `edition`),
+display `label` and optional `legacy_role`. `(kind, level, legacy_role)` is unique.
+The migration seeds book work/edition roles, film cast/crew, perfume perfumers
+and creative directors, and painting painters. Historical custom book role
+strings receive deterministic registered IDs, preserving all old contributions.
+Triggers reject changing a role's scope or deleting a role used by book credits.
+
+`work_credits` stores repeatable **non-book work** contributions:
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK, auto-generated |
+| `work_id` | UUID | NOT NULL, FK → `works.id`, CASCADE |
+| `person_id` | UUID | Nullable, FK → `authors.id`, RESTRICT |
+| `role_id` | TEXT | NOT NULL, FK → `credit_roles.id`, RESTRICT |
+| `credited_as` | TEXT | Nullable credited name |
+| `attribution` | attribution_enum | NOT NULL, default `unspecified` |
+| `characters` | TEXT[] | NOT NULL, default empty; at most 50 non-null entries |
+| `notes` | TEXT | Nullable |
+| `sort_order` | INTEGER | NOT NULL, nonnegative, default 0 |
+| `created_at` | TIMESTAMPTZ | NOT NULL, default now |
+
+Attribution values: `unspecified`, `confirmed`, `attributed`, `uncertain`,
+`anonymous`, `unknown`. A credit requires a person, credited name, or explicit
+anonymous/unknown attribution. The same person and role may occur repeatedly.
+Only `film.cast` accepts character labels (each nonblank, at most 300 characters);
+cast roles do not infer gender. Database triggers validate work kind and role
+level. Indexes cover `(work_id, sort_order, id)` and `person_id`.
+
+Books continue to use the canonical junctions below; shared credit APIs adapt
+them rather than duplicate their data. Ordered replacement locks the owner,
+checks a snapshot for overlapping edits and writes atomically. Provided credit
+IDs must already belong to that owner. A person's cross-domain credits are
+unioned, ordered and paginated together.
+
 **Search** (migration `0021_author_search`, task 0119):
 
 - Extensions: `unaccent`, `pg_trgm` (schema `public`).
@@ -399,10 +463,14 @@ Links authors to works as primary creators.
 | `author_id` | UUID | FK → `authors.id`, CASCADE |
 | `role` | TEXT | NOT NULL, default `'author'` |
 | `sort_order` | SMALLINT | NOT NULL, default `0` |
+| `id` | UUID | NOT NULL, UNIQUE, auto-generated stable credit ID |
+| `credited_as` | TEXT | Nullable |
+| `attribution` | attribution_enum | NOT NULL, default `unspecified` |
 
 **PK**: `(work_id, author_id, role)`
 
-Roles: `author`, `co_author`
+Roles: `author`, `co_author`, plus registered historical roles. A trigger enforces
+book/work role scope. Legacy membership edits preserve credit IDs and attribution.
 
 ### `edition_contributors`
 
@@ -414,10 +482,13 @@ Links contributors to editions with edition-specific roles (translator, editor, 
 | `author_id` | UUID | FK → `authors.id`, CASCADE |
 | `role` | TEXT | NOT NULL |
 | `sort_order` | SMALLINT | NOT NULL, default `0` |
+| `id` | UUID | NOT NULL, UNIQUE, auto-generated stable credit ID |
+| `credited_as` | TEXT | Nullable |
+| `attribution` | attribution_enum | NOT NULL, default `unspecified` |
 
 **PK**: `(edition_id, author_id, role)`
 
-Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduction`, `narrator`, `photographer`, `compiler`, `contributor`
+Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduction`, `narrator`, `photographer`, `compiler`, `contributor`, `other`, plus registered historical roles. A trigger enforces book/edition role scope.
 
 **Why separate from `work_authors`**: A translator is not the author of Don Quixote — Cervantes is. The translator's contribution exists only in the context of a specific edition. This separation ensures: (a) searching "books by Borges" returns books Borges *wrote*, not books he merely translated; (b) the edition detail page can show "Translated by X, Introduction by Y" distinctly from "Written by Z"; (c) the same person can be author of one work and translator of another without role confusion.
 

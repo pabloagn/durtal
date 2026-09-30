@@ -1,5 +1,9 @@
 "use server";
 
+import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { atomic } from "@/lib/db/atomic";
+import { getPersonMergePreview, mergePeople } from "./people";
+
 import { db } from "@/lib/db";
 import { compareWorks } from "@/lib/utils/title-order";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
@@ -19,6 +23,7 @@ import {
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -45,7 +50,7 @@ export async function getAuthors(opts?: {
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return [];
 
-  const conditions: SQL[] = [...filterConditions];
+  const conditions: SQL[] = [bookPersonCondition, ...filterConditions];
   const searchCondition = search ? authorSearchCondition(search) : undefined;
   if (searchCondition) conditions.push(searchCondition);
 
@@ -166,7 +171,7 @@ export async function getAuthorCount(opts?: {
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return 0;
 
-  const conditions: SQL[] = [...filterConditions];
+  const conditions: SQL[] = [bookPersonCondition, ...filterConditions];
   const searchCondition = search ? authorSearchCondition(search) : undefined;
   if (searchCondition) conditions.push(searchCondition);
 
@@ -184,6 +189,7 @@ export async function getDistinctNationalities(): Promise<NationalityOption[]> {
     .selectDistinct({ code: countries.alpha2, name: countries.name })
     .from(countries)
     .innerJoin(authors, eq(authors.nationalityId, countries.id))
+    .where(bookPersonCondition)
     .orderBy(asc(countries.name));
 }
 
@@ -191,7 +197,7 @@ export async function getDistinctGenders(): Promise<string[]> {
   const result = await db
     .selectDistinct({ gender: authors.gender })
     .from(authors)
-    .where(isNotNull(authors.gender))
+    .where(and(bookPersonCondition, isNotNull(authors.gender)))
     .orderBy(asc(authors.gender));
   return result
     .map((r) => r.gender)
@@ -203,7 +209,7 @@ export async function getDistinctZodiacSigns(): Promise<string[]> {
   const result = await db
     .selectDistinct({ zodiacSign: authors.zodiacSign })
     .from(authors)
-    .where(isNotNull(authors.zodiacSign))
+    .where(and(bookPersonCondition, isNotNull(authors.zodiacSign)))
     .orderBy(asc(authors.zodiacSign));
   return result.map((r) => r.zodiacSign).filter((z): z is string => z !== null);
 }
@@ -215,7 +221,7 @@ export async function getAuthorBirthYearRange(): Promise<{ min: number | null; m
       max: max(authors.birthYear),
     })
     .from(authors)
-    .where(isNotNull(authors.birthYear));
+    .where(and(bookPersonCondition, isNotNull(authors.birthYear)));
   return { min: result?.min ?? null, max: result?.max ?? null };
 }
 
@@ -226,13 +232,13 @@ export async function getAuthorDeathYearRange(): Promise<{ min: number | null; m
       max: max(authors.deathYear),
     })
     .from(authors)
-    .where(isNotNull(authors.deathYear));
+    .where(and(bookPersonCondition, isNotNull(authors.deathYear)));
   return { min: result?.min ?? null, max: result?.max ?? null };
 }
 
 export async function getAuthor(id: string) {
   const author = await db.query.authors.findFirst({
-    where: eq(authors.id, id),
+    where: and(bookPersonCondition, eq(authors.id, id)),
     with: {
       country: { columns: { name: true } },
       workAuthors: {
@@ -274,7 +280,7 @@ export async function getAuthor(id: string) {
 
 export async function getAuthorBySlug(slug: string) {
   const author = await db.query.authors.findFirst({
-    where: eq(authors.slug, slug),
+    where: and(bookPersonCondition, eq(authors.slug, slug)),
     with: {
       country: { columns: { id: true, name: true, alpha2: true } },
       workAuthors: {
@@ -484,145 +490,28 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
 }
 
 export async function deleteAuthor(id: string) {
-  recordActivity("author", id, "author.deleted");
-
-  // Clean up polymorphic records (not covered by FK cascades)
-  await db.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id)));
-  await db.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id)));
-  await db.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id)));
-
-  await db.delete(authors).where(eq(authors.id, id));
+  // Keep the historical book deletion behavior, but a shared non-book credit
+  // restricts deletion. Polymorphic cleanup must roll back with that rejection.
+  await atomic((d) => [
+    d.execute(sql`select id from authors where id = ${id}::uuid for update`),
+    d.execute(sql`select harmonization_assert(exists(select 1 from person_domains where person_id = ${id}::uuid and kind = 'book'), 'Book contributor not found')`),
+    d.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id))),
+    d.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id))),
+    d.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id))),
+    d.delete(authors).where(and(bookPersonCondition, eq(authors.id, id))),
+  ]);
+  invalidate(CACHE_TAGS.authors, CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.activity, CACHE_TAGS.media);
   return { id };
 }
 
 /**
  * Merge source author into target author.
- * Transfers all work_authors, edition_contributors, and author_contribution_types
- * from source to target, skipping duplicates (same composite PK).
- * Then deletes the source author.
+ * Uses the audited shared-person transaction: preserve distinct credit IDs,
+ * metadata, media and redirects across domains; archive duplicate memberships.
  */
 export async function mergeAuthors(sourceId: string, targetId: string) {
-  if (sourceId === targetId) {
-    throw new Error("Cannot merge an author into itself");
-  }
-
-  const [source, target] = await Promise.all([
-    db.query.authors.findFirst({ where: eq(authors.id, sourceId) }),
-    db.query.authors.findFirst({ where: eq(authors.id, targetId) }),
-  ]);
-  if (!source) throw new Error("Source author not found");
-  if (!target) throw new Error("Target author not found");
-
-  const { authorContributionTypes } = await import("@/lib/db/schema");
-
-  // 1. Transfer workAuthors — skip rows that would conflict on (workId, targetId, role)
-  const sourceWorkAuthors = await db
-    .select()
-    .from(workAuthors)
-    .where(eq(workAuthors.authorId, sourceId));
-
-  const targetWorkAuthors = await db
-    .select()
-    .from(workAuthors)
-    .where(eq(workAuthors.authorId, targetId));
-
-  const targetWAKeys = new Set(
-    targetWorkAuthors.map((r) => `${r.workId}::${r.role}`),
-  );
-
-  for (const row of sourceWorkAuthors) {
-    const key = `${row.workId}::${row.role}`;
-    if (!targetWAKeys.has(key)) {
-      // Transfer: delete old, insert new (can't update composite PK)
-      await db
-        .delete(workAuthors)
-        .where(
-          and(
-            eq(workAuthors.workId, row.workId),
-            eq(workAuthors.authorId, sourceId),
-            eq(workAuthors.role, row.role),
-          ),
-        );
-      await db.insert(workAuthors).values({
-        workId: row.workId,
-        authorId: targetId,
-        role: row.role,
-        sortOrder: row.sortOrder,
-      });
-    }
-    // Conflicting rows will be cascade-deleted when source author is removed
-  }
-
-  // 2. Transfer editionContributors — skip conflicts on (editionId, targetId, role)
-  const sourceEdContribs = await db
-    .select()
-    .from(editionContributors)
-    .where(eq(editionContributors.authorId, sourceId));
-
-  const targetEdContribs = await db
-    .select()
-    .from(editionContributors)
-    .where(eq(editionContributors.authorId, targetId));
-
-  const targetECKeys = new Set(
-    targetEdContribs.map((r) => `${r.editionId}::${r.role}`),
-  );
-
-  for (const row of sourceEdContribs) {
-    const key = `${row.editionId}::${row.role}`;
-    if (!targetECKeys.has(key)) {
-      await db
-        .delete(editionContributors)
-        .where(
-          and(
-            eq(editionContributors.editionId, row.editionId),
-            eq(editionContributors.authorId, sourceId),
-            eq(editionContributors.role, row.role),
-          ),
-        );
-      await db.insert(editionContributors).values({
-        editionId: row.editionId,
-        authorId: targetId,
-        role: row.role,
-        sortOrder: row.sortOrder,
-      });
-    }
-  }
-
-  // 3. Transfer authorContributionTypes — skip conflicts
-  const sourceACT = await db
-    .select()
-    .from(authorContributionTypes)
-    .where(eq(authorContributionTypes.authorId, sourceId));
-
-  const targetACT = await db
-    .select()
-    .from(authorContributionTypes)
-    .where(eq(authorContributionTypes.authorId, targetId));
-
-  const targetACTKeys = new Set(
-    targetACT.map((r) => r.contributionTypeId),
-  );
-
-  for (const row of sourceACT) {
-    if (!targetACTKeys.has(row.contributionTypeId)) {
-      await db
-        .delete(authorContributionTypes)
-        .where(
-          and(
-            eq(authorContributionTypes.authorId, sourceId),
-            eq(authorContributionTypes.contributionTypeId, row.contributionTypeId),
-          ),
-        );
-      await db.insert(authorContributionTypes).values({
-        authorId: targetId,
-        contributionTypeId: row.contributionTypeId,
-      });
-    }
-  }
-
-  // 4. Delete source author (cascade removes any remaining references)
-  await db.delete(authors).where(eq(authors.id, sourceId));
-
-  return { targetId, sourceName: source.name, targetName: target.name };
+  const preview = await getPersonMergePreview(sourceId, targetId);
+  const choices = Object.fromEntries(preview.fields.filter((field) => field.conflict).map((field) => [field.key, "target"]));
+  await mergePeople({ sourceId, targetId, fingerprint: preview.fingerprint, choices });
+  return { targetId, sourceName: preview.source.name, targetName: preview.target.name };
 }

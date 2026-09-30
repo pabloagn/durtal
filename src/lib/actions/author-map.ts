@@ -5,6 +5,7 @@ import { and } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
+import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 export interface AuthorMapPoint {
   id: string;
@@ -39,7 +40,7 @@ export async function getAuthorsForMap(opts?: {
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return [];
 
-  const conditions: SQL[] = [...filterConditions];
+  const conditions: SQL[] = [bookPersonCondition, ...filterConditions];
 
   const searchCondition = search ? authorSearchCondition(search) : undefined;
   if (searchCondition) conditions.push(searchCondition);

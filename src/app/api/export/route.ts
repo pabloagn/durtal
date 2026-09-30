@@ -1,4 +1,6 @@
 
+import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+
 import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { NextRequest, NextResponse } from "next/server";
 import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
@@ -93,7 +95,7 @@ async function fetchWorksForExport(ids: string[]) {
 
 async function fetchAuthorsForExport(ids: string[]) {
   const results = await db.query.authors.findMany({
-    where: inArray(authors.id, ids),
+    where: and(bookPersonCondition, inArray(authors.id, ids)),
     with: {
       country: true,
       workAuthors: {

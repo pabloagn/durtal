@@ -1,5 +1,7 @@
 "use server";
 
+import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+
 import { db } from "@/lib/db";
 import { authors } from "@/lib/db/schema";
 import { and, asc, isNotNull } from "drizzle-orm";
@@ -38,7 +40,7 @@ export async function getAuthorsForTimeline(opts?: {
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return [];
 
-  const conditions: SQL[] = [isNotNull(authors.birthYear), ...filterConditions];
+  const conditions: SQL[] = [bookPersonCondition, isNotNull(authors.birthYear), ...filterConditions];
 
   const searchCondition = search ? authorSearchCondition(search) : undefined;
   if (searchCondition) conditions.push(searchCondition);

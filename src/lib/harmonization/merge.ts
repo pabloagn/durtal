@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { bookCreditMergeQueries } from "./book-credit-merge";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
@@ -372,7 +373,12 @@ export async function executeMerge(input: {
     ];
     const junction =
       primary.length > 1 && primary.some((c) => ref.columns.includes(c.name));
-    if (junction) {
+    const creditQueries = ref.columns.length === 1
+      ? bookCreditMergeQueries(ref.table, ref.columns[0], source.id, target.id)
+      : undefined;
+    if (creditQueries) {
+      queries.push(...creditQueries);
+    } else if (junction) {
       const columns = cfg.columns.filter((c) => !c.generated);
       const values = columns.map((c) =>
         ref.columns.includes(c.name)

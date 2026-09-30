@@ -208,5 +208,13 @@ dependencies are prerequisites. No production URL or environment file is used.
 The runner emits test results and per-migration reconciliation JSON, and removes
 its container afterward. `pnpm typecheck` is a separate required check.
 
-See changelog tasks 0155–0157 for scope and verification. SLN-283 (database access
+Shared people and credits (SLN-349, migration 0035) now preserve the existing
+author identity and book junctions while adding explicit domains, aliases and
+repeatable non-book credits. Shared mutations are atomic, merges preserve credit
+IDs and concurrent replacements reject overlapping edits. The full local run
+passes 718 tests with zero skips, plus five Python ingestion tests. The expanded
+populated fixture also verifies historical custom roles and book domain backfill.
+People directories and the new domain interfaces remain separate delivery work.
+
+See changelog tasks 0155–0158 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

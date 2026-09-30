@@ -1,5 +1,6 @@
 
 import { bookCondition } from "@/lib/catalogue/book-boundary";
+import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 /**
  * Regenerate slugs for all works and authors.
  *
@@ -18,6 +19,7 @@ async function backfillAuthors() {
   console.log("Regenerating author slugs…");
 
   const allAuthors = await db.query.authors.findMany({
+    where: bookPersonCondition,
     columns: { id: true, name: true, slug: true },
     orderBy: asc(authors.name),
   });

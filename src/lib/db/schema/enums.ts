@@ -1,5 +1,8 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
+import { ATTRIBUTIONS } from "@/lib/catalogue/credits";
+
+export const attributionEnum = pgEnum("attribution_enum", ATTRIBUTIONS);
 
 // ── Author-level enums ──────────────────────────────────────────────────────
 

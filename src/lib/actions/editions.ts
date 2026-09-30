@@ -4,6 +4,7 @@ import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import { randomUUID } from "node:crypto";
 import { atomic } from "@/lib/db/atomic";
+import { editionContributorQueries } from "@/lib/catalogue/book-credits";
 import { db } from "@/lib/db";
 import {
   editions,
@@ -197,21 +198,7 @@ export async function updateEdition(
       : []),
   ]);
 
-  if (contributorIds) {
-    await db
-      .delete(editionContributors)
-      .where(eq(editionContributors.editionId, id));
-    if (contributorIds.length > 0) {
-      await db.insert(editionContributors).values(
-        contributorIds.map((c, i) => ({
-          editionId: id,
-          authorId: c.authorId,
-          role: c.role,
-          sortOrder: i,
-        })),
-      );
-    }
-  }
+  if (contributorIds) await atomic((d) => editionContributorQueries(d, id, contributorIds));
 
   if (genreIds) {
     await db.delete(editionGenres).where(eq(editionGenres.editionId, id));
