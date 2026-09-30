@@ -287,5 +287,15 @@ The full local suite passes 863 tests across 70 files, zero skipped, plus five
 Python checks, including a Neon-driver contract for film writes. Film screens
 remain SLN-367.
 
-See changelog tasks 0155–0166 for scope and verification. SLN-283 (database access
+The painting model and services (SLN-359, migration 0043) add a painting profile
+and identifiable art objects: originals, identified versions and reproductions,
+each with its own attribution, technique, dimensions and ownership. Institutional
+owners, collections and institution-scoped accession numbers are separate from
+physical whereabouts, which SLN-360 records. Reproductions never replace their
+original, and personal ownership is explicit. Services follow the same atomic,
+fingerprinted pattern, with browse filters by painter, taxonomy, movement,
+owning institution, creation years, holdings and favourites. The full local
+suite passes 874 tests across 71 files, zero skipped, plus five Python checks.
+
+See changelog tasks 0155–0167 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

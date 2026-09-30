@@ -1,9 +1,10 @@
 /**
  * Database rule errors reach actions wrapped by the ORM ("Failed query: ..."),
  * with the PostgreSQL error as the cause. Messages raised by our own triggers
- * and assertions (SQLSTATE P0001) are written for people; constraint errors get
- * a plain message. SQL and parameters are never shown. The original error stays
- * attached as the cause.
+ * and assertions are written for people, including those raised with a
+ * constraint code; PostgreSQL's built-in constraint messages get a plain one.
+ * SQL and parameters are never shown. The original error stays attached as the
+ * cause.
  */
 interface DatabaseCause {
   code: string;
@@ -24,15 +25,22 @@ export interface DatabaseMessages {
   /** A foreign key rejected the write. */
   reference?: string;
 }
+/** PostgreSQL's own constraint wording, as opposed to a message a rule raised. */
+const BUILT_IN =
+  /violates (unique|foreign key|check) constraint|^duplicate key value|^new row for relation/;
 export function readableDatabaseError(
   error: unknown,
   messages: DatabaseMessages = {},
 ): unknown {
   const cause = databaseCause(error);
-  const message =
-    cause?.code === "P0001"
-      ? cause.message
-      : cause?.code === "23505"
+  const raised =
+    cause?.code === "P0001" ||
+    (!!cause &&
+      ["23505", "23503", "23514"].includes(cause.code) &&
+      !BUILT_IN.test(cause.message));
+  const message = raised
+    ? cause!.message
+    : cause?.code === "23505"
         ? (messages.unique ?? "This would duplicate an existing record")
         : cause?.code === "23503"
           ? (messages.reference ??

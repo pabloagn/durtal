@@ -226,7 +226,9 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
 
   it("rolls every section back when a late part fails", async () => {
     const base = { title: "Broken", releaseDate: year(2000), countryIds: [place.US], credits: [credit("carpenter", "director")] };
-    expect(await failure(createFilm({ ...base, classificationItemIds: [items.floral] }))).not.toMatch(/^Failed query/);
+    expect(await failure(createFilm({ ...base, classificationItemIds: [items.floral] }))).toBe(
+      "Taxonomy family does not apply to this domain and record level",
+    );
     expect(await failure(createFilm({ ...base, credits: [{ personId: people.carpenter, roleId: "perfume.perfumer" }] }))).toBe(
       "Contribution role does not apply to films",
     );

@@ -188,3 +188,4 @@ export { organizationRoles, organizationRolesRelations, organizationVenues, orga
 export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects } from "./harmonization";
 export * from "./retailers";
 export * from "./films";
+export * from "./paintings";

@@ -72,6 +72,12 @@ import {
   updateFilm,
   updateFilmVersion,
 } from "@/lib/actions/films";
+import {
+  createArtObject,
+  createPainting,
+  deletePainting,
+  updateArtObject,
+} from "@/lib/actions/paintings";
 
 type Query = { query: string; params: (string | null)[] };
 
@@ -374,6 +380,42 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
         expect.objectContaining({ format: "festival", territoryLabel: "Cannes" }),
       ]);
       expect(await deleteFilm(film.id)).toMatchObject({ id: film.id });
+      expect(await c`select id from catalogue_dates`).toHaveLength(0);
+    } finally {
+      await c`delete from works where kind<>'book'`;
+      await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
+    }
+  });
+
+  it("writes paintings and measured art objects as single Neon batches", async () => {
+    await c`alter table works drop constraint works_kind_enabled_check`;
+    try {
+      requests.length = 0;
+      const painting = await createPainting({
+        title: "Girl with a Pearl Earring",
+        creationDate: { precision: "year", start: { year: 1665 }, approximate: true },
+      });
+      expect(requests.filter((request) => request.queries)).toHaveLength(1);
+      const object = await createArtObject({
+        workId: painting.id,
+        kind: "original",
+        height: 44.5,
+        width: 39,
+        dimensionUnit: "cm",
+      });
+      expect(object).toMatchObject({ height: 44.5, heightCm: 44.5, widthCm: 39 });
+      const inches = await updateArtObject(
+        object.id,
+        { height: 17.5, width: 15.375, dimensionUnit: "in" },
+        object.fingerprint,
+      );
+      expect(inches).toMatchObject({ heightCm: 44.45, widthCm: 39.0525 });
+      await expect(
+        createArtObject({ workId: painting.id, kind: "original" }),
+      ).rejects.toThrow(
+        /^Label each original or version when the painting has more than one$/,
+      );
+      expect(await deletePainting(painting.id)).toMatchObject({ id: painting.id });
       expect(await c`select id from catalogue_dates`).toHaveLength(0);
     } finally {
       await c`delete from works where kind<>'book'`;

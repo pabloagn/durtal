@@ -170,6 +170,10 @@ export const CATALOGUE_DATE_REFERENCES = [
   ["film_releases", "release_date_id"],
   ["film_holdings", "acquisition_date_id"],
   ["film_holdings", "disposition_date_id"],
+  ["painting_details", "creation_date_id"],
+  ["art_objects", "creation_date_id"],
+  ["art_objects", "acquisition_date_id"],
+  ["art_objects", "disposition_date_id"],
 ] as const;
 
 export function displayCatalogueDate(input: CatalogueDateInput) {

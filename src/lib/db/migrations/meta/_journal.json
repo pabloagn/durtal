@@ -302,6 +302,13 @@
       "when": 1790778819043,
       "tag": "0042_film_model",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790794202440,
+      "tag": "0043_painting_model",
+      "breakpoints": true
     }
   ]
 }

@@ -168,6 +168,43 @@ Copies are the only personal holdings: curation, ratings and viewing never
 create one. A copy protects its film, version and release from deletion
 (RESTRICT). Deleting a film cascades its versions, releases and origins.
 
+## Painting domain model
+
+Migration `0043_painting_model` adds a painting profile and identifiable art
+objects. A curated painting needs no object, edition or owned copy. The domain
+stays disabled until its screens and release gates pass.
+
+| Table | Key and relationships | Purpose |
+| --- | --- | --- |
+| `painting_details` | Work UUID PK/FK; creation date value; source | A profile may belong only to a painting work |
+| `art_objects` | UUID; painting FK; kind, label, reproduced object, creation date, dimensions and unit, attribution override, ownership, owner organization or label, collection, accession number, personal holding fields, notes, source | One physical object: an original, an identified version or a reproduction |
+| `art_object_credits` | UUID; object FK; person, credited-as, attribution, order, notes, source | Object attribution ("workshop of", "attributed to") that replaces the painting's painters when declared |
+| `art_object_taxa` | `(object_id, item_id)`; source | Object technique, medium and support |
+
+Painters are ordered `work_credits` with the `painting.painter` role; unknown
+painters need no dummy person. Genres, techniques, media and supports use the
+`painting-*` vocabularies; art movements reuse `work_art_movements`. An object's
+taxa replace the painting's values family by family; families without object
+values are inherited. Object attribution replaces the painters only while
+`attribution_override` is true, and credits must be removed before it is reset.
+
+Several originals or versions of one painting need distinct labels (unique
+index on work and label, reproductions excluded). A reproduction may name the
+original or version it reproduces, which must belong to the same painting; that
+object cannot be deleted or turned into a reproduction while it is referenced.
+Dimensions are optional; a unit (`mm`, `cm`, `in`) is required exactly when a
+dimension is given, and generated `height_cm` and `width_cm` give native
+proportions.
+
+Ownership is `institutional` (names an organization; optional collection and
+accession number), `private` (optional owner label), `personal` (the collector;
+holding status, physical personal location, acquisition and disposition) or
+`unknown`. Accession numbers are unique per owning organization, ignoring case
+and surrounding spaces. Physical whereabouts are a separate dated record
+(SLN-360); ownership never implies where an object hangs or that it is shown.
+
+## Personal curation and holdings contracts
+
 ## Personal curation and holdings contracts
 
 Migration `0039_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT

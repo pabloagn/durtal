@@ -20,19 +20,41 @@ describe("readable database errors", () => {
   });
   it("names constraint failures plainly, with caller wording where given", () => {
     expect(
-      (readableDatabaseError(wrapped("23505", "duplicate key")) as Error).message,
+      (readableDatabaseError(wrapped("23505", 'duplicate key value violates unique constraint "x"')) as Error).message,
     ).toBe("This would duplicate an existing record");
     expect(
       (
-        readableDatabaseError(wrapped("23503", "violates foreign key"), {
+        readableDatabaseError(wrapped("23503", 'insert or update on table "x" violates foreign key constraint "y"'), {
           reference: "The house is still in use",
         }) as Error
       ).message,
     ).toBe("The house is still in use");
     expect(
-      (readableDatabaseError(wrapped("23514", "violates check")) as Error)
+      (readableDatabaseError(wrapped("23514", 'new row for relation "x" violates check constraint "y"')) as Error)
         .message,
     ).toBe("A value breaks a catalogue rule");
+  });
+  it("keeps a rule's own message even when it uses a constraint code", () => {
+    expect(
+      (
+        readableDatabaseError(
+          wrapped(
+            "23514",
+            "Taxonomy family does not apply to this domain and record level",
+          ),
+        ) as Error
+      ).message,
+    ).toBe("Taxonomy family does not apply to this domain and record level");
+    expect(
+      (
+        readableDatabaseError(
+          wrapped(
+            "23505",
+            'duplicate key value violates unique constraint "x"',
+          ),
+        ) as Error
+      ).message,
+    ).toBe("This would duplicate an existing record");
   });
   it("leaves validation, connection and unknown errors unchanged", async () => {
     const plain = new Error("Choose a parent location");
