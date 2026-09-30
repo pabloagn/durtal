@@ -1,3 +1,4 @@
+import { VENUE_TYPES } from "@/lib/catalogue/venues";
 import { pgEnum } from "drizzle-orm/pg-core";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 import { ATTRIBUTIONS } from "@/lib/catalogue/credits";
@@ -55,20 +56,7 @@ export const dispositionTypeEnum = pgEnum("disposition_type_enum", [
 
 // ── Venue-level enums ─────────────────────────────────────────────────────────
 
-export const venueTypeEnum = pgEnum("venue_type_enum", [
-  "bookshop",
-  "online_store",
-  "cafe",
-  "library",
-  "museum",
-  "gallery",
-  "auction_house",
-  "market",
-  "fair",
-  "publisher",
-  "individual",
-  "other",
-]);
+export const venueTypeEnum = pgEnum("venue_type_enum", VENUE_TYPES);
 
 // ── Order-level enums ─────────────────────────────────────────────────────────
 

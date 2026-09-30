@@ -12,22 +12,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { GooglePlacesSearch } from "@/components/venues/google-places-search";
 import type { GooglePlaceResult } from "@/components/venues/google-places-search";
 import { createVenue } from "@/lib/actions/venues";
-import type { VenueType } from "@/lib/actions/venues";
+import { VENUE_TYPES, VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
 
-const VENUE_TYPE_OPTIONS: { value: VenueType; label: string }[] = [
-  { value: "bookshop", label: "Bookshop" },
-  { value: "online_store", label: "Online Store" },
-  { value: "cafe", label: "Cafe" },
-  { value: "library", label: "Library" },
-  { value: "museum", label: "Museum" },
-  { value: "gallery", label: "Gallery" },
-  { value: "auction_house", label: "Auction House" },
-  { value: "market", label: "Market" },
-  { value: "fair", label: "Fair" },
-  { value: "publisher", label: "Publisher" },
-  { value: "individual", label: "Individual" },
-  { value: "other", label: "Other" },
-];
+const VENUE_TYPE_OPTIONS = VENUE_TYPES.map(value => ({ value, label: VENUE_TYPE_LABELS[value] }));
 
 export function VenueCreateDialog() {
   const router = useRouter();
@@ -143,6 +130,7 @@ export function VenueCreateDialog() {
         size="sm"
         onClick={() => setOpen(true)}
         type="button"
+        className="shrink-0 whitespace-nowrap"
       >
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add Venue
@@ -170,6 +158,7 @@ export function VenueCreateDialog() {
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <Select
+                    id="venue-type"
                     label="Type"
                     options={VENUE_TYPE_OPTIONS}
                     value={type}

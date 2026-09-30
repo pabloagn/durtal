@@ -251,5 +251,16 @@ local suite passes 817 tests across 65 files, zero skipped, plus five Python che
 Perfume services, retailer observations, screens and activation remain their own
 delivery gates.
 
-See changelog tasks 0155–0163 for scope and verification. SLN-283 (database access
+Venues and retailer listings (SLN-351, migration 0041) add perfumery and cinema
+venue types, archive/restore, normalized search and validated atomic writes.
+Renames keep URLs. Orders, identifiers and source observations now block venue
+deletion instead of losing their venue. Perfume retailer listings link a fragrance
+or formulation to a retailer and an optional operated branch; price and stock are
+append-only dated observations. The migration stops, unchanged, if an existing
+venue breaks the new write rules. The full local suite passes 836 tests across 67
+files, zero skipped, plus five Python checks. Venue pages were measured at 390, 768
+and 1440px; desktop alignment is exact. Phone-width overflow is app-wide and
+remains SLN-312.
+
+See changelog tasks 0155–0164 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

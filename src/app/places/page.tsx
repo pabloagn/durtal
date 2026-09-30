@@ -4,7 +4,7 @@ import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Suspense } from "react";
 import { MapPin } from "lucide-react";
 import { getVenues, getVenueCount } from "@/lib/actions/venues";
-import type { VenueType } from "@/lib/actions/venues";
+import { VENUE_TYPES, type VenueType } from "@/lib/catalogue/venues";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
@@ -38,12 +38,12 @@ async function PlacesContent({
     favorite?: string;
   };
 }) {
-  const search = searchParams.q;
-  const sort = (searchParams.sort ?? "name") as "name" | "recent" | "rating";
-  const order = (searchParams.order ?? undefined) as "asc" | "desc" | undefined;
+  const search = searchParams.q?.slice(0, 200);
+  const sort = searchParams.sort === "recent" || searchParams.sort === "rating" ? searchParams.sort : "name";
+  const order = searchParams.order === "asc" || searchParams.order === "desc" ? searchParams.order : undefined;
   const typeFilter = searchParams.type
     ?.split(",")
-    .filter(Boolean) as VenueType[] | undefined;
+    .filter((value): value is VenueType => VENUE_TYPES.includes(value as VenueType));
   const favoriteFilter = searchParams.favorite === "true" ? true : undefined;
 
   const { page, perPage: limit, offset } = parsePagination(searchParams);

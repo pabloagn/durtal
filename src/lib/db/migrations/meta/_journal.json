@@ -288,6 +288,13 @@
       "when": 1790771670051,
       "tag": "0040_perfume_model",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790772998041,
+      "tag": "0041_venues_retailer_observations",
+      "breakpoints": true
     }
   ]
 }

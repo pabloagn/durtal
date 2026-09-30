@@ -1,24 +1,12 @@
 "use client";
 
+import { VENUE_TYPE_LABELS } from "@/lib/catalogue/venues";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import Link from "next/link";
 import { Star, MapPin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { VenueType } from "@/lib/actions/venues";
+import type { VenueType } from "@/lib/catalogue/venues";
 
-const VENUE_TYPE_LABELS: Record<VenueType, string> = {
-  bookshop: "Bookshop",
-  online_store: "Online Store",
-  cafe: "Cafe",
-  library: "Library",
-  museum: "Museum",
-  gallery: "Gallery",
-  auction_house: "Auction House",
-  market: "Market",
-  fair: "Fair",
-  publisher: "Publisher",
-  individual: "Individual",
-  other: "Other",
-};
 
 export interface VenueListItemProps {
   id: string;
@@ -71,20 +59,17 @@ export function VenueListItem({
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2 font-serif text-lg">
             <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
               {name}
             </h3>
             {isFavorite && (
-              <Star
-                className="h-3 w-3 shrink-0 fill-accent-gold text-accent-gold"
-                strokeWidth={1.5}
-              />
+              <CapAligned height={12}><Star className="h-3 w-3 shrink-0 fill-accent-gold text-accent-gold" strokeWidth={1.5} /></CapAligned>
             )}
           </div>
           {location && (
-            <p className="flex items-center gap-1 truncate text-xs text-fg-muted">
-              <MapPin className="h-2.5 w-2.5 shrink-0" strokeWidth={1.5} />
+            <p className="flex items-start gap-1 truncate text-xs text-fg-muted">
+              <CapAligned height={10}><MapPin className="h-2.5 w-2.5 shrink-0" strokeWidth={1.5} /></CapAligned>
               {location}
             </p>
           )}
@@ -110,19 +95,20 @@ export function VenueListItem({
             </div>
           )}
 
+
+        </div>
+      </Link>
           {website && (
             <a
               href={website}
               target="_blank"
               rel="noopener noreferrer"
               className="text-fg-muted transition-colors hover:text-accent-rose"
-              onClick={(e) => e.stopPropagation()}
+              aria-label={`Visit ${name} website`}
             >
-              <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <CapAligned height={14} className="font-serif text-xs"><ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>
             </a>
           )}
-        </div>
-      </Link>
     </div>
   );
 }

@@ -36,7 +36,7 @@ export const orders = pgTable(
       onDelete: "set null",
     }),
     venueId: uuid("venue_id").references(() => venues.id, {
-      onDelete: "set null",
+      onDelete: "restrict",
     }),
 
     acquisitionMethod: acquisitionMethodEnum("acquisition_method").notNull(),

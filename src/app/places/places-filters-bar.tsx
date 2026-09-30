@@ -1,5 +1,6 @@
 "use client";
 
+import { VENUE_TYPE_LABELS, VENUE_TYPES } from "@/lib/catalogue/venues";
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,7 +8,6 @@ import { useLocalStorage } from "@/lib/hooks/use-local-storage";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import { FilterDropdown, type AnyFilterGroup } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
-import type { VenueType } from "@/lib/actions/venues";
 
 const SORT_OPTIONS = [
   { value: "name", label: "Name" },
@@ -18,35 +18,8 @@ const SORT_OPTIONS = [
 /** The places list only renders these two view modes */
 const PLACES_VIEW_MODES: ViewMode[] = ["grid", "list"];
 
-const ALL_VENUE_TYPES: VenueType[] = [
-  "bookshop",
-  "online_store",
-  "cafe",
-  "library",
-  "museum",
-  "gallery",
-  "auction_house",
-  "market",
-  "fair",
-  "publisher",
-  "individual",
-  "other",
-];
+const ALL_VENUE_TYPES = VENUE_TYPES;
 
-const VENUE_TYPE_LABELS: Record<VenueType, string> = {
-  bookshop: "Bookshop",
-  online_store: "Online Store",
-  cafe: "Cafe",
-  library: "Library",
-  museum: "Museum",
-  gallery: "Gallery",
-  auction_house: "Auction House",
-  market: "Market",
-  fair: "Fair",
-  publisher: "Publisher",
-  individual: "Individual",
-  other: "Other",
-};
 
 /**
  * Search, sort, filter and view controls for /places.
@@ -116,6 +89,7 @@ export function PlacesFiltersBar() {
   return (
     <EntityFilters
       basePath="/places"
+      className="mb-6 flex flex-wrap items-center gap-3 [&>div:first-child]:min-w-0 [&>div:first-child]:basis-full sm:[&>div:first-child]:basis-48 [&>div:nth-child(2)]:shrink-0 [&>div:nth-child(2)]:whitespace-nowrap"
       sortOptions={SORT_OPTIONS}
       searchPlaceholder="Search venues..."
       defaultSort="name"

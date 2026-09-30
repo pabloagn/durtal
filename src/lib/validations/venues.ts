@@ -1,34 +1,60 @@
 import { z } from "zod/v4";
+import { VENUE_TYPES } from "@/lib/catalogue/venues";
+import { sourceUrlSchema } from "@/lib/catalogue/provenance";
 
-export const createVenueSchema = z.object({
-  name: z.string().min(1).max(500),
-  type: z.enum(["bookshop", "online_store", "cafe", "library", "museum", "gallery", "auction_house", "market", "fair", "publisher", "individual", "other"]),
-  subtype: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  website: z.string().nullable().optional(),
-  instagramHandle: z.string().nullable().optional(),
-  socialLinks: z.record(z.string(), z.string()).nullable().optional(),
-  placeId: z.string().uuid().nullable().optional(),
-  formattedAddress: z.string().nullable().optional(),
-  googlePlaceId: z.string().nullable().optional(),
-  placeCoordinates: z.object({
+const shortText = z.string().trim().max(500).nullable().optional();
+const longText = z.string().max(50000).nullable().optional();
+const date = z.iso.date().nullable().optional();
+const venueFields = z.strictObject({
+  name: z.string().trim().min(1).max(500),
+  type: z.enum(VENUE_TYPES),
+  subtype: shortText,
+  description: longText,
+  website: sourceUrlSchema.nullable().optional(),
+  instagramHandle: z.string().trim().max(100).nullable().optional(),
+  socialLinks: z.record(z.string().max(50), sourceUrlSchema).nullable().optional(),
+  placeId: z.uuid().nullable().optional(),
+  formattedAddress: z.string().trim().max(2000).nullable().optional(),
+  googlePlaceId: shortText,
+  placeCoordinates: z.strictObject({
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
   }).nullable().optional(),
-  phone: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
-  openingHours: z.record(z.string(), z.unknown()).nullable().optional(),
-  timezone: z.string().nullable().optional(),
-  posterS3Key: z.string().nullable().optional(),
-  thumbnailS3Key: z.string().nullable().optional(),
-  color: z.string().nullable().optional(),
+  phone: z.string().trim().max(100).nullable().optional(),
+  email: z.email().max(320).nullable().optional(),
+  openingHours: z.record(z.string(), z.json()).nullable().optional(),
+  timezone: z.string().max(100).refine((value) => {
+    try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; }
+    catch { return false; }
+  }, "Invalid timezone").nullable().optional(),
+  posterS3Key: shortText,
+  thumbnailS3Key: shortText,
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   isFavorite: z.boolean().optional(),
   personalRating: z.number().int().min(1).max(5).nullable().optional(),
-  notes: z.string().nullable().optional(),
-  specialties: z.string().nullable().optional(),
-  tags: z.array(z.string()).nullable().optional(),
-  firstVisitDate: z.string().nullable().optional(),
-  lastVisitDate: z.string().nullable().optional(),
+  notes: longText,
+  specialties: longText,
+  tags: z.array(z.string().trim().min(1).max(100)).max(100).nullable().optional(),
+  firstVisitDate: date,
+  lastVisitDate: date,
 });
-
-export type CreateVenueInput = z.infer<typeof createVenueSchema>;
+function validDates(v: { firstVisitDate?: string | null; lastVisitDate?: string | null }) {
+  return !v.firstVisitDate || !v.lastVisitDate || v.firstVisitDate <= v.lastVisitDate;
+}
+export const createVenueSchema = venueFields.refine(validDates, "Last visit cannot precede first visit");
+export const updateVenueSchema = venueFields.partial().refine(validDates, "Last visit cannot precede first visit");
+export type CreateVenueInput = z.input<typeof createVenueSchema>;
+export const venueSearchSchema = z.strictObject({
+  search: z.string().trim().max(200).optional(),
+  limit: z.number().int().min(1).max(200).default(48),
+  offset: z.number().int().min(0).max(2147483647).default(0),
+  sort: z.enum(["name", "recent", "rating"]).default("name"),
+  order: z.enum(["asc", "desc"]).optional(),
+  filters: z.strictObject({
+    types: z.array(z.enum(VENUE_TYPES)).max(VENUE_TYPES.length).optional(),
+    favorite: z.boolean().optional(),
+    tags: z.array(z.string().trim().min(1).max(100)).max(100).optional(),
+    archived: z.enum(["exclude", "include", "only"]).default("exclude"),
+    organizationId: z.uuid().optional(),
+  }).optional(),
+});

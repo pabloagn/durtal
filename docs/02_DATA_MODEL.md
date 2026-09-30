@@ -97,6 +97,36 @@ non-books must explicitly store null. Domain language information belongs in typ
 profiles, not a fabricated book language. Existing book detail APIs validate and
 narrow this invariant, preserving their return contracts and UI callers.
 
+### Perfume retailer listings and dated observations
+
+Migration `0041_venues_retailer_observations` records where a fragrance is sold.
+Price and stock are dated observations, never permanent facts. There are no live
+commerce actions and no scraping.
+
+| Table | Key and relationships | Purpose |
+| --- | --- | --- |
+| `perfume_retailer_links` | UUID; fragrance FK (`perfume_details`), optional formulation FK, retailer organization FK, optional branch venue FK, HTTP(S) URL, optional source; `archived_at` | One listing. Null-aware uniqueness on fragrance, formulation, retailer, branch and URL |
+| `perfume_retailer_observations` | UUID; listing FK; `checked_at`, availability, paired price/currency, optional container kind, offered capacity ml, package label, source, notes; `recorded_at` | Append-only history. Update and delete are rejected |
+
+All foreign keys are RESTRICT. The trigger `perfume_retailer_link_guard` requires:
+
+- a formulation that belongs to the same fragrance;
+- an organization with the `retailer` role, which cannot then be removed from it;
+- for a branch, an `operator` link in `organization_venues`, and a branch that is not archived;
+- a source observation owned by the same fragrance.
+
+Listing identity (fragrance, formulation, URL, source) is immutable: archive the
+listing and create a replacement. The retailer or branch changes only through an
+audited organization or venue merge. An archived listing or branch accepts no new
+observations until restored.
+
+Availability is `unknown`, `in_stock`, `out_of_stock`, `preorder`,
+`discontinued` or `unlisted`. Price needs an ISO currency code. Offered capacity
+needs a container kind. `checked_at` cannot be later than the time of recording
+plus five minutes. The latest observation orders by `checked_at`, not insertion
+order; a lateral join returns it with each listing in one query. Staleness is a
+read-time hint (default 30 days); an old observation stays visibly dated.
+
 ## Personal curation and holdings contracts
 
 Migration `0039_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT
@@ -148,7 +178,9 @@ not rewrite historic book/person provider strings, source IDs or edition locks.
 Identifiers are idempotently registered for their existing owner. Claiming the
 same provider/kind/ID for another record is an explicit conflict, even if the
 titles match. Different providers or entity kinds may reuse the same external
-ID. Owner foreign keys cascade only when their catalogue record is deleted.
+ID. Owner foreign keys cascade only when their catalogue record is deleted,
+except venues: migration 0041 makes the venue owner FK RESTRICT, so a venue with
+identifiers or source observations must be archived, not deleted.
 Reparenting requires the exact audited harmonization move; deferred checks retain
 identifier/source consistency when a merge transfers them in separate statements.
 Merges preserve source UUIDs, payloads, locks and history in the survivor and audit.
@@ -981,8 +1013,8 @@ Both foreign keys use RESTRICT: deleting an organization or venue cannot silentl
 discard its affiliation. An institution can operate multiple branches, and a
 venue can have separate owner and operator organizations. Explicit unlinking
 removes only that affiliation. This relationship does not imply original-art
-custody or ownership. Venue classification and dated retail observations are
-extended by their dedicated tasks.
+custody or ownership. An `operator` link that a perfume retailer listing uses
+cannot be removed (deferred constraint trigger).
 
 ### `edition_publishers`
 
@@ -1433,7 +1465,7 @@ Tracks the acquisition pipeline for individual works — from intent to receipt.
 | `acquisition_target_id` | UUID | nullable, FK → acquisition_targets, RESTRICT | Optional collecting target; database validates work, edition and copy compatibility |
 | `edition_id` | UUID | FK → `editions.id`, SET NULL, nullable | Specific edition ordered (if known) |
 | `instance_id` | UUID | FK → `instances.id`, SET NULL, nullable | Resulting instance once received |
-| `venue_id` | UUID | FK → `venues.id`, SET NULL, nullable | Venue / seller from which the order was placed |
+| `venue_id` | UUID | FK → `venues.id`, RESTRICT, nullable | Venue / seller from which the order was placed; archive the venue instead of deleting it |
 | `acquisition_method` | `acquisition_method_enum` | NOT NULL | How the work is being acquired |
 | `status` | `order_status_enum` | NOT NULL, default `'placed'` | Current stage in the acquisition pipeline |
 | `order_date` | DATE | NOT NULL | Date the order was placed or acquisition initiated |
@@ -1563,7 +1595,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `works` | `orders` | CASCADE |
 | `editions` | `orders.edition_id` | SET NULL |
 | `instances` | `orders.instance_id` | SET NULL |
-| `venues` | `orders.venue_id` | SET NULL |
+| `venues` | `orders.venue_id` | RESTRICT |
 | `places` | `orders.origin_place_id` | SET NULL |
 | `locations` | `orders.destination_location_id` | SET NULL |
 | `sub_locations` | `orders.destination_sub_location_id` | SET NULL |
@@ -1673,14 +1705,14 @@ WHERE i.is_lent_out = true;
 
 ### `venues`
 
-Real-world and online establishments where books are acquired, browsed, or experienced. This is the "Places" section of the catalogue.
+Real-world and online establishments where works are acquired, browsed, seen or experienced: bookshops, museums, galleries, perfumeries, cinemas. This is the "Places" section of the catalogue. Venues stay separate from geographic `places` and from personal storage `locations`.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
-| `name` | TEXT | NOT NULL | Venue name |
-| `slug` | TEXT | UNIQUE, nullable | URL slug (auto-generated from name) |
-| `type` | `venue_type_enum` | NOT NULL | Category: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other` |
+| `name` | TEXT | NOT NULL | Venue name, 1–500 characters after trim |
+| `slug` | TEXT | UNIQUE, nullable | URL slug. New venues get `<name>-<uuid>` in the same write; a rename never changes it |
+| `type` | `venue_type_enum` | NOT NULL | Category: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`, `perfumery`, `cinema` |
 | `subtype` | TEXT | nullable | More specific classification (e.g. "second-hand", "academic") |
 | `description` | TEXT | nullable | Description of the venue |
 | `website` | TEXT | nullable | Website URL |
@@ -1706,12 +1738,21 @@ Real-world and online establishments where books are acquired, browsed, or exper
 | `total_orders` | INTEGER | NOT NULL, default `0` | Denormalised order count |
 | `total_spent` | NUMERIC(12,2) | NOT NULL, default `0` | Denormalised total spend |
 | `last_order_date` | DATE | nullable | Date of most recent order |
+| `archived_at` | TIMESTAMPTZ | nullable | Set when archived. Archived venues leave default lists and counts but keep their URL and history |
+| `search_text` | TEXT | GENERATED, STORED | `search_normalize(name + formatted_address)`; trigram GIN index `venues_search_idx` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
-**Relations**: `place` (N:1 → `places`, optional)
+**Relations**: `place` (N:1 → `places`, optional); organizations through `organization_venues`; perfume retailer listings through `perfume_retailer_links.venue_id`.
 
-**Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`
+**Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`, `perfumery`, `cinema`. The TypeScript source is `VENUE_TYPES` in `src/lib/catalogue/venues.ts`.
+
+**Rules (migration 0041)**:
+
+- The trigger `venue_write_guard` rejects a blank or over-long name, a rating outside 1–5 and a last visit before the first visit. The migration stops with an error, and changes nothing, if an existing venue breaks these rules.
+- Deletion is blocked when orders, identifiers or source observations reference the venue (RESTRICT), and when it has artwork (`venue_delete_guard`), except during an audited harmonization move. Use archive and restore instead.
+- Online establishments need no address or place. Coordinates without a `place_id` create an `address` place in the same atomic write.
+- Create, edit and search inputs are validated with Zod (`src/lib/validations/venues.ts`). Results and counts share one filter builder, so they cannot disagree.
 
 ---
 

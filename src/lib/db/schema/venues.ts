@@ -9,8 +9,9 @@ import {
   date,
   jsonb,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { places } from "./places";
 import { venueTypeEnum } from "./enums";
 
@@ -59,13 +60,16 @@ export const venues = pgTable("venues", {
     .default("0"),
   lastOrderDate: date("last_order_date"),
 
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  searchText: text("search_text").generatedAlwaysAs(sql`search_normalize(name || ' ' || coalesce(formatted_address, ''))`),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [index("venues_search_idx").using("gin", sql`${t.searchText} gin_trgm_ops`)]);
 
 export const venuesRelations = relations(venues, ({ one }) => ({
   place: one(places, { fields: [venues.placeId], references: [places.id] }),

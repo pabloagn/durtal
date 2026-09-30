@@ -93,7 +93,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           !DOMAIN_TAXONOMIES.some((definition) => definition.slug === row.slug),
       );
     }
-    for (const table of ["publishing_houses", "publisher_aliases"])
+    for (const table of ["publishing_houses", "publisher_aliases", "venues"])
       for (const row of projected[table]) {
         if ("search_text" in row) {
           expect(row.search_text).toEqual(expect.any(String));
@@ -111,6 +111,9 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           delete credit.attribution;
         }
       }
+    for (const row of projected.venues) {
+      if ("archived_at" in row) { expect(row.archived_at).toBeNull(); delete row.archived_at; }
+    }
     for (const table of [
       "credit_roles",
       "person_domains",
@@ -131,6 +134,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "perfume_variant_taxa",
       "perfume_bottles",
       "perfume_variant_perfumers",
+      "perfume_retailer_links",
+      "perfume_retailer_observations",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -244,9 +249,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     await c`insert into media(work_id,type,s3_key,thumbnail_s3_key,crop_x) values (${bookId},'poster','gold/media/keep.webp','gold/media/keep-thumb.webp',28)`;
     await c`insert into comments(entity_type,entity_id,content_html) values ('work',${bookId},'<p>Keep commentary</p>')`;
     await c`insert into activity_events(entity_type,entity_id,event_key,metadata) values ('work',${bookId},'work.created','{}')`;
+    const [venue] = await c`
+      insert into venues(name,slug,type,formatted_address,personal_rating,first_visit_date,last_visit_date,tags)
+      values ('Historic Bookshop','historic-bookshop','bookshop','1 Rue de la Paix',4,'2020-01-01','2026-09-20',ARRAY['antiquarian']) returning id
+    `;
     await c`
-      insert into orders(work_id,edition_id,instance_id,acquisition_method,status,order_date,price,currency)
-      values (${bookId},${edition.id},${copy.id},'in_store_purchase','received','2026-09-20',25.50,'EUR')
+      insert into orders(work_id,edition_id,instance_id,venue_id,acquisition_method,status,order_date,price,currency)
+      values (${bookId},${edition.id},${copy.id},${venue.id},'in_store_purchase','received','2026-09-20',25.50,'EUR')
     `;
     await c`
       insert into harmonization_redirects(source_id,entity,source_slug,target_id)
@@ -265,6 +274,22 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         join(folder, "meta/_journal.json"),
         JSON.stringify(journal),
       );
+      if (entry.tag === "0041_venues_retailer_observations") {
+        // Legacy writes skipped validation: stop with a clear error, change nothing.
+        const [invalid] =
+          await c`insert into venues(name,slug,type,personal_rating) values ('Unrated','unrated','other',0) returning id`;
+        const failure = await migrate(db!, { migrationsFolder: folder }).then(
+          () => null,
+          (error) => error,
+        );
+        expect(String((failure?.cause ?? failure)?.message)).toMatch(
+          /^Resolve existing venues/,
+        );
+        const [{ table }] =
+          await c`select to_regclass('public.perfume_retailer_links') as table`;
+        expect(table).toBeNull();
+        await c`delete from venues where id=${invalid.id}`;
+      }
       await migrate(db!, { migrationsFolder: folder });
       const fullStep = await snapshot();
       expect(fullStep.works.every((work) => work.kind === "book")).toBe(true);

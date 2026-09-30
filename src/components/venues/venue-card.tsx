@@ -1,42 +1,13 @@
 "use client";
 
+import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import Link from "next/link";
 import { ExternalLink, Star, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { VenueType } from "@/lib/actions/venues";
+import type { VenueType } from "@/lib/catalogue/venues";
 
-const VENUE_TYPE_LABELS: Record<VenueType, string> = {
-  bookshop: "Bookshop",
-  online_store: "Online Store",
-  cafe: "Cafe",
-  library: "Library",
-  museum: "Museum",
-  gallery: "Gallery",
-  auction_house: "Auction House",
-  market: "Market",
-  fair: "Fair",
-  publisher: "Publisher",
-  individual: "Individual",
-  other: "Other",
-};
 
-const VENUE_TYPE_BADGE_VARIANTS: Record<
-  VenueType,
-  "rose" | "gold" | "sage" | "blue" | "muted" | "default"
-> = {
-  bookshop: "rose",
-  online_store: "blue",
-  cafe: "gold",
-  library: "sage",
-  museum: "sage",
-  gallery: "gold",
-  auction_house: "rose",
-  market: "muted",
-  fair: "muted",
-  publisher: "blue",
-  individual: "muted",
-  other: "muted",
-};
 
 export interface VenueCardProps {
   id: string;
@@ -105,22 +76,21 @@ export function VenueCard({
       </Link>
 
       {/* Meta */}
-      <Link href={href} className="block">
-        <div className="p-3.5">
+      <div className="p-3.5">
           {/* Fixed rows: every place card has the same height */}
           <div className="mb-1.5 flex items-start justify-between gap-2">
             <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary">
-              {name}
+              <Link href={href}>{name}</Link>
             </h3>
             <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
               {VENUE_TYPE_LABELS[type]}
             </Badge>
           </div>
 
-          <p className="mb-2 flex h-4 items-center gap-1 text-xs text-fg-muted">
+          <p className="mb-2 flex h-4 items-start gap-1 text-xs text-fg-muted">
             {location && (
               <>
-                <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+                <CapAligned height={12}><MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} /></CapAligned>
                 <span className="lines-1 min-w-0">{location}</span>
               </>
             )}
@@ -150,14 +120,13 @@ export function VenueCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="ml-auto text-fg-muted transition-colors hover:text-accent-rose"
-                onClick={(e) => e.stopPropagation()}
+                aria-label={`Visit ${name} website`}
               >
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
               </a>
             )}
           </div>
         </div>
-      </Link>
     </div>
   );
 }

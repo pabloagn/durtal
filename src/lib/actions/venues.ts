@@ -1,328 +1,110 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { z } from "zod/v4";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import { venues, places } from "@/lib/db/schema";
-import {
-  eq,
-  and,
-  asc,
-  desc,
-  ilike,
-  like,
-  inArray,
-  count,
-  sql,
-} from "drizzle-orm";
+import { eq, and, asc, inArray, count, sql, isNull, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import { slugify, makeUnique } from "@/lib/utils/slugify";
+import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { createVenueSchema } from "@/lib/validations/venues";
+import { createVenueSchema, updateVenueSchema, venueSearchSchema, type CreateVenueInput } from "@/lib/validations/venues";
+import { assertSql, resultRows } from "@/lib/harmonization/store";
+import { textSearchCondition } from "./utils/text-search";
+export type { VenueType } from "@/lib/catalogue/venues";
+export type { CreateVenueInput } from "@/lib/validations/venues";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type VenueType =
-  | "bookshop"
-  | "online_store"
-  | "cafe"
-  | "library"
-  | "museum"
-  | "gallery"
-  | "auction_house"
-  | "market"
-  | "fair"
-  | "publisher"
-  | "individual"
-  | "other";
-
-export interface CreateVenueInput {
-  name: string;
-  type: VenueType;
-  subtype?: string | null;
-  description?: string | null;
-  website?: string | null;
-  instagramHandle?: string | null;
-  socialLinks?: Record<string, string> | null;
-  placeId?: string | null;
-  formattedAddress?: string | null;
-  googlePlaceId?: string | null;
-  /** Coordinates from Google Places — used to create a geographic places record */
-  placeCoordinates?: { latitude: number; longitude: number } | null;
-  phone?: string | null;
-  email?: string | null;
-  openingHours?: Record<string, unknown> | null;
-  timezone?: string | null;
-  posterS3Key?: string | null;
-  thumbnailS3Key?: string | null;
-  color?: string | null;
-  isFavorite?: boolean;
-  personalRating?: number | null;
-  notes?: string | null;
-  specialties?: string | null;
-  tags?: string[] | null;
-  firstVisitDate?: string | null;
-  lastVisitDate?: string | null;
+type SearchInput = z.input<typeof venueSearchSchema>;
+function venueWhere({ search, filters }: z.output<typeof venueSearchSchema>) {
+  const conditions: (SQL | undefined)[] = [
+    filters?.archived === "include" ? undefined : filters?.archived === "only" ? isNotNull(venues.archivedAt) : isNull(venues.archivedAt),
+    search ? textSearchCondition(sql`${venues.searchText}`, search) : undefined,
+    filters?.types?.length ? inArray(venues.type, filters.types) : undefined,
+    filters?.favorite !== undefined ? eq(venues.isFavorite, filters.favorite) : undefined,
+    filters?.organizationId ? sql`exists(select 1 from organization_venues ov where ov.venue_id=${venues.id} and ov.organization_id=${filters.organizationId}::uuid)` : undefined,
+  ];
+  if (filters?.tags?.length) conditions.push(sql`${venues.tags} && ARRAY[${sql.join(filters.tags.map(t => sql`${t}`), sql`, `)}]::text[]`);
+  return and(...conditions);
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function generateVenueSlug(name: string): string {
-  const slug = slugify(name);
-  return slug || "venue";
-}
-
-// ── Queries ───────────────────────────────────────────────────────────────────
-
-export async function getVenues(opts?: {
-  search?: string;
-  limit?: number;
-  offset?: number;
-  sort?: "name" | "recent" | "rating";
-  order?: "asc" | "desc";
-  filters?: {
-    types?: VenueType[];
-    favorite?: boolean;
-    tags?: string[];
-  };
-}) {
-  const { search, limit = 48, offset = 0, sort = "name", order, filters } =
-    opts ?? {};
-
-  const conditions: SQL[] = [];
-
-  if (search) {
-    conditions.push(ilike(venues.name, `%${search}%`));
-  }
-
-  if (filters?.types?.length) {
-    conditions.push(inArray(venues.type, filters.types));
-  }
-
-  if (filters?.favorite === true) {
-    conditions.push(eq(venues.isFavorite, true));
-  }
-
-  if (filters?.tags?.length) {
-    // PostgreSQL array overlap: tags && ARRAY[...tags]
-    const tagArray = filters.tags.map((t) => sql`${t}`);
-    conditions.push(
-      sql`${venues.tags} && ARRAY[${sql.join(tagArray, sql`, `)}]::text[]`,
-    );
-  }
-
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const dirFn =
-    order === "asc" ? asc : order === "desc" ? desc : sort === "recent" ? desc : asc;
-
-  const orderBy = (() => {
-    switch (sort) {
-      case "recent":
-        return dirFn(venues.createdAt);
-      case "rating":
-        return dirFn(venues.personalRating);
-      case "name":
-      default:
-        return dirFn(venues.name);
-    }
-  })();
-
+export async function getVenues(input: SearchInput = {}) {
+  const opts = venueSearchSchema.parse(input);
+  const column = opts.sort === "recent" ? venues.createdAt : opts.sort === "rating" ? venues.personalRating : venues.name;
+  const direction = opts.order ?? (opts.sort === "name" ? "asc" : "desc");
   return db.query.venues.findMany({
-    where,
-    orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(venues.id)],
-    limit,
-    offset,
-    with: {
-      place: { columns: { id: true, name: true, fullName: true } },
-    },
+    where: venueWhere(opts),
+    orderBy: [direction === "asc" ? sql`${column} asc nulls last` : sql`${column} desc nulls last`, asc(venues.id)],
+    limit: opts.limit, offset: opts.offset,
+    with: { place: { columns: { id: true, name: true, fullName: true } } },
   });
 }
-
-export async function getVenueCount(opts?: {
-  search?: string;
-  filters?: {
-    types?: VenueType[];
-    favorite?: boolean;
-    tags?: string[];
-  };
-}) {
-  const { search, filters } = opts ?? {};
-  const conditions: SQL[] = [];
-
-  if (search) {
-    conditions.push(ilike(venues.name, `%${search}%`));
-  }
-  if (filters?.types?.length) {
-    conditions.push(inArray(venues.type, filters.types));
-  }
-  if (filters?.favorite === true) {
-    conditions.push(eq(venues.isFavorite, true));
-  }
-  if (filters?.tags?.length) {
-    const tagArray = filters.tags.map((t) => sql`${t}`);
-    conditions.push(
-      sql`${venues.tags} && ARRAY[${sql.join(tagArray, sql`, `)}]::text[]`,
-    );
-  }
-
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const [result] = await db
-    .select({ count: count() })
-    .from(venues)
-    .where(where);
+export async function getVenueCount(input: SearchInput = {}) {
+  const [result] = await db.select({ count: count() }).from(venues).where(venueWhere(venueSearchSchema.parse(input)));
   return result.count;
 }
-
 export async function getVenue(id: string) {
-  return db.query.venues.findFirst({
-    where: eq(venues.id, id),
-    with: {
-      place: true,
-    },
-  });
+  z.uuid().parse(id);
+  return db.query.venues.findFirst({ where: eq(venues.id, id), with: { place: true } });
 }
-
 export async function getVenueBySlug(slug: string) {
-  return db.query.venues.findFirst({
-    where: eq(venues.slug, slug),
-    with: {
-      place: true,
-    },
-  });
+  z.string().min(1).max(1000).parse(slug);
+  return db.query.venues.findFirst({ where: eq(venues.slug, slug), with: { place: true } });
 }
-
 export async function getFavoriteVenues() {
-  return db.query.venues.findMany({
-    where: eq(venues.isFavorite, true),
-    orderBy: asc(venues.name),
-    with: {
-      place: { columns: { id: true, name: true, fullName: true } },
-    },
-  });
+  return getVenues({ filters: { favorite: true }, limit: 200 });
 }
-
 export async function searchVenues(query: string) {
-  return db.query.venues.findMany({
-    where: ilike(venues.name, `%${query}%`),
-    orderBy: asc(venues.name),
-    limit: 20,
-    with: {
-      place: { columns: { id: true, name: true } },
-    },
-  });
+  return getVenues({ search: query, limit: 20 });
 }
-
-// ── Mutations ─────────────────────────────────────────────────────────────────
-
-export async function createVenue(input: CreateVenueInput) {
-  const validated = createVenueSchema.parse(input);
-  // If Google Places coordinates were provided and no explicit placeId, create
-  // a geographic places record and link it to this venue.
-  let resolvedPlaceId = validated.placeId ?? null;
-
-  if (!resolvedPlaceId && validated.placeCoordinates && validated.formattedAddress) {
-    try {
-      const [geoPlace] = await db
-        .insert(places)
-        .values({
-          name: validated.name,
-          fullName: validated.formattedAddress,
-          type: "venue",
-          latitude: validated.placeCoordinates.latitude,
-          longitude: validated.placeCoordinates.longitude,
-        })
-        .returning({ id: places.id });
-      if (geoPlace) resolvedPlaceId = geoPlace.id;
-    } catch {
-      // Non-fatal: venue creation continues without a places link
-    }
-  }
-
-  const [venue] = await db
-    .insert(venues)
-    .values({
-      name: validated.name,
-      type: validated.type,
-      subtype: validated.subtype ?? null,
-      description: validated.description ?? null,
-      website: validated.website ?? null,
-      instagramHandle: validated.instagramHandle ?? null,
-      socialLinks: validated.socialLinks ?? null,
-      placeId: resolvedPlaceId,
-      formattedAddress: validated.formattedAddress ?? null,
-      googlePlaceId: validated.googlePlaceId ?? null,
-      phone: validated.phone ?? null,
-      email: validated.email ?? null,
-      openingHours: validated.openingHours ?? null,
-      timezone: validated.timezone ?? null,
-      posterS3Key: validated.posterS3Key ?? null,
-      thumbnailS3Key: validated.thumbnailS3Key ?? null,
-      color: validated.color ?? null,
-      isFavorite: validated.isFavorite ?? false,
-      personalRating: validated.personalRating ?? null,
-      notes: validated.notes ?? null,
-      specialties: validated.specialties ?? null,
-      tags: validated.tags ?? null,
-      firstVisitDate: validated.firstVisitDate ?? null,
-      lastVisitDate: validated.lastVisitDate ?? null,
-    })
-    .returning();
-
-  // Generate slug after insert so we have the ID if needed
-  const baseSlug = generateVenueSlug(venue.name);
-  const existing = await db
-    .select({ slug: venues.slug })
-    .from(venues)
-    .where(like(venues.slug, `${baseSlug}%`));
-  const existingSlugs = existing
-    .map((r) => r.slug)
-    .filter((s): s is string => s !== null);
-  const slug = makeUnique(baseSlug, existingSlugs);
-
-  const [updated] = await db
-    .update(venues)
-    .set({ slug })
-    .where(eq(venues.id, venue.id))
-    .returning();
-
-  invalidate(CACHE_TAGS.venues);
-  return updated;
+function changed() { invalidate(CACHE_TAGS.venues, CACHE_TAGS.places, CACHE_TAGS.orders); }
+function lockVenue(d: typeof db, id: string) {
+  return [
+    d.execute(sql`select id from venues where id=${id}::uuid for update`),
+    d.execute(assertSql(sql`exists(select 1 from venues where id=${id}::uuid)`, "Venue not found")),
+  ];
 }
-
-export async function updateVenue(id: string, input: Partial<CreateVenueInput>) {
-  const updatePayload: Record<string, unknown> = {
-    ...input,
-    updatedAt: new Date(),
+function geographicPoint(input: Partial<CreateVenueInput>) {
+  if (!input.placeCoordinates) return null;
+  if (input.placeId) throw new Error("Choose an existing place or new coordinates, not both");
+  return {
+    id: randomUUID(), name: input.formattedAddress || input.name || "Geographic point",
+    fullName: input.formattedAddress ?? null, type: "address",
+    latitude: input.placeCoordinates.latitude, longitude: input.placeCoordinates.longitude,
   };
-
-  await db.update(venues).set(updatePayload).where(eq(venues.id, id));
-
-  // Regenerate slug if name changed
-  if (input.name !== undefined) {
-    const current = await db.query.venues.findFirst({
-      where: eq(venues.id, id),
-      columns: { name: true, slug: true },
-    });
-    if (current) {
-      const baseSlug = generateVenueSlug(current.name);
-      const existing = await db
-        .select({ slug: venues.slug })
-        .from(venues)
-        .where(like(venues.slug, `${baseSlug}%`));
-      const existingSlugs = existing
-        .map((r) => r.slug)
-        .filter((s): s is string => s !== null && s !== current.slug);
-      const slug = makeUnique(baseSlug, existingSlugs);
-      await db.update(venues).set({ slug }).where(eq(venues.id, id));
-    }
-  }
-
-  invalidate(CACHE_TAGS.venues);
+}
+export async function createVenue(input: CreateVenueInput) {
+  const parsed = createVenueSchema.parse(input);
+  const point = geographicPoint(parsed);
+  const { placeCoordinates: _coordinates, ...fields } = parsed;
+  const id = randomUUID();
+  const results = await atomic(d => [
+    ...(point ? [d.insert(places).values(point)] : []),
+    d.insert(venues).values({ ...fields, id, placeId: point?.id ?? fields.placeId, slug: `${slugify(fields.name) || "venue"}-${id}` }).returning(),
+  ]);
+  changed();
+  return resultRows<typeof venues.$inferSelect>(results.at(-1))[0];
+}
+export async function updateVenue(id: string, input: Partial<CreateVenueInput>) {
+  z.uuid().parse(id);
+  const parsed = updateVenueSchema.parse(input);
+  const point = geographicPoint(parsed);
+  const { placeCoordinates: _coordinates, ...fields } = parsed;
+  await atomic(d => [
+    ...lockVenue(d, id),
+    ...(point ? [d.insert(places).values(point)] : []),
+    d.update(venues).set({ ...fields, ...(point ? { placeId: point.id } : {}), updatedAt: new Date() }).where(eq(venues.id, id)),
+  ]);
+  changed();
   return { id };
 }
-
+export async function archiveVenue(id: string, archived = true) {
+  z.uuid().parse(id); z.boolean().parse(archived);
+  await atomic(d => [...lockVenue(d, id), d.update(venues).set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() }).where(eq(venues.id, id))]);
+  changed(); return { id };
+}
+/** Historical references and artwork require archival; PostgreSQL protects direct writes too. */
 export async function deleteVenue(id: string) {
-  await db.delete(venues).where(eq(venues.id, id));
-  invalidate(CACHE_TAGS.venues);
-  return { id };
+  z.uuid().parse(id);
+  await atomic(d => [...lockVenue(d, id), d.delete(venues).where(eq(venues.id, id))]);
+  changed(); return { id };
 }

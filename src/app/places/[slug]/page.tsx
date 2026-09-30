@@ -1,3 +1,5 @@
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -21,38 +23,7 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-const VENUE_TYPE_LABELS: Record<string, string> = {
-  bookshop: "Bookshop",
-  online_store: "Online Store",
-  cafe: "Cafe",
-  library: "Library",
-  museum: "Museum",
-  gallery: "Gallery",
-  auction_house: "Auction House",
-  market: "Market",
-  fair: "Fair",
-  publisher: "Publisher",
-  individual: "Individual",
-  other: "Other",
-};
 
-const VENUE_TYPE_BADGE_VARIANTS: Record<
-  string,
-  "rose" | "gold" | "sage" | "blue" | "muted" | "default"
-> = {
-  bookshop: "rose",
-  online_store: "blue",
-  cafe: "gold",
-  library: "sage",
-  museum: "sage",
-  gallery: "gold",
-  auction_house: "rose",
-  market: "muted",
-  fair: "muted",
-  publisher: "blue",
-  individual: "muted",
-  other: "muted",
-};
 
 async function PlaceContent({ slug }: { slug: string }) {
   const venue = await getVenueBySlug(slug);
@@ -81,14 +52,14 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Back navigation */}
       <Link
         href="/places"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
       >
-        <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
+        <CapAligned height={12}><ArrowLeft className="h-3 w-3" strokeWidth={1.5} /></CapAligned>
         Back to places
       </Link>
 
       {/* Header */}
-      <div className="mb-8 flex gap-6">
+      <div className="mb-8 flex flex-col gap-6 sm:flex-row">
         {/* Image */}
         {displayImage && (
           <div
@@ -117,15 +88,12 @@ async function PlaceContent({ slug }: { slug: string }) {
 
         {/* Title block */}
         <div className="min-w-0 flex-1">
-          <div className="mb-2 flex items-center gap-3">
+          <div className="mb-2 flex items-start gap-3 font-serif text-4xl tracking-tight">
             <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
               {venue.name}
             </h1>
             {venue.isFavorite && (
-              <Star
-                className="h-5 w-5 shrink-0 fill-accent-gold text-accent-gold"
-                strokeWidth={1.5}
-              />
+              <CapAligned height={16}><Star className="h-4 w-4 shrink-0 fill-accent-gold text-accent-gold" strokeWidth={1.5} /></CapAligned>
             )}
           </div>
 
@@ -133,14 +101,15 @@ async function PlaceContent({ slug }: { slug: string }) {
             <Badge variant={badgeVariant}>
               {VENUE_TYPE_LABELS[venue.type] ?? venue.type}
             </Badge>
+            {venue.archivedAt && <Badge variant="muted">Archived</Badge>}
             {venue.subtype && (
               <Badge variant="muted">{venue.subtype}</Badge>
             )}
           </div>
 
           {locationDisplay && (
-            <p className="mb-2 flex items-center gap-1.5 text-sm text-fg-secondary">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} />
+            <p className="mb-2 flex items-start gap-1.5 text-sm text-fg-secondary">
+              <CapAligned height={14}><MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} /></CapAligned>
               {locationDisplay}
             </p>
           )}
@@ -201,8 +170,8 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Opening hours */}
       {venue.openingHours && (
         <section className="mb-8">
-          <h2 className="mb-3 flex items-center gap-2 font-serif text-xl text-fg-primary">
-            <Clock className="h-4 w-4 text-fg-muted" strokeWidth={1.5} />
+          <h2 className="mb-3 flex items-start gap-2 font-serif text-xl text-fg-primary">
+            <CapAligned height={16}><Clock className="h-4 w-4 text-fg-muted" strokeWidth={1.5} /></CapAligned>
             Opening Hours
           </h2>
           <pre className="font-mono text-xs text-fg-secondary">
@@ -221,27 +190,27 @@ async function PlaceContent({ slug }: { slug: string }) {
                 href={venue.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-accent-rose transition-colors hover:underline"
+                className="flex items-start gap-2 break-all text-sm text-accent-rose transition-colors hover:underline"
               >
-                <Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                <CapAligned height={14}><Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                 {venue.website}
               </a>
             )}
             {venue.phone && (
               <a
                 href={`tel:${venue.phone}`}
-                className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+                className="flex items-start gap-2 break-all text-sm text-fg-secondary transition-colors hover:text-fg-primary"
               >
-                <Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                <CapAligned height={14}><Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                 {venue.phone}
               </a>
             )}
             {venue.email && (
               <a
                 href={`mailto:${venue.email}`}
-                className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+                className="flex items-start gap-2 break-all text-sm text-fg-secondary transition-colors hover:text-fg-primary"
               >
-                <Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                <CapAligned height={14}><Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                 {venue.email}
               </a>
             )}
@@ -250,9 +219,9 @@ async function PlaceContent({ slug }: { slug: string }) {
                 href={`https://instagram.com/${venue.instagramHandle.replace(/^@/, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-accent-rose transition-colors hover:underline"
+                className="flex items-start gap-2 break-all text-sm text-accent-rose transition-colors hover:underline"
               >
-                <AtSign className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                <CapAligned height={14}><AtSign className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                 {venue.instagramHandle.startsWith("@")
                   ? venue.instagramHandle
                   : `@${venue.instagramHandle}`}

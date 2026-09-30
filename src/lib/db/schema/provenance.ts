@@ -36,7 +36,7 @@ const ownerColumns = () => ({
     { onDelete: "cascade" },
   ),
   venueId: uuid("venue_id").references(() => venues.id, {
-    onDelete: "cascade",
+    onDelete: "restrict",
   }),
 });
 const ownerCheck = sql`num_nonnulls(work_id,edition_id,person_id,organization_id,venue_id)=1 and case entity_kind when 'book' then work_id is not null when 'film' then work_id is not null when 'perfume' then work_id is not null when 'painting' then work_id is not null when 'edition' then edition_id is not null when 'person' then person_id is not null when 'organization' then organization_id is not null when 'venue' then venue_id is not null else false end`;
