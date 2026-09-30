@@ -1,6 +1,7 @@
 // ── Enums ───────────────────────────────────────────────────────────────────
 export {
   genderEnum,
+  workKindEnum,
   catalogueStatusEnum,
   acquisitionPriorityEnum,
   instanceStatusEnum,

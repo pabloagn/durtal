@@ -1,6 +1,10 @@
 import { pgTable, uuid, text, smallint, boolean, timestamp, index, date, check } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import { catalogueStatusEnum, acquisitionPriorityEnum } from "./enums";
+import {
+  catalogueStatusEnum,
+  acquisitionPriorityEnum,
+  workKindEnum,
+} from "./enums";
 import { editions } from "./editions";
 import { workAuthors } from "./authors";
 import { workSubjects } from "./taxonomy";
@@ -20,6 +24,9 @@ import { customTaxonomyItemWorks } from "./taxonomy-families";
 
 export const works = pgTable("works", {
   id: uuid("id").defaultRandom().primaryKey(),
+
+  // Stable medium identity, independent of descriptive work-type taxonomy.
+  kind: workKindEnum("kind").notNull().default("book"),
 
   // Work-level metadata
   title: text("title").notNull(),
@@ -65,6 +72,9 @@ export const works = pgTable("works", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
+  // Expand first: new kinds cannot leak into legacy book queries. Widen only
+  // when their complete domain adapters and compatibility tests are ready.
+  check("works_kind_enabled_check", sql`${t.kind} = 'book'`),
   index("works_catalogue_status_idx").on(t.catalogueStatus),
   index("works_series_id_idx").on(t.seriesId),
   index("works_created_at_idx").on(t.createdAt),

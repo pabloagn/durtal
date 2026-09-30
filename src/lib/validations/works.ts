@@ -1,7 +1,10 @@
 import { z } from "zod/v4";
 import { bookLinksSchema } from "./book-links";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 
 export const createWorkSchema = z.object({
+  // This is the legacy book entry point. Do not silently strip another kind.
+  kind: z.literal("book").default("book"),
   title: z.string().min(1, "Title is required").max(500),
   originalLanguage: z.string().default("en"),
   originalYear: z.number().int().min(-3000).max(2100).nullable().optional(),
@@ -14,12 +17,27 @@ export const createWorkSchema = z.object({
   notes: z.string().max(10000).nullable().optional(),
   rating: z.number().int().min(1).max(5).nullable().optional(),
   recommenderIds: z.array(z.string().uuid()).optional(),
-  catalogueStatus: z.enum(["tracked", "shortlisted", "wanted", "on_order", "accessioned", "deaccessioned"]).default("tracked"),
-  acquisitionPriority: z.enum(["none", "low", "medium", "high", "urgent"]).default("none"),
-  authorIds: z.array(z.object({
-    authorId: z.string().uuid(),
-    role: z.enum(["author", "co_author"]).default("author"),
-  })).min(1, "At least one author is required"),
+  catalogueStatus: z
+    .enum([
+      "tracked",
+      "shortlisted",
+      "wanted",
+      "on_order",
+      "accessioned",
+      "deaccessioned",
+    ])
+    .default("tracked"),
+  acquisitionPriority: z
+    .enum(["none", "low", "medium", "high", "urgent"])
+    .default("none"),
+  authorIds: z
+    .array(
+      z.object({
+        authorId: z.string().uuid(),
+        role: z.enum(WORK_DOMAINS.book.creatorRoles).default("author"),
+      }),
+    )
+    .min(1, "At least one author is required"),
   subjectIds: z.array(z.string().uuid()).optional(),
   metadataSource: z.string().max(100).nullable().optional(),
   metadataSourceId: z.string().max(200).nullable().optional(),
@@ -27,11 +45,29 @@ export const createWorkSchema = z.object({
   storygraphUrl: bookLinksSchema.shape.storygraphUrl,
 });
 
-export const updateWorkSchema = createWorkSchema.partial().omit({ authorIds: undefined }).extend({
-  authorIds: z.array(z.object({
-    authorId: z.string().uuid(),
-    role: z.enum(["author", "co_author"]).default("author"),
-  })).optional(),
+export const updateWorkSchema = createWorkSchema.partial().extend({
+  // Kind is identity, not editable metadata (even when the value is unchanged).
+  kind: z.never().optional(),
+  // Zod 4 evaluates defaults inside optional fields. A partial edit must not
+  // reset language, lifecycle or anthology metadata to creation defaults.
+  originalLanguage: createWorkSchema.shape.originalLanguage
+    .removeDefault()
+    .optional(),
+  isAnthology: createWorkSchema.shape.isAnthology.removeDefault().optional(),
+  catalogueStatus: createWorkSchema.shape.catalogueStatus
+    .removeDefault()
+    .optional(),
+  acquisitionPriority: createWorkSchema.shape.acquisitionPriority
+    .removeDefault()
+    .optional(),
+  authorIds: z
+    .array(
+      z.object({
+        authorId: z.string().uuid(),
+        role: z.enum(WORK_DOMAINS.book.creatorRoles).default("author"),
+      }),
+    )
+    .optional(),
 });
 
 export type CreateWorkInput = z.input<typeof createWorkSchema>;

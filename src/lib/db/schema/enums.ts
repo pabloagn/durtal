@@ -1,10 +1,13 @@
 import { pgEnum } from "drizzle-orm/pg-core";
+import { WORK_KINDS } from "@/lib/catalogue/kinds";
 
 // ── Author-level enums ──────────────────────────────────────────────────────
 
 export const genderEnum = pgEnum("gender_enum", ["male", "female"]);
 
 // ── Work-level enums ─────────────────────────────────────────────────────────
+
+export const workKindEnum = pgEnum("work_kind_enum", WORK_KINDS);
 
 export const catalogueStatusEnum = pgEnum("catalogue_status_enum", [
   "tracked",

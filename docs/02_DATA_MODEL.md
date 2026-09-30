@@ -1,6 +1,25 @@
 # Data Model
 
-Durtal uses a three-tier data model drawn from FRBR (Functional Requirements for Bibliographic Records). The separation between intellectual creation, physical publication, and individual copy is fundamental to the entire system.
+Durtal's book catalogue uses a three-tier data model drawn from FRBR (Functional Requirements for Bibliographic Records). The separation between intellectual creation, physical publication, and individual copy is fundamental to books. The curated-library expansion preserves that model and introduces explicit work kinds; see [the architecture and delivery plan](14_CURATED_LIBRARY_PLAN.md).
+
+## Work domains (foundation)
+
+Migration `0033_work_kinds` adds `works.kind` using `work_kind_enum`:
+`book`, `film`, `perfume`, `painting`. Existing rows and inserts that omit the
+column default to `book`. This identity is independent of `work_type_id` and all
+taxonomies: a book about painting remains a book.
+
+Only books are currently enabled. The `works_kind_enabled_check` constraint
+rejects all non-book writes until their models and legacy-query isolation pass
+the rollout gates. `src/lib/catalogue/domains.ts` records the same application
+readiness plus domain labels, routes, primary creator vocabulary and image
+presentation defaults. Unready domains must not be advertised in navigation.
+
+Kind is immutable. The `works_kind_immutable` trigger rejects a changed kind,
+even after a future activation migration widens the enabled-kind check.
+Book create and fast-track inputs accept only `book`; the update schema and
+action reject an explicit kind. This release adds no non-book data tables or
+pages. No current IDs, slugs, edition/copy relations or media keys are rewritten.
 
 ---
 
@@ -138,6 +157,7 @@ The abstract intellectual creation. A work exists independently of any particula
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
+| `kind` | `work_kind_enum` | NOT NULL, default `book`; immutable; currently book-only CHECK | Stable domain identity, independent of work-type taxonomy |
 | `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (format: `{title}-by-{author}`) |
 | `original_language` | TEXT | NOT NULL, default `'en'` | ISO 639-1 code |
 | `original_year` | SMALLINT | nullable | Year of first publication |

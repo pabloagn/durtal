@@ -8,6 +8,7 @@ export const fastTrackBookSchema = z.object({
   authorName: z.string().trim().min(1, "Author is required").max(300),
   work: createWorkSchema
     .pick({
+      kind: true,
       title: true,
       originalLanguage: true,
       originalYear: true,

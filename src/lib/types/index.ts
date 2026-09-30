@@ -1,4 +1,6 @@
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+export type { WorkKind } from "@/lib/catalogue/kinds";
 import type {
   works,
   editions,
@@ -129,7 +131,7 @@ export type CollectionWithEditions = Collection & {
 
 // ── Enums (used across the app) ─────────────────────────────────────────────
 
-export const WORK_AUTHOR_ROLES = ["author", "co_author"] as const;
+export const WORK_AUTHOR_ROLES = WORK_DOMAINS.book.creatorRoles;
 export type WorkAuthorRole = (typeof WORK_AUTHOR_ROLES)[number];
 
 export const EDITION_CONTRIBUTOR_ROLES = [

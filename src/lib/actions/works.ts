@@ -39,7 +39,12 @@ import {
   ne,
 } from "drizzle-orm";
 import { z } from "zod";
-import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
+import {
+  createWorkSchema,
+  updateWorkSchema,
+  type CreateWorkInput,
+  type UpdateWorkInput,
+} from "@/lib/validations";
 import { bookLinksSchema } from "@/lib/validations/book-links";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -675,7 +680,7 @@ export async function createWork(input: CreateWorkInput) {
   return updated;
 }
 
-export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
+export async function updateWork(id: string, input: UpdateWorkInput) {
   const {
     authorIds,
     subjectIds,
@@ -683,7 +688,7 @@ export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
     goodreadsUrl,
     storygraphUrl,
     ...rest
-  } = input;
+  } = updateWorkSchema.parse(input);
   // Book links are checked here too: only https pages on the site's own domain.
   const links = bookLinksSchema.parse({ goodreadsUrl, storygraphUrl });
   const seriesPlan = workSeriesPlan(rest);

@@ -133,4 +133,27 @@ describe.skipIf(!url)("book links with PostgreSQL", () => {
     ).rejects.toThrow();
     expect(await read(work.id)).toEqual(work);
   });
+
+  it("validates a sparse update without resetting creation defaults", async () => {
+    const work = await book();
+    await db
+      .update(schema.works)
+      .set({
+        originalLanguage: "fr",
+        catalogueStatus: "wanted",
+        acquisitionPriority: "urgent",
+        isAnthology: true,
+      })
+      .where(eq(schema.works.id, work.id));
+    const before = await read(work.id);
+
+    await updateWork(work.id, { notes: "Only the note changes" });
+
+    const after = await read(work.id);
+    expect(after).toEqual({
+      ...before,
+      notes: "Only the note changes",
+      updatedAt: after.updatedAt,
+    });
+  });
 });
