@@ -133,6 +133,41 @@ plus five minutes. The latest observation orders by `checked_at`, not insertion
 order; a lateral join returns it with each listing in one query. Staleness is a
 read-time hint (default 30 days); an old observation stays visibly dated.
 
+## Film domain model
+
+Migration `0042_film_model` adds a film profile, versions (cuts), releases and
+optional personal copies. The domain stays disabled until its screens and
+release gates pass (`works_kind_enabled_check` still allows only books).
+
+| Table | Key and relationships | Purpose |
+| --- | --- | --- |
+| `film_details` | Work UUID PK/FK; original title; release date value; source | A profile may belong only to a film work |
+| `film_countries` | `(work_id, country_id)`; order | Production countries in credited order |
+| `film_languages` | `(work_id, language_id)`; order | Original spoken languages in credited order |
+| `film_organizations` | `(work_id, organization_id, role)`; order, source | Production companies; the organization needs the `production_company` role |
+| `film_versions` | UUID; film FK; label, runtime seconds, order, notes, source | A cut or version; null-aware unique label per film; unknown runtime stays null |
+| `film_releases` | UUID; version FK; country (null = worldwide or unspecified), territory label, format, release date value, distributor, notes, source | One public release; a distributor needs the `distribution_company` role |
+| `film_holdings` | UUID; film FK; optional version and release; medium, format label, status, condition, location, acquisition and disposition | An optional personal copy (disc, print, file) |
+
+Cast and crew are ordered `work_credits` with `film.*` roles: several directors
+or writers, one performer with several characters, credited-as names and unknown
+performers need no dummy person. A remake is a separate film work; a director's
+cut is a version of the same film. Release formats are `theatrical`,
+`festival`, `television`, `home_media`, `streaming` and `other`.
+
+Rules (triggers): a profile needs a film work; profile, company and version rows
+cannot move to another film, and a release cannot move to another version. A
+copy's version and release must belong to its film, and a release to the named
+version. A physical copy needs a physical location and a digital copy a digital
+one; location type and sublocation changes that would break this are rejected.
+A copy's supplier needs the `retailer` role. Company, distributor and supplier
+roles in use cannot be removed (deferred constraint trigger on
+`organization_roles`). Every source must be owned by the same film.
+
+Copies are the only personal holdings: curation, ratings and viewing never
+create one. A copy protects its film, version and release from deletion
+(RESTRICT). Deleting a film cascades its versions, releases and origins.
+
 ## Personal curation and holdings contracts
 
 Migration `0039_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT

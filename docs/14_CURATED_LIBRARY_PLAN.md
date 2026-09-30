@@ -275,5 +275,17 @@ full local suite passes 853 tests across 69 files, zero skipped, plus five Pytho
 checks, including a Neon-driver contract for perfume writes. Perfume screens and
 activation remain SLN-366 and SLN-382; the flanker link itself is SLN-363.
 
-See changelog tasks 0155–0165 for scope and verification. SLN-283 (database access
+The film model and services (SLN-358, migration 0042) add a film profile with
+original title, production countries, languages and companies; ordered cast and
+crew through shared credits; versions with runtimes; releases by territory, date,
+format and distributor; and optional personal copies. Remakes are separate films
+and cuts are versions. Database rules reject cross-film and cross-domain links.
+Services follow the perfume pattern: atomic writes, record fingerprints, section
+replacement, release lists that keep IDs, and browse filters by person and role,
+genre, country, language, release years, copies and favourites, with five sorts.
+The full local suite passes 863 tests across 70 files, zero skipped, plus five
+Python checks, including a Neon-driver contract for film writes. Film screens
+remain SLN-367.
+
+See changelog tasks 0155–0166 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PERSONAL_HOLDING_STATUSES } from "./holdings";
+import { PERSONAL_HOLDING_STATUSES, checkPersonalHolding } from "./holdings";
 import { ATTRIBUTIONS } from "./credits";
 
 export const PERFUME_CONCENTRATIONS = [
@@ -138,20 +138,5 @@ export function checkPerfumeBottle(
       path: ["remainingMl"],
       message: "Remaining volume exceeds capacity",
     });
-  if (v.subLocationId && !v.locationId)
-    ctx.addIssue({
-      code: "custom",
-      path: ["subLocationId"],
-      message: "Choose a parent location",
-    });
-  if ((v.acquisitionPrice === null) !== (v.acquisitionCurrency === null))
-    ctx.addIssue({
-      code: "custom",
-      message: "Price and currency must be supplied together",
-    });
-  if (v.status !== "disposed" && v.hasDisposition)
-    ctx.addIssue({
-      code: "custom",
-      message: "Disposition details require a disposed container",
-    });
+  checkPersonalHolding(v, ctx);
 }

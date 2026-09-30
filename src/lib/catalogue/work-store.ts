@@ -167,3 +167,10 @@ export function lockWork(d: Db, workId: string, kind: WorkKind): Query {
     sql`select id from works where id=${workId}::uuid and kind=${kind} for update`,
   );
 }
+
+/** A field sent as undefined means "not supplied", never "clear it". */
+export function supplied<T extends object>(patch: T) {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
+}

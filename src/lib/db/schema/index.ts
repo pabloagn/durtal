@@ -187,3 +187,4 @@ export { taxonomyApplicability, taxonomyApplicabilityRelations } from "./taxonom
 export { organizationRoles, organizationRolesRelations, organizationVenues, organizationVenuesRelations } from "./organizations";
 export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects } from "./harmonization";
 export * from "./retailers";
+export * from "./films";

@@ -136,6 +136,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "perfume_variant_perfumers",
       "perfume_retailer_links",
       "perfume_retailer_observations",
+      "film_details",
+      "film_countries",
+      "film_languages",
+      "film_organizations",
+      "film_versions",
+      "film_releases",
+      "film_holdings",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical

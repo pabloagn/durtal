@@ -32,7 +32,6 @@ import {
 import {
   createPerfumeSchema,
   createPerfumeVariantSchema,
-  fingerprintSchema,
   perfumeBottlePatchSchema,
   perfumeBottleRecordSchema,
   perfumeQuerySchema,
@@ -47,6 +46,7 @@ import {
   type UpdatePerfumeInput,
   type UpdatePerfumeVariantInput,
 } from "@/lib/validations/perfumes";
+import { fingerprintSchema } from "@/lib/validations/records";
 import {
   bottleFingerprint,
   insertNotes,
@@ -72,6 +72,7 @@ import {
   replaceDate,
   requireOwnIds,
   storedDate,
+  supplied,
   type Db,
 } from "@/lib/catalogue/work-store";
 import {
@@ -846,12 +847,6 @@ export async function deletePerfumeVariant(id: string) {
 
 // ── Container writes ─────────────────────────────────────────────────────────
 
-/** A field sent as undefined means "not supplied", never "clear it". */
-function supplied<T extends object>(patch: T) {
-  return Object.fromEntries(
-    Object.entries(patch).filter(([, value]) => value !== undefined),
-  ) as Partial<T>;
-}
 function bottleValues(
   record: ReturnType<typeof perfumeBottleRecordSchema.parse>,
   dates: { acquisitionDateId: string | null; dispositionDateId: string | null },

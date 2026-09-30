@@ -113,6 +113,19 @@ export function dateColumns(input: CatalogueDateInput) {
     label: value.label,
   };
 }
+/** True unless the start definitely falls after the end; partial dates compare by their bounds. */
+export function datesInOrder(
+  start: CatalogueDateInput | null | undefined,
+  end: CatalogueDateInput | null | undefined,
+) {
+  if (!start || !end) return true;
+  const a = normalizeCatalogueDate(start),
+    b = normalizeCatalogueDate(end);
+  return a.lowerBound === null || b.upperBound === null
+    ? true
+    : a.lowerBound <= b.upperBound;
+}
+
 /** The stored columns of one date value, back in input form. */
 export function dateFromColumns(row: {
   precision: (typeof DATE_PRECISIONS)[number];
@@ -153,6 +166,10 @@ export const CATALOGUE_DATE_REFERENCES = [
   ["perfume_variants", "discontinued_date_id"],
   ["perfume_bottles", "acquisition_date_id"],
   ["perfume_bottles", "disposition_date_id"],
+  ["film_details", "release_date_id"],
+  ["film_releases", "release_date_id"],
+  ["film_holdings", "acquisition_date_id"],
+  ["film_holdings", "disposition_date_id"],
 ] as const;
 
 export function displayCatalogueDate(input: CatalogueDateInput) {

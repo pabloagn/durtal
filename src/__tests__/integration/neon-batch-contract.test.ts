@@ -65,6 +65,13 @@ import {
   updatePerfume,
   updatePerfumeBottle,
 } from "@/lib/actions/perfumes";
+import {
+  createFilm,
+  createFilmVersion,
+  deleteFilm,
+  updateFilm,
+  updateFilmVersion,
+} from "@/lib/actions/films";
 
 type Query = { query: string; params: (string | null)[] };
 
@@ -324,6 +331,49 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
       await deletePerfumeBottle(bottle.id);
       expect(await deletePerfume(perfume.id)).toMatchObject({ id: perfume.id });
       expect(await c`select id from works`).toHaveLength(0);
+      expect(await c`select id from catalogue_dates`).toHaveLength(0);
+    } finally {
+      await c`delete from works where kind<>'book'`;
+      await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
+    }
+  });
+
+  it("writes films, reordered versions and release lists as single Neon batches", async () => {
+    await c`alter table works drop constraint works_kind_enabled_check`;
+    try {
+      const year = (value: number) => ({
+        precision: "year" as const,
+        start: { year: value },
+      });
+      requests.length = 0;
+      const film = await createFilm({ title: "Stalker", releaseDate: year(1979) });
+      expect(requests.filter((request) => request.queries)).toHaveLength(1);
+      const first = await createFilmVersion({
+        workId: film.id,
+        label: "Theatrical",
+        runtimeSeconds: 9660,
+        releases: [{ format: "theatrical", releaseDate: year(1979) }],
+      });
+      const second = await createFilmVersion({ workId: film.id, label: "Restoration" });
+      expect([first.sortOrder, second.sortOrder]).toEqual([0, 1]);
+      await expect(
+        createFilmVersion({ workId: film.id, label: "Theatrical" }),
+      ).rejects.toThrow(/^This film already has a version with this label$/);
+      const reordered = await updateFilm(
+        film.id,
+        { versionOrder: [second.id, first.id] },
+        film.fingerprint,
+      );
+      expect(reordered.versions.map((v) => v.id)).toEqual([second.id, first.id]);
+      const edited = await updateFilmVersion(
+        first.id,
+        { releases: [{ format: "festival", territoryLabel: "Cannes" }] },
+        first.fingerprint,
+      );
+      expect(edited.releases).toEqual([
+        expect.objectContaining({ format: "festival", territoryLabel: "Cannes" }),
+      ]);
+      expect(await deleteFilm(film.id)).toMatchObject({ id: film.id });
       expect(await c`select id from catalogue_dates`).toHaveLength(0);
     } finally {
       await c`delete from works where kind<>'book'`;

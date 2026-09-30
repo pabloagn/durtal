@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  catalogueDateSchema,
-  normalizeCatalogueDate,
-} from "@/lib/catalogue/dates";
+import { catalogueDateSchema, datesInOrder } from "@/lib/catalogue/dates";
 import {
   NOTE_POSITIONS,
   PERFUME_CONCENTRATIONS,
@@ -14,8 +11,6 @@ import {
 import { PERSONAL_HOLDING_STATUSES } from "@/lib/catalogue/holdings";
 import { creditListSchema } from "./people";
 
-/** md5 of the record's snapshot, read with it and returned on save. */
-export const fingerprintSchema = z.string().regex(/^[a-f0-9]{32}$/);
 
 const source = z.uuid().nullable().default(null);
 const date = catalogueDateSchema.nullable();
@@ -25,17 +20,6 @@ function unique<T>(key: (value: T) => string, message: string) {
     if (new Set(list.map(key)).size !== list.length)
       ctx.addIssue({ code: "custom", message });
   };
-}
-function datesInOrder(
-  start: z.input<typeof date> | undefined,
-  end: z.input<typeof date> | undefined,
-) {
-  if (!start || !end) return true;
-  const a = normalizeCatalogueDate(start),
-    b = normalizeCatalogueDate(end);
-  return a.lowerBound === null || b.upperBound === null
-    ? true
-    : a.lowerBound <= b.upperBound;
 }
 const dateOrder = "The end date cannot precede the start date";
 

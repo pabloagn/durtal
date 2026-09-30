@@ -29,6 +29,35 @@ export const PERSONAL_HOLDING_STATUSES = [
 ] as const;
 export const personalHoldingStatusSchema = z.enum(PERSONAL_HOLDING_STATUSES);
 const holder = z.object({ id: z.uuid(), status: personalHoldingStatusSchema });
+/** Rules every personal copy shares: storage, price and disposition. */
+export function checkPersonalHolding(
+  v: {
+    locationId: string | null;
+    subLocationId: string | null;
+    acquisitionPrice: number | null;
+    acquisitionCurrency: string | null;
+    status: z.infer<typeof personalHoldingStatusSchema>;
+    hasDisposition: boolean;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (v.subLocationId && !v.locationId)
+    ctx.addIssue({
+      code: "custom",
+      path: ["subLocationId"],
+      message: "Choose a parent location",
+    });
+  if ((v.acquisitionPrice === null) !== (v.acquisitionCurrency === null))
+    ctx.addIssue({
+      code: "custom",
+      message: "Price and currency must be supplied together",
+    });
+  if (v.status !== "disposed" && v.hasDisposition)
+    ctx.addIssue({
+      code: "custom",
+      message: "Disposition details require a disposed container",
+    });
+}
 export const perfumeHoldingSchema = holder.extend({
   container: z.enum(["bottle", "sample", "decant"]),
   remainingMl: z.number().finite().nonnegative().nullable(),
