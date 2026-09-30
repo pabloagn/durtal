@@ -1,5 +1,7 @@
 "use server";
 
+import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
+
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
@@ -47,6 +49,7 @@ export async function getSeries(opts?: {
     offset: opts?.offset,
     with: {
       works: {
+        where: bookCondition,
         columns: { id: true, seriesPosition: true, catalogueStatus: true },
         with: {
           editions: {
@@ -60,8 +63,8 @@ export async function getSeries(opts?: {
 }
 
 const haystack = sql`search_normalize(${series.title} || ' ' || coalesce(${series.originalTitle}, ''))`;
-const bookCount = sql<number>`(select count(*)::int from works w where w.series_id = "series"."id")`;
-const ownedCount = sql<number>`(select count(*)::int from works w where w.series_id = "series"."id" and exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = w.id and i.status <> 'deaccessioned'))`;
+const bookCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id")`;
+const ownedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = w.id and i.status <> 'deaccessioned'))`;
 
 const listSchema = z.object({
   search: z.string().max(200).optional(),
@@ -118,7 +121,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
             (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null limit 1)
           ) as cover,
           row_number() over (partition by w.series_id order by case when w.series_position ~ '^[0-9]+(\\.[0-9]+)?$' then w.series_position::numeric end nulls last, lower(w.title)) as n
-          from works w where w.series_id = any(${sql`ARRAY[${sql.join(
+          from works w where w.kind = 'book' and w.series_id = any(${sql`ARRAY[${sql.join(
             ids.map((id) => sql`${id}::uuid`),
             sql`, `,
           )}]::uuid[]`})
@@ -149,6 +152,7 @@ export async function getSeriesDetail(id: string) {
     where: eq(series.id, id),
     with: {
       works: {
+        where: bookCondition,
         orderBy: () => [
           sql`${positionOrder} nulls last`,
           sql`lower(${works.title})`,
@@ -284,6 +288,7 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
   z.uuid().parse(seriesId);
   const ids = [...new Set(z.array(z.uuid()).max(500).parse(workIds))];
   if (!ids.length) return { added: 0 };
+  await requireBookWorks(ids);
   const [target] = await db
     .select({ id: series.id })
     .from(series)
@@ -342,7 +347,7 @@ export async function removeWorkFromSeries(seriesId: string, workId: string) {
       seriesPosition: null,
       updatedAt: new Date(),
     })
-    .where(and(eq(works.id, workId), eq(works.seriesId, seriesId)))
+    .where(and(bookCondition, eq(works.id, workId), eq(works.seriesId, seriesId)))
     .returning({ id: works.id });
   if (row) {
     recordActivity("work", workId, "work.series_changed", {
@@ -366,7 +371,7 @@ export async function setSeriesPosition(
   const [row] = await db
     .update(works)
     .set({ seriesPosition: parsed.data, updatedAt: new Date() })
-    .where(and(eq(works.id, workId), eq(works.seriesId, seriesId)))
+    .where(and(bookCondition, eq(works.id, workId), eq(works.seriesId, seriesId)))
     .returning({ position: works.seriesPosition });
   if (!row) return { ok: false, error: "This book is no longer in the series" };
   changed();
@@ -454,7 +459,7 @@ export async function getSeriesSuggestions(seriesId?: string) {
       (select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id) as "authors",
       w.series_id as "currentSeriesId", cs.title as "currentSeriesTitle"
     from expanded x
-    join works w on search_normalize(w.title) = search_normalize(x.part)
+    join works w on w.kind = 'book' and search_normalize(w.title) = search_normalize(x.part)
     left join series cs on cs.id = w.series_id
     where length(search_normalize(x.part)) > 0 and w.series_id is distinct from x.sid
     group by x.sid, x.stitle, w.id, w.title, w.series_id, cs.title
@@ -484,7 +489,7 @@ export async function searchWorksForSeries(query: string) {
       >`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active limit 1)`,
     })
     .from(works)
-    .where(textSearchCondition(titleHaystack, q))
+    .where(and(bookCondition, textSearchCondition(titleHaystack, q)))
     .orderBy(
       desc(textSearchRank(titleHaystack, sql`${works.title}`, q)),
       asc(works.title),
@@ -497,7 +502,7 @@ export async function getOtherWorksInSeries(seriesId: string, workId: string) {
   z.uuid().parse(seriesId);
   z.uuid().parse(workId);
   return db.query.works.findMany({
-    where: and(eq(works.seriesId, seriesId), ne(works.id, workId)),
+    where: and(bookCondition, eq(works.seriesId, seriesId), ne(works.id, workId)),
     orderBy: [
       sql`${positionOrder} nulls last`,
       asc(works.title),

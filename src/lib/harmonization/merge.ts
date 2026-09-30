@@ -22,6 +22,7 @@ import type { Dataset, MergeField, MergePreview, Row } from "./types";
 
 const PROTECTED = new Set([
   "id",
+  "kind",
   "slug",
   "created_at",
   "updated_at",
@@ -106,6 +107,8 @@ export function mergeBlockers(
 ): string[] {
   const entity = entityDefinition(entityKey);
   const blockers: string[] = [];
+  if (entityKey === "works" && (source.kind !== "book" || target.kind !== "book"))
+    blockers.push("Book harmonization can only merge books. Use the matching domain editor.");
   if (!entity.merge)
     blockers.push("These records require individual review in their editor.");
   if (!sameScope(entity, source, target))

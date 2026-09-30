@@ -1,5 +1,7 @@
 "use server";
 
+import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
+
 import { z } from "zod";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -21,7 +23,7 @@ export async function updateHuntAssessment(
   const [updated] = await db
     .update(works)
     .set({ ...assessment, updatedAt: new Date() })
-    .where(eq(works.id, id))
+    .where(and(bookCondition, eq(works.id, id)))
     .returning({ id: works.id });
   if (!updated) throw new Error("Book not found");
   recordActivity("work", id, "work.hunt_assessment_changed", {
@@ -39,10 +41,11 @@ export async function bulkUpdateHuntAssessment(
   const assessment = huntAssessmentSchema.parse(input);
   // One statement updates the selection atomically. Already-marked books keep
   // their original dates when a mixed selection is marked rare.
+  await requireBookWorks(ids);
   const updated = await db
     .update(works)
     .set({ ...assessment, updatedAt: new Date() })
-    .where(and(inArray(works.id, ids), ne(works.isRare, assessment.isRare)))
+    .where(and(bookCondition, inArray(works.id, ids), ne(works.isRare, assessment.isRare)))
     .returning({ id: works.id });
 
   for (const { id } of updated) {

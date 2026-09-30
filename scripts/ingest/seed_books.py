@@ -404,14 +404,14 @@ def seed_books(
             work_id = upsert_returning_id(
                 cur, "works",
                 [
-                    "title", "slug", "original_language", "original_year",
+                    "kind", "title", "slug", "original_language", "original_year",
                     "description", "series_name", "series_position", "series_id",
                     "work_type_id", "notes", "rating",
                     "catalogue_status", "acquisition_priority",
                     "metadata_source",
                 ],
                 (
-                    title, work_slug, lang_code, pub_year,
+                    "book", title, work_slug, lang_code, pub_year,
                     description, series_raw, series_number, series_id,
                     work_type_id, notes, rating,
                     catalogue_status, acq_priority,

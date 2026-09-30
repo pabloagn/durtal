@@ -194,3 +194,19 @@ Parent: [SLN-345](https://linear.app/sanctum-black/issue/SLN-345).
 - [SLN-380: Verify responsive domain layouts, accessibility and measured alignment](https://linear.app/sanctum-black/issue/SLN-380/verify-responsive-domain-layouts-accessibility-and-measured-alignment) — depends on SLN-365, SLN-366, SLN-367, SLN-368, SLN-369, SLN-370, SLN-353, SLN-362.
 - [SLN-381: Measure and tune mixed-catalogue query and image performance](https://linear.app/sanctum-black/issue/SLN-381/measure-and-tune-mixed-catalogue-query-and-image-performance) — depends on SLN-371, SLN-361, SLN-365, SLN-366, SLN-367, SLN-368, SLN-369, SLN-370.
 - [SLN-382: Rehearse production migration, staged activation and recovery](https://linear.app/sanctum-black/issue/SLN-382/rehearse-production-migration-staged-activation-and-recovery) — depends on SLN-348, SLN-379, SLN-380, SLN-381.
+
+## Implementation verification
+
+The first foundation steps (SLN-346–348) have local implementations. Non-book
+creation remains disabled while the shared models and domain experiences are
+built. Migrations 0033–0034 preserve existing book identities and add immutable
+work kinds and database-enforced book relationships.
+
+Run `pnpm test:local` to provision disposable PostgreSQL databases and execute
+the full regression suite. Docker, an installed postgres:16 image and project
+dependencies are prerequisites. No production URL or environment file is used.
+The runner emits test results and per-migration reconciliation JSON, and removes
+its container afterward. `pnpm typecheck` is a separate required check.
+
+See changelog tasks 0155–0157 for scope and verification. SLN-283 (database access
+during production prerendering) remains a prerequisite for release rehearsal.

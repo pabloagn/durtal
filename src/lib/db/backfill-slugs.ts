@@ -1,3 +1,5 @@
+
+import { bookCondition } from "@/lib/catalogue/book-boundary";
 /**
  * Regenerate slugs for all works and authors.
  *
@@ -53,6 +55,7 @@ async function backfillWorks() {
   console.log("Regenerating work slugs…");
 
   const allWorks = await db.query.works.findMany({
+    where: bookCondition,
     columns: { id: true, title: true, slug: true },
     with: {
       workAuthors: {

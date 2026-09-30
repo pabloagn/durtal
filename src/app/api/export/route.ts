@@ -1,8 +1,10 @@
+
+import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { NextRequest, NextResponse } from "next/server";
 import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
 import { db } from "@/lib/db";
 import { works, workAuthors, authors } from "@/lib/db/schema";
-import { inArray, asc } from "drizzle-orm";
+import { inArray, asc, and } from "drizzle-orm";
 import {
   toCSV,
   toTSV,
@@ -18,7 +20,7 @@ type EntityType = (typeof VALID_ENTITIES)[number];
 
 async function fetchWorksForExport(ids: string[]) {
   const results = await db.query.works.findMany({
-    where: inArray(works.id, ids),
+    where: and(bookCondition, inArray(works.id, ids)),
     with: {
       workAuthors: {
         with: { author: true },

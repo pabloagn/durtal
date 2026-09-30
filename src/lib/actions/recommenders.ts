@@ -1,5 +1,7 @@
 "use server";
 
+import { bookReferenceCondition } from "@/lib/catalogue/book-boundary";
+
 import { z } from "zod/v4";
 import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
@@ -22,7 +24,7 @@ export const getRecommenders = cached(
 );
 
 const haystack = sql`search_normalize(${recommenders.name})`;
-const bookCount = sql<number>`(select count(*)::int from work_recommenders wr where wr.recommender_id = "recommenders"."id")`;
+const bookCount = sql<number>`(select count(*)::int from work_recommenders wr join works w on w.id = wr.work_id and w.kind = 'book' where wr.recommender_id = "recommenders"."id")`;
 
 const listSchema = z.object({
   search: z.string().max(200).optional(),
@@ -79,6 +81,7 @@ export async function getRecommender(id: string) {
     where: eq(recommenders.id, id),
     with: {
       workRecommenders: {
+        where: (link) => bookReferenceCondition(link.workId),
         with: {
           work: {
             with: {

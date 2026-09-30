@@ -1,5 +1,7 @@
 "use server";
 
+import { bookCondition } from "@/lib/catalogue/book-boundary";
+
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -11,7 +13,7 @@ import {
   works,
   media,
 } from "@/lib/db/schema";
-import { eq, asc, count, ilike, or, sql, inArray } from "drizzle-orm";
+import { eq, asc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import {
   collectionDetailsSchema,
@@ -273,7 +275,7 @@ export async function getCollectionSelection(
       ? db
           .select({ id: works.id, title: works.title })
           .from(works)
-          .where(inArray(works.id, wids))
+          .where(and(bookCondition, inArray(works.id, wids)))
       : [],
   ]);
   return {

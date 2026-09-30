@@ -1,5 +1,7 @@
 "use server";
 
+import { bookReferenceCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
+
 import { db } from "@/lib/db";
 import {
   subjects,
@@ -23,7 +25,7 @@ import {
   workAttributes,
   works,
 } from "@/lib/db/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, and } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 
@@ -66,7 +68,7 @@ export const getSubjectsWithWorkCounts = cached(
         workCount: sql<number>`count(${workSubjects.workId})::int`,
       })
       .from(subjects)
-      .leftJoin(workSubjects, eq(subjects.id, workSubjects.subjectId))
+      .leftJoin(workSubjects, and(eq(subjects.id, workSubjects.subjectId), bookReferenceCondition(workSubjects.workId)))
       .groupBy(subjects.id)
       .orderBy(asc(subjects.name));
     return rows;
@@ -230,6 +232,7 @@ export async function updateWorkTaxonomy(
     attributeIds?: string[];
   },
 ) {
+  await requireBookWork(workId);
   if (input.subjectIds !== undefined) {
     await db.delete(workSubjects).where(eq(workSubjects.workId, workId));
     if (input.subjectIds.length > 0) {

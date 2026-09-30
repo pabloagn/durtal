@@ -1,5 +1,7 @@
 "use server";
 
+import { bookCondition } from "@/lib/catalogue/book-boundary";
+
 import {
   publisherWorkCondition,
   catalogueStatusCondition,
@@ -45,7 +47,7 @@ export async function getWorksForTimeline(opts?: {
 }): Promise<WorkTimelineItem[]> {
   const { search, filters } = opts ?? {};
 
-  const conditions: SQL[] = [isNotNull(works.originalYear)];
+  const conditions: SQL[] = [bookCondition, isNotNull(works.originalYear)];
 
   if (search) {
     conditions.push(ilike(works.title, `%${search}%`));

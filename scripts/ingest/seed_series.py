@@ -54,7 +54,7 @@ def reconcile_series(cur, *, dry_run: bool = False) -> dict:
     stats = {"reconciled": 0, "series_created": 0}
 
     cur.execute(
-        "SELECT id, series_name FROM works WHERE series_name IS NOT NULL AND series_id IS NULL"
+        "SELECT id, series_name FROM works WHERE kind = 'book' AND series_name IS NOT NULL AND series_id IS NULL"
     )
     orphans = cur.fetchall()
 
@@ -86,7 +86,7 @@ def reconcile_series(cur, *, dry_run: bool = False) -> dict:
 
         if series_id:
             cur.execute(
-                "UPDATE works SET series_id = %s WHERE id = %s",
+                "UPDATE works SET series_id = %s WHERE id = %s AND kind = 'book'",
                 (series_id, work_id),
             )
             stats["reconciled"] += 1

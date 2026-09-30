@@ -44,6 +44,8 @@ def upsert_returning_id(
 
     Returns the id of the existing or newly inserted row.
     """
+    if table == "works" and update_on_conflict:
+        raise ValueError("Book ingestion does not support work upserts that overwrite existing records")
     placeholders = ", ".join(["%s"] * len(values))
     col_list = ", ".join(columns)
 
@@ -68,6 +70,13 @@ def upsert_returning_id(
     if row:
         return row[0]
 
+    if table == "works":
+        cur.execute(f"SELECT id FROM works WHERE {conflict_column} = %s AND kind = 'book'", (values[columns.index(conflict_column)],))
+        existing = cur.fetchone()
+        if not existing:
+            raise ValueError("Book import conflicts with a non-book identity; choose a different slug")
+        return existing[0]
+
     # Row already existed — fetch its id
     cur.execute(f"SELECT id FROM {table} WHERE {conflict_column} = %s", (values[columns.index(conflict_column)],))
     row = cur.fetchone()
@@ -78,6 +87,12 @@ def lookup_id(cur, table: str, column: str, value) -> str | None:
     """Look up a single row's id by a column value."""
     if value is None:
         return None
+    if table == "works":
+        cur.execute(f"SELECT id, kind FROM works WHERE {column} = %s", (value,))
+        row = cur.fetchone()
+        if row and row[1] != "book":
+            raise ValueError("Book import conflicts with a non-book identity; choose a different slug")
+        return row[0] if row else None
     cur.execute(f"SELECT id FROM {table} WHERE {column} = %s", (value,))
     row = cur.fetchone()
     return row[0] if row else None

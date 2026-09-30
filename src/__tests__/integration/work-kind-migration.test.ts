@@ -8,6 +8,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -36,6 +37,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   let folder: string | undefined;
   let before: Record<string, Record<string, unknown>[]>;
   let bookId: string;
+  const reconciled: string[] = [];
+  const reconciliation: {
+    migration: string;
+    tableCount: number;
+    rowCount: number;
+    preservedSha256: string;
+  }[] = [];
 
   async function snapshot() {
     const tables = await c<{ tablename: string }[]>`
@@ -58,6 +66,9 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     await mkdir(join(folder, "meta"));
     const journal = JSON.parse(
       await readFile("src/lib/db/migrations/meta/_journal.json", "utf8"),
+    );
+    const expansionEntries = journal.entries.filter(
+      (entry: { idx: number }) => entry.idx > 32,
     );
     journal.entries = journal.entries.filter(
       (entry: { idx: number }) => entry.idx <= 32,
@@ -111,7 +122,17 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     const [publisher] =
       await c`insert into publishing_houses(name,slug) values ('Test Press','test-press') returning id`;
     await c`insert into publisher_aliases(publisher_id,name) values (${publisher.id},'Press alias')`;
-    await c`insert into edition_publishers(edition_id,publisher_id) values (${edition.id},${publisher.id})`;
+    const [imprint] = await c`
+      insert into publishing_houses(name,slug,kind,parent_id)
+      values ('Essays Imprint','essays-imprint','imprint',${publisher.id}) returning id
+    `;
+    await c`select set_edition_publishers(${edition.id}, ARRAY[${publisher.id}::uuid])`;
+    await c`select set_edition_publishers(${translation.id}, ARRAY[${imprint.id}::uuid])`;
+    const [target] =
+      await c`insert into acquisition_targets(work_id,publisher_id) values (${bookId},${publisher.id}) returning id`;
+    await c`insert into acquisition_target_copies(target_id,instance_id) values (${target.id},${copy.id})`;
+    await c`insert into calibre_books(calibre_id,title,path,work_id) values (73,'De la peinture','Calibre/De la peinture',${bookId})`;
+    await c`insert into work_status_history(work_id,to_status,notes) values (${bookId},'wanted','Keep status history')`;
     const [art] =
       await c`insert into art_types(name,slug) values ('Painting','painting') returning id`;
     await c`insert into work_art_types(work_id,art_type_id) values (${bookId},${art.id})`;
@@ -123,6 +144,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     await c`insert into collection_editions(collection_id,edition_id,sort_order) values (${collection.id},${translation.id},7)`;
     await c`insert into media(work_id,type,s3_key,thumbnail_s3_key,crop_x) values (${bookId},'poster','gold/media/keep.webp','gold/media/keep-thumb.webp',28)`;
     await c`insert into comments(entity_type,entity_id,content_html) values ('work',${bookId},'<p>Keep commentary</p>')`;
+    await c`insert into activity_events(entity_type,entity_id,event_key,metadata) values ('work',${bookId},'work.created','{}')`;
     await c`
       insert into orders(work_id,edition_id,instance_id,acquisition_method,status,order_date,price,currency)
       values (${bookId},${edition.id},${copy.id},'in_store_purchase','received','2026-09-20',25.50,'EUR')
@@ -132,7 +154,44 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       values ('11111111-1111-4111-8111-111111111111','works','old-book-slug',${bookId})
     `;
     before = await snapshot();
-    await migrate(db!, { migrationsFolder: "src/lib/db/migrations" });
+    // Apply and reconcile each expansion migration independently. A later step
+    // cannot hide a destructive intermediate change by recreating the data.
+    for (const entry of expansionEntries) {
+      journal.entries.push(entry);
+      await copyFile(
+        `src/lib/db/migrations/${entry.tag}.sql`,
+        join(folder, `${entry.tag}.sql`),
+      );
+      await writeFile(
+        join(folder, "meta/_journal.json"),
+        JSON.stringify(journal),
+      );
+      await migrate(db!, { migrationsFolder: folder });
+      const afterStep = await snapshot();
+      expect(afterStep.works.every((work) => work.kind === "book")).toBe(true);
+      for (const work of afterStep.works) delete work.kind;
+      expect(afterStep, `Preserved catalogue after ${entry.tag}`).toEqual(
+        before,
+      );
+      reconciled.push(entry.tag);
+      reconciliation.push({
+        migration: entry.tag,
+        tableCount: Object.keys(before).length,
+        rowCount: Object.values(before).reduce(
+          (sum, rows) => sum + rows.length,
+          0,
+        ),
+        preservedSha256: createHash("sha256")
+          .update(JSON.stringify(afterStep))
+          .digest("hex"),
+      });
+    }
+    const reportDir = process.env.DURTAL_TEST_REPORT_DIR;
+    if (reportDir)
+      await writeFile(
+        join(reportDir, "migration-reconciliation.json"),
+        JSON.stringify(reconciliation, null, 2) + "\n",
+      );
   }, 30000);
 
   afterAll(async () => {
@@ -141,6 +200,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   });
 
   it("preserves every existing row and classifies art-tagged books as books", async () => {
+    expect(reconciled).toContain("0033_work_kinds");
+    expect(reconciled).toContain("0034_book_boundaries");
     const after = await snapshot();
     expect(after.works).toHaveLength(1);
     expect(after.works[0].kind).toBe("book");

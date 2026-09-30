@@ -1,5 +1,7 @@
 "use server";
 
+import { bookCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
+
 import {
   publisherWorkCondition,
   catalogueStatusCondition,
@@ -50,6 +52,7 @@ import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
+import { authorOrderedBookIds } from "@/lib/actions/utils/author-ordered-books";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
@@ -185,18 +188,18 @@ export async function getWorks(opts?: {
 
   const orderFn = resolvedOrder === "asc" ? asc : desc;
 
-  // For DB-level sorts (author sorts are handled post-query)
+  // Title and author order use lightweight IDs sorted before pagination.
   const orderBy = {
     title: orderFn(works.title),
     recent: orderFn(works.createdAt),
     year: orderFn(works.originalYear),
     rating: orderFn(works.rating),
-    authorFirstName: orderFn(works.createdAt), // placeholder; sorted post-query
-    authorLastName: orderFn(works.createdAt), // placeholder; sorted post-query
+    authorFirstName: orderFn(works.createdAt), // page membership is selected below
+    authorLastName: orderFn(works.createdAt), // page membership is selected below
   }[sort];
 
   // Build where clause combining search + filters
-  const conditions = [];
+  const conditions = [bookCondition];
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
@@ -266,17 +269,19 @@ export async function getWorks(opts?: {
   }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const titleIds =
+  const pageIds =
     sort === "title"
       ? await alphabeticalWorkIds(where, limit, offset, resolvedOrder)
-      : undefined;
-  if (titleIds?.length === 0) return [];
+      : sort === "authorFirstName" || sort === "authorLastName"
+        ? await authorOrderedBookIds(where, sort, resolvedOrder, limit, offset)
+        : undefined;
+  if (pageIds?.length === 0) return [];
 
   const results = await db.query.works.findMany({
-    where: titleIds ? inArray(works.id, titleIds) : where,
+    where: pageIds ? inArray(works.id, pageIds) : where,
     orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(works.id)],
     limit,
-    offset: titleIds ? 0 : offset,
+    offset: pageIds ? 0 : offset,
     with: {
       workAuthors: {
         with: { author: true },
@@ -316,41 +321,9 @@ export async function getWorks(opts?: {
     results.sort((a, b) => compareWorks(a, b, resolvedOrder));
   }
 
-  // Post-query sort for author name sorts (Drizzle relational queries can't order by joined columns)
   if (sort === "authorFirstName" || sort === "authorLastName") {
-    results.sort((a, b) => {
-      const authorA = a.workAuthors[0]?.author;
-      const authorB = b.workAuthors[0]?.author;
-
-      let nameA: string, nameB: string;
-      if (sort === "authorFirstName") {
-        nameA = (
-          authorA?.firstName ||
-          authorA?.name?.split(/\s+/)[0] ||
-          ""
-        ).toLowerCase();
-        nameB = (
-          authorB?.firstName ||
-          authorB?.name?.split(/\s+/)[0] ||
-          ""
-        ).toLowerCase();
-      } else {
-        // lastName: use sortName (format "Last, First") or fall back to last word of name
-        nameA = (
-          authorA?.sortName?.split(",")[0] ||
-          authorA?.name?.split(/\s+/).pop() ||
-          ""
-        ).toLowerCase();
-        nameB = (
-          authorB?.sortName?.split(",")[0] ||
-          authorB?.name?.split(/\s+/).pop() ||
-          ""
-        ).toLowerCase();
-      }
-
-      const cmp = nameA.localeCompare(nameB);
-      return resolvedOrder === "desc" ? -cmp : cmp;
-    });
+    const positions = new Map(pageIds!.map((id, index) => [id, index]));
+    results.sort((a, b) => positions.get(a.id)! - positions.get(b.id)!);
   }
 
   return results;
@@ -370,7 +343,7 @@ export async function getWorkCount(
     hasPoster?: boolean;
   },
 ) {
-  const conditions = [];
+  const conditions = [bookCondition];
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
@@ -443,7 +416,7 @@ export async function getWorkCount(
 
 export async function getWork(id: string) {
   const result = await db.query.works.findFirst({
-    where: eq(works.id, id),
+    where: and(bookCondition, eq(works.id, id)),
     with: {
       workAuthors: {
         with: { author: true },
@@ -492,7 +465,7 @@ export async function getWork(id: string) {
 
 export async function getWorkBySlug(slug: string) {
   const result = await db.query.works.findFirst({
-    where: eq(works.slug, slug),
+    where: and(bookCondition, eq(works.slug, slug)),
     with: {
       workAuthors: {
         with: { author: true },
@@ -572,7 +545,7 @@ export async function findDuplicateWork(opts: {
 
   // Fuzzy title + author match
   const candidates = await db.query.works.findMany({
-    where: ilike(works.title, opts.title.trim()),
+    where: and(bookCondition, ilike(works.title, opts.title.trim())),
     with: {
       workAuthors: {
         with: { author: true },
@@ -705,7 +678,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
 
   // Snapshot current state for activity diffing
   const prev = await db.query.works.findFirst({
-    where: eq(works.id, id),
+    where: and(bookCondition, eq(works.id, id)),
     columns: {
       title: true,
       originalYear: true,
@@ -732,7 +705,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
       d
         .update(works)
         .set({ ...workData, updatedAt: new Date() })
-        .where(eq(works.id, id))
+        .where(and(bookCondition, eq(works.id, id)))
         .returning({ seriesId: works.seriesId }),
     ]);
     savedSeriesId =
@@ -782,7 +755,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
   // Regenerate slug only if title or authors ACTUALLY changed
   if (workData.title !== undefined || authorIds !== undefined) {
     const currentWork = await db.query.works.findFirst({
-      where: eq(works.id, id),
+      where: and(bookCondition, eq(works.id, id)),
       columns: { title: true, slug: true },
       with: {
         workAuthors: {
@@ -833,7 +806,10 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
           .filter((s): s is string => s !== null && s !== currentWork.slug);
         const newSlug = makeUnique(baseSlug, existingSlugs);
 
-        await db.update(works).set({ slug: newSlug }).where(eq(works.id, id));
+        await db
+          .update(works)
+          .set({ slug: newSlug })
+          .where(and(bookCondition, eq(works.id, id)));
         recordWorkDiffs(id, prev, workData, authorIds);
         invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
         return { id, slug: newSlug };
@@ -922,6 +898,7 @@ function recordWorkDiffs(
 }
 
 export async function deleteWork(id: string) {
+  await requireBookWork(id);
   recordActivity("work", id, "work.deleted");
 
   // Clean up polymorphic records (not covered by FK cascades)
@@ -945,7 +922,7 @@ export async function deleteWork(id: string) {
       ),
     );
 
-  await db.delete(works).where(eq(works.id, id));
+  await db.delete(works).where(and(bookCondition, eq(works.id, id)));
   invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
   return { id };
 }
@@ -1048,19 +1025,20 @@ export async function getLibraryStats() {
     wantedWorks,
     recentWorksForAuthors,
   ] = await Promise.all([
-    db.select({ count: count() }).from(works),
+    db.select({ count: count() }).from(works).where(bookCondition),
     db.select({ count: count() }).from(editions),
     db.select({ count: count() }).from(instances),
     db.select({ count: count() }).from(authors),
     // Recent additions
     db.query.works.findMany({
+      where: bookCondition,
       orderBy: desc(works.createdAt),
       limit: 8,
       with: worksWith,
     }),
     // Top rated
     db.query.works.findMany({
-      where: isNotNull(works.rating),
+      where: and(bookCondition, isNotNull(works.rating)),
       orderBy: [desc(works.rating), desc(works.createdAt)],
       limit: 8,
       with: worksWith,
@@ -1072,6 +1050,7 @@ export async function getLibraryStats() {
     }),
     // For recent authors: get more works so we can extract unique authors
     db.query.works.findMany({
+      where: bookCondition,
       orderBy: desc(works.createdAt),
       limit: 40,
       with: {

@@ -35,7 +35,7 @@ export async function loadDataset(): Promise<Dataset> {
     config(name);
     return [
       sql`${name}::text`,
-      sql`coalesce((select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from ${ident(name)} r), '[]'::jsonb)`,
+      sql`coalesce((select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from ${ident(name)} r ${name === "works" ? sql`where r.kind = 'book'` : sql``}), '[]'::jsonb)`,
     ];
   });
   const rows = resultRows<{ data: Dataset }>(

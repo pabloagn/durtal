@@ -1,4 +1,6 @@
-import type { SQL } from "drizzle-orm";
+
+import { bookCondition } from "@/lib/catalogue/book-boundary";
+import { and, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { works } from "@/lib/db/schema";
 import { compareWorks } from "@/lib/utils/title-order";
@@ -17,7 +19,7 @@ export async function alphabeticalWorkIds(
   const matches = await db
     .select({ id: works.id, title: works.title })
     .from(works)
-    .where(where);
+    .where(and(bookCondition, where));
   return matches
     .sort((a, b) => compareWorks(a, b, order))
     .slice(offset, offset + limit)

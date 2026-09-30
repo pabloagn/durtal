@@ -21,6 +21,22 @@ Book create and fast-track inputs accept only `book`; the update schema and
 action reject an explicit kind. This release adds no non-book data tables or
 pages. No current IDs, slugs, edition/copy relations or media keys are rewritten.
 
+Migration `0034_book_boundaries` preserves that separation after future domain
+activation. The `book_parent_required` triggers reject non-book parents on
+insert and reparenting of `editions`, `work_authors`, `acquisition_targets`,
+`orders`, `calibre_books`, and `work_status_history`. Calibre links may remain
+null. Existing foreign keys retain their deletion behavior; immutable work
+kind keeps the validated relationship valid for its lifetime. These triggers
+are maintained as custom SQL in the Drizzle migration and validated on populated
+data, since Drizzle snapshots do not represent triggers.
+
+The `works_book_series_check` constraint reserves the legacy series fields
+for books. Shared media, recommendation and work-taxonomy links remain capable
+of referencing any kind. Book adapters filter those links and root work queries
+before counting or pagination, and reject non-book mutation targets before
+changing related records. Slug uniqueness remains global. Book harmonization
+scans exclude other kinds, and executable book merges require two books.
+
 ---
 
 ## Three-Tier Model

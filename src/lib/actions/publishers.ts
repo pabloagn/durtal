@@ -1,5 +1,7 @@
 "use server";
 
+import { requireBookWork } from "@/lib/catalogue/book-boundary";
+
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, or, sql, count } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -348,6 +350,7 @@ export async function getAcquisitionTargets(workId: string) {
 
 export async function createAcquisitionTarget(input: TargetInput) {
   const data = targetSchema.parse(input);
+  await requireBookWork(data.workId);
   const [row] = await db
     .insert(acquisitionTargets)
     .values(data)

@@ -426,15 +426,20 @@ describe("merge planning", () => {
   });
   it("blocks colliding collecting targets rather than losing fulfilment history", () => {
     expect(
-      mergeBlockers("works", row("a", {}), row("b", {}), {
-        records: [],
-        references: {
-          acquisition_targets: [
-            row("x", { work_id: "a" }),
-            row("y", { work_id: "b" }),
-          ],
+      mergeBlockers(
+        "works",
+        row("a", { kind: "book" }),
+        row("b", { kind: "book" }),
+        {
+          records: [],
+          references: {
+            acquisition_targets: [
+              row("x", { work_id: "a" }),
+              row("y", { work_id: "b" }),
+            ],
+          },
         },
-      })[0],
+      )[0],
     ).toContain("same active acquisition target");
   });
   it("normalizes Unicode deterministically", () => {

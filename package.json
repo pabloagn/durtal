@@ -16,6 +16,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
+    "test:local": "python3 scripts/qa/test-local.py",
     "test:watch": "vitest"
   },
   "packageManager": "pnpm@10.26.1",

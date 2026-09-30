@@ -1,5 +1,7 @@
 "use server";
 
+import { bookReferenceCondition } from "@/lib/catalogue/book-boundary";
+
 import { db } from "@/lib/db";
 import {
   taxonomyFamilies,
@@ -73,7 +75,8 @@ export const getTaxonomyFamilies = cached(
 
           const [entityRow] = await db
             .select({ count: sql<number>`count(DISTINCT ${reg.junctionEntityCol})::int` })
-            .from(reg.junction);
+            .from(reg.junction)
+            .where(reg.junctionEntityCol.name === "work_id" ? bookReferenceCondition(reg.junctionEntityCol) : undefined);
           entityCount = entityRow?.count ?? 0;
         } else {
           const [itemRow] = await db
@@ -90,7 +93,7 @@ export const getTaxonomyFamilies = cached(
                 customTaxonomyItems,
                 eq(customTaxonomyItemWorks.itemId, customTaxonomyItems.id),
               )
-              .where(eq(customTaxonomyItems.familyId, family.id));
+              .where(and(eq(customTaxonomyItems.familyId, family.id), bookReferenceCondition(customTaxonomyItemWorks.workId)));
             entityCount = entityRow?.count ?? 0;
           } else {
             const [entityRow] = await db
@@ -223,7 +226,7 @@ export async function getTaxonomyItems(familySlug: string) {
       parentId: customTaxonomyItems.parentId,
       sortOrder: customTaxonomyItems.sortOrder,
       entityCount: sql<number>`(
-        SELECT count(*) FROM custom_taxonomy_item_works WHERE item_id = ${customTaxonomyItems.id}
+        SELECT count(*) FROM custom_taxonomy_item_works link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE item_id = "custom_taxonomy_items"."id"
       )::int`,
     })
     .from(customTaxonomyItems)
@@ -238,7 +241,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
       return db
         .select({
           id: subjects.id, name: subjects.name, slug: subjects.slug, color: subjects.color,
-          entityCount: sql<number>`(SELECT count(*) FROM work_subjects WHERE subject_id = ${subjects.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_subjects link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE subject_id = "subjects"."id")::int`,
         })
         .from(subjects)
         .orderBy(asc(subjects.name));
@@ -267,7 +270,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
         .select({
           id: bookCategories.id, name: bookCategories.name, slug: bookCategories.slug, color: bookCategories.color,
           parentId: bookCategories.parentId, sortOrder: bookCategories.sortOrder,
-          entityCount: sql<number>`(SELECT count(*) FROM work_categories WHERE category_id = ${bookCategories.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_categories link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE category_id = "book_categories"."id")::int`,
         })
         .from(bookCategories)
         .orderBy(asc(bookCategories.sortOrder));
@@ -277,7 +280,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
         .select({
           id: themes.id, name: themes.name, slug: themes.slug, color: themes.color,
           parentId: themes.parentId, sortOrder: themes.sortOrder,
-          entityCount: sql<number>`(SELECT count(*) FROM work_themes WHERE theme_id = ${themes.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_themes link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE theme_id = "themes"."id")::int`,
         })
         .from(themes)
         .orderBy(asc(themes.sortOrder));
@@ -287,7 +290,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
         .select({
           id: literaryMovements.id, name: literaryMovements.name, slug: literaryMovements.slug, color: literaryMovements.color,
           parentId: literaryMovements.parentId, sortOrder: literaryMovements.sortOrder,
-          entityCount: sql<number>`(SELECT count(*) FROM work_literary_movements WHERE literary_movement_id = ${literaryMovements.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_literary_movements link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE literary_movement_id = "literary_movements"."id")::int`,
         })
         .from(literaryMovements)
         .orderBy(asc(literaryMovements.sortOrder));
@@ -296,7 +299,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
       return db
         .select({
           id: artTypes.id, name: artTypes.name, slug: artTypes.slug, color: artTypes.color,
-          entityCount: sql<number>`(SELECT count(*) FROM work_art_types WHERE art_type_id = ${artTypes.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_art_types link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE art_type_id = "art_types"."id")::int`,
         })
         .from(artTypes)
         .orderBy(asc(artTypes.name));
@@ -305,7 +308,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
       return db
         .select({
           id: artMovements.id, name: artMovements.name, slug: artMovements.slug, color: artMovements.color,
-          entityCount: sql<number>`(SELECT count(*) FROM work_art_movements WHERE art_movement_id = ${artMovements.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_art_movements link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE art_movement_id = "art_movements"."id")::int`,
         })
         .from(artMovements)
         .orderBy(asc(artMovements.name));
@@ -314,7 +317,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
       return db
         .select({
           id: keywords.id, name: keywords.name, slug: keywords.slug, color: keywords.color,
-          entityCount: sql<number>`(SELECT count(*) FROM work_keywords WHERE keyword_id = ${keywords.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_keywords link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE keyword_id = "keywords"."id")::int`,
         })
         .from(keywords)
         .orderBy(asc(keywords.name));
@@ -323,7 +326,7 @@ async function getSystemItems(familySlug: SystemFamilySlug) {
       return db
         .select({
           id: attributes.id, name: attributes.name, slug: attributes.slug, color: attributes.color,
-          entityCount: sql<number>`(SELECT count(*) FROM work_attributes WHERE attribute_id = ${attributes.id})::int`,
+          entityCount: sql<number>`(SELECT count(*) FROM work_attributes link JOIN works w ON w.id = link.work_id AND w.kind = 'book' WHERE attribute_id = "attributes"."id")::int`,
         })
         .from(attributes)
         .orderBy(asc(attributes.name));
@@ -356,7 +359,7 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
     const entityRows = await db
       .select({ entityId: reg.junctionEntityCol })
       .from(reg.junction)
-      .where(eq(reg.junctionItemCol, item.id));
+      .where(and(eq(reg.junctionItemCol, item.id), reg.junctionEntityCol.name === "work_id" ? bookReferenceCondition(reg.junctionEntityCol) : undefined));
 
     return { ...item, entityIds: entityRows.map((r) => r.entityId) };
   }
@@ -380,7 +383,7 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
     const entityRows = await db
       .select({ entityId: customTaxonomyItemWorks.workId })
       .from(customTaxonomyItemWorks)
-      .where(eq(customTaxonomyItemWorks.itemId, item.id));
+      .where(and(eq(customTaxonomyItemWorks.itemId, item.id), bookReferenceCondition(customTaxonomyItemWorks.workId)));
     return { ...item, entityIds: entityRows.map((r) => r.entityId) };
   }
 

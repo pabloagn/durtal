@@ -1,5 +1,7 @@
 "use server";
 
+import { bookCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
+
 import { db } from "@/lib/db";
 import {
   orders,
@@ -97,7 +99,7 @@ async function syncWorkCatalogueStatusFromAllOrders(
   }
 
   const work = await db.query.works.findFirst({
-    where: eq(works.id, workId),
+    where: and(bookCondition, eq(works.id, workId)),
     columns: { catalogueStatus: true },
   });
 
@@ -108,7 +110,7 @@ async function syncWorkCatalogueStatusFromAllOrders(
   await db
     .update(works)
     .set({ catalogueStatus: targetStatus })
-    .where(eq(works.id, workId));
+    .where(and(bookCondition, eq(works.id, workId)));
 
   await db.insert(workStatusHistory).values({
     workId,
@@ -441,6 +443,7 @@ export async function getProvenanceStats(dateRange?: {
 
 export async function createOrder(input: CreateOrderInput) {
   const validated = createOrderSchema.parse(input);
+  await requireBookWork(validated.workId);
   const status: OrderStatus = validated.status ?? "placed";
 
   const [order] = await db
@@ -493,6 +496,7 @@ export async function createOrder(input: CreateOrderInput) {
 }
 
 export async function updateOrder(id: string, input: UpdateOrderInput) {
+  if (input.workId !== undefined) await requireBookWork(input.workId);
   if (input.currency !== undefined) orderCurrencySchema.parse(input.currency);
 
   // H3: fetch current state to record what changed
@@ -688,7 +692,7 @@ export async function searchWorksForOrder(query: string) {
   const escaped = query.replace(/[%_\\]/g, (c) => `\\${c}`);
 
   return db.query.works.findMany({
-    where: ilike(works.title, `%${escaped}%`),
+    where: and(bookCondition, ilike(works.title, `%${escaped}%`)),
     limit: 20,
     orderBy: asc(works.title),
     with: {

@@ -1,5 +1,7 @@
 "use server";
 
+import { requireBookWork } from "@/lib/catalogue/book-boundary";
+
 import { randomUUID } from "node:crypto";
 import { atomic } from "@/lib/db/atomic";
 import { db } from "@/lib/db";
@@ -45,6 +47,7 @@ export async function getEdition(id: string) {
 
 export async function createEdition(input: CreateEditionInput) {
   const parsed = createEditionSchema.parse(input);
+  await requireBookWork(parsed.workId);
   const {
     publisherIds,
     contributorIds,
@@ -154,6 +157,7 @@ export async function updateEdition(
   input: Partial<CreateEditionInput>,
 ) {
   const parsed = createEditionSchema.partial().parse(input);
+  if (parsed.workId !== undefined) await requireBookWork(parsed.workId);
   // Zod defaults also run inside partial schemas. Never apply defaults to omitted edits.
   for (const key of Object.keys(parsed) as (keyof typeof parsed)[]) {
     if (input[key] === undefined) delete parsed[key];
