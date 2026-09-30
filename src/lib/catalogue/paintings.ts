@@ -30,3 +30,29 @@ export const CENTIMETRES_PER_UNIT: Record<
 > = { mm: 0.1, cm: 1, in: 2.54 };
 /** 1 km in any unit is an input error, not a painting. */
 export const MAX_DIMENSION = 100000;
+
+/** Where an object is: a venue, an unnamed private place, or unknown, lost or destroyed. */
+export const WHEREABOUTS_PLACES = [
+  "venue",
+  "private",
+  "unknown",
+  "lost",
+  "destroyed",
+] as const;
+/** Why the object is there. Loans and permanent collections are at a venue. */
+export const WHEREABOUTS_CUSTODY = [
+  "permanent_collection",
+  "temporary_loan",
+  "long_term_loan",
+  "private",
+  "unknown",
+] as const;
+/** Stated separately: holding an object never means it is shown. */
+export const DISPLAY_STATUSES = ["on_display", "in_storage", "unknown"] as const;
+/**
+ * Confirmed records form one non-overlapping history per object. Probable and
+ * uncertain claims may overlap it and each other; they are kept, not merged.
+ */
+export const WHEREABOUTS_CERTAINTY = ["confirmed", "probable", "uncertain"] as const;
+/** A current location unchecked for longer than this is flagged as stale. */
+export const WHEREABOUTS_STALE_DAYS = 365;

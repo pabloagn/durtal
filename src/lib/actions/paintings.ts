@@ -12,6 +12,7 @@ import {
   artObjects,
   artObjectCredits,
   artObjectTaxa,
+  artObjectWhereabouts,
   artMovements,
   workArtMovements,
   customTaxonomyItemWorks,
@@ -43,6 +44,7 @@ import {
   insertArtMovements,
   insertObjectCredits,
   insertObjectTaxa,
+  loadCurrentWhereabouts,
   loadObjectValues,
   loadPaintingCards,
   objectFingerprint,
@@ -50,7 +52,10 @@ import {
   paintingDomain,
   paintingFingerprint,
   paintingWhere,
+  type CurrentWhereabouts,
 } from "@/lib/catalogue/painting-store";
+import { dateFromColumns } from "@/lib/catalogue/dates";
+import { WHEREABOUTS_STALE_DAYS } from "@/lib/catalogue/paintings";
 import {
   STALE_RECORD,
   insertCredits,
@@ -181,6 +186,22 @@ export async function getPaintingCount(input: PaintingQuery = {}) {
   return row.count;
 }
 
+/** Current location with its age; a long-unchecked location is flagged as stale. */
+function currentLocation(row: CurrentWhereabouts | undefined) {
+  if (!row) return null;
+  const { since, checkedAt, ...rest } = row;
+  const ageDays = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(checkedAt).getTime()) / 86400000),
+  );
+  return {
+    ...rest,
+    since: since ? dateFromColumns(since) : null,
+    checkedAt: new Date(checkedAt),
+    ageDays,
+    isStale: ageDays >= WHEREABOUTS_STALE_DAYS,
+  };
+}
 async function loadObjects(workId: string, ids?: string[]) {
   const rows = await db
     .select({
@@ -212,7 +233,7 @@ async function loadObjects(workId: string, ids?: string[]) {
       asc(artObjects.id),
     );
   if (!rows.length) return [];
-  const [dates, values] = await Promise.all([
+  const [dates, values, current] = await Promise.all([
     loadDates(
       rows.flatMap(({ object }) => [
         object.creationDateId,
@@ -224,6 +245,7 @@ async function loadObjects(workId: string, ids?: string[]) {
       workId,
       rows.map(({ object }) => object),
     ),
+    loadCurrentWhereabouts(rows.map(({ object }) => object.id)),
   ]);
   return rows.map(({ object, ...rest }) => ({
     ...object,
@@ -232,6 +254,7 @@ async function loadObjects(workId: string, ids?: string[]) {
     acquisitionDate: storedDate(dates, object.acquisitionDateId),
     dispositionDate: storedDate(dates, object.dispositionDateId),
     ...values.get(object.id)!,
+    currentWhereabouts: currentLocation(current.get(object.id)),
   }));
 }
 
@@ -446,10 +469,18 @@ export async function deletePainting(id: string) {
     where: eq(paintingDetails.workId, id),
   });
   if (!details) throw new Error("Painting not found");
-  const [objectDates, artwork] = await Promise.all([
+  const [objectDates, locationDates, artwork] = await Promise.all([
     db
       .select({ id: artObjects.creationDateId })
       .from(artObjects)
+      .where(eq(artObjects.workId, id)),
+    db
+      .select({
+        starts: artObjectWhereabouts.startsOnId,
+        ends: artObjectWhereabouts.endsOnId,
+      })
+      .from(artObjectWhereabouts)
+      .innerJoin(artObjects, eq(artObjectWhereabouts.objectId, artObjects.id))
       .where(eq(artObjects.workId, id)),
     db
       .select({
@@ -488,6 +519,7 @@ export async function deletePainting(id: string) {
     ...releaseDates(d, [
       details.creationDateId,
       ...objectDates.map((row) => row.id),
+      ...locationDates.flatMap((row) => [row.starts, row.ends]),
     ]),
   ]);
   changedCatalogue();
@@ -698,13 +730,23 @@ export async function updateArtObject(
   return (await getArtObject(id))!;
 }
 
-/** Reproductions that name an object protect it; delete or re-point them first. */
+/**
+ * Reproductions that name an object protect it; delete or re-point them first.
+ * The object's location history goes with it.
+ */
 export async function deleteArtObject(id: string) {
   z.uuid().parse(id);
   const object = await db.query.artObjects.findFirst({
     where: eq(artObjects.id, id),
   });
   if (!object) throw new Error("Object not found");
+  const locationDates = await db
+    .select({
+      starts: artObjectWhereabouts.startsOnId,
+      ends: artObjectWhereabouts.endsOnId,
+    })
+    .from(artObjectWhereabouts)
+    .where(eq(artObjectWhereabouts.objectId, id));
   await write((d) => [
     lockWork(d, object.workId),
     d.execute(
@@ -718,6 +760,7 @@ export async function deleteArtObject(id: string) {
       object.creationDateId,
       object.acquisitionDateId,
       object.dispositionDateId,
+      ...locationDates.flatMap((row) => [row.starts, row.ends]),
     ]),
   ]);
   changedCatalogue();

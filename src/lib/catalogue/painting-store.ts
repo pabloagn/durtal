@@ -39,6 +39,12 @@ export function objectFingerprint(id: SQL) {
   )::text) from art_objects ao where ao.id=${id})`;
 }
 
+/** One object's whole location history: any edit to it changes this value. */
+export function whereaboutsFingerprint(objectId: SQL) {
+  return sql`(select md5(coalesce(jsonb_agg(to_jsonb(w) order by w.id),'[]'::jsonb)::text)
+    from art_object_whereabouts w where w.object_id=${objectId})`;
+}
+
 // ── Section writers ──────────────────────────────────────────────────────────
 
 export function insertArtMovements(d: Db, workId: string, ids: string[]) {
@@ -161,6 +167,37 @@ export async function loadObjectValues(
   );
 }
 
+// ── Current whereabouts ──────────────────────────────────────────────────────
+
+export interface CurrentWhereabouts {
+  id: string;
+  objectId: string;
+  placeKind: string;
+  venueId: string | null;
+  venueName: string | null;
+  venueSlug: string | null;
+  placeLabel: string | null;
+  custody: string;
+  displayStatus: string;
+  occasionLabel: string | null;
+  since: Parameters<typeof dateFromColumns>[0] | null;
+  checkedAt: string;
+}
+/** The confirmed current location of each object, in one query. */
+export async function loadCurrentWhereabouts(objectIds: string[]) {
+  if (!objectIds.length) return new Map<string, CurrentWhereabouts>();
+  const rows = resultRows<CurrentWhereabouts>(
+    await db.execute(sql`select w.id,w.object_id as "objectId",w.place_kind as "placeKind",w.venue_id as "venueId",
+      v.name as "venueName",v.slug as "venueSlug",w.place_label as "placeLabel",w.custody,w.display_status as "displayStatus",
+      w.occasion_label as "occasionLabel",coalesce(w.verified_at,w.recorded_at) as "checkedAt",
+      case when s.id is null then null else jsonb_build_object('precision',s.precision,'startYear',s.start_year,'startMonth',s.start_month,'startDay',s.start_day,
+        'endYear',s.end_year,'endMonth',s.end_month,'endDay',s.end_day,'approximate',s.approximate,'label',s.label) end as since
+      from art_object_whereabouts w left join venues v on v.id=w.venue_id left join catalogue_dates s on s.id=w.starts_on_id
+      where w.object_id in (${uuids(objectIds)}) and w.certainty='confirmed' and w.ends_on_id is null`),
+  );
+  return new Map(rows.map((row) => [row.objectId, row]));
+}
+
 // ── List filters ─────────────────────────────────────────────────────────────
 
 type PaintingQuery = z.output<typeof paintingQuerySchema>;
@@ -194,6 +231,11 @@ export function paintingWhere(q: PaintingQuery): SQL | undefined {
   if (q.ownerOrganizationIds?.length)
     conditions.push(
       sql`exists(select 1 from art_objects o where o.work_id=${works.id} and o.owner_organization_id in (${uuids(q.ownerOrganizationIds)}))`,
+    );
+  if (q.currentVenueIds?.length)
+    conditions.push(
+      sql`exists(select 1 from art_object_whereabouts w join art_objects o on o.id=w.object_id
+        where o.work_id=${works.id} and w.certainty='confirmed' and w.ends_on_id is null and w.venue_id in (${uuids(q.currentVenueIds)}))`,
     );
   if (q.createdFrom !== undefined || q.createdTo !== undefined)
     conditions.push(

@@ -203,6 +203,41 @@ holding status, physical personal location, acquisition and disposition) or
 and surrounding spaces. Physical whereabouts are a separate dated record
 (SLN-360); ownership never implies where an object hangs or that it is shown.
 
+### `art_object_whereabouts`
+
+Migration `0044_art_whereabouts` records where each art object physically is or
+was, as dated, sourced statements.
+
+| Column | Meaning |
+| --- | --- |
+| `object_id` | The art object (CASCADE: the history goes with a deleted object; the object cannot change) |
+| `place_kind` | `venue`, `private`, `unknown`, `lost` or `destroyed` |
+| `venue_id` | Required exactly for `venue` (RESTRICT) |
+| `place_label` | Wording a venue cannot express, such as "Private collection, Geneva" |
+| `custody` | `permanent_collection`, `temporary_loan`, `long_term_loan`, `private` or `unknown`; collections and loans need a venue; lost and destroyed need `unknown` |
+| `display_status` | `on_display`, `in_storage` or `unknown` (default); stated only at a venue, never inferred from ownership |
+| `certainty` | `confirmed`, `probable` or `uncertain` |
+| `starts_on_id`, `ends_on_id` | Date values; a null start is unknown, a null end is current |
+| `occasion_label` | An exhibition or occasion, such as a loan exhibition title |
+| `recorded_at`, `verified_at` | When the statement was entered and last checked; verification cannot be in the future |
+| `source_record_id` | A source owned by the same painting |
+
+Rules: confirmed records of one object form a single history. A partial unique
+index allows one current confirmed record, and the trigger rejects confirmed
+periods that definitely overlap; periods that only touch or share a partial
+boundary (1911 and 1911) stay valid. Probable and uncertain claims may overlap
+anything. Each write locks the object row, so two competing moves cannot both
+pass. A venue in any location record cannot be deleted; archive it instead.
+Venue merges move the records.
+
+`recordWhereabouts` treats a confirmed, open-ended record as a move: it closes
+the current confirmed record on the move date and opens the new one in one
+transaction, guarded by a fingerprint of the object's whole history.
+Corrections may be backdated. Reads return the current record, the history,
+conflicting claims (probable or uncertain records that may overlap the current
+period at another place) and staleness (current location unchecked for 365
+days by default).
+
 ## Personal curation and holdings contracts
 
 ## Personal curation and holdings contracts

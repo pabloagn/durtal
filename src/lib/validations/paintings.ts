@@ -4,7 +4,12 @@ import {
   ART_OBJECT_KINDS,
   ART_OWNERSHIPS,
   DIMENSION_UNITS,
+  DISPLAY_STATUSES,
   MAX_DIMENSION,
+  WHEREABOUTS_CERTAINTY,
+  WHEREABOUTS_CUSTODY,
+  WHEREABOUTS_PLACES,
+  WHEREABOUTS_STALE_DAYS,
 } from "@/lib/catalogue/paintings";
 import {
   PERSONAL_HOLDING_STATUSES,
@@ -195,6 +200,64 @@ export const artObjectRecordSchema = z
 /** Supplied fields only. Merged with defaults or the stored object, then validated whole. */
 export const artObjectPatchSchema = z.strictObject(objectFields).partial();
 
+const whereaboutsFields = {
+  placeKind: z.enum(WHEREABOUTS_PLACES),
+  venueId: z.uuid().nullable(),
+  placeLabel: label(300),
+  custody: z.enum(WHEREABOUTS_CUSTODY),
+  displayStatus: z.enum(DISPLAY_STATUSES),
+  certainty: z.enum(WHEREABOUTS_CERTAINTY),
+  /** null start: since an unknown date. null end: still there. */
+  startsOn: date,
+  endsOn: date,
+  occasionLabel: label(300),
+  /** When the location was last checked against a source. */
+  verifiedAt: z.iso.datetime({ offset: true }).nullable(),
+  notes: z.string().max(10000).nullable(),
+  sourceRecordId: z.uuid().nullable(),
+};
+/** Values for a new record when the input leaves a field out. */
+export const WHEREABOUTS_DEFAULTS = {
+  venueId: null,
+  placeLabel: null,
+  custody: "unknown",
+  displayStatus: "unknown",
+  startsOn: null,
+  endsOn: null,
+  occasionLabel: null,
+  verifiedAt: null,
+  notes: null,
+  sourceRecordId: null,
+} as const;
+const AT_VENUE = ["permanent_collection", "temporary_loan", "long_term_loan"];
+/** A whole location record, validated across its fields. */
+export const whereaboutsRecordSchema = z
+  .strictObject(whereaboutsFields)
+  .superRefine((v, ctx) => {
+    const issue = (message: string, path?: string) =>
+      ctx.addIssue({ code: "custom", message, ...(path && { path: [path] }) });
+    if ((v.placeKind === "venue") !== (v.venueId !== null))
+      issue("A venue location names its venue, and only then", "venueId");
+    if (AT_VENUE.includes(v.custody) && v.placeKind !== "venue")
+      issue("Collections and loans are at a venue", "custody");
+    if (v.displayStatus !== "unknown" && v.placeKind !== "venue")
+      issue("Display and storage are stated only at a venue", "displayStatus");
+    if ((v.placeKind === "lost" || v.placeKind === "destroyed") && v.custody !== "unknown")
+      issue("A lost or destroyed object has no custody", "custody");
+    if (!datesInOrder(v.startsOn, v.endsOn)) issue(dateOrder);
+  });
+/** Supplied fields only. Merged with defaults or the stored record, then validated whole. */
+export const whereaboutsPatchSchema = z.strictObject(whereaboutsFields).partial();
+export type WhereaboutsPatch = z.input<typeof whereaboutsPatchSchema>;
+export type WhereaboutsInput = WhereaboutsPatch & {
+  objectId: string;
+  placeKind: (typeof WHEREABOUTS_PLACES)[number];
+  certainty: (typeof WHEREABOUTS_CERTAINTY)[number];
+};
+export const whereaboutsReadSchema = z.strictObject({
+  staleAfterDays: z.number().int().min(1).max(3650).default(WHEREABOUTS_STALE_DAYS),
+});
+
 const year = z.number().int().min(-999999).max(999999);
 export const PAINTING_SORTS = ["title", "created", "recent", "rating"] as const;
 export const paintingQuerySchema = z
@@ -207,6 +270,8 @@ export const paintingQuerySchema = z
     artMovementIds: z.array(z.uuid()).max(50).optional(),
     /** Any object owned by one of these institutions. */
     ownerOrganizationIds: z.array(z.uuid()).max(50).optional(),
+    /** Any object whose confirmed current location is one of these venues. */
+    currentVenueIds: z.array(z.uuid()).max(50).optional(),
     /** The creation period overlaps these years; unknown never matches. */
     createdFrom: year.optional(),
     createdTo: year.optional(),

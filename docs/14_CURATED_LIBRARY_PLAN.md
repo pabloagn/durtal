@@ -297,5 +297,16 @@ fingerprinted pattern, with browse filters by painter, taxonomy, movement,
 owning institution, creation years, holdings and favourites. The full local
 suite passes 874 tests across 71 files, zero skipped, plus five Python checks.
 
-See changelog tasks 0155–0167 for scope and verification. SLN-283 (database access
+Original whereabouts (SLN-360, migration 0044) add dated, sourced location
+records per art object: venue, private, unknown, lost or destroyed places;
+custody (collection, loans, private); display status that is never inferred;
+and certainty. Confirmed records form one non-overlapping history, moves close
+and open records atomically, and competing moves resolve to one. Uncertain
+claims stay beside the history; conflicts and stale current locations are
+reported on read. Venues in location history cannot be deleted. The full local
+suite passes 882 tests across 72 files, zero skipped, plus five Python checks.
+Milestone 03 (perfume, film and painting domain models) is complete; the domain
+screens follow in milestone 04.
+
+See changelog tasks 0155–0168 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

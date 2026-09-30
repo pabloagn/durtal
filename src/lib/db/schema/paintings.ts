@@ -25,6 +25,10 @@ import {
   ART_OBJECT_KINDS,
   ART_OWNERSHIPS,
   DIMENSION_UNITS,
+  DISPLAY_STATUSES,
+  WHEREABOUTS_CERTAINTY,
+  WHEREABOUTS_CUSTODY,
+  WHEREABOUTS_PLACES,
 } from "@/lib/catalogue/paintings";
 import { PERSONAL_HOLDING_STATUSES } from "@/lib/catalogue/holdings";
 
@@ -226,6 +230,70 @@ export const artObjectTaxa = pgTable(
   ],
 );
 
+/**
+ * A dated, sourced statement of where an art object physically is or was.
+ * Ownership stays on the object; this records place, custody and display.
+ */
+export const artObjectWhereabouts = pgTable(
+  "art_object_whereabouts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    objectId: uuid("object_id")
+      .notNull()
+      .references(() => artObjects.id, { onDelete: "cascade" }),
+    placeKind: text("place_kind", { enum: WHEREABOUTS_PLACES }).notNull(),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "restrict",
+    }),
+    /** "Private collection, Geneva" or other wording a venue cannot express. */
+    placeLabel: text("place_label"),
+    custody: text("custody", { enum: WHEREABOUTS_CUSTODY })
+      .notNull()
+      .default("unknown"),
+    displayStatus: text("display_status", { enum: DISPLAY_STATUSES })
+      .notNull()
+      .default("unknown"),
+    certainty: text("certainty", { enum: WHEREABOUTS_CERTAINTY }).notNull(),
+    /** An unknown start reaches back indefinitely; a null end is current. */
+    startsOnId: uuid("starts_on_id").references(() => catalogueDates.id),
+    endsOnId: uuid("ends_on_id").references(() => catalogueDates.id),
+    /** An exhibition or occasion, such as the title of a loan exhibition. */
+    occasionLabel: text("occasion_label"),
+    recordedAt: timestamp("recorded_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    notes: text("notes"),
+    sourceRecordId: source(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("art_whereabouts_object_idx").on(t.objectId),
+    index("art_whereabouts_venue_idx").on(t.venueId),
+    uniqueIndex("art_whereabouts_current_unique")
+      .on(t.objectId)
+      .where(sql`${t.certainty} = 'confirmed' and ${t.endsOnId} is null`),
+    check(
+      "art_whereabouts_place_check",
+      sql`${t.placeKind} in ('venue','private','unknown','lost','destroyed')
+        and (${t.placeKind}='venue') = (${t.venueId} is not null)
+        and (${t.placeLabel} is null or length(trim(${t.placeLabel})) between 1 and 300)
+        and (${t.occasionLabel} is null or length(trim(${t.occasionLabel})) between 1 and 300)`,
+    ),
+    check(
+      "art_whereabouts_custody_check",
+      sql`${t.custody} in ('permanent_collection','temporary_loan','long_term_loan','private','unknown')
+        and ${t.displayStatus} in ('on_display','in_storage','unknown')
+        and ${t.certainty} in ('confirmed','probable','uncertain')
+        and (${t.custody} not in ('permanent_collection','temporary_loan','long_term_loan') or ${t.placeKind}='venue')
+        and (${t.displayStatus}='unknown' or ${t.placeKind}='venue')
+        and (${t.placeKind} not in ('lost','destroyed') or ${t.custody}='unknown')`,
+    ),
+  ],
+);
+
 export const paintingDetailsRelations = relations(
   paintingDetails,
   ({ one, many }) => ({
@@ -251,7 +319,21 @@ export const artObjectsRelations = relations(artObjects, ({ one, many }) => ({
   }),
   credits: many(artObjectCredits),
   taxa: many(artObjectTaxa),
+  whereabouts: many(artObjectWhereabouts),
 }));
+export const artObjectWhereaboutsRelations = relations(
+  artObjectWhereabouts,
+  ({ one }) => ({
+    object: one(artObjects, {
+      fields: [artObjectWhereabouts.objectId],
+      references: [artObjects.id],
+    }),
+    venue: one(venues, {
+      fields: [artObjectWhereabouts.venueId],
+      references: [venues.id],
+    }),
+  }),
+);
 export const artObjectCreditsRelations = relations(
   artObjectCredits,
   ({ one }) => ({

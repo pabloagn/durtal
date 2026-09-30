@@ -174,6 +174,8 @@ export const CATALOGUE_DATE_REFERENCES = [
   ["art_objects", "creation_date_id"],
   ["art_objects", "acquisition_date_id"],
   ["art_objects", "disposition_date_id"],
+  ["art_object_whereabouts", "starts_on_id"],
+  ["art_object_whereabouts", "ends_on_id"],
 ] as const;
 
 export function displayCatalogueDate(input: CatalogueDateInput) {

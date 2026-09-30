@@ -78,6 +78,8 @@ import {
   deletePainting,
   updateArtObject,
 } from "@/lib/actions/paintings";
+import { getWhereabouts, recordWhereabouts } from "@/lib/actions/whereabouts";
+import { createVenue } from "@/lib/actions/venues";
 
 type Query = { query: string; params: (string | null)[] };
 
@@ -419,6 +421,45 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
       expect(await c`select id from catalogue_dates`).toHaveLength(0);
     } finally {
       await c`delete from works where kind<>'book'`;
+      await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
+    }
+  });
+
+  it("closes and opens confirmed locations in one Neon batch", async () => {
+    await c`alter table works drop constraint works_kind_enabled_check`;
+    try {
+      const year = (value: number) => ({
+        precision: "year" as const,
+        start: { year: value },
+      });
+      const home = (await createVenue({ name: "Home museum", type: "museum" })).id;
+      const away = (await createVenue({ name: "Borrowing museum", type: "museum" })).id;
+      const painting = await createPainting({ title: "The Night Watch" });
+      const object = await createArtObject({ workId: painting.id, kind: "original" });
+      const first = await recordWhereabouts(
+        { objectId: object.id, placeKind: "venue", venueId: home, custody: "permanent_collection", certainty: "confirmed", startsOn: year(1885) },
+        (await getWhereabouts(object.id))!.fingerprint,
+      );
+      requests.length = 0;
+      const moved = await recordWhereabouts(
+        { objectId: object.id, placeKind: "venue", venueId: away, custody: "temporary_loan", certainty: "confirmed", startsOn: year(2030) },
+        first.fingerprint,
+      );
+      expect(requests.filter((request) => request.queries)).toHaveLength(1);
+      expect(moved.current!.venueId).toBe(away);
+      expect(moved.records.find((r) => r.venueId === home)!.endsOn!.value.start).toEqual({ year: 2030, month: null, day: null });
+      await expect(
+        recordWhereabouts(
+          { objectId: object.id, placeKind: "venue", venueId: home, custody: "permanent_collection", certainty: "confirmed", startsOn: year(1900) },
+          moved.fingerprint,
+        ),
+      ).rejects.toThrow(/^The end date cannot precede the start date$/);
+      expect((await getWhereabouts(object.id))!.fingerprint).toBe(moved.fingerprint);
+      expect(await deletePainting(painting.id)).toMatchObject({ id: painting.id });
+      expect(await c`select id from catalogue_dates`).toHaveLength(0);
+    } finally {
+      await c`delete from works where kind<>'book'`;
+      await c`delete from venues`;
       await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
     }
   });
