@@ -3,8 +3,12 @@ import { z } from "zod/v4";
 // ── Taxonomy Family Schemas ─────────────────────────────────────────────────
 
 export const createTaxonomyFamilySchema = z.object({
-  name: z.string().min(1).max(200),
-  slug: z.string().min(1).max(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  name: z.string().trim().min(1).max(200),
+  slug: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   description: z.string().max(1000).nullable().optional(),
   icon: z.string().max(50).nullable().optional(),
   color: z.string().max(7).nullable().optional(),
@@ -14,13 +18,17 @@ export const createTaxonomyFamilySchema = z.object({
 
 export const updateTaxonomyFamilySchema = createTaxonomyFamilySchema.partial();
 
-export type CreateTaxonomyFamilyInput = z.input<typeof createTaxonomyFamilySchema>;
-export type UpdateTaxonomyFamilyInput = z.input<typeof updateTaxonomyFamilySchema>;
+export type CreateTaxonomyFamilyInput = z.input<
+  typeof createTaxonomyFamilySchema
+>;
+export type UpdateTaxonomyFamilyInput = z.input<
+  typeof updateTaxonomyFamilySchema
+>;
 
 // ── Taxonomy Item Schemas ───────────────────────────────────────────────────
 
 export const createTaxonomyItemSchema = z.object({
-  name: z.string().min(1).max(500),
+  name: z.string().trim().min(1).max(500),
   description: z.string().max(2000).nullable().optional(),
   color: z.string().max(7).nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),

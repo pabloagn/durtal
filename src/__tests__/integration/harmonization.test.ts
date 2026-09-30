@@ -57,8 +57,9 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
   });
   beforeEach(async () => {
     await db.execute(
-      sql`truncate works, authors, publishing_houses, locations, collections, series, recommenders, venues, places, custom_taxonomy_items, taxonomy_families, genres, sources, comments, activity_events, gallery_layouts, harmonization_decisions, harmonization_operations, harmonization_redirects cascade`,
+      sql`truncate works, authors, publishing_houses, locations, collections, series, recommenders, venues, places, custom_taxonomy_items, genres, sources, comments, activity_events, gallery_layouts, harmonization_decisions, harmonization_operations, harmonization_redirects cascade`,
     );
+    await db.execute(sql`delete from taxonomy_families where not is_system`);
   });
   async function author(
     name: string,

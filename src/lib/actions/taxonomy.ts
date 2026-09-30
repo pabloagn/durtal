@@ -1,8 +1,16 @@
 "use server";
 
-import { bookReferenceCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
+import {
+  bookReferenceCondition,
+  requireBookWork,
+} from "@/lib/catalogue/book-boundary";
 
 import { db } from "@/lib/db";
+import { z } from "zod";
+import { getTableName } from "drizzle-orm";
+import { atomic } from "@/lib/db/atomic";
+import { assertSql } from "@/lib/harmonization/store";
+import { getSystemRegistry } from "@/lib/db/taxonomy-resolver";
 import {
   subjects,
   genres,
@@ -16,13 +24,6 @@ import {
   keywords,
   attributes,
   workSubjects,
-  workCategories,
-  workThemes,
-  workLiteraryMovements,
-  workArtTypes,
-  workArtMovements,
-  workKeywords,
-  workAttributes,
   works,
 } from "@/lib/db/schema";
 import { eq, asc, sql, and } from "drizzle-orm";
@@ -68,7 +69,13 @@ export const getSubjectsWithWorkCounts = cached(
         workCount: sql<number>`count(${workSubjects.workId})::int`,
       })
       .from(subjects)
-      .leftJoin(workSubjects, and(eq(subjects.id, workSubjects.subjectId), bookReferenceCondition(workSubjects.workId)))
+      .leftJoin(
+        workSubjects,
+        and(
+          eq(subjects.id, workSubjects.subjectId),
+          bookReferenceCondition(workSubjects.workId),
+        ),
+      )
       .groupBy(subjects.id)
       .orderBy(asc(subjects.name));
     return rows;
@@ -128,7 +135,10 @@ export const getTags = cached(
   [CACHE_TAGS.tags],
 );
 
-export async function createTag(input: { name: string; color?: string | null }) {
+export async function createTag(input: {
+  name: string;
+  color?: string | null;
+}) {
   const [tag] = await db.insert(tags).values(input).returning();
   invalidate(CACHE_TAGS.tags);
   return tag;
@@ -233,89 +243,52 @@ export async function updateWorkTaxonomy(
   },
 ) {
   await requireBookWork(workId);
-  if (input.subjectIds !== undefined) {
-    await db.delete(workSubjects).where(eq(workSubjects.workId, workId));
-    if (input.subjectIds.length > 0) {
-      await db.insert(workSubjects).values(
-        input.subjectIds.map((subjectId) => ({ workId, subjectId })),
-      );
-    }
-  }
-
-  if (input.categoryIds !== undefined) {
-    await db.delete(workCategories).where(eq(workCategories.workId, workId));
-    if (input.categoryIds.length > 0) {
-      await db.insert(workCategories).values(
-        input.categoryIds.map((categoryId) => ({ workId, categoryId })),
-      );
-    }
-  }
-
-  if (input.themeIds !== undefined) {
-    await db.delete(workThemes).where(eq(workThemes.workId, workId));
-    if (input.themeIds.length > 0) {
-      await db.insert(workThemes).values(
-        input.themeIds.map((themeId) => ({ workId, themeId })),
-      );
-    }
-  }
-
-  if (input.literaryMovementIds !== undefined) {
-    await db
-      .delete(workLiteraryMovements)
-      .where(eq(workLiteraryMovements.workId, workId));
-    if (input.literaryMovementIds.length > 0) {
-      await db.insert(workLiteraryMovements).values(
-        input.literaryMovementIds.map((literaryMovementId) => ({
-          workId,
-          literaryMovementId,
-        })),
-      );
-    }
-  }
-
-  if (input.artTypeIds !== undefined) {
-    await db.delete(workArtTypes).where(eq(workArtTypes.workId, workId));
-    if (input.artTypeIds.length > 0) {
-      await db.insert(workArtTypes).values(
-        input.artTypeIds.map((artTypeId) => ({ workId, artTypeId })),
-      );
-    }
-  }
-
-  if (input.artMovementIds !== undefined) {
-    await db
-      .delete(workArtMovements)
-      .where(eq(workArtMovements.workId, workId));
-    if (input.artMovementIds.length > 0) {
-      await db.insert(workArtMovements).values(
-        input.artMovementIds.map((artMovementId) => ({ workId, artMovementId })),
-      );
-    }
-  }
-
-  if (input.keywordIds !== undefined) {
-    await db.delete(workKeywords).where(eq(workKeywords.workId, workId));
-    if (input.keywordIds.length > 0) {
-      await db.insert(workKeywords).values(
-        input.keywordIds.map((keywordId) => ({ workId, keywordId })),
-      );
-    }
-  }
-
-  if (input.attributeIds !== undefined) {
-    await db.delete(workAttributes).where(eq(workAttributes.workId, workId));
-    if (input.attributeIds.length > 0) {
-      await db.insert(workAttributes).values(
-        input.attributeIds.map((attributeId) => ({ workId, attributeId })),
-      );
-    }
-  }
-
-  await db
-    .update(works)
-    .set({ updatedAt: new Date() })
-    .where(eq(works.id, workId));
+  const mapping = {
+    subjectIds: "subjects",
+    categoryIds: "categories",
+    themeIds: "themes",
+    literaryMovementIds: "literary-movements",
+    artTypeIds: "art-types",
+    artMovementIds: "art-movements",
+    keywordIds: "keywords",
+    attributeIds: "attributes",
+  } as const;
+  const changes = Object.entries(mapping).flatMap(([field, slug]) => {
+    const values = input[field as keyof typeof mapping];
+    return values === undefined
+      ? []
+      : [
+          {
+            reg: getSystemRegistry(slug),
+            ids: [...new Set(z.array(z.uuid()).max(500).parse(values))],
+          },
+        ];
+  });
+  await atomic((d) => [
+    d.execute(sql`select id from works where id=${workId}::uuid for update`),
+    d.execute(
+      assertSql(
+        sql`exists(select 1 from works where id=${workId}::uuid and kind='book')`,
+        "Book not found",
+      ),
+    ),
+    ...changes.flatMap(({ reg, ids }) => [
+      d.execute(
+        sql`delete from ${reg.junction} where ${reg.junctionEntityCol}=${workId}::uuid`,
+      ),
+      ...(ids.length
+        ? [
+            d.execute(
+              sql`insert into ${sql.identifier(getTableName(reg.junction))} (${sql.identifier(reg.junctionItemCol.name)},work_id) values ${sql.join(
+                ids.map((id) => sql`(${id}::uuid,${workId}::uuid)`),
+                sql`,`,
+              )}`,
+            ),
+          ]
+        : []),
+    ]),
+    d.update(works).set({ updatedAt: new Date() }).where(eq(works.id, workId)),
+  ]);
 
   recordActivity("work", workId, "work.taxonomy_added", {
     extra: { updated: true },

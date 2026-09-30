@@ -15,6 +15,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
+import { DOMAIN_TAXONOMIES } from "@/lib/catalogue/taxonomies";
 
 // Destructive migration rehearsal: explicitly opt in to this local database.
 // Never fall back to DATABASE_URL or load application environment files.
@@ -63,6 +64,29 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   function legacyRows(snapshot: Record<string, Record<string, unknown>[]>) {
     const projected = structuredClone(snapshot);
     for (const work of projected.works) delete work.kind;
+    if (projected.taxonomy_applicability) {
+      for (const definition of DOMAIN_TAXONOMIES) {
+        const family = projected.taxonomy_families.find(
+          (row) => row.slug === definition.slug,
+        )!;
+        expect(family).toMatchObject({
+          name: definition.name,
+          is_system: true,
+          system_table: "custom_taxonomy_items",
+          hierarchical: definition.hierarchical,
+        });
+        for (const level of definition.levels)
+          expect(projected.taxonomy_applicability).toContainEqual({
+            family_id: family.id,
+            kind: definition.kind,
+            level,
+          });
+      }
+      projected.taxonomy_families = projected.taxonomy_families.filter(
+        (row) =>
+          !DOMAIN_TAXONOMIES.some((definition) => definition.slug === row.slug),
+      );
+    }
     for (const table of ["publishing_houses", "publisher_aliases"])
       for (const row of projected[table]) {
         if ("search_text" in row) {
@@ -88,6 +112,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "work_credits",
       "organization_roles",
       "organization_venues",
+      "taxonomy_applicability",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -151,6 +176,18 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     `;
     await c`insert into edition_contributors(edition_id,author_id,role,sort_order) values (${translation.id},${author.id},'translator',1)`;
     await c`insert into edition_contributors(edition_id,author_id,role,sort_order) values (${translation.id},${author.id},'historical annotator',2)`;
+    const [customFamily] =
+      await c`insert into taxonomy_families(name,slug,entity_level,hierarchical) values ('Legacy mood','legacy-mood','work',true) returning id`;
+    const [customItem] =
+      await c`insert into custom_taxonomy_items(family_id,name,slug) values (${customFamily.id},'Reflective','reflective') returning id`;
+    await c`insert into custom_taxonomy_item_works values (${customItem.id},${bookId})`;
+    // Historical custom usage can span both stores despite one declared level.
+    await c`insert into custom_taxonomy_item_editions values (${customItem.id},${edition.id})`;
+    const [theme] =
+      await c`insert into themes(name,slug,level) values ('Art','art',1) returning id`;
+    const [childTheme] =
+      await c`insert into themes(name,slug,level,parent_id) values ('Perspective','perspective',2,${theme.id}) returning id`;
+    await c`insert into work_themes values (${bookId},${childTheme.id})`;
     const [location] =
       await c`insert into locations(name,type) values ('Study','physical') returning id`;
     const [digital] =
@@ -210,6 +247,14 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       await migrate(db!, { migrationsFolder: folder });
       const fullStep = await snapshot();
       expect(fullStep.works.every((work) => work.kind === "book")).toBe(true);
+      if (fullStep.taxonomy_applicability) {
+        expect(fullStep.taxonomy_applicability).toEqual(
+          expect.arrayContaining([
+            { family_id: customFamily.id, kind: "book", level: "work" },
+            { family_id: customFamily.id, kind: "book", level: "edition" },
+          ]),
+        );
+      }
       if (fullStep.person_domains) {
         expect(fullStep.person_domains).toHaveLength(before.authors.length);
         for (const author of before.authors)

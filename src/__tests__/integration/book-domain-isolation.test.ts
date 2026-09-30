@@ -114,8 +114,9 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, subjects, recommenders, series, taxonomy_families,
+    await c`truncate works, authors, subjects, recommenders, series, custom_taxonomy_items,
       comments, activity_events, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
+    await c`delete from taxonomy_families where not is_system`;
     const a =
       await c`insert into authors(name,first_name,sort_name) values ('Zoe Able','Zoe','Able, Zoe'), ('Amy Zed','Amy','Zed, Amy') returning id`;
     author = a[0].id;
@@ -141,7 +142,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
     ).map((r) => r.id);
     const [family] =
       await c`insert into taxonomy_families(name,slug,entity_level) values ('Mood','mood','work') returning id`;
-    await c`insert into taxonomy_families(name,slug,entity_level,is_system) values ('Subjects','subjects','work',true)`;
+    await c`insert into taxonomy_applicability(family_id,kind,level) select ${family.id},k::work_kind_enum,'work' from unnest(ARRAY['film','perfume','painting']) k`;
     const [item] =
       await c`insert into custom_taxonomy_items(family_id,name,slug) values (${family.id},'Dark','dark') returning id`;
     for (const id of [books[0], ...others.map((r) => r.id)]) {
@@ -261,9 +262,11 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           ?.entityIds,
       ).toEqual([books[0]]);
     }
-    expect((await getTaxonomyFamilies()).map((f) => f.entityCount)).toEqual([
-      1, 1,
-    ]);
+    expect(
+      (await getTaxonomyFamilies())
+        .filter((f) => ["subjects", "mood"].includes(f.slug))
+        .map((f) => f.entityCount),
+    ).toEqual([1, 1]);
     expect(await c`select * from work_subjects`).toHaveLength(4);
   });
   it("exports selected books without serializing other media as publications", async () => {

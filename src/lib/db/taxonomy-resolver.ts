@@ -87,9 +87,10 @@ const SYSTEM_REGISTRY = {
 } as const;
 
 export type SystemFamilySlug = keyof typeof SYSTEM_REGISTRY;
+export const SYSTEM_FAMILY_SLUGS = Object.keys(SYSTEM_REGISTRY) as SystemFamilySlug[];
 
 export function isSystemFamily(slug: string): slug is SystemFamilySlug {
-  return slug in SYSTEM_REGISTRY;
+  return Object.hasOwn(SYSTEM_REGISTRY, slug);
 }
 
 export function getSystemRegistry(slug: SystemFamilySlug) {

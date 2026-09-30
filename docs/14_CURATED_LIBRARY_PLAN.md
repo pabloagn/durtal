@@ -223,5 +223,12 @@ profile. Organization/venue affiliations support multiple branches and protect
 linked records from deletion. The subsequent full local run passes 728 tests
 across 58 files, zero skipped, plus five Python checks.
 
-See changelog tasks 0155–0159 for scope and verification. SLN-283 (database access
+Taxonomy applicability (SLN-352, migration 0037) now separates domain and record
+level while preserving existing vocabulary tables, book art classifications and
+edition genres/tags. Work/edition assignments, family boundaries and concurrent
+hierarchy changes are guarded. Domain child tables will reuse that contract in
+their own migrations. The full local suite passes 738 tests across 59 files,
+zero skipped, plus five Python checks.
+
+See changelog tasks 0155–0160 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

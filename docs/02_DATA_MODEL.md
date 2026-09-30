@@ -877,6 +877,74 @@ Seeded from Knowledge_Base (163 rows).
 
 ## Taxonomy Tables
 
+### Families, storage and applicability
+
+`taxonomy_families` is the canonical family registry: UUID `id`, unique `name`
+and `slug`, optional description/icon/color, `is_system`, optional `system_table`,
+legacy `entity_level`, `hierarchical`, `sort_order` and creation timestamp.
+Existing system families keep their dedicated vocabulary and junction tables.
+Custom families and the new domain vocabularies use `custom_taxonomy_items`
+with UUID identity, family FK, name, family-unique slug, description, color,
+parent, sort order and creation timestamp. Work and edition links retain their
+existing composite keys and foreign keys. No prior IDs or assignments are moved.
+
+Migration `0037_taxonomy_applicability` adds `taxonomy_applicability`:
+
+| Column | Type | Constraints |
+|---|---|---|
+| `family_id` | UUID | FK → taxonomy_families, CASCADE |
+| `kind` | work_kind_enum | NOT NULL |
+| `level` | TEXT | NOT NULL; valid domain/level combination required |
+
+Composite PK `(family_id, kind, level)` and lookup index `(kind, level, family_id)`.
+Every domain accepts `work`; only books accept `edition`, perfumes accept
+`perfume_variant`, films accept `film_version`, and paintings accept `art_object`.
+The migration backfills both the legacy declared level and actual custom links,
+so a historical family used at both book levels retains both sets of assignments.
+New legacy family inserts default to book applicability. Custom scope changes
+are explicit; a used scope cannot be removed or silently changed.
+
+Subjects, themes and keywords are shared work vocabularies. Art types and
+movements retain book applicability and also apply to paintings. Book genres
+and tags remain edition vocabularies. Separate built-in families are:
+
+| Vocabulary | Domain | Levels |
+|---|---|---|
+| Film genres | Film | Work |
+| Perfume families, accords, notes | Perfume | Work, variant |
+| Painting genres | Painting | Work |
+| Painting techniques, media, supports | Painting | Work, art object |
+
+These built-ins are protected family definitions in the custom-item store.
+The migration refuses to commandeer an existing name/slug that conflicts with a
+new built-in. No example items or fabricated classifications are seeded.
+
+Assignment triggers call `taxonomy_require_scope(family, kind, level)` under a
+scope-row lock. All current work/edition stores enforce applicability, including
+direct SQL writes. Future variant/version/art-object junctions must use this same
+guard and extend the scope-in-use/deletion checks when their actual domain tables
+are introduced; this foundation does not create placeholder targets.
+
+The typed storage registry controls reads and mutations. Item edits, moves,
+reordering and assignment validate family membership. Shared work/edition
+assignment and multi-family book edits are atomic. Taxonomy merges use the
+audited merge transaction, preserving links at every level and reparenting
+children before deleting the source. Linked items and nonempty families require
+reassignment/removal of their contents before deletion. Built-in family storage
+and legacy level identity are immutable.
+
+Hierarchy triggers reject same-item, ancestor cycles and cross-family parents.
+An advisory transaction lock serializes concurrent hierarchy edits. Migration
+preflight reports invalid historical trees without changing them. Existing
+stored depths survive migration; future category/theme/literary-movement edits
+maintain one-based depth across the affected subtree, including deeper trees.
+New item slugs use the normalized name plus UUID, supporting Unicode-only names
+and colliding transliterations. Renaming an item preserves its URL.
+
+Legacy taxonomy pages remain book-scoped. Domain applicability queries and
+assignment services support downstream domain interfaces; their distinct
+taxonomy controls are delivered separately.
+
 ### `subjects`
 
 Work-level thematic classification. Flat list.

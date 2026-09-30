@@ -2,6 +2,7 @@ import { pgTable, uuid, text, boolean, integer, timestamp, primaryKey, uniqueInd
 import { relations } from "drizzle-orm";
 import { works } from "./works";
 import { editions } from "./editions";
+import { taxonomyApplicability } from "./taxonomy-applicability";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 // ── Taxonomy Families (registry of all label groups) ─────────────────────────
@@ -23,6 +24,7 @@ export const taxonomyFamilies = pgTable("taxonomy_families", {
 
 export const taxonomyFamiliesRelations = relations(taxonomyFamilies, ({ many }) => ({
   items: many(customTaxonomyItems),
+  applicability: many(taxonomyApplicability),
 }));
 
 // ── Custom Taxonomy Items (items in user-created families) ───────────────────
