@@ -19,6 +19,7 @@ import {
   Archive,
   Route,
   ThumbsUp,
+  ScanLine,
 } from "lucide-react";
 
 interface CommandPaletteProps {
@@ -54,6 +55,7 @@ const NAVIGATION_ITEMS = [
     group: "Navigate",
   },
   { label: "Taxonomy", href: "/taxonomy", icon: Tags, group: "Navigate" },
+  { label: "Harmonize", href: "/harmonize", icon: ScanLine, group: "Navigate" },
   { label: "Settings", href: "/settings", icon: Settings, group: "Navigate" },
 ];
 

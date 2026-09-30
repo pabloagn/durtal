@@ -225,6 +225,13 @@
       "when": 1790526748776,
       "tag": "0031_collection_icon",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790695416268,
+      "tag": "0032_harmonization",
+      "breakpoints": true
     }
   ]
 }

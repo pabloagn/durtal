@@ -177,3 +177,4 @@ export {
 } from "./publisher-links";
 
 export { imageAdjustments } from "./image-adjustments";
+export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects } from "./harmonization";

@@ -1447,3 +1447,19 @@ File attachments on comments, stored in S3.
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
 **Relations**: `comment` (N:1 -> `comments`)
+
+## Harmonization
+
+`/harmonize` derives its findings from current catalogue records using a capability registry; findings are not copied into a second catalogue. Migration `0032_harmonization` adds three persistence tables:
+
+| Table | Columns | Purpose |
+|---|---|---|
+| `harmonization_decisions` | `finding_key TEXT PK`, `fingerprint TEXT NOT NULL`, `reason TEXT`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` | Persistent dismissals. A changed evidence fingerprint resurfaces the finding. |
+| `harmonization_operations` | `id UUID PK DEFAULT gen_random_uuid()`, `action TEXT`, `entity TEXT`, `source_id UUID`, `target_id UUID NULL`, `label TEXT`, `before JSONB`, `after JSONB NULL`, `created_at TIMESTAMPTZ DEFAULT now()` | Atomic resolution audit. All fields except `target_id` and `after` are required; completed operations include the resulting snapshot. Indexed on `created_at`. IDs deliberately have no FK so history survives deletion. |
+| `harmonization_redirects` | `source_id UUID PK`, `entity TEXT NOT NULL`, `source_slug TEXT NULL`, `target_id UUID NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` | Old IDs/slugs follow surviving records. Indexed on `(entity, source_slug)`. Repeated merges flatten redirect chains. |
+
+Merges discover inbound foreign keys from the Drizzle schema and explicitly include polymorphic comments, activity and gallery layouts. Composite-key membership links are unioned; editions, copies, acquisitions, media, annotations and other linked records are transferred. Derived gallery layouts are invalidated. All affected rows are retained in the original audit snapshot. Any previously unknown database foreign key blocks the merge pending an explicit strategy. Existing active collecting targets with colliding identities block a merge, preserving orders and fulfilment provenance.
+
+The transaction takes ordered table locks, verifies the preview fingerprint, records its audit, transfers references, removes the source, reconciles survivor fields, validates acquisition compatibility and saves the resulting snapshot. `harmonization_allows_move` recognizes only the exact audited identity move in the current transaction. Existing edition, target, publisher and order guard functions retain their checks outside that path, including cancelled acquisition history. Lock and statement timeouts bound contention. Merges have no automatic undo; before/after records can be inspected and downloaded.
+
+Work merges preserve the **Work → Edition → Instance** separation. Edition/copy/order duplicates require individual review; the generic merger never collapses distinct printings, ownership or provenance into a work.

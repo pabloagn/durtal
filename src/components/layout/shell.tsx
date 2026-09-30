@@ -29,8 +29,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isReaderView = READER_VIEW_RE.test(pathname);
 
   const [commandOpen, setCommandOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
   const initializedRef = useRef(false);
+
+  // Preserve the saved desktop width while giving small screens usable content space.
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 800px)");
+    const update = () => setCompact(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const effectiveWidth = compact ? SIDEBAR_COLLAPSED : sidebarWidth;
 
   // Hydrate from localStorage after mount
   useEffect(() => {
@@ -87,11 +98,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar
-        width={sidebarWidth}
+        width={effectiveWidth}
         onWidthChange={handleSidebarWidthChange}
         onCommandPalette={() => setCommandOpen(true)}
       />
-      <main className="min-h-dvh transition-[margin-left] duration-200" style={{ marginLeft: sidebarWidth }}>
+      <main
+        className="min-h-dvh transition-[margin-left] duration-200"
+        style={{ marginLeft: effectiveWidth }}
+      >
         <div className="mx-auto max-w-6xl px-6 py-6">{children}</div>
       </main>
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />

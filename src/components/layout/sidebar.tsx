@@ -18,6 +18,7 @@ import {
   Archive,
   Route,
   ThumbsUp,
+  ScanLine,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/locations", label: "Locations", icon: Archive },
   { href: "/collections", label: "Collections", icon: FolderOpen },
   { href: "/taxonomy", label: "Taxonomy", icon: Tags },
+  { href: "/harmonize", label: "Harmonize", icon: ScanLine },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
