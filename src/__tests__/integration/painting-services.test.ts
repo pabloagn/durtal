@@ -12,6 +12,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
+import { ownedPrefixes } from "@/lib/s3/cleanup";
 
 const url = process.env.DURTAL_PAINTING_SERVICES_TEST_DATABASE_URL;
 if (url) {
@@ -23,7 +24,7 @@ const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
-  cleanupWorkArtwork: vi.fn(async () => false),
+  deleteUnusedObjects: vi.fn(async () => false),
 }));
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -49,9 +50,9 @@ vi.mock("@/lib/cache", () => ({
     activity: "data:activity",
   },
 }));
-vi.mock("@/lib/s3/artwork-cleanup", () => ({
-  cleanupWorkArtwork: mocks.cleanupWorkArtwork,
-  cleanupCollectionArtwork: vi.fn(async () => false),
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: mocks.deleteUnusedObjects,
 }));
 import {
   createArtObject,
@@ -290,7 +291,7 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
     expect(await deletePainting(painting.id)).toEqual({ id: painting.id, cleanupPending: false });
     expect(await c`select 1 from art_objects where work_id=${painting.id}`).toHaveLength(0);
     expect(await c`select 1 from comments where entity_id=${painting.id}`).toHaveLength(0);
-    expect(mocks.cleanupWorkArtwork).toHaveBeenCalledWith(painting.id, []);
+    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith({ keys: [], prefixes: ownedPrefixes.work(painting.id) }, `painting ${painting.id}`);
   });
 
   it("validates ownership, storage and classification scope", async () => {

@@ -11,6 +11,7 @@ import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { createVenueSchema, updateVenueSchema, venueSearchSchema, type CreateVenueInput } from "@/lib/validations/venues";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
+import { deleteUnusedObjects, keysOf } from "@/lib/s3/cleanup";
 import { textSearchCondition } from "./utils/text-search";
 export type { VenueType } from "@/lib/catalogue/venues";
 export type { CreateVenueInput } from "@/lib/validations/venues";
@@ -102,9 +103,16 @@ export async function archiveVenue(id: string, archived = true) {
   await atomic(d => [...lockVenue(d, id), d.update(venues).set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() }).where(eq(venues.id, id))]);
   changed(); return { id };
 }
-/** Historical references and artwork require archival; PostgreSQL protects direct writes too. */
+/** Historical references require archival; PostgreSQL protects direct writes too. Images go after commit. */
 export async function deleteVenue(id: string) {
   z.uuid().parse(id);
-  await atomic(d => [...lockVenue(d, id), d.delete(venues).where(eq(venues.id, id))]);
-  changed(); return { id };
+  const results = await atomic(d => [
+    ...lockVenue(d, id),
+    d.delete(venues).where(eq(venues.id, id)).returning({ posterS3Key: venues.posterS3Key, thumbnailS3Key: venues.thumbnailS3Key }),
+  ]);
+  changed();
+  // After commit: remove the deleted venue's own images unless another row still uses them.
+  const [deleted] = resultRows<{ posterS3Key: string | null; thumbnailS3Key: string | null }>(results.at(-1));
+  const cleanupPending = !!deleted && (await deleteUnusedObjects({ keys: keysOf([deleted]), prefixes: [] }, `venue ${id}`));
+  return { id, cleanupPending };
 }

@@ -12,6 +12,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
+import { ownedPrefixes } from "@/lib/s3/cleanup";
 
 const url = process.env.DURTAL_FILM_SERVICES_TEST_DATABASE_URL;
 if (url) {
@@ -23,7 +24,7 @@ const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
-  cleanupWorkArtwork: vi.fn(async () => false),
+  deleteUnusedObjects: vi.fn(async () => false),
 }));
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -50,9 +51,9 @@ vi.mock("@/lib/cache", () => ({
     activity: "data:activity",
   },
 }));
-vi.mock("@/lib/s3/artwork-cleanup", () => ({
-  cleanupWorkArtwork: mocks.cleanupWorkArtwork,
-  cleanupCollectionArtwork: vi.fn(async () => false),
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: mocks.deleteUnusedObjects,
 }));
 import {
   addFilmHolding,
@@ -380,7 +381,7 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     await c`insert into comments(entity_type,entity_id,content_html) values ('work',${film.id},'<p>Note</p>')`;
     expect(await deleteFilm(film.id)).toEqual({ id: film.id, cleanupPending: false });
     expect(await getFilm(film.id)).toBeNull();
-    expect(mocks.cleanupWorkArtwork).toHaveBeenCalledWith(film.id, [poster]);
+    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith({ keys: [poster], prefixes: ownedPrefixes.work(film.id) }, `film ${film.id}`);
     expect(await c`select 1 from film_versions where work_id=${film.id}`).toHaveLength(0);
     expect(await c`select 1 from film_releases where id=${release.id}`).toHaveLength(0);
     expect(await c`select 1 from film_countries where work_id=${film.id}`).toHaveLength(0);

@@ -38,7 +38,7 @@ S3 Bucket: durtal/
     +-- exports/     Generated export files
 ```
 
-Data always flows in one direction: **bronze -> silver -> gold**. The UI only reads from `gold/`. Raw data in `bronze/` is retained for auditability and reprocessing.
+Data always flows in one direction: **bronze -> silver -> gold**. The UI only reads from `gold/`. Raw data in `bronze/` is retained for auditability and reprocessing while its record exists (see [Deleting Files](#deleting-files)).
 
 ---
 
@@ -212,6 +212,36 @@ Media operations in `src/lib/s3/media.ts`:
 | `processAndUploadMedia(entityType, entityId, mediaType, fileId, buffer)` | Full media pipeline |
 
 Returns `{ s3Key, thumbnailS3Key, width, height }`.
+
+---
+
+## Deleting Files
+
+Every delete that removes rows with S3 keys also removes their files. The shared helper is `deleteUnusedObjects(stored, context)` in `src/lib/s3/cleanup.ts`.
+
+1. Read the keys first. A cascade removes the rows that name the files.
+2. Delete the rows. Multi-row deletes use `atomic()`.
+3. Delete the files. The candidates are the stored keys under `gold/`, plus every object under the folders that only the deleted record used.
+4. Keep every candidate that a remaining row still stores. `KEY_COLUMNS` lists the columns checked; Calibre `formats` JSON is checked too. A test fails if a new `*s3*` column is not in `KEY_COLUMNS`.
+5. Delete the rest in batches of 1000 with `DeleteObjects`, and delete their `image_adjustments` rows.
+
+| Delete | Stored keys | Folders swept |
+|---|---|---|
+| `deleteWork` | media, edition covers, comment attachments | `gold/media/work/{id}/`, `bronze/media/work/{id}/`, `gold/comments/work/{id}/`, each edition's `{gold,silver,bronze}/covers/{editionId}/` |
+| `deleteAuthor` | media, `photo_s3_key`, comment attachments | `gold/media/author/{id}/`, `bronze/media/author/{id}/`, `gold/comments/author/{id}/` |
+| `mergeAuthors` | source media, source photo | source `gold/media/author/{id}/`, `bronze/media/author/{id}/` (comments move to the target with their files) |
+| `deleteEdition` | cover, thumbnail | `{gold,silver,bronze}/covers/{id}/` |
+| `deleteCollection` | none | `gold/media/collection/{id}/`, `bronze/media/collection/{id}/` |
+| `DELETE /api/comments/[commentId]` | attachments | `gold/comments/{entityType}/{entityId}/{commentId}/` |
+| `deleteMedia`, `bulkDeleteMedia`, attachment delete, `deleteVenue` | the row's keys | none |
+
+The cleanup runs only after the database delete commits. It never fails the delete. On an S3 or database error it logs `[s3-cleanup]` with the context and returns `true`. `deleteWork`, `deleteAuthor`, `deleteEdition`, `deleteCollection` and `deleteVenue` return it as `cleanupPending`. A single media delete keeps the raw `bronze/` upload; the owner's delete removes it.
+
+To find files that no row references, run the read-only report. It lists `gold/` objects older than 24 hours and never deletes anything:
+
+```bash
+node --env-file=.env.local --import tsx scripts/maintenance/report-orphaned-s3.ts
+```
 
 ---
 

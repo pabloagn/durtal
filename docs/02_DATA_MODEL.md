@@ -1863,7 +1863,7 @@ Real-world and online establishments where works are acquired, browsed, seen or 
 **Rules (migration 0041)**:
 
 - The trigger `venue_write_guard` rejects a blank or over-long name, a rating outside 1–5 and a last visit before the first visit. The migration stops with an error, and changes nothing, if an existing venue breaks these rules.
-- Deletion is blocked when orders, identifiers or source observations reference the venue (RESTRICT), and when it has artwork (`venue_delete_guard`), except during an audited harmonization move. Use archive and restore instead.
+- Deletion is blocked when orders, identifiers, source observations or artwork location history reference the venue (RESTRICT and `venue_delete_guard`). Use archive and restore instead. A deleted venue's images are removed after commit unless another row still uses them (`src/lib/s3/cleanup.ts`).
 - Online establishments need no address or place. Coordinates without a `place_id` create an `address` place in the same atomic write.
 - Create, edit and search inputs are validated with Zod (`src/lib/validations/venues.ts`). Results and counts share one filter builder, so they cannot disagree.
 

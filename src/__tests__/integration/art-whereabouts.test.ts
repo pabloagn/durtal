@@ -37,9 +37,9 @@ vi.mock("@/lib/cache", () => ({
   cached: (fn: unknown) => fn,
   CACHE_TAGS: {},
 }));
-vi.mock("@/lib/s3/artwork-cleanup", () => ({
-  cleanupWorkArtwork: vi.fn(async () => false),
-  cleanupCollectionArtwork: vi.fn(async () => false),
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: vi.fn(async () => false),
 }));
 import {
   deleteWhereabouts,

@@ -10,6 +10,11 @@ const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get: (_, key) => { if (!testDb) throw new Error("Local database required"); return Reflect.get(testDb, key); } }) }));
 vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {} }));
+const cleanup = vi.hoisted(() => ({ deleteUnusedObjects: vi.fn(async () => false) }));
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: cleanup.deleteUnusedObjects,
+}));
 import { createVenue, updateVenue, deleteVenue, archiveVenue, getVenue, getVenueBySlug, getVenues, getVenueCount, searchVenues } from "@/lib/actions/venues";
 import { saveOrganization, linkOrganizationVenue, unlinkOrganizationVenue, mergeOrganizations, getOrganizationMergePreview } from "@/lib/actions/organizations";
 import { previewMerge, executeMerge } from "@/lib/harmonization/merge";
@@ -83,12 +88,14 @@ describe.skipIf(!url)("venues and dated retailer observations", () => {
     await archiveVenue(venue.id, false);
     expect(await getVenueCount()).toBe(1);
   });
-  it("blocks provenance and artwork deletion while allowing unused venue deletion", async () => {
+  it("blocks deletion of documented venues and removes an unused venue's images", async () => {
     const venue = await createVenue({ name: "Documented museum", type: "museum" });
     await recordSourceObservation({ owner: { kind: "venue", id: venue.id }, provider: "manual", retrievedAt: new Date(), payload: {} });
     await expect(deleteVenue(venue.id)).rejects.toThrow();
+    expect(cleanup.deleteUnusedObjects).not.toHaveBeenCalled();
     const art = await createVenue({ name: "With artwork", type: "gallery", posterS3Key: "gold/venue/test.webp" });
-    await expect(deleteVenue(art.id)).rejects.toThrow();
+    expect(await deleteVenue(art.id)).toEqual({ id: art.id, cleanupPending: false });
+    expect(cleanup.deleteUnusedObjects).toHaveBeenCalledWith({ keys: ["gold/venue/test.webp"], prefixes: [] }, `venue ${art.id}`);
     const unused = await createVenue({ name: "Unused", type: "other" });
     await deleteVenue(unused.id); expect(await getVenue(unused.id)).toBeUndefined();
   });

@@ -24,7 +24,6 @@ import {
   venues,
   locations,
   subLocations,
-  media,
   comments,
   activityEvents,
   galleryLayouts,
@@ -86,7 +85,7 @@ import { getPerfumeRetailerLinks } from "./perfume-retailers";
 import { slugify } from "@/lib/utils/slugify";
 import { assertSql } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { cleanupWorkArtwork } from "@/lib/s3/artwork-cleanup";
+import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
 
 const NOTES_FAMILY = "perfume-notes";
 
@@ -515,7 +514,7 @@ export async function deletePerfume(id: string) {
     where: eq(perfumeDetails.workId, id),
   });
   if (!details) throw new Error("Perfume not found");
-  const [variantDates, artwork] = await Promise.all([
+  const [variantDates, stored] = await Promise.all([
     db
       .select({
         release: perfumeVariants.releaseDateId,
@@ -523,14 +522,8 @@ export async function deletePerfume(id: string) {
       })
       .from(perfumeVariants)
       .where(eq(perfumeVariants.workId, id)),
-    db
-      .select({
-        s3Key: media.s3Key,
-        thumbnailS3Key: media.thumbnailS3Key,
-        originalS3Key: media.originalS3Key,
-      })
-      .from(media)
-      .where(eq(media.workId, id)),
+    // Read the file keys first: the cascade removes the rows that name them.
+    workObjects(id),
   ]);
   const owner = (table: typeof comments | typeof activityEvents | typeof galleryLayouts) =>
     and(eq(table.entityType, "work"), eq(table.entityId, id));
@@ -566,14 +559,7 @@ export async function deletePerfume(id: string) {
   ]);
   changedCatalogue();
   invalidate(CACHE_TAGS.media, CACHE_TAGS.comments, CACHE_TAGS.activity);
-  const cleanupPending = await cleanupWorkArtwork(
-    id,
-    artwork.flatMap((m) =>
-      [m.s3Key, m.thumbnailS3Key, m.originalS3Key].filter(
-        (key): key is string => !!key,
-      ),
-    ),
-  );
+  const cleanupPending = await deleteUnusedObjects(stored, `perfume ${id}`);
   return { id, cleanupPending };
 }
 

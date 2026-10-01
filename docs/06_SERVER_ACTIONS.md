@@ -71,10 +71,10 @@ Updates work metadata. If `authorIds` is provided, deletes existing `work_author
 ### `deleteWork(id)`
 
 ```typescript
-deleteWork(id: string): Promise<void>
+deleteWork(id: string): Promise<{ id: string; cleanupPending: boolean }>
 ```
 
-Deletes the work. Cascades to editions, instances, junction rows, and media.
+Deletes the work, its comments, activity events and gallery layout in one write. Cascades to editions, instances, junction rows, and media. Then deletes the work's S3 files: images, edition covers and comment attachments (see `docs/07_STORAGE.md`, Deleting Files). `cleanupPending` is `true` when some files could not be deleted.
 
 ### `findDuplicateWork(opts)`
 
@@ -138,10 +138,10 @@ Updates edition metadata. If a new `coverSourceUrl` is provided and differs from
 ### `deleteEdition(id)`
 
 ```typescript
-deleteEdition(id: string): Promise<void>
+deleteEdition(id: string): Promise<{ id: string; cleanupPending: boolean }>
 ```
 
-Deletes the edition. Cascades to instances and junction rows.
+Deletes the edition. Cascades to instances and junction rows. Then deletes its cover files and records `work.edition_deleted` on the work.
 
 ---
 
@@ -224,10 +224,18 @@ updateAuthor(id: string, input: Partial<CreateAuthorInput>): Promise<Author>
 ### `deleteAuthor(id)`
 
 ```typescript
-deleteAuthor(id: string): Promise<void>
+deleteAuthor(id: string): Promise<{ id: string; cleanupPending: boolean }>
 ```
 
-Cascades to `work_authors` and `edition_contributors` junction rows.
+Deletes the author, its comments, activity events and gallery layout in one write. Cascades to `work_authors`, `edition_contributors` and media. Then deletes the author's S3 files: images, photo and comment attachments.
+
+### `mergeAuthors(sourceId, targetId)`
+
+```typescript
+mergeAuthors(sourceId: string, targetId: string): Promise<{ targetId: string; sourceName: string; targetName: string }>
+```
+
+In one write: copies the source's `work_authors`, `edition_contributors` and `author_contribution_types` rows to the target (rows the target already has are skipped), moves the source's comments and their `comment_added` events to the target, deletes the source's other events and gallery layout, deletes the source author, and records `author.merged` on the target. Then deletes the source's images and photo from S3.
 
 ---
 
@@ -375,9 +383,9 @@ Validates that exactly one of `workId` or `authorId` is set (XOR). Validated aga
 
 Updates `sortOrder` and `caption`.
 
-### `deleteMedia(id)`
+### `deleteMedia(id)` / `bulkDeleteMedia(ids)`
 
-Deletes the media record and both S3 objects (full image and thumbnail).
+Deletes the media records first, then their S3 objects (full image, thumbnail and original). A file that another row still stores is kept. `deleteMedia` makes the next image of the same type active when it deletes the active one.
 
 ### `reorderMedia(ids)`
 

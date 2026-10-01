@@ -52,9 +52,9 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: {},
 }));
 import { getWorkCuration, updateWorkCuration } from "@/lib/actions/curation";
-vi.mock("@/lib/s3/artwork-cleanup", () => ({
-  cleanupWorkArtwork: vi.fn(async () => false),
-  cleanupCollectionArtwork: vi.fn(async () => false),
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: vi.fn(async () => false),
 }));
 import {
   addPerfumeBottle,

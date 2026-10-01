@@ -53,7 +53,8 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   // ── Author events ────────────────────────────────────────────────────────
   "author.created":                 { icon: "Plus",         color: SAGE,      category: "create" },
   "author.deleted":                 { icon: "Trash2",       color: RED,       category: "delete" },
-  "author.name_changed":            { icon: "Pencil",       color: SECONDARY, category: "update" },
+  "author.merged":                  { icon: "UserPlus",     color: MUTED,     category: "relation" },
+  "author.name_changed":          { icon: "Pencil",       color: SECONDARY, category: "update" },
   "author.birth_year_changed":      { icon: "Settings2",    color: MUTED,     category: "update" },
   "author.death_year_changed":      { icon: "Settings2",    color: MUTED,     category: "update" },
   "author.gender_changed":          { icon: "Globe",        color: MUTED,     category: "update" },
@@ -154,6 +155,7 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
 
   "author.created":                 () => [text("Created this author")],
   "author.deleted":                 () => [text("Deleted this author")],
+  "author.merged":                  (m) => [text("Merged author "), label(m?.targetName ?? "")],
   "author.name_changed":            (m) => fieldChanged("name", m),
   "author.birth_year_changed":      (m) => fieldChanged("birth year", m),
   "author.death_year_changed":      (m) => fieldChanged("death year", m),

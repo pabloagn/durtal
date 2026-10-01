@@ -7,6 +7,7 @@ import { getPersonMergePreview, mergePeople } from "./people";
 import { db } from "@/lib/db";
 import { compareWorks } from "@/lib/utils/title-order";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
+import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
 import { eq, and, asc, desc, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
@@ -490,24 +491,30 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
 }
 
 export async function deleteAuthor(id: string) {
+  // Read the file keys first: the cascade removes the rows that name them.
+  const stored = await authorObjects(id);
   // Keep the historical book deletion behavior, but a shared non-book credit
   // restricts deletion. Polymorphic cleanup must roll back with that rejection.
-  await atomic((d) => [
+  const results = await atomic((d) => [
     d.execute(sql`select id from authors where id = ${id}::uuid for update`),
     d.execute(sql`select harmonization_assert(exists(select 1 from person_domains where person_id = ${id}::uuid and kind = 'book'), 'Book contributor not found')`),
     d.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id))),
     d.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id))),
     d.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id))),
-    d.delete(authors).where(and(bookPersonCondition, eq(authors.id, id))),
+    d.delete(authors).where(and(bookPersonCondition, eq(authors.id, id))).returning({ id: authors.id }),
   ]);
   invalidate(CACHE_TAGS.authors, CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.activity, CACHE_TAGS.media);
-  return { id };
+  const deleted = (results.at(-1) as { id: string }[]).length > 0;
+  const cleanupPending =
+    deleted && (await deleteUnusedObjects(stored, `author ${id}`));
+  return { id, cleanupPending };
 }
 
 /**
  * Merge source author into target author.
  * Uses the audited shared-person transaction: preserve distinct credit IDs,
  * metadata, media and redirects across domains; archive duplicate memberships.
+ * Images the merge leaves unused are deleted after commit (see mergePeople).
  */
 export async function mergeAuthors(sourceId: string, targetId: string) {
   const preview = await getPersonMergePreview(sourceId, targetId);

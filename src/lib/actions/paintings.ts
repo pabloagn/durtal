@@ -21,7 +21,6 @@ import {
   locations,
   subLocations,
   venues,
-  media,
   comments,
   activityEvents,
   galleryLayouts,
@@ -78,7 +77,7 @@ import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { cleanupWorkArtwork } from "@/lib/s3/artwork-cleanup";
+import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
 
 const lockWork = (d: Db, workId: string) =>
   lockAnyWork(d, workId, "painting");
@@ -469,7 +468,7 @@ export async function deletePainting(id: string) {
     where: eq(paintingDetails.workId, id),
   });
   if (!details) throw new Error("Painting not found");
-  const [objectDates, locationDates, artwork] = await Promise.all([
+  const [objectDates, locationDates, stored] = await Promise.all([
     db
       .select({ id: artObjects.creationDateId })
       .from(artObjects)
@@ -482,14 +481,8 @@ export async function deletePainting(id: string) {
       .from(artObjectWhereabouts)
       .innerJoin(artObjects, eq(artObjectWhereabouts.objectId, artObjects.id))
       .where(eq(artObjects.workId, id)),
-    db
-      .select({
-        s3Key: media.s3Key,
-        thumbnailS3Key: media.thumbnailS3Key,
-        originalS3Key: media.originalS3Key,
-      })
-      .from(media)
-      .where(eq(media.workId, id)),
+    // Read the file keys first: the cascade removes the rows that name them.
+    workObjects(id),
   ]);
   const owner = (
     table: typeof comments | typeof activityEvents | typeof galleryLayouts,
@@ -524,14 +517,7 @@ export async function deletePainting(id: string) {
   ]);
   changedCatalogue();
   invalidate(CACHE_TAGS.media, CACHE_TAGS.comments, CACHE_TAGS.activity);
-  const cleanupPending = await cleanupWorkArtwork(
-    id,
-    artwork.flatMap((m) =>
-      [m.s3Key, m.thumbnailS3Key, m.originalS3Key].filter(
-        (key): key is string => !!key,
-      ),
-    ),
-  );
+  const cleanupPending = await deleteUnusedObjects(stored, `painting ${id}`);
   return { id, cleanupPending };
 }
 

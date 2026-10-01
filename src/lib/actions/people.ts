@@ -27,6 +27,7 @@ import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { assertSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
 
 function changed() {
   invalidate(
@@ -286,7 +287,14 @@ export async function mergePeople(input: unknown) {
       choices: z.record(z.string(), z.enum(["source", "target"])),
     })
     .parse(input);
+  // Moved media rows keep their keys; only files nothing references any more
+  // (such as a discarded photo) are removed. Comment files move with comments.
+  const stored = await authorObjects(parsed.sourceId, { withComments: false });
   const result = await executeMerge({ ...parsed, entity: "authors" });
   changed();
-  return result;
+  const cleanupPending = await deleteUnusedObjects(
+    stored,
+    `author ${parsed.sourceId} merged into ${parsed.targetId}`,
+  );
+  return { ...result, cleanupPending };
 }

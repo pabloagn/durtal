@@ -66,3 +66,6 @@ containers, plus filtered, sorted and paged lists. No schema change.
   activity events for new domains (SLN-372) and activation (SLN-382). Creating a
   perfume still fails in production by design: `works_kind_enabled_check` allows
   only books until the reviewed activation migration.
+- Superseded (SLN-361, after merging SLN-282): deletions now read their files
+  with `workObjects` and remove them with `deleteUnusedObjects` from
+  `src/lib/s3/cleanup.ts`; `artwork-cleanup.ts` was removed.

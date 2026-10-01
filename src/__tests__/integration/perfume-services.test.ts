@@ -12,6 +12,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
+import { ownedPrefixes } from "@/lib/s3/cleanup";
 import { CATALOGUE_DATE_REFERENCES } from "@/lib/catalogue/dates";
 
 const url = process.env.DURTAL_PERFUME_SERVICES_TEST_DATABASE_URL;
@@ -24,7 +25,7 @@ const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
-  cleanupWorkArtwork: vi.fn(async () => false),
+  deleteUnusedObjects: vi.fn(async () => false),
 }));
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -51,9 +52,9 @@ vi.mock("@/lib/cache", () => ({
     activity: "data:activity",
   },
 }));
-vi.mock("@/lib/s3/artwork-cleanup", () => ({
-  cleanupWorkArtwork: mocks.cleanupWorkArtwork,
-  cleanupCollectionArtwork: vi.fn(async () => false),
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: mocks.deleteUnusedObjects,
 }));
 import {
   addPerfumeBottle,
@@ -429,7 +430,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     // People and organizations record their own activity; only this work's rows go.
     for (const table of ["comments", "activity_events", "gallery_layouts"])
       expect(await c`select 1 from ${c(table)} where entity_id=${perfume.id}`, table).toHaveLength(0);
-    expect(mocks.cleanupWorkArtwork).toHaveBeenCalledWith(perfume.id, [poster, thumb]);
+    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith({ keys: [poster, thumb], prefixes: ownedPrefixes.work(perfume.id) }, `perfume ${perfume.id}`);
     await expect(deletePerfume(perfume.id)).rejects.toThrow(/^Perfume not found$/);
   });
 

@@ -67,13 +67,12 @@ END $$;
 --> statement-breakpoint
 CREATE TRIGGER art_whereabouts_guard BEFORE INSERT OR UPDATE ON art_object_whereabouts FOR EACH ROW EXECUTE FUNCTION guard_art_whereabouts();
 --> statement-breakpoint
+-- Venue images no longer block deletion: deleteVenue removes them after commit.
 CREATE OR REPLACE FUNCTION guard_venue_delete() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
- IF ((OLD.poster_s3_key IS NOT NULL OR OLD.thumbnail_s3_key IS NOT NULL)
- AND NOT EXISTS(SELECT 1 FROM venues v WHERE harmonization_allows_move('venues',OLD.id,v.id)))
- OR EXISTS(SELECT 1 FROM source_records WHERE venue_id=OLD.id)
+ IF EXISTS(SELECT 1 FROM source_records WHERE venue_id=OLD.id)
  OR EXISTS(SELECT 1 FROM catalogue_identifiers WHERE venue_id=OLD.id) THEN
-   RAISE EXCEPTION 'Archive a venue with artwork or provenance instead of deleting it';
+   RAISE EXCEPTION 'Archive a venue with provenance instead of deleting it';
  END IF;
  IF EXISTS(SELECT 1 FROM art_object_whereabouts WHERE venue_id=OLD.id) THEN
    RAISE EXCEPTION 'Archive a venue that appears in artwork location history instead of deleting it';
