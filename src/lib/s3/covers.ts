@@ -7,6 +7,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3, S3_BUCKET } from "./client";
 import { goldCoverKey, goldThumbnailKey, bronzeCoverKey } from "./keys";
+import { safeFetchImage } from "@/lib/net/safe-fetch";
 
 /** Upload a buffer to S3 */
 export async function uploadToS3(
@@ -103,11 +104,10 @@ export async function processAndUploadCover(
   sourceUrl: string,
 ): Promise<{ coverKey: string; thumbnailKey: string } | null> {
   try {
-    const response = await fetch(sourceUrl);
-    if (!response.ok) return null;
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Cover URLs come from the wizard's free-text field and from book APIs:
+    // download through the SSRF, size and timeout guard. Some APIs still
+    // serve covers over plain http, so http is accepted here.
+    const { buffer } = await safeFetchImage(sourceUrl, { allowHttp: true });
 
     // Dynamic import sharp (it's a native module)
     const sharp = (await import("sharp")).default;
@@ -133,7 +133,8 @@ export async function processAndUploadCover(
     ]);
 
     return { coverKey, thumbnailKey };
-  } catch {
+  } catch (err) {
+    console.warn(`[covers] cover not stored for edition ${editionId}: ${(err as Error)?.message ?? err}`);
     return null;
   }
 }
