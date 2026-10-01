@@ -308,5 +308,14 @@ suite passes 882 tests across 72 files, zero skipped, plus five Python checks.
 Milestone 03 (perfume, film and painting domain models) is complete; the domain
 screens follow in milestone 04.
 
-See changelog tasks 0155–0168 for scope and verification. SLN-283 (database access
+Domain media (SLN-361, migration 0045) builds on the merged SLN-282 file
+cleanup and SLN-278 safe downloads. Images can belong to organizations, art
+objects and perfume formulations; sizes and frames follow each domain (portrait
+books and films, contained square perfumes, large native paintings with kept
+originals). One ingest path records and activates an image in one transaction
+and deletes stored files if anything fails. Images carry alt text, credit,
+license and source, editable in the media manager. The full local suite passes
+1000 tests across 79 files, zero skipped, plus five Python checks.
+
+See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

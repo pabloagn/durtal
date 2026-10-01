@@ -16,6 +16,7 @@ import {
   bulkDeleteMedia,
 } from "@/lib/actions/media";
 import { ImageAdjustmentEditor, ImageAdjustButton } from "@/components/media/image-adjustment-editor";
+import { ImageDetailsEditor } from "@/components/media/image-details-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "sonner";
 
@@ -34,6 +35,11 @@ interface MediaItem {
   isActive: boolean;
   sortOrder: number;
   caption: string | null;
+  altText: string | null;
+  credit: string | null;
+  license: string | null;
+  licenseUrl: string | null;
+  sourceUrl: string | null;
   cropX: number;
   cropY: number;
   cropZoom: number;
@@ -96,6 +102,8 @@ export function MediaManagerDialog({
   const [urlLoading, setUrlLoading] = useState(false);
 
   const [adjustmentVersion, setAdjustmentVersion] = useState(0);
+  // Gallery images have no active one; clicking an image opens its details.
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const isGallery = activeTab === "gallery";
 
   const fetchItems = useCallback(async () => {
@@ -137,6 +145,7 @@ export function MediaManagerDialog({
 
   function handleTabChange(tab: TabType) {
     setActiveTab(tab);
+    setDetailsId(null);
     setSelected(new Set());
     setShowUrlSection(false);
     setUrl("");
@@ -250,6 +259,7 @@ export function MediaManagerDialog({
   }
 
   const activeItem = !isGallery ? items.find((i) => i.isActive) : null;
+  const detailsItem = isGallery ? items.find((i) => i.id === detailsId) : null;
 
   return (
     <Dialog
@@ -288,11 +298,19 @@ export function MediaManagerDialog({
             {!isGallery && (
               <div className="space-y-3">
                 {activeItem ? (
-                  <ImageAdjustmentEditor
-                    key={`${activeItem.id}-${adjustmentVersion}`}
-                    source={`/api/s3/read?key=${encodeURIComponent(activeItem.s3Key)}`}
-                    onSaved={() => { void fetchItems(); router.refresh(); triggerActivityRefresh(); }}
-                  />
+                  <>
+                    <ImageAdjustmentEditor
+                      key={`${activeItem.id}-${adjustmentVersion}`}
+                      source={`/api/s3/read?key=${encodeURIComponent(activeItem.s3Key)}`}
+                      onSaved={() => { void fetchItems(); router.refresh(); triggerActivityRefresh(); }}
+                    />
+                    <ImageDetailsEditor
+                      key={activeItem.id}
+                      mediaId={activeItem.id}
+                      details={activeItem}
+                      onSaved={() => { void fetchItems(); router.refresh(); }}
+                    />
+                  </>
                 ) : (
                   <p className="py-3 text-sm text-fg-muted">
                     No active {activeTab}
@@ -366,18 +384,21 @@ export function MediaManagerDialog({
                         <button
                           type="button"
                           onClick={() => {
-                            if (!isGallery) handleSetActive(item.id);
+                            if (isGallery) setDetailsId(item.id === detailsId ? null : item.id);
+                            else handleSetActive(item.id);
                           }}
                           disabled={isSettingThisActive || (item.isActive && !isGallery)}
+                          aria-pressed={isGallery ? item.id === detailsId : undefined}
+                          aria-label={isGallery ? `Image details: ${item.altText || item.originalFilename || "gallery image"}` : undefined}
                           className={`relative w-full overflow-hidden rounded-sm border transition-all ${ASPECT_CLASSES[activeTab]} ${
-                            item.isActive && !isGallery
+                            (item.isActive && !isGallery) || (isGallery && item.id === detailsId)
                               ? "ring-2 ring-accent-rose border-accent-rose/30"
                               : "border-glass-border hover:border-fg-muted/30"
                           } ${!isGallery && !item.isActive ? "cursor-pointer" : ""}`}
                         >
                           <img
                             src={thumbnailUrl(item)}
-                            alt={item.caption || item.originalFilename || "Media"}
+                            alt={item.altText || item.caption || item.originalFilename || "Media"}
                             className="h-full w-full object-cover"
                           />
                           {/* Hover overlay for set active */}
@@ -418,6 +439,15 @@ export function MediaManagerDialog({
                   })}
                 </div>
               </div>
+            )}
+
+            {detailsItem && (
+              <ImageDetailsEditor
+                key={detailsItem.id}
+                mediaId={detailsItem.id}
+                details={detailsItem}
+                onSaved={() => { void fetchItems(); router.refresh(); }}
+              />
             )}
 
             {items.length === 0 && !loading && (
