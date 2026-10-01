@@ -155,27 +155,33 @@ Client                          API                              S3
   |   bronzeKey                  |<-- raw buffer ----------------|
   |                              |                               |
   |                              |-- Sharp resize + WebP         |
+  |                              |   (sizes from the image policy)|
   |                              |                               |
   |                              |-- PutObject gold/ ---------->|
-  |                              |   full image + thumbnail      |
+  |                              |   full, thumbnail, original*  |
   |                              |                               |
-  |                              |-- INSERT media record         |
+  |                              |-- INSERT media record and     |
+  |                              |   activate it, one transaction|
   |                              |                               |
   |<-- { media: {...} }          |                               |
 ```
 
+`/api/media/upload`, `/api/media/from-url` and `/api/media/process` all call `ingestMedia()` (`src/lib/media/ingest.ts`). If an upload or the database write fails, the files already stored are deleted again (`deleteUnusedObjects`), so no file is left without a row. Images from a URL record that URL as their source. Optional alt text, credit, license and source can be sent with the upload and edited later with `updateMediaDetails()`.
+
 ### Processing Dimensions
 
-Maximum dimensions by media type (aspect ratio preserved):
+Sizes come from `imagePolicy()` (`src/lib/media/policy.ts`). The aspect ratio is always kept, images are never enlarged, EXIF orientation is applied and metadata (including location) is dropped.
 
-| Type | Max Width | Max Height |
-|---|---|---|
-| Poster | 1600 | 2400 |
-| Background | 2560 | 1440 |
-| Gallery | 2400 | 2400 |
-| Thumbnail (all) | 800 | 1200 |
+| Owner and type | Max size | Thumbnail | Frame | Original kept |
+|---|---|---|---|---|
+| Book, film, author, collection poster | 1600 × 2400 | 800 × 1200 | portrait, focal crop | author colour original only |
+| Perfume and formulation poster | 2000 × 2000 | 1000 × 1000 | square, contained | no |
+| Painting and art object poster or gallery | 4096 × 4096 | 1200 × 1200 | native, contained | yes, up to 12000 px |
+| Organization poster | 1600 × 1600 | 800 × 800 | square, contained | no |
+| Background (any owner that has one) | 2560 × 1440 | 1280 × 720 | landscape, focal crop | no |
+| Other gallery images | 2400 × 2400 | 800 × 800 | native, contained | no |
 
-Output format: WebP for all processed images.
+Output format: WebP for all processed images. `* original` is stored only when the policy keeps one.
 
 ---
 
@@ -229,9 +235,11 @@ Every delete that removes rows with S3 keys also removes their files. The shared
 |---|---|---|
 | `deleteWork` | media, edition covers, comment attachments | `gold/media/work/{id}/`, `bronze/media/work/{id}/`, `gold/comments/work/{id}/`, each edition's `{gold,silver,bronze}/covers/{editionId}/` |
 | `deleteAuthor` | media, `photo_s3_key`, comment attachments | `gold/media/author/{id}/`, `bronze/media/author/{id}/`, `gold/comments/author/{id}/` |
-| `mergeAuthors` | source media, source photo | source `gold/media/author/{id}/`, `bronze/media/author/{id}/` (comments move to the target with their files) |
+| `mergeAuthors`, `mergePeople` | files the audited merge leaves unused, such as a discarded photo | source `gold/media/author/{id}/`, `bronze/media/author/{id}/` (moved images and comments keep their files) |
 | `deleteEdition` | cover, thumbnail | `{gold,silver,bronze}/covers/{id}/` |
 | `deleteCollection` | none | `gold/media/collection/{id}/`, `bronze/media/collection/{id}/` |
+| `deletePerfume`, `deleteFilm`, `deletePainting` | media of the work, its formulations or art objects, comment attachments | the work's folders and each formulation's or art object's `{gold,bronze}/media/{type}/{id}/` |
+| `deleteOrganization`, `deleteArtObject`, `deletePerfumeVariant` | the owner's media | `{gold,bronze}/media/{organization,art_object,perfume_variant}/{id}/` |
 | `DELETE /api/comments/[commentId]` | attachments | `gold/comments/{entityType}/{entityId}/{commentId}/` |
 | `deleteMedia`, `bulkDeleteMedia`, attachment delete, `deleteVenue` | the row's keys | none |
 

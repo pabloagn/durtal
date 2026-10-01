@@ -1,24 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
-  process: vi.fn(),
-  create: vi.fn(),
-  activate: vi.fn(),
+  ingest: vi.fn(),
   update: vi.fn(),
 }));
-vi.mock("@/lib/s3/media", () => ({
-  processAndUploadMedia: mocks.process,
-  processAndUploadAuthorMedia: mocks.process,
-}));
-vi.mock("@/lib/actions/media", () => ({
-  createMedia: mocks.create,
-  setActiveMedia: mocks.activate,
+vi.mock("@/lib/media/ingest", () => ({
+  ingestMedia: mocks.ingest,
+  MediaIngestError: class extends Error {},
 }));
 vi.mock("@/lib/actions/collections", () => ({
   updateCollection: mocks.update,
-}));
-vi.mock("@/lib/color/extract-palette", () => ({
-  extractColorPalette: vi.fn(),
 }));
 import { POST } from "@/app/api/media/upload/route";
 afterEach(() => vi.restoreAllMocks());

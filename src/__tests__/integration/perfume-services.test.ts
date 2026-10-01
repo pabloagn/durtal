@@ -430,7 +430,10 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     // People and organizations record their own activity; only this work's rows go.
     for (const table of ["comments", "activity_events", "gallery_layouts"])
       expect(await c`select 1 from ${c(table)} where entity_id=${perfume.id}`, table).toHaveLength(0);
-    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith({ keys: [poster, thumb], prefixes: ownedPrefixes.work(perfume.id) }, `perfume ${perfume.id}`);
+    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith(
+      { keys: [poster, thumb], prefixes: expect.arrayContaining(ownedPrefixes.work(perfume.id)) },
+      `perfume ${perfume.id}`,
+    );
     await expect(deletePerfume(perfume.id)).rejects.toThrow(/^Perfume not found$/);
   });
 

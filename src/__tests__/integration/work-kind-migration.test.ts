@@ -111,6 +111,12 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           delete credit.attribution;
         }
       }
+    for (const row of projected.media)
+      for (const column of ["organization_id", "art_object_id", "perfume_variant_id", "alt_text", "credit", "license", "license_url", "source_url", "source_record_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
     for (const row of projected.venues) {
       if ("archived_at" in row) { expect(row.archived_at).toBeNull(); delete row.archived_at; }
     }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sourceUrlSchema } from "@/lib/catalogue/provenance";
 
 // ── Author monochrome processing params ─────────────────────────────────────
 
@@ -28,11 +29,28 @@ export function parseProcessingParams(raw: unknown): MonochromeParams | null {
 
 // ── Media CRUD schemas ──────────────────────────────────────────────────────
 
+/**
+ * What an image shows and whose it is. Alt text is read to people who cannot
+ * see the image; credit, license and source attribute it. All optional.
+ */
+export const mediaAttributionSchema = z.strictObject({
+  altText: z.string().trim().min(1).max(1000).nullable().optional(),
+  credit: z.string().trim().min(1).max(500).nullable().optional(),
+  license: z.string().trim().min(1).max(200).nullable().optional(),
+  licenseUrl: sourceUrlSchema.nullable().optional(),
+  sourceUrl: sourceUrlSchema.nullable().optional(),
+  sourceRecordId: z.uuid().nullable().optional(),
+});
+export type MediaAttribution = z.input<typeof mediaAttributionSchema>;
+
 export const createMediaSchema = z
   .object({
     workId: z.string().uuid().optional(),
     authorId: z.string().uuid().optional(),
     collectionId: z.string().uuid().optional(),
+    organizationId: z.uuid().optional(),
+    artObjectId: z.uuid().optional(),
+    perfumeVariantId: z.uuid().optional(),
     type: z.enum(["poster", "background", "gallery"]),
     s3Key: z.string().min(1),
     thumbnailS3Key: z.string().optional(),
@@ -47,10 +65,19 @@ export const createMediaSchema = z
     caption: z.string().optional(),
     processingParams: monochromeParamsSchema.optional(),
     colorPalette: z.any().optional(),
+    ...mediaAttributionSchema.shape,
   })
   .refine(
-    (d) => [d.workId, d.authorId, d.collectionId].filter((id) => id != null).length === 1,
-    { message: "Exactly one of workId, authorId or collectionId must be set" },
+    (d) =>
+      [
+        d.workId,
+        d.authorId,
+        d.collectionId,
+        d.organizationId,
+        d.artObjectId,
+        d.perfumeVariantId,
+      ].filter((id) => id != null).length === 1,
+    { message: "An image belongs to exactly one record" },
   )
   .refine((d) => !(d.collectionId && d.type === "gallery"), {
     message: "Collections have poster and background images only",

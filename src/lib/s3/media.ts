@@ -1,58 +1,61 @@
 import { uploadToS3 } from "./covers";
-import {
-  goldMediaKey,
-  goldMediaThumbnailKey,
-  goldMediaOriginalKey,
-  type MediaEntityType,
-} from "./keys";
 import type { MonochromeParams } from "@/lib/validations/media";
+import type { ImagePolicy } from "@/lib/media/policy";
 
-/** Per-type max dimensions (generous — we want gorgeous, sharp images) */
-const MEDIA_DIMENSIONS: Record<string, { w: number; h: number }> = {
-  poster: { w: 1600, h: 2400 },
-  background: { w: 2560, h: 1440 },
-  gallery: { w: 2400, h: 2400 },
-};
+/** The stored sizes of one image, ready to upload. */
+export interface RenderedImage {
+  full: Buffer;
+  thumb: Buffer;
+  /** Full-resolution copy for policies that keep the original; else null. */
+  original: Buffer | null;
+  width: number;
+  height: number;
+}
+
+/** Longest side of a kept original; WebP cannot exceed 16383 px. */
+const ORIGINAL_LIMIT = 12000;
 
 /**
- * Process a raw image buffer into gold-tier media assets.
- * Returns S3 keys for both the full-size and thumbnail versions.
+ * Render the display and thumbnail sizes for a policy. The aspect ratio is
+ * always kept and images are never enlarged or cropped; EXIF orientation is
+ * applied and metadata (including location) is dropped.
  */
-export async function processAndUploadMedia(
-  entityType: MediaEntityType,
-  entityId: string,
-  mediaType: string,
-  fileId: string,
+export async function renderImage(
   buffer: Buffer,
-): Promise<{ s3Key: string; thumbnailS3Key: string; width: number; height: number }> {
+  policy: ImagePolicy,
+): Promise<RenderedImage> {
   const sharp = (await import("sharp")).default;
-  const dims = MEDIA_DIMENSIONS[mediaType] ?? { w: 1600, h: 1600 };
-
-  // Full-size image
-  const fullImage = sharp(buffer).resize(dims.w, dims.h, {
-    fit: "inside",
-    withoutEnlargement: true,
-  });
-  const fullBuffer = await fullImage.webp({ quality: 90 }).toBuffer();
-  const metadata = await sharp(fullBuffer).metadata();
-
-  // Thumbnail (800px max — still sharp on retina displays)
-  const thumbBuffer = await sharp(buffer)
-    .resize(800, 1200, { fit: "inside", withoutEnlargement: true })
+  const full = await sharp(buffer)
+    .rotate()
+    .resize(policy.maxWidth, policy.maxHeight, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 90 })
+    .toBuffer();
+  const metadata = await sharp(full).metadata();
+  const thumb = await sharp(buffer)
+    .rotate()
+    .resize(policy.thumbWidth, policy.thumbHeight, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
     .webp({ quality: 82 })
     .toBuffer();
-
-  const s3Key = goldMediaKey(entityType, entityId, mediaType, fileId);
-  const thumbnailS3Key = goldMediaThumbnailKey(entityType, entityId, mediaType, fileId);
-
-  await Promise.all([
-    uploadToS3(s3Key, fullBuffer, "image/webp"),
-    uploadToS3(thumbnailS3Key, thumbBuffer, "image/webp"),
-  ]);
-
+  const original = policy.keepOriginal
+    ? await sharp(buffer)
+        .rotate()
+        .resize(ORIGINAL_LIMIT, ORIGINAL_LIMIT, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 95 })
+        .toBuffer()
+    : null;
   return {
-    s3Key,
-    thumbnailS3Key,
+    full,
+    thumb,
+    original,
     width: metadata.width ?? 0,
     height: metadata.height ?? 0,
   };
@@ -91,55 +94,40 @@ export async function applyMonochromeProcessing(
 }
 
 /**
- * Process an author image: store the color original, then create monochrome variant.
+ * Render an author portrait: the colour original at display size is kept for
+ * reprocessing, and the shown sizes are monochrome.
  */
-export async function processAndUploadAuthorMedia(
-  entityId: string,
-  mediaType: string,
-  fileId: string,
+export async function renderAuthorImage(
   buffer: Buffer,
+  policy: ImagePolicy,
   params: MonochromeParams,
-): Promise<{
-  s3Key: string;
-  thumbnailS3Key: string;
-  originalS3Key: string;
-  width: number;
-  height: number;
-}> {
+): Promise<RenderedImage> {
   const sharp = (await import("sharp")).default;
-  const dims = MEDIA_DIMENSIONS[mediaType] ?? { w: 1600, h: 1600 };
-
-  // 1. Resize original (color) to max dims and store
-  const originalResized = await sharp(buffer)
-    .resize(dims.w, dims.h, { fit: "inside", withoutEnlargement: true })
+  const original = await sharp(buffer)
+    .rotate()
+    .resize(policy.maxWidth, policy.maxHeight, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
     .webp({ quality: 90 })
     .toBuffer();
-
-  const originalS3Key = goldMediaOriginalKey("author", entityId, mediaType, fileId);
-  await uploadToS3(originalS3Key, originalResized, "image/webp");
-
-  // 2. Apply monochrome processing
-  const monoBuffer = await applyMonochromeProcessing(originalResized, params);
-
-  // 3. Full-size processed image
-  const fullBuffer = await sharp(monoBuffer).webp({ quality: 90 }).toBuffer();
-  const metadata = await sharp(fullBuffer).metadata();
-
-  // 4. Thumbnail (also monochrome)
-  const thumbBuffer = await sharp(monoBuffer)
-    .resize(800, 1200, { fit: "inside", withoutEnlargement: true })
+  const mono = await applyMonochromeProcessing(original, params);
+  const full = await sharp(mono).webp({ quality: 90 }).toBuffer();
+  const metadata = await sharp(full).metadata();
+  const thumb = await sharp(mono)
+    .resize(policy.thumbWidth, policy.thumbHeight, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
     .webp({ quality: 82 })
     .toBuffer();
-
-  const s3Key = goldMediaKey("author", entityId, mediaType, fileId);
-  const thumbnailS3Key = goldMediaThumbnailKey("author", entityId, mediaType, fileId);
-
-  await Promise.all([
-    uploadToS3(s3Key, fullBuffer, "image/webp"),
-    uploadToS3(thumbnailS3Key, thumbBuffer, "image/webp"),
-  ]);
-
-  return { s3Key, thumbnailS3Key, originalS3Key, width: metadata.width ?? 0, height: metadata.height ?? 0 };
+  return {
+    full,
+    thumb,
+    original,
+    width: metadata.width ?? 0,
+    height: metadata.height ?? 0,
+  };
 }
 
 /**

@@ -77,7 +77,7 @@ import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
+import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
 
 const lockWork = (d: Db, workId: string) =>
   lockAnyWork(d, workId, "painting");
@@ -726,6 +726,8 @@ export async function deleteArtObject(id: string) {
     where: eq(artObjects.id, id),
   });
   if (!object) throw new Error("Object not found");
+  // Read the file keys first: the cascade removes the media rows that name them.
+  const stored = await ownedMediaObjects("art_object", id);
   const locationDates = await db
     .select({
       starts: artObjectWhereabouts.startsOnId,
@@ -750,5 +752,6 @@ export async function deleteArtObject(id: string) {
     ]),
   ]);
   changedCatalogue();
-  return { id };
+  const cleanupPending = await deleteUnusedObjects(stored, `art object ${id}`);
+  return { id, cleanupPending };
 }

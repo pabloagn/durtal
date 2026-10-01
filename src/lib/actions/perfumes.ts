@@ -85,7 +85,7 @@ import { getPerfumeRetailerLinks } from "./perfume-retailers";
 import { slugify } from "@/lib/utils/slugify";
 import { assertSql } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
+import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
 
 const NOTES_FAMILY = "perfume-notes";
 
@@ -807,6 +807,8 @@ export async function deletePerfumeVariant(id: string) {
     where: eq(perfumeVariants.id, id),
   });
   if (!variant) throw new Error("Formulation not found");
+  // Read the file keys first: the cascade removes the media rows that name them.
+  const stored = await ownedMediaObjects("perfume_variant", id);
   await write((d) => [
     lockWork(d, variant.workId),
     d.execute(
@@ -828,7 +830,8 @@ export async function deletePerfumeVariant(id: string) {
     ...releaseDates(d, [variant.releaseDateId, variant.discontinuedDateId]),
   ]);
   changedCatalogue();
-  return { id };
+  const cleanupPending = await deleteUnusedObjects(stored, `perfume formulation ${id}`);
+  return { id, cleanupPending };
 }
 
 // ── Container writes ─────────────────────────────────────────────────────────

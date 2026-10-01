@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/media";
-import { createMedia, setActiveMedia } from "@/lib/actions/media";
-import {
-  isMediaEntityType,
-  mediaOwnerFields,
-  supportsMediaType,
-} from "@/lib/media/owner";
-import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
+import { ingestMedia } from "@/lib/media/ingest";
+import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-input";
+import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { safeFetchImage, SafeFetchError, type SafeFetchErrorCode } from "@/lib/net/safe-fetch";
-import { extractColorPalette } from "@/lib/color/extract-palette";
 import type { MediaEntityType } from "@/lib/s3/keys";
-import type { ColorPalette, MediaType } from "@/lib/types";
+import type { MediaType } from "@/lib/types";
 
 const FROM_URL_ERRORS: Partial<Record<SafeFetchErrorCode, string>> = {
   blocked_url: "URL not allowed. Only HTTPS URLs to public hosts are accepted.",
@@ -29,16 +23,18 @@ const FROM_URL_ERRORS: Partial<Record<SafeFetchErrorCode, string>> = {
  * Downloads an image from a URL, processes it through the full media pipeline
  * (resize, WebP conversion, thumbnail generation), and creates a media record.
  *
- * Supports all entity types (work, author, collection) — same processing
- * as /api/media/upload, just with server-side download instead of client upload.
+ * Supports every media owner type through the same ingest path as
+ * /api/media/upload, with a server-side download instead of a client upload.
+ * The download address is stored as the image's source.
  *
  * Body: {
- *   entityType?: "work" | "author" | "collection" (default: "work")
+ *   entityType?: a media owner type (default: "work")
  *   entityId?: string
  *   workId?: string              (legacy — use entityId instead)
  *   mediaType: "poster" | "background" | "gallery"
  *   imageUrl: string
  *   caption?: string
+ *   attribution?: alt text, credit, license and source
  * }
  */
 export async function POST(req: NextRequest) {
@@ -99,82 +95,20 @@ export async function POST(req: NextRequest) {
       throw err;
     }
 
-    const fileId = crypto.randomUUID();
-
-    // Author media: monochrome pipeline with original preservation
-    if (entityType === "author") {
-      const rawParams = body.processingParams;
-      let params = DEFAULT_MONOCHROME_PARAMS;
-      if (rawParams) {
-        const parsed = monochromeParamsSchema.safeParse(rawParams);
-        if (parsed.success) params = parsed.data;
-      }
-
-      const result = await processAndUploadAuthorMedia(
-        entityId, mediaType, fileId, buffer, params,
-      );
-
-      const record = await createMedia({
-        authorId: entityId,
-        type: mediaType,
-        s3Key: result.s3Key,
-        thumbnailS3Key: result.thumbnailS3Key,
-        originalS3Key: result.originalS3Key,
-        mimeType: "image/webp",
-        width: result.width,
-        height: result.height,
-        sizeBytes: buffer.length,
-        processingParams: params,
-        caption,
-      });
-
-      if (mediaType === "poster" || mediaType === "background") {
-        await setActiveMedia(record.id);
-      }
-
-      return NextResponse.json({ media: record });
-    }
-
-    // Process and upload to S3
-    const result = await processAndUploadMedia(
-      entityType,
-      entityId,
+    const attribution = parseAttribution(body.attribution) ?? {};
+    const media = await ingestMedia({
+      owner: { type: entityType, id: entityId },
       mediaType,
-      fileId,
       buffer,
-    );
-
-    // Extract color palette for work poster uploads
-    let colorPalette: ColorPalette | undefined;
-    if (mediaType === "poster" && entityType === "work") {
-      try {
-        colorPalette = await extractColorPalette(buffer);
-      } catch (err) {
-        console.error("Color palette extraction failed (non-blocking):", err);
-      }
-    }
-
-    // Create the media record for the work or collection
-    const record = await createMedia({
-      ...mediaOwnerFields(entityType, entityId),
-      type: mediaType,
-      s3Key: result.s3Key,
-      thumbnailS3Key: result.thumbnailS3Key,
-      mimeType: "image/webp",
-      width: result.width,
-      height: result.height,
-      sizeBytes: buffer.length,
-      caption,
-      ...(colorPalette ? { colorPalette } : {}),
+      caption: caption ?? null,
+      // The download address is the image's source unless one was given.
+      attribution: { sourceUrl: imageUrl, ...attribution },
+      processingParams: parseParams(body.processingParams),
     });
-
-    // Activate the new record (deactivates others of same type+owner)
-    if (mediaType === "poster" || mediaType === "background") {
-      await setActiveMedia(record.id);
-    }
-
-    return NextResponse.json({ media: record });
+    return NextResponse.json({ media });
   } catch (err) {
+    const refused = ingestRefusal(err);
+    if (refused) return refused;
     console.error("Media from-url failed:", err);
     return NextResponse.json(
       { error: "Failed to process image from URL" },

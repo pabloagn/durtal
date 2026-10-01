@@ -46,21 +46,21 @@ vi.mock("@/lib/cache", () => ({
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3", () => ({ deleteFromS3: vi.fn(async () => undefined) }));
 vi.mock("@/lib/s3/media", () => ({
-  processAndUploadMedia: vi.fn(
-    async (type: string, id: string, mediaType: string, fileId: string) => ({
-      s3Key: `gold/media/${type}/${id}/${mediaType}/${fileId}.webp`,
-      thumbnailS3Key: `gold/media/${type}/${id}/${mediaType}/${fileId}_thumb.webp`,
-      width: 800,
-      height: 1200,
-    }),
-  ),
-  processAndUploadAuthorMedia: vi.fn(),
+  renderImage: vi.fn(async () => ({
+    full: Buffer.from("full"),
+    thumb: Buffer.from("thumb"),
+    original: null,
+    width: 800,
+    height: 1200,
+  })),
+  renderAuthorImage: vi.fn(),
 }));
+vi.mock("@/lib/s3/covers", () => ({ uploadToS3: vi.fn(async () => undefined) }));
 vi.mock("@/lib/color/extract-palette", () => ({
   extractColorPalette: vi.fn(async () => null),
 }));
 import { recordActivity } from "@/lib/activity/record";
-import { processAndUploadMedia } from "@/lib/s3/media";
+import { renderImage } from "@/lib/s3/media";
 import {
   createMedia,
   deleteMedia,
@@ -319,9 +319,9 @@ describe.skipIf(!url)("collection media with PostgreSQL", () => {
       true,
     );
 
-    vi.mocked(processAndUploadMedia).mockClear();
+    vi.mocked(renderImage).mockClear();
     const refused = await upload(form("gallery") as never);
     expect(refused.status).toBe(400);
-    expect(processAndUploadMedia).not.toHaveBeenCalled();
+    expect(renderImage).not.toHaveBeenCalled();
   });
 });

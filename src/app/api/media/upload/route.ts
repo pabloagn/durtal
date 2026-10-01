@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/media";
-import { createMedia, setActiveMedia } from "@/lib/actions/media";
-import {
-  isMediaEntityType,
-  mediaOwnerFields,
-  supportsMediaType,
-} from "@/lib/media/owner";
-import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
+import { ingestMedia } from "@/lib/media/ingest";
+import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-input";
+import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { isAllowedImageType, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
-import { extractColorPalette } from "@/lib/color/extract-palette";
 import type { MediaEntityType } from "@/lib/s3/keys";
-import type { ColorPalette, MediaType } from "@/lib/types";
+import type { MediaType } from "@/lib/types";
 
 /**
  * POST /api/media/upload
@@ -20,9 +14,11 @@ import type { ColorPalette, MediaType } from "@/lib/types";
  *
  * FormData fields:
  *   file: File (required)
- *   entityType: "work" | "author" | "collection" (required)
+ *   entityType: a media owner type (required)
  *   entityId: string (required)
  *   mediaType: "poster" | "background" | "gallery" (required)
+ *   attribution: JSON alt text, credit, license and source (optional)
+ *   processingParams: JSON monochrome settings, authors only (optional)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -87,82 +83,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File is empty" }, { status: 400 });
     }
 
-    const fileId = crypto.randomUUID();
-
-    // Author media: monochrome pipeline with original preservation
-    if (entityType === "author") {
-      const rawParams = formData.get("processingParams") as string | null;
-      let params = DEFAULT_MONOCHROME_PARAMS;
-      if (rawParams) {
-        const parsed = monochromeParamsSchema.safeParse(JSON.parse(rawParams));
-        if (parsed.success) params = parsed.data;
-      }
-
-      const result = await processAndUploadAuthorMedia(
-        entityId, mediaType, fileId, buffer, params,
-      );
-
-      const record = await createMedia({
-        authorId: entityId,
-        type: mediaType,
-        s3Key: result.s3Key,
-        thumbnailS3Key: result.thumbnailS3Key,
-        originalS3Key: result.originalS3Key,
-        originalFilename: file.name,
-        mimeType: "image/webp",
-        width: result.width,
-        height: result.height,
-        sizeBytes: file.size,
-        processingParams: params,
-      });
-
-      if (mediaType === "poster" || mediaType === "background") {
-        await setActiveMedia(record.id);
-      }
-
-      return NextResponse.json({ media: record });
-    }
-
-    // Process and upload to gold/
-    const result = await processAndUploadMedia(
-      entityType,
-      entityId,
+    const media = await ingestMedia({
+      owner: { type: entityType, id: entityId },
       mediaType,
-      fileId,
       buffer,
-    );
-
-    // Extract color palette for poster uploads (buffer is still in memory)
-    let colorPalette: ColorPalette | undefined;
-    if (mediaType === "poster" && entityType === "work") {
-      try {
-        colorPalette = await extractColorPalette(buffer);
-      } catch (err) {
-        console.error("Color palette extraction failed (non-blocking):", err);
-      }
-    }
-
-    // Create the media record for the work or collection
-    const record = await createMedia({
-      ...mediaOwnerFields(entityType, entityId),
-      type: mediaType,
-      s3Key: result.s3Key,
-      thumbnailS3Key: result.thumbnailS3Key,
       originalFilename: file.name,
-      mimeType: "image/webp",
-      width: result.width,
-      height: result.height,
-      sizeBytes: file.size,
-      ...(colorPalette ? { colorPalette } : {}),
+      attribution: parseAttribution(formData.get("attribution")),
+      processingParams: parseParams(formData.get("processingParams")),
     });
-
-    // Activate the new record (deactivates others of same type+owner)
-    if (mediaType === "poster" || mediaType === "background") {
-      await setActiveMedia(record.id);
-    }
-
-    return NextResponse.json({ media: record });
+    return NextResponse.json({ media });
   } catch (err) {
+    const refused = ingestRefusal(err);
+    if (refused) return refused;
     console.error("Media upload failed:", err);
     return NextResponse.json(
       { error: "Media upload failed" },

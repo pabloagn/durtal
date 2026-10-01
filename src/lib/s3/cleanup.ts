@@ -1,12 +1,14 @@
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  artObjects,
   authors,
   commentAttachments,
   comments,
   editions,
   media,
+  perfumeVariants,
 } from "@/lib/db/schema";
 import { s3, S3_BUCKET } from "./client";
 
@@ -58,6 +60,18 @@ export const ownedPrefixes = {
     `gold/media/collection/${id}/`,
     `bronze/media/collection/${id}/`,
   ],
+  organization: (id: string) => [
+    `gold/media/organization/${id}/`,
+    `bronze/media/organization/${id}/`,
+  ],
+  art_object: (id: string) => [
+    `gold/media/art_object/${id}/`,
+    `bronze/media/art_object/${id}/`,
+  ],
+  perfume_variant: (id: string) => [
+    `gold/media/perfume_variant/${id}/`,
+    `bronze/media/perfume_variant/${id}/`,
+  ],
   edition: (id: string) => [
     `gold/covers/${id}/`,
     `silver/covers/${id}/`,
@@ -90,10 +104,31 @@ function commentFiles(entityType: "work" | "author", entityId: string) {
     );
 }
 
-/** A work's images, its editions' covers and its comment files. */
+/**
+ * A work's images, its editions' covers, its comment files, and the images of
+ * its art objects and perfume formulations (which the work's deletion cascades).
+ */
 export async function workObjects(id: string): Promise<StoredObjects> {
-  const [images, covers, files] = await Promise.all([
-    db.select(mediaKeys).from(media).where(eq(media.workId, id)),
+  const [images, covers, files, objects, variants] = await Promise.all([
+    db
+      .select(mediaKeys)
+      .from(media)
+      .where(
+        or(
+          eq(media.workId, id),
+          inArray(
+            media.artObjectId,
+            db.select({ id: artObjects.id }).from(artObjects).where(eq(artObjects.workId, id)),
+          ),
+          inArray(
+            media.perfumeVariantId,
+            db
+              .select({ id: perfumeVariants.id })
+              .from(perfumeVariants)
+              .where(eq(perfumeVariants.workId, id)),
+          ),
+        ),
+      ),
     db
       .select({
         id: editions.id,
@@ -103,6 +138,11 @@ export async function workObjects(id: string): Promise<StoredObjects> {
       .from(editions)
       .where(eq(editions.workId, id)),
     commentFiles("work", id),
+    db.select({ id: artObjects.id }).from(artObjects).where(eq(artObjects.workId, id)),
+    db
+      .select({ id: perfumeVariants.id })
+      .from(perfumeVariants)
+      .where(eq(perfumeVariants.workId, id)),
   ]);
   return {
     keys: keysOf([
@@ -113,8 +153,25 @@ export async function workObjects(id: string): Promise<StoredObjects> {
     prefixes: [
       ...ownedPrefixes.work(id),
       ...covers.flatMap((c) => ownedPrefixes.edition(c.id)),
+      ...objects.flatMap((o) => ownedPrefixes.art_object(o.id)),
+      ...variants.flatMap((v) => ownedPrefixes.perfume_variant(v.id)),
     ],
   };
+}
+
+/** The images of one organization, art object or perfume formulation. */
+export async function ownedMediaObjects(
+  type: "organization" | "art_object" | "perfume_variant",
+  id: string,
+): Promise<StoredObjects> {
+  const column =
+    type === "organization"
+      ? media.organizationId
+      : type === "art_object"
+        ? media.artObjectId
+        : media.perfumeVariantId;
+  const images = await db.select(mediaKeys).from(media).where(eq(column, id));
+  return { keys: keysOf(images), prefixes: ownedPrefixes[type](id) };
 }
 
 /** An author's images and photo, and (unless a merge moves them) its comment files. */

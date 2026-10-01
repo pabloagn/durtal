@@ -316,6 +316,13 @@
       "when": 1790794828929,
       "tag": "0044_art_whereabouts",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1790859713515,
+      "tag": "0045_media_owners_attribution",
+      "breakpoints": true
     }
   ]
 }

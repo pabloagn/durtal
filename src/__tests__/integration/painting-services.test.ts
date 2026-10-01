@@ -291,7 +291,10 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
     expect(await deletePainting(painting.id)).toEqual({ id: painting.id, cleanupPending: false });
     expect(await c`select 1 from art_objects where work_id=${painting.id}`).toHaveLength(0);
     expect(await c`select 1 from comments where entity_id=${painting.id}`).toHaveLength(0);
-    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith({ keys: [], prefixes: ownedPrefixes.work(painting.id) }, `painting ${painting.id}`);
+    expect(mocks.deleteUnusedObjects).toHaveBeenCalledWith(
+      { keys: [], prefixes: expect.arrayContaining(ownedPrefixes.work(painting.id)) },
+      `painting ${painting.id}`,
+    );
   });
 
   it("validates ownership, storage and classification scope", async () => {

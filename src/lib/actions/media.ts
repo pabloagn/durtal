@@ -2,34 +2,30 @@
 
 import { getImagePresentation, saveImagePresentation } from "./image-adjustments";
 import { s3ImageSource } from "@/lib/utils/image-adjustments";
+import { z } from "zod";
 import { eq, and, asc, desc, inArray, not } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
+import { withReadableErrors } from "@/lib/db/errors";
+import { MEDIA_OWNER_COLUMN, mediaOwnerOf } from "@/lib/media/owner";
+import type { MediaEntityType } from "@/lib/s3/keys";
 import { media } from "@/lib/db/schema";
 import { deleteUnusedObjects, keysOf } from "@/lib/s3/cleanup";
-import type { CreateMediaInput, UpdateMediaInput, UpdateMediaCropInput } from "@/lib/validations/media";
-import { createMediaSchema, updateMediaSchema, updateMediaCropSchema } from "@/lib/validations/media";
+import type { CreateMediaInput, MediaAttribution, UpdateMediaInput, UpdateMediaCropInput } from "@/lib/validations/media";
+import { createMediaSchema, mediaAttributionSchema, updateMediaSchema, updateMediaCropSchema } from "@/lib/validations/media";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 
 type MediaRow = typeof media.$inferSelect;
-export type MediaOwnerType = "work" | "author" | "collection";
+export type MediaOwnerType = MediaEntityType;
 
-const OWNER_COLUMN = {
-  work: media.workId,
-  author: media.authorId,
-  collection: media.collectionId,
-} as const;
+const OWNER_COLUMN = MEDIA_OWNER_COLUMN;
+const ownerOf = mediaOwnerOf;
 
-function ownerOf(item: MediaRow): { type: MediaOwnerType; id: string } {
-  if (item.workId) return { type: "work", id: item.workId };
-  if (item.authorId) return { type: "author", id: item.authorId };
-  return { type: "collection", id: item.collectionId! };
-}
-
-/** Collections have no activity timeline; works and authors do. */
+/** Only works and authors have an activity timeline. */
 function recordMediaActivity(item: MediaRow, event: string) {
   const owner = ownerOf(item);
-  if (owner.type === "collection") return;
+  if (owner.type !== "work" && owner.type !== "author") return;
   recordActivity(owner.type, owner.id, `${owner.type}.${item.type}_${event}`);
 }
 
@@ -98,6 +94,21 @@ export async function updateMedia(id: string, input: UpdateMediaInput) {
   return row;
 }
 
+/**
+ * Alt text, credit, license and source of one image. Supplied fields replace
+ * the stored values; null clears one. The file itself is never changed.
+ */
+export async function updateMediaDetails(id: string, input: MediaAttribution) {
+  z.uuid().parse(id);
+  const data = mediaAttributionSchema.parse(input);
+  const [row] = await withReadableErrors(() =>
+    db.update(media).set(data).where(eq(media.id, id)).returning(),
+  );
+  if (!row) throw new Error("Image not found");
+  mediaChanged();
+  return row;
+}
+
 function storedFiles(items: MediaRow[]) {
   return keysOf(
     items.map((item) => ({
@@ -154,15 +165,15 @@ export async function setActiveMedia(id: string) {
   const item = await db.query.media.findFirst({ where: eq(media.id, id) });
   if (!item) return;
 
-  // Deactivate all others of same type for this owner, then activate target
+  // One write: the owner never has zero or two active images of a type.
   const owner = ownerOf(item);
-  await db.update(media)
-    .set({ isActive: false })
-    .where(and(eq(OWNER_COLUMN[owner.type], owner.id), eq(media.type, item.type), not(eq(media.id, id))));
-
-  await db.update(media)
-    .set({ isActive: true })
-    .where(eq(media.id, id));
+  await atomic((d) => [
+    d
+      .update(media)
+      .set({ isActive: false })
+      .where(and(eq(OWNER_COLUMN[owner.type], owner.id), eq(media.type, item.type), not(eq(media.id, id)))),
+    d.update(media).set({ isActive: true }).where(eq(media.id, id)),
+  ]);
 
   // Backfill color palette if this is a work poster without one
   if (item.workId && item.type === "poster" && !item.colorPalette && item.s3Key) {

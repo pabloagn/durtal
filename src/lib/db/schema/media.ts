@@ -15,6 +15,10 @@ import { relations, sql } from "drizzle-orm";
 import { works } from "./works";
 import { authors } from "./authors";
 import { collections } from "./collections";
+import { publishingHouses } from "./publishing-houses";
+import { artObjects } from "./paintings";
+import { perfumeVariants } from "./perfumes";
+import { sourceRecords } from "./provenance";
 
 export const media = pgTable(
   "media",
@@ -29,6 +33,17 @@ export const media = pgTable(
     collectionId: uuid("collection_id").references(() => collections.id, {
       onDelete: "cascade",
     }),
+    organizationId: uuid("organization_id").references(
+      () => publishingHouses.id,
+      { onDelete: "cascade" },
+    ),
+    artObjectId: uuid("art_object_id").references(() => artObjects.id, {
+      onDelete: "cascade",
+    }),
+    perfumeVariantId: uuid("perfume_variant_id").references(
+      () => perfumeVariants.id,
+      { onDelete: "cascade" },
+    ),
 
     // Classification
     type: text("type").notNull(), // 'poster' | 'background' | 'gallery'
@@ -66,6 +81,15 @@ export const media = pgTable(
     sortOrder: smallint("sort_order").notNull().default(0),
     caption: text("caption"),
 
+    // Description and attribution. Alt text describes the image for people
+    // who cannot see it; credit, license and source say whose image it is.
+    altText: text("alt_text"),
+    credit: text("credit"),
+    license: text("license"),
+    licenseUrl: text("license_url"),
+    sourceUrl: text("source_url"),
+    sourceRecordId: uuid("source_record_id").references(() => sourceRecords.id),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -73,12 +97,41 @@ export const media = pgTable(
   (t) => [
     check(
       "media_owner_check",
-      sql`num_nonnulls(${t.workId}, ${t.authorId}, ${t.collectionId}) = 1`,
+      sql`num_nonnulls(${t.workId}, ${t.authorId}, ${t.collectionId}, ${t.organizationId}, ${t.artObjectId}, ${t.perfumeVariantId}) = 1`,
+    ),
+    check(
+      "media_type_check",
+      sql`${t.type} in ('poster','background','gallery')
+  and not (${t.collectionId} is not null and ${t.type}='gallery')
+  and not ((${t.organizationId} is not null or ${t.artObjectId} is not null or ${t.perfumeVariantId} is not null) and ${t.type}='background')`,
+    ),
+    check(
+      "media_attribution_check",
+      sql`(${t.altText} is null or length(trim(${t.altText})) between 1 and 1000)
+        and (${t.credit} is null or length(trim(${t.credit})) between 1 and 500)
+        and (${t.license} is null or length(trim(${t.license})) between 1 and 200)
+        and (${t.licenseUrl} is null or (length(${t.licenseUrl}) <= 4000 and ${t.licenseUrl} ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))
+        and (${t.sourceUrl} is null or (length(${t.sourceUrl}) <= 4000 and ${t.sourceUrl} ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))`,
     ),
     index("media_work_id_type_active_idx").on(t.workId, t.type, t.isActive),
     index("media_author_id_active_idx").on(t.authorId, t.isActive),
     index("media_collection_id_type_active_idx").on(
       t.collectionId,
+      t.type,
+      t.isActive,
+    ),
+    index("media_organization_id_type_active_idx").on(
+      t.organizationId,
+      t.type,
+      t.isActive,
+    ),
+    index("media_art_object_id_type_active_idx").on(
+      t.artObjectId,
+      t.type,
+      t.isActive,
+    ),
+    index("media_perfume_variant_id_type_active_idx").on(
+      t.perfumeVariantId,
       t.type,
       t.isActive,
     ),
@@ -91,5 +144,17 @@ export const mediaRelations = relations(media, ({ one }) => ({
   collection: one(collections, {
     fields: [media.collectionId],
     references: [collections.id],
+  }),
+  organization: one(publishingHouses, {
+    fields: [media.organizationId],
+    references: [publishingHouses.id],
+  }),
+  artObject: one(artObjects, {
+    fields: [media.artObjectId],
+    references: [artObjects.id],
+  }),
+  perfumeVariant: one(perfumeVariants, {
+    fields: [media.perfumeVariantId],
+    references: [perfumeVariants.id],
   }),
 }));

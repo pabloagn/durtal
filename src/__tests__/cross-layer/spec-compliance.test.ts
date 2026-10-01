@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { EDITION_CONTRIBUTOR_ROLES, MEDIA_TYPES } from "@/lib/types/index";
 import { CACHE_TAGS } from "@/lib/cache";
+import { imagePolicy } from "@/lib/media/policy";
 
 // ── Type definition vs documentation compliance ──────────────────────────────
 // These tests verify that the TypeScript type definitions match the
@@ -60,16 +61,16 @@ describe("media type coverage", () => {
     expect([...MEDIA_TYPES]).toEqual(["poster", "background", "gallery"]);
   });
 
-  it("all media types have corresponding S3 key dimensions", () => {
-    // processAndUploadMedia has MEDIA_DIMENSIONS for each type
-    // poster: 1600x2400, background: 2560x1440, gallery: 2400x2400
-    const expectedDimensions: Record<string, { w: number; h: number }> = {
-      poster: { w: 1600, h: 2400 },
-      background: { w: 2560, h: 1440 },
-      gallery: { w: 2400, h: 2400 },
+  it("keeps the documented book image sizes for every media type", () => {
+    // poster 1600x2400, background 2560x1440, gallery 2400x2400
+    const expected = {
+      poster: [1600, 2400],
+      background: [2560, 1440],
+      gallery: [2400, 2400],
     };
     for (const type of MEDIA_TYPES) {
-      expect(expectedDimensions).toHaveProperty(type);
+      const policy = imagePolicy({ type: "work", kind: "book" }, type);
+      expect([policy.maxWidth, policy.maxHeight], type).toEqual(expected[type]);
     }
   });
 });

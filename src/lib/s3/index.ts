@@ -24,8 +24,8 @@ export {
   goldMediaOriginalKey,
 } from "./keys";
 export {
-  processAndUploadMedia,
-  processAndUploadAuthorMedia,
+  renderImage,
+  renderAuthorImage,
   applyMonochromeProcessing,
   reprocessAuthorMedia,
 } from "./media";

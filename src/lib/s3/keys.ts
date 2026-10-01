@@ -46,9 +46,18 @@ export function goldExportKey(exportId: string) {
   return `gold/exports/${exportId}/library_export.csv`;
 }
 
-// ── Media (work/author/collection posters, backgrounds, galleries) ──────────
+// ── Media (posters, backgrounds and galleries of every image owner) ─────────
 
-export type MediaEntityType = "work" | "author" | "collection";
+/** Records that own images. Each has its own folder under bronze/ and gold/. */
+export const MEDIA_ENTITY_TYPES = [
+  "work",
+  "author",
+  "collection",
+  "organization",
+  "art_object",
+  "perfume_variant",
+] as const;
+export type MediaEntityType = (typeof MEDIA_ENTITY_TYPES)[number];
 
 export function bronzeMediaKey(
   entityType: MediaEntityType,

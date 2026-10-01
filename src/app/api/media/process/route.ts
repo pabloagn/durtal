@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processAndUploadMedia, processAndUploadAuthorMedia } from "@/lib/s3/media";
-import { createMedia, setActiveMedia } from "@/lib/actions/media";
-import {
-  isMediaEntityType,
-  mediaOwnerFields,
-  supportsMediaType,
-} from "@/lib/media/owner";
+import { ingestMedia } from "@/lib/media/ingest";
+import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-input";
+import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { bronzeMediaKey, type MediaEntityType } from "@/lib/s3/keys";
 import { getPresignedUploadUrl } from "@/lib/s3/covers";
-import { monochromeParamsSchema, DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
 import { isAllowedImageType } from "@/lib/validations/media-security";
-import { extractColorPalette } from "@/lib/color/extract-palette";
-import type { ColorPalette, MediaType } from "@/lib/types";
+import type { MediaType } from "@/lib/types";
 
 /**
  * POST /api/media/process
@@ -43,7 +37,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
 
-      if (!["work", "author", "collection"].includes(entityType)) {
+      if (!isMediaEntityType(entityType)) {
         return NextResponse.json({ error: "Invalid entity type" }, { status: 400 });
       }
 
@@ -70,8 +64,6 @@ export async function POST(req: NextRequest) {
       fileId,
       bronzeKey,
       originalFilename,
-      mimeType: _mimeType,
-      sizeBytes,
     } = body as {
       entityType: MediaEntityType;
       entityId: string;
@@ -79,8 +71,6 @@ export async function POST(req: NextRequest) {
       fileId: string;
       bronzeKey: string;
       originalFilename?: string;
-      mimeType?: string;
-      sizeBytes?: number;
     };
 
     if (!entityType || !entityId || !mediaType || !fileId || !bronzeKey) {
@@ -107,80 +97,19 @@ export async function POST(req: NextRequest) {
     const bytes = await obj.Body!.transformToByteArray();
     const buffer = Buffer.from(bytes);
 
-    // Author media: monochrome pipeline with original preservation
-    if (entityType === "author") {
-      const rawParams = body.processingParams;
-      let params = DEFAULT_MONOCHROME_PARAMS;
-      if (rawParams) {
-        const parsed = monochromeParamsSchema.safeParse(rawParams);
-        if (parsed.success) params = parsed.data;
-      }
-
-      const result = await processAndUploadAuthorMedia(
-        entityId, mediaType, fileId, buffer, params,
-      );
-
-      const record = await createMedia({
-        authorId: entityId,
-        type: mediaType,
-        s3Key: result.s3Key,
-        thumbnailS3Key: result.thumbnailS3Key,
-        originalS3Key: result.originalS3Key,
-        originalFilename,
-        mimeType: "image/webp",
-        width: result.width,
-        height: result.height,
-        sizeBytes,
-        processingParams: params,
-      });
-
-      if (mediaType === "poster" || mediaType === "background") {
-        await setActiveMedia(record.id);
-      }
-
-      return NextResponse.json({ media: record });
-    }
-
-    // Process and upload to gold/
-    const result = await processAndUploadMedia(
-      entityType,
-      entityId,
+    const media = await ingestMedia({
+      owner: { type: entityType, id: entityId },
       mediaType,
-      fileId,
       buffer,
-    );
-
-    // Extract color palette for work poster uploads
-    let colorPalette: ColorPalette | undefined;
-    if (mediaType === "poster" && entityType === "work") {
-      try {
-        colorPalette = await extractColorPalette(buffer);
-      } catch (err) {
-        console.error("Color palette extraction failed (non-blocking):", err);
-      }
-    }
-
-    // Create the media record for the work or collection
-    const record = await createMedia({
-      ...mediaOwnerFields(entityType, entityId),
-      type: mediaType,
-      s3Key: result.s3Key,
-      thumbnailS3Key: result.thumbnailS3Key,
-      originalFilename,
-      mimeType: "image/webp",
-      width: result.width,
-      height: result.height,
-      sizeBytes,
-      ...(colorPalette ? { colorPalette } : {}),
+      fileId,
+      originalFilename: originalFilename ?? null,
+      attribution: parseAttribution(body.attribution),
+      processingParams: parseParams(body.processingParams),
     });
-
-    // Activate the new record (deactivates others of same type+owner)
-    if (mediaType === "poster" || mediaType === "background") {
-      await setActiveMedia(record.id);
-    }
-
-    return NextResponse.json({ media: record });
+    return NextResponse.json({ media });
   } catch (err) {
+    const refused = ingestRefusal(err);
+    if (refused) return refused;
     console.error("Media processing failed:", err);
     return NextResponse.json(
       { error: "Media processing failed" },

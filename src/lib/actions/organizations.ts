@@ -25,6 +25,7 @@ import { slugify } from "@/lib/utils/slugify";
 import { assertSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { deleteUnusedObjects, ownedMediaObjects } from "@/lib/s3/cleanup";
 
 function changed() {
   invalidate(
@@ -202,6 +203,8 @@ export async function saveOrganization(input: OrganizationInput, id?: string) {
 /** FK restrictions protect editions, targets, children and affiliated venues. */
 export async function deleteOrganization(id: string) {
   z.uuid().parse(id);
+  // Read the file keys first: the cascade removes the media rows that name them.
+  const stored = await ownedMediaObjects("organization", id);
   await atomic((d) => [
     d.execute(
       sql`select id from publishing_houses where id=${id}::uuid for update`,
@@ -215,7 +218,8 @@ export async function deleteOrganization(id: string) {
     d.delete(identities).where(eq(identities.id, id)),
   ]);
   changed();
-  return { id };
+  const cleanupPending = await deleteUnusedObjects(stored, `organization ${id}`);
+  return { id, cleanupPending };
 }
 
 export async function linkOrganizationVenue(input: {

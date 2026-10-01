@@ -1460,7 +1460,7 @@ User-curated groups of editions. Poster and background images are rows in `media
 
 ### `media`
 
-Images attached to works, authors or collections. Polymorphic ownership.
+Images attached to works, people, collections, organizations, art objects or perfume formulations. Exactly one owner per row, each a real foreign key.
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -1468,7 +1468,10 @@ Images attached to works, authors or collections. Polymorphic ownership.
 | `work_id` | UUID | FK → `works.id`, CASCADE, nullable |
 | `author_id` | UUID | FK → `authors.id`, CASCADE, nullable |
 | `collection_id` | UUID | FK → `collections.id`, CASCADE, nullable (migration `0029_collection_media`) |
-| `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background only) |
+| `organization_id` | UUID | FK → `publishing_houses.id`, CASCADE, nullable (migration `0045`) |
+| `art_object_id` | UUID | FK → `art_objects.id`, CASCADE, nullable (migration `0045`) |
+| `perfume_variant_id` | UUID | FK → `perfume_variants.id`, CASCADE, nullable (migration `0045`) |
+| `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background; organizations, art objects and perfume formulations use poster and gallery) |
 | `s3_key` | TEXT | NOT NULL |
 | `thumbnail_s3_key` | TEXT | nullable |
 | `original_filename` | TEXT | nullable |
@@ -1482,16 +1485,26 @@ Images attached to works, authors or collections. Polymorphic ownership.
 | `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
 | `brightness` | REAL | NOT NULL, default `100`. Display brightness percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: brightness()`. |
 | `contrast` | REAL | NOT NULL, default `100`. Display contrast percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: contrast()`. |
-| `original_s3_key` | TEXT | nullable. S3 key for the pre-processing color original. Set only for author media with monochrome processing. |
+| `original_s3_key` | TEXT | nullable. The kept original: the colour original of an author portrait, or the full-resolution copy of a painting or art object image. |
 | `processing_params` | JSONB | nullable. Monochrome processing parameters: `{ grayscale: true, contrast: number, sharpness: number, gamma: number, brightness: number }`. Author media only. |
 | `color_palette` | JSONB | nullable. Extracted color palette for poster images. Contains raw Vibrant swatches (vibrant, muted, darkVibrant, darkMuted, lightVibrant, lightMuted), dominant color from sharp stats, and a post-processed `crystal` array of 3-4 colors ready for ambient rendering. Extracted at upload time via node-vibrant. |
 | `sort_order` | SMALLINT | NOT NULL, default `0` |
 | `caption` | TEXT | nullable |
+| `alt_text` | TEXT | nullable, 1–1000 characters. Describes the image for people who cannot see it |
+| `credit` | TEXT | nullable, 1–500 characters. Creator or holder credit line |
+| `license` | TEXT | nullable, 1–200 characters, such as "Public domain" or "CC BY-SA 4.0" |
+| `license_url` | TEXT | nullable, HTTP(S) |
+| `source_url` | TEXT | nullable, HTTP(S). Set automatically for images added from a URL |
+| `source_record_id` | UUID | FK → `source_records.id`, nullable. Must belong to the same record as the image (`media_source_guard`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-**Check constraint** `media_owner_check`: `num_nonnulls(work_id, author_id, collection_id) = 1` — exactly one owner.
+**Check constraints**: `media_owner_check` — exactly one of the six owner columns; `media_type_check` — the owner's image types (above); `media_attribution_check` — lengths and HTTP(S) URLs. Migration `0045` stops with an error, and changes nothing, if an existing row has an unknown type or a collection gallery.
 
-**Indexes**: `(work_id, type, is_active)`, `(author_id, is_active)`, `(collection_id, type, is_active)`.
+**Indexes**: `(work_id, type, is_active)`, `(author_id, is_active)`, `(collection_id, type, is_active)`, and `(owner, type, is_active)` for each new owner.
+
+**Domain image policy** (`src/lib/media/policy.ts`): the owner and its domain set the stored sizes and the frame. Book and film posters are portrait (1600×2400, focal crop); perfume and formulation posters are square and contained (2000×2000); painting and art object images are native and contained (4096×4096) and keep a full-resolution, metadata-free original in `original_s3_key`; backgrounds are landscape. `imagePresentation()` (`src/lib/media/presentation.ts`) turns a policy and a row into the frame ratio, fit, focal point, scale and alt text; contained frames ignore any crop, so artworks are never cut.
+
+**One ingest path** (`src/lib/media/ingest.ts`): every upload route renders the sizes, stores the files, then records the row and makes a poster or background active in one transaction. If storing or recording fails, the files already stored are deleted again.
 
 **Active selection**: Multiple posters/backgrounds can exist for a work, but only one is active at a time. Uploading a new poster deactivates the previous one (without deleting it). Users can switch the active poster/background or permanently delete unwanted items.
 
