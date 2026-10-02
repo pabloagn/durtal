@@ -37,6 +37,7 @@ All environment variables are documented in `.env.example`. Copy to `.env.local`
 |---|---|---|---|
 | `NEXT_PUBLIC_APP_URL` | No | `http://localhost:3000` | Public application URL |
 | `NODE_ENV` | No | `development` | Node environment (`development` or `production`) |
+| `DURTAL_API_TOKEN` | No | — | Bearer token for the REST API write routes (orders, copies, works). Not set: every API write is refused. Make one with `openssl rand -hex 32`. See [05_API_REFERENCE.md](05_API_REFERENCE.md) |
 
 ### Ingestion Scripts
 
