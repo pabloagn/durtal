@@ -3,6 +3,10 @@
 import { forwardRef, useRef, type ComponentProps } from "react";
 import { CaseSensitive } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  FieldActionButton,
+  replaceFieldText,
+} from "@/components/shared/field-action";
 import { capitalizeTitle } from "@/lib/utils/title-case";
 
 type TitleInputProps = Omit<
@@ -21,16 +25,6 @@ export const TitleInput = forwardRef<HTMLInputElement, TitleInputProps>(
     const inputRef = useRef<HTMLInputElement | null>(null);
     const capitalized = capitalizeTitle(value, language);
 
-    function capitalize() {
-      const input = inputRef.current;
-      if (!input) return;
-      // Typed in as an edit, so Cmd+Z undoes it
-      input.focus();
-      input.select();
-      if (!document.execCommand("insertText", false, capitalized))
-        onValueChange(capitalized);
-    }
-
     return (
       <Input
         ref={(node) => {
@@ -42,17 +36,15 @@ export const TitleInput = forwardRef<HTMLInputElement, TitleInputProps>(
         onChange={(e) => onValueChange(e.target.value)}
         disabled={disabled}
         suffix={
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={capitalize}
-            disabled={disabled || capitalized === value}
-            aria-label="Capitalize title"
-            title="Capitalize title"
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose disabled:pointer-events-none disabled:opacity-40"
-          >
-            <CaseSensitive className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          <FieldActionButton
+            icon={CaseSensitive}
+            label="Capitalize title"
+            active={capitalized !== value}
+            disabled={disabled}
+            onClick={() =>
+              replaceFieldText(inputRef.current, capitalized, onValueChange)
+            }
+          />
         }
         {...props}
       />

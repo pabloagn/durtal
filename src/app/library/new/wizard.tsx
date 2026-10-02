@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
+import { AuthorNameInput } from "@/components/shared/author-name-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -610,7 +611,8 @@ export function AddBookWizard() {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl">
+    // Enter goes to the next step, ⌘Enter runs Fast Track or adds the book
+    <div className="max-w-2xl" data-shortcut-scope="">
       <StepProgress />
 
       {/* ── Step: Search ──────────────────────────────────────────────── */}
@@ -623,6 +625,7 @@ export function AddBookWizard() {
               <input
                 type="text"
                 placeholder="Search by title, author, or ISBN..."
+                data-shortcut-search=""
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -812,11 +815,11 @@ export function AddBookWizard() {
               placeholder="The Master and Margarita"
               required
             />
-            <Input
+            <AuthorNameInput
               label="Author"
               id="author"
               value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
+              onValueChange={setAuthorName}
               placeholder="Mikhail Bulgakov"
               required
             />
@@ -977,7 +980,7 @@ export function AddBookWizard() {
                   Fast Track
                 </Button>
               )}
-              <Button onClick={() => setStep("edition")}>
+              <Button data-shortcut="next" onClick={() => setStep("edition")}>
                 Edition details
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1079,6 +1082,7 @@ export function AddBookWizard() {
                 </Button>
               )}
               <Button
+                data-shortcut="next"
                 onClick={() => {
                   setSkipCopies(false);
                   setStep("instance");
@@ -1156,6 +1160,7 @@ export function AddBookWizard() {
                 Skip copies
               </Button>
               <Button
+                data-shortcut="next"
                 onClick={() => {
                   setSkipCopies(false);
                   setStep("categorize");
@@ -1221,7 +1226,7 @@ export function AddBookWizard() {
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Skip
               </Button>
-              <Button onClick={() => setStep("confirm")}>
+              <Button data-shortcut="next" onClick={() => setStep("confirm")}>
                 Review
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>

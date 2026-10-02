@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { WorkEditDialog } from "./work-edit-dialog";
 import { WorkTaxonomyEditDialog } from "./work-taxonomy-edit-dialog";
@@ -117,6 +118,8 @@ export function WorkActionsMenu({
   const [addEditionOpen, setAddEditionOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  useShortcut("e", "Edit work", () => setEditOpen(true));
+  useShortcut("t", "Edit taxonomy", () => setTaxonomyOpen(true));
 
   async function handleCopy() {
     try {
@@ -159,11 +162,13 @@ export function WorkActionsMenu({
       label: "Edit Work",
       icon: Pencil,
       onClick: () => setEditOpen(true),
+      shortcut: "E",
     },
     {
       label: "Edit Taxonomy",
       icon: Tag,
       onClick: () => setTaxonomyOpen(true),
+      shortcut: "T",
     },
     {
       label: "Manage Media",

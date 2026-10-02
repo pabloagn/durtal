@@ -85,6 +85,8 @@ export function EntityFilters({
         <input
           ref={inputRef}
           type="text"
+          // "/" focuses this field (keyboard shortcuts)
+          data-shortcut-search=""
           placeholder={searchPlaceholder}
           defaultValue={currentQuery}
           onChange={(e) => {

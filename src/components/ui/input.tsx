@@ -39,7 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           </label>
         )}
         {suffix ? (
-          <div className="relative">
+          <div className="relative" data-field="">
             {field}
             <div className="absolute inset-y-0 right-1 flex items-center">
               {suffix}

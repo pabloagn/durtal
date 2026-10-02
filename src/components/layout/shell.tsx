@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
+import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
 import { Toaster } from "sonner";
 
 const SIDEBAR_STORAGE_KEY = "durtal-sidebar-width";
@@ -56,26 +57,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(width));
   }, []);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // In reader view, only handle Cmd+K (let reader handle other keys)
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      setCommandOpen((prev) => !prev);
-    }
-    if (e.key === "Escape") {
-      setCommandOpen(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
   // Reader view: full viewport, no sidebar
   if (isReaderView) {
     return (
-      <>
+      <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
         {children}
         <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
         <Toaster
@@ -91,12 +76,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
             },
           }}
         />
-      </>
+      </ShortcutsProvider>
     );
   }
 
   return (
-    <>
+    <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
       <Sidebar
         width={effectiveWidth}
         onWidthChange={handleSidebarWidthChange}
@@ -122,6 +107,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           },
         }}
       />
-    </>
+    </ShortcutsProvider>
   );
 }
