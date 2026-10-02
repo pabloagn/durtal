@@ -138,7 +138,7 @@ The abstract intellectual creation. A work exists independently of any particula
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
-| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (format: `{title}-by-{author}`) |
+| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (format: `{title}-by-{author}`, with `-2`, `-3`... when taken). Follows the title and primary author: a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`). Old slugs do not redirect |
 | `original_language` | TEXT | NOT NULL, default `'en'` | Language code; stored form set by trigger (see `languages`) |
 | `original_year` | SMALLINT | nullable | Year of first publication |
 | `description` | TEXT | nullable | Synopsis or summary |

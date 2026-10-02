@@ -161,7 +161,15 @@ Change a work's title or catalogue status (as the Edit dialog does, with the act
 | `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
 | `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
 
-**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`
+**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug.
+
+### `POST /api/works/refresh-slugs`
+
+Gives every work whose slug no longer fits its title and primary author the slug it should have. Needs the token. Safe to run again: fitting slugs stay as they are.
+
+**Query parameters**: `dryRun=1` lists the changes and writes nothing. `id=<work id>` checks one work.
+
+**Response** `200`: `{ "dryRun", "checked", "changed", "changes": [{ "id", "title", "from", "to" }] }`
 
 ---
 

@@ -42,6 +42,7 @@ import { z } from "zod";
 import { createWorkSchema, type CreateWorkInput } from "@/lib/validations";
 import { bookLinksSchema } from "@/lib/validations/book-links";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
+import { refreshWorkSlug } from "@/lib/works/slug";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
@@ -774,65 +775,14 @@ export async function updateWork(id: string, input: Partial<CreateWorkInput>) {
     }
   }
 
-  // Regenerate slug only if title or authors ACTUALLY changed
+  // The slug follows the title and primary author. The check reads the work
+  // after the write above, so it compares the slug with the new values.
   if (workData.title !== undefined || authorIds !== undefined) {
-    const currentWork = await db.query.works.findFirst({
-      where: eq(works.id, id),
-      columns: { title: true, slug: true },
-      with: {
-        workAuthors: {
-          with: { author: { columns: { id: true, name: true } } },
-          orderBy: asc(workAuthors.sortOrder),
-          limit: 1,
-        },
-      },
-    });
-
-    if (currentWork) {
-      // Check if title or primary author actually changed
-      const oldTitle = currentWork.title;
-      const oldPrimaryAuthorId = currentWork.workAuthors[0]?.author.id;
-      const newTitle = workData.title ?? oldTitle;
-      const newPrimaryAuthorId = authorIds?.[0]?.authorId ?? oldPrimaryAuthorId;
-      const titleChanged = newTitle !== oldTitle;
-      const authorChanged =
-        authorIds !== undefined && newPrimaryAuthorId !== oldPrimaryAuthorId;
-
-      if (titleChanged || authorChanged) {
-        const primaryAuthorName =
-          currentWork.workAuthors[0]?.author.name ?? "unknown";
-        // Use the NEW title for slug generation (it was already written to DB above)
-        const effectiveTitle = workData.title ?? currentWork.title;
-        // If author changed, look up the new author name
-        let effectiveAuthorName = primaryAuthorName;
-        if (authorChanged && authorIds && authorIds.length > 0) {
-          const newAuthor = await db.query.authors.findFirst({
-            where: eq(authors.id, authorIds[0].authorId),
-            columns: { name: true },
-          });
-          effectiveAuthorName = newAuthor?.name ?? "unknown";
-        }
-        const baseSlug = generateWorkSlug(
-          effectiveTitle,
-          effectiveAuthorName,
-          id,
-        );
-
-        // Exclude own current slug from uniqueness check
-        const existing = await db
-          .select({ slug: works.slug })
-          .from(works)
-          .where(like(works.slug, `${baseSlug}%`));
-        const existingSlugs = existing
-          .map((r) => r.slug)
-          .filter((s): s is string => s !== null && s !== currentWork.slug);
-        const newSlug = makeUnique(baseSlug, existingSlugs);
-
-        await db.update(works).set({ slug: newSlug }).where(eq(works.id, id));
-        recordWorkDiffs(id, prev, workData, authorIds);
-        invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
-        return { id, slug: newSlug };
-      }
+    const change = await refreshWorkSlug(id);
+    if (change) {
+      recordWorkDiffs(id, prev, workData, authorIds);
+      invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
+      return { id, slug: change.to };
     }
   }
 

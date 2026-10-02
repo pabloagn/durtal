@@ -17,6 +17,8 @@ import {
   type CreateAuthorInput,
 } from "@/lib/validations";
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
+import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
+import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 
@@ -458,6 +460,10 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
       const slug = makeUnique(baseSlug, existingSlugs);
       await db.update(authors).set({ slug }).where(eq(authors.id, id));
     }
+    // Book slugs carry the author's name
+    if ((await refreshAuthorWorkSlugs(id)).length > 0) {
+      invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
+    }
   }
 
   // Record activity diffs
@@ -623,6 +629,11 @@ export async function mergeAuthors(sourceId: string, targetId: string) {
 
   // 4. Delete source author (cascade removes any remaining references)
   await db.delete(authors).where(eq(authors.id, sourceId));
+
+  // 5. Book slugs now carry the target author's name
+  if ((await refreshAuthorWorkSlugs(targetId)).length > 0) {
+    invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
+  }
 
   return { targetId, sourceName: source.name, targetName: target.name };
 }
