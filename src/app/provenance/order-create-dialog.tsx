@@ -12,6 +12,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
@@ -228,10 +229,10 @@ function WorkSearchStep({
           </button>
         </div>
 
-        <Input
+        <TitleInput
           label="Title"
           value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
+          onValueChange={setNewTitle}
           placeholder="Book title"
           required
           autoFocus

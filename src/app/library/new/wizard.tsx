@@ -16,6 +16,7 @@ import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -802,11 +803,12 @@ export function AddBookWizard() {
           aria-busy={fastTrackSaving}
         >
           <div className="space-y-4">
-            <Input
+            <TitleInput
               label="Title"
               id="title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onValueChange={setTitle}
+              language={originalLanguage}
               placeholder="The Master and Margarita"
               required
             />

@@ -8,6 +8,7 @@ import { Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
@@ -352,10 +353,11 @@ export function WorkQuickEditDialog({
                   Core Details
                 </h3>
                 <div className="space-y-3">
-                  <Input
+                  <TitleInput
                     label="Title"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onValueChange={setTitle}
+                    language={originalLanguage}
                     required
                   />
                   <div className="grid grid-cols-2 gap-3">

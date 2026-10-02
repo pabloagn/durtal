@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -235,19 +236,21 @@ export function EditionForm({
     <form onSubmit={handleSubmit} className="space-y-0">
       {/* Section 1: Title & Identifiers */}
       <Section title="Title & Identifiers" defaultOpen>
-        <Input
+        <TitleInput
           label="Title"
           id="ed-title"
           value={values.title}
-          onChange={(e) => update("title", e.target.value)}
+          onValueChange={(v) => update("title", v)}
+          language={values.language}
           required
           placeholder="Edition title..."
         />
-        <Input
+        <TitleInput
           label="Subtitle"
           id="ed-subtitle"
           value={values.subtitle}
-          onChange={(e) => update("subtitle", e.target.value)}
+          onValueChange={(v) => update("subtitle", v)}
+          language={values.language}
           placeholder="Optional subtitle..."
         />
         <div className="grid grid-cols-2 gap-3">
