@@ -34,14 +34,16 @@ export async function GET(_req: NextRequest, { params }: Params) {
  */
 const patchWorkSchema = z
   .object({
+    title: z.string().trim().min(1).optional(),
     catalogueStatus: createWorkSchema.shape.catalogueStatus.unwrap().optional(),
     addRecommenderIds: z.array(z.uuid()).optional(),
   })
   .strict();
 
 /**
- * PATCH /api/works/[id] — change a work's catalogue status, as the Edit
- * dialog does (activity log included), and add recommenders.
+ * PATCH /api/works/[id] — change a work's title (the slug follows) or
+ * catalogue status, as the Edit dialog does (activity log included), and add
+ * recommenders.
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
   const denied = requireApiToken(req);
@@ -52,14 +54,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
-    const { catalogueStatus, addRecommenderIds } = patchWorkSchema.parse(
-      await readJson(req),
-    );
+    const { title, catalogueStatus, addRecommenderIds } =
+      patchWorkSchema.parse(await readJson(req));
     if (!(await getWork(id))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    if (catalogueStatus) await updateWork(id, { catalogueStatus });
+    if (title || catalogueStatus) {
+      await updateWork(id, {
+        ...(title ? { title } : {}),
+        ...(catalogueStatus ? { catalogueStatus } : {}),
+      });
+    }
     const recommendersAdded = addRecommenderIds
       ? await addWorkRecommenders(id, addRecommenderIds)
       : 0;
@@ -67,6 +73,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const work = await getWork(id);
     return NextResponse.json({
       id,
+      title: work?.title,
+      slug: work?.slug,
       catalogueStatus: work?.catalogueStatus,
       recommenderIds: work?.workRecommenders.map((wr) => wr.recommender.id),
       recommendersAdded,

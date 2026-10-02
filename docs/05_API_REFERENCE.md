@@ -151,16 +151,29 @@ Fetch a single work with all relations loaded.
 
 ### `PATCH /api/works/[id]`
 
-Change a work's catalogue status (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
+Change a work's title or catalogue status (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
 
 **Body** (all optional):
 
 | Field | Type | Description |
 |---|---|---|
+| `title` | string | New title |
 | `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
 | `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
 
-**Response** `200`: `{ "id", "catalogueStatus", "recommenderIds", "recommendersAdded" }`
+**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`
+
+---
+
+## Editions
+
+### `PATCH /api/editions/[id]`
+
+Rename an edition, as the Edit Edition dialog does (activity log included). Other fields stay as they are. Needs the token.
+
+**Body** (all optional): `{ "title": "string", "subtitle": "string or null" }`
+
+**Response** `200`: `{ "id", "title", "subtitle", "workId" }`. `404` when the edition does not exist.
 
 ---
 

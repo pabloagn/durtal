@@ -16,7 +16,8 @@ Orders, arrivals and recommendations were entered by scripts that wrote to the d
 - `src/app/api/orders/[id]/route.ts`: `GET` and `PATCH` (calls `updateOrder`; `status` and unknown fields refused).
 - `src/app/api/orders/[id]/status/route.ts`: `POST` (calls `updateOrderStatus`; an invalid transition is 409 with the allowed statuses).
 - `src/app/api/instances/route.ts`: `POST` (calls `createInstance`; 404 for an unknown edition or location).
-- `src/app/api/works/[id]/route.ts`: `PATCH` with `catalogueStatus` (calls `updateWork`) and `addRecommenderIds`.
+- `src/app/api/works/[id]/route.ts`: `PATCH` with `title` and `catalogueStatus` (calls `updateWork`) and `addRecommenderIds`.
+- `src/app/api/editions/[id]/route.ts`: `PATCH` with `title` and `subtitle` (calls `updateEdition`).
 - `src/lib/actions/recommenders.ts`: `addWorkRecommenders` adds links and keeps existing ones.
 - Docs: `docs/05_API_REFERENCE.md`, `docs/13_CONFIGURATION.md`, `.env.example`.
 
@@ -25,3 +26,5 @@ Orders, arrivals and recommendations were entered by scripts that wrote to the d
 - Checked on :3100: no token and a wrong token give 401; an invalid body gives 400; an unknown field gives 400; delivered to shipped gives 409; a second order for a work with an active order gives 409.
 - First use: 26 Amazon.nl orders of 2026-10-03 entered through `POST /api/orders`, all 201, read back through `GET /api/orders`.
 - `DURTAL_API_TOKEN` is set in `.env.local` (not committed).
+- Second use: the work and edition with ISBN 9780141180342 renamed from "In search of lost time" to "Sodom and Gomorrah", and its order (11.39 EUR, 17 Oct) added.
+- Found: `updateWork` reads the work after writing it, so a title or author change never regenerates the slug (also in the Edit dialog). Not fixed here.
