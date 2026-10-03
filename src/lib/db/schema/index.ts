@@ -43,6 +43,7 @@ export {
   subLocations,
   subLocationsRelations,
 } from "./locations";
+export { appSettings } from "./app-settings";
 export {
   subjects,
   workSubjects,

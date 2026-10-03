@@ -1577,6 +1577,23 @@ Nested subdivisions within a location (shelf, drawer, room).
 | `name` | TEXT | NOT NULL |
 | `sort_order` | INTEGER | NOT NULL, default `0` |
 
+### `app_settings`
+
+App-wide settings, one row (migration `0052_app_settings`). They apply on every device; display preferences stay in each browser's cookies (`src/lib/preferences.ts`). Read with `getAppSettings` and changed with `updateAppSettings` (`src/lib/actions/settings.ts`), from Settings → General. Before the migration runs, the app uses the defaults below.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | BOOLEAN | PK, default `true`, CHECK `id` (only one row) |
+| `new_book_status` | `catalogue_status_enum` | NOT NULL, default `'tracked'`, CHECK not `'deaccessioned'`. The status a new book starts with in the add-book wizard and Fast Track |
+| `new_book_language` | TEXT | NOT NULL, default `'en'`, CHECK `^[a-z]{2,3}$`. A new book's and a new edition's language when the source gives none |
+| `new_copy_location_id` | UUID | nullable, FK → `locations.id`, SET NULL. Where a new copy starts (wizard, Add copy dialog); it also sorts first in the location list. Null: pick for each copy |
+| `new_copy_format` | TEXT | nullable, default `'paperback'`. An `INSTANCE_FORMATS` value; null: none |
+| `new_copy_condition` | TEXT | nullable, default `'mint'`. An `INSTANCE_CONDITIONS` value; null: none |
+| `home_currency` | TEXT | NOT NULL, default `'EUR'`, CHECK `^[A-Z]{3}$`. New orders start in it, orders saved without a currency get it when edited, and spending totals list it first |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`.
+
 ### `collections`
 
 User-curated groups of editions. Poster and background images are rows in `media` with `collection_id` set (migration `0029_collection_media`), managed like work images: several per type, one active, crop and adjustments. The former `cover_s3_key`, `poster_s3_key`, `poster_thumbnail_s3_key` and `background_s3_key` columns were moved into `media` and dropped by that migration. Grids and cards show the active poster; the collection page shows the active background as its banner.
@@ -1839,6 +1856,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `works` | `media` | CASCADE |
 | `authors` | `media` | CASCADE |
 | `locations` | `sub_locations` | CASCADE |
+| `locations` | `app_settings.new_copy_location_id` | SET NULL |
 | `works` | `work_categories` | CASCADE |
 | `book_categories` | `work_categories` | CASCADE |
 | `book_categories` | `book_categories.parent_id` | CASCADE |
@@ -1893,6 +1911,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
 | Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
+| Settings | `app_settings` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
 | Import | `imports` | — |
