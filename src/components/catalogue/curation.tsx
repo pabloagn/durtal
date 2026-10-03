@@ -10,26 +10,28 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { updateWorkCuration } from "@/lib/actions/curation";
-import type { CurationPatch } from "@/lib/catalogue/curation";
+import type { CurationOwner, CurationPatch } from "@/lib/catalogue/curation";
 
 const CurationContext = createContext<{
   save: (patch: CurationPatch) => Promise<boolean>;
 } | null>(null);
 
 /**
- * Saves the perfume's favourite, rating and notes one after another. Each
- * save uses the fingerprint the previous one returned, so quick changes in a
- * row never read as someone else's edit; a reload brings the stored one.
+ * Saves a work's favourite, rating and notes one after another. Each save
+ * uses the fingerprint the previous one returned, so quick changes in a row
+ * never read as someone else's edit; a reload brings the stored one.
  */
 export function CurationProvider({
-  workId,
+  owner,
   fingerprint,
   children,
 }: {
-  workId: string;
+  /** The work: a perfume, a film */
+  owner: CurationOwner;
   fingerprint: string;
   children: React.ReactNode;
 }) {
+  const { kind, id } = owner;
   const router = useRouter();
   const latest = useRef(fingerprint);
   // Fingerprints this page replaced: a late refresh may still bring one back
@@ -43,7 +45,7 @@ export function CurationProvider({
       const run = queue.current.then(async () => {
         try {
           const saved = await updateWorkCuration({
-            owner: { kind: "perfume", id: workId },
+            owner: { kind, id },
             patch,
             fingerprint: latest.current,
           });
@@ -59,12 +61,12 @@ export function CurationProvider({
       queue.current = run;
       return run;
     },
-    [router, workId],
+    [router, kind, id],
   );
   return <CurationContext.Provider value={{ save }}>{children}</CurationContext.Provider>;
 }
 
-/** Saves one change to the perfume's personal curation; `saving` while it runs. */
+/** Saves one change to the work's personal curation; `saving` while it runs. */
 function useCurationSave() {
   const context = useContext(CurationContext);
   if (!context) throw new Error("Curation controls need a CurationProvider");
@@ -145,15 +147,22 @@ export function RatingControl({ rating }: { rating: number | null }) {
   );
 }
 
-/** "Your notes": what the owner thinks of the perfume, editable in place */
-export function PersonalNotes({ notes }: { notes: string | null }) {
+/** "Your notes": what the owner thinks of the work, editable in place */
+export function PersonalNotes({
+  notes,
+  placeholder,
+}: {
+  notes: string | null;
+  /** What to write about: "How it wears on you, when you reach for it" */
+  placeholder: string;
+}) {
   const { save, saving } = useCurationSave();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
   return (
-    <section className="mb-10" aria-labelledby="perfume-your-notes">
+    <section className="mb-10" aria-labelledby="your-notes">
       <SectionHeading
-        id="perfume-your-notes"
+        id="your-notes"
         title="Your notes"
         action={
           !editing && (
@@ -173,7 +182,7 @@ export function PersonalNotes({ notes }: { notes: string | null }) {
             onChange={(e) => setDraft(e.target.value)}
             rows={5}
             maxLength={10000}
-            placeholder="How it wears on you, when you reach for it"
+            placeholder={placeholder}
           />
           <div className="flex justify-end gap-2">
             <Button

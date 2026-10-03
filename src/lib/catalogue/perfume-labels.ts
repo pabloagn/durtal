@@ -1,4 +1,4 @@
-import type { PERSONAL_HOLDING_STATUSES } from "./holdings";
+import { HOLDING_STATUS_LABELS, type HoldingStatus } from "./holdings";
 import type {
   NOTE_POSITIONS,
   PERFUME_CONCENTRATIONS,
@@ -8,7 +8,9 @@ import type {
 export type PerfumeConcentration = (typeof PERFUME_CONCENTRATIONS)[number];
 export type PerfumeContainer = (typeof PERFUME_CONTAINERS)[number];
 export type NotePosition = (typeof NOTE_POSITIONS)[number];
-export type HoldingStatus = (typeof PERSONAL_HOLDING_STATUSES)[number];
+// Shared by every collection; kept here for the perfume screens' imports
+export { HOLDING_STATUS_LABELS };
+export type { HoldingStatus };
 
 /** The full name, and the short one for cards and chips */
 export const CONCENTRATION_LABELS: Record<
@@ -32,14 +34,6 @@ export const CONTAINER_LABELS: Record<
   bottle: { one: "Bottle", many: "Bottles" },
   sample: { one: "Sample", many: "Samples" },
   decant: { one: "Decant", many: "Decants" },
-};
-
-export const HOLDING_STATUS_LABELS: Record<HoldingStatus, string> = {
-  held: "Held",
-  lent_out: "Lent out",
-  in_storage: "In storage",
-  missing: "Missing",
-  disposed: "Disposed",
 };
 
 export const NOTE_POSITION_LABELS: Record<NotePosition, string> = {

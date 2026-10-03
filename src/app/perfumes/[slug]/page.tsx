@@ -14,7 +14,7 @@ import {
   FavouriteToggle,
   PersonalNotes,
   RatingControl,
-} from "@/components/perfumes/perfume-curation";
+} from "@/components/catalogue/curation";
 import { NotesSection } from "@/components/perfumes/notes-section";
 import {
   FormulationsSection,
@@ -22,7 +22,7 @@ import {
 } from "@/components/perfumes/formulations-section";
 import { BottlesSection, type BottleView } from "@/components/perfumes/bottles-section";
 import { RetailersSection } from "@/components/perfumes/retailers-section";
-import { SourcesSection, type SourceView } from "@/components/perfumes/sources-section";
+import { SourcesSection, type SourceView } from "@/components/catalogue/sources-section";
 import { RelatedPerfumes } from "@/components/perfumes/related-perfumes";
 import type { FormulationVocabulary } from "@/components/perfumes/formulation-dialog";
 import { getPerfume, getRelatedPerfumes } from "@/lib/actions/perfumes";
@@ -374,7 +374,7 @@ export default async function PerfumePage({
     : undefined;
 
   return (
-    <CurationProvider workId={perfume.id} fingerprint={curation?.fingerprint ?? ""}>
+    <CurationProvider owner={{ kind: "perfume", id: perfume.id }} fingerprint={curation?.fingerprint ?? ""}>
       <CopyShortcuts
         name={[perfume.title, names(houses)].filter(Boolean).join(", ")}
         title={perfume.title}
@@ -620,9 +620,17 @@ export default async function PerfumePage({
 
       <GallerySection entityType="work" entityId={perfume.id} />
 
-      <SourcesSection perfumeId={perfume.id} perfumeTitle={perfume.title} sources={sources} />
+      <SourcesSection
+        owner={{ kind: "perfume", id: perfume.id }}
+        title={perfume.title}
+        sources={sources}
+        examples={{
+          name: "Fragrantica, the house's website, a book and page",
+          says: "Launch year, perfumer",
+        }}
+      />
 
-      <PersonalNotes notes={curation?.notes ?? null} />
+      <PersonalNotes notes={curation?.notes ?? null} placeholder="How it wears on you, when you reach for it" />
 
       <RelatedPerfumes related={related} />
     </CurationProvider>

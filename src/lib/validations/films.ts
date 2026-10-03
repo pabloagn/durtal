@@ -195,6 +195,12 @@ export const filmQuerySchema = z
     /** Any of these people, in any credit or only in `creditRoleIds`. */
     personIds: z.array(z.uuid()).max(50).optional(),
     creditRoleIds: z.array(z.string().min(1).max(300)).max(20).optional(),
+    /**
+     * Directed by any of these people, and played by any of `castIds`: the
+     * two lists must both match, each in its own role.
+     */
+    directorIds: z.array(z.uuid()).max(50).optional(),
+    castIds: z.array(z.uuid()).max(50).optional(),
     /** Every item must match, directly or through a narrower item. */
     taxonomyItemIds: z.array(z.uuid()).max(50).optional(),
     /** Any of these production countries or original languages. */
