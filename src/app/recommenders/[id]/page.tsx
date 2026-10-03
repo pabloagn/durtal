@@ -110,6 +110,7 @@ export default async function RecommenderPage({
                         : null
                     }
                     coverCrop={poster ? mediaCrop(poster) : null}
+                    coverTone={poster?.tone ?? null}
                     publicationYear={
                       work.editions[0]?.publicationYear ?? work.originalYear
                     }

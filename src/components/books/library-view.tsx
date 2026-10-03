@@ -19,6 +19,7 @@ interface BookItem {
   authorNames?: string[];
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
+  coverTone?: string | null;
   publicationYear?: number | null;
   language?: string | null;
   instanceCount: number;

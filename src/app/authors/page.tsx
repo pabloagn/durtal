@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import {
   getAuthors,
+  getAuthorCoverPreviews,
   getAuthorCount,
   getDistinctNationalities,
   getDistinctGenders,
@@ -161,12 +162,20 @@ async function AuthorsContent({
       posterCrop: activePoster
         ? mediaCrop(activePoster)
         : null,
+      photoTone: activePoster?.tone ?? null,
       website: a.website,
       bio: a.bio,
       worksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
+      coverPreviews: [] as string[],
     };
   });
+
+  // Authors with no portrait show some of their book covers instead
+  const previews = await getAuthorCoverPreviews(
+    authors.filter((a) => !a.photoUrl && a.worksCount > 0).map((a) => a.id),
+  );
+  for (const a of authors) a.coverPreviews = previews[a.id] ?? [];
 
 
   return (

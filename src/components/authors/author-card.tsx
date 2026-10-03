@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
-import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { FadeImage } from "@/components/shared/fade-image";
+import { CoverFan, Monogram } from "@/components/shared/no-photo";
 
 type PosterCrop = MediaCrop;
 
@@ -19,6 +20,10 @@ interface AuthorCardProps {
   deathYear?: number | null;
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
+  /** The portrait's main color: the frame shows it while the photo loads */
+  photoTone?: string | null;
+  /** Book covers to show when there is no portrait */
+  coverPreviews?: string[];
   worksCount: number;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -36,6 +41,8 @@ export function AuthorCard({
   deathYear,
   photoUrl,
   posterCrop,
+  photoTone,
+  coverPreviews = [],
   worksCount,
   isSelecting = false,
   isSelected = false,
@@ -70,26 +77,25 @@ export function AuthorCard({
           tabIndex={isSelecting ? -1 : undefined}
         >
           <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+            {/* While the photo loads, the frame shows its main color */}
             <div
-              className="relative aspect-[2/3] overflow-hidden bg-bg-primary"
+              className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
+              style={coverToneStyle(photoTone)}
               onContextMenu={(e) => e.preventDefault()}
             >
               {photoUrl ? (
-                <Image
+                <FadeImage
                   src={photoUrl}
                   alt={name}
-                  fill
-                  sizes="(min-width: 1280px) 200px, (min-width: 768px) 180px, 160px"
-                  className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  loading="lazy"
+                  decoding="async"
+                  className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
                   style={mediaImageStyle(posterCrop)}
-                  unoptimized
                 />
+              ) : coverPreviews.length ? (
+                <CoverFan covers={coverPreviews} />
               ) : (
-                <div className="flex h-full items-center justify-center">
-                  <span className="font-serif text-3xl text-fg-muted/30">
-                    {name[0]}
-                  </span>
-                </div>
+                <Monogram name={name} />
               )}
 
               {/* Works count overlay — top-right */}

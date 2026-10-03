@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   BookOpen,
   Layers,
@@ -35,7 +34,10 @@ import { DomainTileCard } from "@/components/domains/domain-tile";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
-import { mediaCrop } from "@/lib/utils/media-style";
+import { coverToneStyle, mediaCrop } from "@/lib/utils/media-style";
+import { FadeImage } from "@/components/shared/fade-image";
+import { CoverFan, Monogram } from "@/components/shared/no-photo";
+import { getAuthorCoverPreviews } from "@/lib/actions/authors";
 import { SectionHeading } from "@/components/shared/section-heading";
 
 function StatCard({
@@ -122,6 +124,7 @@ function workToCardProps(work: {
     cropZoom: number;
     brightness: number;
     contrast: number;
+    tone?: string | null;
   }>;
 }) {
   const edition = work.editions[0];
@@ -151,6 +154,7 @@ function workToCardProps(work: {
     coverCrop: activePoster
       ? mediaCrop(activePoster)
       : null,
+    coverTone: activePoster?.tone ?? null,
     publicationYear: edition?.publicationYear ?? work.originalYear,
     language: edition?.language,
     instanceCount,
@@ -189,9 +193,13 @@ async function DashboardContent() {
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
   ]);
-  const covers = await getCollectionCoverPreviews(
-    collections.map((collection) => collection.id),
-  );
+  const [covers, authorCovers] = await Promise.all([
+    getCollectionCoverPreviews(collections.map((collection) => collection.id)),
+    // Recent authors with no portrait show some of their book covers
+    getAuthorCoverPreviews(
+      stats.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id),
+    ),
+  ]);
   // Newest first across the open collections
   const recent = [
     ...stats.recentWorks.map((work) => ({
@@ -330,22 +338,23 @@ async function DashboardContent() {
                 href={`/authors/${author.slug ?? ""}`}
                 className="group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
               >
-                <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary">
+                {/* While the photo loads, the frame shows its main color */}
+                <div
+                  className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
+                  style={coverToneStyle(author.photoTone)}
+                >
                   {author.photoS3Key ? (
-                    <Image
+                    <FadeImage
                       src={`/api/s3/read?key=${encodeURIComponent(author.photoS3Key)}`}
                       alt={author.name}
-                      fill
-                      sizes="(min-width: 1280px) 180px, (min-width: 768px) 150px, 140px"
-                      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    unoptimized
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
                     />
+                  ) : authorCovers[author.id]?.length ? (
+                    <CoverFan covers={authorCovers[author.id]} />
                   ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <span className="font-serif text-3xl text-fg-muted/30">
-                        {author.name[0]}
-                      </span>
-                    </div>
+                    <Monogram name={author.name} />
                   )}
                   {author.worksCount > 0 && (
                     <div className="absolute right-1.5 top-1.5">

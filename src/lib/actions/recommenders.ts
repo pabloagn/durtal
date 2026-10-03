@@ -16,6 +16,7 @@ import {
   recommenderInputSchema,
   type RecommenderInput,
 } from "@/lib/validations/recommenders";
+import { posterTone } from "@/lib/actions/utils/work-card-query";
 
 export const getRecommenders = cached(
   () => db.select().from(recommenders).orderBy(asc(recommenders.name)),
@@ -108,6 +109,7 @@ export async function getRecommender(id: string) {
                   brightness: true,
                   contrast: true,
                 },
+                extras: posterTone,
               },
               workAuthors: {
                 with: { author: { columns: { name: true } } },

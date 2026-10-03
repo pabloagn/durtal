@@ -3,7 +3,6 @@
 import { CopyBookButton } from "./copy-book-button";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
@@ -18,7 +17,8 @@ import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
 import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
-import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { FadeImage } from "@/components/shared/fade-image";
 
 export type CoverCrop = MediaCrop;
 
@@ -30,6 +30,8 @@ interface BookCardProps {
   authorNames?: string[];
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
+  /** The poster's main color: the frame shows it while the cover loads */
+  coverTone?: string | null;
   publicationYear?: number | null;
   language?: string | null;
   instanceCount: number;
@@ -78,19 +80,18 @@ function CoverImage({
   const retrySrc = retries > 0 ? `${src}&_r=${retries}` : src;
 
   return (
-    <Image
+    <FadeImage
       key={retries}
       src={retrySrc}
       alt={alt}
-      fill
-      sizes="(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px"
-      className="protected-image object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+      loading="lazy"
+      decoding="async"
+      className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
       style={mediaImageStyle(crop)}
       onError={() => {
         // Retry after a short delay — the server was likely just overloaded
         setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
       }}
-      unoptimized
     />
   );
 }
@@ -103,6 +104,7 @@ export function BookCard({
   authorNames,
   coverUrl,
   coverCrop,
+  coverTone,
   publicationYear,
   language,
   instanceCount,
@@ -147,7 +149,12 @@ export function BookCard({
           tabIndex={isSelecting ? -1 : undefined}
         >
           <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
-          <div className="relative aspect-[2/3] overflow-hidden bg-bg-primary" onContextMenu={(e) => e.preventDefault()}>
+          {/* While the cover loads, the frame shows the poster's main color */}
+          <div
+            className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
+            style={coverToneStyle(coverTone)}
+            onContextMenu={(e) => e.preventDefault()}
+          >
             {coverUrl ? (
               <CoverImage
                 src={coverUrl}

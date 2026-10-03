@@ -202,6 +202,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       ? mediaCrop(workActivePoster)
                       : null
                   }
+                  coverTone={workActivePoster?.tone ?? null}
                   publicationYear={work.editions[0]?.publicationYear}
                   language={work.editions[0]?.language}
                   instanceCount={instanceCount}
