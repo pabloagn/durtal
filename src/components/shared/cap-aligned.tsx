@@ -38,3 +38,41 @@ export function CapAligned({
     </span>
   );
 }
+
+/**
+ * CapAligned for controls that open something, such as an action menu: the
+ * box clips nothing, so the menu shows in full, and the controls and what
+ * they open take the body type again, not the title's. Controls sit 8px
+ * apart.
+ *
+ * How it works: an inline-block whose only content is a float has no line
+ * boxes, so its baseline is its bottom margin edge, as with `overflow:
+ * hidden`; the float sizes the box and clips nothing. The rest is as in
+ * CapAligned. Measured in Chrome: 0.01px off beside a 46px serif title.
+ */
+export function CapAlignedControls({
+  height,
+  className = "",
+  children,
+}: {
+  /** Height of the controls in px */
+  height: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span className={`block h-[1lh] shrink-0 ${className}`}>
+      <span
+        className="inline-block align-[0.5cap]"
+        style={{ height, marginBlock: -height / 2 }}
+      >
+        <span
+          className="float-left flex items-center gap-2 font-sans text-sm font-normal not-italic tracking-normal"
+          style={{ height }}
+        >
+          {children}
+        </span>
+      </span>
+    </span>
+  );
+}

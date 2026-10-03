@@ -212,3 +212,26 @@ export function catalogueDateYears(date: CatalogueDate | null) {
       : "";
   return `${date.approximate ? "c. " : ""}${yearLabel(date.start.year)}${end}`;
 }
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
+/**
+ * "May 3, 2019", "May 2019", "c. 1925", "1920–1929" or the date's own
+ * label, to the precision it was recorded with; "Unknown" when it is
+ * explicitly unknown, null when no date was recorded.
+ */
+export function catalogueDateText(date: CatalogueDate | null) {
+  if (!date) return null;
+  if (date.label) return date.label;
+  if (!date.start) return "Unknown";
+  const point = (p: Endpoint) =>
+    p.month === null
+      ? yearLabel(p.year)
+      : p.day === null
+        ? `${MONTH_NAMES[p.month - 1]} ${yearLabel(p.year)}`
+        : `${MONTH_NAMES[p.month - 1]} ${p.day}, ${yearLabel(p.year)}`;
+  return `${date.approximate ? "c. " : ""}${point(date.start)}${date.end ? `–${point(date.end)}` : ""}`;
+}

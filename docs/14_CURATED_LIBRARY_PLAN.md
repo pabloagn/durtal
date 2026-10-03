@@ -354,5 +354,16 @@ transaction, through the plans in `src/lib/catalogue/book-store.ts`. Ids,
 slugs and the cover are decided before the write; a failure writes nothing and
 deletes the cover. New domain services follow the same plan-then-write shape.
 
+The perfume experience (SLN-366, task 0202): a home with filters in the URL
+(house, perfumer, family, accord, note, concentration, holdings, favourites,
+release years); a detail page that leads with the house and perfumers, then the
+note pyramid, families and accords, formulations, bottles and samples,
+retailers, sources and related perfumes; and every create, edit and delete flow.
+Perfumes get readable slugs (`{title}-by-{house}`), links add the organization
+role they need, and provenance, curation, taxonomy and retailer writes return
+readable messages. `CapAlignedControls` puts a menu beside a title on its
+cap-height center without clipping it. Measured at 1440, 768 and 390px with no
+deviation over 0.5px. Perfumes stay closed until SLN-382.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

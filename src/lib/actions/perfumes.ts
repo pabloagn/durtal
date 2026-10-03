@@ -2,10 +2,10 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
-import { withReadableErrors } from "@/lib/db/errors";
+import { readableDatabaseError, withReadableErrors } from "@/lib/db/errors";
 import {
   works,
   perfumeDetails,
@@ -27,6 +27,7 @@ import {
   comments,
   activityEvents,
   galleryLayouts,
+  media,
 } from "@/lib/db/schema";
 import {
   createPerfumeSchema,
@@ -53,6 +54,7 @@ import {
   insertVariantPerfumers,
   insertVariantTaxa,
   loadPerfumeCards,
+  organizationRoleQueries,
   perfumeDomain,
   perfumeFingerprint,
   perfumeWhere,
@@ -79,11 +81,13 @@ import {
   loadPerfumePerfumers,
 } from "@/lib/catalogue/perfume-model";
 import { perfumeHoldings } from "@/lib/catalogue/holdings";
+import { PERFUME_CONCENTRATIONS } from "@/lib/catalogue/perfumes";
 import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { getPerfumeRetailerLinks } from "./perfume-retailers";
-import { slugify } from "@/lib/utils/slugify";
-import { assertSql } from "@/lib/harmonization/store";
+import { generateWorkSlug } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
+import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
 
@@ -170,6 +174,162 @@ export async function getPerfumeCount(input: PerfumeQuery = {}) {
   return row.count;
 }
 
+/** Families, accords and notes: the three vocabularies of the perfume filters. */
+const FILTER_FAMILIES = ["perfume-families", "perfume-accords", NOTES_FAMILY] as const;
+
+/**
+ * What the perfume filters can offer: only values some perfume uses, with how
+ * many perfumes use each, and the span of known release years. A family,
+ * accord or note brings its broader items, which match their narrower ones.
+ */
+export async function getPerfumeFilterOptions() {
+  const [houses, perfumers, items, concentrations, [years]] = await Promise.all([
+    resultRows<{ id: string; name: string; count: number }>(
+      await db.execute(sql`select p.id,p.name,count(distinct o.work_id)::int as count
+        from perfume_organizations o join publishing_houses p on p.id=o.organization_id
+        join works w on w.id=o.work_id and w.kind='perfume'
+        where o.role in ('perfume_house','brand')
+        group by p.id,p.name order by lower(p.name),p.id`),
+    ),
+    resultRows<{ id: string; name: string; count: number }>(
+      await db.execute(sql`with credited as (
+          select c.person_id,c.work_id from work_credits c join works w on w.id=c.work_id and w.kind='perfume'
+          where c.role_id='perfume.perfumer' and c.person_id is not null
+          union select p.person_id,v.work_id from perfume_variant_perfumers p join perfume_variants v on v.id=p.variant_id
+          where p.person_id is not null)
+        select a.id,a.name,count(distinct c.work_id)::int as count from credited c join authors a on a.id=c.person_id
+        group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+    ),
+    resultRows<{
+      id: string;
+      name: string;
+      parentName: string | null;
+      familySlug: (typeof FILTER_FAMILIES)[number];
+      count: number;
+    }>(
+      await db.execute(sql`with recursive used(work_id,item_id) as (
+          select t.work_id,t.item_id from custom_taxonomy_item_works t join works w on w.id=t.work_id and w.kind='perfume'
+          union select work_id,item_id from perfume_notes
+          union select v.work_id,t.item_id from perfume_variant_taxa t join perfume_variants v on v.id=t.variant_id
+          union select v.work_id,n.item_id from perfume_variant_notes n join perfume_variants v on v.id=n.variant_id
+        ), broader(work_id,item_id) as (
+          select work_id,item_id from used
+          union select b.work_id,i.parent_id from broader b join custom_taxonomy_items i on i.id=b.item_id where i.parent_id is not null
+        )
+        select i.id,i.name,p.name as "parentName",f.slug as "familySlug",count(distinct b.work_id)::int as count
+        from broader b join custom_taxonomy_items i on i.id=b.item_id join taxonomy_families f on f.id=i.family_id
+        left join custom_taxonomy_items p on p.id=i.parent_id
+        where f.slug in (${sql.join(
+          FILTER_FAMILIES.map((slug) => sql`${slug}`),
+          sql`,`,
+        )})
+        group by i.id,i.name,p.name,f.slug
+        order by f.slug,lower(coalesce(p.name || ' › ','') || i.name),i.id`),
+    ),
+    db
+      .selectDistinct({ concentration: perfumeVariants.concentration })
+      .from(perfumeVariants)
+      .where(sql`${perfumeVariants.concentration} is not null`),
+    resultRows<{ min: number | null; max: number | null }>(
+      await db.execute(sql`select min(rd.start_year)::int as min,max(coalesce(rd.end_year,rd.start_year))::int as max
+        from perfume_details pd join works w on w.id=pd.work_id and w.kind='perfume'
+        join catalogue_dates rd on rd.id=pd.release_date_id where rd.start_year is not null`),
+    ),
+  ]);
+  const used = new Set(concentrations.map((row) => row.concentration));
+  return {
+    houses,
+    perfumers,
+    families: items.filter((item) => item.familySlug === "perfume-families"),
+    accords: items.filter((item) => item.familySlug === "perfume-accords"),
+    notes: items.filter((item) => item.familySlug === NOTES_FAMILY),
+    concentrations: PERFUME_CONCENTRATIONS.filter((c) => used.has(c)),
+    releaseYears:
+      years?.min != null && years.max != null
+        ? { min: years.min, max: years.max }
+        : null,
+  };
+}
+export type PerfumeFilterOptions = Awaited<
+  ReturnType<typeof getPerfumeFilterOptions>
+>;
+
+/** Up to `limit` perfume IDs from one query, excluding the ones already shown. */
+async function relatedIds(query: ReturnType<typeof sql>) {
+  return resultRows<{ id: string; names?: string[] }>(await db.execute(query));
+}
+
+/**
+ * Fragrances to look at next, each row with its reason: more from the house,
+ * more by the first perfumer, and fragrances that share at least two notes,
+ * accords or families (on the fragrance or one of its formulations), most
+ * shared first, with the shared names. A fragrance appears in one row only.
+ */
+export async function getRelatedPerfumes(id: string, limit = 12) {
+  z.uuid().parse(id);
+  z.number().int().min(1).max(48).parse(limit);
+  const [house] = resultRows<{ id: string; name: string }>(
+    await db.execute(sql`select p.id,p.name from perfume_organizations o join publishing_houses p on p.id=o.organization_id
+      where o.work_id=${id}::uuid and o.role in ('perfume_house','brand')
+      order by case o.role when 'perfume_house' then 0 else 1 end,o.sort_order,p.id limit 1`),
+  );
+  const [perfumer] = resultRows<{ id: string; name: string }>(
+    await db.execute(sql`select a.id,a.name from work_credits c join authors a on a.id=c.person_id
+      where c.work_id=${id}::uuid and c.role_id='perfume.perfumer' order by c.sort_order,c.id limit 1`),
+  );
+  const shown = new Set([id]);
+  const excluded = () =>
+    sql`(${sql.join(
+      [...shown].map((s) => sql`${s}::uuid`),
+      sql`,`,
+    )})`;
+
+  const houseIds = house
+    ? await relatedIds(sql`select w.id from works w join perfume_organizations o on o.work_id=w.id
+        where w.kind='perfume' and o.organization_id=${house.id}::uuid and o.role in ('perfume_house','brand')
+          and w.id not in ${excluded()}
+        group by w.id,w.title order by lower(w.title),w.id limit ${limit}`)
+    : [];
+  houseIds.forEach((row) => shown.add(row.id));
+
+  const perfumerIds = perfumer
+    ? await relatedIds(sql`select w.id from works w where w.kind='perfume' and w.id not in ${excluded()} and (
+          exists(select 1 from work_credits c where c.work_id=w.id and c.role_id='perfume.perfumer' and c.person_id=${perfumer.id}::uuid)
+          or exists(select 1 from perfume_variant_perfumers p join perfume_variants v on v.id=p.variant_id where v.work_id=w.id and p.person_id=${perfumer.id}::uuid))
+        order by lower(w.title),w.id limit ${limit}`)
+    : [];
+  perfumerIds.forEach((row) => shown.add(row.id));
+
+  const descriptors = sql`select work_id,item_id from perfume_notes
+    union select t.work_id,t.item_id from custom_taxonomy_item_works t join works w on w.id=t.work_id and w.kind='perfume'
+    union select v.work_id,n.item_id from perfume_variant_notes n join perfume_variants v on v.id=n.variant_id
+    union select v.work_id,t.item_id from perfume_variant_taxa t join perfume_variants v on v.id=t.variant_id`;
+  const similar = await relatedIds(sql`with d as (${descriptors})
+    select t.work_id as id,jsonb_agg(i.name order by lower(i.name),i.id) as names
+    from d t join d m on m.item_id=t.item_id and m.work_id=${id}::uuid
+    join custom_taxonomy_items i on i.id=t.item_id
+    where t.work_id not in ${excluded()}
+    group by t.work_id having count(*)>=2
+    order by count(*) desc,t.work_id limit ${limit}`);
+
+  const [houseCards, perfumerCards, similarCards] = await Promise.all([
+    loadPerfumeCards(houseIds.map((row) => row.id)),
+    loadPerfumeCards(perfumerIds.map((row) => row.id)),
+    loadPerfumeCards(similar.map((row) => row.id)),
+  ]);
+  return {
+    house: house && houseCards.length ? { ...house, perfumes: houseCards } : null,
+    perfumer:
+      perfumer && perfumerCards.length
+        ? { ...perfumer, perfumes: perfumerCards }
+        : null,
+    similar: similarCards.map((card) => ({
+      ...card,
+      shared: similar.find((row) => row.id === card.id)?.names ?? [],
+    })),
+  };
+}
+
 async function loadVariants(
   workId: string,
   ids?: string[],
@@ -188,7 +348,8 @@ async function loadVariants(
     )
     .orderBy(asc(perfumeVariants.createdAt), asc(perfumeVariants.id));
   if (!rows.length) return [];
-  const [dates, overrides] = await Promise.all([
+  const variantIds = rows.map(({ variant }) => variant.id);
+  const [dates, overrides, images] = await Promise.all([
     loadDates(
       rows.flatMap(({ variant }) => [
         variant.releaseDateId,
@@ -198,12 +359,24 @@ async function loadVariants(
     db
       .select()
       .from(perfumeVariantOverrides)
+      .where(inArray(perfumeVariantOverrides.variantId, variantIds)),
+    // Each formulation's active image, when it has its own
+    db
+      .selectDistinctOn([media.perfumeVariantId], {
+        variantId: media.perfumeVariantId,
+        s3Key: media.s3Key,
+        thumbnailS3Key: media.thumbnailS3Key,
+        tone: sql<string | null>`${media.colorPalette}->'dominant'->>'hex'`,
+      })
+      .from(media)
       .where(
-        inArray(
-          perfumeVariantOverrides.variantId,
-          rows.map(({ variant }) => variant.id),
+        and(
+          inArray(media.perfumeVariantId, variantIds),
+          eq(media.type, "poster"),
+          eq(media.isActive, true),
         ),
-      ),
+      )
+      .orderBy(media.perfumeVariantId, desc(media.createdAt), asc(media.id)),
   ]);
   // Effective values come from the shared inheritance queries, one pair per
   // formulation of this fragrance.
@@ -213,8 +386,16 @@ async function loadVariants(
         loadPerfumeClassification(workId, variant.id),
         loadPerfumePerfumers(workId, variant.id),
       ]);
+      const image = images.find((row) => row.variantId === variant.id);
       return {
         ...variant,
+        image: image
+          ? {
+              s3Key: image.s3Key,
+              thumbnailS3Key: image.thumbnailS3Key,
+              tone: image.tone,
+            }
+          : null,
         releaseDate: storedDate(dates, variant.releaseDateId),
         discontinuedDate: storedDate(dates, variant.discontinuedDateId),
         overriddenFamilyIds: overrides
@@ -368,6 +549,48 @@ export async function getPerfumeBottle(id: string) {
 
 // ── Fragrance writes ─────────────────────────────────────────────────────────
 
+/** Another work took the slug between the check and the write. */
+function isSlugClash(error: unknown) {
+  let current = error as
+    | { code?: unknown; constraint?: unknown; constraint_name?: unknown; cause?: unknown }
+    | undefined;
+  for (let depth = 0; current && depth < 6; depth++) {
+    if (
+      current.code === "23505" &&
+      [current.constraint, current.constraint_name].includes("works_slug_unique")
+    )
+      return true;
+    current = current.cause as typeof current;
+  }
+  return false;
+}
+
+/**
+ * The address of a new perfume: `{title}-by-{house}` (or the title alone),
+ * numbered when taken, like a book's. If another work takes it during the
+ * write, the next free one is tried; the last try adds the perfume's id.
+ */
+async function perfumeSlug(
+  id: string,
+  title: string,
+  organizations: { organizationId: string; role: string }[],
+  attempt: number,
+) {
+  const house =
+    organizations.find((o) => o.role === "perfume_house") ??
+    organizations.find((o) => o.role === "brand");
+  const houseName = house
+    ? ((
+        await db.query.publishingHouses.findFirst({
+          where: eq(publishingHouses.id, house.organizationId),
+          columns: { name: true },
+        })
+      )?.name ?? "")
+    : "";
+  const base = generateWorkSlug(title, houseName, id);
+  return attempt < 2 ? uniqueSlug(works, base) : `${base}-${id}`;
+}
+
 /**
  * One transaction writes the fragrance and every section. A flanker is created
  * here as its own fragrance; sizes belong to containers, never to a new work.
@@ -380,26 +603,35 @@ export async function createPerfume(input: CreatePerfumeInput) {
   const id = randomUUID();
   const release = newDate(v.releaseDate),
     discontinued = newDate(v.discontinuedDate);
-  await write((d) => [
-    d.insert(works).values({
-      id,
-      kind: "perfume",
-      title: v.title,
-      slug: `${slugify(v.title) || "perfume"}-${id}`,
-      description: v.description || null,
-      originalLanguage: null,
-    }),
-    ...insertDates(d, [release, discontinued]),
-    d.insert(perfumeDetails).values({
-      workId: id,
-      releaseDateId: release?.id ?? null,
-      discontinuedDateId: discontinued?.id ?? null,
-    }),
-    ...insertOrganizations(d, id, v.organizations),
-    ...insertNotes(d, { workId: id }, v.notePyramid),
-    ...insertWorkTaxa(d, id, v.classificationItemIds),
-    ...insertCredits(d, id, v.credits, []),
-  ]);
+  for (let attempt = 0; ; attempt++) {
+    const slug = await perfumeSlug(id, v.title, v.organizations, attempt);
+    try {
+      await atomic((d) => [
+        d.insert(works).values({
+          id,
+          kind: "perfume",
+          title: v.title,
+          slug,
+          description: v.description || null,
+          originalLanguage: null,
+        }),
+        ...insertDates(d, [release, discontinued]),
+        d.insert(perfumeDetails).values({
+          workId: id,
+          releaseDateId: release?.id ?? null,
+          discontinuedDateId: discontinued?.id ?? null,
+        }),
+        ...insertOrganizations(d, id, v.organizations),
+        ...insertNotes(d, { workId: id }, v.notePyramid),
+        ...insertWorkTaxa(d, id, v.classificationItemIds),
+        ...insertCredits(d, id, v.credits, []),
+      ]);
+      break;
+    } catch (error) {
+      if (attempt < 2 && isSlugClash(error)) continue;
+      throw readableDatabaseError(error);
+    }
+  }
   changedCatalogue();
   return (await getPerfume(id))!;
 }
@@ -836,6 +1068,14 @@ export async function deletePerfumeVariant(id: string) {
 
 // ── Container writes ─────────────────────────────────────────────────────────
 
+/** The organization a container came from sells perfume: it is a retailer. */
+function supplierRole(d: Db, supplierId: string | null) {
+  return organizationRoleQueries(
+    d,
+    supplierId ? [{ organizationId: supplierId, role: "retailer" }] : [],
+  );
+}
+
 function bottleValues(
   record: ReturnType<typeof perfumeBottleRecordSchema.parse>,
   dates: { acquisitionDateId: string | null; dispositionDateId: string | null },
@@ -857,6 +1097,7 @@ export async function addPerfumeBottle(input: PerfumeBottleInput) {
   const acquisition = newDate(record.acquisitionDate),
     disposition = newDate(record.dispositionDate);
   await write((d) => [
+    ...supplierRole(d, record.supplierId),
     ...insertDates(d, [acquisition, disposition]),
     d.insert(perfumeBottles).values({
       id,
@@ -929,6 +1170,7 @@ export async function updatePerfumeBottle(
           ),
         ]
       : []),
+    ...supplierRole(d, record.supplierId),
     ...insertDates(d, [acquisition?.row, disposition?.row]),
     d
       .update(perfumeBottles)

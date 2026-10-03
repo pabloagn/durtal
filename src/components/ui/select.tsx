@@ -5,6 +5,7 @@ import {
   useRef,
   useEffect,
   useCallback,
+  useId,
   type ChangeEvent,
 } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
@@ -27,10 +28,12 @@ interface SelectProps {
   className?: string;
   required?: boolean;
   name?: string;
+  /** Names the field when no visible label does (a fieldset's legend shows it) */
+  ariaLabel?: string;
 }
 
 export function Select({
-  id,
+  id: idProp,
   label,
   error,
   options,
@@ -41,7 +44,11 @@ export function Select({
   className = "",
   required,
   name,
+  ariaLabel,
 }: SelectProps) {
+  // The label names the field through its id, so a field always has one
+  const generatedId = useId();
+  const id = idProp ?? generatedId;
   const [isOpen, setIsOpen] = useState(false);
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,6 +109,8 @@ export function Select({
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (disabled) return;
+    // ⌘Enter saves the form (shortcuts provider); keys with a modifier are not the list's
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     switch (e.key) {
       case "Enter":
@@ -168,6 +177,7 @@ export function Select({
           type="button"
           id={id}
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           disabled={disabled}

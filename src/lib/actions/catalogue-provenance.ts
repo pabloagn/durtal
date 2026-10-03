@@ -15,6 +15,7 @@ import {
 } from "@/lib/catalogue/provenance";
 import { stableStringify } from "@/lib/harmonization/normalize";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
+import { withReadableErrors } from "@/lib/db/errors";
 
 function ownerWhere(
   owner: SourceOwner,
@@ -72,6 +73,7 @@ const observationSchema = z
     attribution: z.string().trim().min(1).max(1000).nullable().default(null),
     retrievedAt: z.date(),
     verifiedAt: z.date().nullable().default(null),
+    reviewStatus: z.enum(["pending", "accepted", "rejected"]).default("pending"),
     payload: z.record(z.string(), z.json()),
   })
   .refine(
@@ -94,14 +96,76 @@ export async function recordSourceObservation(
   input: z.input<typeof observationSchema>,
 ) {
   const { owner, payload, ...fields } = observationSchema.parse(input);
-  const [row] = await db
-    .insert(sourceRecords)
-    .values({
-      ...ownerColumns(owner),
-      ...fields,
-      ...observationPayload(payload),
-    })
-    .returning();
+  // A refused row reaches the caller as its rule's message, never as SQL
+  const [row] = await withReadableErrors(() =>
+    db
+      .insert(sourceRecords)
+      .values({
+        ...ownerColumns(owner),
+        ...fields,
+        ...observationPayload(payload),
+      })
+      .returning(),
+  );
+  return row;
+}
+
+/** A source the user cites by hand: marked in its payload, so it can be told from a provider's. */
+const MANUAL_ENTRY = "manual";
+const citationSchema = z.object({
+  owner: sourceOwnerSchema,
+  url: sourceUrlSchema.nullable().default(null),
+  attribution: z.string().trim().min(1).max(1000),
+  /** The day the source was consulted */
+  retrievedOn: z.iso.date(),
+  note: z.string().trim().max(2000).nullable().default(null),
+});
+
+/**
+ * A source the user consulted: a website, a book, a box. Its provider is the
+ * website's host ("fragrantica.com"), or "manual" without a link. The user
+ * vouches for it, so it is accepted and verified as it is recorded.
+ */
+export async function citeSource(input: z.input<typeof citationSchema>) {
+  const v = citationSchema.parse(input);
+  const retrievedAt = new Date(`${v.retrievedOn}T00:00:00Z`);
+  // A user's "today" can be up to 14 hours ahead of UTC
+  const now = Date.now();
+  if (retrievedAt.getTime() > now + 14 * 3600_000)
+    throw new Error("The day consulted cannot be in the future");
+  const host = v.url
+    ? new URL(v.url).hostname.toLowerCase().replace(/^www\./, "")
+    : null;
+  return recordSourceObservation({
+    owner: v.owner,
+    provider: host && providerSchema.safeParse(host).success ? host : MANUAL_ENTRY,
+    url: v.url,
+    attribution: v.attribution,
+    retrievedAt,
+    verifiedAt: new Date(Math.max(now, retrievedAt.getTime())),
+    reviewStatus: "accepted",
+    payload: { entry: MANUAL_ENTRY, ...(v.note ? { note: v.note } : {}) },
+  });
+}
+
+/** Removes a source the user cited by hand, unless a record still cites it or it is locked. */
+export async function deleteCitedSource(id: string) {
+  z.uuid().parse(id);
+  const [row] = await withReadableErrors(
+    () =>
+      db
+        .delete(sourceRecords)
+        .where(
+          and(
+            eq(sourceRecords.id, id),
+            eq(sourceRecords.locked, false),
+            sql`${sourceRecords.payload}->>'entry'=${MANUAL_ENTRY}`,
+          ),
+        )
+        .returning({ id: sourceRecords.id }),
+    { reference: "A record still cites this source; choose another source there first" },
+  );
+  if (!row) throw new Error("Only an unlocked source you cited can be removed");
   return row;
 }
 

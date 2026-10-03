@@ -51,12 +51,21 @@ interface MediaItem {
 interface MediaManagerDialogProps {
   open: boolean;
   onClose: () => void;
-  /** Owner of the images: a work (poster, background, gallery) or a collection (poster, background) */
-  entityType?: "work" | "collection";
+  /**
+   * Owner of the images: a work (poster, background, gallery), a collection
+   * (poster, background) or a perfume formulation (image, gallery)
+   */
+  entityType?: "work" | "collection" | "perfume_variant";
   entityId: string;
   title: string;
   /** Which tab to open on: defaults to "poster" */
   initialTab?: TabType;
+  /**
+   * The frame of the main image. "square" (perfumes): the whole image is
+   * shown, never cropped, and it is called "Image"; such owners use no
+   * background.
+   */
+  slot?: "portrait" | "square";
 }
 
 const TABS: { key: TabType; label: string }[] = [
@@ -66,6 +75,11 @@ const TABS: { key: TabType; label: string }[] = [
 ];
 
 const COLLECTION_TABS = TABS.filter((tab) => tab.key !== "gallery");
+
+const SQUARE_TABS: { key: TabType; label: string }[] = [
+  { key: "poster", label: "Image" },
+  { key: "gallery", label: "Gallery" },
+];
 
 const ASPECT_CLASSES: Record<TabType, string> = {
   poster: "aspect-[2/3]",
@@ -85,8 +99,11 @@ export function MediaManagerDialog({
   entityId,
   title,
   initialTab = "poster",
+  slot = "portrait",
 }: MediaManagerDialogProps) {
-  const tabs = entityType === "collection" ? COLLECTION_TABS : TABS;
+  const square = slot === "square";
+  const tabs =
+    entityType === "collection" ? COLLECTION_TABS : square ? SQUARE_TABS : TABS;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -105,6 +122,8 @@ export function MediaManagerDialog({
   // Gallery images have no active one; clicking an image opens its details.
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const isGallery = activeTab === "gallery";
+  // What the open tab's images are called: "poster", or "image" in a square frame
+  const noun = square && activeTab === "poster" ? "image" : activeTab;
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -159,9 +178,9 @@ export function MediaManagerDialog({
       await fetchItems();
       router.refresh();
       triggerActivityRefresh();
-      toast.success(`Active ${activeTab} updated`);
+      toast.success(`Active ${noun} updated`);
     } catch {
-      toast.error(`Failed to set active ${activeTab}`);
+      toast.error(`Failed to set active ${noun}`);
     } finally {
       setSettingActive(null);
     }
@@ -241,17 +260,17 @@ export function MediaManagerDialog({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to add ${activeTab} from URL`);
+        throw new Error(data.error || `Failed to add ${noun} from URL`);
       }
 
       setUrl("");
-      toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} added`);
+      toast.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} added`);
       await fetchItems();
       router.refresh();
       triggerActivityRefresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : `Failed to add ${activeTab} from URL`,
+        err instanceof Error ? err.message : `Failed to add ${noun} from URL`,
       );
     } finally {
       setUrlLoading(false);
@@ -313,7 +332,7 @@ export function MediaManagerDialog({
                   </>
                 ) : (
                   <p className="py-3 text-sm text-fg-secondary">
-                    No active {activeTab}
+                    No active {noun}
                   </p>
                 )}
               </div>
@@ -323,7 +342,7 @@ export function MediaManagerDialog({
             {items.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-fg-secondary">
-                  {isGallery ? "Gallery images" : `All ${activeTab}s`}
+                  {isGallery ? "Gallery images" : `All ${noun}s`}
                   <span className="ml-1 font-mono text-fg-secondary">
                     ({items.length})
                   </span>
@@ -394,7 +413,7 @@ export function MediaManagerDialog({
                           disabled={isSettingThisActive || (item.isActive && !isGallery)}
                           aria-pressed={isGallery ? item.id === detailsId : undefined}
                           aria-label={isGallery ? `Image details: ${item.altText || item.originalFilename || "gallery image"}` : undefined}
-                          className={`relative w-full overflow-hidden rounded-sm border transition-all ${ASPECT_CLASSES[activeTab]} ${
+                          className={`relative w-full overflow-hidden rounded-sm border transition-all ${square && activeTab === "poster" ? "aspect-square bg-bg-tertiary" : ASPECT_CLASSES[activeTab]} ${
                             (item.isActive && !isGallery) || (isGallery && item.id === detailsId)
                               ? "ring-2 ring-accent-rose border-accent-rose/30"
                               : "border-glass-border hover:border-fg-muted/30"
@@ -403,7 +422,7 @@ export function MediaManagerDialog({
                           <img
                             src={thumbnailUrl(item)}
                             alt={item.altText || item.caption || item.originalFilename || "Media"}
-                            className="h-full w-full object-cover"
+                            className={`h-full w-full ${square ? "object-contain" : "object-cover"}`}
                           />
                           {/* Hover overlay for set active */}
                           {!isGallery && !item.isActive && (
@@ -456,7 +475,7 @@ export function MediaManagerDialog({
 
             {items.length === 0 && !loading && (
               <p className="py-4 text-center text-sm text-fg-secondary">
-                No {activeTab} images uploaded yet
+                {noun === "image" ? "No image uploaded yet" : `No ${noun} images uploaded yet`}
               </p>
             )}
 

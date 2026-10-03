@@ -34,6 +34,26 @@ describe("rendering images for a policy", () => {
     expect(await dimensions(out.full)).toEqual([2000, 1333, "webp"]);
     expect(await dimensions(out.thumb)).toEqual([1000, 667, "webp"]);
   });
+  it("keeps a cut-out bottle transparent and whole in the perfume's square frame", async () => {
+    // A tall bottle on a transparent background, as shops publish them
+    const cutout = await sharp(
+      Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1200"><rect x="200" y="100" width="200" height="1000" fill="#7a5c3e"/></svg>',
+      ),
+    )
+      .png()
+      .toBuffer();
+    for (const owner of [{ type: "work" as const, kind: "perfume" as const }, { type: "perfume_variant" as const }]) {
+      const out = await renderImage(cutout, imagePolicy(owner, "poster"));
+      expect(await dimensions(out.full)).toEqual([600, 1200, "webp"]);
+      const { data, info } = await sharp(out.full).raw().toBuffer({ resolveWithObject: true });
+      expect(info.channels).toBe(4);
+      // The corner stays see-through; the bottle stays opaque
+      expect(data[3]).toBe(0);
+      const middle = (600 * 600 + 300) * 4;
+      expect(data[middle + 3]).toBe(255);
+    }
+  });
   it("never enlarges a small image", async () => {
     const out = await renderImage(await fixture(400, 300), imagePolicy({ type: "art_object" }, "poster"));
     expect(await dimensions(out.full)).toEqual([400, 300, "webp"]);

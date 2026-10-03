@@ -7,7 +7,7 @@ import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
 
 interface UploadZoneProps {
-  entityType: "work" | "author" | "collection";
+  entityType: "work" | "author" | "collection" | "perfume_variant";
   entityId: string;
   mediaType: MediaType;
   onUploadComplete?: () => void;

@@ -3,6 +3,7 @@ import type { WorkKind } from "./kinds";
 import { FILM_SORTS } from "@/lib/validations/films";
 import { PAINTING_SORTS } from "@/lib/validations/paintings";
 import { PERFUME_SORTS } from "@/lib/validations/perfumes";
+import { PERFUME_FILTER_KEYS } from "./perfume-params";
 
 /** The sorts of the book list (`/library?sort=`). */
 export const BOOK_SORTS = [
@@ -23,7 +24,7 @@ const HOME_QUERY: Record<
     sorts: BOOK_SORTS,
     filters: ["status", "priority", "mark", "rare", "publisher", "rating", "location", "poster"],
   },
-  perfume: { sorts: PERFUME_SORTS, filters: [] },
+  perfume: { sorts: PERFUME_SORTS, filters: PERFUME_FILTER_KEYS },
   film: { sorts: FILM_SORTS, filters: [] },
   painting: { sorts: PAINTING_SORTS, filters: [] },
 };

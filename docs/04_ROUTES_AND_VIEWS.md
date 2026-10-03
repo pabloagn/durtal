@@ -18,7 +18,11 @@
 /tags                       Tag management
 /subjects                   Subject management
 /settings                   Application settings
-/perfumes, /films, /paintings   Homes of the other collections; 404 until each opens
+/perfumes                   Perfumes: the perfume collection's home
+/perfumes/new               Add a perfume
+/perfumes/[slug]            Perfume detail (slug format: {title}-by-{house});
+                            ?formulation={id} chooses one formulation
+/films, /paintings          Homes of the other collections; 404 until each opens
 ```
 
 A collection opens when `WORK_DOMAINS[kind].enabled` is true
@@ -147,16 +151,76 @@ the page offers it; any other value shows the grid.
 
 ---
 
-### Perfumes, Films, Paintings (`/perfumes`, `/films`, `/paintings`)
+### Perfumes (`/perfumes`)
+
+Reachable once perfumes open (see Route Map). `src/app/perfumes/page.tsx` shows
+the title, "Add perfume", the collection switch, search (titles and houses), the
+sorts (title, release, added, rating), grid and list views (saved:
+`durtal-perfumes-view-mode`, `durtal-perfumes-grid-columns`), paging, and the
+empty, no-results, loading and error states. An empty catalogue shows "No
+perfumes yet" with "Add perfume".
+
+Filters (`PerfumeFilters`, `src/components/perfumes/perfume-filters.tsx`) live
+in the URL, so a filtered home is a link. Several values of one key are a comma
+list; unknown or malformed values are dropped (`perfumeQueryFromParams`,
+`src/lib/catalogue/perfume-params.ts`):
+
+| Parameter | Matches |
+|-----------|---------|
+| `house`, `perfumer` | Organization or person ids; any one listed |
+| `family`, `accord`, `note` | Taxonomy item ids; all listed, a broader item takes in its narrower ones |
+| `concentration` | Concentrations made (`eau_de_parfum`, `extrait`, ...); any one listed |
+| `holding` | `owned` or `not_owned` (both: no filter) |
+| `container` | `bottle`, `sample`, `decant` held |
+| `favourite` | `1`: favourites only |
+| `from`, `to` | Release years (negative for BC); reversed years swap |
+
+A card (`PerfumeCard`) shows the bottle contained in a square frame over its
+own tone (or a flacon drawn from the title), the title on two fixed lines, the
+house, and the release year with the concentrations ("1925 · EDP · Extrait").
+Chips mark a favourite and the count held. The grid takes its cards per row from
+the size slider, inside an `@container`: a narrow page holds fewer
+(`COL_CLASSES`, `src/components/domains/domain-home-shell.tsx`), two on a phone.
+A list row (`PerfumeRow`) shows a small bottle, title, house and facts, and what
+is held (under the facts on a phone).
+
+### Perfume detail (`/perfumes/[slug]`)
+
+The hero has the bottle image (the chosen formulation's image, else the
+perfume's) and, beside the title, the favourite toggle and the action menu
+(Edit, Images, Delete) on the title's cap-height center. Under it: the house
+(a link to the home filtered by house), perfumers (links filtered by perfumer),
+creative direction, launch and discontinuation dates, manufacturer,
+concentrations, what is in the collection and the personal rating.
+
+Sections, in order: description (`Prose`); Notes (the pyramid: top, heart,
+base, then "Other"; edited in place); Families and accords; Formulations (each
+concentration as sold, with its own dates, perfumers, notes, families, accords
+and image; `?formulation=` chooses one and the facts and notes above show its
+own values); Bottles and samples (formulation, size, what is left, status,
+storage place, acquisition); Retailers (listings with recorded prices);
+Gallery; Sources (cited sources, and sources a reader adds); Your notes;
+related perfumes ("More from {house}", "More by {perfumer}", "Shared notes").
+
+Create and edit share `PerfumeForm`: title, houses (house, brand, manufacturer),
+people (perfumer, creative director, with "Unknown"), launch and
+discontinuation dates of any precision, description, and (on create) notes by
+position, families and accords. Dialogs add and edit formulations, bottles and
+samples, retailer listings and prices, and sources. A perfume with bottles,
+samples or listings cannot be deleted; the dialog says what to do first.
+Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
+in the house, people and note pickers; Escape closes a dialog.
+
+### Films, Paintings (`/films`, `/paintings`)
 
 Reachable once the collection opens (see Route Map). `DomainHome`
-(`src/components/domains/domain-home.tsx`) shows the title, "Add perfume" (film,
-painting), the collection switch, search, the collection's sorts, grid and list
-views (saved per collection: `durtal-perfumes-view-mode`), paging, and empty,
+(`src/components/domains/domain-home.tsx`) shows the title, "Add film" ("Add
+painting"), the collection switch, search, the collection's sorts, grid and list
+views (saved per collection: `durtal-films-view-mode`), paging, and empty,
 no-results, loading and error states. Records use `DomainTileCard` and
 `DomainTileRow`: the image in the collection's slot (contained, never cropped)
 or the title's first letter, the credited people and the years. Detail and
-domain-specific cards belong to the collection's own task (SLN-366 to SLN-368).
+domain-specific cards belong to the collection's own task (SLN-367, SLN-368).
 
 ### Work Detail (`/library/[slug]`)
 

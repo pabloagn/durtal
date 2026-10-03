@@ -97,6 +97,10 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     // would turn the valid wire value "true" into false.
     c.options.serializers[16] = (value: unknown) =>
       typeof value === "boolean" ? (value ? "t" : "f") : String(value);
+    // JSON parameters arrive as encoded text too: encoding them again would
+    // store a JSON string where Neon stores the object.
+    c.options.serializers[114] = c.options.serializers[3802] = (value: unknown) =>
+      typeof value === "string" ? value : JSON.stringify(value);
     // Use the actual Neon client and Drizzle driver. Only the HTTP endpoint is
     // replaced: its batch protocol executes against disposable PostgreSQL.
     // This verifies our driver path and SQL atomicity, not the hosted service.
@@ -213,6 +217,10 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
       retrievedAt: new Date("2026-01-01"),
       payload: { title: "Provider title" },
     });
+    // Stored as Neon stores it: a JSON object, not a JSON string
+    const [stored] =
+      await c`select jsonb_typeof(payload) as type from source_records where id=${observation.id}`;
+    expect(stored.type).toBe("object");
     requests.length = 0;
     const next = await refreshSourceObservation({
       id: observation.id,

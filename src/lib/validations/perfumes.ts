@@ -204,6 +204,8 @@ export const perfumeQuerySchema = z
      * a narrower item, on the fragrance or on one formulation.
      */
     taxonomyItemIds: z.array(z.uuid()).max(50).optional(),
+    /** Any of these as the concentration of one formulation. */
+    concentrations: z.array(z.enum(PERFUME_CONCENTRATIONS)).max(8).optional(),
     /** Release period overlaps these years; unknown releases never match. */
     releaseYearFrom: year.optional(),
     releaseYearTo: year.optional(),

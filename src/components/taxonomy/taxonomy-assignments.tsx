@@ -129,7 +129,7 @@ function FamilyAssignment({
           </span>
         ))}
         {searching ? (
-          <ItemSearch
+          <TaxonomyItemSearch
             family={family}
             exclude={new Set(items.map((item) => item.id))}
             onPick={(item) => {
@@ -160,15 +160,16 @@ function FamilyAssignment({
 
 /**
  * A bounded search over one family. The field is a `data-picker`, so ↑ ↓ and
- * Enter pick a choice (shortcuts provider); Escape closes it.
+ * Enter pick a choice (shortcuts provider); Escape closes it. Also used by
+ * the perfume note and classification editors.
  */
-function ItemSearch({
+export function TaxonomyItemSearch({
   family,
   exclude,
   onPick,
   onClose,
 }: {
-  family: Family;
+  family: Pick<Family, "slug" | "name">;
   exclude: Set<string>;
   onPick: (item: AssignedTaxonomyItem) => void;
   onClose: () => void;

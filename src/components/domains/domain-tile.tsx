@@ -1,8 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { DomainTile } from "@/lib/catalogue/domain-homes";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { FadeImage } from "@/components/shared/fade-image";
+import { Flacon, Monogram } from "@/components/shared/no-photo";
 
 /** Image slots per collection; images are contained, never cropped. */
 const SLOT_CLASSES = {
@@ -11,32 +12,32 @@ const SLOT_CLASSES = {
   native: "aspect-[4/5]",
 } as const;
 
-/** The record's image, or the first letter of its title, as book cards show. */
+/**
+ * The record's image, fading in over the frame's tone, or the collection's
+ * stand-in: a flacon for a perfume, the title's initials for the others.
+ */
 function TileImage({
+  kind,
   tile,
-  sizes,
-  letterClass,
+  small = false,
 }: {
+  kind: WorkKind;
   tile: DomainTile;
-  sizes: string;
-  letterClass: string;
+  /** A list thumbnail: the stand-in carries no lettering */
+  small?: boolean;
 }) {
-  return tile.imageUrl ? (
-    <Image
-      src={tile.imageUrl}
-      alt=""
-      fill
-      sizes={sizes}
-      className="object-contain"
-      unoptimized
-    />
-  ) : (
-    <div className="flex h-full items-center justify-center">
-      <span className={`font-serif text-fg-muted/30 ${letterClass}`}>
-        {tile.title.trim()[0]?.toUpperCase()}
-      </span>
-    </div>
-  );
+  if (tile.imageUrl)
+    return (
+      <FadeImage
+        src={tile.imageUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-contain"
+      />
+    );
+  if (kind === "perfume") return <Flacon name={tile.title} initials={!small} />;
+  return small ? null : <Monogram name={tile.title} />;
 }
 
 /** A record of any collection in a grid: image, title, credited people, date. */
@@ -53,13 +54,9 @@ export function DomainTileCard({
       className="group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
     >
       <div
-        className={`relative overflow-hidden bg-bg-primary ${SLOT_CLASSES[WORK_DOMAINS[kind].image.slot]}`}
+        className={`relative overflow-hidden bg-bg-tertiary ${SLOT_CLASSES[WORK_DOMAINS[kind].image.slot]}`}
       >
-        <TileImage
-          tile={tile}
-          sizes="(min-width: 1280px) 220px, (min-width: 768px) 180px, 45vw"
-          letterClass="text-3xl"
-        />
+        <TileImage kind={kind} tile={tile} />
       </div>
       <div className="p-3">
         {/* Fixed lines: every tile of a grid has the same height */}
@@ -74,14 +71,20 @@ export function DomainTileCard({
 }
 
 /** A record of any collection in a list: small image, title, people, date. */
-export function DomainTileRow({ tile }: { tile: DomainTile }) {
+export function DomainTileRow({
+  kind,
+  tile,
+}: {
+  kind: WorkKind;
+  tile: DomainTile;
+}) {
   return (
     <Link
       href={tile.href}
       className="flex items-start gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60"
     >
-      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-bg-primary">
-        <TileImage tile={tile} sizes="48px" letterClass="text-lg" />
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+        <TileImage kind={kind} tile={tile} small />
       </div>
       <div className="min-w-0 flex-1">
         <p className="type-item-title truncate">{tile.title}</p>

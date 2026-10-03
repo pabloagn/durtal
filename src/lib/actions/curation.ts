@@ -4,6 +4,7 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { withReadableErrors } from "@/lib/db/errors";
 import {
   curationOwnerSchema,
   curationPatchSchema,
@@ -52,7 +53,8 @@ export async function updateWorkCuration(input: {
     .string()
     .regex(/^[a-f0-9]{32}$/)
     .parse(input.fingerprint);
-  await atomic((d) => [
+  // A stale edit reaches the caller as its message, never as SQL
+  await withReadableErrors(() => atomic((d) => [
     d.execute(
       sql`select id from works where id=${owner.id}::uuid and kind=${owner.kind} for update`,
     ),
@@ -63,7 +65,7 @@ export async function updateWorkCuration(input: {
       ),
     ),
     ...curationQueries(d, owner, patch),
-  ]);
+  ]));
   if (hasCurationChanges(patch)) invalidate(CACHE_TAGS.works, CACHE_TAGS.recommenders);
   return (await getWorkCuration(owner))!;
 }

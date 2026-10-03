@@ -5,15 +5,24 @@ import { db } from "@/lib/db";
 import { perfumeRetailerLinks as links, perfumeRetailerObservations as observations, publishingHouses, venues } from "@/lib/db/schema";
 import { retailerLinkSchema, retailerObservationSchema, retailerObservationAge, type RetailerLinkInput, type RetailerObservationInput } from "@/lib/catalogue/retailers";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { atomic } from "@/lib/db/atomic";
+import { withReadableErrors } from "@/lib/db/errors";
+import { organizationRoleQueries } from "@/lib/catalogue/perfume-store";
 
 function changed() { invalidate(CACHE_TAGS.works, CACHE_TAGS.venues); }
+/** The organization that sells it becomes a retailer in the same write, if it is not one yet. */
 export async function addPerfumeRetailerLink(input: RetailerLinkInput) {
-  const [link] = await db.insert(links).values(retailerLinkSchema.parse(input)).returning();
+  const values = retailerLinkSchema.parse(input);
+  const results = await withReadableErrors(() => atomic((d) => [
+    ...organizationRoleQueries(d, [{ organizationId: values.organizationId, role: "retailer" }]),
+    d.insert(links).values(values).returning(),
+  ]), { unique: "This retailer already lists this perfume at this address" });
+  const [link] = results[results.length - 1] as (typeof links.$inferSelect)[];
   changed(); return link;
 }
 export async function recordRetailerObservation(input: RetailerObservationInput) {
   const parsed = retailerObservationSchema.parse(input);
-  const [observation] = await db.insert(observations).values({ ...parsed, checkedAt: new Date(parsed.checkedAt) }).returning();
+  const [observation] = await withReadableErrors(() => db.insert(observations).values({ ...parsed, checkedAt: new Date(parsed.checkedAt) }).returning());
   changed(); return observation;
 }
 export async function archivePerfumeRetailerLink(id: string, archived = true) {
@@ -24,7 +33,10 @@ export async function archivePerfumeRetailerLink(id: string, archived = true) {
 }
 export async function deletePerfumeRetailerLink(id: string) {
   z.uuid().parse(id);
-  const [row] = await db.delete(links).where(eq(links.id, id)).returning({ id: links.id });
+  const [row] = await withReadableErrors(
+    () => db.delete(links).where(eq(links.id, id)).returning({ id: links.id }),
+    { reference: "This listing has recorded prices, which stay as history; archive it instead" },
+  );
   if (!row) throw new Error("Retailer link not found");
   changed(); return row;
 }

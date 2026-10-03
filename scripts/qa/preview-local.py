@@ -34,7 +34,8 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 DATABASE = "durtal_preview"
 
-BRIDGE = """
+# Raw: the JavaScript below keeps its backslashes
+BRIDGE = r"""
 import postgres from %(postgres)s;
 const connection = new URL(process.env.DATABASE_URL || "http://invalid");
 if (!["localhost", "127.0.0.1"].includes(connection.hostname) || connection.pathname !== "/%(database)s")
@@ -42,8 +43,19 @@ if (!["localhost", "127.0.0.1"].includes(connection.hostname) || connection.path
 const client = postgres(connection.toString(), { host: "127.0.0.1", max: 5, onnotice: () => {}, idle_timeout: 5 });
 // Neon sends parameters as PostgreSQL text; keep booleans as text too.
 client.options.serializers[16] = (v) => (typeof v === "boolean" ? (v ? "t" : "f") : String(v));
-const encode = (value) =>
-  value === null ? null : value instanceof Date ? value.toISOString()
+// JSON arrives already encoded as text; encoding it again would store a JSON
+// string instead of the object (jsonb_typeof 'string').
+client.options.serializers[114] = client.options.serializers[3802] = (v) => (typeof v === "string" ? v : JSON.stringify(v));
+// Each value back in PostgreSQL's text form, as Neon sends it: JSON columns as
+// JSON (a JSON string too), arrays as {...} literals, dates in ISO.
+const element = (value) =>
+  value === null ? "NULL" : Array.isArray(value) ? `{${value.map(element).join(",")}}`
+  : `"${String(value instanceof Date ? value.toISOString() : value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+const encode = (value, type) =>
+  value === null ? null
+  : type === 114 || type === 3802 ? JSON.stringify(value)
+  : Array.isArray(value) ? element(value)
+  : value instanceof Date ? value.toISOString()
   : typeof value === "object" ? JSON.stringify(value)
   : typeof value === "boolean" ? (value ? "t" : "f") : String(value);
 const upstream = globalThis.fetch;
@@ -59,7 +71,7 @@ globalThis.fetch = async (input, options) => {
         output.push({
           command: rows.command, rowCount: rows.count,
           fields: (rows.columns ?? []).map((c) => ({ name: c.name, dataTypeID: c.type })),
-          rows: rows.map((row) => row.map(encode)),
+          rows: rows.map((row) => row.map((value, i) => encode(value, rows.columns?.[i]?.type))),
         });
       }
       return output;
@@ -97,6 +109,8 @@ insert into venues(name,slug,type) values ('Shakespeare and Company','shakespear
 """
 
 SNAPSHOT = """
+-- A backup of an earlier rehearsal already holds a copy: this one replaces it
+drop schema if exists rehearsal_before cascade;
 create schema rehearsal_before;
 do $$ declare t text; begin
   for t in select tablename from pg_tables where schemaname = 'public' loop

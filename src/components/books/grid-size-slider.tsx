@@ -11,6 +11,7 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
       <span className="text-micro text-fg-secondary">Size</span>
       <input
         type="range"
+        aria-label="Grid size: cards per row"
         min={2}
         max={8}
         value={value}

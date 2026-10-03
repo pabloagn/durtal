@@ -465,14 +465,18 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
   if (storage.columns.has("scope_notes"))
     values.scope_notes = parsed.description ?? null;
   const fields = Object.entries(values);
-  await db.execute(
-    sql`insert into ${sql.identifier(storage.table)} (${sql.join(
-      fields.map(([key]) => sql.identifier(key)),
-      sql`,`,
-    )}) values (${sql.join(
-      fields.map(([, value]) => sql`${value}`),
-      sql`,`,
-    )})`,
+  await withReadableErrors(
+    () =>
+      db.execute(
+        sql`insert into ${sql.identifier(storage.table)} (${sql.join(
+          fields.map(([key]) => sql.identifier(key)),
+          sql`,`,
+        )}) values (${sql.join(
+          fields.map(([, value]) => sql`${value}`),
+          sql`,`,
+        )})`,
+      ),
+    { unique: "This family already has an item with this name" },
   );
   changed();
   return { id, ...parsed, slug: values.slug as string };
@@ -713,7 +717,8 @@ export async function replaceTaxonomyAssignments(input: {
     throw new Error("Taxonomy family has no assignment store at this level");
   const ids = [...new Set(parsed.itemIds)];
   const owner = parsed.level === "work" ? works : editions;
-  await atomic((d) => [
+  // A refused change reaches the caller as its rule's message, never as SQL
+  await withReadableErrors(() => atomic((d) => [
     d.execute(
       sql`select id from ${owner} where id=${parsed.ownerId}::uuid for update`,
     ),
@@ -754,7 +759,7 @@ export async function replaceTaxonomyAssignments(input: {
           ),
         ]
       : []),
-  ]);
+  ]));
   changed();
   return { ownerId: parsed.ownerId };
 }

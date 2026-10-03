@@ -4,12 +4,14 @@ import type { z } from "zod";
 import { db } from "@/lib/db";
 import {
   works,
+  organizationRoles,
   perfumeNotes,
   perfumeOrganizations,
   perfumeVariantNotes,
   perfumeVariantPerfumers,
   perfumeVariantTaxa,
 } from "@/lib/db/schema";
+import type { NON_PUBLISHING_ROLES } from "./organizations";
 import { dateFromColumns } from "./dates";
 import { orderWithin, uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
@@ -19,7 +21,7 @@ import type {
   perfumeOrganizationInputSchema,
   perfumeQuerySchema,
 } from "@/lib/validations/perfumes";
-import type { variantPerfumerSchema } from "./perfumes";
+import type { PERFUME_CONCENTRATIONS, variantPerfumerSchema } from "./perfumes";
 
 /** Perfume works always carry their typed profile. */
 export const perfumeDomain = sql`${works.kind} = 'perfume' and exists(select 1 from perfume_details pd where pd.work_id = ${works.id})`;
@@ -53,6 +55,30 @@ export function bottleFingerprint(id: SQL) {
 }
 // ── Section writers (built on the transaction connection) ────────────────────
 
+/**
+ * Naming an organization as a house, brand, manufacturer or retailer gives it
+ * that role, in the same write: the database requires the role, and the user
+ * chose it. A role it already has stays as it is; no other role is added.
+ */
+export function organizationRoleQueries(
+  d: Db,
+  list: { organizationId: string; role: (typeof NON_PUBLISHING_ROLES)[number] }[],
+) {
+  const unique = [
+    ...new Map(list.map((o) => [`${o.organizationId}:${o.role}`, o])).values(),
+  ];
+  return unique.length
+    ? [
+        d
+          .insert(organizationRoles)
+          .values(
+            unique.map(({ organizationId, role }) => ({ organizationId, role })),
+          )
+          .onConflictDoNothing(),
+      ]
+    : [];
+}
+
 export function insertOrganizations(
   d: Db,
   workId: string,
@@ -60,6 +86,7 @@ export function insertOrganizations(
 ) {
   return list.length
     ? [
+        ...organizationRoleQueries(d, list),
         d.insert(perfumeOrganizations).values(
           orderWithin(list, (o) => o.role).map((o) => ({ ...o, workId })),
         ),
@@ -162,6 +189,13 @@ export function perfumeWhere(q: PerfumeQuery): SQL | undefined {
     );
   for (const itemId of new Set(q.taxonomyItemIds ?? []))
     conditions.push(taxonomyMatch(itemId));
+  if (q.concentrations?.length)
+    conditions.push(
+      sql`exists(select 1 from perfume_variants v where v.work_id=${works.id} and v.concentration in (${sql.join(
+        q.concentrations.map((c) => sql`${c}`),
+        sql`,`,
+      )}))`,
+    );
   if (q.releaseYearFrom !== undefined || q.releaseYearTo !== undefined)
     conditions.push(
       sql`exists(select 1 from perfume_details pd join catalogue_dates rd on rd.id=pd.release_date_id
@@ -197,6 +231,11 @@ export async function loadPerfumeCards(ids: string[]) {
     releaseDate: Parameters<typeof dateFromColumns>[0] | null;
     organizations: { id: string; name: string; slug: string | null; role: string }[];
     perfumers: { id: string | null; name: string | null }[];
+    /** Each formulation's concentration, oldest first */
+    formulations: {
+      concentration: (typeof PERFUME_CONCENTRATIONS)[number] | null;
+      concentrationLabel: string | null;
+    }[];
     holdings: { bottles: number; samples: number; decants: number };
     poster: {
       s3Key: string;
@@ -204,6 +243,8 @@ export async function loadPerfumeCards(ids: string[]) {
       cropX: number;
       cropY: number;
       cropZoom: number;
+      /** The image's main color, for its frame while it loads */
+      tone: string | null;
     } | null;
   }>(
     await db.execute(sql`select w.id,w.slug,w.title,w.rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
@@ -214,10 +255,13 @@ export async function loadPerfumeCards(ids: string[]) {
         from perfume_organizations o join publishing_houses p on p.id=o.organization_id where o.work_id=w.id),'[]') as organizations,
       coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'name',coalesce(c.credited_as,a.name)) order by c.sort_order,c.id)
         from work_credits c left join authors a on a.id=c.person_id where c.work_id=w.id and c.role_id='perfume.perfumer'),'[]') as perfumers,
+      coalesce((select jsonb_agg(jsonb_build_object('concentration',v.concentration,'concentrationLabel',v.concentration_label) order by v.created_at,v.id)
+        from perfume_variants v where v.work_id=w.id),'[]') as formulations,
       (select jsonb_build_object('bottles',count(*) filter (where b.container='bottle'),'samples',count(*) filter (where b.container='sample'),
         'decants',count(*) filter (where b.container='decant'))
         from perfume_bottles b join perfume_variants v on v.id=b.variant_id where v.work_id=w.id and b.status<>'disposed') as holdings,
-      (select jsonb_build_object('s3Key',m.s3_key,'thumbnailS3Key',m.thumbnail_s3_key,'cropX',m.crop_x,'cropY',m.crop_y,'cropZoom',m.crop_zoom)
+      (select jsonb_build_object('s3Key',m.s3_key,'thumbnailS3Key',m.thumbnail_s3_key,'cropX',m.crop_x,'cropY',m.crop_y,'cropZoom',m.crop_zoom,
+        'tone',m.color_palette->'dominant'->>'hex')
         from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.created_at desc,m.id limit 1) as poster
       from works w join perfume_details d on d.work_id=w.id left join catalogue_dates rd on rd.id=d.release_date_id
       where w.kind='perfume' and w.id in (${uuids(ids)})`),

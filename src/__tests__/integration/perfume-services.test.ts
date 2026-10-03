@@ -176,7 +176,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
 
   it("creates a fragrance with every section in one transaction and reads it back", async () => {
     const perfume = await fullPerfume();
-    expect(perfume.slug).toBe(`no-5-${perfume.id}`);
+    expect(perfume.slug).toBe("no-5-by-chanel");
     expect(perfume.releaseDate?.value).toMatchObject({ precision: "year", start: { year: 1921 } });
     expect(perfume.organizations.map((o) => o.role)).toEqual(["perfume_house", "manufacturer"]);
     expect(perfume.credits.map((credit) => credit.personId)).toEqual([people.beaux, people.director]);
@@ -205,9 +205,18 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
         classificationItemIds: [items.rose],
       }),
     ).rejects.toThrow(/^Use positioned perfume notes instead of generic taxonomy assignment$/);
+    // Naming Guerlain as manufacturer gives it that role in the same write: a
+    // late failure takes the role back with everything else
     await expect(
-      createPerfume({ title: "No role", organizations: [{ organizationId: orgs.guerlain, role: "manufacturer" }] }),
-    ).rejects.toThrow(/^Organization does not have the required manufacturer role$/);
+      createPerfume({
+        title: "New role",
+        organizations: [{ organizationId: orgs.guerlain, role: "manufacturer" }],
+        classificationItemIds: [items.rose],
+      }),
+    ).rejects.toThrow(/^Use positioned perfume notes instead of generic taxonomy assignment$/);
+    expect(
+      await c`select 1 from organization_roles where organization_id=${orgs.guerlain} and role='manufacturer'`,
+    ).toHaveLength(0);
     for (const table of ["works", "perfume_details", "catalogue_dates", "perfume_organizations", "perfume_notes", "work_credits"])
       expect(await c`select 1 from ${c(table)}`, table).toHaveLength(0);
   });

@@ -77,8 +77,12 @@ editing a typed date creates and references a replacement, so another record can
 silently acquire changed dates. Profile/formulation work identity cannot be changed
 through ordinary updates.
 
-The perfume services (`src/lib/actions/perfumes.ts`, SLN-357) own each date value
-they create. In the same transaction as an edit or deletion, they remove a replaced
+The perfume services (`src/lib/actions/perfumes.ts`, SLN-357) add the organization
+role a link needs (house, brand or manufacturer; retailer for a supplier or a
+listing) in the same transaction as the link, so choosing an organization never
+fails on a missing role; the database still checks every link.
+
+The perfume services own each date value they create. In the same transaction as an edit or deletion, they remove a replaced
 value once no column in `CATALOGUE_DATE_REFERENCES` (`src/lib/catalogue/dates.ts`)
 still points at it. An integration test keeps that list equal to the database's
 foreign keys to `catalogue_dates`; a new referencing column must be added there.
@@ -468,7 +472,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
 | `kind` | `work_kind_enum` | NOT NULL, default `book`; immutable; currently book-only CHECK | Stable domain identity, independent of work-type taxonomy |
-| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug. Books: `{title}-by-{author}`, with `-2`, `-3`... when taken; it follows the title and primary author, so a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`, books only). Other domains: `{title}-{uuid}`, unchanged by renames. Old slugs do not redirect |
+| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug. Books: `{title}-by-{author}`, with `-2`, `-3`... when taken; it follows the title and primary author, so a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`, books only). Perfumes: `{title}-by-{house}` (the house, else the brand; `{title}` with neither), with `-2`, `-3`... when taken, set at creation and unchanged by renames. Films and paintings: `{title}-{uuid}`, unchanged by renames. Old slugs do not redirect |
 | `original_language` | TEXT | nullable, default `'en'`; required for books and null for other domains (`works_language_domain_check`) | Language code; stored form set by trigger (see `languages`). An absent value stays absent |
 | `original_year` | SMALLINT | nullable | Year of first publication |
 | `description` | TEXT | nullable | Synopsis or summary |
