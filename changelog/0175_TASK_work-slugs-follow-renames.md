@@ -1,7 +1,7 @@
 # Task 0175: Work slugs follow renames
 
 **Status**: Completed
-**Created**: 2026-10-04
+**Created**: 2026-10-03
 **Priority**: MEDIUM
 **Type**: Fix
 **Depends On**: 0174
