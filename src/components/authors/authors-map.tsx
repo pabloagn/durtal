@@ -31,6 +31,7 @@ import {
   type MapAuthorLeaf,
 } from "@/lib/utils/map-groups";
 import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality-param";
+import { displayYear } from "@/lib/utils/years";
 
 interface AuthorProperties {
   id: string;
@@ -211,7 +212,9 @@ const unclusteredPointLayer: CircleLayer = {
 
 function lifeYears(birthYear: number | null, deathYear: number | null): string {
   if (birthYear == null) return "";
-  return deathYear != null ? `${birthYear}–${deathYear}` : `${birthYear}`;
+  return deathYear != null
+    ? `${displayYear(birthYear)}–${displayYear(deathYear)}`
+    : displayYear(birthYear);
 }
 
 function CloseButton({ onClick }: { onClick: () => void }) {

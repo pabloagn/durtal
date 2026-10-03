@@ -6,6 +6,7 @@ import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
+import { displayYear } from "@/lib/utils/years";
 
 type PosterCrop = MediaCrop;
 
@@ -49,7 +50,7 @@ export function AuthorCard({
   onSelect,
 }: AuthorCardProps) {
   const years = birthYear
-    ? `${birthYear}–${deathYear ?? ""}`
+    ? `${displayYear(birthYear)}–${deathYear ? displayYear(deathYear) : ""}`
     : null;
 
 

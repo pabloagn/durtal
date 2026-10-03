@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { displayYear } from "@/lib/utils/years";
 
 type PosterCrop = MediaCrop;
 
@@ -41,7 +42,7 @@ export function AuthorListItem({
   onSelect,
 }: AuthorListItemProps) {
   const years = birthYear
-    ? `${birthYear}–${deathYear ?? ""}`
+    ? `${displayYear(birthYear)}–${deathYear ? displayYear(deathYear) : ""}`
     : null;
 
   function handleRowClick(e: React.MouseEvent) {

@@ -1,29 +1,10 @@
 /**
  * Wikidata for publishing houses (SLN-330): search and read items through
- * the Action API (www.wikidata.org/w/api.php), which stays up when the
- * query service is rate-limited. Calls go one at a time, a little apart,
- * with a time limit, and every answer is kept in a cache the caller saves,
- * so a dry run and the apply that follows read the same answers.
+ * the shared Action API client (src/lib/wikidata/api.ts).
  */
-import {
-  ExternalFetchError,
-  fetchWithTimeout,
-  serialThrottle,
-} from "@/lib/api/external-fetch";
+import { searchItems, wikidataApi, type SearchHit } from "@/lib/wikidata/api";
 
-const API = "https://www.wikidata.org/w/api.php";
-const HEADERS = {
-  "User-Agent": "Durtal personal catalogue (publisher enrichment)",
-  Accept: "application/json",
-};
-// One call every two seconds; a 429 waits as long as Wikidata asks
-const polite = serialThrottle(2000);
-
-export interface SearchHit {
-  id: string;
-  label: string | null;
-  description: string | null;
-}
+export { searchItems, type SearchHit };
 
 /** The facts this enrichment reads from one item */
 export interface WikidataItem {
@@ -56,58 +37,6 @@ export interface WikidataCache {
   items: Record<string, WikidataItem>;
 }
 
-async function api(params: Record<string, string>) {
-  return polite(async () => {
-    const url = `${API}?${new URLSearchParams({ ...params, format: "json", maxlag: "15" })}`;
-    for (let attempt = 0; ; attempt++) {
-      const res = await fetchWithTimeout(url, { headers: HEADERS }, 20000);
-      if (res.status === 429 && attempt < 8) {
-        const wait = (Number(res.headers.get("retry-after")) || 30) + 1;
-        console.error(`[wikidata] 429: waiting ${wait} s`);
-        await new Promise((r) => setTimeout(r, wait * 1000));
-        continue;
-      }
-      if (!res.ok)
-        throw new ExternalFetchError(`www.wikidata.org answered ${res.status}`, res.status);
-      const data = await res.json();
-      // maxlag: the servers are behind; wait, then try again
-      if (data?.error?.code === "maxlag" && attempt < 40) {
-        console.error("[wikidata] servers lagging: waiting 30 s");
-        await new Promise((r) => setTimeout(r, 30000));
-        continue;
-      }
-      if (data?.error) throw new Error(`Wikidata: ${data.error.info ?? data.error.code}`);
-      return data;
-    }
-  });
-}
-
-/** Items whose English label or alias starts with the text */
-export async function searchItems(
-  text: string,
-  cache: WikidataCache,
-): Promise<SearchHit[]> {
-  const key = text.trim().toLowerCase();
-  if (cache.search[key]) return cache.search[key];
-  const data = await api({
-    action: "wbsearchentities",
-    search: text,
-    language: "en",
-    uselang: "en",
-    type: "item",
-    limit: "10",
-  });
-  const hits: SearchHit[] = (data.search ?? []).map(
-    (r: { id: string; label?: string; description?: string }) => ({
-      id: r.id,
-      label: r.label ?? null,
-      description: r.description ?? null,
-    }),
-  );
-  cache.search[key] = hits;
-  return hits;
-}
-
 type Snak = { mainsnak?: { datavalue?: { value?: unknown } }; rank?: string };
 
 function values(claims: Record<string, Snak[]> | undefined, property: string) {
@@ -138,11 +67,11 @@ export async function getItems(
 ): Promise<Record<string, WikidataItem>> {
   const missing = [...new Set(wanted)].filter((id) => !cache.items[id]);
   for (let i = 0; i < missing.length; i += 50) {
-    const data = await api({
+    const data = await wikidataApi({
       action: "wbgetentities",
       ids: missing.slice(i, i + 50).join("|"),
       props: "labels|descriptions|aliases|claims|sitelinks",
-      languages: "en",
+      languages: "en|mul",
       sitefilter: "enwiki",
     });
     for (const [id, e] of Object.entries(
@@ -150,15 +79,23 @@ export async function getItems(
     )) {
       if ("missing" in e) continue;
       const claims = e.claims as Record<string, Snak[]> | undefined;
-      const text = (field: string) =>
-        ((e[field] as Record<string, { value: string }> | undefined)?.en?.value ?? null);
+      // Many names now live only in "mul", the label for all languages
+      const text = (field: string) => {
+        const terms = e[field] as Record<string, { value: string }> | undefined;
+        return terms?.en?.value ?? terms?.mul?.value ?? null;
+      };
       cache.items[id] = {
         id,
         label: text("labels"),
         description: text("descriptions"),
-        aliases: (
-          (e.aliases as Record<string, { value: string }[]> | undefined)?.en ?? []
-        ).map((a) => a.value),
+        aliases: [
+          ...new Set(
+            [
+              ...((e.aliases as Record<string, { value: string }[]> | undefined)?.en ?? []),
+              ...((e.aliases as Record<string, { value: string }[]> | undefined)?.mul ?? []),
+            ].map((a) => a.value),
+          ),
+        ],
         classes: ids(claims, "P31"),
         superclasses: ids(claims, "P279"),
         countries: ids(claims, "P17"),

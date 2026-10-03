@@ -16,6 +16,7 @@ import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
+import { displayYear } from "@/lib/utils/years";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -63,9 +64,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   // Life dates display
   const lifeDates = (() => {
     if (!author.birthYear) return null;
-    const birth = `${author.birthYearIsApproximate ? "c. " : ""}${author.birthYear}`;
+    const birth = `${author.birthYearIsApproximate ? "c. " : ""}${displayYear(author.birthYear)}`;
     const death = author.deathYear
-      ? `${author.deathYearIsApproximate ? "c. " : ""}${author.deathYear}`
+      ? `${author.deathYearIsApproximate ? "c. " : ""}${displayYear(author.deathYear)}`
       : "";
     return `${birth} - ${death}`;
   })();
