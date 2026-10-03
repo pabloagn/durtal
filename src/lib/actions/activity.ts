@@ -3,7 +3,11 @@
 import { db } from "@/lib/db";
 import { activityEvents } from "@/lib/db/schema";
 import { comments } from "@/lib/db/schema";
-import { eq, and, desc, lt, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, getTableColumns } from "drizzle-orm";
+import {
+  decodeActivityCursor,
+  encodeActivityCursor,
+} from "@/lib/activity/cursor";
 
 export interface TimelineItem {
   id: string;
@@ -35,25 +39,38 @@ export async function getActivityTimeline(
   entityId: string,
   limit = 20,
   cursor?: string,
-): Promise<{ events: TimelineItem[]; hasMore: boolean }> {
+): Promise<{ events: TimelineItem[]; hasMore: boolean; nextCursor: string | null }> {
   const conditions = [
     eq(activityEvents.entityType, entityType),
     eq(activityEvents.entityId, entityId),
   ];
 
-  if (cursor) {
-    conditions.push(lt(activityEvents.createdAt, new Date(cursor)));
+  // Keyset on (created_at, id): events that share a timestamp are never
+  // skipped or repeated at a page edge.
+  const after = cursor ? decodeActivityCursor(cursor) : null;
+  if (after) {
+    conditions.push(
+      sql`(${activityEvents.createdAt}, ${activityEvents.id}) < (${after.createdAt}::timestamptz, ${after.id}::uuid)`,
+    );
   }
 
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(activityEvents),
+      cursorCreatedAt: sql<string>`${activityEvents.createdAt}::text`,
+    })
     .from(activityEvents)
     .where(and(...conditions))
-    .orderBy(desc(activityEvents.createdAt))
+    .orderBy(desc(activityEvents.createdAt), desc(activityEvents.id))
     .limit(limit + 1);
 
   const hasMore = rows.length > limit;
   const events = rows.slice(0, limit);
+  const last = events[events.length - 1];
+  const nextCursor =
+    hasMore && last
+      ? encodeActivityCursor({ createdAt: last.cursorCreatedAt, id: last.id })
+      : null;
 
   // Collect comment IDs for comment events
   const commentIds = events
@@ -109,5 +126,5 @@ export async function getActivityTimeline(
     };
   });
 
-  return { events: timeline, hasMore };
+  return { events: timeline, hasMore, nextCursor };
 }
