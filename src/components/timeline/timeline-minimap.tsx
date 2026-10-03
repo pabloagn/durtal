@@ -11,7 +11,7 @@ interface TimelineMinimapProps {
   items?: Array<{ year: number }>;
 }
 
-const HEIGHT = 28;
+export const MINIMAP_HEIGHT = 28;
 const INDICATOR_MIN_WIDTH = 8;
 
 export function TimelineMinimap({
@@ -117,7 +117,7 @@ export function TimelineMinimap({
   return (
     <div
       style={{
-        height: HEIGHT,
+        height: MINIMAP_HEIGHT,
         position: "relative",
         cursor: "pointer",
         userSelect: "none",

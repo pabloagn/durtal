@@ -205,11 +205,7 @@ export function TimelineAxis({
               <text
                 x={screenX + 4}
                 y={centuryLabelY}
-                fill="var(--color-fg-primary)"
-                fontSize="14"
-                fontFamily="var(--font-serif)"
-                fontWeight="600"
-                style={{ userSelect: "none" }}
+                className="select-none fill-fg-primary font-serif text-xs font-semibold"
               >
                 {formatCentury(year)}
               </text>
@@ -217,11 +213,7 @@ export function TimelineAxis({
               <text
                 x={screenX + 4}
                 y={axisY - 2}
-                fill="var(--color-fg-secondary)"
-                fontSize="12"
-                fontFamily="var(--font-mono)"
-                opacity={0.8}
-                style={{ userSelect: "none" }}
+                className="select-none fill-fg-secondary font-mono text-micro"
               >
                 {formatYear(year)}
               </text>
@@ -249,10 +241,7 @@ export function TimelineAxis({
               <text
                 x={screenX + 3}
                 y={decadeLabelY}
-                fill="var(--color-fg-muted)"
-                fontSize="11"
-                fontFamily="var(--font-sans)"
-                style={{ userSelect: "none" }}
+                className="select-none fill-fg-secondary font-sans text-micro"
               >
                 {formatYear(year)}
               </text>
@@ -280,11 +269,7 @@ export function TimelineAxis({
               <text
                 x={screenX + 2}
                 y={decadeLabelY}
-                fill="var(--color-fg-muted)"
-                fontSize="9"
-                fontFamily="var(--font-sans)"
-                opacity={0.7}
-                style={{ userSelect: "none" }}
+                className="select-none fill-fg-secondary font-sans text-micro"
               >
                 {formatYear(year)}
               </text>

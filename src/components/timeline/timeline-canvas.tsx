@@ -17,7 +17,7 @@ import {
 } from "./use-timeline-transform";
 import { TimelineAxis, AXIS_HEADER_HEIGHT } from "./timeline-axis";
 import { TimelineZoomControls } from "./timeline-zoom-controls";
-import { TimelineMinimap } from "./timeline-minimap";
+import { TimelineMinimap, MINIMAP_HEIGHT } from "./timeline-minimap";
 import { TIMELINE_ERAS } from "./timeline-eras";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -56,15 +56,9 @@ interface EraFillsProps {
   minYear: number;
   pixelsPerYear: number;
   transform: TimelineTransform;
-  contentHeight: number;
 }
 
-function EraFills({
-  minYear,
-  pixelsPerYear,
-  transform,
-  contentHeight,
-}: EraFillsProps) {
+function EraFills({ minYear, pixelsPerYear, transform }: EraFillsProps) {
   return (
     <>
       {TIMELINE_ERAS.map((era) => {
@@ -82,7 +76,7 @@ function EraFills({
               top: 0,
               left: screenStart,
               width: Math.max(0, screenWidth),
-              height: contentHeight,
+              height: "100%",
               backgroundColor: era.color,
               opacity: 0.04,
               pointerEvents: "none",
@@ -101,6 +95,12 @@ interface TimelineCanvasProps {
   minYear: number;
   maxYear: number;
   pixelsPerYear?: number;
+  /**
+   * Height of the rows. The canvas fills its parent (give the parent a
+   * height) and scrolls through the rows under the sticky axis, with the
+   * minimap and zoom controls pinned to its bottom edge.
+   */
+  contentHeight: number;
   className?: string;
 }
 
@@ -109,6 +109,7 @@ export function TimelineCanvas({
   minYear,
   maxYear,
   pixelsPerYear = 20,
+  contentHeight,
   className = "",
 }: TimelineCanvasProps) {
   const {
@@ -252,15 +253,13 @@ export function TimelineCanvas({
 
   // ── Context value ─────────────────────────────────────────────────────────
 
-  const contentHeight = Math.max(0, containerSize.height - AXIS_HEADER_HEIGHT);
-
   const contextValue: TimelineCanvasContext = {
     transform,
     minYear,
     maxYear,
     pixelsPerYear,
     containerWidth: containerSize.width,
-    containerHeight: contentHeight,
+    containerHeight: Math.max(0, containerSize.height - AXIS_HEADER_HEIGHT),
     zoomIn,
     zoomOut,
     resetView,
@@ -280,11 +279,15 @@ export function TimelineCanvas({
     WebkitUserSelect: "none",
   };
 
-  // Content area sits below the axis header
+  // Content area sits below the axis header. It is as tall as the rows, and at
+  // least as tall as the space above the minimap, so the minimap and zoom
+  // controls come after the rows and never cover them.
   const contentAreaStyle: CSSProperties = {
     position: "relative",
     left: 0,
     right: 0,
+    height: contentHeight,
+    minHeight: `calc(100% - ${AXIS_HEADER_HEIGHT + MINIMAP_HEIGHT}px)`,
     transform: "translate3d(0, 0, 0)",
     willChange: "transform",
   };
@@ -314,37 +317,18 @@ export function TimelineCanvas({
         {/* Content area below axis header */}
         <div style={contentAreaStyle}>
           {/* Era background fills */}
-          {contentHeight > 0 && (
-            <EraFills
-              minYear={minYear}
-              pixelsPerYear={pixelsPerYear}
-              transform={transform}
-              contentHeight={contentHeight}
-            />
-          )}
+          <EraFills
+            minYear={minYear}
+            pixelsPerYear={pixelsPerYear}
+            transform={transform}
+          />
 
           {/* Main content layer */}
           {children}
         </div>
 
-        {/* Zoom controls — bottom-right corner, above minimap */}
-        <div
-          style={{
-            position: "sticky",
-            bottom: 44,
-            float: "right",
-            marginRight: 12,
-            zIndex: 30,
-          }}
-        >
-          <TimelineZoomControls
-            onZoomIn={zoomIn}
-            onZoomOut={zoomOut}
-            onReset={resetView}
-          />
-        </div>
-
-        {/* Minimap — pinned to the bottom */}
+        {/* Minimap — pinned to the bottom, with the zoom controls above its
+            right end */}
         <div
           style={{
             position: "sticky",
@@ -354,6 +338,19 @@ export function TimelineCanvas({
             zIndex: 30,
           }}
         >
+          <div
+            style={{
+              position: "absolute",
+              right: 12,
+              bottom: MINIMAP_HEIGHT + 16,
+            }}
+          >
+            <TimelineZoomControls
+              onZoomIn={zoomIn}
+              onZoomOut={zoomOut}
+              onReset={resetView}
+            />
+          </div>
           <TimelineMinimap
             minYear={minYear}
             maxYear={maxYear}

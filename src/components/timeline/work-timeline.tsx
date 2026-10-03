@@ -1,16 +1,19 @@
 "use client";
 
-import {
-  useState,
-  useCallback,
-  useMemo,
-  type CSSProperties,
-} from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Star } from "lucide-react";
 import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
-import { WorkTimelineMarker, MARKER_LANE_HEIGHT } from "./work-timeline-marker";
+import {
+  WorkTimelineMarker,
+  LABEL_ROOM,
+  MARKER_LANE_HEIGHT,
+  labelWidth,
+} from "./work-timeline-marker";
+import { Badge } from "@/components/ui/badge";
 import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
+import { STATUS_CONFIG } from "@/lib/constants/catalogue";
+import type { CatalogueStatus } from "@/lib/types";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -18,8 +21,6 @@ import { mediaImageStyle } from "@/lib/utils/media-style";
 const PIXELS_PER_YEAR = 20;
 const LANE_GAP = 8;
 const TOTAL_LANE_H = MARKER_LANE_HEIGHT + LANE_GAP;
-/** Space at the bottom for the axis label row + minimap strip */
-const BOTTOM_CHROME_HEIGHT = 68;
 
 // ── Lane-packing algorithm ───────────────────────────────────────────────────
 
@@ -31,13 +32,15 @@ function packIntoLanes(
   const laneEnds: number[] = [];
   const assignments = new Map<string, number>();
 
+  // At scale 1, works in one lane are at least LABEL_ROOM apart, so their
+  // labels fit side by side
   for (const work of sorted) {
-    const workLeft = work.originalYear * pixelsPerYear - 30;
+    const workLeft = work.originalYear * pixelsPerYear - LABEL_ROOM / 2;
     const editionRights = work.editions.map(
       (e) => (e.publicationYear ?? work.originalYear) * pixelsPerYear + 10,
     );
     const workRight = Math.max(
-      work.originalYear * pixelsPerYear + 30,
+      work.originalYear * pixelsPerYear + LABEL_ROOM / 2,
       ...editionRights,
     );
 
@@ -54,36 +57,47 @@ function packIntoLanes(
   return assignments;
 }
 
-// ── Catalogue status pill ────────────────────────────────────────────────────
+/**
+ * For each work, the distance at scale 1 to the nearest work in its lane
+ * (Infinity when it is alone). Its labels get `labelWidth(distance × scale)`.
+ */
+function laneGaps(
+  works: WorkTimelineItem[],
+  lanes: Map<string, number>,
+  pixelsPerYear: number,
+): Map<string, number> {
+  const byLane = new Map<number, WorkTimelineItem[]>();
+  for (const work of works) {
+    const lane = lanes.get(work.id) ?? 0;
+    byLane.set(lane, [...(byLane.get(lane) ?? []), work]);
+  }
+  const gaps = new Map<string, number>();
+  for (const row of byLane.values()) {
+    row.sort((a, b) => a.originalYear - b.originalYear);
+    row.forEach((work, i) => {
+      const prev = row[i - 1];
+      const next = row[i + 1];
+      gaps.set(
+        work.id,
+        Math.min(
+          prev ? (work.originalYear - prev.originalYear) * pixelsPerYear : Infinity,
+          next ? (next.originalYear - work.originalYear) * pixelsPerYear : Infinity,
+        ),
+      );
+    });
+  }
+  return gaps;
+}
 
-const STATUS_COLORS: Record<string, string> = {
-  accessioned: "var(--color-accent-sage)",
-  wanted: "var(--color-accent-rose)",
-  shortlisted: "var(--color-accent-gold)",
-  tracked: "var(--color-accent-slate)",
-  on_order: "var(--color-accent-blue)",
-  deaccessioned: "var(--color-fg-muted)",
-};
+// ── Catalogue status ─────────────────────────────────────────────────────────
 
+/** The same label and color as the status everywhere else in the app */
 function StatusBadge({ status }: { status: string }) {
-  const color = STATUS_COLORS[status] ?? "var(--color-fg-muted)";
+  const config = STATUS_CONFIG[status as CatalogueStatus];
   return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "1px 5px",
-        borderRadius: 2,
-        fontSize: 9,
-        fontFamily: "var(--font-sans)",
-        backgroundColor: `${color}22`,
-        color,
-        border: `1px solid ${color}44`,
-        textTransform: "capitalize",
-        letterSpacing: "0.04em",
-      }}
-    >
-      {status.replace("_", " ")}
-    </span>
+    <Badge variant={config?.variant ?? "muted"} className="self-start">
+      {config?.label ?? status.replace("_", " ")}
+    </Badge>
   );
 }
 
@@ -152,15 +166,7 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <span
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: 20,
-              color: "var(--color-fg-muted)",
-              opacity: 0.4,
-              userSelect: "none",
-            }}
-          >
+          <span className="select-none font-serif text-lg leading-none text-fg-secondary">
             {work.title[0]}
           </span>
         )}
@@ -169,43 +175,19 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
       {/* Meta */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
         {/* Title */}
-        <span
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: 13,
-            color: "var(--color-fg-primary)",
-            lineHeight: 1.3,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
+        <span className="line-clamp-2 font-serif text-xs leading-snug text-fg-primary">
           {work.title}
         </span>
 
         {/* Author */}
         {work.authorName && (
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: "var(--font-sans)",
-              color: "var(--color-fg-secondary)",
-            }}
-          >
+          <span className="font-sans text-micro text-fg-secondary">
             {work.authorName}
           </span>
         )}
 
         {/* Year */}
-        <span
-          style={{
-            fontSize: 10,
-            fontFamily: "var(--font-mono)",
-            color: "var(--color-fg-muted)",
-            letterSpacing: "0.02em",
-          }}
-        >
+        <span className="font-mono text-micro tracking-wide text-fg-secondary">
           {work.originalYear}
         </span>
 
@@ -217,15 +199,7 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
 
         {/* Editions */}
         {editionsText && (
-          <span
-            style={{
-              fontSize: 9,
-              fontFamily: "var(--font-sans)",
-              color: "var(--color-fg-muted)",
-              lineHeight: 1.5,
-              marginTop: 2,
-            }}
-          >
+          <span className="mt-0.5 font-sans text-micro leading-normal text-fg-secondary">
             {editionsText}
           </span>
         )}
@@ -239,6 +213,7 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
 interface InnerContentProps {
   works: WorkTimelineItem[];
   laneAssignments: Map<string, number>;
+  gaps: Map<string, number>;
   totalLanes: number;
   minYear: number;
   hoveredId: string | null;
@@ -248,6 +223,7 @@ interface InnerContentProps {
 function InnerContent({
   works,
   laneAssignments,
+  gaps,
   totalLanes,
   minYear,
   hoveredId,
@@ -293,6 +269,7 @@ function InnerContent({
             x={screenX}
             y={screenY}
             scale={scale}
+            labelW={labelWidth((gaps.get(work.id) ?? Infinity) * scale)}
             isHovered={hoveredId === work.id}
             onHover={onHover}
             scaledPixelsPerYear={pixelsPerYear * scale}
@@ -355,28 +332,23 @@ export function WorkTimeline({ works }: WorkTimelineProps) {
     return Math.max(...Array.from(laneAssignments.values())) + 1;
   }, [laneAssignments]);
 
-  // Canvas height: all lanes plus bottom chrome (axis + minimap)
-  const rowsHeight = totalLanes * TOTAL_LANE_H + 8; // 8 top padding
-  const canvasHeight = rowsHeight + BOTTOM_CHROME_HEIGHT;
+  const gaps = useMemo(
+    () => laneGaps(works, laneAssignments, PIXELS_PER_YEAR),
+    [works, laneAssignments],
+  );
 
-  const outerStyle: CSSProperties = {
-    width: "100%",
-    height: "100%",
-    overflowY: "auto",
-    overflowX: "hidden",
-  };
+  // All lanes, with 8px above (each lane ends with its 8px gap)
+  const rowsHeight = totalLanes * TOTAL_LANE_H + 8;
 
   if (works.length === 0) {
     return (
       <div
+        className="font-sans text-xs text-fg-secondary"
         style={{
           height: 400,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontFamily: "var(--font-sans)",
-          fontSize: 13,
         }}
       >
         No works with publication years to display.
@@ -386,25 +358,24 @@ export function WorkTimeline({ works }: WorkTimelineProps) {
 
   return (
     <>
-      <div style={outerStyle}>
-        <div style={{ width: "100%", height: canvasHeight }}>
-          <TimelineCanvas
-            minYear={minYear}
-            maxYear={maxYear}
-            pixelsPerYear={PIXELS_PER_YEAR}
-            className="h-full w-full"
-          >
-            <InnerContent
-              works={works}
-              laneAssignments={laneAssignments}
-              totalLanes={totalLanes}
-              minYear={minYear}
-              hoveredId={hoveredId}
-              onHover={handleHover}
-            />
-          </TimelineCanvas>
-        </div>
-      </div>
+      {/* The canvas fills its parent and scrolls through the lanes */}
+      <TimelineCanvas
+        minYear={minYear}
+        maxYear={maxYear}
+        pixelsPerYear={PIXELS_PER_YEAR}
+        contentHeight={rowsHeight}
+        className="h-full w-full"
+      >
+        <InnerContent
+          works={works}
+          laneAssignments={laneAssignments}
+          gaps={gaps}
+          totalLanes={totalLanes}
+          minYear={minYear}
+          hoveredId={hoveredId}
+          onHover={handleHover}
+        />
+      </TimelineCanvas>
 
       {/* Fixed-position tooltip */}
       <TimelineTooltip
