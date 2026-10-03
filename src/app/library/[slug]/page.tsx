@@ -9,6 +9,7 @@ import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { ArrowLeft, Star, Route, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
@@ -430,39 +431,41 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Year and rating */}
-              <div className="mt-2 flex flex-wrap items-center gap-3">
+              {/* Year and rating. The row carries the year's type: icons
+                  and buttons sit on its cap-height center */}
+              {/* py-1: the 28px buttons fit in the row, which keeps its height */}
+              <div className="mt-2 flex flex-wrap items-start gap-3 py-1 font-mono text-xs">
                 {work.originalYear && (
-                  <span className="font-mono text-xs text-fg-secondary">
-                    {work.originalYear}
-                  </span>
+                  <span className="text-fg-secondary">{work.originalYear}</span>
                 )}
                 {work.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star
-                      className="h-3 w-3 text-accent-gold"
-                      strokeWidth={1.5}
-                      fill="currentColor"
-                    />
-                    <span className="font-mono text-xs text-accent-gold">
-                      {work.rating}/5
-                    </span>
+                  <div className="flex items-start gap-1">
+                    <CapAligned height={12}>
+                      <Star
+                        className="block h-3 w-3 text-accent-gold"
+                        strokeWidth={1.5}
+                        fill="currentColor"
+                      />
+                    </CapAligned>
+                    <span className="text-accent-gold">{work.rating}/5</span>
                   </div>
                 )}
                 {/* Marks: one group; the negative margin cancels the
                     buttons' padding so every icon sits 12px from its neighbour */}
-                <div
-                  role="group"
-                  aria-label={MARKS_LABEL}
-                  className="-mx-1.5 flex items-center"
-                >
-                  <HuntAssessmentControl
-                    workId={work.id}
-                    isRare={work.isRare}
-                    huntAssessedOn={work.huntAssessedOn}
-                  />
-                  <PoisonToggle workId={work.id} isPoison={work.isPoison} />
-                </div>
+                <CapAligned height={28}>
+                  <div
+                    role="group"
+                    aria-label={MARKS_LABEL}
+                    className="-mx-1.5 flex items-center"
+                  >
+                    <HuntAssessmentControl
+                      workId={work.id}
+                      isRare={work.isRare}
+                      huntAssessedOn={work.huntAssessedOn}
+                    />
+                    <PoisonToggle workId={work.id} isPoison={work.isPoison} />
+                  </div>
+                </CapAligned>
                 <BookLinks
                   goodreadsUrl={work.goodreadsUrl}
                   storygraphUrl={work.storygraphUrl}
