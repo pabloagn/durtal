@@ -14,6 +14,8 @@ import {
   ACQUISITION_TYPES,
   DISPOSITION_TYPES,
 } from "@/lib/types/index";
+import type { AppSettings } from "@/lib/actions/settings";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
 
 export interface InstanceDraft {
   locationId: string;
@@ -88,23 +90,26 @@ interface LocationOption {
   subLocations: { id: string; name: string }[];
 }
 
-/** Preferred location order — locations matching earlier entries sort first. */
-const PREFERRED_LOCATIONS = ["amsterdam", "mexico city"];
+/**
+ * A new copy's draft: the format, condition and location new copies start
+ * with (Settings, General). An empty string is "none".
+ */
+export function newCopyDraft(
+  settings: Pick<AppSettings, "newCopyFormat" | "newCopyCondition">,
+  locationId = "",
+): InstanceDraft {
+  return {
+    ...EMPTY_INSTANCE,
+    format: settings.newCopyFormat ?? "",
+    condition: settings.newCopyCondition ?? "",
+    locationId,
+  };
+}
 
-function sortLocations(locs: LocationOption[]): LocationOption[] {
-  return [...locs].sort((a, b) => {
-    const aName = a.name.toLowerCase();
-    const bName = b.name.toLowerCase();
-    const aIdx = PREFERRED_LOCATIONS.findIndex((p) => aName.includes(p));
-    const bIdx = PREFERRED_LOCATIONS.findIndex((p) => bName.includes(p));
-    // Both preferred: sort by preference order
-    if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
-    // Only one preferred: it goes first
-    if (aIdx >= 0) return -1;
-    if (bIdx >= 0) return 1;
-    // Neither preferred: keep original order
-    return 0;
-  });
+/** The default location (Settings, General) first; the others keep their order. */
+function sortLocations(locs: LocationOption[], defaultId: string | null): LocationOption[] {
+  if (!defaultId) return locs;
+  return [...locs].sort((a, b) => Number(b.id === defaultId) - Number(a.id === defaultId));
 }
 
 interface InstanceFormProps {
@@ -155,7 +160,8 @@ export function InstanceForm({
     onChange({ ...value, [field]: v });
   }
 
-  const sortedLocations = sortLocations(locations);
+  const { newCopyLocationId } = useAppSettings();
+  const sortedLocations = sortLocations(locations, newCopyLocationId);
   const selectedLocation = locations.find((l) => l.id === value.locationId);
   const subLocations = selectedLocation?.subLocations ?? [];
   const isDigitalFormat = ["ebook", "pdf", "epub", "audiobook"].includes(

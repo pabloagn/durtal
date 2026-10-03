@@ -41,9 +41,6 @@ export const CURRENCY_SELECT_OPTIONS = CURRENCIES.map((c) => ({
 
 export const CURRENCY_CODES: readonly string[] = CURRENCIES.map((c) => c.code);
 
-/** localStorage key for the last currency picked in an order dialog. */
-export const PREFERRED_CURRENCY_KEY = "durtal:preferred-currency";
-
 export function isSupportedCurrency(
   code: string | null | undefined,
 ): code is string {
@@ -52,23 +49,4 @@ export function isSupportedCurrency(
 
 export function currencySymbol(code: string | null | undefined): string | null {
   return CURRENCIES.find((c) => c.code === code)?.symbol ?? null;
-}
-
-/** Last currency used in an order dialog, or the default. Browser only. */
-export function preferredCurrency(): string {
-  if (typeof window === "undefined") return DEFAULT_CURRENCY;
-  try {
-    const stored = localStorage.getItem(PREFERRED_CURRENCY_KEY);
-    return isSupportedCurrency(stored) ? stored : DEFAULT_CURRENCY;
-  } catch {
-    return DEFAULT_CURRENCY;
-  }
-}
-
-export function rememberCurrency(code: string): void {
-  try {
-    localStorage.setItem(PREFERRED_CURRENCY_KEY, code);
-  } catch {
-    // Storage can be blocked; the default still applies next time.
-  }
 }

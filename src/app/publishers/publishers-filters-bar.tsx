@@ -10,6 +10,7 @@ import {
   type AnyFilterGroup,
 } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 /** Offered only while a search is active; it is then the default sort */
 const RELEVANCE_SORT = { value: "relevance", label: "Best match" };
@@ -20,7 +21,7 @@ const SORT_OPTIONS = [
   { value: "recent", label: "Recent" },
 ];
 
-export const PUBLISHER_VIEW_MODES: ViewMode[] = ["grid", "list", "detailed"];
+export const PUBLISHER_VIEW_MODES: ViewMode[] = LIST_PREFERENCES.publishers.view.modes;
 
 /** URL params (besides the search term) that filter the publisher list */
 export const PUBLISHER_FILTER_PARAMS = ["favourites", "kind", "country"];
@@ -36,12 +37,12 @@ export function PublishersFiltersBar({ countries }: { countries: string[] }) {
   const isSearching = !!searchParams.get("q")?.trim();
 
   const [viewMode, setViewMode] = usePreference<ViewMode>(
-    "durtal-publishers-view-mode",
-    "grid",
+    LIST_PREFERENCES.publishers.view.key,
+    LIST_PREFERENCES.publishers.view.fallback,
   );
   const [gridColumns, setGridColumns] = usePreference(
-    "durtal-publishers-grid-columns",
-    4,
+    LIST_PREFERENCES.publishers.grid.key,
+    LIST_PREFERENCES.publishers.grid.fallback,
   );
 
   const activeFilters: Record<string, string[]> = {

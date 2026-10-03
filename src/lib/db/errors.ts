@@ -60,3 +60,8 @@ export async function withReadableErrors<T>(
     throw readableDatabaseError(error, messages);
   }
 }
+
+/** The PostgreSQL error code behind an error, such as "42P01" (no such table), or null. */
+export function databaseErrorCode(error: unknown): string | null {
+  return databaseCause(error)?.code ?? null;
+}

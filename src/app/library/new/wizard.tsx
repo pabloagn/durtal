@@ -24,9 +24,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   InstanceForm,
-  EMPTY_INSTANCE,
+  newCopyDraft,
   type InstanceDraft,
 } from "@/components/books/instance-form";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { languageName, normalizeLanguage } from "@/lib/utils/language";
@@ -54,7 +55,7 @@ import {
 import { getCollections } from "@/lib/actions/collections";
 import {
   draftsToCreate,
-  pickDefaultLocationId,
+  newCopyLocationId,
 } from "@/lib/utils/instance-drafts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -124,6 +125,8 @@ const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
 
 export function AddBookWizard() {
   const router = useRouter();
+  // Defaults for the new book and its copies (Settings, General)
+  const appSettings = useAppSettings();
   const [isPending, startTransition] = useTransition();
   const fastTrackInFlight = useRef(false);
   const [fastTrackSaving, setFastTrackSaving] = useState(false);
@@ -169,11 +172,11 @@ export function AddBookWizard() {
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [originalYear, setOriginalYear] = useState("");
-  const [originalLanguage, setOriginalLanguage] = useState("en");
+  const [originalLanguage, setOriginalLanguage] = useState(appSettings.newBookLanguage);
   const [description, setDescription] = useState("");
   const [seriesName, setSeriesName] = useState("");
   const [seriesPosition, setSeriesPosition] = useState("");
-  const [catalogueStatus, setCatalogueStatus] = useState("tracked");
+  const [catalogueStatus, setCatalogueStatus] = useState<string>(appSettings.newBookStatus);
   const [acquisitionPriority, setAcquisitionPriority] = useState("none");
   const [selectedRecommenderIds, setSelectedRecommenderIds] = useState<string[]>([]);
   const [allRecommenders, setAllRecommenders] = useState<{ id: string; name: string }[]>([]);
@@ -185,7 +188,7 @@ export function AddBookWizard() {
   const [isbnClash, setIsbnClash] = useState<string | null>(null);
   const [publisher, setPublisher] = useState("");
   const [publicationYear, setPublicationYear] = useState("");
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState(appSettings.newBookLanguage);
   const [pageCount, setPageCount] = useState("");
   const [binding, setBinding] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
@@ -195,8 +198,8 @@ export function AddBookWizard() {
   const [metadataSourceId, setMetadataSourceId] = useState("");
 
   // Instance drafts
-  const [instanceDrafts, setInstanceDrafts] = useState<InstanceDraft[]>([
-    { ...EMPTY_INSTANCE },
+  const [instanceDrafts, setInstanceDrafts] = useState<InstanceDraft[]>(() => [
+    newCopyDraft(appSettings),
   ]);
   // True when the user chose to skip copies: no copy is created on submit,
   // whatever the drafts hold (the book is not owned yet).
@@ -273,7 +276,9 @@ export function AddBookWizard() {
         })),
       }));
       setLocations(mappedLocations);
-      setDefaultLocationId(pickDefaultLocationId(mappedLocations));
+      setDefaultLocationId(
+        newCopyLocationId(mappedLocations, appSettings.newCopyLocationId),
+      );
       setSubjects(subs.map((s) => ({ id: s.id, name: s.name })));
       setGenres(gens.map((g) => ({ id: g.id, name: g.name })));
       setTags(tgs.map((t) => ({ id: t.id, name: t.name })));
@@ -291,7 +296,7 @@ export function AddBookWizard() {
       setKeywords(kwds.map((k) => ({ id: k.id, name: k.name })));
       setAttributes(attrs.map((a) => ({ id: a.id, name: a.name })));
     });
-  }, [step, refDataLoaded]);
+  }, [step, refDataLoaded, appSettings.newCopyLocationId]);
 
   // Pre-select the default location only on the copies step. Filling it on
   // later steps would turn an untouched draft into a copy the user skipped.
@@ -336,12 +341,12 @@ export function AddBookWizard() {
     setTitle(result.title);
     setAuthorName(result.authors[0] ?? "");
     setOriginalYear(String(result.publicationYear ?? ""));
-    setOriginalLanguage(normalizeLanguage(result.language) ?? "en");
+    setOriginalLanguage(normalizeLanguage(result.language) ?? appSettings.newBookLanguage);
     setDescription(stripHtmlToText(result.description ?? ""));
     setIsbn13(result.isbn13 ?? "");
     setPublisher(result.publisher ?? "");
     setPublicationYear(String(result.publicationYear ?? ""));
-    setLanguage(normalizeLanguage(result.language) ?? "en");
+    setLanguage(normalizeLanguage(result.language) ?? appSettings.newBookLanguage);
     setPageCount(String(result.pageCount ?? ""));
     setBinding(result.binding ?? "");
     setCoverUrl(result.coverUrl ?? "");
@@ -556,7 +561,7 @@ export function AddBookWizard() {
   }
 
   function addInstance() {
-    setInstanceDrafts((prev) => [...prev, { ...EMPTY_INSTANCE }]);
+    setInstanceDrafts((prev) => [...prev, newCopyDraft(appSettings, defaultLocationId)]);
   }
 
   // ── Step progress ────────────────────────────────────────────────────────

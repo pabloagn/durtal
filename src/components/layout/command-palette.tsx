@@ -21,6 +21,7 @@ import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/sho
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
 import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
+import { SETTINGS_SECTIONS } from "@/components/settings/sections";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -47,6 +48,13 @@ const NAVIGATION_ITEMS: PaletteItem[] = NAV_SECTIONS.map((item) => {
     then: true,
   };
 });
+
+/** The parts of Settings past its first (General, which is "Settings" above): found by search */
+const SETTINGS_ITEMS: PaletteItem[] = SETTINGS_SECTIONS.slice(1).map((section) => ({
+  label: `Settings: ${section.label}`,
+  icon: section.icon,
+  href: section.href,
+}));
 
 const ACTION_ITEMS: PaletteItem[] = [
   ...ADD.map((a) => ({
@@ -137,7 +145,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     ? filterBySearch(ACTION_ITEMS, trimmed, (i) => i.label)
     : ACTION_ITEMS;
   const navigationItems = trimmed
-    ? filterBySearch(NAVIGATION_ITEMS, trimmed, (i) => i.label)
+    ? filterBySearch([...NAVIGATION_ITEMS, ...SETTINGS_ITEMS], trimmed, (i) => i.label)
     : NAVIGATION_ITEMS;
   const firstValue =
     (results.works[0] && `work:${results.works[0].id}`) ||

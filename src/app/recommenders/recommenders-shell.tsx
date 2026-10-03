@@ -16,6 +16,7 @@ import {
 } from "@/components/recommenders/recommender-card";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { RECOMMENDER_VIEW_MODES } from "./recommenders-filters-bar";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 export function RecommendersShell({
   recommenders,
@@ -27,13 +28,16 @@ export function RecommendersShell({
   const searchParams = useSearchParams();
   // Written by RecommendersFiltersBar; kept in sync through usePreference
   const [storedViewMode] = usePreference<ViewMode>(
-    "durtal-recommenders-view-mode",
-    "grid",
+    LIST_PREFERENCES.recommenders.view.key,
+    LIST_PREFERENCES.recommenders.view.fallback,
   );
   const viewMode = RECOMMENDER_VIEW_MODES.includes(storedViewMode)
     ? storedViewMode
     : "grid";
-  const [gridColumns] = usePreference("durtal-recommenders-grid-columns", 4);
+  const [gridColumns] = usePreference(
+    LIST_PREFERENCES.recommenders.grid.key,
+    LIST_PREFERENCES.recommenders.grid.fallback,
+  );
 
   if (pagination.total === 0) {
     return (

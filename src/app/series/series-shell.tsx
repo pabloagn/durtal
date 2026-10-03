@@ -16,6 +16,7 @@ import {
 } from "@/components/series/series-card";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { SERIES_VIEW_MODES } from "./series-filters-bar";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 export function SeriesShell({
   series,
@@ -26,13 +27,16 @@ export function SeriesShell({
 }) {
   const searchParams = useSearchParams();
   const [storedViewMode] = usePreference<ViewMode>(
-    "durtal-series-view-mode",
-    "grid",
+    LIST_PREFERENCES.series.view.key,
+    LIST_PREFERENCES.series.view.fallback,
   );
   const viewMode = SERIES_VIEW_MODES.includes(storedViewMode)
     ? storedViewMode
     : "grid";
-  const [gridColumns] = usePreference("durtal-series-grid-columns", 4);
+  const [gridColumns] = usePreference(
+    LIST_PREFERENCES.series.grid.key,
+    LIST_PREFERENCES.series.grid.fallback,
+  );
 
   if (pagination.total === 0)
     return (

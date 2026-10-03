@@ -24,6 +24,7 @@ import {
   PUBLISHER_FILTER_PARAMS,
   PUBLISHER_VIEW_MODES,
 } from "./publishers-filters-bar";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 const ALL_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", defaultVisible: true, defaultOrder: 0 },
@@ -112,15 +113,18 @@ export function PublishersShell({
 
   // Written by PublishersFiltersBar; kept in sync through usePreference
   const [storedViewMode] = usePreference<ViewMode>(
-    "durtal-publishers-view-mode",
-    "grid",
+    LIST_PREFERENCES.publishers.view.key,
+    LIST_PREFERENCES.publishers.view.fallback,
   );
   const viewMode = PUBLISHER_VIEW_MODES.includes(storedViewMode)
     ? storedViewMode
     : "grid";
-  const [gridColumns] = usePreference("durtal-publishers-grid-columns", 4);
+  const [gridColumns] = usePreference(
+    LIST_PREFERENCES.publishers.grid.key,
+    LIST_PREFERENCES.publishers.grid.fallback,
+  );
   const [columnConfig, setColumnConfig] = usePreference(
-    "durtal-publishers-column-config",
+    LIST_PREFERENCES.publishers.columns.key,
     DEFAULT_COLUMN_CONFIG,
   );
 

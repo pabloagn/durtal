@@ -14,6 +14,7 @@ import { CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CoverCrop } from "@/components/books/book-card";
 import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 // Dynamic import — timeline pulls in canvas + WebGL-adjacent code; skip SSR
 const WorkTimeline = dynamic(
@@ -65,13 +66,13 @@ interface LibraryShellProps {
 
 export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryShellProps) {
   const [viewMode] = useViewModePreference(
-    "durtal-view-mode",
+    LIST_PREFERENCES.library.view.key,
     LIBRARY_VIEW_MODES,
-    "grid",
+    LIST_PREFERENCES.library.view.fallback,
   );
   const [gridColumns] = usePreference(
-    "durtal-grid-columns",
-    6,
+    LIST_PREFERENCES.library.grid.key,
+    LIST_PREFERENCES.library.grid.fallback,
   );
 
   const selection = useLibrarySelection();

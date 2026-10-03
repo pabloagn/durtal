@@ -2,19 +2,15 @@
  * Rules for the copy (instance) drafts in the add-book wizard.
  */
 
-/** Locations tried first for a new copy, in order (matched by name). */
-const PREFERRED_LOCATION_NAMES = ["amsterdam", "mexico city"];
-
 /**
- * The location a new copy starts with: the first preferred location that
- * exists, else the first location, else none ("").
+ * The location a new copy starts with: the default location from Settings
+ * when it is one of the locations offered, else none ("").
  */
-export function pickDefaultLocationId(locations: { id: string; name: string }[]): string {
-  for (const preferred of PREFERRED_LOCATION_NAMES) {
-    const match = locations.find((l) => l.name.toLowerCase().includes(preferred));
-    if (match) return match.id;
-  }
-  return locations[0]?.id ?? "";
+export function newCopyLocationId(
+  locations: { id: string }[],
+  defaultId: string | null,
+): string {
+  return defaultId && locations.some((l) => l.id === defaultId) ? defaultId : "";
 }
 
 /**

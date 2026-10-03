@@ -1,4 +1,6 @@
 export const PAGE_SIZES = [24, 48, 96, 192] as const;
+/** The page size of a list that has no saved size and no `perPage`. */
+export const DEFAULT_PER_PAGE = 48;
 export type ListSearchParams = Record<string, string | string[] | undefined>;
 type Params = ListSearchParams | { toString(): string };
 
@@ -24,7 +26,7 @@ export function parsePagination(
 ) {
   const query = toSearchParams(params);
   const allowed = options.allowedPerPage ?? PAGE_SIZES;
-  const fallback = options.defaultPerPage ?? 48;
+  const fallback = options.defaultPerPage ?? DEFAULT_PER_PAGE;
   const size = Number(query.get("perPage"));
   const perPage = allowed.includes(size) ? size : fallback;
   const raw = query.get("page") ?? "1";

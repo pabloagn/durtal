@@ -21,7 +21,36 @@ export const READER_DEFAULTS: ReaderThemeSettings = {
   textAlign: "left",
 };
 
-const FONT_STACKS: Record<string, string> = {
+// The choices the reader offers: its settings panel and Settings → Reader
+export const READER_FONTS: { value: ReaderThemeSettings["fontFamily"]; label: string }[] = [
+  { value: "sans", label: "Sans" },
+  { value: "serif", label: "Serif" },
+  { value: "system", label: "System" },
+  { value: "publisher", label: "Original" },
+];
+export const READER_FONT_SIZES = [14, 16, 18, 20, 22, 24, 26, 28];
+export const READER_LINE_HEIGHTS = [1.4, 1.6, 1.8, 2, 2.2, 2.4];
+export const READER_MARGINS = [4, 8, 12, 16, 20];
+export const READER_ALIGNMENTS: { value: ReaderThemeSettings["textAlign"]; label: string }[] = [
+  { value: "left", label: "Left" },
+  { value: "justify", label: "Justify" },
+];
+
+/** Stored settings over the defaults: a value the reader does not offer gives the default. */
+export function readerSettings(stored: unknown): ReaderThemeSettings {
+  const saved = (stored && typeof stored === "object" ? stored : {}) as Record<string, unknown>;
+  const pick = <T,>(value: unknown, offered: readonly T[], fallback: T): T =>
+    offered.includes(value as T) ? (value as T) : fallback;
+  return {
+    fontFamily: pick(saved.fontFamily, READER_FONTS.map((f) => f.value), READER_DEFAULTS.fontFamily),
+    fontSize: pick(saved.fontSize, READER_FONT_SIZES, READER_DEFAULTS.fontSize),
+    lineHeight: pick(saved.lineHeight, READER_LINE_HEIGHTS, READER_DEFAULTS.lineHeight),
+    margin: pick(saved.margin, READER_MARGINS, READER_DEFAULTS.margin),
+    textAlign: pick(saved.textAlign, READER_ALIGNMENTS.map((a) => a.value), READER_DEFAULTS.textAlign),
+  };
+}
+
+export const READER_FONT_STACKS: Record<ReaderThemeSettings["fontFamily"], string> = {
   sans: '"Inter", system-ui, sans-serif',
   serif: '"PPCirka", "EB Garamond", Georgia, serif',
   system: "system-ui, sans-serif",
@@ -29,7 +58,7 @@ const FONT_STACKS: Record<string, string> = {
 };
 
 export function generateReaderCSS(settings: ReaderThemeSettings): string {
-  const fontFamily = FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.sans;
+  const fontFamily = READER_FONT_STACKS[settings.fontFamily] ?? READER_FONT_STACKS.sans;
   const important = settings.fontFamily === "publisher" ? "" : "!important";
 
   return `

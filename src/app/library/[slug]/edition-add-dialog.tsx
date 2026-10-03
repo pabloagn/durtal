@@ -13,6 +13,7 @@ import {
 } from "@/components/books/edition-form";
 import { createEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
 
 interface EditionAddDialogProps {
   workId: string;
@@ -43,10 +44,13 @@ export function EditionAddDialog({
   }
 
   const [isPending, setIsPending] = useState(false);
+  // A new edition starts in the new-book language (Settings, General)
+  const { newBookLanguage } = useAppSettings();
 
   const initialValues: EditionFormValues = {
     ...EMPTY_EDITION,
     title: workTitle,
+    language: newBookLanguage,
   };
 
   async function handleSubmit(values: EditionFormValues) {
@@ -92,7 +96,7 @@ export function EditionAddDialog({
         limitedEditionCount: values.limitedEditionCount
           ? parseInt(values.limitedEditionCount, 10)
           : null,
-        language: values.language || "en",
+        language: values.language || newBookLanguage,
         isTranslated: values.isTranslated,
         pageCount: values.pageCount ? parseInt(values.pageCount, 10) : null,
         binding: values.binding || null,

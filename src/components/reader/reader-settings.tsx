@@ -1,6 +1,20 @@
 "use client";
 
-import type { ReaderThemeSettings } from "./epub-theme";
+import {
+  READER_ALIGNMENTS,
+  READER_FONTS,
+  READER_FONT_SIZES,
+  READER_LINE_HEIGHTS,
+  READER_MARGINS,
+  type ReaderThemeSettings,
+} from "./epub-theme";
+
+/** A slider over one of the reader's lists of choices (evenly spaced). */
+const range = (values: number[]) => ({
+  min: values[0],
+  max: values[values.length - 1],
+  step: Math.round((values[1] - values[0]) * 10) / 10,
+});
 
 interface ReaderSettingsProps {
   open: boolean;
@@ -49,14 +63,7 @@ export function ReaderSettings({
               Font
             </label>
             <div className="grid grid-cols-2 gap-1.5">
-              {(
-                [
-                  ["sans", "Sans"],
-                  ["serif", "Serif"],
-                  ["system", "System"],
-                  ["publisher", "Original"],
-                ] as const
-              ).map(([value, label]) => (
+              {READER_FONTS.map(({ value, label }) => (
                 <button
                   key={value}
                   onClick={() => onSettingsChange({ fontFamily: value })}
@@ -76,9 +83,7 @@ export function ReaderSettings({
           <SettingSlider
             label="Font Size"
             value={settings.fontSize}
-            min={14}
-            max={28}
-            step={2}
+            {...range(READER_FONT_SIZES)}
             unit="px"
             onChange={(v) => onSettingsChange({ fontSize: v })}
           />
@@ -87,9 +92,7 @@ export function ReaderSettings({
           <SettingSlider
             label="Line Height"
             value={settings.lineHeight}
-            min={1.4}
-            max={2.4}
-            step={0.2}
+            {...range(READER_LINE_HEIGHTS)}
             unit=""
             onChange={(v) =>
               onSettingsChange({ lineHeight: Math.round(v * 10) / 10 })
@@ -100,9 +103,7 @@ export function ReaderSettings({
           <SettingSlider
             label="Margins"
             value={settings.margin}
-            min={4}
-            max={20}
-            step={4}
+            {...range(READER_MARGINS)}
             unit="%"
             onChange={(v) => onSettingsChange({ margin: v })}
           />
@@ -113,17 +114,17 @@ export function ReaderSettings({
               Alignment
             </label>
             <div className="flex gap-1.5">
-              {(["left", "justify"] as const).map((value) => (
+              {READER_ALIGNMENTS.map(({ value, label }) => (
                 <button
                   key={value}
                   onClick={() => onSettingsChange({ textAlign: value })}
-                  className={`flex-1 rounded-sm border px-3 py-1.5 text-xs capitalize transition-colors ${
+                  className={`flex-1 rounded-sm border px-3 py-1.5 text-xs transition-colors ${
                     settings.textAlign === value
                       ? "border-accent-rose/40 bg-accent-plum/60 text-fg-primary"
                       : "border-glass-border text-fg-secondary hover:border-fg-muted/20 hover:text-fg-primary"
                   }`}
                 >
-                  {value}
+                  {label}
                 </button>
               ))}
             </div>

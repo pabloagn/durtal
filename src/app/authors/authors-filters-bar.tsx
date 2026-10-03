@@ -12,6 +12,7 @@ import {
   parseNationalityCodes,
   type NationalityOption,
 } from "@/lib/utils/nationality-param";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 /** Offered only while a search is active; it is then the default sort */
 const RELEVANCE_SORT = { value: "relevance", label: "Best match" };
@@ -24,7 +25,7 @@ const SORT_OPTIONS = [
   { value: "works", label: "Books" },
 ];
 
-const AUTHOR_VIEW_MODES: ViewMode[] = ["grid", "list", "detailed", "map", "timeline"];
+const AUTHOR_VIEW_MODES: ViewMode[] = LIST_PREFERENCES.authors.view.modes;
 
 interface AuthorsFiltersBarProps {
   nationalities: NationalityOption[];
@@ -51,12 +52,12 @@ export function AuthorsFiltersBar({
   const isSearching = !!searchParams.get("q")?.trim();
 
   const [viewMode, setViewMode] = usePreference<ViewMode>(
-    "durtal-authors-view-mode",
-    "grid",
+    LIST_PREFERENCES.authors.view.key,
+    LIST_PREFERENCES.authors.view.fallback,
   );
   const [gridColumns, setGridColumns] = usePreference(
-    "durtal-authors-grid-columns",
-    5,
+    LIST_PREFERENCES.authors.grid.key,
+    LIST_PREFERENCES.authors.grid.fallback,
   );
 
   // --- Active filter values from URL ---

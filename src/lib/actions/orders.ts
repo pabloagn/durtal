@@ -55,6 +55,7 @@ import {
   planBookWork,
 } from "@/lib/catalogue/book-store";
 import { sortCurrencyTotals } from "@/lib/utils/money";
+import { getAppSettings } from "@/lib/actions/settings";
 
 /**
  * Derive the correct work catalogueStatus by looking at ALL orders for the work.
@@ -437,12 +438,14 @@ export async function getProvenanceStats(dateRange?: {
       ),
   ]);
 
+  const { homeCurrency } = await getAppSettings();
   return {
     spentByCurrency: sortCurrencyTotals(
       spentByCurrencyResult.map((row) => ({
         currency: row.currency,
         total: row.total ?? "0",
       })),
+      homeCurrency,
     ),
     avgOrderCost: totalStatsResult[0]?.avgOrderCost ?? "0",
     orderCount: totalStatsResult[0]?.orderCount ?? 0,

@@ -8,7 +8,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import { readCookie, writeCookie } from "@/lib/utils/preference-cookies";
+import { deleteCookie, readCookie, writeCookie } from "@/lib/utils/preference-cookies";
 
 const PREFERENCE_EVENT = "durtal-preference";
 
@@ -93,6 +93,15 @@ export function usePreference<T>(key: string, fallback: T) {
   );
 
   return [value, setValue] as const;
+}
+
+/**
+ * Delete saved preferences (their cookies): every instance shows its
+ * fallback again. Browser only.
+ */
+export function clearPreferences(keys: string[]) {
+  for (const key of keys) deleteCookie(key);
+  window.dispatchEvent(new Event(PREFERENCE_EVENT));
 }
 
 /**

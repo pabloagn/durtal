@@ -8,7 +8,8 @@ import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 export const getLocations = cached(
   () =>
     db.query.locations.findMany({
-      orderBy: asc(locations.sortOrder),
+      // Locations with the same sort order by name, so every list shows one order
+      orderBy: [asc(locations.sortOrder), asc(locations.name)],
       with: {
         subLocations: {
           orderBy: asc(subLocations.sortOrder),
@@ -79,7 +80,8 @@ export async function updateLocation(
 
 export async function deleteLocation(id: string) {
   await db.delete(locations).where(eq(locations.id, id));
-  invalidate(CACHE_TAGS.locations);
+  // The database clears the default location when it is this one
+  invalidate(CACHE_TAGS.locations, CACHE_TAGS.settings);
   return { id };
 }
 

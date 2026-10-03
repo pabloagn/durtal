@@ -8,11 +8,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   InstanceForm,
-  EMPTY_INSTANCE,
+  newCopyDraft,
   type InstanceDraft,
 } from "@/components/books/instance-form";
 import { createInstance } from "@/lib/actions/instances";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
+import { newCopyLocationId } from "@/lib/utils/instance-drafts";
 
 interface LocationOption {
   id: string;
@@ -34,7 +36,14 @@ export function InstanceAddDialog({
 }: InstanceAddDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<InstanceDraft>({ ...EMPTY_INSTANCE });
+  // A new copy starts with the defaults from Settings, General
+  const appSettings = useAppSettings();
+  const freshDraft = () =>
+    newCopyDraft(
+      appSettings,
+      newCopyLocationId(availableLocations, appSettings.newCopyLocationId),
+    );
+  const [draft, setDraft] = useState<InstanceDraft>(freshDraft);
   const [isPending, setIsPending] = useState(false);
 
   async function handleSubmit() {
@@ -78,7 +87,7 @@ export function InstanceAddDialog({
         dispositionNotes: draft.dispositionNotes || null,
       });
       toast.success("Instance added");
-      setDraft({ ...EMPTY_INSTANCE });
+      setDraft(freshDraft());
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();
@@ -95,7 +104,7 @@ export function InstanceAddDialog({
         variant="ghost"
         size="sm"
         onClick={() => {
-          setDraft({ ...EMPTY_INSTANCE });
+          setDraft(freshDraft());
           setOpen(true);
         }}
         className="h-7 gap-1 whitespace-nowrap px-2"

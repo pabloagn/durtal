@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-type ExportFormat = "csv" | "tsv" | "parquet";
+export type ExportFormat = "csv" | "tsv" | "parquet";
 
 interface ExportMenuProps {
   entity: "works" | "authors";
@@ -24,21 +24,24 @@ interface ExportMenuProps {
   side?: "top" | "bottom";
 }
 
-const FORMAT_LABELS: Record<ExportFormat, string> = {
+export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   csv: "CSV (.csv)",
   tsv: "TSV (.tsv)",
   parquet: "Parquet (.parquet)",
 };
 
-async function triggerExport(
+/** Download an export: these records, or every one ("all"). */
+export async function triggerExport(
   entity: "works" | "authors",
-  ids: string[],
+  ids: string[] | "all",
   format: ExportFormat,
 ) {
   const res = await fetch("/api/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entity, ids, format }),
+    body: JSON.stringify(
+      ids === "all" ? { entity, all: true, format } : { entity, ids, format },
+    ),
   });
 
   if (!res.ok) {
@@ -98,13 +101,13 @@ export function ExportMenu({
       }
     >
       <DropdownMenuLabel>Export as</DropdownMenuLabel>
-      {(Object.keys(FORMAT_LABELS) as ExportFormat[]).map((fmt) => (
+      {(Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map((fmt) => (
         <DropdownMenuItem
           key={fmt}
           onClick={() => handleExport(fmt)}
           disabled={isExporting}
         >
-          {FORMAT_LABELS[fmt]}
+          {EXPORT_FORMAT_LABELS[fmt]}
         </DropdownMenuItem>
       ))}
     </DropdownMenu>

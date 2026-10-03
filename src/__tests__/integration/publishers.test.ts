@@ -35,6 +35,7 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 vi.mock("@/lib/cache", () => ({
+  cached: (fn: unknown) => fn,
   invalidate: vi.fn(),
   CACHE_TAGS: { works: "works", editions: "editions", orders: "orders" },
 }));

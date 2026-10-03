@@ -360,6 +360,27 @@ Fetch a single author with works and edition contributions.
 
 ---
 
+## Export
+
+### `POST /api/export`
+
+Download books or authors as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
+
+**Body**:
+
+| Field | Type | Description |
+|---|---|---|
+| `entity` | `"works"` \| `"authors"` | Books, or authors of books |
+| `ids` | string[] | 1–500 ids to export. Not needed with `all` |
+| `all` | boolean | `true`: every book, or every author of a book, instead of `ids` |
+| `format` | `"csv"` \| `"tsv"` \| `"parquet"` | File format |
+
+**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…` or `durtal-authors-all-…` with `all`, a slug of the name for a single record).
+
+**Response** `400`: a bad entity, format or id list. `404`: no record matched. `500`: `{ "error": "Export failed." }`.
+
+---
+
 ## Media
 
 ### `DELETE /api/media/[id]`

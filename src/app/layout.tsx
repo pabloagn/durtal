@@ -10,6 +10,8 @@ import { ImageAdjustmentProvider } from "@/components/media/image-adjustment-pro
 import { cookies } from "next/headers";
 import { PreferencesProvider } from "@/lib/hooks/use-preference";
 import { PREFERENCE_COOKIE_PREFIX } from "@/lib/utils/preference-cookies";
+import { getAppSettings } from "@/lib/actions/settings";
+import { AppSettingsProvider } from "@/lib/hooks/use-app-settings";
 
 const serif = localFont({
   src: [
@@ -53,7 +55,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const adjustments = await getImageAdjustmentStyles();
+  const [adjustments, settings] = await Promise.all([
+    getImageAdjustmentStyles(),
+    getAppSettings(),
+  ]);
   const preferences = Object.fromEntries(
     (await cookies())
       .getAll()
@@ -68,7 +73,7 @@ export default async function RootLayout({
       <body>
         <ImageGuard />
         <TooltipLayer />
-        <PreferencesProvider initial={preferences}><ImageAdjustmentProvider initial={adjustments}><Shell>{children}</Shell></ImageAdjustmentProvider></PreferencesProvider>
+        <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider initial={adjustments}><Shell>{children}</Shell></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>
       </body>
     </html>
   );

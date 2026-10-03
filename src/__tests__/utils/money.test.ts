@@ -1,16 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { formatMoney, sortCurrencyTotals } from "@/lib/utils/money";
-import {
-  currencySymbol,
-  isSupportedCurrency,
-  preferredCurrency,
-} from "@/lib/constants/currencies";
+import { currencySymbol, isSupportedCurrency } from "@/lib/constants/currencies";
 import {
   orderCurrencySchema,
   createOrderSchema,
 } from "@/lib/validations/orders";
-
-afterEach(() => vi.unstubAllGlobals());
 
 describe("formatMoney", () => {
   it.each([
@@ -36,7 +30,7 @@ describe("formatMoney", () => {
 });
 
 describe("sortCurrencyTotals", () => {
-  it("puts the default currency first, then larger totals, then no currency", () => {
+  it("puts EUR first by default, then larger totals, then no currency", () => {
     expect(
       sortCurrencyTotals([
         { currency: null, total: "500.00" },
@@ -45,6 +39,19 @@ describe("sortCurrencyTotals", () => {
         { currency: "EUR", total: "285.46" },
       ]).map((row) => row.currency),
     ).toEqual(["EUR", "USD", "GBP", null]);
+  });
+
+  it("puts the home currency first when one is given", () => {
+    expect(
+      sortCurrencyTotals(
+        [
+          { currency: "EUR", total: "285.46" },
+          { currency: "GBP", total: "13.51" },
+          { currency: "MXN", total: "40.00" },
+        ],
+        "MXN",
+      ).map((row) => row.currency),
+    ).toEqual(["MXN", "EUR", "GBP"]);
   });
 
   it("drops zero and unreadable totals", () => {
@@ -65,30 +72,6 @@ describe("currency helpers", () => {
     expect(isSupportedCurrency(null)).toBe(false);
     expect(currencySymbol("GBP")).toBe("£");
     expect(currencySymbol("XX")).toBeNull();
-  });
-
-  it("uses a stored preference only when it is supported", () => {
-    const store = new Map<string, string>();
-    vi.stubGlobal("window", {});
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => store.set(key, value),
-    });
-    expect(preferredCurrency()).toBe("EUR");
-    store.set("durtal:preferred-currency", "GBP");
-    expect(preferredCurrency()).toBe("GBP");
-    store.set("durtal:preferred-currency", "Apples");
-    expect(preferredCurrency()).toBe("EUR");
-  });
-
-  it("falls back to the default when storage is blocked", () => {
-    vi.stubGlobal("window", {});
-    vi.stubGlobal("localStorage", {
-      getItem: () => {
-        throw new Error("blocked");
-      },
-    });
-    expect(preferredCurrency()).toBe("EUR");
   });
 });
 

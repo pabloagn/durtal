@@ -33,12 +33,15 @@ export function formatMoney(
 }
 
 /**
- * Order per-currency totals for display: the default currency first, then
- * the largest amounts, and orders without a currency last. Zero totals drop.
+ * Order per-currency totals for display: the home currency first, then the
+ * largest amounts, and orders without a currency last. Zero totals drop.
  */
-export function sortCurrencyTotals(rows: CurrencyTotal[]): CurrencyTotal[] {
+export function sortCurrencyTotals(
+  rows: CurrencyTotal[],
+  homeCurrency: string = DEFAULT_CURRENCY,
+): CurrencyTotal[] {
   const rank = (row: CurrencyTotal) =>
-    row.currency === DEFAULT_CURRENCY ? 0 : row.currency ? 1 : 2;
+    row.currency === homeCurrency ? 0 : row.currency ? 1 : 2;
   return rows
     .filter(
       (row) => parseFloat(row.total) !== 0 && !isNaN(parseFloat(row.total)),

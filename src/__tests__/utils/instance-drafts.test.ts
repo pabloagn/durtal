@@ -1,43 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { draftsToCreate, pickDefaultLocationId } from "@/lib/utils/instance-drafts";
+import { draftsToCreate, newCopyLocationId } from "@/lib/utils/instance-drafts";
 
-// ── pickDefaultLocationId ─────────────────────────────────────────────────────
+// ── newCopyLocationId ─────────────────────────────────────────────────────────
 
-describe("pickDefaultLocationId", () => {
-  it("prefers Amsterdam", () => {
-    expect(
-      pickDefaultLocationId([
-        { id: "cal", name: "Calibre" },
-        { id: "mex", name: "Mexico City" },
-        { id: "ams", name: "Amsterdam" },
-      ]),
-    ).toBe("ams");
+describe("newCopyLocationId", () => {
+  const locations = [
+    { id: "cal", name: "Calibre" },
+    { id: "ams", name: "Amsterdam" },
+  ];
+
+  it("uses the default location from Settings", () => {
+    expect(newCopyLocationId(locations, "ams")).toBe("ams");
   });
 
-  it("falls back to Mexico City", () => {
-    expect(
-      pickDefaultLocationId([
-        { id: "cal", name: "Calibre" },
-        { id: "mex", name: "Mexico City Apartment" },
-      ]),
-    ).toBe("mex");
+  it("starts with no location when Settings has none", () => {
+    expect(newCopyLocationId(locations, null)).toBe("");
   });
 
-  it("matches names case-insensitively", () => {
-    expect(pickDefaultLocationId([{ id: "x", name: "AMSTERDAM (home)" }])).toBe("x");
-  });
-
-  it("falls back to the first location", () => {
-    expect(
-      pickDefaultLocationId([
-        { id: "a", name: "Storage" },
-        { id: "b", name: "Office" },
-      ]),
-    ).toBe("a");
-  });
-
-  it("returns an empty id when there are no locations", () => {
-    expect(pickDefaultLocationId([])).toBe("");
+  it("starts with no location when the default is not offered", () => {
+    expect(newCopyLocationId(locations, "gone")).toBe("");
+    expect(newCopyLocationId([], "ams")).toBe("");
   });
 });
 

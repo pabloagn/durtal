@@ -1,29 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
 import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
 import { Toaster } from "sonner";
-
-const SIDEBAR_STORAGE_KEY = "durtal-sidebar-width";
-const SIDEBAR_DEFAULT = 224;
-const SIDEBAR_COLLAPSED = 56;
+import { usePreference } from "@/lib/hooks/use-preference";
+import { SIDEBAR, sidebarWidth } from "@/lib/preferences";
 
 /** Reader view: /reader/{calibreId} (numeric) — full viewport, no sidebar */
 const READER_VIEW_RE = /^\/reader\/\d+/;
-
-function getStoredWidth(): number {
-  if (typeof window === "undefined") return SIDEBAR_DEFAULT;
-  const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-  if (stored) {
-    const n = parseInt(stored, 10);
-    if (!isNaN(n) && (n === SIDEBAR_COLLAPSED || (n >= 120 && n <= 360)))
-      return n;
-  }
-  return SIDEBAR_DEFAULT;
-}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,8 +18,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const [commandOpen, setCommandOpen] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
-  const initializedRef = useRef(false);
+  // A cookie, so the server renders the saved width (Settings, Display)
+  const [storedWidth, setStoredWidth] = usePreference<number>(SIDEBAR.key, SIDEBAR.expanded);
 
   // Preserve the saved desktop width while giving small screens usable content space.
   useEffect(() => {
@@ -42,20 +29,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
-  const effectiveWidth = compact ? SIDEBAR_COLLAPSED : sidebarWidth;
-
-  // Hydrate from localStorage after mount
-  useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      setSidebarWidth(getStoredWidth());
-    }
-  }, []);
-
-  const handleSidebarWidthChange = useCallback((width: number) => {
-    setSidebarWidth(width);
-    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(width));
-  }, []);
+  const effectiveWidth = compact ? SIDEBAR.collapsed : sidebarWidth(storedWidth);
 
   // Reader view: full viewport, no sidebar
   if (isReaderView) {
@@ -84,7 +58,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
       <Sidebar
         width={effectiveWidth}
-        onWidthChange={handleSidebarWidthChange}
+        onWidthChange={setStoredWidth}
         onCommandPalette={() => setCommandOpen(true)}
       />
       <main

@@ -1,4 +1,9 @@
-import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
+import type {
+  CatalogueStatus,
+  AcquisitionPriority,
+  InstanceCondition,
+  InstanceFormat,
+} from "@/lib/types";
 
 // ── Status configuration ────────────────────────────────────────────────────
 
@@ -44,3 +49,24 @@ export function priorityVariant(
   const config = PRIORITY_CONFIG[priority as AcquisitionPriority];
   return config?.variant ?? "muted";
 }
+
+// ── Copy format and condition ───────────────────────────────────────────────
+
+export const COPY_FORMAT_LABELS: Record<InstanceFormat, string> = {
+  hardcover: "Hardcover",
+  paperback: "Paperback",
+  ebook: "Ebook",
+  audiobook: "Audiobook",
+  pdf: "PDF",
+  epub: "EPUB",
+  other: "Other",
+};
+
+export const COPY_CONDITION_LABELS: Record<InstanceCondition, string> = {
+  mint: "Mint",
+  fine: "Fine",
+  very_good: "Very good",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
+};

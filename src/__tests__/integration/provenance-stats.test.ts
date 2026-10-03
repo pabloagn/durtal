@@ -40,6 +40,7 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 vi.mock("@/lib/cache", () => ({
+  cached: (fn: unknown) => fn,
   invalidate: vi.fn(),
   CACHE_TAGS: new Proxy({}, { get: (_, prop) => String(prop) }),
 }));

@@ -8,6 +8,7 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import { FilterDropdown, type AnyFilterGroup } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 const SORT_OPTIONS = [
   { value: "name", label: "Name" },
@@ -16,7 +17,7 @@ const SORT_OPTIONS = [
 ];
 
 /** The places list only renders these two view modes */
-const PLACES_VIEW_MODES: ViewMode[] = ["grid", "list"];
+const PLACES_VIEW_MODES: ViewMode[] = LIST_PREFERENCES.places.view.modes;
 
 const ALL_VENUE_TYPES = VENUE_TYPES;
 
@@ -31,14 +32,14 @@ export function PlacesFiltersBar() {
   const searchParams = useSearchParams();
 
   const [storedViewMode, setViewMode] = usePreference<ViewMode>(
-    "durtal-places-view-mode",
-    "grid",
+    LIST_PREFERENCES.places.view.key,
+    LIST_PREFERENCES.places.view.fallback,
   );
   // Older stored modes (e.g. "detailed") are not rendered for places
   const viewMode: ViewMode = storedViewMode === "list" ? "list" : "grid";
   const [gridColumns, setGridColumns] = usePreference(
-    "durtal-places-grid-columns",
-    4,
+    LIST_PREFERENCES.places.grid.key,
+    LIST_PREFERENCES.places.grid.fallback,
   );
 
   // --- Active filter values from URL ---

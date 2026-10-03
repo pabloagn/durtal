@@ -1,6 +1,7 @@
 "use client";
 
 import { Grid2X2, List, Table2, Map, GanttChart } from "lucide-react";
+import { VIEW_MODE_LABELS } from "@/lib/preferences";
 
 export type ViewMode = "grid" | "list" | "detailed" | "map" | "timeline";
 
@@ -11,11 +12,11 @@ interface ViewModeSwitcherProps {
 }
 
 const ALL_MODES: { value: ViewMode; icon: typeof Grid2X2; label: string }[] = [
-  { value: "grid", icon: Grid2X2, label: "Grid" },
-  { value: "list", icon: List, label: "List" },
-  { value: "detailed", icon: Table2, label: "Detailed" },
-  { value: "map", icon: Map, label: "Map" },
-  { value: "timeline", icon: GanttChart, label: "Timeline" },
+  { value: "grid", icon: Grid2X2, label: VIEW_MODE_LABELS.grid },
+  { value: "list", icon: List, label: VIEW_MODE_LABELS.list },
+  { value: "detailed", icon: Table2, label: VIEW_MODE_LABELS.detailed },
+  { value: "map", icon: Map, label: VIEW_MODE_LABELS.map },
+  { value: "timeline", icon: GanttChart, label: VIEW_MODE_LABELS.timeline },
 ];
 
 export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSwitcherProps) {

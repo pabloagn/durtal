@@ -25,6 +25,7 @@ export const CACHE_TAGS = {
   authors: "ref:authors",
   venues: "ref:venues",
   places: "ref:places",
+  settings: "ref:settings",
 
   // Entity data (mutated more frequently)
   works: "data:works",

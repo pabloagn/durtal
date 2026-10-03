@@ -9,6 +9,7 @@ import { COL_CLASSES } from "@/components/shared/grid-columns";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import type { VenueType } from "@/lib/actions/venues";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 export interface VenueItem {
   id: string;
@@ -39,12 +40,12 @@ export function PlacesShell({ venues, total }: PlacesShellProps) {
 
   // Written by PlacesFiltersBar; kept in sync through usePreference
   const [storedViewMode] = usePreference<ViewMode>(
-    "durtal-places-view-mode",
-    "grid",
+    LIST_PREFERENCES.places.view.key,
+    LIST_PREFERENCES.places.view.fallback,
   );
   const [gridColumns] = usePreference(
-    "durtal-places-grid-columns",
-    4,
+    LIST_PREFERENCES.places.grid.key,
+    LIST_PREFERENCES.places.grid.fallback,
   );
   // Only grid and list exist for places; older stored modes fall back to grid
   const viewMode = storedViewMode === "list" ? "list" : "grid";

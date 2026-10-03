@@ -10,6 +10,7 @@ import {
 } from "./book-data-table";
 import type { ViewMode } from "./view-mode-switcher";
 import type { CoverCrop } from "./book-card";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 interface BookItem {
   workId: string;
@@ -58,7 +59,7 @@ const DEFAULT_COLUMN_CONFIG = ALL_COLUMNS.map((c) => ({
 
 export function LibraryView({ books, viewMode, gridColumns, isSelecting, selectedIds, onSelect }: LibraryViewProps) {
   const [columnConfig, setColumnConfig] = usePreference(
-    "durtal-column-config",
+    LIST_PREFERENCES.library.columns.key,
     DEFAULT_COLUMN_CONFIG,
   );
 

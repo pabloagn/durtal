@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 /** Offered only while a search is active; it is then the default sort */
 const RELEVANCE_SORT = { value: "relevance", label: "Best match" };
@@ -14,7 +15,7 @@ const SORT_OPTIONS = [
   { value: "recent", label: "Recent" },
 ];
 
-export const RECOMMENDER_VIEW_MODES: ViewMode[] = ["grid", "list"];
+export const RECOMMENDER_VIEW_MODES: ViewMode[] = LIST_PREFERENCES.recommenders.view.modes;
 
 /**
  * Search, sort and view controls for /recommenders — the shared toolbar.
@@ -24,12 +25,12 @@ export function RecommendersFiltersBar() {
   const searchParams = useSearchParams();
   const isSearching = !!searchParams.get("q")?.trim();
   const [viewMode, setViewMode] = usePreference<ViewMode>(
-    "durtal-recommenders-view-mode",
-    "grid",
+    LIST_PREFERENCES.recommenders.view.key,
+    LIST_PREFERENCES.recommenders.view.fallback,
   );
   const [gridColumns, setGridColumns] = usePreference(
-    "durtal-recommenders-grid-columns",
-    4,
+    LIST_PREFERENCES.recommenders.grid.key,
+    LIST_PREFERENCES.recommenders.grid.fallback,
   );
   return (
     <EntityFilters

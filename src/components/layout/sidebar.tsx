@@ -7,11 +7,7 @@ import { Search } from "lucide-react";
 import { NAV_SECTIONS, isSectionActive } from "@/lib/navigation";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { GO_TO } from "@/lib/shortcuts/shortcuts";
-
-const SIDEBAR_DEFAULT = 224;
-const SIDEBAR_COLLAPSED = 56;
-const SIDEBAR_MIN_EXPANDED = 120;
-const SIDEBAR_MAX = 360;
+import { SIDEBAR } from "@/lib/preferences";
 
 export function Sidebar({
   width,
@@ -27,7 +23,7 @@ export function Sidebar({
   const sidebarRef = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const isCollapsed = width <= SIDEBAR_COLLAPSED;
+  const isCollapsed = width <= SIDEBAR.collapsed;
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -42,10 +38,10 @@ export function Sidebar({
       let newWidth = e.clientX;
 
       // Snap logic
-      if (newWidth < SIDEBAR_MIN_EXPANDED) {
-        newWidth = SIDEBAR_COLLAPSED;
-      } else if (newWidth > SIDEBAR_MAX) {
-        newWidth = SIDEBAR_MAX;
+      if (newWidth < SIDEBAR.min) {
+        newWidth = SIDEBAR.collapsed;
+      } else if (newWidth > SIDEBAR.max) {
+        newWidth = SIDEBAR.max;
       }
 
       onWidthChange(newWidth);
@@ -61,7 +57,7 @@ export function Sidebar({
   }, []);
 
   const handleDoubleClick = useCallback(() => {
-    onWidthChange(isCollapsed ? SIDEBAR_DEFAULT : SIDEBAR_COLLAPSED);
+    onWidthChange(isCollapsed ? SIDEBAR.expanded : SIDEBAR.collapsed);
   }, [isCollapsed, onWidthChange]);
 
   // Prevent text selection while dragging
@@ -110,7 +106,7 @@ export function Sidebar({
             isCollapsed ? "justify-center px-0 py-1.5" : "gap-2 px-3 py-1.5"
           }`}
         >
-          <Search className="h-3.5 w-3.5 shrink-0" />
+          <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
           {!isCollapsed && (
             <>
               <span>Search...</span>

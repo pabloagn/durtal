@@ -19,9 +19,8 @@ import {
   CURRENCY_SELECT_OPTIONS,
   currencySymbol,
   isSupportedCurrency,
-  preferredCurrency,
-  rememberCurrency,
 } from "@/lib/constants/currencies";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 
 interface OrderData {
@@ -85,9 +84,10 @@ export function OrderEditDialog({
   const [orderUrl, setOrderUrl] = useState(order.orderUrl ?? "");
   const [price, setPrice] = useState(order.price ?? "");
   const [shippingCost, setShippingCost] = useState(order.shippingCost ?? "");
-  // Orders saved without a currency get the last-used one; saving stores it.
+  // Orders saved without a currency get the home currency (Settings); saving stores it.
+  const { homeCurrency } = useAppSettings();
   const [currency, setCurrency] = useState(() =>
-    isSupportedCurrency(order.currency) ? order.currency : preferredCurrency(),
+    isSupportedCurrency(order.currency) ? order.currency : homeCurrency,
   );
   const [carrier, setCarrier] = useState(order.carrier ?? "");
   const [trackingNumber, setTrackingNumber] = useState(
@@ -149,7 +149,6 @@ export function OrderEditDialog({
           actualDeliveryDate: actualDeliveryDateVal,
           notes: notes || null,
         });
-        rememberCurrency(currency);
         toast.success("Order updated");
         onClose();
         router.refresh();

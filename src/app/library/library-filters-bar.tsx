@@ -6,6 +6,7 @@ import {
 } from "@/lib/hooks/use-preference";
 import { LibraryFilters } from "./filters";
 import { LIBRARY_VIEW_MODES } from "./view-modes";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 /**
  * Standalone filters bar that always renders, independent of book data.
@@ -13,13 +14,13 @@ import { LIBRARY_VIEW_MODES } from "./view-modes";
  */
 export function LibraryFiltersBar() {
   const [viewMode, setViewMode] = useViewModePreference(
-    "durtal-view-mode",
+    LIST_PREFERENCES.library.view.key,
     LIBRARY_VIEW_MODES,
-    "grid",
+    LIST_PREFERENCES.library.view.fallback,
   );
   const [gridColumns, setGridColumns] = usePreference(
-    "durtal-grid-columns",
-    6,
+    LIST_PREFERENCES.library.grid.key,
+    LIST_PREFERENCES.library.grid.fallback,
   );
 
   return (

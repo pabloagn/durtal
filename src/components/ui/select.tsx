@@ -30,6 +30,8 @@ interface SelectProps {
   name?: string;
   /** Names the field when no visible label does (a fieldset's legend shows it) */
   ariaLabel?: string;
+  /** The id of the text that explains the field */
+  ariaDescribedby?: string;
 }
 
 export function Select({
@@ -45,6 +47,7 @@ export function Select({
   required,
   name,
   ariaLabel,
+  ariaDescribedby,
 }: SelectProps) {
   // The label names the field through its id, so a field always has one
   const generatedId = useId();
@@ -178,6 +181,7 @@ export function Select({
           id={id}
           role="combobox"
           aria-label={ariaLabel}
+          aria-describedby={ariaDescribedby}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           disabled={disabled}

@@ -21,6 +21,7 @@ import type { AuthorMapPoint } from "@/lib/actions/author-map";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 
 const AuthorsMap = dynamic(
@@ -194,15 +195,15 @@ export function AuthorsShell({
 
   // Written by AuthorsFiltersBar; kept in sync through usePreference
   const [viewMode] = usePreference<ViewMode>(
-    "durtal-authors-view-mode",
-    "grid",
+    LIST_PREFERENCES.authors.view.key,
+    LIST_PREFERENCES.authors.view.fallback,
   );
   const [gridColumns] = usePreference(
-    "durtal-authors-grid-columns",
-    5,
+    LIST_PREFERENCES.authors.grid.key,
+    LIST_PREFERENCES.authors.grid.fallback,
   );
   const [columnConfig, setColumnConfig] = usePreference(
-    "durtal-authors-column-config",
+    LIST_PREFERENCES.authors.columns.key,
     DEFAULT_COLUMN_CONFIG,
   );
 

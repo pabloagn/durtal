@@ -347,11 +347,50 @@ Validates against `createLocationSchema`. Supports both physical (with address, 
 
 ### `updateLocation(id, input)` / `deleteLocation(id)`
 
-Standard CRUD. Delete cascades to instances at that location.
+Standard CRUD. Delete cascades to instances at that location. When the location is the default location for new copies, the database clears that setting, and `deleteLocation` refreshes the cached settings.
 
 ### `createSubLocation(input)` / `updateSubLocation(id, input)` / `deleteSubLocation(id)`
 
 CRUD for sub-locations within a parent location.
+
+---
+
+## Settings (`src/lib/actions/settings.ts`, `src/lib/actions/integrations.ts`)
+
+### `getAppSettings()`
+
+```typescript
+getAppSettings(): Promise<AppSettings>
+// { newBookStatus, newBookLanguage, newCopyLocationId, newCopyFormat, newCopyCondition, homeCurrency }
+```
+
+The one `app_settings` row, cached under the tag `ref:settings`. A stored value the app no longer offers falls back to its default. Before migration 0052 has run (no table, error 42P01), it returns the defaults. The root layout reads it once per request and passes it to `AppSettingsProvider`; client components read it with `useAppSettings()` (`src/lib/hooks/use-app-settings.tsx`).
+
+### `updateAppSettings(input)`
+
+```typescript
+updateAppSettings(input: Partial<AppSettingsInput>): Promise<
+  { ok: true; settings: AppSettings } | { ok: false; error: string }
+>
+```
+
+Changes only the fields given, after `appSettingsInputSchema` (`src/lib/validations/settings.ts`): a status other than deaccessioned, a language from `LANGUAGES`, an existing location or null, an `INSTANCE_FORMATS` / `INSTANCE_CONDITIONS` value or null, a supported currency. Problems come back as `{ ok: false, error }`. Invalidates `ref:settings` and the root layout.
+
+### `refreshCachedData()`
+
+```typescript
+refreshCachedData(): Promise<{ ok: true; tags: number }>
+```
+
+Invalidates every `CACHE_TAGS` tag and the root layout, so the next page load reads the database again. For changes made outside the app, such as a script.
+
+### `checkIntegration(id)`
+
+```typescript
+checkIntegration(id: IntegrationId): Promise<{ status: "ok" | "warning" | "error" | "off"; message: string }>
+```
+
+A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata. Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
 
 ---
 

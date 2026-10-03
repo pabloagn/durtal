@@ -17,7 +17,13 @@
 /collections                Collection management
 /tags                       Tag management
 /subjects                   Subject management
-/settings                   Application settings
+/settings                   Settings: General (defaults for new records)
+/settings/display           Settings: lists, sidebar (this browser)
+/settings/reader            Settings: reader typography (this browser)
+/settings/integrations      Settings: live checks of outside services
+/settings/data              Settings: counts, review queues, export, cache
+/settings/shortcuts         Settings: keyboard shortcuts
+/settings/about             Settings: versions, schema, storage, collections
 /perfumes                   Perfumes: the perfume collection's home
 /perfumes/new               Add a perfume
 /perfumes/[slug]            Perfume detail (slug format: {title}-by-{house});
@@ -429,10 +435,15 @@ Tag management interface.
 
 ### Settings (`/settings`)
 
-Static configuration information page.
+A settings menu: `src/app/settings/layout.tsx` renders the page title and the menu (`SettingsNav`, a column beside the content from `md`, a row above it below that), and each part is its own page. The parts are listed in `SETTINGS_SECTIONS` (`src/components/settings/sections.ts`), which the command palette also searches ("Settings: Display"…). Blocks use `SettingsGroup` (a `SectionHeading` over a panel) with `SettingRow`s: the name and what it does on the left, the control on the name's cap-height center (`CapAlignedControls`), or under it (`stacked`).
 
-**Sections**:
-- Database: Neon connection info
-- External APIs: Google Books, Open Library status
-- Storage: S3 bucket and region
-- About: Application version (0.1.0)
+- **General** (`/settings`): saved in the database (`app_settings`), for every device; each change saves at once with a toast.
+  - New books: status, language (the add-book wizard and Fast Track start with these; a new edition takes the language).
+  - New copies: location (or "pick for each copy"), format, condition (the wizard's copies step and the Add copy dialog; the default location sorts first).
+  - Orders: home currency (new orders start in it; spending totals list it first).
+- **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
+- **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
+- **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
+- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`); refresh cached data.
+- **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
+- **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.

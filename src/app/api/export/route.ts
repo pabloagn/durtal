@@ -20,9 +20,10 @@ const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet"];
 const VALID_ENTITIES = ["works", "authors"] as const;
 type EntityType = (typeof VALID_ENTITIES)[number];
 
-async function fetchWorksForExport(ids: string[]) {
+/** The books with these ids, or every book (null) */
+async function fetchWorksForExport(ids: string[] | null) {
   const results = await db.query.works.findMany({
-    where: and(bookCondition, inArray(works.id, ids)),
+    where: ids ? and(bookCondition, inArray(works.id, ids)) : bookCondition,
     with: {
       workAuthors: {
         with: { author: true },
@@ -39,7 +40,12 @@ async function fetchWorksForExport(ids: string[]) {
     },
   });
 
-  const targets = ids.length ? await getAcquisitionTargetsForExport(ids) : [];
+  // The lookup takes at most 500 works a call: a whole-catalogue export asks in batches
+  const found = results.map((w) => w.id);
+  const targets: Awaited<ReturnType<typeof getAcquisitionTargetsForExport>> = [];
+  for (let i = 0; i < found.length; i += 500) {
+    targets.push(...(await getAcquisitionTargetsForExport(found.slice(i, i + 500))));
+  }
   return results.map((w) => {
     const authorNames = w.workAuthors.map((wa) => wa.author.name).join("; ");
     const primaryEdition = w.editions[0];
@@ -93,9 +99,10 @@ async function fetchWorksForExport(ids: string[]) {
   });
 }
 
-async function fetchAuthorsForExport(ids: string[]) {
+/** The authors with these ids, or every book author (null) */
+async function fetchAuthorsForExport(ids: string[] | null) {
   const results = await db.query.authors.findMany({
-    where: and(bookPersonCondition, inArray(authors.id, ids)),
+    where: ids ? and(bookPersonCondition, inArray(authors.id, ids)) : bookPersonCondition,
     with: {
       country: true,
       workAuthors: {
@@ -127,9 +134,11 @@ async function fetchAuthorsForExport(ids: string[]) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { entity, ids, format } = body as {
+    const { entity, ids, all, format } = body as {
       entity?: string;
       ids?: string[];
+      /** Every book, or every book author, instead of a list of ids */
+      all?: boolean;
       format?: string;
     };
 
@@ -140,14 +149,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    if (all !== true && (!ids || !Array.isArray(ids) || ids.length === 0)) {
       return NextResponse.json(
-        { error: "ids must be a non-empty array." },
+        { error: "ids must be a non-empty array, or all must be true." },
         { status: 400 },
       );
     }
 
-    if (ids.length > 500) {
+    if (all !== true && ids!.length > 500) {
       return NextResponse.json(
         { error: "Too many IDs. Maximum: 500." },
         { status: 400 },
@@ -164,10 +173,11 @@ export async function POST(req: NextRequest) {
     const fmt = format as ExportFormat;
     const entityType = entity as EntityType;
 
+    const selection = all === true ? null : ids!;
     const rows =
       entityType === "works"
-        ? await fetchWorksForExport(ids)
-        : await fetchAuthorsForExport(ids);
+        ? await fetchWorksForExport(selection)
+        : await fetchAuthorsForExport(selection);
 
     if (rows.length === 0) {
       return NextResponse.json(
@@ -180,7 +190,9 @@ export async function POST(req: NextRequest) {
 
     // For single-entity exports, use a descriptive filename
     let filename: string;
-    if (rows.length === 1 && entityType === "authors") {
+    if (all === true) {
+      filename = `durtal-${entityType === "works" ? "books" : "authors"}-all-${timestamp}${FORMAT_EXT[fmt]}`;
+    } else if (rows.length === 1 && entityType === "authors") {
       const row = rows[0] as {
         first_name?: string;
         last_name?: string;

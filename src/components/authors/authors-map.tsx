@@ -32,6 +32,7 @@ import {
 } from "@/lib/utils/map-groups";
 import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality-param";
 import { displayYear } from "@/lib/utils/years";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 
 interface AuthorProperties {
   id: string;
@@ -246,7 +247,10 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [, setViewMode] = usePreference<ViewMode>("durtal-authors-view-mode", "grid");
+  const [, setViewMode] = usePreference<ViewMode>(
+    LIST_PREFERENCES.authors.view.key,
+    LIST_PREFERENCES.authors.view.fallback,
+  );
   const [selection, setSelection] = useState<MapSelection | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 

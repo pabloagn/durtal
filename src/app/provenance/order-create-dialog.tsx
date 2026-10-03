@@ -29,9 +29,8 @@ import {
   CURRENCY_SELECT_OPTIONS,
   DEFAULT_CURRENCY,
   currencySymbol,
-  preferredCurrency,
-  rememberCurrency,
 } from "@/lib/constants/currencies";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -648,6 +647,8 @@ export function OrderCreateDialog({
   seed?: Awaited<ReturnType<typeof getTargetOrderSeed>>;
 }) {
   const router = useRouter();
+  // New orders start in the home currency (Settings)
+  const { homeCurrency } = useAppSettings();
   const [open, setOpen] = useState(!!seed);
   const [targetValue, setTargetValue] = useState<OrderTargetValue>({
     acquisitionTargetId: seed?.target.id ?? "",
@@ -664,7 +665,7 @@ export function OrderCreateDialog({
   const [status, setStatus] = useState<OrderStatus>("placed");
   const [details, setDetails] = useState<DetailsForm>(() => ({
     ...INITIAL_DETAILS,
-    currency: preferredCurrency(),
+    currency: homeCurrency,
   }));
   const [notes, setNotes] = useState("");
 
@@ -674,7 +675,7 @@ export function OrderCreateDialog({
     setTargetValue({ acquisitionTargetId: "", editionId: "" });
     setMethod("online_order");
     setStatus("placed");
-    setDetails({ ...INITIAL_DETAILS, currency: preferredCurrency() });
+    setDetails({ ...INITIAL_DETAILS, currency: homeCurrency });
     setNotes("");
   }
 
@@ -720,8 +721,6 @@ export function OrderCreateDialog({
 
     startTransition(async () => {
       try {
-        // Remember the currency preference for next order
-        rememberCurrency(details.currency);
         const order = {
           acquisitionTargetId: targetValue.acquisitionTargetId || null,
           editionId: targetValue.editionId || null,
