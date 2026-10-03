@@ -30,11 +30,11 @@ export function EntityActionMenu({
   const destructiveItems = items.filter((i) => i.variant === "destructive");
 
   const trigger = (
-    <span
+    <button
       className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-glass-border bg-bg-tertiary/50 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
     >
       <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-    </span>
+    </button>
   );
 
   return (

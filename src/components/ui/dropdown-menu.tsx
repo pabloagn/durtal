@@ -7,9 +7,12 @@ import {
   useCallback,
   createContext,
   useContext,
+  cloneElement,
+  type ReactElement,
   type ReactNode,
   type MouseEvent,
   type KeyboardEvent,
+  type Ref,
 } from "react";
 
 /* ── Context ────────────────────────────────────────────────────────────── */
@@ -24,8 +27,19 @@ const DropdownMenuContext = createContext<DropdownMenuContextValue>({
 
 /* ── DropdownMenu (root) ────────────────────────────────────────────────── */
 
+interface TriggerProps {
+  ref?: Ref<HTMLButtonElement>;
+  type?: "button";
+  "aria-label"?: string;
+  "aria-haspopup"?: "menu";
+  "aria-expanded"?: boolean;
+  "data-tooltip"?: string;
+  onClick?: (e: MouseEvent) => void;
+}
+
 interface DropdownMenuProps {
-  trigger: ReactNode;
+  /** One `<button>` element. The menu adds its handlers and ARIA state to it. */
+  trigger: ReactElement<TriggerProps>;
   /** Names an icon-only trigger, and shows as its tooltip */
   label?: string;
   children: ReactNode;
@@ -50,7 +64,7 @@ export function DropdownMenu({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const setOpen = useCallback(
     (next: boolean) => {
@@ -153,29 +167,18 @@ export function DropdownMenu({
     <DropdownMenuContext.Provider value={{ close }}>
       <div ref={containerRef} className="relative inline-flex">
         {/* Trigger */}
-        <div
-          ref={triggerRef}
-          role="button"
-          tabIndex={0}
-          aria-haspopup="menu"
-          aria-expanded={isOpen}
-          aria-label={label}
-          data-tooltip={label}
-          onClick={(e: MouseEvent) => {
+        {cloneElement(trigger, {
+          ref: triggerRef,
+          type: "button",
+          "aria-haspopup": "menu",
+          "aria-expanded": isOpen,
+          ...(label && { "aria-label": label, "data-tooltip": label }),
+          onClick: (e: MouseEvent) => {
             e.stopPropagation();
             e.preventDefault();
             setOpen(!isOpen);
-          }}
-          onKeyDown={(e: KeyboardEvent) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setOpen(!isOpen);
-            }
-          }}
-          className="inline-flex items-center justify-center"
-        >
-          {trigger}
-        </div>
+          },
+        })}
 
         {/* Menu panel */}
         {isOpen && (
