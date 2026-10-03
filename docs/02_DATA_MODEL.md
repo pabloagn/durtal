@@ -1078,8 +1078,8 @@ for deterministic collision handling under concurrent creation.
 | `id` | UUID | PK |
 | `name` | TEXT | NOT NULL; indexed, not unique |
 | `slug` | TEXT | UNIQUE, NOT NULL |
-| `country` | TEXT | nullable |
-| `country_id` | UUID | FK → `countries.id`, SET NULL |
+| `country` | TEXT | nullable; as written, several countries separated by `;` or `/` ("United Kingdom; United States") |
+| `country_id` | UUID | FK → `countries.id`, SET NULL; the first country of `country`, matched exactly by `resolveCountry` (`src/lib/utils/countries.ts`) on save, null when the text names no country exactly (SLN-330) |
 | `kind` | TEXT | Nullable book profile, default publisher: `group`, `publisher` or `imprint`; NULL for an organization without a book publishing profile |
 | `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; an imprint's publisher (required), a publisher's group (optional), NULL for a group and for organizations without a book profile |
 | `is_favourite` | BOOLEAN | NOT NULL, default false |

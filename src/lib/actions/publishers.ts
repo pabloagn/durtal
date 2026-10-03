@@ -38,6 +38,7 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { targetState } from "@/lib/publishers/conditions";
 import type { PosterImage } from "@/lib/utils/edition-image";
 import { isbnPrefixLabel, publisherSlug } from "@/lib/publishers/names";
+import { countryLookup, resolveCountry } from "@/lib/utils/countries";
 import {
   textSearchCondition,
   textSearchRank,
@@ -294,13 +295,21 @@ export async function savePublisher(input: PublisherInput, id?: string) {
   )
     throw new Error("Publisher not found");
   const { aliases, specialtyIds, isbnPrefixes, ...data } = parsed;
-  const countryMatches = data.country
-    ? await db
-        .select({ id: countries.id })
-        .from(countries)
-        .where(sql`lower(${countries.name}) = lower(${data.country})`)
-    : [];
-  const countryId = countryMatches.length === 1 ? countryMatches[0].id : null;
+  // The first country the text names, matched exactly (SLN-330)
+  const countryId = data.country
+    ? resolveCountry(
+        data.country,
+        countryLookup(
+          await db
+            .select({
+              id: countries.id,
+              name: countries.name,
+              alpha2: countries.alpha2,
+            })
+            .from(countries),
+        ),
+      )
+    : null;
   const slug = publisherSlug(data.name, publisherId);
   await atomic((d) => [
     ...(id

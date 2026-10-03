@@ -1316,6 +1316,33 @@ describe.skipIf(!url)(
       expect(await dup("Solaris", "Someone Else")).toBeNull();
     });
 
+    it("links a publisher to the country its text names exactly (SLN-330)", async () => {
+      await db
+        .insert(schema.countries)
+        .values([
+          { name: "United States of America", alpha2: "US", alpha3: "USA" },
+          { name: "United States Minor Outlying Islands", alpha2: "UM", alpha3: "UMI" },
+          { name: "United Kingdom of Great Britain & Northern Ireland", alpha2: "GB", alpha3: "GBR" },
+        ])
+        .onConflictDoNothing();
+      const ids = Object.fromEntries(
+        (await db.select().from(schema.countries)).map((c) => [c.alpha2, c.id]),
+      );
+      const linked = async (country: string) => {
+        const p = await savePublisher({ name: `House ${country}`, country });
+        const [row] = await db
+          .select()
+          .from(schema.publishingHouses)
+          .where(eq(schema.publishingHouses.id, p.id));
+        return row.countryId;
+      };
+      expect(await linked("United States")).toBe(ids.US);
+      expect(await linked("UK")).toBe(ids.GB);
+      // Several countries: the first one
+      expect(await linked("United Kingdom; United States")).toBe(ids.GB);
+      expect(await linked("Narnia")).toBeNull();
+    });
+
     it("concurrent duplicate acquisition requests create exactly one target", async () => {
       const p = await publisher(),
         w = await work();

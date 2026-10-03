@@ -25,6 +25,7 @@ import {
   type FlatHouse,
   type HouseSpec,
 } from "@/lib/publishers/taxonomy";
+import { countryLookup, resolveCountry } from "@/lib/utils/countries";
 
 // postgres.js types a transaction handle without its call signature
 type Tx = postgres.Sql;
@@ -192,6 +193,11 @@ export async function applyTaxonomy(
     // houses) are never matched or turned into publishers by name.
     >`select id, name, kind, parent_id, country from publishing_houses where kind is not null`),
   ];
+  // Country text to its row, matched exactly (SLN-330)
+  const countries = countryLookup(
+    await tx<{ id: string; name: string; alpha2: string }[]>`
+      select id, name, alpha_2 as "alpha2" from countries`,
+  );
   const byKey = new Map<string, HouseRow[]>();
   for (const h of houses)
     byKey.set(key(h.name), [...(byKey.get(key(h.name)) ?? []), h]);
@@ -237,7 +243,8 @@ export async function applyTaxonomy(
         changes.push(`country ${existing.country ?? "none"} → ${country}`);
       if (changes.length)
         await tx`update publishing_houses set name = ${s.name}, kind = ${s.kind},
-          parent_id = ${parentId}, country = ${country} where id = ${existing.id}`;
+          parent_id = ${parentId}, country = ${country},
+          country_id = ${resolveCountry(country, countries)} where id = ${existing.id}`;
       if (existing.name !== s.name)
         await tx`insert into publisher_aliases (publisher_id, name) values (${existing.id}, ${existing.name})
           on conflict do nothing`;
@@ -252,8 +259,9 @@ export async function applyTaxonomy(
       });
     } else {
       const id = randomUUID();
-      await tx`insert into publishing_houses (id, name, slug, kind, parent_id, country)
-        values (${id}, ${s.name}, ${publisherSlug(s.name, id)}, ${s.kind}, ${parentId}, ${s.country ?? null})`;
+      await tx`insert into publishing_houses (id, name, slug, kind, parent_id, country, country_id)
+        values (${id}, ${s.name}, ${publisherSlug(s.name, id)}, ${s.kind}, ${parentId}, ${s.country ?? null},
+          ${resolveCountry(s.country, countries)})`;
       idOf.set(s.name, id);
       nameById.set(id, s.name);
       report.houses.push({
