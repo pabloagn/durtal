@@ -17,12 +17,20 @@ import type { ViewMode } from "@/components/books/view-mode-switcher";
 import type { ColumnDef } from "@/components/books/column-config-dialog";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import type { AuthorMapPoint } from "@/lib/actions/author-map";
-import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
+import { getAuthorsForMap } from "@/lib/actions/author-map";
+import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
+import { useViewData } from "@/lib/hooks/use-view-data";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 
+function ViewLoading({ label }: { label: string }) {
+  return (
+    <div className="flex h-full items-center justify-center font-mono text-sm text-fg-secondary">
+      {label}
+    </div>
+  );
+}
 
 const AuthorsMap = dynamic(
   () =>
@@ -31,11 +39,7 @@ const AuthorsMap = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-secondary">
-        Loading map...
-      </div>
-    ),
+    loading: () => <ViewLoading label="Loading map..." />,
   },
 );
 
@@ -46,11 +50,7 @@ const AuthorTimeline = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-secondary">
-        Loading timeline...
-      </div>
-    ),
+    loading: () => <ViewLoading label="Loading timeline..." />,
   },
 );
 
@@ -168,8 +168,9 @@ function renderAuthorCell(author: AuthorItem, key: string) {
 
 interface AuthorsShellProps {
   authors: AuthorItem[];
-  mapAuthors: AuthorMapPoint[];
-  timelineAuthors: AuthorTimelineItem[];
+  /** Search and filters for the map and timeline, which load only when shown */
+  mapQuery: Parameters<typeof getAuthorsForMap>[0];
+  timelineQuery: Parameters<typeof getAuthorsForTimeline>[0];
   pagination: PaginationData;
 }
 
@@ -187,8 +188,8 @@ const AUTHOR_FILTER_PARAMS = [
 
 export function AuthorsShell({
   authors,
-  mapAuthors,
-  timelineAuthors,
+  mapQuery,
+  timelineQuery,
   pagination,
 }: AuthorsShellProps) {
   const searchParams = useSearchParams();
@@ -205,6 +206,16 @@ export function AuthorsShell({
   const [columnConfig, setColumnConfig] = usePreference(
     LIST_PREFERENCES.authors.columns.key,
     DEFAULT_COLUMN_CONFIG,
+  );
+
+  // Map and timeline cover every matching author: load them only when shown
+  const mapAuthors = useViewData(viewMode === "map", JSON.stringify(mapQuery ?? {}), () =>
+    getAuthorsForMap(mapQuery),
+  );
+  const timelineAuthors = useViewData(
+    viewMode === "timeline",
+    JSON.stringify(timelineQuery ?? {}),
+    () => getAuthorsForTimeline(timelineQuery),
   );
 
   const selection = useAuthorSelection();
@@ -254,17 +265,21 @@ export function AuthorsShell({
 
       {viewMode === "map" && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
-          <AuthorsMap authors={mapAuthors} />
+          {mapAuthors ? <AuthorsMap authors={mapAuthors} /> : <ViewLoading label="Loading map..." />}
         </div>
       )}
 
       {viewMode === "timeline" && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
-          <AuthorTimeline
-            authors={timelineAuthors}
-            sortBy={(searchParams.get("sort") ?? "birth") as "name" | "lastName" | "birth" | "works" | "recent"}
-            sortOrder={(searchParams.get("order") ?? "asc") as "asc" | "desc"}
-          />
+          {timelineAuthors ? (
+            <AuthorTimeline
+              authors={timelineAuthors}
+              sortBy={(searchParams.get("sort") ?? "birth") as "name" | "lastName" | "birth" | "works" | "recent"}
+              sortOrder={(searchParams.get("order") ?? "asc") as "asc" | "desc"}
+            />
+          ) : (
+            <ViewLoading label="Loading timeline..." />
+          )}
         </div>
       )}
 

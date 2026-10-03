@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import {
@@ -74,9 +75,10 @@ type AcquisitionPriority =
 /**
  * Build a search condition that matches works by title, author, ISBN,
  * publisher, or series name. Detects ISBN-shaped queries and prioritises
- * edition-level ISBN lookup.
+ * edition-level ISBN lookup. Memoised per request, so the list and the
+ * count on one page run the related-table lookups once.
  */
-async function buildSearchCondition(search: string) {
+const buildSearchCondition = cache(async (search: string) => {
   const stripped = search.replace(/[-\s]/g, "");
   const isIsbn = /^\d{10,13}$/.test(stripped);
 
@@ -149,7 +151,7 @@ async function buildSearchCondition(search: string) {
     orConditions.push(inArray(works.id, [...relatedWorkIds]));
   }
   return or(...orConditions)!;
-}
+});
 
 export async function getWorks(opts?: {
   search?: string;
