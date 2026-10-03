@@ -40,7 +40,7 @@ async function PublishersContent({ params }: { params: Params }) {
   });
   const kinds = one(params.kind)
     ?.split(",")
-    .filter((k) => k === "publisher" || k === "imprint") as
+    .filter((k) => k === "group" || k === "publisher" || k === "imprint") as
     | PublisherListOptions["kinds"]
     | undefined;
   const sort = one(params.sort);

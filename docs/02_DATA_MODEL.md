@@ -671,15 +671,15 @@ Stable publisher identities, including explicitly related imprints. Names are **
 | `slug` | TEXT | UNIQUE, NOT NULL |
 | `country` | TEXT | nullable |
 | `country_id` | UUID | FK → `countries.id`, SET NULL |
-| `kind` | TEXT | NOT NULL, default publisher; CHECK permits publisher or imprint |
-| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; required for imprints, NULL for houses |
+| `kind` | TEXT | NOT NULL, default publisher; `group`, `publisher` or `imprint` |
+| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; an imprint's publisher (required), a publisher's group (optional), NULL for a group |
 | `is_favourite` | BOOLEAN | NOT NULL, default false |
 | `notes` | TEXT | Personal collecting notes, nullable |
 | `description` | TEXT | nullable |
 | `website` | TEXT | nullable; web writes accept HTTP(S) URLs |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-A trigger restricts parents to publishing houses (one level; no cycles). Type and parent cannot change once referenced by editions, targets, or child imprints. This avoids reinterpreting historical editions during corporate changes. Sellers remain `venues`, not publisher identities.
+Three levels, as the book trade uses them (migration 0036, task 0176): a **group** owns publishers (Penguin Random House), a **publisher** owns imprints (Knopf Doubleday Publishing Group), and an **imprint** is the brand printed on the book (Vintage International). ONIX for Books keeps imprint and publisher apart; library cataloguing records the imprint. A trigger allows only imprint → publisher → group parents; types and parents may change when ownership changes, as long as the houses below still fit, and every change is logged in `publisher_hierarchy_changes`. Books stay on their imprint, so a move does not rewrite them. `publisher_family(root)` returns a house and every house below it; publisher pages, counts, the library publisher filter and `target_accepts_edition` roll up through it. The approved structure and its evidence rules live in `src/lib/publishers/taxonomy.ts` and are applied by `scripts/publishers/taxonomy.ts` (dry run by default). Sellers remain `venues`, not publisher identities.
 
 ### `publisher_aliases`
 
@@ -692,6 +692,8 @@ A trigger restricts parents to publishing houses (one level; no cycles). Type an
 Migration 0025 adds exact matching at the database boundary for web, API and Python writes. `publisher_name_key` trims and collapses whitespace, then lowercases. Only one globally unique name/alias candidate links automatically. No fuzzy matching, inferred imprint membership, or source-text rewrites. Publisher/alias changes recompute unconfirmed links, including removing links that become ambiguous. `set_edition_publishers` locks the edition and atomically replaces links; `publisher_links_confirmed` prevents imports/rematching from altering them. The review page identifies unmatched or ambiguous nonempty source fields; missing text remains unknown.
 
 Migration 0034 extends the matching. Names in `ignored_publisher_names` are skipped. When neither the publisher nor the imprint text identifies exactly one house, the longest `publisher_isbn_prefixes` rule that starts the edition's ISBN links it (`edition_isbn_digits` reads `isbn_13`, or `978` + the first nine digits of `isbn_10`). ISBN changes now recompute an edition's links, and rule or ignored-name changes recompute every unconfirmed edition. Name matches always win over ISBN rules.
+
+Migration 0036 adds three rules. A name that several houses carry (Vintage in the UK, Vintage Books in the US, each with the other's spelling as an alias) links to the one whose family holds an ISBN rule for the edition. After matching, only the most specific house stays: an edition that names both Penguin and Penguin Classics links to the imprint alone. A transaction that sets `durtal.defer_publisher_refresh = 'on'` skips the per-statement recomputation and calls `refresh_all_publisher_links()` once.
 
 The publisher names inbox (`/publishers/review`, `src/lib/actions/publisher-names.ts`) groups unconfirmed editions without a house by publisher/imprint text (`publisher_name_key`). It suggests a house by similar name (company words, accents, punctuation and parentheses removed; aliases included) and by ISBN publisher prefix (`isbn3` ranges; linked books of exactly one house share the prefix). One decision applies to every edition with the name: link (saves an alias; an ambiguous name, or an ISBN-only suggestion, confirms each edition instead), create a house, or mark the name as not a publisher. Saving the editions' ISBN prefixes as rules is optional; it is skipped for a prefix that books of another house already use.
 
@@ -714,6 +716,27 @@ Edited as "ISBN prefixes" on publisher profiles (hyphens allowed on input) and s
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 Publisher text that names no publisher (a distributor or a printer). Such text never matches a house; the edition's ISBN rule still applies. Restored from the inbox.
+
+### `publisher_hierarchy_changes`
+
+`id` (UUID PK), `publisher_id` (UUID, FK → publishing_houses, CASCADE; indexed), `old_kind`, `new_kind` (TEXT, NOT NULL), `old_parent_id`, `new_parent_id` (UUID, no FK: history), `changed_at` (TIMESTAMPTZ). A row per change of a house's type or parent, written by trigger.
+
+### `edition_enrichments`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `run_id` | UUID | NOT NULL; indexed; one taxonomy run |
+| `edition_id` | UUID | NOT NULL, FK → `editions.id`, CASCADE; indexed |
+| `field` | TEXT | NOT NULL; CHECK `imprint` or `publication_country` |
+| `old_value` | TEXT | nullable |
+| `new_value` | TEXT | NOT NULL |
+| `source` | TEXT | NOT NULL; `open_library` or `isbn_or_place` |
+| `evidence` | TEXT | NOT NULL; what the source said |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+| `undone_at` | TIMESTAMPTZ | nullable |
+
+Edition fields filled from a second source. An imprint is written only when Open Library names a house of the taxonomy and the edition's ISBN prefix belongs to that house's publisher (or, for divisions that share prefixes, its group), and only into an empty field. The country comes from the place of publication, or from a prefix used in one market only; existing values are never overwritten. `--undo RUN_ID` restores a run's values where they are unchanged.
 
 ### `publisher_auto_decisions`
 
@@ -1244,6 +1267,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `publisher_specialties` | `publishing_house_specialties` | CASCADE |
 | `publishing_houses` | `publisher_isbn_prefixes` | CASCADE |
 | `publishing_houses` | `publisher_auto_decisions` | SET NULL |
+| `publishing_houses` | `publisher_hierarchy_changes` | CASCADE |
+| `editions` | `edition_enrichments` | CASCADE |
 | `countries` | `publishing_houses.country_id` | SET NULL |
 | `series` | `works.series_id` | SET NULL |
 | `work_types` | `works.work_type_id` | SET NULL |
@@ -1269,7 +1294,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Taxonomy (work) | `subjects`, `book_categories`, `literary_movements`, `themes`, `art_types`, `art_movements`, `keywords`, `attributes` | `work_subjects`, `work_categories`, `work_literary_movements`, `work_themes`, `work_art_types`, `work_art_movements`, `work_keywords`, `work_attributes` |
 | Recommenders | `recommenders` | `work_recommenders` |
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
-| Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions` | `publishing_house_specialties` |
+| Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |

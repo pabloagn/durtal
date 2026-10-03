@@ -11,21 +11,23 @@ import {
 import { normalizeSearchText } from "@/lib/utils/search-text";
 export type PublisherOption = Omit<
   Awaited<ReturnType<typeof getPublisherOptions>>[number],
-  "parentName"
-> & { parentName?: string | null };
+  "parentName" | "groupName"
+> & { parentName?: string | null; groupName?: string | null };
 export const fieldClass =
   "w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary focus:outline-none focus:ring-1 focus:ring-accent-rose";
+/** The house and the houses above it: "Penguin Classics · Penguin Books · Penguin Random House" */
 export function publisherLabel(p: PublisherOption) {
-  return `${p.name}${p.country ? ` · ${p.country}` : ""}${p.kind === "imprint" ? ` · ${p.parentName ?? "imprint"}` : ""}`;
+  const path = [p.name, p.parentName, p.groupName].filter(Boolean);
+  return path.length > 1 || !p.country
+    ? path.join(" · ")
+    : `${p.name} · ${p.country}`;
 }
-/** Country, and the parent house of an imprint, shown after the name */
+/** Type and the houses above it, else the country, shown after the name */
 function publisherDetail(p: PublisherOption) {
-  return [
-    p.kind === "imprint" ? `Imprint of ${p.parentName ?? "a house"}` : null,
-    p.country,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const above = [p.parentName, p.groupName].filter(Boolean).join(" · ");
+  if (p.kind === "imprint") return `Imprint · ${above || "no publisher"}`;
+  if (p.kind === "group") return ["Group", p.country].filter(Boolean).join(" · ");
+  return above || p.country || "";
 }
 
 type Item = { publisher: PublisherOption } | { create: string };
@@ -48,7 +50,7 @@ export function PublisherSearch({
   onSelect: (publisher: PublisherOption) => void;
   /** Ids that are already chosen */
   exclude?: string[];
-  kinds?: ("publisher" | "imprint")[];
+  kinds?: ("group" | "publisher" | "imprint")[];
   allowCreate?: boolean;
   label?: string;
   placeholder?: string;
@@ -239,7 +241,7 @@ export function PublisherChoice({
   value: PublisherOption | null;
   onChange: (publisher: PublisherOption | null) => void;
   label?: string;
-  kinds?: ("publisher" | "imprint")[];
+  kinds?: ("group" | "publisher" | "imprint")[];
   exclude?: string[];
   allowCreate?: boolean;
   disabled?: boolean;

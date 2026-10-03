@@ -54,6 +54,10 @@ const publisherOptionColumns = {
   parentName: sql<
     string | null
   >`(select parent.name from publishing_houses parent where parent.id = "publishing_houses"."parent_id")`,
+  /** The group above an imprint's publisher */
+  groupName: sql<
+    string | null
+  >`(select g.name from publishing_houses parent join publishing_houses g on g.id = parent.parent_id where parent.id = "publishing_houses"."parent_id")`,
 };
 
 export async function getPublisherOptions() {
@@ -68,7 +72,7 @@ const publisherHaystack = sql`search_normalize(${houses.name} || ' ' || coalesce
 
 const publisherSearchSchema = z.object({
   query: z.string().max(200),
-  kinds: z.array(z.enum(["publisher", "imprint"])).max(2).optional(),
+  kinds: z.array(z.enum(["group", "publisher", "imprint"])).max(3).optional(),
 });
 
 /**
@@ -77,7 +81,7 @@ const publisherSearchSchema = z.object({
  */
 export async function searchPublisherOptions(
   query: string,
-  kinds?: ("publisher" | "imprint")[],
+  kinds?: ("group" | "publisher" | "imprint")[],
 ) {
   const o = publisherSearchSchema.parse({ query, kinds });
   const q = o.query.trim();
@@ -106,16 +110,17 @@ export async function createPublisherFromName(name: string) {
     kind: saved.kind,
     parentId: saved.parentId,
     parentName: null,
+    groupName: null,
   };
 }
-const publisherEditionCount = sql<number>`(select count(distinct ep.edition_id)::int from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where p.id = "publishing_houses"."id" or p.parent_id = "publishing_houses"."id")`;
+const publisherEditionCount = sql<number>`(select count(distinct ep.edition_id)::int from edition_publishers ep where ep.publisher_id in (select publisher_family("publishing_houses"."id")))`;
 
 const publisherListSchema = z.object({
   search: z.string().max(200).optional(),
   sort: z.enum(["relevance", "name", "editions", "recent"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
   favourites: z.boolean().optional(),
-  kinds: z.array(z.enum(["publisher", "imprint"])).max(2).optional(),
+  kinds: z.array(z.enum(["group", "publisher", "imprint"])).max(3).optional(),
   countries: z.array(z.string().max(120)).max(100).optional(),
   page: z.number().int().optional(),
   perPage: z.number().int().optional(),
@@ -240,6 +245,15 @@ export async function getPublisher(slug: string) {
     specialties,
     children,
     parent: parent[0] ?? null,
+    /** The group above this house's publisher (imprints only) */
+    group: parent[0]?.parentId
+      ? ((
+          await db
+            .select()
+            .from(houses)
+            .where(eq(houses.id, parent[0].parentId))
+        )[0] ?? null)
+      : null,
   };
 }
 
@@ -564,7 +578,7 @@ export async function getPublisherCatalogue(
   const paging = parsePagination({ page: String(page), perPage: String(perPage) }, { defaultPerPage: 24 });
   z.uuid().parse(id);
   z.enum(["all", "owned", "wanted", "on_order"]).parse(filter);
-  const belongs = sql`exists (select 1 from edition_publishers ep join publishing_houses p on p.id = ep.publisher_id where ep.edition_id = ${editions.id} and (p.id = ${id} or p.parent_id = ${id}))`;
+  const belongs = sql`exists (select 1 from edition_publishers ep where ep.edition_id = ${editions.id} and ep.publisher_id in (select publisher_family(${id}::uuid)))`;
   const owned = sql<boolean>`exists (select 1 from instances i where i.edition_id = ${editions.id} and i.status <> 'deaccessioned')`;
   const onOrder = sql<boolean>`exists (select 1 from orders o where o.edition_id = ${editions.id} and o.status not in ('cancelled', 'returned', 'delivered', 'received', 'purchased'))`;
   const wanted = sql<boolean>`(exists (select 1 from acquisition_targets where work_id = ${editions.workId} and target_accepts_edition(id, ${editions.id}) and (${targetState}) = 'wanted')
@@ -606,7 +620,7 @@ export async function getPublisherCatalogue(
       .innerJoin(houses, eq(houses.id, acquisitionTargets.publisherId))
       .where(
         and(
-          or(eq(houses.id, id), eq(houses.parentId, id)),
+          sql`${houses.id} in (select publisher_family(${id}::uuid))`,
           eq(acquisitionTargets.isCancelled, false),
           sql`(${targetState}) <> 'received'`,
         ),

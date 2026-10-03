@@ -166,3 +166,54 @@ export const publisherAutoDecisions = pgTable(
     ),
   ],
 );
+
+// Every change of a house's type or parent (task 0176): ownership changes
+// over time, books stay on their imprint, and the move is kept here.
+export const publisherHierarchyChanges = pgTable(
+  "publisher_hierarchy_changes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    publisherId: uuid("publisher_id")
+      .notNull()
+      .references(() => publishingHouses.id, { onDelete: "cascade" }),
+    oldKind: text("old_kind").notNull(),
+    newKind: text("new_kind").notNull(),
+    oldParentId: uuid("old_parent_id"),
+    newParentId: uuid("new_parent_id"),
+    changedAt: timestamp("changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("publisher_hierarchy_changes_publisher_idx").on(t.publisherId)],
+);
+
+// Edition fields filled from a second metadata source (task 0176): the
+// imprint printed on the book and the country of publication. One run can be
+// undone by restoring `old_value`.
+export const editionEnrichments = pgTable(
+  "edition_enrichments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    runId: uuid("run_id").notNull(),
+    editionId: uuid("edition_id")
+      .notNull()
+      .references(() => editions.id, { onDelete: "cascade" }),
+    field: text("field").notNull(),
+    oldValue: text("old_value"),
+    newValue: text("new_value").notNull(),
+    source: text("source").notNull(),
+    evidence: text("evidence").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    undoneAt: timestamp("undone_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("edition_enrichments_run_idx").on(t.runId),
+    index("edition_enrichments_edition_idx").on(t.editionId),
+    check(
+      "edition_enrichment_field",
+      sql`${t.field} in ('imprint', 'publication_country')`,
+    ),
+  ],
+);

@@ -22,7 +22,9 @@ export const publishingHouses = pgTable(
     countryId: uuid("country_id").references(() => countries.id, {
       onDelete: "set null",
     }),
-    kind: text("kind", { enum: ["publisher", "imprint"] })
+    // group → publisher → imprint (task 0176): a group owns publishers, a
+    // publisher owns imprints, a book links to the most specific one it shows
+    kind: text("kind", { enum: ["group", "publisher", "imprint"] })
       .notNull()
       .default("publisher"),
     parentId: uuid("parent_id").references(
@@ -42,7 +44,7 @@ export const publishingHouses = pgTable(
     index("publishing_houses_parent_idx").on(t.parentId),
     check(
       "publisher_kind_parent_check",
-      sql`(${t.kind} = 'publisher' AND ${t.parentId} IS NULL) OR (${t.kind} = 'imprint' AND ${t.parentId} IS NOT NULL AND ${t.parentId} <> ${t.id})`,
+      sql`(${t.kind} = 'group' AND ${t.parentId} IS NULL) OR (${t.kind} = 'publisher' AND (${t.parentId} IS NULL OR ${t.parentId} <> ${t.id})) OR (${t.kind} = 'imprint' AND ${t.parentId} IS NOT NULL AND ${t.parentId} <> ${t.id})`,
     ),
   ],
 );

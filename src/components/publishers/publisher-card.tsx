@@ -1,3 +1,4 @@
+import { parentPhrase } from "@/lib/publishers/kinds";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
       {/* Fixed rows: every publisher card has the same height */}
       <div className="flex h-5 min-w-0 items-center gap-1.5 overflow-hidden px-4">
         {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
+        {p.kind === "group" && <Badge variant="gold">Group</Badge>}
         {p.country && (
           <Badge variant="muted" className="min-w-0">
             <span className="truncate">{p.country}</span>
@@ -94,13 +96,14 @@ export function PublisherListItem({
             {p.name}
           </h3>
           <p className="truncate text-xs text-fg-muted">
-            {[p.country, p.parentName ? `Imprint of ${p.parentName}` : null]
+            {[p.country, parentPhrase(p.kind, p.parentName)]
               .filter(Boolean)
               .join(" · ") || " "}
           </p>
         </div>
         <div className="flex flex-shrink-0 items-center gap-3">
           {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
+          {p.kind === "group" && <Badge variant="gold">Group</Badge>}
           <span className="w-20 text-right font-mono text-micro text-fg-muted">
             {editionsLabel(p.editionCount)}
           </span>

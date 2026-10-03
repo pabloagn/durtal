@@ -253,6 +253,13 @@
       "when": 1790795246376,
       "tag": "0035_language_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790985544096,
+      "tag": "0036_publisher_hierarchy",
+      "breakpoints": true
     }
   ]
 }

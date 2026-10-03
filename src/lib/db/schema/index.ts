@@ -177,6 +177,8 @@ export {
   publisherIsbnPrefixes,
   ignoredPublisherNames,
   publisherAutoDecisions,
+  publisherHierarchyChanges,
+  editionEnrichments,
 } from "./publisher-links";
 
 export { imageAdjustments } from "./image-adjustments";

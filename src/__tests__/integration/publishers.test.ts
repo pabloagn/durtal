@@ -65,6 +65,8 @@ import {
   undoAutomaticPublisherDecision,
 } from "@/lib/actions/publisher-names";
 import { applyAutomaticDecisions } from "@/lib/publishers/resolution";
+import { applyTaxonomy, undoTaxonomyRun } from "@/lib/publishers/taxonomy-apply";
+import type { HouseSpec } from "@/lib/publishers/taxonomy";
 import {
   createEdition,
   updateEdition,
@@ -510,6 +512,154 @@ describe.skipIf(!url)(
       expect(await getEditionPublisherLinks(a.id)).toEqual([]);
       expect(await db.select().from(schema.publisherAliases)).toHaveLength(0);
       expect(nyrb.id).toBeTruthy();
+    });
+    it("keeps group → publisher → imprint, logs moves, and rolls pages up through every level", async () => {
+      const group = await savePublisher({ name: "Test Group", kind: "group" });
+      const pub = await savePublisher({ name: "Test Publisher", kind: "publisher", parentId: group.id });
+      const other = await savePublisher({ name: "Other Publisher", kind: "publisher", parentId: group.id });
+      const imprint = await savePublisher({ name: "Test Imprint", kind: "imprint", parentId: pub.id });
+      // Wrong parents are refused
+      await expect(savePublisher({ name: "Bad", kind: "imprint", parentId: group.id })).rejects.toThrow();
+      await expect(savePublisher({ name: "Bad", kind: "publisher", parentId: pub.id })).rejects.toThrow();
+      await expect(savePublisher({ name: "Bad", kind: "group", parentId: group.id })).rejects.toThrow();
+      const w = await work("Rolled up");
+      const e = await edition(w.id, "Test Imprint");
+      expect((await getEditionPublisherLinks(e.id))[0].publisher.id).toBe(imprint.id);
+      for (const id of [group.id, pub.id, imprint.id])
+        expect((await getPublisherCatalogue(id)).totals.works, id).toBe(1);
+      expect((await getPublisherCatalogue(other.id)).totals.works).toBe(0);
+      expect((await getWorks({ filters: { publisherIds: [group.id] } })).map((x) => x.id)).toEqual([w.id]);
+      expect((await getPublishers({ search: "Test Group" })).rows[0].editionCount).toBe(1);
+      // A target "from the group" accepts the imprint's edition
+      const target = await createAcquisitionTarget({ workId: w.id, publisherId: group.id });
+      const [{ ok }] = await client!`select target_accepts_edition(${target.id}, ${e.id}) as ok`;
+      expect(ok).toBe(true);
+      // Ownership changes: an imprint with books moves, and the move is logged
+      await savePublisher({ name: "Test Imprint", kind: "imprint", parentId: other.id }, imprint.id);
+      expect((await getPublisherCatalogue(other.id)).totals.works).toBe(1);
+      const moves = await db.select().from(schema.publisherHierarchyChanges);
+      expect(moves).toMatchObject([{ publisherId: imprint.id, oldParentId: pub.id, newParentId: other.id }]);
+      // A type that no longer fits the houses below is refused
+      await expect(
+        savePublisher({ name: "Other Publisher", kind: "imprint", parentId: pub.id }, other.id),
+      ).rejects.toThrow();
+    });
+    it("links only the most specific house, and lets the ISBN decide between same-name houses", async () => {
+      const group = await savePublisher({ name: "Penguin Random House", kind: "group" });
+      const penguin = await savePublisher({ name: "Penguin Books", kind: "publisher", parentId: group.id, aliases: ["Penguin"] });
+      const classics = await savePublisher({ name: "Penguin Classics", kind: "imprint", parentId: penguin.id });
+      const uk = await savePublisher({ name: "Vintage Publishing", kind: "publisher", parentId: group.id, isbnPrefixes: ["978-0-09"] });
+      const kd = await savePublisher({ name: "Knopf Doubleday Publishing Group", kind: "publisher", parentId: group.id, isbnPrefixes: ["978-0-679"] });
+      const vintageUk = await savePublisher({ name: "Vintage", kind: "imprint", parentId: uk.id, aliases: ["Vintage Books"] });
+      const vintageUs = await savePublisher({ name: "Vintage Books", kind: "imprint", parentId: kd.id, aliases: ["Vintage"] });
+      const w = await work();
+      const both = await createEdition({ workId: w.id, title: "A book", publisher: "Penguin", imprint: "Penguin Classics" });
+      expect((await getEditionPublisherLinks(both.id)).map((l) => l.publisher.id)).toEqual([classics.id]);
+      const ukBook = await raw(w.id, "Vintage", isbn("978009928583"));
+      const usBook = await raw(w.id, "Vintage Books", isbn("978067972294"));
+      const noIsbn = await raw(w.id, "Vintage");
+      expect((await getEditionPublisherLinks(ukBook.id))[0].publisher.id).toBe(vintageUk.id);
+      expect((await getEditionPublisherLinks(usBook.id))[0].publisher.id).toBe(vintageUs.id);
+      expect(await getEditionPublisherLinks(noIsbn.id)).toEqual([]);
+      const linkOf = async (id: string) => (await getEditionPublisherLinks(id)).map((l) => l.publisher.name);
+      // A prefix the whole group shares: the book's other name decides between the Vintages
+      await savePublisher({ name: "Penguin Random House", kind: "group", isbnPrefixes: ["978-0-593"] }, group.id);
+      const shared = await db.insert(schema.editions).values({
+        workId: w.id, title: "A book", publisher: "Knopf Doubleday Publishing Group", imprint: "Vintage Books", isbn13: isbn("978059300000"),
+      }).returning();
+      expect(await linkOf(shared[0].id)).toEqual(["Vintage Books"]);
+      // The printed imprint beats a sibling the publisher text gives
+      await savePublisher({ name: "Vintage International", kind: "imprint", parentId: kd.id });
+      const refined = await db.insert(schema.editions).values({
+        workId: w.id, title: "A book", publisher: "Vintage Books", imprint: "Vintage International", isbn13: isbn("978067972020"),
+      }).returning();
+      expect(await linkOf(refined[0].id)).toEqual(["Vintage International"]);
+      // A group's name gives way to the ISBN's publisher inside the group
+      const groupOnly = await raw(w.id, "Penguin Random House", isbn("978009928584"));
+      expect(await linkOf(groupOnly.id)).toEqual(["Vintage Publishing"]);
+    });
+    it("applies the taxonomy in one transaction: a dry run leaves nothing, undo restores the edition fields", async () => {
+      await savePublisher({ name: "Old Group", aliases: ["Old Group Plc"] });
+      const spec: HouseSpec[] = [
+        {
+          name: "New Group",
+          kind: "group",
+          existing: ["Old Group"],
+          children: [
+            {
+              name: "Test Books",
+              kind: "publisher",
+              aliases: ["Test Books Ltd"],
+              prefixes: ["978-1-84668"],
+              evidence: [/^test books$/i],
+              children: [
+                { name: "Test Classics", kind: "imprint", evidence: [/^test classics$/i] },
+                { name: "Test Modern", kind: "imprint", evidence: [/^test modern$/i] },
+                { name: "Unused Imprint", kind: "imprint", evidence: [/^unused$/i], onlyIfUsed: true },
+              ],
+            },
+          ],
+        },
+      ];
+      const w = await work();
+      const code = isbn("978184668000");
+      const other = isbn("978184668001");
+      const e = await raw(w.id, "Test Books Ltd", code);
+      const printed = await raw(w.id, "Test Classics", other);
+      const input = {
+        spec,
+        editions: [
+          { id: e.id, title: "A book", publisher: "Test Books Ltd", imprint: null, isbn13: code, isbn10: null, country: null, confirmed: false },
+          { id: printed.id, title: "Printed", publisher: "Test Classics", imprint: null, isbn13: other, isbn10: null, country: "France", confirmed: false },
+        ],
+        sources: new Map([
+          [code, { publishers: ["Test Books"], series: ["Test Classics"], places: ["London"] }],
+          // The book says one imprint, the source another: nothing changes
+          [other, { publishers: ["Test Modern"], series: [], places: ["London"] }],
+        ]),
+      };
+      const housesBefore = await db.select().from(schema.publishingHouses);
+      class Rollback extends Error {}
+      let dry: Awaited<ReturnType<typeof applyTaxonomy>> | null = null;
+      await expect(
+        client!.begin(async (tx) => {
+          dry = await applyTaxonomy(tx, input);
+          throw new Rollback();
+        }),
+      ).rejects.toBeInstanceOf(Rollback);
+      expect(dry!.houses.map((h) => [h.path.at(-1), h.action])).toEqual([
+        ["New Group", "update"],
+        ["Test Books", "create"],
+        ["Test Classics", "create"],
+        ["Test Modern", "create"],
+      ]);
+      expect(dry!.links).toEqual([
+        { editionId: e.id, title: "A book", before: [], after: ["Test Classics"] },
+        { editionId: printed.id, title: "Printed", before: [], after: ["Test Classics"] },
+      ]);
+      expect(dry!.disagreements).toEqual([{ title: "Printed", printed: "Test Classics", source: "Test Modern" }]);
+      // An existing country is never overwritten
+      expect(dry!.enrichments.filter((x) => x.editionId === printed.id)).toEqual([]);
+      expect(await db.select().from(schema.publishingHouses)).toEqual(housesBefore);
+      expect((await db.select().from(schema.editions))[0].imprint).toBeNull();
+
+      const applied = await client!.begin((tx) => applyTaxonomy(tx, input));
+      const [saved] = await db.select().from(schema.editions).where(eq(schema.editions.id, e.id));
+      expect(saved).toMatchObject({ imprint: "Test Classics", publicationCountry: "United Kingdom" });
+      expect((await getEditionPublisherLinks(e.id)).map((l) => l.publisher.name)).toEqual(["Test Classics"]);
+      const group = (await db.select().from(schema.publishingHouses)).find((h) => h.name === "New Group")!;
+      expect(group.kind).toBe("group");
+      expect((await db.select().from(schema.publisherAliases)).map((a) => a.name).sort()).toEqual([
+        "Old Group",
+        "Old Group Plc",
+        "Test Books Ltd",
+      ]);
+      expect((await db.select().from(schema.publishingHouses)).map((h) => h.name)).not.toContain("Unused Imprint");
+
+      expect(await client!.begin((tx) => undoTaxonomyRun(tx, applied.runId))).toBe(2);
+      const [restored] = await db.select().from(schema.editions).where(eq(schema.editions.id, e.id));
+      expect(restored).toMatchObject({ imprint: null, publicationCountry: null });
+      expect((await getEditionPublisherLinks(e.id)).map((l) => l.publisher.name)).toEqual(["Test Books"]);
     });
     it("does not conflate same-name publishers, including names that become ambiguous later", async () => {
       const us = await publisher("Wakefield Press");
