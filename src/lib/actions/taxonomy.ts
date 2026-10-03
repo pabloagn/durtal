@@ -27,6 +27,16 @@ import {
 import { eq, asc, sql, and } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
+import {
+  createSubjectSchema,
+  createGenreSchema,
+  updateGenreSchema,
+  createTagSchema,
+  updateTagSchema,
+  updateWorkTaxonomySchema,
+  type UpdateWorkTaxonomyInput,
+} from "@/lib/validations/taxonomy-management";
+import { parseId } from "@/lib/validations/helpers";
 
 // ── Work Types ────────────────────────────────────────────────────────────────
 
@@ -45,7 +55,10 @@ export const getSubjects = cached(
 );
 
 export async function createSubject(input: { name: string; slug: string }) {
-  const [subject] = await db.insert(subjects).values(input).returning();
+  const [subject] = await db
+    .insert(subjects)
+    .values(createSubjectSchema.parse(input))
+    .returning();
   invalidate(CACHE_TAGS.subjects);
   return subject;
 }
@@ -100,7 +113,10 @@ export async function createGenre(input: {
   parentId?: string | null;
   sortOrder?: number;
 }) {
-  const [genre] = await db.insert(genres).values(input).returning();
+  const [genre] = await db
+    .insert(genres)
+    .values(createGenreSchema.parse(input))
+    .returning();
   invalidate(CACHE_TAGS.genres);
   return genre;
 }
@@ -114,7 +130,11 @@ export async function updateGenre(
     sortOrder: number;
   }>,
 ) {
-  await db.update(genres).set(input).where(eq(genres.id, id));
+  parseId(id);
+  await db
+    .update(genres)
+    .set(updateGenreSchema.parse(input))
+    .where(eq(genres.id, id));
   invalidate(CACHE_TAGS.genres);
   return { id };
 }
@@ -137,7 +157,10 @@ export async function createTag(input: {
   name: string;
   color?: string | null;
 }) {
-  const [tag] = await db.insert(tags).values(input).returning();
+  const [tag] = await db
+    .insert(tags)
+    .values(createTagSchema.parse(input))
+    .returning();
   invalidate(CACHE_TAGS.tags);
   return tag;
 }
@@ -146,7 +169,11 @@ export async function updateTag(
   id: string,
   input: Partial<{ name: string; color: string | null }>,
 ) {
-  await db.update(tags).set(input).where(eq(tags.id, id));
+  parseId(id);
+  await db
+    .update(tags)
+    .set(updateTagSchema.parse(input))
+    .where(eq(tags.id, id));
   invalidate(CACHE_TAGS.tags);
   return { id };
 }
@@ -229,17 +256,10 @@ export const getAttributes = cached(
 
 export async function updateWorkTaxonomy(
   workId: string,
-  input: {
-    subjectIds?: string[];
-    categoryIds?: string[];
-    themeIds?: string[];
-    literaryMovementIds?: string[];
-    artTypeIds?: string[];
-    artMovementIds?: string[];
-    keywordIds?: string[];
-    attributeIds?: string[];
-  },
+  rawInput: UpdateWorkTaxonomyInput,
 ) {
+  parseId(workId);
+  const input = updateWorkTaxonomySchema.parse(rawInput);
   await requireBookWork(workId);
   await atomic((d) => [
     d.execute(sql`select id from works where id=${workId}::uuid for update`),

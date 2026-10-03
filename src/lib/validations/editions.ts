@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import { normalizeBinding } from "@/lib/utils/binding";
+import { toUpdateSchema } from "./helpers";
 
 export const createEditionSchema = z.object({
   workId: z.string().uuid(),
@@ -127,9 +128,12 @@ export const createEditionSchema = z.object({
   tagIds: z.array(z.string().uuid()).optional(),
 });
 
-export const updateEditionSchema = createEditionSchema
-  .partial()
-  .omit({ workId: undefined });
+/**
+ * Partial update: no defaults (language and the edition flags are never
+ * reset), unknown keys rejected. workId stays: reparenting an edition is
+ * allowed, and updateEdition checks that the new parent is a book.
+ */
+export const updateEditionSchema = toUpdateSchema(createEditionSchema);
 
 export type CreateEditionInput = z.input<typeof createEditionSchema>;
 export type UpdateEditionInput = z.input<typeof updateEditionSchema>;

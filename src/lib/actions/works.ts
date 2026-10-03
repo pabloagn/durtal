@@ -55,6 +55,7 @@ import {
   type UpdateWorkInput,
 } from "@/lib/validations";
 import { bookLinksSchema } from "@/lib/validations/book-links";
+import { parseId } from "@/lib/validations/helpers";
 import { refreshWorkSlug } from "@/lib/works/slug";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
@@ -606,6 +607,7 @@ export async function createWork(input: CreateWorkInput) {
 }
 
 export async function updateWork(id: string, input: UpdateWorkInput) {
+  parseId(id);
   const {
     authorIds,
     subjectIds,

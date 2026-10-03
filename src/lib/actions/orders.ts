@@ -47,7 +47,12 @@ import {
 } from "@/lib/constants/orders";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { createOrderSchema, orderCurrencySchema } from "@/lib/validations/orders";
+import {
+  createOrderSchema,
+  orderStatusSchema,
+  updateOrderSchema,
+} from "@/lib/validations/orders";
+import { parseId } from "@/lib/validations/helpers";
 import { createWorkSchema } from "@/lib/validations/works";
 import {
   bookAuthorFor,
@@ -572,9 +577,11 @@ export async function createOrderForNewBook(input: {
   return { order, slug: work.slug };
 }
 
-export async function updateOrder(id: string, input: UpdateOrderInput) {
+export async function updateOrder(id: string, rawInput: UpdateOrderInput) {
+  parseId(id);
+  // No defaults, unknown keys rejected; the currency is checked here too
+  const input = updateOrderSchema.parse(rawInput);
   if (input.workId !== undefined) await requireBookWork(input.workId);
-  if (input.currency !== undefined) orderCurrencySchema.parse(input.currency);
 
   // H3: fetch current state to record what changed
   const current = await db.query.orders.findFirst({
@@ -659,6 +666,9 @@ export async function updateOrderStatus(
   newStatus: OrderStatus,
   notes?: string,
 ) {
+  parseId(id);
+  newStatus = orderStatusSchema.parse(newStatus);
+  notes = z.string().max(5000).optional().parse(notes);
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
     columns: {

@@ -68,7 +68,10 @@ export const updateWorkSchema = createWorkSchema.partial().extend({
       }),
     )
     .optional(),
-});
+})
+  // Unknown keys are rejected: an update cannot set a column the form does
+  // not expose (slug, createdAt, ...), and a typo is not silently ignored.
+  .strict();
 
 export type CreateWorkInput = z.input<typeof createWorkSchema>;
 export type UpdateWorkInput = z.input<typeof updateWorkSchema>;

@@ -5,8 +5,11 @@ import { editions, instances } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   createInstanceSchema,
+  updateInstanceSchema,
   type CreateInstanceInput,
+  type UpdateInstanceInput,
 } from "@/lib/validations";
+import { parseId } from "@/lib/validations/helpers";
 import { recordActivity } from "@/lib/activity/record";
 
 export async function createInstance(input: CreateInstanceInput) {
@@ -26,13 +29,12 @@ export async function createInstance(input: CreateInstanceInput) {
   return instance;
 }
 
-export async function updateInstance(
-  id: string,
-  input: Partial<CreateInstanceInput>,
-) {
+export async function updateInstance(id: string, input: UpdateInstanceInput) {
+  parseId(id);
+  const data = updateInstanceSchema.parse(input);
   await db
     .update(instances)
-    .set({ ...input, updatedAt: new Date() })
+    .set({ ...data, updatedAt: new Date() })
     .where(eq(instances.id, id));
 
   const inst = await db.query.instances.findFirst({

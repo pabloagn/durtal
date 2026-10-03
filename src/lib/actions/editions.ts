@@ -19,8 +19,11 @@ import {
 import { eq, asc, sql } from "drizzle-orm";
 import {
   createEditionSchema,
+  updateEditionSchema,
   type CreateEditionInput,
+  type UpdateEditionInput,
 } from "@/lib/validations";
+import { parseId } from "@/lib/validations/helpers";
 import { processAndUploadCover } from "@/lib/s3/covers";
 import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
@@ -93,16 +96,11 @@ export async function createEdition(input: CreateEditionInput) {
   return { ...edition!, coverUnavailable: plan.coverUnavailable };
 }
 
-export async function updateEdition(
-  id: string,
-  input: Partial<CreateEditionInput>,
-) {
-  const parsed = createEditionSchema.partial().parse(input);
+export async function updateEdition(id: string, input: UpdateEditionInput) {
+  parseId(id);
+  // No defaults (an omitted field keeps its stored value), unknown keys rejected
+  const parsed = updateEditionSchema.parse(input);
   if (parsed.workId !== undefined) await requireBookWork(parsed.workId);
-  // Zod defaults also run inside partial schemas. Never apply defaults to omitted edits.
-  for (const key of Object.keys(parsed) as (keyof typeof parsed)[]) {
-    if (input[key] === undefined) delete parsed[key];
-  }
   const {
     publisherIds,
     contributorIds,

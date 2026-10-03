@@ -20,8 +20,11 @@ import {
 import type { NationalityOption } from "@/lib/utils/nationality-param";
 import {
   createAuthorSchema,
+  updateAuthorSchema,
   type CreateAuthorInput,
+  type UpdateAuthorInput,
 } from "@/lib/validations";
+import { parseId } from "@/lib/validations/helpers";
 import { generateAuthorSlug } from "@/lib/utils/slugify";
 import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
@@ -461,7 +464,9 @@ export async function searchAuthorsLite(query: string) {
   });
 }
 
-export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>) {
+export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
+  parseId(id);
+  const input = updateAuthorSchema.parse(rawInput);
   // Snapshot for activity diffing + zodiac recomputation
   const prev = await db.query.authors.findFirst({
     where: eq(authors.id, id),

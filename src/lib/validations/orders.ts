@@ -1,5 +1,22 @@
 import { z } from "zod/v4";
 import { isSupportedCurrency } from "@/lib/constants/currencies";
+import { toUpdateSchema } from "./helpers";
+
+export const orderStatusSchema = z.enum([
+  "placed",
+  "confirmed",
+  "processing",
+  "shipped",
+  "in_transit",
+  "out_for_delivery",
+  "delivered",
+  "purchased",
+  "received",
+  "bid",
+  "won",
+  "cancelled",
+  "returned",
+]);
 
 /** An ISO 4217 code from the supported list, or null for orders without money. */
 export const orderCurrencySchema = z
@@ -21,23 +38,7 @@ export const createOrderSchema = z.object({
     "auction",
     "event_purchase",
   ]),
-  status: z
-    .enum([
-      "placed",
-      "confirmed",
-      "processing",
-      "shipped",
-      "in_transit",
-      "out_for_delivery",
-      "delivered",
-      "purchased",
-      "received",
-      "bid",
-      "won",
-      "cancelled",
-      "returned",
-    ])
-    .optional(),
+  status: orderStatusSchema.optional(),
   orderDate: z.string().min(1),
   orderConfirmation: z.string().nullable().optional(),
   orderUrl: z.string().nullable().optional(),
@@ -58,4 +59,8 @@ export const createOrderSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
+/** Partial update: no defaults, unknown keys rejected (see toUpdateSchema). */
+export const updateOrderSchema = toUpdateSchema(createOrderSchema);
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+export type UpdateOrderInput = z.input<typeof updateOrderSchema>;

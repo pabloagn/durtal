@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { toUpdateSchema } from "./helpers";
 
 export const createAuthorSchema = z.object({
   name: z.string().min(1, "Name is required").max(300),
@@ -24,7 +25,8 @@ export const createAuthorSchema = z.object({
   goodreadsId: z.string().max(50).nullable().optional(),
 });
 
-export const updateAuthorSchema = createAuthorSchema.partial();
+/** Partial update: no defaults, unknown keys rejected (see toUpdateSchema). */
+export const updateAuthorSchema = toUpdateSchema(createAuthorSchema);
 
 export type CreateAuthorInput = z.infer<typeof createAuthorSchema>;
-export type UpdateAuthorInput = z.infer<typeof updateAuthorSchema>;
+export type UpdateAuthorInput = z.input<typeof updateAuthorSchema>;
