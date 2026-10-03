@@ -7,7 +7,13 @@ driver is bridged to that database by a preload that refuses any other host
 or database. No environment file, live database or S3 credential is used.
 Ctrl-C stops the server and removes the container.
 
-    python3 scripts/qa/preview-local.py [--port 3410]
+With --from-dump, a `pg_dump --format=custom` backup replaces the synthetic
+catalogue: this is the rehearsal of a live migration. Before the pending
+migrations run, every table is copied to the `rehearsal_before` schema; after
+them, each copied row is compared column by column with the migrated table and
+the differences are printed. The copy stays for inspection with psql.
+
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE]
 """
 
 import argparse
@@ -86,6 +92,52 @@ insert into locations(name,type) values ('Study','physical'),('Calibre','digital
 insert into venues(name,slug,type) values ('Shakespeare and Company','shakespeare-and-company','bookshop');
 """
 
+SNAPSHOT = """
+create schema rehearsal_before;
+do $$ declare t text; begin
+  for t in select tablename from pg_tables where schemaname = 'public' loop
+    execute format('create table rehearsal_before.%I as table public.%I', t, t);
+  end loop;
+end $$;
+"""
+
+# Rows of each copied table that are missing from (removed) or new in (added)
+# the migrated table, compared on the copied columns only: new columns and new
+# tables are additive. A dropped table or column is reported, not compared.
+RECONCILE = """
+create temp table reconciliation(tbl text, removed bigint, added bigint, note text);
+do $$ declare t text; cols text; gone text; removed bigint; added bigint; begin
+  for t in select tablename from pg_tables where schemaname = 'rehearsal_before' order by 1 loop
+    if to_regclass(format('public.%I', t)) is null then
+      insert into reconciliation values (t, null, null, 'table dropped'); continue;
+    end if;
+    select string_agg(b.column_name, ', ') into gone
+      from information_schema.columns b where b.table_schema = 'rehearsal_before' and b.table_name = t
+      and not exists (select from information_schema.columns a where a.table_schema = 'public'
+        and a.table_name = t and a.column_name = b.column_name);
+    if gone is not null then
+      insert into reconciliation values (t, null, null, 'columns dropped: ' || gone); continue;
+    end if;
+    select string_agg(format('%I::text', column_name), ', ' order by ordinal_position) into cols
+      from information_schema.columns where table_schema = 'rehearsal_before' and table_name = t;
+    execute format('select count(*) from (select %s from rehearsal_before.%I except all select %s from public.%I) d', cols, t, cols, t) into removed;
+    execute format('select count(*) from (select %s from public.%I except all select %s from rehearsal_before.%I) d', cols, t, cols, t) into added;
+    insert into reconciliation values (t, removed, added, null);
+  end loop;
+end $$;
+select 'tables ' || count(*) || ', rows ' || (select sum((xpath('/row/c/text()', query_to_xml(
+  format('select count(*) as c from rehearsal_before.%I', tablename), false, true, '')))[1]::text::bigint)
+  from pg_tables where schemaname = 'rehearsal_before') || ', tables with differences '
+  || count(*) filter (where removed <> 0 or added <> 0 or note is not null) from reconciliation;
+select tbl || ': ' || coalesce(note, removed || ' removed, ' || added || ' added')
+  from reconciliation where removed <> 0 or added <> 0 or note is not null order by tbl;
+select 'new table ' || tablename || ': ' || (xpath('/row/c/text()', query_to_xml(
+  format('select count(*) as c from public.%I', tablename), false, true, '')))[1]::text || ' rows'
+  from pg_tables p where schemaname = 'public'
+  and not exists (select from pg_tables b where b.schemaname = 'rehearsal_before' and b.tablename = p.tablename)
+  order by tablename;
+"""
+
 
 def run(*args, **kwargs):
     result = subprocess.run(args, text=True, capture_output=True, **kwargs)
@@ -97,6 +149,8 @@ def run(*args, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=3410)
+    parser.add_argument("--from-dump", type=Path, metavar="FILE",
+                        help="rehearse the pending migrations on this pg_dump backup")
     args = parser.parse_args()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
@@ -134,10 +188,20 @@ def main():
         # Minimal environment: no inherited database URL, token or cloud key.
         env = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "TERM") if key in os.environ}
         env.update(DATABASE_URL=url, NEXT_TELEMETRY_DISABLED="1")
-        run("node", "--input-type=module", "-e", MIGRATE, cwd=ROOT, env=env)
-        subprocess.run(["docker", "exec", "-i", container, "psql", "-q", "-v", "ON_ERROR_STOP=1",
-                        "-U", "durtal_preview", "-d", DATABASE], input=SEED, text=True,
-                       check=True, capture_output=True)
+        def psql(sql):
+            return run("docker", "exec", "-i", container, "psql", "-q", "-X", "-A", "-t",
+                       "-v", "ON_ERROR_STOP=1", "-U", "durtal_preview", "-d", DATABASE, input=sql)
+
+        if args.from_dump:
+            with args.from_dump.open("rb") as dump:
+                run("docker", "exec", "-i", container, "pg_restore", "--no-owner", "--no-privileges",
+                    "--exit-on-error", "-U", "durtal_preview", "-d", DATABASE, stdin=dump)
+            psql(SNAPSHOT)
+            run("node", "--input-type=module", "-e", MIGRATE, cwd=ROOT, env=env)
+            print(psql(RECONCILE), flush=True)
+        else:
+            run("node", "--input-type=module", "-e", MIGRATE, cwd=ROOT, env=env)
+            psql(SEED)
         bridge = workdir / "neon-bridge.mjs"
         bridge.write_text(BRIDGE % {
             "postgres": repr(str(ROOT / "node_modules/postgres/src/index.js")),
