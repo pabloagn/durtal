@@ -987,14 +987,14 @@ Indexed on: `name`, `alpha_2`, `alpha_3`, `continent_name`. Seeded from Knowledg
 
 ### `places`
 
-Hierarchical geographic locations. Used to record birth and death places for authors. Supports arbitrary depth (country → region → city → district → neighborhood) via a self-referential parent FK.
+Hierarchical geographic locations. Used to record birth and death places for authors (set in the author create and edit dialogs) and the address points of venues. Supports arbitrary depth (country → region → city → district → neighborhood) via a self-referential parent FK.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `name` | TEXT | NOT NULL | Short place name (e.g., "Paris") |
 | `full_name` | TEXT | nullable | Precomputed full path (e.g., "Paris, Île-de-France, France") |
-| `type` | TEXT | NOT NULL | `country`, `region`, `state`, `province`, `city`, `town`, `village`, `district`, `neighborhood` |
+| `type` | TEXT | NOT NULL | `country`, `region`, `state`, `province`, `city`, `town`, `village`, `district`, `neighborhood`, `venue` (a venue's own address point, written by `createVenue`) |
 | `parent_id` | UUID | FK → `places.id`, SET NULL, self-ref | Parent in hierarchy |
 | `country_id` | UUID | FK → `countries.id`, SET NULL | Shortcut to country for fast filtering |
 | `latitude` | DOUBLE PRECISION | nullable | |

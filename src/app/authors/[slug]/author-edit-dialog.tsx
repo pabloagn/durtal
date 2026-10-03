@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/shared/rich-text-editor";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
 import { getAuthor, updateAuthor, getCountries } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
@@ -56,6 +57,8 @@ export function AuthorEditDialog({
   const [deathMonth, setDeathMonth] = useState("");
   const [deathDay, setDeathDay] = useState("");
   const [deathYearIsApproximate, setDeathYearIsApproximate] = useState(false);
+  const [birthPlace, setBirthPlace] = useState<PlaceValue | null>(null);
+  const [deathPlace, setDeathPlace] = useState<PlaceValue | null>(null);
   const [bio, setBio] = useState("");
   const [website, setWebsite] = useState("");
   const [openLibraryKey, setOpenLibraryKey] = useState("");
@@ -100,6 +103,8 @@ export function AuthorEditDialog({
       );
       setDeathDay(author.deathDay != null ? String(author.deathDay) : "");
       setDeathYearIsApproximate(author.deathYearIsApproximate ?? false);
+      setBirthPlace(author.birthPlace ?? null);
+      setDeathPlace(author.deathPlace ?? null);
       setBio(author.bio ?? "");
       setWebsite(author.website ?? "");
       setOpenLibraryKey(author.openLibraryKey ?? "");
@@ -149,6 +154,8 @@ export function AuthorEditDialog({
           deathMonth: deathMonth ? parseInt(deathMonth, 10) : null,
           deathDay: deathDay ? parseInt(deathDay, 10) : null,
           deathYearIsApproximate,
+          birthPlaceId: birthPlace?.id ?? null,
+          deathPlaceId: deathPlace?.id ?? null,
           bio: bio.trim() || null,
           website: website.trim() || null,
           openLibraryKey: openLibraryKey.trim() || null,
@@ -323,6 +330,27 @@ export function AuthorEditDialog({
                     />
                     Death year is approximate
                   </label>
+                </div>
+              </section>
+
+              {/* Places */}
+              <section>
+                <h3 className="type-group-title mb-3">
+                  Places
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <PlacePicker
+                    label="Birth Place"
+                    value={birthPlace}
+                    onChange={setBirthPlace}
+                    disabled={isPending}
+                  />
+                  <PlacePicker
+                    label="Death Place"
+                    value={deathPlace}
+                    onChange={setDeathPlace}
+                    disabled={isPending}
+                  />
                 </div>
               </section>
 
