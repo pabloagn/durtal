@@ -1,26 +1,15 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
-let _db: NeonHttpDatabase<typeof schema> | null = null;
-
-export function getDb(): NeonHttpDatabase<typeof schema> {
-  if (!_db) {
-    const url = process.env.DATABASE_URL;
-    if (!url) {
-      throw new Error(
-        "DATABASE_URL is not set. Ensure the environment variable is configured.",
-      );
-    }
-    const sql = neon(url);
-    _db = drizzle({ client: sql, schema });
-  }
+const url = process.env.PREVIEW_DATABASE_URL;
+if (!url || !url.includes("127.0.0.1:55433/sln336_preview")) {
+  throw new Error("Preview adapter requires the disposable sln336_preview database");
+}
+const _db = drizzle(postgres(url, { max: 5 }), { schema });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getDb(): any {
   return _db;
 }
-
-/** Convenience alias — call site reads nicely as `db.query.works.findMany(...)` */
-export const db = new Proxy({} as NeonHttpDatabase<typeof schema>, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getDb(), prop, receiver);
-  },
-});
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const db = _db as any;
