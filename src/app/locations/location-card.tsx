@@ -16,6 +16,7 @@ import {
   type AddressFields,
 } from "@/components/locations/address-input";
 import { updateLocation, deleteLocation } from "@/lib/actions/locations";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 interface SubLocation {
   id: string;
@@ -138,24 +139,30 @@ export function LocationCard({
               {!isActive && <Badge variant="red">Inactive</Badge>}
             </Link>
 
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-fg-secondary">
+            {/* The row carries the count's type: the buttons sit on its
+                cap-height center */}
+            <div className="flex items-start gap-2 font-mono text-xs">
+              <span className="text-fg-secondary">
                 {instanceCount} {instanceCount === 1 ? "item" : "items"}
               </span>
-              <button
-                onClick={() => setEditOpen(true)}
-                className="rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100"
-                title="Edit location"
-              >
-                <Pencil className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-              <button
-                onClick={() => setDeleteOpen(true)}
-                className="rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
-                title="Delete location"
-              >
-                <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-              </button>
+              <CapAligned height={24}>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditOpen(true)}
+                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100"
+                    title="Edit location"
+                  >
+                    <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                  </button>
+                  <button
+                    onClick={() => setDeleteOpen(true)}
+                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
+                    title="Delete location"
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                  </button>
+                </div>
+              </CapAligned>
             </div>
           </div>
           {addressLine && (

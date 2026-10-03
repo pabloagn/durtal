@@ -47,6 +47,7 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { formatMoney, type CurrencyTotal } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -331,12 +332,13 @@ function StatCard({
           </p>
           {subtext && <p className="mt-1 text-xs text-fg-secondary">{subtext}</p>}
         </div>
-        <div className="rounded-sm border border-glass-border bg-bg-tertiary/40 p-2">
+        {/* Carries the label's type: the icon sits on its cap-height center */}
+        <CapAligned height={16} className="type-caption">
           <Icon
-            className={`h-4 w-4 ${accentColor ?? "text-fg-secondary"}`}
+            className={`block h-4 w-4 ${accentColor ?? "text-fg-secondary"}`}
             strokeWidth={1.5}
           />
-        </div>
+        </CapAligned>
       </div>
     </div>
   );
@@ -1093,6 +1095,8 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         />
 
         <DndContext
+          // A fixed id: the server and the browser make the same aria ids
+          id="provenance-pipeline"
           sensors={sensors}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
