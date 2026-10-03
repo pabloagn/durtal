@@ -227,7 +227,7 @@ export function BookCard({
         {/* Three-dot menu — lives outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (
           <div
-            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 @[220px]:bottom-2 @[220px]:right-2"
+            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 @[220px]:bottom-2 @[220px]:right-2"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />

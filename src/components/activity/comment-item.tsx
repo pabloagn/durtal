@@ -101,7 +101,7 @@ export function CommentItem({
               </div>
 
               {/* Hover actions */}
-              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
