@@ -48,6 +48,18 @@ export function sanitizeDescriptionHtml(html: string): string {
 }
 
 /**
+ * An author bio for storage: sanitized like a book description, or null when
+ * it has no visible text. `undefined` (the field was not sent) stays undefined.
+ */
+export function cleanBioForStorage(
+  bio: string | null | undefined,
+): string | null | undefined {
+  if (bio == null) return bio;
+  const clean = sanitizeDescriptionHtml(bio).trim();
+  return stripHtmlToText(clean) ? clean : null;
+}
+
+/**
  * Strip all HTML tags from a string and return clean plain text.
  * Converts block-level tags and <br> to newlines, collapses whitespace.
  * Lightweight — no external dependency, safe to use client-side.

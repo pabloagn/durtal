@@ -24,6 +24,7 @@ import { textSearchCondition } from "./utils/text-search";
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
 import { defaultSortName } from "@/lib/utils/author-names";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
+import { cleanBioForStorage } from "@/lib/utils/sanitize";
 import { assertSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -136,6 +137,8 @@ export async function createPerson(input: CreatePersonInput) {
       await atomic((d) => [
         d.insert(authors).values({
           ...fields,
+          // Bios are rendered as HTML: stored sanitized, like an author bio
+          bio: cleanBioForStorage(fields.bio),
           id,
           slug,
           sortName: fields.sortName ?? defaultSortName(fields.name),
@@ -213,7 +216,13 @@ export async function updatePerson(id: string, input: UpdatePersonInput) {
     ),
     d
       .update(authors)
-      .set({ ...fields, updatedAt: new Date() })
+      .set({
+        ...fields,
+        ...(fields.bio !== undefined
+          ? { bio: cleanBioForStorage(fields.bio) }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(authors.id, id)),
     ...(fields.birthMonth !== undefined || fields.birthDay !== undefined
       ? [

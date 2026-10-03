@@ -10,6 +10,8 @@ import {
   ListOrdered,
   RemoveFormatting,
 } from "lucide-react";
+import { toast } from "sonner";
+import { isSafeLinkUrl, plainTextToHtml } from "@/lib/utils/html-text";
 
 interface RichTextEditorProps {
   label?: string;
@@ -80,9 +82,12 @@ export function RichTextEditor({
     const selection = window.getSelection();
     const selectedText = selection?.toString() ?? "";
     const url = prompt("Enter URL:", selectedText.startsWith("http") ? selectedText : "https://");
-    if (url) {
-      exec("createLink", url);
+    if (!url) return;
+    if (!isSafeLinkUrl(url)) {
+      toast.error("Only http and https links are allowed");
+      return;
     }
+    exec("createLink", url.trim());
   };
 
   const handleInput = () => {
@@ -93,15 +98,17 @@ export function RichTextEditor({
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    // Paste as plain text to avoid importing weird formatting
+    // Paste as plain text to avoid importing weird formatting. The text is
+    // escaped, so pasted markup such as "<img onerror=…>" stays literal text.
     const text = e.clipboardData.getData("text/plain");
-    // Convert newlines to <br> tags
-    const html = text
-      .split(/\n\n+/)
-      .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-      .join("");
-    document.execCommand("insertHTML", false, html);
+    document.execCommand("insertHTML", false, plainTextToHtml(text));
     handleInput();
+  };
+
+  // Enter starts a <p>, not a <div>: the server keeps paragraphs and drops
+  // other block tags when it sanitizes the HTML (sanitizeDescriptionHtml)
+  const handleFocus = () => {
+    document.execCommand("defaultParagraphSeparator", false, "p");
   };
 
   // Approximate height from rows
@@ -147,6 +154,7 @@ export function RichTextEditor({
         contentEditable={!disabled}
         onInput={handleInput}
         onPaste={handlePaste}
+        onFocus={handleFocus}
         className="bio-content rounded-b-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-secondary outline-none transition-shadow focus:glass-input-focus overflow-y-auto"
         style={{ minHeight }}
         data-placeholder={placeholder}

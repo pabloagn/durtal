@@ -28,6 +28,7 @@ import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { posterTone } from "@/lib/actions/utils/work-card-query";
+import { cleanBioForStorage, sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { z } from "zod";
 
 export async function getAuthors(opts?: {
@@ -285,6 +286,16 @@ export async function getAuthorDeathYearRange(): Promise<{ min: number | null; m
   return { min: result?.min ?? null, max: result?.max ?? null };
 }
 
+/**
+ * Bios are rendered as HTML (the author page, the bio editor) and sanitized
+ * like book descriptions. Writes store them sanitized (cleanBioForStorage);
+ * reads hand them out sanitized, whatever an older write stored.
+ */
+function withSafeBio<T extends { bio: string | null } | undefined>(author: T): T {
+  if (author?.bio) author.bio = sanitizeDescriptionHtml(author.bio);
+  return author;
+}
+
 export async function getAuthor(id: string) {
   const author = await db.query.authors.findFirst({
     where: and(bookPersonCondition, eq(authors.id, id)),
@@ -324,7 +335,7 @@ export async function getAuthor(id: string) {
     },
   });
   author?.workAuthors.sort((a, b) => compareWorks(a.work, b.work));
-  return author;
+  return withSafeBio(author);
 }
 
 export async function getAuthorBySlug(slug: string) {
@@ -379,7 +390,7 @@ export async function getAuthorBySlug(slug: string) {
     },
   });
   author?.workAuthors.sort((a, b) => compareWorks(a.work, b.work));
-  return author;
+  return withSafeBio(author);
 }
 
 export async function getCountries() {
@@ -413,7 +424,7 @@ export async function createAuthor(input: CreateAuthorInput) {
   const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
   const [author] = await db
     .insert(authors)
-    .values({ ...parsed, sortName, zodiacSign, slug })
+    .values({ ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
     .returning();
 
   recordActivity("author", author.id, "author.created", { newValue: parsed.name });
@@ -478,6 +489,7 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
       : undefined;
   const updatePayload = {
     ...input,
+    ...(input.bio !== undefined ? { bio: cleanBioForStorage(input.bio) } : {}),
     ...(zodiacSign !== undefined ? { zodiacSign } : {}),
     ...(slug !== undefined ? { slug } : {}),
     updatedAt: new Date(),
@@ -503,7 +515,7 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
       ["deathYear", "author.death_year_changed", prev.deathYear, input.deathYear],
       ["gender", "author.gender_changed", prev.gender, input.gender],
       ["nationalityId", "author.nationality_changed", prev.nationalityId, input.nationalityId],
-      ["bio", "author.biography_changed", prev.bio, input.bio],
+      ["bio", "author.biography_changed", prev.bio, updatePayload.bio],
     ];
     for (const [field, eventKey, oldVal, newVal] of diffs) {
       if (newVal !== undefined && newVal !== oldVal) {

@@ -27,6 +27,7 @@ import { AuthorsFiltersBar } from "./authors-filters-bar";
 import { AuthorCreateDialog } from "./author-create-dialog";
 import { hasListQuery } from "@/lib/utils/list-params";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { stripHtmlToText } from "@/lib/utils/sanitize";
 
 interface PageProps {
   searchParams: Promise<{
@@ -164,7 +165,8 @@ async function AuthorsContent({
         : null,
       photoTone: activePoster?.tone ?? null,
       website: a.website,
-      bio: a.bio,
+      // Bios are stored as HTML; the list shows a one-line text preview
+      bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
