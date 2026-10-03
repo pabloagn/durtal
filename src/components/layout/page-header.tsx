@@ -21,7 +21,9 @@ export function PageHeader({
             <p className="mt-1.5 text-sm text-fg-secondary">{description}</p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        )}
       </div>
       {tabs}
     </div>
