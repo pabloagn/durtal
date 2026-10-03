@@ -457,4 +457,44 @@ describe.skipIf(!url)("typed provenance and uncertain dates", () => {
         c`insert into catalogue_dates ${c(values)}`,
       ).rejects.toThrow();
   });
+
+  it("computes and checks dates without a search path, as pg_restore loads them", async () => {
+    // A restore creates and loads tables before it sets any search path, so
+    // every function in a check, a generated or default column or an index
+    // must name the public functions it calls with their schema.
+    const used = await c<{ name: string; body: string }[]>`
+      select distinct p.proname as name, p.prosrc as body
+      from pg_depend d join pg_proc p on p.oid = d.refobjid
+      join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+      where d.refclassid = 'pg_proc'::regclass
+        and d.classid in ('pg_constraint'::regclass, 'pg_attrdef'::regclass, 'pg_class'::regclass)
+    `;
+    const names = await c<{ name: string }[]>`
+      select distinct proname as name from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
+    `;
+    expect(used.map((fn) => fn.name)).toContain("catalogue_date_upper");
+    const unqualified = used.flatMap((fn) =>
+      names
+        .filter(({ name }) =>
+          new RegExp(`(?<![.\\w])${name}\\s*\\(`).test(fn.body),
+        )
+        .map(({ name }) => `${fn.name} calls ${name}`),
+    );
+    expect(unqualified).toEqual([]);
+    const bounds = await c.begin(async (tx) => {
+      await tx.unsafe("set local search_path = ''");
+      return tx
+        .unsafe(
+          `insert into public.catalogue_dates(precision,start_year,start_month,start_day,end_year,end_month)
+           values ('day',2024,2,29,null,null), ('range',1999,null,null,2024,2)
+           returning lower_bound, upper_bound`,
+        )
+        .values();
+    });
+    expect(bounds).toEqual([
+      ["20240229", "20240229"],
+      ["19990101", "20240229"],
+    ]);
+  });
 });

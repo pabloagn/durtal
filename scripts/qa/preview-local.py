@@ -11,7 +11,10 @@ With --from-dump, a `pg_dump --format=custom` backup replaces the synthetic
 catalogue: this is the rehearsal of a live migration. Before the pending
 migrations run, every table is copied to the `rehearsal_before` schema; after
 them, each copied row is compared column by column with the migrated table and
-the differences are printed. The copy stays for inspection with psql.
+the differences are printed. The copy stays for inspection with psql. The
+backup must come from pg_dump 16, which the container's pg_restore can read:
+
+    docker run --rm -e PGURL postgres:16 sh -c 'pg_dump --format=custom "$PGURL"' > FILE
 
     python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE]
 """
@@ -194,8 +197,15 @@ def main():
 
         if args.from_dump:
             with args.from_dump.open("rb") as dump:
-                run("docker", "exec", "-i", container, "pg_restore", "--no-owner", "--no-privileges",
-                    "--exit-on-error", "-U", "durtal_preview", "-d", DATABASE, stdin=dump)
+                try:
+                    run("docker", "exec", "-i", container, "pg_restore", "--no-owner", "--no-privileges",
+                        "--exit-on-error", "-U", "durtal_preview", "-d", DATABASE, stdin=dump)
+                except RuntimeError as error:
+                    if "unsupported version" in str(error):
+                        raise RuntimeError(
+                            f"{error}\nMake the backup with pg_dump 16: docker run --rm -e PGURL "
+                            "postgres:16 sh -c 'pg_dump --format=custom \"$PGURL\"' > FILE") from None
+                    raise
             psql(SNAPSHOT)
             run("node", "--input-type=module", "-e", MIGRATE, cwd=ROOT, env=env)
             print(psql(RECONCILE), flush=True)
