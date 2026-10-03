@@ -14,6 +14,13 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
+import {
+  DetailColumns,
+  RecordField,
+  RecordFields,
+  RecordGroup,
+  RecordPanel,
+} from "@/components/shared/detail-layout";
 import { Prose } from "@/components/shared/prose";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { displayYear } from "@/lib/utils/years";
@@ -74,18 +81,33 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   // Metadata fields for the detail grid
   const metadataFields: { label: string; value: string }[] = [];
   if (author.sortName)
-    metadataFields.push({ label: "Sort Name", value: author.sortName });
+    metadataFields.push({ label: "Sort name", value: author.sortName });
   if (author.firstName)
-    metadataFields.push({ label: "First Name", value: author.firstName });
+    metadataFields.push({ label: "First name", value: author.firstName });
   if (author.lastName)
-    metadataFields.push({ label: "Last Name", value: author.lastName });
+    metadataFields.push({ label: "Last name", value: author.lastName });
   if (author.realName)
-    metadataFields.push({ label: "Real Name", value: author.realName });
+    metadataFields.push({ label: "Real name", value: author.realName });
   if (author.metadataSource)
     metadataFields.push({
-      label: "Metadata Source",
+      label: "Metadata source",
       value: author.metadataSource,
     });
+
+  const links = [
+    author.website && { label: "Website", href: author.website },
+    author.openLibraryKey && {
+      label: "Open Library",
+      href: `https://openlibrary.org${author.openLibraryKey}`,
+    },
+    author.goodreadsId && {
+      label: "Goodreads",
+      href: `https://www.goodreads.com/author/show/${author.goodreadsId}`,
+    },
+  ].filter((link): link is { label: string; href: string } => !!link);
+  const hasRecord = metadataFields.length > 0 || links.length > 0;
+  const hasReading =
+    !!author.bio || works.length > 0 || contributions.length > 0;
 
   return (
     <>
@@ -142,175 +164,167 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
         </div>
       </div>
 
-      {/* Bio */}
-      {author.bio && (
-        <section className="mb-8">
-          <SectionHeading title="About" />
-          {/* Sanitized like book descriptions: a bio can come from enrichment */}
-          <Prose html={sanitizeDescriptionHtml(author.bio)} />
-        </section>
-      )}
+      {/* Reading column and, from lg up, the record on the right */}
+      <DetailColumns
+        record={
+          hasRecord ? (
+            <RecordPanel>
+              {metadataFields.length > 0 && (
+                <RecordGroup title="Details">
+                  <RecordFields>
+                    {metadataFields.map((field) => (
+                      <RecordField key={field.label} label={field.label}>
+                        {field.value}
+                      </RecordField>
+                    ))}
+                  </RecordFields>
+                </RecordGroup>
+              )}
+              {links.length > 0 && (
+                <RecordGroup title="Links">
+                  <ul className="space-y-1.5">
+                    {links.map((link) => (
+                      <li key={link.href}>
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-accent-rose-text transition-colors hover:text-fg-primary"
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </RecordGroup>
+              )}
+            </RecordPanel>
+          ) : undefined
+        }
+      >
+        {hasReading ? (
+          <>
+            {/* Bio */}
+            {author.bio && (
+              <section className="mb-8">
+                <SectionHeading title="About" />
+                {/* Sanitized like book descriptions: a bio can come from enrichment */}
+                <Prose html={sanitizeDescriptionHtml(author.bio)} />
+              </section>
+            )}
 
-      {/* Metadata grid */}
-      {metadataFields.length > 0 && (
-        <section className="mb-8">
-          <dl className="grid max-w-xl grid-cols-[auto_1fr] gap-x-6 gap-y-2">
-            {metadataFields.map((field) => (
-              <div key={field.label} className="contents">
-                <dt className="text-xs text-fg-secondary">{field.label}</dt>
-                <dd className="text-sm text-fg-secondary">{field.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+            {/* Works as author */}
+            {works.length > 0 && (
+              <section className="mb-8">
+                <SectionHeading title="Books" count={works.length} />
+                <PaginatedSection {...paging} noun="books">
+                <div
+                  className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${hasRecord ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
+                >
+                  {paging.items.map((work) => {
+                    const workActivePoster = work.media?.find(
+                      (m) => m.type === "poster" && m.isActive,
+                    );
+                    const coverKey =
+                      workActivePoster?.thumbnailS3Key ??
+                      workActivePoster?.s3Key ??
+                      work.editions[0]?.thumbnailS3Key;
+                    const coverUrl = coverKey
+                      ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
+                      : null;
 
-      {/* Works as author */}
-      {works.length > 0 && (
-        <section className="mb-8">
-          <SectionHeading title="Books" count={works.length} />
-          <PaginatedSection {...paging} noun="books">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {paging.items.map((work) => {
-              const workActivePoster = work.media?.find(
-                (m) => m.type === "poster" && m.isActive,
-              );
-              const coverKey =
-                workActivePoster?.thumbnailS3Key ??
-                workActivePoster?.s3Key ??
-                work.editions[0]?.thumbnailS3Key;
-              const coverUrl = coverKey
-                ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
-                : null;
+                    const instanceCount =
+                      work.editions[0]?.instances?.length ?? 0;
 
-              const instanceCount =
-                work.editions[0]?.instances?.length ?? 0;
+                    const authorName =
+                      work.workAuthors[0]?.author?.name ?? author.name;
 
-              const authorName =
-                work.workAuthors[0]?.author?.name ?? author.name;
-
-              return (
-                <BookCard
-                  key={work.id}
-                  workId={work.id}
-                  slug={work.slug ?? ""}
-                  title={work.title}
-                  authorName={authorName}
-                  authorNames={work.workAuthors.map((wa) => wa.author.name)}
-                  coverUrl={coverUrl}
-                  coverCrop={
-                    workActivePoster
-                      ? mediaCrop(workActivePoster)
-                      : null
-                  }
-                  coverTone={workActivePoster?.tone ?? null}
-                  publicationYear={work.editions[0]?.publicationYear}
-                  language={work.editions[0]?.language}
-                  instanceCount={instanceCount}
-                  rating={work.rating}
-                  catalogueStatus={work.catalogueStatus}
-                  acquisitionPriority={work.acquisitionPriority}
-                  isRare={work.isRare}
-                  huntAssessedOn={work.huntAssessedOn}
-                  isPoison={work.isPoison}
-                  primaryEditionId={work.editions[0]?.id}
-                />
-              );
-            })}
-          </div>
-          </PaginatedSection>
-        </section>
-      )}
-
-      {/* Edition contributions */}
-      {contributions.length > 0 && (
-        <section className="mb-8">
-          <SectionHeading title="Edition Contributions" count={contributions.length} />
-          <div className="space-y-2">
-            {contributions.map((edition) => (
-              <div
-                key={`${edition.id}-${edition.role}`}
-                className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-4 py-3"
-              >
-                {edition.thumbnailS3Key ? (
-                  <div className="relative h-12 w-8 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
-                    <Image
-                      src={`/api/s3/read?key=${encodeURIComponent(edition.thumbnailS3Key)}`}
-                      alt={edition.title ?? "Edition cover"}
-                      fill
-                      sizes="32px"
-                      className="protected-image object-cover"
-                    unoptimized
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center rounded-sm bg-bg-primary">
-                    <span className="font-serif text-xs text-fg-muted/30">
-                      {(edition.title ?? "?")[0]}
-                    </span>
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <span className="type-item-title">
-                    {edition.title}
-                  </span>
-                  {edition.publicationYear && (
-                    <span className="ml-2 font-mono text-xs text-fg-secondary">
-                      {edition.publicationYear}
-                    </span>
-                  )}
+                    return (
+                      <BookCard
+                        key={work.id}
+                        workId={work.id}
+                        slug={work.slug ?? ""}
+                        title={work.title}
+                        authorName={authorName}
+                        authorNames={work.workAuthors.map((wa) => wa.author.name)}
+                        coverUrl={coverUrl}
+                        coverCrop={
+                          workActivePoster
+                            ? mediaCrop(workActivePoster)
+                            : null
+                        }
+                        coverTone={workActivePoster?.tone ?? null}
+                        publicationYear={work.editions[0]?.publicationYear}
+                        language={work.editions[0]?.language}
+                        instanceCount={instanceCount}
+                        rating={work.rating}
+                        catalogueStatus={work.catalogueStatus}
+                        acquisitionPriority={work.acquisitionPriority}
+                        isRare={work.isRare}
+                        huntAssessedOn={work.huntAssessedOn}
+                        isPoison={work.isPoison}
+                        primaryEditionId={work.editions[0]?.id}
+                      />
+                    );
+                  })}
                 </div>
-                <Badge variant="blue">{edition.role}</Badge>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+                </PaginatedSection>
+              </section>
+            )}
 
-      {/* Activity timeline */}
-      <ActivityTimeline entityType="author" entityId={author.id} />
+            {/* Edition contributions */}
+            {contributions.length > 0 && (
+              <section className="mb-8">
+                <SectionHeading title="Edition Contributions" count={contributions.length} />
+                <div className="space-y-2">
+                  {contributions.map((edition) => (
+                    <div
+                      key={`${edition.id}-${edition.role}`}
+                      className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-4 py-3"
+                    >
+                      {edition.thumbnailS3Key ? (
+                        <div className="relative h-12 w-8 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
+                          <Image
+                            src={`/api/s3/read?key=${encodeURIComponent(edition.thumbnailS3Key)}`}
+                            alt={edition.title ?? "Edition cover"}
+                            fill
+                            sizes="32px"
+                            className="protected-image object-cover"
+                          unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center rounded-sm bg-bg-primary">
+                          <span className="font-serif text-xs text-fg-muted/30">
+                            {(edition.title ?? "?")[0]}
+                          </span>
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="type-item-title">
+                          {edition.title}
+                        </span>
+                        {edition.publicationYear && (
+                          <span className="ml-2 font-mono text-xs text-fg-secondary">
+                            {edition.publicationYear}
+                          </span>
+                        )}
+                      </div>
+                      <Badge variant="blue">{edition.role}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        ) : null}
+      </DetailColumns>
 
       {/* Gallery collage */}
       <GallerySection entityType="author" entityId={author.id} />
 
-      {/* External links */}
-      {(author.website || author.openLibraryKey || author.goodreadsId) && (
-        <section className="mb-8">
-          <SectionHeading title="External Links" />
-          <div className="flex gap-4">
-            {author.website && (
-              <a
-                href={author.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-accent-rose-text transition-colors hover:underline"
-              >
-                Website
-              </a>
-            )}
-            {author.openLibraryKey && (
-              <a
-                href={`https://openlibrary.org${author.openLibraryKey}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-accent-rose-text transition-colors hover:underline"
-              >
-                Open Library
-              </a>
-            )}
-            {author.goodreadsId && (
-              <a
-                href={`https://www.goodreads.com/author/show/${author.goodreadsId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-accent-rose-text transition-colors hover:underline"
-              >
-                Goodreads
-              </a>
-            )}
-          </div>
-        </section>
-      )}
+      {/* Activity timeline */}
+      <ActivityTimeline entityType="author" entityId={author.id} />
     </>
   );
 }

@@ -10,7 +10,7 @@ import { HuntAssessmentControl } from "@/components/books/hunt-assessment-contro
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { ArrowLeft, Star, Route, ExternalLink } from "lucide-react";
+import { ArrowLeft, Star, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
   getWorksByAuthorId,
@@ -39,9 +39,7 @@ import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
 import { priorityVariant } from "@/lib/constants/catalogue";
-import { WorkMediaInline } from "./work-media-inline";
-import { WorkMetadataGrid } from "./work-metadata-grid";
-import { WorkTaxonomySection } from "./work-taxonomy-section";
+import { WorkRecord } from "./work-record";
 import { EditionDetailCard } from "./edition-detail-card";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkActionsMenu } from "./work-actions-menu";
@@ -66,10 +64,14 @@ import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { formatBookClipboardText } from "@/lib/utils/copy-book";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
+import { DetailColumns } from "@/components/shared/detail-layout";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
+
+/** A book still looked for: its hunting block shows even with no target */
+const HUNTED_STATUSES = new Set(["wanted", "shortlisted", "tracked"]);
 
 function catalogueStatusVariant(
   status: string,
@@ -513,9 +515,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
                           rel="noopener noreferrer"
                           aria-label={`${wr.recommender.name} website`}
                           data-tooltip={`${wr.recommender.name} website`}
-                          className="ml-1 inline-flex align-middle text-fg-muted transition-colors hover:text-accent-rose"
+                          // In running text: the CapAligned box on the link
+                          // itself, sized by the name's type (text-xs), so
+                          // the icon sits on the name's cap-height center
+                          className="ml-1 inline-block overflow-hidden align-[0.5cap] text-xs text-fg-muted transition-colors hover:text-accent-rose"
+                          style={{ height: 12, marginBlock: -6 }}
                         >
-                          <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                          <ExternalLink className="block h-3 w-3" strokeWidth={1.5} />
                         </a>
                       )}
                     </span>
@@ -529,71 +535,81 @@ export default async function WorkDetailPage({ params }: PageProps) {
       </div>
       {/* end cinematic backdrop */}
 
-      {/* Description */}
-      {work.description && (
+      {/* Reading column and, from lg up, the record on the right */}
+      <DetailColumns
+        record={
+          <WorkRecord
+            work={work}
+            orders={workOrders}
+            media={{
+              posters: allPosters.length,
+              backgrounds: allBackgrounds.length,
+              gallery: galleryMedia.length,
+            }}
+            links={uniqueExternalLinks}
+          />
+        }
+      >
+        {work.description && (
+          <section className="mb-8">
+            <Prose html={sanitizeDescriptionHtml(work.description)} />
+          </section>
+        )}
+
+        {work.notes && (
+          <section className="mb-8">
+            <SectionHeading title="Notes" />
+            <p className="max-w-2xl whitespace-pre-wrap text-sm text-fg-secondary">
+              {work.notes}
+            </p>
+          </section>
+        )}
+
+        {(acquisitionTargets.length > 0 ||
+          HUNTED_STATUSES.has(work.catalogueStatus)) && (
+          <AcquisitionTargets
+            workId={work.id}
+            targets={acquisitionTargets}
+            editions={work.editions}
+          />
+        )}
+
         <section className="mb-8">
-          <Prose html={sanitizeDescriptionHtml(work.description)} />
+          <SectionHeading
+            title="Editions"
+            count={work.editions.length}
+            action={
+              <EditionAddDialog
+              workId={work.id}
+              workTitle={work.title}
+              availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
+              availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
+            />
+            }
+          />
+
+          <div className="space-y-4">
+            {work.editions.map((edition) => (
+              <EditionDetailCard
+                key={edition.id}
+                edition={edition}
+                poster={poster}
+                workId={work.id}
+                authorName={primaryAuthor?.name}
+                availableLocations={allLocations}
+                availableGenres={allGenres.map((g) => ({
+                  id: g.id,
+                  name: g.name,
+                }))}
+                availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
+              />
+            ))}
+          </div>
         </section>
-      )}
-
-      {/* Metadata grid */}
-      <WorkMetadataGrid work={work} />
-
-      {/* Taxonomy section */}
-      <WorkTaxonomySection work={work} />
-
-      {/* Media management */}
-      <WorkMediaInline
-        workId={work.id}
-        title={work.title}
-        posterCount={allPosters.length}
-        backgroundCount={allBackgrounds.length}
-        galleryCount={galleryMedia.length}
-        showButton={false}
-      />
+      </DetailColumns>
 
       {/* Gallery collage */}
       <GallerySection entityType="work" entityId={work.id} />
-
-      <AcquisitionTargets
-        workId={work.id}
-        targets={acquisitionTargets}
-        editions={work.editions}
-      />
-
-      {/* Editions */}
-      <section className="mb-8">
-        <SectionHeading
-          title="Editions"
-          count={work.editions.length}
-          action={
-            <EditionAddDialog
-            workId={work.id}
-            workTitle={work.title}
-            availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
-            availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
-          />
-          }
-        />
-
-        <div className="space-y-4">
-          {work.editions.map((edition) => (
-            <EditionDetailCard
-              key={edition.id}
-              edition={edition}
-              poster={poster}
-              workId={work.id}
-              authorName={primaryAuthor?.name}
-              availableLocations={allLocations}
-              availableGenres={allGenres.map((g) => ({
-                id: g.id,
-                name: g.name,
-              }))}
-              availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
-            />
-          ))}
-        </div>
-      </section>
 
       {work.series && seriesWorks.length > 0 && (
         <section className="mb-8" aria-label="More in this series">
@@ -698,116 +714,9 @@ export default async function WorkDetailPage({ params }: PageProps) {
           </section>
         ))}
 
-      {/* Orders */}
-      {workOrders.length > 0 && (
-        <section className="mb-8">
-          <SectionHeading
-            title="Orders"
-            count={workOrders.length}
-            action={
-              <Link
-              href="/provenance"
-              className="inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
-            >
-              <Route className="h-3 w-3" strokeWidth={1.5} />
-              View pipeline
-            </Link>
-            }
-          />
-          <div className="space-y-2">
-            {workOrders.map((order) => {
-              const statusVariantMap: Record<
-                string,
-                "default" | "blue" | "gold" | "sage" | "red" | "muted"
-              > = {
-                placed: "muted",
-                confirmed: "blue",
-                processing: "gold",
-                shipped: "sage",
-                in_transit: "sage",
-                out_for_delivery: "gold",
-                delivered: "sage",
-                purchased: "sage",
-                received: "sage",
-                bid: "gold",
-                won: "sage",
-                cancelled: "red",
-                returned: "red",
-              };
-              const variant = statusVariantMap[order.status] ?? "muted";
-              return (
-                <div
-                  key={order.id}
-                  className="flex items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
-                >
-                  <Badge variant={variant}>
-                    {order.status.replace(/_/g, " ")}
-                  </Badge>
-                  <span className="text-xs text-fg-secondary">
-                    {order.acquisitionMethod.replace(/_/g, " ")}
-                  </span>
-                  {order.venue && (
-                    <span className="truncate text-xs text-fg-secondary">
-                      {order.venue.name}
-                    </span>
-                  )}
-                  <span className="ml-auto font-mono text-micro text-fg-secondary">
-                    {new Date(order.orderDate).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Activity timeline */}
       <ActivityTimeline entityType="work" entityId={work.id} />
 
-      {/* Notes */}
-      {work.notes && (
-        <section className="mb-8">
-          <SectionHeading title="Notes" />
-          <p className="max-w-2xl whitespace-pre-wrap text-sm text-fg-secondary">
-            {work.notes}
-          </p>
-        </section>
-      )}
-
-      {/* External links */}
-      {(uniqueExternalLinks.length > 0 || work.metadataSource) && (
-        <section className="mb-8">
-          <SectionHeading title="External Links" />
-          <div className="flex flex-wrap gap-4">
-            {work.metadataSource && (
-              <span className="text-xs text-fg-secondary">
-                Metadata:{" "}
-                <span className="text-fg-secondary">{work.metadataSource}</span>
-                {work.metadataSourceId && (
-                  <span className="ml-1 font-mono text-fg-secondary">
-                    ({work.metadataSourceId})
-                  </span>
-                )}
-              </span>
-            )}
-            {uniqueExternalLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

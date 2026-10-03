@@ -228,6 +228,16 @@ Multiple semantic variants:
 
 Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette.
 
+### Detail pages
+
+A book, author or place page has three parts (`src/components/shared/detail-layout.tsx`):
+
+- The header: image, title, the key facts and the actions.
+- `DetailColumns`: the reading column (description, notes, editions, books) and, from `lg` up, an 18rem record column on the right: one `RecordPanel` of `RecordGroup`s (Details, Taxonomy, Media, Orders, Links, Contact), with caption titles and label-over-value `RecordField`s. Below `lg` the record follows the reading content.
+- Full-width rows: related books, gallery, activity.
+
+A section or group with nothing to show is left out; its "Add" action lives in the page's actions menu.
+
 ### Cards without a photo
 
 A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:
