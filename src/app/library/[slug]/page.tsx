@@ -65,6 +65,7 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { formatBookClipboardText } from "@/lib/utils/copy-book";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { Prose } from "@/components/shared/prose";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -531,12 +532,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Description */}
       {work.description && (
         <section className="mb-8">
-          <div
-            className="prose-description max-w-2xl text-sm leading-relaxed text-fg-secondary [&_p]:mb-2 [&_p:last-child]:mb-0 [&_a]:text-accent-rose [&_a:hover]:underline"
-            dangerouslySetInnerHTML={{
-              __html: sanitizeDescriptionHtml(work.description),
-            }}
-          />
+          <Prose html={sanitizeDescriptionHtml(work.description)} />
         </section>
       )}
 

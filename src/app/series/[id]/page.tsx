@@ -11,6 +11,7 @@ import type { CatalogueStatus } from "@/lib/types";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { Prose } from "@/components/shared/prose";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -88,9 +89,7 @@ export default async function SeriesDetailPage({
             {s.isComplete && <Badge variant="gold">Complete series</Badge>}
           </div>
           {s.description && (
-            <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
-              {s.description}
-            </p>
+            <Prose className="mt-4 whitespace-pre-wrap">{s.description}</Prose>
           )}
         </div>
         <SeriesActions

@@ -61,11 +61,12 @@ All colors are desaturated and muted. No bright neons. Accents should feel like 
 
 ## Typography
 
-Three font families serve distinct roles:
+Four font families serve distinct roles:
 
 | Role | Family | Weight | Fallbacks | Character |
 |---|---|---|---|---|
-| **Serif** | EB Garamond | 400 (normal) | Georgia, serif | Literary, elegant, never bold |
+| **Serif (display)** | PP Cirka | 300 (Light); 700 available | Georgia, serif | Headings, titles, stat numbers: sharp, literary, never bold |
+| **Serif (text)** | EB Garamond | 400, with true italic | Georgia, serif | Long reading text only (`type-prose`): old-style figures, made for paragraphs |
 | **Sans** | Inter | 400 | Work Sans, system-ui, sans-serif | Clean, readable, modern |
 | **Mono** | JetBrains Mono | 400 | IBM Plex Mono, SF Mono, monospace | Technical, ISBNs, codes |
 | **UI Chrome** | Inter | 500 | system-ui, sans-serif | Buttons, navigation |
@@ -74,13 +75,15 @@ Headings are deliberately normal weight — understated. Boldness is used sparin
 
 ### Font Loading
 
-Fonts are loaded via `next/font/google` in the root layout with the following configuration:
+The root layout (`src/app/layout.tsx`) loads three families on every page:
 
 ```typescript
-const garamond = EB_Garamond({ subsets: ["latin"], variable: "--font-serif" });
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const serif = localFont({ src: [/* PPCirka-Light.otf 300, PPCirka-Bold.otf 700 */], variable: "--font-serif" });
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 ```
+
+EB Garamond is declared in `src/components/shared/prose.tsx` (`--font-prose`), not in the layout, so it loads and preloads only on routes that render `<Prose>` (the book, author, series and collection pages). Its Latin files are preloaded; other scripts load only when a text needs them.
 
 CSS custom properties (`--font-serif`, `--font-sans`, `--font-mono`) are set via Tailwind's `@theme` block, allowing usage throughout as `font-serif`, `font-sans`, `font-mono` utility classes.
 
@@ -111,8 +114,9 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 | `type-stat` | Serif 38px, tight tracking | The number in a stat tile |
 | `type-label` | Sans 14px, medium, secondary | The label above a form field |
 | `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels |
+| `type-prose` | EB Garamond 21px on 32px lines, primary, old-style figures, at most 26em (about 65 characters) | Long reading text: book descriptions, bios, collection and series descriptions. Use `<Prose>` (`src/components/shared/prose.tsx`), which loads the font |
 
-`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`).
+`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
 
 ---
 

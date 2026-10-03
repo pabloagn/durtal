@@ -279,6 +279,54 @@ dialog::backdrop {
   color: var(--color-fg-secondary);
 }
 
+/* Long reading text: descriptions, bios, notes. Use <Prose>
+   (src/components/shared/prose.tsx): it loads EB Garamond (--font-prose). */
+@utility type-prose {
+  font-family: var(--font-prose, var(--font-serif));
+  font-size: var(--text-lg);
+  line-height: calc(2 / 1.3125); /* 32px */
+  color: var(--color-fg-primary);
+  max-width: 26em; /* about 65 characters per line */
+  text-wrap: pretty;
+  hanging-punctuation: first;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  & p + p {
+    margin-top: 0.75em;
+  }
+  & strong,
+  & b {
+    font-weight: 600;
+  }
+  & em,
+  & i {
+    font-style: italic;
+  }
+  & a {
+    color: var(--color-accent-rose-text);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    transition: color 0.15s;
+  }
+  & a:hover {
+    color: var(--color-fg-primary);
+  }
+  & ul,
+  & ol {
+    margin: 0.5em 0;
+    padding-left: 1.25em;
+  }
+  & ul {
+    list-style: disc;
+  }
+  & ol {
+    list-style: decimal;
+  }
+  & li + li {
+    margin-top: 0.25em;
+  }
+}
+
 /* Small uppercase labels: eyebrows, stat and column labels, kbd hints */
 @utility type-caption {
   font-family: var(--font-mono);

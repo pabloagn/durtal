@@ -29,6 +29,7 @@ import {
 } from "@/lib/utils/pagination";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { Prose } from "@/components/shared/prose";
 
 export default async function CollectionPage({
   params,
@@ -124,9 +125,9 @@ export default async function CollectionPage({
                 </h1>
               </div>
               {collection.description && (
-                <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-fg-secondary">
+                <Prose className="mt-3 whitespace-pre-wrap">
                   {collection.description}
-                </p>
+                </Prose>
               )}
               <p className="my-4 text-xs text-fg-secondary">
                 {bookCount} {bookCount === 1 ? "book" : "books"} · {total}{" "}

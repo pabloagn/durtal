@@ -14,6 +14,8 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { Prose } from "@/components/shared/prose";
+import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -143,10 +145,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       {author.bio && (
         <section className="mb-8">
           <SectionHeading title="About" />
-          <div
-            className="bio-content max-w-2xl text-sm leading-relaxed text-fg-secondary"
-            dangerouslySetInnerHTML={{ __html: author.bio }}
-          />
+          {/* Sanitized like book descriptions: a bio can come from enrichment */}
+          <Prose html={sanitizeDescriptionHtml(author.bio)} />
         </section>
       )}
 
