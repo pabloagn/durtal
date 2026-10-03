@@ -180,7 +180,12 @@ export function ShortcutsProvider({
   const copyItems = useCallback(
     (): CopyItem[] => [
       ...pageCopyItems.current,
-      { key: COPY_KEYS.link, label: "Link", text: window.location.href },
+      // The command palette renders on the server too, which has no window
+      {
+        key: COPY_KEYS.link,
+        label: "Link",
+        text: typeof window === "undefined" ? "" : window.location.href,
+      },
     ],
     [],
   );
