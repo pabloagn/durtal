@@ -227,8 +227,6 @@ export function AuthorsFiltersBar({
   return (
     <EntityFilters
       basePath="/authors"
-      // On a phone the search takes its own row; the sorts wrap, each label whole
-      className="mb-6 flex flex-wrap items-center gap-3 [&>div:first-child]:min-w-0 [&>div:first-child]:basis-full sm:[&>div:first-child]:basis-48 [&>div:nth-child(2)]:flex-wrap [&>div:nth-child(2)>button]:whitespace-nowrap"
       sortOptions={isSearching ? [RELEVANCE_SORT, ...SORT_OPTIONS] : SORT_OPTIONS}
       searchPlaceholder="Search authors..."
       defaultSort={isSearching ? "relevance" : "name"}

@@ -9,6 +9,7 @@ import {
 } from "@/components/shared/pagination";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { DataTable } from "@/components/shared/data-table";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
 import type { ColumnDef } from "@/components/books/column-config-dialog";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { Badge } from "@/components/ui/badge";
@@ -23,16 +24,6 @@ import {
   PUBLISHER_FILTER_PARAMS,
   PUBLISHER_VIEW_MODES,
 } from "./publishers-filters-bar";
-
-const COL_CLASSES: Record<number, string> = {
-  2: "grid-cols-2",
-  3: "grid-cols-3",
-  4: "grid-cols-4",
-  5: "grid-cols-5",
-  6: "grid-cols-6",
-  7: "grid-cols-7",
-  8: "grid-cols-8",
-};
 
 const ALL_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", defaultVisible: true, defaultOrder: 0 },
@@ -158,12 +149,12 @@ export function PublishersShell({
       <Pagination {...pagination} noun="publishers" compact />
 
       {viewMode === "grid" && (
-        <div
-          className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-4"}`}
-        >
-          {publishers.map((p) => (
-            <PublisherCard key={p.id} publisher={p} />
-          ))}
+        <div className="@container">
+          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+            {publishers.map((p) => (
+              <PublisherCard key={p.id} publisher={p} />
+            ))}
+          </div>
         </div>
       )}
 

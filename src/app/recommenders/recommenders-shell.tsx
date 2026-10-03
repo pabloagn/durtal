@@ -7,6 +7,7 @@ import {
   type PaginationData,
 } from "@/components/shared/pagination";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import {
   RecommenderCard,
@@ -15,16 +16,6 @@ import {
 } from "@/components/recommenders/recommender-card";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { RECOMMENDER_VIEW_MODES } from "./recommenders-filters-bar";
-
-const COL_CLASSES: Record<number, string> = {
-  2: "grid-cols-2",
-  3: "grid-cols-3",
-  4: "grid-cols-4",
-  5: "grid-cols-5",
-  6: "grid-cols-6",
-  7: "grid-cols-7",
-  8: "grid-cols-8",
-};
 
 export function RecommendersShell({
   recommenders,
@@ -66,12 +57,12 @@ export function RecommendersShell({
     <>
       <Pagination {...pagination} noun="recommenders" compact />
       {viewMode === "grid" ? (
-        <div
-          className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-4"}`}
-        >
-          {recommenders.map((r) => (
-            <RecommenderCard key={r.id} recommender={r} />
-          ))}
+        <div className="@container">
+          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+            {recommenders.map((r) => (
+              <RecommenderCard key={r.id} recommender={r} />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="space-y-1">

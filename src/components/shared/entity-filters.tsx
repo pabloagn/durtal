@@ -11,6 +11,13 @@ import {
 } from "@/components/books/view-mode-switcher";
 import { GridSizeSlider } from "@/components/books/grid-size-slider";
 
+/**
+ * The filter row without its margin. On a phone the search takes its own row;
+ * the sorts wrap, each label whole.
+ */
+export const FILTER_ROW_CLASSES =
+  "flex flex-wrap items-center gap-3 [&>div:first-child]:min-w-0 [&>div:first-child]:basis-full sm:[&>div:first-child]:basis-48 [&>div:nth-child(2)]:flex-wrap [&>div:nth-child(2)>button]:whitespace-nowrap";
+
 export interface SortOption {
   value: string;
   label: string;
@@ -78,7 +85,7 @@ export function EntityFilters({
   );
 
   return (
-    <div className={className ?? "mb-6 flex items-center gap-3"}>
+    <div className={className ?? `mb-6 ${FILTER_ROW_CLASSES}`}>
       {/* Search */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />

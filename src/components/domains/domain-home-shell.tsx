@@ -8,6 +8,7 @@ import {
 import { EntityFilters } from "@/components/shared/entity-filters";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { DomainTile, HomeKind } from "@/lib/catalogue/domain-homes";
@@ -37,21 +38,6 @@ const SORT_OPTIONS: Record<HomeKind, { value: string; label: string }[]> = {
     { value: "recent", label: "Added" },
     { value: "rating", label: "Rating" },
   ],
-};
-
-/**
- * Cards per row from the size slider, inside an `@container`. A narrow page
- * holds fewer, so a card stays about 115px wide or more and its title stays
- * whole: each count starts where its cards reach that width.
- */
-export const COL_CLASSES: Record<number, string> = {
-  2: "grid-cols-2",
-  3: "grid-cols-2 @sm:grid-cols-3",
-  4: "grid-cols-2 @sm:grid-cols-3 @lg:grid-cols-4",
-  5: "grid-cols-2 @sm:grid-cols-3 @lg:grid-cols-4 @2xl:grid-cols-5",
-  6: "grid-cols-2 @sm:grid-cols-3 @lg:grid-cols-4 @2xl:grid-cols-5 @3xl:grid-cols-6",
-  7: "grid-cols-2 @sm:grid-cols-3 @lg:grid-cols-4 @2xl:grid-cols-5 @3xl:grid-cols-6 @4xl:grid-cols-7",
-  8: "grid-cols-2 @sm:grid-cols-3 @lg:grid-cols-4 @2xl:grid-cols-5 @3xl:grid-cols-6 @4xl:grid-cols-7 @5xl:grid-cols-8",
 };
 
 /** The saved view of one home: a cookie per collection, checked against its views. */
@@ -89,8 +75,6 @@ export function DomainHomeFilters({ kind }: { kind: HomeKind }) {
       onViewModeChange={view.setViewMode}
       onGridColumnsChange={view.setGridColumns}
       availableViewModes={VIEW_MODES}
-      // On a phone the search takes its own row; the sorts wrap, each label whole
-      className="mb-6 flex flex-wrap items-center gap-3 [&>div:first-child]:min-w-0 [&>div:first-child]:basis-full sm:[&>div:first-child]:basis-48 [&>div:nth-child(2)]:flex-wrap [&>div:nth-child(2)>button]:whitespace-nowrap"
     />
   );
 }

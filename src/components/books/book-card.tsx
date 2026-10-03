@@ -282,8 +282,11 @@ export function BookCard({
                 {publicationYear}
               </span>
             )}
+            {/* A narrow card keeps the year and the count; the language does not fit */}
             {language && language !== "en" && (
-              <Badge variant="blue">{language}</Badge>
+              <span className="hidden @[160px]:contents">
+                <Badge variant="blue">{language}</Badge>
+              </span>
             )}
             <span className="ml-auto font-mono text-micro text-fg-secondary">
               {instanceCount} {instanceCount === 1 ? "copy" : "copies"}

@@ -8,6 +8,7 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { useAuthorSelection } from "@/lib/hooks/use-author-selection";
 import { DataTable } from "@/components/shared/data-table";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { AuthorCard } from "@/components/authors/author-card";
 import { AuthorListItem } from "@/components/authors/author-list-item";
 import { AuthorBulkActionToolbar } from "@/components/authors/author-bulk-action-toolbar";
@@ -51,16 +52,6 @@ const AuthorTimeline = dynamic(
     ),
   },
 );
-
-const COL_CLASSES: Record<number, string> = {
-  2: "grid-cols-2",
-  3: "grid-cols-3",
-  4: "grid-cols-4",
-  5: "grid-cols-5",
-  6: "grid-cols-6",
-  7: "grid-cols-7",
-  8: "grid-cols-8",
-};
 
 export type PosterCrop = MediaCrop;
 
@@ -279,28 +270,30 @@ export function AuthorsShell({
       {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" compact />}
 
       {viewMode === "grid" && (
-        <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-5"}`}>
-          {authors.map((a) => (
-            <AuthorCard
-              key={a.id}
-              id={a.id}
-              slug={a.slug}
-              name={a.name}
-              firstName={a.firstName}
-              lastName={a.lastName}
-              nationality={a.nationality}
-              birthYear={a.birthYear}
-              deathYear={a.deathYear}
-              photoUrl={a.photoUrl}
-              posterCrop={a.posterCrop}
-              photoTone={a.photoTone}
-              coverPreviews={a.coverPreviews}
-              worksCount={a.worksCount}
-              isSelecting={selection.isSelecting}
-              isSelected={selection.isSelected(a.id)}
-              onSelect={selection.toggleSelection}
-            />
-          ))}
+        <div className="@container">
+          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[5]}`}>
+            {authors.map((a) => (
+              <AuthorCard
+                key={a.id}
+                id={a.id}
+                slug={a.slug}
+                name={a.name}
+                firstName={a.firstName}
+                lastName={a.lastName}
+                nationality={a.nationality}
+                birthYear={a.birthYear}
+                deathYear={a.deathYear}
+                photoUrl={a.photoUrl}
+                posterCrop={a.posterCrop}
+                photoTone={a.photoTone}
+                coverPreviews={a.coverPreviews}
+                worksCount={a.worksCount}
+                isSelecting={selection.isSelecting}
+                isSelected={selection.isSelected(a.id)}
+                onSelect={selection.toggleSelection}
+              />
+            ))}
+          </div>
         </div>
       )}
 

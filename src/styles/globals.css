@@ -206,12 +206,15 @@ dialog::backdrop {
 
 /* Text that always takes exactly one or two lines: longer text is clamped
    with an ellipsis, shorter or empty text keeps the space. Cards use these
-   so every card of a kind has the same height, whatever its text. */
+   so every card of a kind has the same height, whatever its text. A word
+   wider than the card breaks, so a narrow card clamps it instead of cutting
+   it at the edge. */
 @utility lines-1 {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
   overflow: hidden;
+  overflow-wrap: break-word;
   height: 1lh;
 }
 
@@ -220,6 +223,7 @@ dialog::backdrop {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+  overflow-wrap: break-word;
   height: 2lh;
 }
 

@@ -25,7 +25,7 @@ function editionsLabel(count: number) {
 /** Grid card: publishers have no artwork, so the card leads with the name. */
 export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
   return (
-    <div className="group relative flex flex-col rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className="@container group relative flex flex-col rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
         href={`/publishers/${p.slug}`}
         aria-label={`Open ${p.name}`}
@@ -45,10 +45,19 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
       <div className="flex h-5 min-w-0 items-center gap-1.5 overflow-hidden px-4">
         {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
         {p.kind === "group" && <Badge variant="gold">Group</Badge>}
+        {/* Beside the type badge a narrow card has no room for the country */}
         {p.country && (
-          <Badge variant="muted" className="min-w-0">
-            <span className="truncate">{p.country}</span>
-          </Badge>
+          <span
+            className={
+              p.kind === "imprint" || p.kind === "group"
+                ? "hidden @[160px]:contents"
+                : "contents"
+            }
+          >
+            <Badge variant="muted" className="min-w-0">
+              <span className="truncate">{p.country}</span>
+            </Badge>
+          </span>
         )}
       </div>
       <p className="mt-2 lines-1 px-4 text-xs text-fg-secondary">
@@ -58,6 +67,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         <span className="font-mono text-micro text-fg-secondary">
           {editionsLabel(p.editionCount)}
         </span>
+        {/* A narrow card keeps the count on one line; the publisher page has the link */}
         {p.website && (
           <a
             href={p.website}
@@ -65,7 +75,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
             rel="noopener noreferrer"
             aria-label={`${p.name} website`}
             data-tooltip={`${p.name} website`}
-            className="relative z-20 text-fg-muted transition-colors hover:text-accent-rose"
+            className="relative z-20 hidden text-fg-muted transition-colors hover:text-accent-rose @[160px]:block"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
           </a>

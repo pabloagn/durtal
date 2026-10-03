@@ -5,19 +5,10 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { VenueCard } from "@/components/venues/venue-card";
 import { VenueListItem } from "@/components/venues/venue-list-item";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import type { VenueType } from "@/lib/actions/venues";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
-
-const COL_CLASSES: Record<number, string> = {
-  2: "grid-cols-2",
-  3: "grid-cols-3",
-  4: "grid-cols-4",
-  5: "grid-cols-5",
-  6: "grid-cols-6",
-  7: "grid-cols-7",
-  8: "grid-cols-8",
-};
 
 export interface VenueItem {
   id: string;
@@ -77,23 +68,25 @@ export function PlacesShell({ venues, total }: PlacesShellProps) {
   return (
     <>
       {viewMode === "grid" && (
-        <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? "grid-cols-4"}`}>
-          {venues.map((v) => (
-            <VenueCard
-              key={v.id}
-              id={v.id}
-              slug={v.slug}
-              name={v.name}
-              type={v.type}
-              formattedAddress={v.formattedAddress}
-              placeName={v.placeName}
-              isFavorite={v.isFavorite}
-              personalRating={v.personalRating}
-              website={v.website}
-              thumbnailUrl={v.thumbnailUrl}
-              color={v.color}
-            />
-          ))}
+        <div className="@container">
+          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+            {venues.map((v) => (
+              <VenueCard
+                key={v.id}
+                id={v.id}
+                slug={v.slug}
+                name={v.name}
+                type={v.type}
+                formattedAddress={v.formattedAddress}
+                placeName={v.placeName}
+                isFavorite={v.isFavorite}
+                personalRating={v.personalRating}
+                website={v.website}
+                thumbnailUrl={v.thumbnailUrl}
+                color={v.color}
+              />
+            ))}
+          </div>
         </div>
       )}
 

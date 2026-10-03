@@ -3,7 +3,8 @@
 import { useSearchParams } from "next/navigation";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
-import { COL_CLASSES, useHomeView } from "@/components/domains/domain-home-shell";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
+import { useHomeView } from "@/components/domains/domain-home-shell";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { PerfumeCard, PerfumeRow, type PerfumeCardData } from "./perfume-card";
 

@@ -5,7 +5,10 @@ import { MARKS_LABEL, WORK_MARKS, parseMarks } from "@/lib/constants/marks";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
-import { EntityFilters } from "@/components/shared/entity-filters";
+import {
+  EntityFilters,
+  FILTER_ROW_CLASSES,
+} from "@/components/shared/entity-filters";
 import {
   FilterDropdown,
   type FilterGroup,
@@ -155,7 +158,7 @@ export function LibraryFilters({
       onViewModeChange={onViewModeChange ?? (() => {})}
       onGridColumnsChange={onGridColumnsChange ?? (() => {})}
       availableViewModes={availableViewModes}
-      className="flex flex-1 items-center gap-3"
+      className={FILTER_ROW_CLASSES}
     >
       <FilterDropdown
         groups={[
