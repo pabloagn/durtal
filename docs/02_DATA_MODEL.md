@@ -539,7 +539,7 @@ A specific published form of a work. Carries all publication-level metadata.
 | `cover_s3_key` | TEXT | nullable | S3 key for processed cover (gold/) |
 | `thumbnail_s3_key` | TEXT | nullable | S3 key for thumbnail (gold/) |
 | `cover_source_url` | TEXT | nullable | Original URL cover was fetched from |
-| `metadata_source` | TEXT | nullable | |
+| `metadata_source` | TEXT | nullable | `isbndb`, `google_books`, `open_library`; `phantom_canon` marks a placeholder of the old import (no ISBN, shown as "Edition not identified"); `manual` once the reader keeps a placeholder without an ISBN |
 | `metadata_last_fetched` | TIMESTAMPTZ | nullable | |
 | `metadata_locked` | BOOLEAN | NOT NULL, default `false` | Prevents automated overwrites |
 | `notes` | TEXT | nullable | |

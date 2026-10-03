@@ -2,10 +2,12 @@ import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import { Library } from "lucide-react";
+import Link from "next/link";
+import { Library, ListChecks } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { PageHeader } from "@/components/layout/page-header";
+import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults } from "@/components/shared/no-results";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
@@ -229,7 +231,18 @@ export default async function LibraryPage({ searchParams }: PageProps) {
         title="Books"
         description={domainDescription("book")}
         tabs={<DomainSwitch current="book" searchParams={params} />}
-        actions={<DomainAddLink kind="book" />}
+        actions={
+          <>
+            <Link
+              href="/library/identify"
+              className={buttonClass("ghost", "md")}
+            >
+              <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Identify editions
+            </Link>
+            <DomainAddLink kind="book" />
+          </>
+        }
       />
 
       <LibraryFiltersBar />

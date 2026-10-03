@@ -8,6 +8,7 @@
 /library/[slug]             Work detail page (slug format: {title}-by-{author})
 /library/new                Add new book (wizard)
 /library/import             Bulk import interface
+/library/identify           Identify placeholder editions (one at a time)
 /authors                    Author index
 /authors/[slug]             Author detail (slug format: {author-name})
 /series                     Series index
@@ -256,6 +257,18 @@ Interface for importing books in bulk from external sources.
 - CSV Import guide
 - Python ingestion scripts reference
 - Import history
+
+---
+
+### Identify Editions (`/library/identify`)
+
+The old import created one edition per book with no ISBN, publisher or cover (metadata source `phantom_canon`). This page shows them one at a time: books with copies first, then by catalogue status. `?edition=<id>` starts at one edition; the "Identify" link next to the "Edition not identified" badge on the book page uses it. The library header links here.
+
+**Per book**:
+- Poster, authors, status, copies and their locations, collections, and the house the placeholder already links to (often set by hand).
+- **Your editions of this book**: identified editions the book already has. "Use this edition" (with a confirm step) moves the placeholder's copies and collection memberships there and removes the empty placeholder.
+- **Editions on ISBNdb**: the best 3 of up to 50 results for "title author" (more on demand), with cover, publisher, year, format, pages, language, ISBN and notes ("Another language", "Not Vintage", "E-book"). The search box takes other words or an ISBN. "Pick" saves at once; the message that follows has Undo.
+- Skip (to the end of the list), "No ISBN: keep it as it is" (with Undo), "Other sources" (Match with Google Books and Open Library), "Open the book".
 
 ---
 
