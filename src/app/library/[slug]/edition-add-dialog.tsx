@@ -18,7 +18,6 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 interface EditionAddDialogProps {
   workId: string;
   workTitle: string;
-  availableAuthors: { id: string; name: string }[];
   availableGenres: { id: string; name: string }[];
   availableTags: { id: string; name: string }[];
   /** When provided, the dialog is externally controlled and no trigger button is rendered */
@@ -29,7 +28,6 @@ interface EditionAddDialogProps {
 export function EditionAddDialog({
   workId,
   workTitle,
-  availableAuthors,
   availableGenres,
   availableTags,
   open: controlledOpen,
@@ -158,7 +156,6 @@ export function EditionAddDialog({
         <div className="max-h-[75vh] overflow-y-auto">
           <EditionForm
             initialValues={initialValues}
-            availableAuthors={availableAuthors}
             availableGenres={availableGenres}
             availableTags={availableTags}
             onSubmit={handleSubmit}

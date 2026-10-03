@@ -17,7 +17,6 @@ import {
   getWorksWithMark,
 } from "@/lib/actions/works";
 import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
-import { getAuthors } from "@/lib/actions/authors";
 import { getOrdersForWork } from "@/lib/actions/orders";
 import { getSeries, getOtherWorksInSeries } from "@/lib/actions/series";
 import {
@@ -94,7 +93,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   const [
     work,
-    allAuthors,
     allSeries,
     allWorkTypes,
     allSubjects,
@@ -111,7 +109,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
     allRecommenders,
   ] = await Promise.all([
     getWorkBySlug(slug),
-    getAuthors({ limit: 1000 }),
     getSeries(),
     getWorkTypes(),
     getSubjects(),
@@ -348,10 +345,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
                         (wa) => wa.attribute.id,
                       ),
                     }}
-                    availableAuthors={allAuthors.map((a) => ({
-                      id: a.id,
-                      name: a.name,
-                    }))}
                     availableSeries={allSeries.map((s) => ({
                       id: s.id,
                       title: s.title,
@@ -581,10 +574,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
             <EditionAddDialog
             workId={work.id}
             workTitle={work.title}
-            availableAuthors={allAuthors.map((a) => ({
-              id: a.id,
-              name: a.name,
-            }))}
             availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
             availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
           />
@@ -600,10 +589,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
               workId={work.id}
               authorName={primaryAuthor?.name}
               availableLocations={allLocations}
-              availableAuthors={allAuthors.map((a) => ({
-                id: a.id,
-                name: a.name,
-              }))}
               availableGenres={allGenres.map((g) => ({
                 id: g.id,
                 name: g.name,

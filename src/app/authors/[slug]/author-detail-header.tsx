@@ -33,7 +33,6 @@ interface AuthorDetailHeaderProps {
   posterUrl?: string | null;
   posterCrop?: PosterCrop | null;
   workCount: number;
-  allAuthors: { id: string; name: string; slug: string | null }[];
 }
 
 export function AuthorDetailHeader({
@@ -49,7 +48,6 @@ export function AuthorDetailHeader({
   posterUrl,
   posterCrop,
   workCount,
-  allAuthors,
 }: AuthorDetailHeaderProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -216,7 +214,6 @@ export function AuthorDetailHeader({
         onClose={() => setMergeOpen(false)}
         targetAuthorId={authorId}
         targetAuthorName={name}
-        allAuthors={allAuthors}
       />
 
       <DeleteConfirmDialog
