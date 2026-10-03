@@ -1,4 +1,5 @@
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { SectionHeading } from "@/components/shared/section-heading";
 import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { Suspense } from "react";
@@ -91,7 +92,7 @@ async function PlaceContent({ slug }: { slug: string }) {
         {/* Title block */}
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex items-start gap-3 font-serif text-4xl tracking-tight">
-            <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
+            <h1 className="type-page-title">
               {venue.name}
             </h1>
             {venue.isFavorite && (
@@ -138,7 +139,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Description */}
       {venue.description && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-primary">About</h2>
+          <SectionHeading title="About" />
           <p className="max-w-2xl text-sm leading-relaxed text-fg-secondary">
             {venue.description}
           </p>
@@ -149,12 +150,10 @@ async function PlaceContent({ slug }: { slug: string }) {
       {(venue.specialties || (venue.tags && venue.tags.length > 0)) && (
         <section className="mb-8">
           {venue.specialties && (
-            <div className="mb-3">
-              <h2 className="mb-1.5 font-serif text-xl text-fg-primary">
-                Specialties
-              </h2>
-              <p className="text-sm text-fg-secondary">{venue.specialties}</p>
-            </div>
+            <SectionHeading
+              title="Specialties"
+              description={venue.specialties}
+            />
           )}
           {venue.tags && venue.tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -172,10 +171,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Opening hours */}
       {venue.openingHours && (
         <section className="mb-8">
-          <h2 className="mb-3 flex items-start gap-2 font-serif text-xl text-fg-primary">
-            <CapAligned height={16}><Clock className="h-4 w-4 text-fg-muted" strokeWidth={1.5} /></CapAligned>
-            Opening Hours
-          </h2>
+          <SectionHeading title="Opening Hours" icon={Clock} />
           <pre className="font-mono text-xs text-fg-secondary">
             {JSON.stringify(venue.openingHours, null, 2)}
           </pre>
@@ -185,7 +181,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Contact info */}
       {(venue.phone || venue.email || venue.website || venue.instagramHandle) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-primary">Contact</h2>
+          <SectionHeading title="Contact" />
           <div className="space-y-2">
             {venue.website && (
               <a
@@ -236,7 +232,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Personal notes */}
       {venue.notes && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-primary">Notes</h2>
+          <SectionHeading title="Notes" />
           <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
             {venue.notes}
           </p>
@@ -246,9 +242,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Visit history */}
       {(venue.firstVisitDate || venue.lastVisitDate) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-xl text-fg-primary">
-            Visit History
-          </h2>
+          <SectionHeading title="Visit History" />
           <dl className="grid max-w-xs grid-cols-[auto_1fr] gap-x-6 gap-y-2">
             {venue.firstVisitDate && (
               <>
@@ -272,7 +266,7 @@ async function PlaceContent({ slug }: { slug: string }) {
 
       {/* Map placeholder */}
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-xl text-fg-primary">Map</h2>
+        <SectionHeading title="Map" />
         <div className="flex h-48 items-center justify-center rounded-sm border border-dashed border-glass-border bg-bg-secondary/50">
           <p className="text-sm text-fg-secondary">
             Map integration coming soon (Task 0058)

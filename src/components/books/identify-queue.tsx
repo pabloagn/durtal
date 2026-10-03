@@ -291,9 +291,7 @@ export function IdentifyQueue({
           title={current.workTitle}
         />
         <div className="min-w-0 flex-1">
-          <h2 className="font-serif text-2xl leading-tight text-fg-primary">
-            {current.workTitle}
-          </h2>
+          <h2 className="type-section-title">{current.workTitle}</h2>
           <p className="mt-1 text-sm text-fg-secondary">
             {[current.authors.join(", "), current.originalYear]
               .filter(Boolean)
@@ -349,7 +347,7 @@ export function IdentifyQueue({
       {/* Identified editions the book already has */}
       {current.otherEditions.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-xs uppercase tracking-wide text-fg-secondary">
+          <h3 className="type-caption">
             Your editions of this book
           </h3>
           <p className="text-xs text-fg-secondary">
@@ -420,7 +418,7 @@ export function IdentifyQueue({
 
       {/* ISBNdb editions */}
       <section className="space-y-3">
-        <h3 className="text-xs uppercase tracking-wide text-fg-secondary">
+        <h3 className="type-caption">
           Editions on ISBNdb
         </h3>
         <form

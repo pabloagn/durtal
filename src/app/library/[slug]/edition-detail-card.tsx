@@ -131,7 +131,7 @@ export function EditionDetailCard({
           />
           <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 className="font-serif text-lg text-fg-primary">
+              <h3 className="type-item-title">
                 {edition.title}
                 {edition.subtitle && (
                   <span className="text-fg-secondary">
@@ -228,7 +228,7 @@ export function EditionDetailCard({
 
       {hasDetailGrid && (
         <div className="border-b border-glass-border px-4 py-3">
-          <p className="mb-2 text-xs uppercase tracking-wide text-fg-secondary">
+          <p className="type-caption mb-2">
             Publication Details
           </p>
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1.5">
@@ -305,7 +305,7 @@ export function EditionDetailCard({
           <div className="space-y-2">
             {hasGenres && (
               <div>
-                <p className="mb-1 text-xs uppercase tracking-wide text-fg-secondary">
+                <p className="type-caption mb-1">
                   Genres
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -319,7 +319,7 @@ export function EditionDetailCard({
             )}
             {hasTags && (
               <div>
-                <p className="mb-1 text-xs uppercase tracking-wide text-fg-secondary">
+                <p className="type-caption mb-1">
                   Tags
                 </p>
                 <div className="flex flex-wrap gap-1.5">

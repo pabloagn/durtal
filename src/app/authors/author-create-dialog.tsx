@@ -187,7 +187,7 @@ export function AuthorCreateDialog({
               <div className="space-y-6">
                 {/* Identity */}
                 <section>
-                  <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                  <h3 className="type-group-title mb-3">
                     Identity
                   </h3>
                   <div className="space-y-3">
@@ -233,7 +233,7 @@ export function AuthorCreateDialog({
 
                 {/* Demographics */}
                 <section>
-                  <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                  <h3 className="type-group-title mb-3">
                     Demographics
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
@@ -254,7 +254,7 @@ export function AuthorCreateDialog({
 
                 {/* Life dates */}
                 <section>
-                  <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                  <h3 className="type-group-title mb-3">
                     Life Dates
                   </h3>
                   <div className="space-y-3">
@@ -338,7 +338,7 @@ export function AuthorCreateDialog({
 
                 {/* Bio */}
                 <section>
-                  <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                  <h3 className="type-group-title mb-3">
                     Bio
                   </h3>
                   <RichTextEditor
@@ -353,7 +353,7 @@ export function AuthorCreateDialog({
 
                 {/* Links */}
                 <section>
-                  <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                  <h3 className="type-group-title mb-3">
                     Links
                   </h3>
                   <div className="space-y-3">

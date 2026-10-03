@@ -110,7 +110,7 @@ export function CollectionCard({
       {/* The book card's layout, line for line: 2-line title, 1 line of
           text, 1 info row. Collection and book cards are the same height. */}
       <div className="p-3.5">
-        <h3 className="flex gap-1.5 font-serif text-lg leading-snug text-fg-primary">
+        <h3 className="type-item-title flex gap-1.5">
           {collection.icon && (
             // On the cap-height center of the name's first line
             <CapAligned height={16}>

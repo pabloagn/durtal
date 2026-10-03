@@ -221,7 +221,7 @@ export function TaxonomyFamilyShell({
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
+              <h1 className="type-page-title">
                 {family.name}
               </h1>
               {family.isSystem && <Badge variant="muted">System</Badge>}

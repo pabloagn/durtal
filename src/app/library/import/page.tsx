@@ -20,7 +20,7 @@ export default function ImportPage() {
               <div className="mb-4 rounded-sm border border-glass-border bg-bg-primary p-3">
                 <Upload className="h-6 w-6 text-fg-muted" strokeWidth={1.5} />
               </div>
-              <h3 className="font-serif text-lg text-fg-primary">
+              <h3 className="type-item-title">
                 CSV Import
               </h3>
               <p className="mt-1 text-center text-xs text-fg-secondary">
@@ -45,7 +45,7 @@ export default function ImportPage() {
                 />
               </div>
               <div>
-                <h3 className="font-serif text-lg text-fg-primary">
+                <h3 className="type-item-title">
                   Python ingestion scripts
                 </h3>
                 <p className="mt-1 text-xs text-fg-secondary">
@@ -76,7 +76,7 @@ export default function ImportPage() {
                 />
               </div>
               <div>
-                <h3 className="font-serif text-lg text-fg-primary">
+                <h3 className="type-item-title">
                   Import history
                 </h3>
                 <p className="mt-1 text-xs text-fg-secondary">

@@ -22,7 +22,7 @@ import { BookCard } from "@/components/books/book-card";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaCrop } from "@/lib/utils/media-style";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 function StatCard({
   label,
@@ -40,7 +40,7 @@ function StatCard({
           <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
         </div>
         <div>
-          <p className="font-mono text-2xl tracking-tight text-fg-primary">
+          <p className="type-stat text-fg-primary">
             {value.toLocaleString()}
           </p>
           <p className="text-xs text-fg-secondary">{label}</p>
@@ -60,27 +60,21 @@ function SectionHeader({
   icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   return (
-    <div className="mb-5 flex items-center justify-between">
-      {/* The row carries the heading's type: the icon sits on its
-          cap-height center */}
-      <div className="flex items-start gap-2 font-serif text-xl">
-        {Icon && (
-          <CapAligned height={16}>
-            <Icon className="block h-4 w-4 text-fg-muted" strokeWidth={1.5} />
-          </CapAligned>
-        )}
-        <h2 className="font-serif text-xl text-fg-primary">{title}</h2>
-      </div>
-      {href && (
-        <Link
-          href={href}
-          className="flex items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
-        >
-          View all
-          <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
-        </Link>
-      )}
-    </div>
+    <SectionHeading
+      title={title}
+      icon={Icon}
+      action={
+        href && (
+          <Link
+            href={href}
+            className="flex items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          >
+            View all
+            <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+          </Link>
+        )
+      }
+    />
   );
 }
 
@@ -257,7 +251,7 @@ async function DashboardContent() {
                 </div>
                 <div className="p-3">
                   {/* Fixed lines: every author card has the same height */}
-                  <h3 className="lines-2 font-serif text-base leading-snug text-fg-primary">
+                  <h3 className="type-item-title lines-2">
                     {author.name}
                   </h3>
                   <p className="mt-1 lines-1 text-sm text-fg-secondary">
@@ -296,7 +290,7 @@ async function DashboardContent() {
                   className="group rounded-sm border border-glass-border bg-bg-secondary p-4 card-interactive"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="lines-2 font-serif text-lg leading-tight text-fg-primary">
+                    <h3 className="type-item-title lines-2">
                       {work.title}
                     </h3>
                     {statusInfo && (

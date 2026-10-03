@@ -106,6 +106,7 @@ Key constraints:
 - Colors: All desaturated, muted. No bright neons.
 - Text contrast is at least 4.5:1: text a reader needs uses `fg-secondary` or brighter; `fg-muted` is for placeholders, disabled text, separators and decoration only; rose and red text use `accent-rose-text` / `accent-red-text`. Check with `scripts/qa/design-audit.js`
 - Typography: Serif headings (EB Garamond), sans body (Inter)
+- Type: seven sizes only (12, 14, 16, 21, 30, 38, 46px). Headings use the `type-*` roles; every titled block on a page uses `SectionHeading` (`src/components/shared/section-heading.tsx`). See `docs/03_DESIGN_LANGUAGE.md`, Typography
 - Icons: Lucide, 1.5px stroke, 16px max
 - Glassmorphism: Navigation bar and command palette ONLY
 - Alignment is pixel-perfect:

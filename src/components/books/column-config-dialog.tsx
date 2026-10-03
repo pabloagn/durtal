@@ -67,7 +67,7 @@ export function ColumnConfigDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/80">
       <div className="w-80 rounded-sm border border-glass-border bg-bg-secondary p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-serif text-base text-fg-primary">
+          <h3 className="type-item-title">
             Configure Columns
           </h3>
           <button

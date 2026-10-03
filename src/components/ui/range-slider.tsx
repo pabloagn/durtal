@@ -69,15 +69,15 @@ export function RangeSlider({
   return (
     <div className="px-1.5 pb-3 pt-1">
       {label && (
-        <div className="mb-2 px-0 text-[11px] font-medium uppercase tracking-wider text-fg-secondary">
+        <div className="type-caption mb-2 px-0">
           {label}
         </div>
       )}
 
       {/* Year labels */}
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-mono text-[11px] text-fg-secondary">{localValue[0]}</span>
-        <span className="font-mono text-[11px] text-fg-secondary">{localValue[1]}</span>
+        <span className="font-mono text-micro text-fg-secondary">{localValue[0]}</span>
+        <span className="font-mono text-micro text-fg-secondary">{localValue[1]}</span>
       </div>
 
       {/* Track + thumbs */}
@@ -122,8 +122,8 @@ export function RangeSlider({
 
       {/* Min / max labels */}
       <div className="mt-1 flex items-center justify-between">
-        <span className="font-mono text-[10px] text-fg-muted/60">{min}</span>
-        <span className="font-mono text-[10px] text-fg-muted/60">{max}</span>
+        <span className="font-mono text-micro text-fg-muted/60">{min}</span>
+        <span className="font-mono text-micro text-fg-muted/60">{max}</span>
       </div>
     </div>
   );

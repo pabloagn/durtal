@@ -7,6 +7,7 @@ import { ActivityEventItem } from "./activity-event-item";
 import { CommentItem } from "./comment-item";
 import { CommentEditor } from "./comment-editor";
 import { ChevronDown } from "lucide-react";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface ActivityTimelineProps {
   entityType: "work" | "author";
@@ -111,7 +112,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
 
   return (
     <section className="mb-8">
-      <h2 className="mb-5 font-serif text-2xl text-fg-primary">Activity</h2>
+      <SectionHeading title="Activity" />
 
       {loading ? (
         <div className="flex items-center justify-center py-8">

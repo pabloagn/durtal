@@ -46,7 +46,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
     >
       {/* Header row: icon + name + system badge. The row carries the name's
           type: the icon tile sits on the name's cap-height center */}
-      <div className="flex items-start gap-3 font-serif text-base">
+      <div className="type-item-title flex items-start gap-3">
         <CapAligned height={32}>
           <div
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-sm"
@@ -69,7 +69,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
         </CapAligned>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <h3 className="truncate font-serif text-base text-fg-primary transition-colors group-hover:text-accent-rose-text">
+            <h3 className="type-item-title truncate transition-colors group-hover:text-accent-rose-text">
               {family.name}
             </h3>
             {family.isSystem && (

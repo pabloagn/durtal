@@ -10,6 +10,7 @@ import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -66,7 +67,7 @@ export default async function SeriesDetailPage({
 
       <header className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="break-words font-serif text-4xl tracking-tight text-fg-primary">
+          <h1 className="type-page-title break-words">
             {s.title}
           </h1>
           {s.originalTitle && s.originalTitle !== s.title && (
@@ -107,7 +108,7 @@ export default async function SeriesDetailPage({
       </header>
 
       <section className="mb-8">
-        <h2 className="mb-4 font-serif text-2xl text-fg-primary">Books</h2>
+        <SectionHeading title="Books" />
         {count ? (
           <SeriesBooks seriesId={s.id} books={books} />
         ) : (
@@ -127,9 +128,7 @@ export default async function SeriesDetailPage({
 
       {suggestions.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-serif text-2xl text-fg-primary">
-            Suggested books
-          </h2>
+          <SectionHeading title="Suggested books" />
           <SeriesSuggestions suggestions={suggestions} />
         </section>
       )}

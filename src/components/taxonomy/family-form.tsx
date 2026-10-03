@@ -115,7 +115,7 @@ export function FamilyForm({
                     {taxonomyScopeLabel(option.kind, option.level)}
                   </span>
                   {used && chosen.has(key) && (
-                    <span className="text-[11px] text-fg-secondary">
+                    <span className="text-micro text-fg-secondary">
                       in use: reassign those records to remove it
                     </span>
                   )}
@@ -125,7 +125,7 @@ export function FamilyForm({
           </div>
         )}
         {hidden.length > 0 && (
-          <p className="text-[11px] text-fg-secondary">
+          <p className="text-micro text-fg-secondary">
             Also applies to {hidden.length} place
             {hidden.length === 1 ? "" : "s"} in collections that are not open
             yet. Those are kept.
@@ -146,7 +146,7 @@ export function FamilyForm({
             Hierarchical
           </span>
         </label>
-        <p className="pl-5.5 text-[11px] text-fg-secondary">
+        <p className="pl-5.5 text-micro text-fg-secondary">
           {isSystem
             ? "Built-in families keep their structure."
             : hierarchyLocked && value.hierarchical

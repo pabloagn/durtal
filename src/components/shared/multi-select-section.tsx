@@ -33,7 +33,7 @@ export function MultiSelectSection({
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="text-xs font-medium text-fg-secondary">{title}</h3>
+        <h3 className="type-label">{title}</h3>
         {selectedIds.length > 0 && (
           <Badge variant="muted">{selectedIds.length}</Badge>
         )}

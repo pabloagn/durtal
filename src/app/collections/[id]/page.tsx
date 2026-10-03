@@ -97,7 +97,7 @@ export default async function CollectionPage({
                     className="h-10 w-10 text-fg-muted/20"
                     strokeWidth={1}
                   />
-                  <span className="font-serif text-5xl text-fg-muted/20">
+                  <span className="font-serif text-4xl text-fg-muted/20">
                     {collection.name[0]}
                   </span>
                 </div>
@@ -119,7 +119,7 @@ export default async function CollectionPage({
                     />
                   </CollectionIconPicker>
                 </CapAligned>
-                <h1 className="min-w-0 break-words font-serif text-4xl tracking-tight text-fg-primary">
+                <h1 className="type-page-title min-w-0 break-words">
                   {collection.name}
                 </h1>
               </div>
@@ -185,7 +185,7 @@ export default async function CollectionPage({
                     <div className="flex min-w-0 flex-1 flex-col">
                       <Link
                         href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
-                        className="lines-2 font-serif text-xl"
+                        className="lines-2 type-item-title"
                       >
                         {e.title}
                       </Link>
@@ -226,7 +226,7 @@ export default async function CollectionPage({
             size={24}
             strokeWidth={1}
           />
-          <h2 className="font-serif text-2xl">Build your collection</h2>
+          <h2 className="type-item-title">Build your collection</h2>
           <p className="mt-2 text-sm text-fg-secondary">
             Use Add books above, or select books in your library and choose
             Collections.

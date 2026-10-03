@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ProvenanceShell } from "./provenance-shell";
 import { OrderCreateDialog } from "./order-create-dialog";
 import type { OrderItem, ProvenanceStats } from "./provenance-shell";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 async function ProvenanceContent() {
   const [rawOrders, stats] = await Promise.all([
@@ -85,7 +86,7 @@ async function OrderHistory({ params }: { params: ListSearchParams }) {
   const { orders, total } = await getOrderTimeline(undefined, { limit: perPage, offset });
   if (page > lastPage(total, perPage)) redirect(pageHref("/provenance", params, lastPage(total, perPage)));
   return <section className="mt-10">
-    <h2 className="font-serif text-2xl text-fg-primary">Acquisition history</h2>
+    <SectionHeading title="Acquisition history" />
     <PaginatedSection page={page} perPage={perPage} total={total} noun="orders">
       <div className="space-y-2">{orders.map((order) => <Link key={order.id} href={`/library/${order.work.slug}`} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-glass-border p-3 hover:bg-bg-secondary">
         <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-secondary">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>

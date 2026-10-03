@@ -188,7 +188,7 @@ export function InstanceDetail({
       {/* Acquisition details */}
       {hasAcquisition && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
+          <p className="type-caption mb-1.5">
             Acquisition
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
@@ -230,7 +230,7 @@ export function InstanceDetail({
       {/* Digital details */}
       {hasDigital && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
+          <p className="type-caption mb-1.5">
             Digital
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
@@ -272,7 +272,7 @@ export function InstanceDetail({
       {/* Lending status */}
       {isLentOut && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
+          <p className="type-caption mb-1.5">
             On Loan
           </p>
           {instance.lentTo && (
@@ -292,7 +292,7 @@ export function InstanceDetail({
       {/* Disposition details */}
       {hasDisposition && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
+          <p className="type-caption mb-1.5">
             Disposition
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">

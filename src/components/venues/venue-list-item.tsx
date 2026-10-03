@@ -59,8 +59,8 @@ export function VenueListItem({
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2 font-serif text-lg">
-            <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
+          <div className="type-item-title flex items-start gap-2">
+            <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
               {name}
             </h3>
             {isFavorite && (

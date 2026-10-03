@@ -46,6 +46,7 @@ import { OrderEditDialog } from "./order-edit-dialog";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { formatMoney, type CurrencyTotal } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -320,11 +321,11 @@ function StatCard({
     <div className="rounded-sm border border-glass-border bg-bg-secondary p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="font-mono text-micro text-fg-secondary uppercase tracking-wider">
+          <p className="type-caption">
             {label}
           </p>
           <p
-            className={`mt-1.5 font-serif text-3xl tracking-tight ${accentColor ?? "text-fg-primary"}`}
+            className={`type-stat mt-1.5 ${accentColor ?? "text-fg-primary"}`}
           >
             {value}
           </p>
@@ -475,7 +476,7 @@ function PipelineColumn({
           <span
             className={`h-1.5 w-1.5 rounded-full ${isActive ? STATUS_COLORS[status].replace("text-", "bg-") : "bg-fg-muted/30"}`}
           />
-          <span className="font-mono text-micro text-fg-secondary uppercase tracking-wider">
+          <span className="type-caption">
             {label}
           </span>
         </div>
@@ -582,7 +583,7 @@ function OrderDetailPanel({
       <div className="flex h-full flex-col">
         {/* Panel header */}
         <div className="flex items-center justify-between border-b border-glass-border px-5 py-3.5">
-          <h2 className="font-serif text-lg text-fg-primary">Order Details</h2>
+          <h2 className="type-item-title">Order Details</h2>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowEditDialog(true)}
@@ -657,7 +658,7 @@ function OrderDetailPanel({
             <div className="min-w-0">
               <Link
                 href={`/library/${order.work.slug}`}
-                className="font-serif text-lg leading-snug text-fg-primary hover:text-accent-gold transition-colors"
+                className="type-item-title transition-colors hover:text-accent-gold"
               >
                 {order.work.title}
               </Link>
@@ -675,7 +676,7 @@ function OrderDetailPanel({
 
           {/* M1: method-aware order timeline */}
           <div className="mt-6">
-            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
+            <h3 className="type-caption mb-3">
               Timeline
             </h3>
             <div className="space-y-1">
@@ -708,7 +709,7 @@ function OrderDetailPanel({
           {/* Shipping info */}
           {(order.carrier || order.trackingNumber) && (
             <div className="mt-6">
-              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
+              <h3 className="type-caption mb-3">
                 Shipping
               </h3>
               <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
@@ -747,7 +748,7 @@ function OrderDetailPanel({
           {/* Price breakdown */}
           {(order.price || order.totalCost) && (
             <div className="mt-6">
-              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
+              <h3 className="type-caption mb-3">
                 Cost
               </h3>
               <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
@@ -784,7 +785,7 @@ function OrderDetailPanel({
           {/* Venue */}
           {order.venue && (
             <div className="mt-6">
-              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
+              <h3 className="type-caption mb-3">
                 Venue
               </h3>
               <Link
@@ -831,7 +832,7 @@ function OrderDetailPanel({
           {/* Notes */}
           {order.notes && (
             <div className="mt-6">
-              <h3 className="mb-2 font-mono text-micro uppercase tracking-wider text-fg-secondary">
+              <h3 className="type-caption mb-2">
                 Notes
               </h3>
               <p className="text-xs leading-relaxed text-fg-secondary">
@@ -1086,14 +1087,10 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         </div>
 
         {/* Pipeline board */}
-        <div className="mb-2">
-          <h2 className="font-serif text-2xl tracking-tight text-fg-primary">
-            Active Pipeline
-          </h2>
-          <p className="mt-1 text-sm text-fg-secondary">
-            Orders in transit, by status
-          </p>
-        </div>
+        <SectionHeading
+          title="Active Pipeline"
+          description="Orders in transit, by status"
+        />
 
         <DndContext
           sensors={sensors}
@@ -1131,9 +1128,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         {/* Immediate acquisitions (in-store / gifts) */}
         {immediateOrders.length > 0 && (
           <div className="mt-8">
-            <h2 className="mb-3 font-serif text-xl tracking-tight text-fg-primary">
-              Immediate Acquisitions
-            </h2>
+            <SectionHeading title="Immediate Acquisitions" />
             <div className="space-y-2">
               {immediateOrders.map((order) => {
                 const posterUrl = getPosterUrl(order.work);
@@ -1194,9 +1189,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         {/* C3: Auction orders section */}
         {auctionOrders.length > 0 && (
           <div className="mt-8">
-            <h2 className="mb-3 font-serif text-xl tracking-tight text-fg-primary">
-              Auctions
-            </h2>
+            <SectionHeading title="Auctions" />
             <div className="space-y-2">
               {auctionOrders.map((order) => {
                 const posterUrl = getPosterUrl(order.work);
@@ -1258,9 +1251,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
               className="mb-4 h-10 w-10 text-fg-muted/30"
               strokeWidth={1}
             />
-            <p className="font-serif text-xl text-fg-secondary">
-              No active orders
-            </p>
+            <p className="type-item-title">No active orders</p>
             <p className="mt-1 text-sm text-fg-secondary">
               Create a new order to start tracking provenance
             </p>

@@ -91,9 +91,9 @@ export function CommentItem({
             {/* Comment header */}
             <div className="flex items-center justify-between px-3 pt-2.5 pb-0">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-medium text-fg-primary">Comment</span>
+                <span className="text-xs font-medium text-fg-primary">Comment</span>
                 <time
-                  className="text-[11px] text-fg-secondary"
+                  className="text-micro text-fg-secondary"
                   title={full}
                 >
                   {relative}
@@ -105,7 +105,7 @@ export function CommentItem({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
                 >
                   Edit
                 </button>
@@ -113,7 +113,7 @@ export function CommentItem({
                   type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text disabled:opacity-50"
+                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text disabled:opacity-50"
                 >
                   {isDeleting ? "..." : "Delete"}
                 </button>
@@ -122,7 +122,7 @@ export function CommentItem({
 
             {/* Comment body */}
             <div
-              className="tiptap-content px-3 pt-1.5 pb-2.5 text-[13px] leading-relaxed text-fg-secondary"
+              className="tiptap-content px-3 pt-1.5 pb-2.5 text-xs leading-relaxed text-fg-secondary"
               dangerouslySetInnerHTML={{ __html: comment.contentHtml }}
             />
 

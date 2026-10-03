@@ -6,10 +6,10 @@ export default function Loading() {
       aria-label="Scanning catalogue quality"
     >
       <div>
-        <p className="text-xs uppercase tracking-widest text-fg-secondary">
+        <p className="type-caption">
           Library care
         </p>
-        <h1 className="mt-3 font-serif text-4xl">Harmonize</h1>
+        <h1 className="type-page-title mt-3">Harmonize</h1>
         <p className="mt-3 text-sm text-fg-secondary">
           Looking for records that need a little attention…
         </p>

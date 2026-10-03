@@ -162,7 +162,7 @@ export function VenueCreateDialog({
           <div className="space-y-6">
             {/* Identity */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Identity
               </h3>
               <div className="space-y-3">
@@ -200,12 +200,12 @@ export function VenueCreateDialog({
 
             {/* Location */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Location
               </h3>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-fg-secondary">
+                  <label className="type-label block">
                     Search Google Places
                   </label>
                   <GooglePlacesSearch
@@ -229,7 +229,7 @@ export function VenueCreateDialog({
 
             {/* Contact */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Contact
               </h3>
               <div className="space-y-3">
@@ -265,7 +265,7 @@ export function VenueCreateDialog({
 
             {/* Notes */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Notes
               </h3>
               <div className="space-y-3">

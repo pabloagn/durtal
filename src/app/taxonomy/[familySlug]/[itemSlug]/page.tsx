@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ async function ItemContent({
               style={{ backgroundColor: item.color }}
             />
           )}
-          <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
+          <h1 className="type-page-title">
             {item.name}
           </h1>
         </div>
@@ -151,9 +152,7 @@ async function ItemContent({
       {/* Entity grid */}
       {family.entityLevel === "work" && entityWorks.length > 0 && (
         <div>
-          <h2 className="mb-4 font-serif text-xl text-fg-primary">
-            Associated Works
-          </h2>
+          <SectionHeading title="Associated Works" />
           <PaginatedSection {...paging} noun="works">
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {paging.items.map((work) => {
@@ -212,9 +211,7 @@ async function ItemContent({
 
       {family.entityLevel === "edition" && entityIds.length > 0 && (
         <div>
-          <h2 className="mb-4 font-serif text-xl text-fg-primary">
-            Associated Editions
-          </h2>
+          <SectionHeading title="Associated Editions" />
           <p className="text-sm text-fg-secondary">
             {entityIds.length} edition{entityIds.length === 1 ? "" : "s"}{" "}
             linked to this item.

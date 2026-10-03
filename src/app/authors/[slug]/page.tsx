@@ -13,6 +13,7 @@ import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -151,7 +152,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       {/* Bio */}
       {author.bio && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-2xl text-fg-primary">About</h2>
+          <SectionHeading title="About" />
           <div
             className="bio-content max-w-2xl text-sm leading-relaxed text-fg-secondary"
             dangerouslySetInnerHTML={{ __html: author.bio }}
@@ -176,9 +177,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       {/* Works as author */}
       {works.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-serif text-2xl text-fg-primary">
-            Works ({works.length})
-          </h2>
+          <SectionHeading title="Works" count={works.length} />
           <PaginatedSection {...paging} noun="works">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {paging.items.map((work) => {
@@ -234,9 +233,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       {/* Edition contributions */}
       {contributions.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-4 font-serif text-2xl text-fg-primary">
-            Edition Contributions ({contributions.length})
-          </h2>
+          <SectionHeading title="Edition Contributions" count={contributions.length} />
           <div className="space-y-2">
             {contributions.map((edition) => (
               <div
@@ -262,7 +259,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <span className="font-serif text-base text-fg-primary">
+                  <span className="type-item-title">
                     {edition.title}
                   </span>
                   {edition.publicationYear && (
@@ -287,9 +284,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       {/* External links */}
       {(author.website || author.openLibraryKey || author.goodreadsId) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-2xl text-fg-primary">
-            External Links
-          </h2>
+          <SectionHeading title="External Links" />
           <div className="flex gap-4">
             {author.website && (
               <a

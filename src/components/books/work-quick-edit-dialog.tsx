@@ -349,7 +349,7 @@ export function WorkQuickEditDialog({
             <div className="space-y-6">
               {/* Core Details */}
               <section>
-                <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                <h3 className="type-group-title mb-3">
                   Core Details
                 </h3>
                 <div className="space-y-3">
@@ -407,7 +407,7 @@ export function WorkQuickEditDialog({
 
               {/* Status */}
               <section>
-                <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                <h3 className="type-group-title mb-3">
                   Status
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
@@ -434,7 +434,7 @@ export function WorkQuickEditDialog({
 
               {/* Description & Notes */}
               <section>
-                <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                <h3 className="type-group-title mb-3">
                   Description &amp; Notes
                 </h3>
                 <div className="space-y-3">
@@ -453,7 +453,7 @@ export function WorkQuickEditDialog({
                     placeholder="Personal notes"
                   />
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-fg-secondary">
+                    <label className="type-label mb-1.5 block">
                       Recommended by
                     </label>
                     {recommenderIds.length > 0 && (
@@ -518,7 +518,7 @@ export function WorkQuickEditDialog({
 
               {/* Authors */}
               <section>
-                <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+                <h3 className="type-group-title mb-3">
                   Authors
                 </h3>
                 <div className="space-y-2">

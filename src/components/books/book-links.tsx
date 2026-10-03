@@ -7,12 +7,12 @@ import {
 // Monograms stand in for the site logos: "g" for Goodreads, "SG" for The StoryGraph.
 const GLYPHS: Record<BookLinkField, React.ReactNode> = {
   goodreadsUrl: (
-    <span className="font-serif text-[17px] leading-none -translate-y-[2px]">
+    <span className="font-serif text-sm leading-none -translate-y-[1.5px]">
       g
     </span>
   ),
   storygraphUrl: (
-    <span className="font-sans text-[10px] font-semibold leading-none tracking-tight">
+    <span className="font-sans text-micro font-semibold leading-none tracking-tight">
       SG
     </span>
   ),

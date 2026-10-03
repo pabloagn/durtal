@@ -24,7 +24,7 @@ export function SeriesFields({
   const [creating, setCreating] = useState(!seriesId && !!seriesName);
   return (
     <section>
-      <h3 className="mb-3 font-serif text-lg text-fg-secondary">Series</h3>
+      <h3 className="type-group-title mb-3">Series</h3>
       <div className="grid grid-cols-2 gap-3">
         <Select
           id={id}

@@ -43,7 +43,7 @@ export function RecommenderCard({
       />
       {/* Fixed rows: every recommender card has the same height */}
       <div className="p-4 pb-2">
-        <h3 className="lines-2 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose-text">
+        <h3 className="type-item-title lines-2 group-hover:text-accent-rose-text">
           {r.name}
         </h3>
       </div>
@@ -74,7 +74,7 @@ export function RecommenderListItem({
         <span className="font-serif text-sm text-fg-muted/50">{r.name[0]}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
+        <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
           {r.name}
         </h3>
         {r.url && <WebsiteLink url={r.url} name={r.name} />}

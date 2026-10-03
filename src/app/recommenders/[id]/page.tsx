@@ -10,6 +10,7 @@ import { websiteLabel } from "@/lib/validations/recommenders";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { RecommenderActions } from "./recommender-actions";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -41,7 +42,7 @@ export default async function RecommenderPage({
       {/* Header, as on author pages (no poster or cover) */}
       <header className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="break-words font-serif text-4xl tracking-tight text-fg-primary">
+          <h1 className="type-page-title break-words">
             {recommender.name}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
@@ -79,9 +80,7 @@ export default async function RecommenderPage({
       </header>
 
       <section className="mb-8">
-        <h2 className="mb-4 font-serif text-2xl text-fg-primary">
-          Books ({count})
-        </h2>
+        <SectionHeading title="Books" count={count} />
         {count === 0 ? (
           <p className="rounded-sm border border-dashed border-glass-border px-6 py-10 text-center text-sm text-fg-secondary">
             {`No books yet. Add ${recommender.name} in a book's Edit dialog, under Recommended by.`}

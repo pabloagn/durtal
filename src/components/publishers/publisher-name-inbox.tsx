@@ -15,6 +15,7 @@ import {
   type getPublisherNameInbox,
   type PublisherNameRow,
 } from "@/lib/actions/publisher-names";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 type Decision = Parameters<typeof resolvePublisherNames>[0][number];
 type Inbox = Awaited<ReturnType<typeof getPublisherNameInbox>>;
@@ -105,7 +106,7 @@ function NameRow({
   return (
     <article className="space-y-3 rounded-sm border border-glass-border p-4">
       <div className="space-y-1">
-        <h3 className="font-serif text-xl text-fg-primary">{row.name}</h3>
+        <h3 className="type-item-title">{row.name}</h3>
         <p className="text-xs text-fg-secondary">
           {plural(row.editions.length, "edition")}
           {row.prefixes.length > 0 &&
@@ -291,11 +292,10 @@ export function PublisherNameInbox({
       )}
       {decisions.length > 0 && (
         <section className="space-y-2 border-t border-glass-border pt-5">
-          <h2 className="font-serif text-xl text-fg-primary">Automatic decisions</h2>
-          <p className="text-xs text-fg-secondary">
-            Made when books were added or from the safe list. Undo returns the
-            name here for you to decide; it is never decided automatically again.
-          </p>
+          <SectionHeading
+            title="Automatic decisions"
+            description="Made when books were added or from the safe list. Undo returns the name here for you to decide; it is never decided automatically again."
+          />
           <ul className="space-y-1">
             {decisions.map((d) => (
               <li
@@ -342,10 +342,10 @@ export function PublisherNameInbox({
       )}
       {ignored.length > 0 && (
         <section className="space-y-2 border-t border-glass-border pt-5">
-          <h2 className="font-serif text-xl text-fg-primary">Not publishers</h2>
-          <p className="text-xs text-fg-secondary">
-            These names never link to a house. Their editions link by ISBN only.
-          </p>
+          <SectionHeading
+            title="Not publishers"
+            description="These names never link to a house. Their editions link by ISBN only."
+          />
           <ul className="space-y-1">
             {ignored.map((n) => (
               <li key={n.key} className="flex flex-wrap items-baseline gap-3 text-sm text-fg-secondary">

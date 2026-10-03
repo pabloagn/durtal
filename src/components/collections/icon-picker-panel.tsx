@@ -182,7 +182,7 @@ export default function IconPickerPanel({
         {results ? (
           results.length ? (
             <>
-              <p className="mb-1.5 px-1 text-micro uppercase tracking-wider text-fg-secondary">
+              <p className="type-caption mb-1.5 px-1">
                 {results.length} {results.length === 1 ? "icon" : "icons"}
               </p>
               <IconGrid names={results} value={value} onPick={onPick} />
@@ -194,11 +194,11 @@ export default function IconPickerPanel({
           )
         ) : (
           <>
-            <p className="mb-1.5 px-1 text-micro uppercase tracking-wider text-fg-secondary">
+            <p className="type-caption mb-1.5 px-1">
               Suggested
             </p>
             <IconGrid names={SUGGESTED} value={value} onPick={onPick} />
-            <p className="mb-1.5 mt-4 px-1 text-micro uppercase tracking-wider text-fg-secondary">
+            <p className="type-caption mb-1.5 mt-4 px-1">
               All icons
             </p>
             <IconGrid

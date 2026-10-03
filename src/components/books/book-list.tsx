@@ -103,7 +103,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               />
             ) : (
               <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-nano text-fg-muted/40">
+                <span className="font-serif text-micro text-fg-muted/40">
                   {book.title[0]}
                 </span>
               </div>
@@ -112,7 +112,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
 
           {/* Info */}
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-serif text-lg text-fg-primary transition-colors group-hover:text-accent-rose-text">
+            <h3 className="type-item-title truncate transition-colors group-hover:text-accent-rose-text">
               {book.title}
             </h3>
             <p className="truncate text-sm text-fg-secondary">

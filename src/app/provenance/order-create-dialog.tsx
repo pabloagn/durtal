@@ -239,7 +239,7 @@ function WorkSearchStep({
         />
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-fg-secondary">
+          <label className="type-label block">
             Author <span className="ml-0.5 text-accent-red-text">*</span>
           </label>
           <div className="relative">

@@ -43,7 +43,7 @@ export function ShortcutsHelp({
       <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
         {groups.map((group) => (
           <section key={group.title} className={group.wide ? "sm:col-span-2" : ""}>
-            <h3 className="mb-2 font-serif text-lg text-fg-secondary">
+            <h3 className="type-group-title mb-2">
               {group.title}
             </h3>
             <ul className={group.wide ? "grid gap-x-10 sm:grid-cols-2" : ""}>

@@ -8,6 +8,7 @@ import type { CollageMediaItem } from "./collage-grid";
 import { Lightbox } from "@/components/media/lightbox";
 import { randomizeLayout } from "@/lib/actions/gallery-layouts";
 import type { CollageLayoutData } from "@/lib/utils/collage-layout";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface SerializedMedia {
   id: string;
@@ -99,29 +100,26 @@ export function GallerySectionClient({
 
   return (
     <section className="mb-8">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-2xl text-fg-primary">
-          {title}
-          {mediaItems.length > 0 && (
-            <span className="ml-1">({mediaItems.length})</span>
-          )}
-        </h2>
-
-        {mediaItems.length > 1 && (
-          <button
-            onClick={handleRandomize}
-            disabled={isPending}
-            className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary disabled:opacity-40"
-            aria-label="Randomize layout"
-          >
-            <Shuffle
-              className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`}
-              strokeWidth={1.5}
-            />
-            Shuffle
-          </button>
-        )}
-      </div>
+      <SectionHeading
+        title={title}
+        count={mediaItems.length > 0 ? mediaItems.length : undefined}
+        action={
+          mediaItems.length > 1 && (
+            <button
+              onClick={handleRandomize}
+              disabled={isPending}
+              className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary disabled:opacity-40"
+              aria-label="Randomize layout"
+            >
+              <Shuffle
+                className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`}
+                strokeWidth={1.5}
+              />
+              Shuffle
+            </button>
+          )
+        }
+      />
 
       {/* Single image: standalone */}
       {mediaItems.length === 1 && (

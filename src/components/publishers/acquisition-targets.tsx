@@ -18,6 +18,7 @@ import {
   cancelAcquisitionTarget,
   type getAcquisitionTargets,
 } from "@/lib/actions/publishers";
+import { SectionHeading } from "@/components/shared/section-heading";
 export function AcquisitionTargets({
   workId,
   targets,
@@ -58,14 +59,16 @@ export function AcquisitionTargets({
     });
   }
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-serif text-2xl">Hunting for</h2>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(!open)}>
-          <Plus className="h-4 w-4" />
-          Add target
-        </Button>
-      </div>
+    <section className="mb-8 space-y-3">
+      <SectionHeading
+        title="Hunting for"
+        action={
+          <Button size="sm" variant="ghost" onClick={() => setOpen(!open)}>
+            <Plus className="h-4 w-4" />
+            Add target
+          </Button>
+        }
+      />
       {targets.length === 0 && !open && (
         <p className="text-sm text-fg-secondary">
           Choose a preferred publisher or an exact edition to acquire.

@@ -370,7 +370,7 @@ export function WorkEditDialog({
           <div className="space-y-6">
             {/* Section: Core Details */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Core Details
               </h3>
               <div className="space-y-3">
@@ -432,7 +432,7 @@ export function WorkEditDialog({
 
             {/* Section: Status */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Status
               </h3>
               <div className="grid grid-cols-3 gap-3">
@@ -462,7 +462,7 @@ export function WorkEditDialog({
 
             {/* Section: Description & Notes */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Description &amp; Notes
               </h3>
               <div className="space-y-3">
@@ -483,7 +483,7 @@ export function WorkEditDialog({
                   placeholder="Personal notes"
                 />
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-fg-secondary">
+                  <label className="type-label mb-1.5 block">
                     Recommended by
                   </label>
                   {recommenderIds.length > 0 && (
@@ -550,7 +550,7 @@ export function WorkEditDialog({
 
             {/* Section: Authors */}
             <section>
-              <h3 className="mb-3 font-serif text-lg text-fg-secondary">
+              <h3 className="type-group-title mb-3">
                 Authors
               </h3>
               <div className="space-y-2">
