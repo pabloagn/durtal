@@ -95,10 +95,11 @@ export async function searchIsbndbByIsbn(
   return book ? bookToResult(book) : null;
 }
 
-export async function searchIsbndb(
+/** Raw ISBNdb records for a text search (title and author words) */
+export async function searchIsbndbBooks(
   query: string,
   maxResults = 10,
-): Promise<SearchResult[]> {
+): Promise<IsbndbBook[]> {
   const params = new URLSearchParams({
     pageSize: String(maxResults),
   });
@@ -117,7 +118,14 @@ export async function searchIsbndb(
   }
 
   const data: IsbndbSearchResponse = await res.json();
-  return (data.books ?? data.data ?? []).map(bookToResult);
+  return data.books ?? data.data ?? [];
+}
+
+export async function searchIsbndb(
+  query: string,
+  maxResults = 10,
+): Promise<SearchResult[]> {
+  return (await searchIsbndbBooks(query, maxResults)).map(bookToResult);
 }
 
 export async function searchIsbndbByAuthor(

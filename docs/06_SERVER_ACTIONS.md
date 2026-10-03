@@ -163,6 +163,34 @@ applyMatch(editionId: string, source: MatchSource, sourceId: string, accepted: {
 
 Reads the source again and saves only the accepted fields. A value that is not the one the preview showed, or a blocked value, stops the save. A locked edition is refused. `relink` lets links set by hand follow the new data. Records `work.rematched` with the fields and their old and new values.
 
+## Identify (`src/lib/actions/identify.ts`)
+
+Placeholder editions of the old import (task 0187). Ranking rules live in `src/lib/match/identify.ts`; saving goes through `saveMatch` in `src/lib/match/save.ts`, the same guarded save as Match.
+
+### `getIdentifyQueue()`
+
+Every edition with metadata source `phantom_canon`, with its book, poster, copies, collections, house links and the book's identified editions. Books with copies first, then by catalogue status.
+
+### `findEditionCandidates(editionId, query?)`
+
+Searches ISBNdb (up to 50 results for "title first-author", or one lookup when `query` is an ISBN) and ranks the results. Dropped: no valid ISBN; neither title nor author match (kept with notes when the reader typed the ISBN); an ISBN another edition holds. Ranked by title, author, language, format (e-books first only when every copy is digital), the house the placeholder already links to, cover, publisher and page count. Writes nothing.
+
+### `identifyEdition(editionId, isbn13)`
+
+Placeholders only. Reads the ISBNdb record again and saves every field Match would tick (`planMatch`): a distributor name is left out, an ISBN another edition holds stops the save, and a cover that cannot be downloaded is left out. Copies and collections stay on the edition. Returns the old and new values for undo.
+
+### `keepWithoutIsbn(editionId)`
+
+Placeholders only. Sets the metadata source to `manual`: the edition leaves the queue and loses its badge.
+
+### `undoIdentification(editionId, undo)`
+
+Restores the old values of an identification (or a "keep without ISBN") and makes the edition a placeholder again. Refused when the edition changed after it.
+
+### `moveToExistingEdition(placeholderId, editionId)`
+
+Moves a placeholder's copies and collection memberships to an identified edition of the same book and deletes the placeholder, in one transaction. Refused when anything else refers to the placeholder (orders, hunting targets, contributors, genres, tags, taxonomy items, identifiers, source records) or when it has a cover.
+
 ### `deleteEdition(id)`
 
 ```typescript

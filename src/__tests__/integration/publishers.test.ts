@@ -74,6 +74,14 @@ import {
   previewMatchHouses,
 } from "@/lib/actions/match";
 import {
+  findEditionCandidates,
+  getIdentifyQueue,
+  identifyEdition,
+  keepWithoutIsbn,
+  moveToExistingEdition,
+  undoIdentification,
+} from "@/lib/actions/identify";
+import {
   createOrder,
   updateOrderStatus,
   updateOrder,
@@ -1160,6 +1168,129 @@ describe.skipIf(!url)(
       await expect(
         db.update(schema.editions).set({ binding: "Paperback" }).where(eq(schema.editions.id, e.id)),
       ).rejects.toThrow();
+    });
+
+    /** A placeholder edition of the old import, as the import wrote it */
+    async function placeholderEdition(workId: string, title: string) {
+      return (
+        await db
+          .insert(schema.editions)
+          .values({ workId, title, metadataSource: "phantom_canon" })
+          .returning()
+      )[0];
+    }
+    /** ISBNdb answers: a search returns `books`, a lookup the one with that ISBN */
+    function isbndb(books: Record<string, unknown>[]) {
+      vi.stubEnv("ISBNDN_API_KEY", "test-key");
+      return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = String(input instanceof Request ? input.url : input);
+        const one = url.match(/\/book\/(\d+)/)?.[1];
+        return one
+          ? new Response(JSON.stringify({ book: books.find((b) => b.isbn13 === one) }), {
+              status: books.some((b) => b.isbn13 === one) ? 200 : 404,
+            })
+          : new Response(JSON.stringify({ total: books.length, books }), { status: 200 });
+      });
+    }
+    const LOSER = {
+      title: "The loser",
+      isbn13: isbn("978140007754"),
+      isbn10: "1400077540",
+      publisher: "Vintage Books",
+      authors: ["Bernhard, Thomas"],
+      date_published: "2006",
+      pages: 189,
+      language: "en",
+      binding: "Paperback",
+      image: "https://images.example/loser.jpg",
+    };
+
+    it("identifies a placeholder in place, keeps its copies, and undoes it", async () => {
+      const w = await work("The Loser");
+      const e = await placeholderEdition(w.id, "The Loser");
+      const copy = await own(e.id);
+      const fetchMock = isbndb([
+        LOSER,
+        { ...LOSER, title: "Collected Recipes", authors: ["Someone Else"], isbn13: isbn("978000000001") },
+      ]);
+      try {
+        expect((await getIdentifyQueue()).map((q) => q.id)).toEqual([e.id]);
+        const search = await findEditionCandidates(e.id);
+        expect(search.query).toBe("The Loser");
+        expect(search.candidates.map((c) => c.isbn13)).toEqual([LOSER.isbn13]);
+
+        const done = await identifyEdition(e.id, LOSER.isbn13);
+        // The cover upload is mocked to fail: the edition is saved without it
+        expect(done.coverSkipped).toBe(true);
+        const [saved] = await db.select().from(schema.editions).where(eq(schema.editions.id, e.id));
+        expect(saved).toMatchObject({
+          isbn13: LOSER.isbn13,
+          publisher: "Vintage Books",
+          binding: "paperback",
+          pageCount: 189,
+          // Same title in other letter case: the reader's stays
+          title: "The Loser",
+          metadataSource: "isbndb",
+        });
+        const [kept] = await db.select().from(schema.instances).where(eq(schema.instances.id, copy.id));
+        expect(kept.editionId).toBe(e.id);
+        expect(await getIdentifyQueue()).toEqual([]);
+        await expect(identifyEdition(e.id, LOSER.isbn13)).rejects.toThrow("already identified");
+
+        await undoIdentification(e.id, done.undo);
+        const [back] = await db.select().from(schema.editions).where(eq(schema.editions.id, e.id));
+        expect(back).toMatchObject({
+          isbn13: null,
+          publisher: null,
+          binding: null,
+          pageCount: null,
+          metadataSource: "phantom_canon",
+        });
+        // A second undo finds the edition changed and refuses
+        await expect(undoIdentification(e.id, done.undo)).rejects.toThrow("changed");
+      } finally {
+        fetchMock.mockRestore();
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("keeps a placeholder without an ISBN, and undoes it", async () => {
+      const w = await work("An old book");
+      const e = await placeholderEdition(w.id, "An old book");
+      const undo = await keepWithoutIsbn(e.id);
+      expect(await getIdentifyQueue()).toEqual([]);
+      await undoIdentification(e.id, undo);
+      expect((await getIdentifyQueue()).map((q) => q.id)).toEqual([e.id]);
+    });
+
+    it("moves a placeholder's copies to the book's identified edition and removes it", async () => {
+      const w = await work("Ice");
+      const e = await placeholderEdition(w.id, "Ice");
+      const real = await createEdition({ workId: w.id, title: "Ice", isbn13: isbn("978180533098") });
+      const copy = await own(e.id);
+      const [shelf] = await db
+        .insert(schema.collections)
+        .values({ name: `Shelf ${e.id}` })
+        .returning();
+      await db.insert(schema.collectionEditions).values({ collectionId: shelf.id, editionId: e.id });
+      expect((await getIdentifyQueue())[0].otherEditions.map((o) => o.id)).toEqual([real.id]);
+
+      // Anything else on the placeholder stops the move
+      const other = await placeholderEdition(w.id, "Ice again");
+      const [tag] = await db.insert(schema.tags).values({ name: `tag ${other.id}` }).returning();
+      await db.insert(schema.editionTags).values({ editionId: other.id, tagId: tag.id });
+      await expect(moveToExistingEdition(other.id, real.id)).rejects.toThrow("tags");
+      await expect(moveToExistingEdition(e.id, other.id)).rejects.toThrow("identified edition");
+
+      expect(await moveToExistingEdition(e.id, real.id)).toEqual({ copies: 1, collections: 1 });
+      const [moved] = await db.select().from(schema.instances).where(eq(schema.instances.id, copy.id));
+      expect(moved.editionId).toBe(real.id);
+      const members = await db
+        .select()
+        .from(schema.collectionEditions)
+        .where(eq(schema.collectionEditions.collectionId, shelf.id));
+      expect(members.map((m) => m.editionId)).toEqual([real.id]);
+      expect(await db.select().from(schema.editions).where(eq(schema.editions.id, e.id))).toEqual([]);
     });
 
     it("concurrent duplicate acquisition requests create exactly one target", async () => {

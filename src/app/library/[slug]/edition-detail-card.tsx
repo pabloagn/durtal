@@ -12,6 +12,8 @@ import { InstanceAddDialog } from "./instance-add-dialog";
 import { EditionMatchButton } from "./edition-match-button";
 import { formatDimensions, formatDate } from "@/lib/utils/format";
 import { languageName } from "@/lib/utils/language";
+import { bindingLabel } from "@/lib/utils/binding";
+import { isPlaceholderEdition } from "@/lib/match/identify";
 import { EditionCover } from "@/components/books/edition-cover";
 import type { PosterImage } from "@/lib/utils/edition-image";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
@@ -149,7 +151,18 @@ export function EditionDetailCard({
                   <Badge variant="blue">{languageName(edition.language)}</Badge>
                 )}
                 {edition.binding && (
-                  <Badge variant="muted">{edition.binding}</Badge>
+                  <Badge variant="muted">{bindingLabel(edition.binding)}</Badge>
+                )}
+                {isPlaceholderEdition(edition) && (
+                  <>
+                    <Badge variant="gold">Edition not identified</Badge>
+                    <Link
+                      href={`/library/identify?edition=${edition.id}`}
+                      className="text-accent-blue"
+                    >
+                      Identify
+                    </Link>
+                  </>
                 )}
               </div>
             </div>

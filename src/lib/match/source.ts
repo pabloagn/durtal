@@ -7,6 +7,7 @@
 import { normalizeLanguage } from "@/lib/utils/language";
 import { normalizeBinding } from "@/lib/utils/binding";
 import { stripControlChars, stripHtmlToText } from "@/lib/utils/sanitize";
+import type { IsbndbBook } from "@/lib/api/isbndb";
 import {
   isbn10To13,
   isbn13To10,
@@ -167,10 +168,8 @@ async function fromOpenLibrary(key: string): Promise<SourceRecord> {
   };
 }
 
-async function fromIsbndb(isbn: string): Promise<SourceRecord> {
-  const { getIsbndbBook } = await import("@/lib/api/isbndb");
-  const book = await getIsbndbBook(isbn);
-  if (!book) throw new Error("Could not fetch from ISBNdb");
+/** An ISBNdb record, cleaned */
+export function isbndbRecord(book: IsbndbBook): MatchCandidate {
   return cleanRecord({
     title: book.title,
     publisher: book.publisher,
@@ -183,6 +182,13 @@ async function fromIsbndb(isbn: string): Promise<SourceRecord> {
     description: book.synopsis ?? book.excerpt,
     coverUrl: book.image,
   });
+}
+
+async function fromIsbndb(isbn: string): Promise<SourceRecord> {
+  const { getIsbndbBook } = await import("@/lib/api/isbndb");
+  const book = await getIsbndbBook(isbn);
+  if (!book) throw new Error("Could not fetch from ISBNdb");
+  return isbndbRecord(book);
 }
 
 /** The record a search result points to, read again from its source */

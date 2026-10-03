@@ -3,11 +3,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import Link from "next/link";
-import { Plus, Library } from "lucide-react";
+import { Plus, Library, ListChecks } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults } from "@/components/shared/no-results";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
@@ -233,12 +233,21 @@ export default async function LibraryPage({ searchParams }: PageProps) {
         title="Library"
         description="Browse your complete catalogue"
         actions={
-          <Link href="/library/new">
-            <Button variant="primary" size="md">
-              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Add book
-            </Button>
-          </Link>
+          <>
+            <Link
+              href="/library/identify"
+              className={buttonClass("ghost", "md")}
+            >
+              <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Identify editions
+            </Link>
+            <Link href="/library/new">
+              <Button variant="primary" size="md">
+                <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Add book
+              </Button>
+            </Link>
+          </>
         }
       />
 

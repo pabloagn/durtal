@@ -37,6 +37,9 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.gallery_image_added":       { icon: "Images",       color: MUTED,     category: "media" },
   "work.gallery_image_removed":     { icon: "Images",       color: RED,       category: "media" },
   "work.rematched":                 { icon: "RefreshCw",    color: MUTED,     category: "update" },
+  "work.match_undone":              { icon: "RefreshCw",    color: MUTED,     category: "update" },
+  "work.edition_kept_without_isbn": { icon: "BookOpen",     color: MUTED,     category: "update" },
+  "work.placeholder_replaced":      { icon: "BookOpen",     color: MUTED,     category: "relation" },
   "work.taxonomy_added":            { icon: "Tag",          color: MUTED,     category: "relation" },
   "work.taxonomy_removed":          { icon: "Tag",          color: RED,       category: "relation" },
   "work.edition_added":             { icon: "BookOpen",     color: MUTED,     category: "relation" },
@@ -137,6 +140,9 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
       ? [text("Matched with "), label(String(m.newValue)), text(`: ${fields.join(", ").toLowerCase()}`)]
       : [text("Rematched with external source")];
   },
+  "work.match_undone":              () => [text("Undid a match")],
+  "work.edition_kept_without_isbn": () => [text("Kept the edition without an ISBN")],
+  "work.placeholder_replaced":      (m) => [text("Moved the placeholder's copies to edition "), label(m?.editionIsbn ? `ISBN: ${m.editionIsbn}` : (m?.targetName ?? ""))],
   "work.taxonomy_added":            (m) => [text(`Added ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
   "work.taxonomy_removed":          (m) => [text(`Removed ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
   "work.edition_added":             (m) => m?.editionIsbn
