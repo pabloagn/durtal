@@ -61,14 +61,15 @@ import {
 } from "@/lib/catalogue/book-store";
 import { sortCurrencyTotals } from "@/lib/utils/money";
 import { getAppSettings } from "@/lib/actions/settings";
+import {
+  nextCatalogueStatus,
+  type CatalogueStatus,
+} from "@/lib/utils/order-status-sync";
 
 /**
- * Derive the correct work catalogueStatus by looking at ALL orders for the work.
- * (C1, H4) — handles cancellation, return, deletion, and multi-order scenarios.
- *
- * Priority: any "book in hand" order → accessioned
- *           any active (non-terminal) order → on_order
- *           otherwise → leave unchanged (don't revert to a status we can't know)
+ * Keep a work's catalogueStatus in line with ALL its orders (C1, H4), without
+ * ever demoting a book that is owned: a copy that is not deaccessioned counts
+ * as a book in hand. The rules live in nextCatalogueStatus().
  */
 async function syncWorkCatalogueStatusFromAllOrders(
   workId: string,
@@ -96,33 +97,34 @@ async function syncWorkCatalogueStatusFromAllOrders(
     (o) => !(TERMINAL_STATUSES as string[]).includes(o.status),
   );
 
-  type CatalogueStatus =
-    | "tracked"
-    | "shortlisted"
-    | "wanted"
-    | "on_order"
-    | "accessioned"
-    | "deaccessioned";
-
-  let targetStatus: CatalogueStatus;
-  if (hasBookInHand) {
-    targetStatus = "accessioned";
-  } else if (hasActiveOrder) {
-    targetStatus = "on_order";
-  } else {
-    // All orders are terminal non-delivered (cancelled/returned) or no orders left.
-    // Revert to "wanted" since the user clearly wanted this work.
-    targetStatus = "wanted";
-  }
-
   const work = await db.query.works.findFirst({
     where: and(bookCondition, eq(works.id, workId)),
     columns: { catalogueStatus: true },
   });
-
-  if (!work || work.catalogueStatus === targetStatus) return;
-
+  if (!work) return;
   const fromStatus = work.catalogueStatus;
+
+  // Only needed when a work leaves on_order: the status it had before it was ordered
+  let statusBeforeOrdering: CatalogueStatus | null = null;
+  if (fromStatus === "on_order" && !hasBookInHand && !hasActiveOrder) {
+    const lastOrdered = await db.query.workStatusHistory.findFirst({
+      where: and(
+        eq(workStatusHistory.workId, workId),
+        eq(workStatusHistory.toStatus, "on_order"),
+      ),
+      orderBy: desc(workStatusHistory.changedAt),
+      columns: { fromStatus: true },
+    });
+    statusBeforeOrdering = lastOrdered?.fromStatus ?? null;
+  }
+
+  const targetStatus = nextCatalogueStatus({
+    current: fromStatus,
+    hasBookInHand,
+    hasActiveOrder,
+    statusBeforeOrdering,
+  });
+  if (targetStatus === fromStatus) return;
 
   // The status and its history row are one write
   await atomic((d) => [
@@ -762,16 +764,14 @@ export async function deleteOrder(id: string) {
     );
   }
 
-  // C2: the history row and the deletion are one write
-  await atomic((d) => [
-    d.insert(orderStatusHistory).values({
-      orderId: id,
-      fromStatus: order.status,
-      toStatus: "cancelled" as OrderStatus,
-      notes: "Order deleted",
-    }),
-    d.delete(orders).where(eq(orders.id, id)),
-  ]);
+  // The order's own status history goes with it (ON DELETE CASCADE), so the
+  // deletion is recorded on the work's activity timeline instead.
+  await db.delete(orders).where(eq(orders.id, id));
+
+  recordActivity("work", order.workId, "work.order_deleted", {
+    oldValue: order.status,
+    extra: { orderId: id },
+  });
 
   // C2: sync work status after removing order
   await syncWorkCatalogueStatusFromAllOrders(
