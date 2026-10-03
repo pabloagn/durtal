@@ -1,5 +1,5 @@
 /**
- * Apply the publishing house taxonomy (task 0176) inside one transaction:
+ * Apply the publishing house taxonomy (task 0179) inside one transaction:
  * houses, types and parents, aliases, ISBN rules, names that are not
  * publishers, and the imprint and country of each edition from a second
  * source. Links are recomputed once at the end. The caller commits, or rolls

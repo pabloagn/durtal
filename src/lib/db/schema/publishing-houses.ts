@@ -22,7 +22,7 @@ export const publishingHouses = pgTable(
     countryId: uuid("country_id").references(() => countries.id, {
       onDelete: "set null",
     }),
-    // group → publisher → imprint (task 0176): a group owns publishers, a
+    // group → publisher → imprint (task 0179): a group owns publishers, a
     // publisher owns imprints, a book links to the most specific one it shows
     kind: text("kind", { enum: ["group", "publisher", "imprint"] })
       .notNull()

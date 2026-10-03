@@ -1,4 +1,4 @@
-# Task 0176: Publishing house taxonomy
+# Task 0179: Publishing house taxonomy
 
 **Status**: In Progress
 **Created**: 2026-10-03

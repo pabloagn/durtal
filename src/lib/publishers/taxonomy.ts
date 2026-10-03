@@ -1,5 +1,5 @@
 /**
- * Publishing house taxonomy (task 0176). Pure module: the approved structure
+ * Publishing house taxonomy (task 0179). Pure module: the approved structure
  * and the rules that read a second metadata source.
  *
  * The book trade's three levels (ONIX for Books keeps imprint and publisher

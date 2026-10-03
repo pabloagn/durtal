@@ -167,7 +167,7 @@ export const publisherAutoDecisions = pgTable(
   ],
 );
 
-// Every change of a house's type or parent (task 0176): ownership changes
+// Every change of a house's type or parent (task 0179): ownership changes
 // over time, books stay on their imprint, and the move is kept here.
 export const publisherHierarchyChanges = pgTable(
   "publisher_hierarchy_changes",
@@ -187,7 +187,7 @@ export const publisherHierarchyChanges = pgTable(
   (t) => [index("publisher_hierarchy_changes_publisher_idx").on(t.publisherId)],
 );
 
-// Edition fields filled from a second metadata source (task 0176): the
+// Edition fields filled from a second metadata source (task 0179): the
 // imprint printed on the book and the country of publication. One run can be
 // undone by restoring `old_value`.
 export const editionEnrichments = pgTable(

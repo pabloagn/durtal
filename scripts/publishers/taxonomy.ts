@@ -1,5 +1,5 @@
 /**
- * Publishing house taxonomy (task 0176): group → publisher → imprint.
+ * Publishing house taxonomy (task 0179): group → publisher → imprint.
  * Dry run by default: everything runs inside one transaction, the report is
  * written, then the transaction is rolled back. `--apply` commits.
  * `--undo RUN_ID` restores the edition imprints and countries one run set.
