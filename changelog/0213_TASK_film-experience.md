@@ -113,7 +113,7 @@ coordinator first; none is expected).
   - The perfume suites hit 10-second hook timeouts on a loaded machine (the
     run took 328 s). A duplicate-key error then followed in a retried hook.
     Rerun the full suite on a quiet machine before trusting either result.
-- The Linear handover comment could not be posted: every Linear call failed on
-  a hook timeout. Linear shows SLN-367 as In Progress since 2026-10-03.
+- Linear: SLN-367 is In Progress, with the handover comment posted on
+  2026-10-03 (after earlier hook timeouts).
 - To check the branch: `git switch codex/sln-367-films`, then `pnpm typecheck`,
   `pnpm lint` and `python3 scripts/qa/test-local.py`.
