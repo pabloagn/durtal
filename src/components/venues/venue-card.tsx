@@ -6,6 +6,9 @@ import Link from "next/link";
 import { ExternalLink, Star, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { VenueType } from "@/lib/catalogue/venues";
+import { FadeImage } from "@/components/shared/fade-image";
+import { PlacePlate } from "@/components/shared/no-photo";
+import { cityFromAddress, streetFromAddress } from "@/lib/utils/address";
 
 
 
@@ -45,21 +48,25 @@ export function VenueCard({
         {/* Image / color band */}
         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
           <div
-            className="relative aspect-[3/2] overflow-hidden bg-bg-primary"
+            className="relative aspect-[3/2] overflow-hidden bg-bg-tertiary"
             style={color ? { backgroundColor: color } : undefined}
           >
             {thumbnailUrl ? (
-              <img
+              <FadeImage
                 src={thumbnailUrl}
                 alt={name}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover group-hover:scale-[1.02]"
               />
             ) : (
-              <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-3xl text-fg-muted/20">
-                  {name[0]}
-                </span>
-              </div>
+              // A venue's own color stays its background
+              <PlacePlate
+                kind={VENUE_TYPE_LABELS[type]}
+                city={cityFromAddress(formattedAddress)}
+                street={streetFromAddress(formattedAddress)}
+                tone={color ? undefined : badgeVariant}
+              />
             )}
 
             {/* Favorite star — top-right */}

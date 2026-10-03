@@ -27,6 +27,7 @@ import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { posterTone } from "@/lib/actions/utils/work-card-query";
+import { z } from "zod";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -156,6 +157,48 @@ export async function getAuthors(opts?: {
   });
 
   return results;
+}
+
+/**
+ * Up to three book covers per author, for the cards of authors with no
+ * portrait: their highest-rated works first, then the earliest. A work's
+ * cover is its active poster, else its first edition's cover. Returns
+ * `/api/s3/read` URLs by author id.
+ */
+export async function getAuthorCoverPreviews(
+  authorIds: string[],
+): Promise<Record<string, string[]>> {
+  const ids = z.array(z.string().uuid()).max(200).parse(authorIds);
+  if (!ids.length) return {};
+  const result = await db.execute(sql`
+    select author_id as "authorId", cover as "s3Key" from (
+      select wa.author_id,
+        coalesce(
+          (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m
+            where m.work_id = w.id and m.type = 'poster' and m.is_active
+            order by m.id limit 1),
+          (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e
+            where e.work_id = w.id order by e.created_at, e.id limit 1)
+        ) as cover,
+        row_number() over (
+          partition by wa.author_id
+          order by w.rating desc nulls last, w.original_year nulls last, w.id
+        ) as position
+      from work_authors wa join works w on w.id = wa.work_id
+      where wa.author_id = any(ARRAY[${sql.join(
+        ids.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )}]::uuid[])
+    ) previews
+    where position <= 3 and cover is not null
+    order by author_id, position`);
+  const found = (
+    Array.isArray(result) ? result : (result as { rows: unknown[] }).rows
+  ) as { authorId: string; s3Key: string }[];
+  const byAuthor: Record<string, string[]> = {};
+  for (const { authorId, s3Key } of found)
+    (byAuthor[authorId] ??= []).push(`/api/s3/read?key=${encodeURIComponent(s3Key)}`);
+  return byAuthor;
 }
 
 export async function getAuthorCount(opts?: {

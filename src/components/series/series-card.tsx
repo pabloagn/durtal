@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
+import { ShelfSpines } from "@/components/shared/no-photo";
 
 export interface SeriesItem {
   id: string;
@@ -49,12 +49,8 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
             ))}
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2">
-            <Layers className="h-8 w-8 text-fg-muted/20" strokeWidth={1} />
-            <span className="font-serif text-sm text-fg-muted/30">
-              {s.title[0]}
-            </span>
-          </div>
+          // No book in the catalogue yet: one spine per known volume
+          <ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />
         )}
         {s.isComplete && (
           <div className="absolute right-2 top-2">

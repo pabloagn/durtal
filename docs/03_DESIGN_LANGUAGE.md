@@ -224,6 +224,15 @@ Multiple semantic variants:
 
 Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette.
 
+### Cards without a photo
+
+A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:
+
+- Author with books: up to three of their covers, fanned (`CoverFan`). Author with no books: initials in the serif (`Monogram`).
+- Place: a label with its kind and city in small capitals, a rule, and its street in the serif (`PlacePlate`).
+- Series with no book yet: a shelf of spines, one per known volume (`ShelfSpines`).
+- While an image loads, its frame shows the poster's main color, dimmed, and the image fades in (`FadeImage`, `coverToneStyle`).
+
 ### Tooltips
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.

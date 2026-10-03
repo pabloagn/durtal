@@ -36,6 +36,8 @@ import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { coverToneStyle, mediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
+import { CoverFan, Monogram } from "@/components/shared/no-photo";
+import { getAuthorCoverPreviews } from "@/lib/actions/authors";
 import { SectionHeading } from "@/components/shared/section-heading";
 
 function StatCard({
@@ -191,9 +193,13 @@ async function DashboardContent() {
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
   ]);
-  const covers = await getCollectionCoverPreviews(
-    collections.map((collection) => collection.id),
-  );
+  const [covers, authorCovers] = await Promise.all([
+    getCollectionCoverPreviews(collections.map((collection) => collection.id)),
+    // Recent authors with no portrait show some of their book covers
+    getAuthorCoverPreviews(
+      stats.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id),
+    ),
+  ]);
   // Newest first across the open collections
   const recent = [
     ...stats.recentWorks.map((work) => ({
@@ -345,12 +351,10 @@ async function DashboardContent() {
                       decoding="async"
                       className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
                     />
+                  ) : authorCovers[author.id]?.length ? (
+                    <CoverFan covers={authorCovers[author.id]} />
                   ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <span className="font-serif text-3xl text-fg-muted/30">
-                        {author.name[0]}
-                      </span>
-                    </div>
+                    <Monogram name={author.name} />
                   )}
                   {author.worksCount > 0 && (
                     <div className="absolute right-1.5 top-1.5">

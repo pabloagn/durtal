@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
+import { CoverFan, Monogram } from "@/components/shared/no-photo";
 
 type PosterCrop = MediaCrop;
 
@@ -21,6 +22,8 @@ interface AuthorCardProps {
   posterCrop?: PosterCrop | null;
   /** The portrait's main color: the frame shows it while the photo loads */
   photoTone?: string | null;
+  /** Book covers to show when there is no portrait */
+  coverPreviews?: string[];
   worksCount: number;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -39,6 +42,7 @@ export function AuthorCard({
   photoUrl,
   posterCrop,
   photoTone,
+  coverPreviews = [],
   worksCount,
   isSelecting = false,
   isSelected = false,
@@ -88,12 +92,10 @@ export function AuthorCard({
                   className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
                   style={mediaImageStyle(posterCrop)}
                 />
+              ) : coverPreviews.length ? (
+                <CoverFan covers={coverPreviews} />
               ) : (
-                <div className="flex h-full items-center justify-center">
-                  <span className="font-serif text-3xl text-fg-muted/30">
-                    {name[0]}
-                  </span>
-                </div>
+                <Monogram name={name} />
               )}
 
               {/* Works count overlay — top-right */}

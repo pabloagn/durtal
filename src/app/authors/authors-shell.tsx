@@ -78,6 +78,8 @@ export interface AuthorItem {
   photoUrl: string | null;
   posterCrop: PosterCrop | null;
   photoTone: string | null;
+  /** Book covers to show when there is no portrait */
+  coverPreviews: string[];
   website: string | null;
   bio: string | null;
   worksCount: number;
@@ -292,6 +294,7 @@ export function AuthorsShell({
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
               photoTone={a.photoTone}
+              coverPreviews={a.coverPreviews}
               worksCount={a.worksCount}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
