@@ -17,9 +17,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
-import { createOrder, searchWorksForOrder } from "@/lib/actions/orders";
-import { createWork } from "@/lib/actions/works";
-import { findOrCreateAuthor, searchAuthorsLite } from "@/lib/actions/authors";
+import {
+  createOrder,
+  createOrderForNewBook,
+  searchWorksForOrder,
+} from "@/lib/actions/orders";
+import { searchAuthorsLite } from "@/lib/actions/authors";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
 import { getValidInitialStatuses } from "@/lib/constants/orders";
 import {
@@ -35,6 +38,8 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
 interface WorkResult {
   id: string;
+  /** A book typed in this dialog: created with the order, not before */
+  draft?: { title: string; authorName: string };
   title: string;
   slug: string;
   workAuthors: Array<{
@@ -132,7 +137,6 @@ function WorkSearchStep({
     { id: string; name: string }[]
   >([]);
   const [isSearchingAuthors, setIsSearchingAuthors] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const authorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Work search effect
@@ -177,39 +181,23 @@ function WorkSearchStep({
     };
   }, [authorQuery]);
 
-  async function handleCreateWork() {
-    if (!newTitle.trim() || !authorQuery.trim()) return;
-    setIsCreating(true);
-    try {
-      // Find or create the author
-      const author = await findOrCreateAuthor(authorQuery.trim());
-
-      // Create the work with minimal fields
-      const work = await createWork({
-        title: newTitle.trim(),
-        authorIds: [{ authorId: author.id, role: "author" }],
-        catalogueStatus: "on_order",
-      });
-
-      // Build a WorkResult-compatible object so the parent can use it
-      const workResult: WorkResult = {
-        id: work.id,
-        title: work.title,
-        slug: work.slug ?? "",
-        workAuthors: [{ author: { id: author.id, name: author.name } }],
-        media: [],
-      };
-
-      onSelect(workResult);
-      setShowCreate(false);
-      setNewTitle("");
-      setAuthorQuery("");
-      toast.success(`Created "${work.title}" and selected it`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create work");
-    } finally {
-      setIsCreating(false);
-    }
+  // The new book is only a draft here: the order creates it with the order,
+  // so a cancelled dialog or a failed order leaves no book behind
+  function handleCreateWork() {
+    const title = newTitle.trim();
+    const authorName = authorQuery.trim();
+    if (!title || !authorName) return;
+    onSelect({
+      id: "draft",
+      draft: { title, authorName },
+      title,
+      slug: "",
+      workAuthors: [{ author: { id: "", name: authorName } }],
+      media: [],
+    });
+    setShowCreate(false);
+    setNewTitle("");
+    setAuthorQuery("");
   }
 
   // Inline creation form
@@ -294,19 +282,10 @@ function WorkSearchStep({
           size="sm"
           className="w-full"
           onClick={handleCreateWork}
-          disabled={!newTitle.trim() || !authorQuery.trim() || isCreating}
+          disabled={!newTitle.trim() || !authorQuery.trim()}
         >
-          {isCreating ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-              Creating...
-            </>
-          ) : (
-            <>
-              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Create Work & Select
-            </>
-          )}
+          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Select new book
         </Button>
       </div>
     );
@@ -743,8 +722,7 @@ export function OrderCreateDialog({
       try {
         // Remember the currency preference for next order
         rememberCurrency(details.currency);
-        await createOrder({
-          workId: selectedWork.id,
+        const order = {
           acquisitionTargetId: targetValue.acquisitionTargetId || null,
           editionId: targetValue.editionId || null,
           acquisitionMethod: method,
@@ -762,7 +740,10 @@ export function OrderCreateDialog({
           currency: details.currency,
           originDescription: details.originDescription || null,
           notes: notes || null,
-        });
+        };
+        if (selectedWork.draft)
+          await createOrderForNewBook({ book: selectedWork.draft, order });
+        else await createOrder({ ...order, workId: selectedWork.id });
         toast.success(`Order for "${selectedWork.title}" created`);
         setOpen(false);
         resetForm();
@@ -835,7 +816,8 @@ export function OrderCreateDialog({
           {step === 3 && <NotesStep notes={notes} onChange={setNotes} />}
         </div>
 
-        {step === 1 && selectedWork && (
+        {/* A draft book has no targets or editions yet */}
+        {step === 1 && selectedWork && !selectedWork.draft && (
           <OrderTargetFields
             key={selectedWork.id}
             workId={selectedWork.id}

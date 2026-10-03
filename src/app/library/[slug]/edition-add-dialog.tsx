@@ -12,7 +12,6 @@ import {
   type EditionFormValues,
 } from "@/components/books/edition-form";
 import { createEdition } from "@/lib/actions/editions";
-import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 
 interface EditionAddDialogProps {
@@ -53,18 +52,15 @@ export function EditionAddDialog({
   async function handleSubmit(values: EditionFormValues) {
     setIsPending(true);
     try {
-      // Resolve contributors: find or create authors that have no authorId
-      const resolvedContributors = await Promise.all(
-        values.contributors.map(async (c) => {
-          if (c.authorId) {
-            return { authorId: c.authorId, role: c.role };
-          }
-          const author = await findOrCreateAuthor(c.authorName);
-          return { authorId: author.id, role: c.role };
-        }),
+      // A contributor without an id is found by name, or created with the
+      // edition in the same write
+      const resolvedContributors = values.contributors.map((c) =>
+        c.authorId
+          ? { authorId: c.authorId, role: c.role }
+          : { authorName: c.authorName, role: c.role },
       );
 
-      await createEdition({
+      const edition = await createEdition({
         workId,
         title: values.title,
         subtitle: values.subtitle || null,
@@ -120,6 +116,10 @@ export function EditionAddDialog({
       });
 
       toast.success("Edition created");
+      if (edition.coverUnavailable)
+        toast.warning(
+          "The cover could not be downloaded. Its source URL was saved.",
+        );
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();

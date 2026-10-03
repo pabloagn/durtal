@@ -63,7 +63,7 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
   });
   beforeEach(async () => {
     activity.mockClear();
-    await c`truncate works, authors, subjects, recommenders cascade`;
+    await c`truncate works, authors, subjects, recommenders, activity_events cascade`;
     [mann, hesse] = (
       await c`insert into authors(name,slug) values ('Thomas Mann','thomas-mann'),('Hermann Hesse','hermann-hesse') returning id`
     ).map((row) => row.id);
@@ -108,9 +108,12 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
       subjects: [subject],
       recommenders: [friend],
     });
-    expect(activity).toHaveBeenCalledWith("work", work.id, "work.created", {
-      newValue: "The Magic Mountain",
-    });
+    // The activity row is part of the same transaction
+    expect(
+      await c`select event_key, metadata from activity_events where entity_id=${work.id}`,
+    ).toEqual([
+      { event_key: "work.created", metadata: { newValue: "The Magic Mountain" } },
+    ]);
   });
 
   it("numbers the slug of a second book with the same title and author", async () => {
@@ -129,7 +132,7 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
     ).rejects.toThrow();
     expect(await c`select id from works`).toHaveLength(0);
     expect(await c`select work_id from work_authors`).toHaveLength(0);
-    expect(activity).not.toHaveBeenCalled();
+    expect(await c`select id from activity_events`).toHaveLength(0);
   });
 
   it("saves an edit whole or not at all", async () => {

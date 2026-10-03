@@ -348,5 +348,11 @@ identity stays the legacy slug, ISBN and metadata fields; typed catalogue
 identifiers start with the other collections (SLN-355 kept book provenance
 without backfill). Edition and copy UI stay book-specific.
 
+Atomic book writes (SLN-281, task 0200): the add-book wizard, Fast Track, a
+new edition and an order for a book not yet in the library each save in one
+transaction, through the plans in `src/lib/catalogue/book-store.ts`. Ids,
+slugs and the cover are decided before the write; a failure writes nothing and
+deletes the cover. New domain services follow the same plan-then-write shape.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

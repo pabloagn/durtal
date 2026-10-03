@@ -111,12 +111,16 @@ export const createEditionSchema = z.object({
   notes: z.string().max(10000).nullable().optional(),
 
   // Relations
+  // An author by id, or by name: found by that name or created with the edition
   contributorIds: z
     .array(
-      z.object({
-        authorId: z.string().uuid(),
-        role: z.string().min(1),
-      }),
+      z.union([
+        z.object({ authorId: z.string().uuid(), role: z.string().min(1) }),
+        z.object({
+          authorName: z.string().trim().min(1).max(300),
+          role: z.string().min(1),
+        }),
+      ]),
     )
     .optional(),
   genreIds: z.array(z.string().uuid()).optional(),

@@ -32,13 +32,11 @@ import { LANGUAGES } from "@/lib/constants/languages";
 import { languageName, normalizeLanguage } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
 import { BINDING_TYPES } from "@/lib/types/index";
-import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
+import { findDuplicateWork } from "@/lib/actions/works";
+import { createBookFromWizard, isIsbnInUse } from "@/lib/actions/wizard";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import type { CreateWorkInput } from "@/lib/validations";
-import { createEdition } from "@/lib/actions/editions";
-import { createInstance } from "@/lib/actions/instances";
-import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { getLocations } from "@/lib/actions/locations";
 import {
@@ -52,10 +50,12 @@ import {
   getArtMovements,
   getKeywords,
   getAttributes,
-  updateWorkTaxonomy,
 } from "@/lib/actions/taxonomy";
-import { getCollections, addEditionToCollection } from "@/lib/actions/collections";
-import { draftsToCreate, pickDefaultLocationId } from "@/lib/utils/instance-drafts";
+import { getCollections } from "@/lib/actions/collections";
+import {
+  draftsToCreate,
+  pickDefaultLocationId,
+} from "@/lib/utils/instance-drafts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,6 +182,7 @@ export function AddBookWizard() {
 
   // Edition fields
   const [isbn13, setIsbn13] = useState("");
+  const [isbnClash, setIsbnClash] = useState<string | null>(null);
   const [publisher, setPublisher] = useState("");
   const [publicationYear, setPublicationYear] = useState("");
   const [language, setLanguage] = useState("en");
@@ -455,102 +456,90 @@ export function AddBookWizard() {
 
   async function handleSubmit() {
     startTransition(async () => {
-      try {
-        let workId = existingWorkId;
-        let workSlug: string | undefined;
-
-        // 1. Find or create author
-        const author = await findOrCreateAuthor(authorName.trim());
-
-        // 2. Create work (or use existing)
-        if (!workId) {
-          const work = await createWork({
-            ...workDetails(),
-            authorIds: [{ authorId: author.id, role: "author" as const }],
-          });
-          workId = work.id;
-          workSlug = work.slug ?? undefined;
-          // Save all work-level taxonomy
-          await updateWorkTaxonomy(workId!, {
-            subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
-            categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
-            themeIds: selectedThemeIds.length > 0 ? selectedThemeIds : undefined,
-            literaryMovementIds: selectedLiteraryMovementIds.length > 0 ? selectedLiteraryMovementIds : undefined,
-            artTypeIds: selectedArtTypeIds.length > 0 ? selectedArtTypeIds : undefined,
-            artMovementIds: selectedArtMovementIds.length > 0 ? selectedArtMovementIds : undefined,
-            keywordIds: selectedKeywordIds.length > 0 ? selectedKeywordIds : undefined,
-            attributeIds: selectedAttributeIds.length > 0 ? selectedAttributeIds : undefined,
-          });
-        } else {
-          // Existing work — fetch its slug for navigation
-          const existingWork = await getWork(workId);
-          workSlug = existingWork?.slug ?? undefined;
-        }
-
-        // 3. Create edition
-        const edition = await createEdition({
-          workId: workId!,
+      // One write: the author, work, taxonomy, edition, copies and collection
+      // links are all saved, or nothing is
+      const result = await createBookFromWizard({
+        authorName: authorName.trim(),
+        existingWorkId: existingWorkId || null,
+        work: existingWorkId ? undefined : workDetails(),
+        taxonomy: existingWorkId
+          ? undefined
+          : {
+              subjectIds: selectedSubjectIds,
+              categoryIds: selectedCategoryIds,
+              themeIds: selectedThemeIds,
+              literaryMovementIds: selectedLiteraryMovementIds,
+              artTypeIds: selectedArtTypeIds,
+              artMovementIds: selectedArtMovementIds,
+              keywordIds: selectedKeywordIds,
+              attributeIds: selectedAttributeIds,
+            },
+        edition: {
           ...editionDetails(),
-          genreIds:
-            selectedGenreIds.length > 0 ? selectedGenreIds : undefined,
-          tagIds:
-            selectedTagIds.length > 0 ? selectedTagIds : undefined,
-        });
-
-        // 4. Create instances (none when copies were skipped)
-        for (const draft of copiesToCreate) {
-          try {
-            await createInstance({
-              editionId: edition.id,
-              locationId: draft.locationId,
-              subLocationId: draft.subLocationId || undefined,
-              format: draft.format || undefined,
-              condition: draft.condition || undefined,
-              hasDustJacket: draft.hasDustJacket,
-              hasSlipcase: draft.hasSlipcase,
-              conditionNotes: draft.conditionNotes || undefined,
-              isSigned: draft.isSigned,
-              signedBy: draft.signedBy || undefined,
-              inscription: draft.inscription || undefined,
-              isFirstPrinting: draft.isFirstPrinting,
-              provenance: draft.provenance || undefined,
-              acquisitionType: draft.acquisitionType || undefined,
-              acquisitionDate: draft.acquisitionDate || undefined,
-              acquisitionSource: draft.acquisitionSource || undefined,
-              acquisitionPrice: draft.acquisitionPrice || undefined,
-              acquisitionCurrency: draft.acquisitionCurrency || undefined,
-              calibreId: draft.calibreId
-                ? parseInt(draft.calibreId, 10)
-                : undefined,
-              calibreUrl: draft.calibreUrl || undefined,
-              fileSizeBytes: draft.fileSizeBytes
-                ? parseInt(draft.fileSizeBytes, 10)
-                : undefined,
-              notes: draft.notes || undefined,
-            });
-          } catch (err) {
-            console.error("Failed to create instance:", err);
-            toast.error("Failed to create one of the copies");
-          }
-        }
-
-        // 5. Add to collections
-        for (const colId of selectedCollectionIds) {
-          try {
-            await addEditionToCollection(colId, edition.id);
-          } catch {
-            // non-critical
-          }
-        }
-
-        toast.success("Book added to catalogue");
-        router.push(`/library/${workSlug ?? ""}`);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to add book";
-        toast.error(message);
-        console.error(err);
+          genreIds: selectedGenreIds.length > 0 ? selectedGenreIds : undefined,
+          tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        },
+        copies: copiesToCreate.map((draft) => ({
+          locationId: draft.locationId,
+          subLocationId: draft.subLocationId || undefined,
+          format: draft.format || undefined,
+          condition: draft.condition || undefined,
+          hasDustJacket: draft.hasDustJacket,
+          hasSlipcase: draft.hasSlipcase,
+          conditionNotes: draft.conditionNotes || undefined,
+          isSigned: draft.isSigned,
+          signedBy: draft.signedBy || undefined,
+          inscription: draft.inscription || undefined,
+          isFirstPrinting: draft.isFirstPrinting,
+          provenance: draft.provenance || undefined,
+          acquisitionType: draft.acquisitionType || undefined,
+          acquisitionDate: draft.acquisitionDate || undefined,
+          acquisitionSource: draft.acquisitionSource || undefined,
+          acquisitionPrice: draft.acquisitionPrice || undefined,
+          acquisitionCurrency: draft.acquisitionCurrency || undefined,
+          calibreId: draft.calibreId
+            ? parseInt(draft.calibreId, 10)
+            : undefined,
+          calibreUrl: draft.calibreUrl || undefined,
+          fileSizeBytes: draft.fileSizeBytes
+            ? parseInt(draft.fileSizeBytes, 10)
+            : undefined,
+          notes: draft.notes || undefined,
+        })),
+        collectionIds: selectedCollectionIds,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
       }
+      toast.success("Book added to catalogue");
+      if (result.coverUnavailable)
+        toast.warning(
+          "The cover could not be downloaded. Its source URL was saved.",
+        );
+      router.push(`/library/${result.slug ?? ""}`);
+    });
+  }
+
+  /**
+   * Leaves the edition step only when no other edition has its ISBN, so a
+   * duplicate shows here and not after the copies and categorization.
+   */
+  function leaveEdition(next: "instance" | "categorize") {
+    const clean = isbn13.replace(/[\s-]/g, "");
+    startTransition(async () => {
+      const clash = clean
+        ? await isIsbnInUse(clean)
+        : { inUse: false as const };
+      if (clash.inUse) {
+        setIsbnClash(
+          `Another edition already has this ISBN${clash.title ? ` ("${clash.title}")` : ""}. Open that book to add a copy.`,
+        );
+        return;
+      }
+      setIsbnClash(null);
+      setSkipCopies(next === "categorize");
+      setStep(next);
     });
   }
 
@@ -576,39 +565,71 @@ export function AddBookWizard() {
   // "duplicate" step is not in STEPS — it's a transient step
 
   function StepProgress() {
+    const currentIdx = step === "duplicate" ? 0 : stepIndex;
     return (
-      <div className="mb-6 flex items-center gap-1">
-        {STEPS.map((s, i) => {
-          const currentIdx = step === "duplicate" ? 0 : stepIndex;
-          const isCompleted = i < currentIdx;
-          const isCurrent = s.key === step || (step === "duplicate" && i === 0);
-          return (
-            <div key={s.key} className="flex items-center gap-1">
-              {i > 0 && (
-                <div
-                  className={`h-px w-4 ${isCompleted ? "bg-accent-sage" : "bg-bg-tertiary"}`}
-                />
-              )}
+      <div className="mb-6">
+        {/* Six labels need about 600px: a narrow screen shows the current
+            step and a bar, as the order dialog does */}
+        <div className="sm:hidden">
+          <p className="text-micro font-medium text-accent-rose-text">
+            Step {currentIdx + 1} of {STEPS.length} — {STEPS[currentIdx].label}
+          </p>
+          <div className="mt-1 flex gap-1.5">
+            {STEPS.map((s, i) => (
               <button
+                key={s.key}
                 type="button"
-                disabled={!isCompleted || fastTrackSaving}
-                onClick={() => isCompleted && setStep(s.key)}
-                className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
-                  isCurrent
-                    ? "bg-accent-plum text-accent-rose-text"
-                    : isCompleted
-                      ? "text-fg-secondary hover:text-fg-primary cursor-pointer"
-                      : "text-fg-secondary cursor-default"
-                }`}
+                aria-label={s.label}
+                disabled={i >= currentIdx || fastTrackSaving}
+                onClick={() => setStep(s.key)}
+                className="flex-1 py-1.5"
               >
-                {isCompleted && (
-                  <Check className="h-2.5 w-2.5" strokeWidth={2} />
-                )}
-                {s.label}
+                <span
+                  className={`block h-0.5 rounded-full transition-colors duration-300 ${
+                    i < currentIdx
+                      ? "bg-accent-sage"
+                      : i === currentIdx
+                        ? "bg-accent-rose/60"
+                        : "bg-bg-tertiary"
+                  }`}
+                />
               </button>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
+        <div className="hidden items-center gap-1 sm:flex">
+          {STEPS.map((s, i) => {
+            const isCompleted = i < currentIdx;
+            const isCurrent =
+              s.key === step || (step === "duplicate" && i === 0);
+            return (
+              <div key={s.key} className="flex items-center gap-1">
+                {i > 0 && (
+                  <div
+                    className={`h-px w-4 ${isCompleted ? "bg-accent-sage" : "bg-bg-tertiary"}`}
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={!isCompleted || fastTrackSaving}
+                  onClick={() => isCompleted && setStep(s.key)}
+                  className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
+                    isCurrent
+                      ? "bg-accent-plum text-accent-rose-text"
+                      : isCompleted
+                        ? "text-fg-secondary hover:text-fg-primary cursor-pointer"
+                        : "text-fg-secondary cursor-default"
+                  }`}
+                >
+                  {isCompleted && (
+                    <Check className="h-2.5 w-2.5" strokeWidth={2} />
+                  )}
+                  {s.label}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -970,7 +991,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
               {!existingWorkId && (
                 <Button
                   type="button"
@@ -1002,8 +1023,12 @@ export function AddBookWizard() {
               label="ISBN-13"
               id="isbn13"
               value={isbn13}
-              onChange={(e) => setIsbn13(e.target.value)}
+              onChange={(e) => {
+                setIsbn13(e.target.value);
+                setIsbnClash(null);
+              }}
               placeholder="9780143108269"
+              error={isbnClash ?? undefined}
             />
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -1058,7 +1083,7 @@ export function AddBookWizard() {
             />
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-2">
             <Button
               variant="ghost"
               onClick={() =>
@@ -1068,14 +1093,12 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <div className="flex gap-2">
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
               {isWishlistStatus && (
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    setSkipCopies(true);
-                    setStep("categorize");
-                  }}
+                  disabled={isPending}
+                  onClick={() => leaveEdition("categorize")}
                 >
                   <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Skip copies
@@ -1083,10 +1106,8 @@ export function AddBookWizard() {
               )}
               <Button
                 data-shortcut="next"
-                onClick={() => {
-                  setSkipCopies(false);
-                  setStep("instance");
-                }}
+                disabled={isPending}
+                onClick={() => leaveEdition("instance")}
               >
                 {isWishlistStatus ? "Add copies anyway" : "Add copies"}
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1143,12 +1164,12 @@ export function AddBookWizard() {
             </>
           )}
 
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-2">
             <Button variant="ghost" onClick={() => setStep("edition")}>
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <div className="flex gap-2">
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -1213,7 +1234,7 @@ export function AddBookWizard() {
             onAttributesChange={setSelectedAttributeIds}
           />
 
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-2">
             <Button
               variant="ghost"
               onClick={() => setStep(skipCopies ? "edition" : "instance")}
@@ -1221,7 +1242,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            <div className="flex gap-2">
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => setStep("confirm")}>
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Skip
@@ -1521,13 +1542,14 @@ export function AddBookWizard() {
           )}
 
           {/* Actions */}
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-2">
             <Button variant="ghost" onClick={() => setStep("categorize")}>
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
             <Button
               variant="primary"
+              className="ml-auto"
               onClick={handleSubmit}
               disabled={isPending}
             >

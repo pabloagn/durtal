@@ -1,32 +1,21 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-import { asc, desc, eq, like, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { workSeriesPlan } from "@/lib/series/work-series";
 import { atomic } from "@/lib/db/atomic";
-import {
-  authors,
-  works,
-  workAuthors,
-  editions,
-  activityEvents,
-} from "@/lib/db/schema";
+import { editions } from "@/lib/db/schema";
 import {
   fastTrackBookSchema,
   type FastTrackBookInput,
 } from "@/lib/validations/fast-track";
-import { defaultSortName } from "@/lib/utils/author-names";
 import {
-  generateAuthorSlug,
-  generateWorkSlug,
-  makeUnique,
-} from "@/lib/utils/slugify";
-import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
-import { authorNameEquals } from "@/lib/actions/utils/author-search";
+  bookAuthorFor,
+  newAuthorQueries,
+  planBookEdition,
+  planBookWork,
+} from "@/lib/catalogue/book-store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
-import { curationQueries } from "@/lib/catalogue/curation-store";
 
 type Result =
   | {
@@ -38,17 +27,6 @@ type Result =
     }
   | { ok: false; error: string };
 
-async function uniqueSlug(table: typeof works | typeof authors, base: string) {
-  const rows = await db
-    .select({ slug: table.slug })
-    .from(table)
-    .where(like(table.slug, `${base}%`));
-  return makeUnique(
-    base,
-    rows.flatMap((r) => (r.slug ? [r.slug] : [])),
-  );
-}
-
 /** Save Details and one edition atomically. Never creates copies or categorization. */
 export async function fastTrackBook(
   input: FastTrackBookInput,
@@ -59,7 +37,7 @@ export async function fastTrackBook(
     return { ok: false, error: `${issue.path.join(".")}: ${issue.message}` };
   }
   const { authorName, work, edition } = parsed.data;
-  let cover: Awaited<ReturnType<typeof processAndUploadCover>> = null;
+  let plan: Awaited<ReturnType<typeof planBookEdition>> | null = null;
   try {
     if (edition.isbn13) {
       const existing = await db.query.editions.findFirst({
@@ -73,86 +51,24 @@ export async function fastTrackBook(
         };
     }
 
-    const author = await db.query.authors.findFirst({
-      where: authorNameEquals(authorName),
-      orderBy: [
-        desc(sql`${authors.name} = ${authorName}`),
-        asc(authors.createdAt),
-      ],
-      columns: { id: true, name: true },
-    });
-    const authorId = author?.id ?? randomUUID();
-    const newAuthor = author
-      ? null
-      : {
-          id: authorId,
-          name: authorName,
-          sortName: defaultSortName(authorName),
-          slug: await uniqueSlug(authors, generateAuthorSlug(authorName)),
-        };
-    const workId = randomUUID();
-    const editionId = randomUUID();
-    const slug = await uniqueSlug(
-      works,
-      generateWorkSlug(work.title, author?.name ?? authorName, workId),
+    const author = await bookAuthorFor(authorName);
+    const book = await planBookWork(
+      { ...work, authorIds: [{ authorId: author.id, role: "author" }] },
+      author.name,
     );
-    const { recommenderIds = [], ...workValues } = work;
-    const seriesPlan = workSeriesPlan(workValues);
-
-    if (edition.coverSourceUrl)
-      cover = await processAndUploadCover(editionId, edition.coverSourceUrl);
+    plan = await planBookEdition({
+      ...edition,
+      workId: book.id,
+      title: work.title,
+    });
+    const editionId = plan.id;
 
     // The ISBN and slug unique constraints also protect racing submissions.
     // Any failure rolls back the author, work and all relation rows together.
     await atomic((d) => [
-      ...seriesPlan.queries(d),
-      ...(newAuthor ? [d.insert(authors).values(newAuthor)] : []),
-      d
-        .insert(works)
-        .values({ ...workValues, ...seriesPlan.values, id: workId, slug }),
-      d
-        .insert(workAuthors)
-        .values({ workId, authorId, role: "author", sortOrder: 0 }),
-      ...(recommenderIds.length
-        ? curationQueries(d, { id: workId, kind: "book" }, { recommenderIds })
-        : []),
-      d.insert(editions).values({
-        ...edition,
-        id: editionId,
-        workId,
-        title: work.title,
-        ...(cover
-          ? { coverS3Key: cover.coverKey, thumbnailS3Key: cover.thumbnailKey }
-          : {}),
-      }),
-      d.insert(activityEvents).values([
-        ...(newAuthor
-          ? [
-              {
-                entityType: "author",
-                entityId: authorId,
-                eventKey: "author.created",
-                metadata: { newValue: authorName },
-              },
-            ]
-          : []),
-        {
-          entityType: "work",
-          entityId: workId,
-          eventKey: "work.created",
-          metadata: { newValue: work.title },
-        },
-        {
-          entityType: "work",
-          entityId: workId,
-          eventKey: "work.edition_added",
-          metadata: {
-            targetId: editionId,
-            targetName: work.title,
-            editionIsbn: edition.isbn13 ?? undefined,
-          },
-        },
-      ]),
+      ...newAuthorQueries(d, author),
+      ...book.queries(d),
+      ...plan!.queries(d),
     ]);
     // A publisher name no house knows yet is decided when it is safe
     await autoResolveEditions([editionId]);
@@ -164,17 +80,13 @@ export async function fastTrackBook(
     );
     return {
       ok: true,
-      slug,
-      workId,
+      slug: book.slug,
+      workId: book.id,
       editionId,
-      coverUnavailable: !!edition.coverSourceUrl && !cover,
+      coverUnavailable: plan.coverUnavailable,
     };
   } catch (err) {
-    if (cover)
-      await Promise.allSettled([
-        deleteFromS3(cover.coverKey),
-        deleteFromS3(cover.thumbnailKey),
-      ]);
+    await plan?.discardCover();
     console.error("Fast Track failed", err);
     return { ok: false, error: "Could not add the book. Please try again." };
   }

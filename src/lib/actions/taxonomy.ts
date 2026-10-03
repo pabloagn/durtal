@@ -6,11 +6,9 @@ import {
 } from "@/lib/catalogue/book-boundary";
 
 import { db } from "@/lib/db";
-import { z } from "zod";
-import { getTableName } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
 import { assertSql } from "@/lib/harmonization/store";
-import { getSystemRegistry } from "@/lib/db/taxonomy-resolver";
+import { workTaxonomyQueries } from "@/lib/catalogue/work-taxonomy";
 import {
   subjects,
   genres,
@@ -243,27 +241,6 @@ export async function updateWorkTaxonomy(
   },
 ) {
   await requireBookWork(workId);
-  const mapping = {
-    subjectIds: "subjects",
-    categoryIds: "categories",
-    themeIds: "themes",
-    literaryMovementIds: "literary-movements",
-    artTypeIds: "art-types",
-    artMovementIds: "art-movements",
-    keywordIds: "keywords",
-    attributeIds: "attributes",
-  } as const;
-  const changes = Object.entries(mapping).flatMap(([field, slug]) => {
-    const values = input[field as keyof typeof mapping];
-    return values === undefined
-      ? []
-      : [
-          {
-            reg: getSystemRegistry(slug),
-            ids: [...new Set(z.array(z.uuid()).max(500).parse(values))],
-          },
-        ];
-  });
   await atomic((d) => [
     d.execute(sql`select id from works where id=${workId}::uuid for update`),
     d.execute(
@@ -272,21 +249,7 @@ export async function updateWorkTaxonomy(
         "Book not found",
       ),
     ),
-    ...changes.flatMap(({ reg, ids }) => [
-      d.execute(
-        sql`delete from ${reg.junction} where ${reg.junctionEntityCol}=${workId}::uuid`,
-      ),
-      ...(ids.length
-        ? [
-            d.execute(
-              sql`insert into ${sql.identifier(getTableName(reg.junction))} (${sql.identifier(reg.junctionItemCol.name)},work_id) values ${sql.join(
-                ids.map((id) => sql`(${id}::uuid,${workId}::uuid)`),
-                sql`,`,
-              )}`,
-            ),
-          ]
-        : []),
-    ]),
+    ...workTaxonomyQueries(d, workId, input),
     d.update(works).set({ updatedAt: new Date() }).where(eq(works.id, workId)),
   ]);
 

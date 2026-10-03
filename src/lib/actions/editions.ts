@@ -2,9 +2,13 @@
 
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
-import { randomUUID } from "node:crypto";
 import { atomic } from "@/lib/db/atomic";
 import { editionContributorQueries } from "@/lib/catalogue/book-credits";
+import {
+  newAuthorQueries,
+  planBookEdition,
+  resolveBookCredits,
+} from "@/lib/catalogue/book-store";
 import { db } from "@/lib/db";
 import {
   editions,
@@ -51,111 +55,42 @@ export async function getEdition(id: string) {
 export async function createEdition(input: CreateEditionInput) {
   const parsed = createEditionSchema.parse(input);
   await requireBookWork(parsed.workId);
-  const {
-    publisherIds,
-    contributorIds,
-    genreIds,
-    tagIds,
-    coverSourceUrl,
-    ...editionData
-  } = parsed;
 
   // Check for duplicate ISBN-13 before inserting
-  if (editionData.isbn13) {
+  if (parsed.isbn13) {
     const existing = await db.query.editions.findFirst({
-      where: eq(editions.isbn13, editionData.isbn13),
+      where: eq(editions.isbn13, parsed.isbn13),
       columns: { id: true, title: true },
     });
     if (existing) {
       throw new Error(
-        `An edition with ISBN ${editionData.isbn13} already exists${existing.title ? ` ("${existing.title}")` : ""}`,
+        `An edition with ISBN ${parsed.isbn13} already exists${existing.title ? ` ("${existing.title}")` : ""}`,
       );
     }
   }
 
-  // Process cover if URL provided
-  let coverKeys: { coverS3Key?: string; thumbnailS3Key?: string } = {};
-
-  const editionId = randomUUID();
-  const results = await atomic((d) => [
-    d
-      .insert(editions)
-      .values({
-        ...editionData,
-        id: editionId,
-        publisherLinksConfirmed: publisherIds !== undefined,
-      })
-      .returning(),
-    ...(publisherIds !== undefined
-      ? [
-          d.execute(
-            sql`select set_edition_publishers(${editionId}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(publisherIds)}::jsonb)::uuid))`,
-          ),
-        ]
-      : []),
-  ]);
-  const [edition] = results[0] as (typeof editions.$inferSelect)[];
-
-  if (coverSourceUrl) {
-    const result = await processAndUploadCover(edition.id, coverSourceUrl);
-    if (result) {
-      coverKeys = {
-        coverS3Key: result.coverKey,
-        thumbnailS3Key: result.thumbnailKey,
-      };
-      await db
-        .update(editions)
-        .set({
-          coverS3Key: result.coverKey,
-          thumbnailS3Key: result.thumbnailKey,
-          coverSourceUrl,
-        })
-        .where(eq(editions.id, edition.id));
-    }
+  // The cover is uploaded first; the edition, its links and any contributor
+  // created by name are one write. A failed write removes the uploaded cover
+  // and leaves no edition and no new author behind.
+  const { credits, newAuthors } = await resolveBookCredits(parsed.contributorIds);
+  const plan = await planBookEdition({ ...parsed, contributorIds: credits });
+  try {
+    await atomic((d) => [
+      ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
+      ...plan.queries(d),
+    ]);
+  } catch (err) {
+    await plan.discardCover();
+    throw err;
   }
-
-  // Link contributors
-  if (contributorIds && contributorIds.length > 0) {
-    await db.insert(editionContributors).values(
-      contributorIds.map((c, i) => ({
-        editionId: edition.id,
-        authorId: c.authorId,
-        role: c.role,
-        sortOrder: i,
-      })),
-    );
-  }
-
-  // Link genres
-  if (genreIds && genreIds.length > 0) {
-    await db.insert(editionGenres).values(
-      genreIds.map((genreId) => ({
-        editionId: edition.id,
-        genreId,
-      })),
-    );
-  }
-
-  // Link tags
-  if (tagIds && tagIds.length > 0) {
-    await db.insert(editionTags).values(
-      tagIds.map((tagId) => ({
-        editionId: edition.id,
-        tagId,
-      })),
-    );
-  }
-
-  recordActivity("work", editionData.workId, "work.edition_added", {
-    targetName: edition.title ?? undefined,
-    targetId: edition.id,
-    editionIsbn: edition.isbn13 ?? undefined,
-  });
 
   // A publisher name no house knows yet is decided when it is safe
-  await autoResolveEditions([edition.id]);
+  await autoResolveEditions([plan.id]);
 
-  return { ...edition, ...coverKeys };
+  const edition = await db.query.editions.findFirst({
+    where: eq(editions.id, plan.id),
+  });
+  return { ...edition!, coverUnavailable: plan.coverUnavailable };
 }
 
 export async function updateEdition(
@@ -192,7 +127,11 @@ export async function updateEdition(
     }
   }
 
+  // The edition, every link the edit names and any contributor created by
+  // name are one write
+  const { credits, newAuthors } = await resolveBookCredits(contributorIds);
   await atomic((d) => [
+    ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
     d.update(editions).set(updates).where(eq(editions.id, id)),
     ...(publisherIds !== undefined
       ? [
@@ -201,33 +140,32 @@ export async function updateEdition(
           ),
         ]
       : []),
+    ...(credits ? editionContributorQueries(d, id, credits) : []),
+    ...(genreIds
+      ? [
+          d.delete(editionGenres).where(eq(editionGenres.editionId, id)),
+          ...(genreIds.length
+            ? [
+                d.insert(editionGenres).values(
+                  [...new Set(genreIds)].map((genreId) => ({ editionId: id, genreId })),
+                ),
+              ]
+            : []),
+        ]
+      : []),
+    ...(tagIds
+      ? [
+          d.delete(editionTags).where(eq(editionTags.editionId, id)),
+          ...(tagIds.length
+            ? [
+                d.insert(editionTags).values(
+                  [...new Set(tagIds)].map((tagId) => ({ editionId: id, tagId })),
+                ),
+              ]
+            : []),
+        ]
+      : []),
   ]);
-
-  if (contributorIds) await atomic((d) => editionContributorQueries(d, id, contributorIds));
-
-  if (genreIds) {
-    await db.delete(editionGenres).where(eq(editionGenres.editionId, id));
-    if (genreIds.length > 0) {
-      await db.insert(editionGenres).values(
-        genreIds.map((genreId) => ({
-          editionId: id,
-          genreId,
-        })),
-      );
-    }
-  }
-
-  if (tagIds) {
-    await db.delete(editionTags).where(eq(editionTags.editionId, id));
-    if (tagIds.length > 0) {
-      await db.insert(editionTags).values(
-        tagIds.map((tagId) => ({
-          editionId: id,
-          tagId,
-        })),
-      );
-    }
-  }
 
   // Record activity — resolve workId from editionData or fetch from DB
   const workId =

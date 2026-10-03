@@ -2,7 +2,11 @@
 
 import { bookCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
 
+import { randomUUID } from "node:crypto";
+import { z } from "zod/v4";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
+import { assertSql } from "@/lib/harmonization/store";
 import {
   orders,
   orderStatusHistory,
@@ -25,6 +29,7 @@ import {
   lte,
   isNotNull,
   ne,
+  sql,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type {
@@ -43,6 +48,12 @@ import {
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { createOrderSchema, orderCurrencySchema } from "@/lib/validations/orders";
+import { createWorkSchema } from "@/lib/validations/works";
+import {
+  bookAuthorFor,
+  newAuthorQueries,
+  planBookWork,
+} from "@/lib/catalogue/book-store";
 import { sortCurrencyTotals } from "@/lib/utils/money";
 
 /**
@@ -107,17 +118,19 @@ async function syncWorkCatalogueStatusFromAllOrders(
 
   const fromStatus = work.catalogueStatus;
 
-  await db
-    .update(works)
-    .set({ catalogueStatus: targetStatus })
-    .where(and(bookCondition, eq(works.id, workId)));
-
-  await db.insert(workStatusHistory).values({
-    workId,
-    fromStatus,
-    toStatus: targetStatus,
-    notes,
-  });
+  // The status and its history row are one write
+  await atomic((d) => [
+    d
+      .update(works)
+      .set({ catalogueStatus: targetStatus })
+      .where(and(bookCondition, eq(works.id, workId))),
+    d.insert(workStatusHistory).values({
+      workId,
+      fromStatus,
+      toStatus: targetStatus,
+      notes,
+    }),
+  ]);
 
   recordActivity("work", workId, "work.catalogue_status_changed", {
     oldValue: fromStatus,
@@ -441,49 +454,67 @@ export async function getProvenanceStats(dateRange?: {
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
+type OrderFields = Omit<CreateOrderInput, "workId">;
+
+/** An order and its first history row, for one atomic batch. */
+function newOrderQueries(
+  d: typeof db,
+  id: string,
+  workId: string,
+  validated: OrderFields,
+  status: OrderStatus,
+) {
+  return [
+    d
+      .insert(orders)
+      .values({
+        id,
+        workId,
+        acquisitionTargetId: validated.acquisitionTargetId ?? null,
+        editionId: validated.editionId ?? null,
+        instanceId: validated.instanceId ?? null,
+        venueId: validated.venueId ?? null,
+        acquisitionMethod: validated.acquisitionMethod,
+        status,
+        orderDate: validated.orderDate,
+        orderConfirmation: validated.orderConfirmation ?? null,
+        orderUrl: validated.orderUrl ?? null,
+        price: validated.price ?? null,
+        shippingCost: validated.shippingCost ?? null,
+        totalCost: validated.totalCost ?? null,
+        currency: validated.currency ?? null,
+        carrier: validated.carrier ?? null,
+        trackingNumber: validated.trackingNumber ?? null,
+        trackingUrl: validated.trackingUrl ?? null,
+        shippedDate: validated.shippedDate ?? null,
+        estimatedDeliveryDate: validated.estimatedDeliveryDate ?? null,
+        actualDeliveryDate: validated.actualDeliveryDate ?? null,
+        originDescription: validated.originDescription ?? null,
+        originPlaceId: validated.originPlaceId ?? null,
+        destinationLocationId: validated.destinationLocationId ?? null,
+        destinationSubLocationId: validated.destinationSubLocationId ?? null,
+        notes: validated.notes ?? null,
+      })
+      .returning(),
+    d.insert(orderStatusHistory).values({
+      orderId: id,
+      fromStatus: null,
+      toStatus: status,
+      notes: "Order created",
+    }),
+  ];
+}
+
 export async function createOrder(input: CreateOrderInput) {
   const validated = createOrderSchema.parse(input);
   await requireBookWork(validated.workId);
   const status: OrderStatus = validated.status ?? "placed";
 
-  const [order] = await db
-    .insert(orders)
-    .values({
-      workId: validated.workId,
-      acquisitionTargetId: validated.acquisitionTargetId ?? null,
-      editionId: validated.editionId ?? null,
-      instanceId: validated.instanceId ?? null,
-      venueId: validated.venueId ?? null,
-      acquisitionMethod: validated.acquisitionMethod,
-      status,
-      orderDate: validated.orderDate,
-      orderConfirmation: validated.orderConfirmation ?? null,
-      orderUrl: validated.orderUrl ?? null,
-      price: validated.price ?? null,
-      shippingCost: validated.shippingCost ?? null,
-      totalCost: validated.totalCost ?? null,
-      currency: validated.currency ?? null,
-      carrier: validated.carrier ?? null,
-      trackingNumber: validated.trackingNumber ?? null,
-      trackingUrl: validated.trackingUrl ?? null,
-      shippedDate: validated.shippedDate ?? null,
-      estimatedDeliveryDate: validated.estimatedDeliveryDate ?? null,
-      actualDeliveryDate: validated.actualDeliveryDate ?? null,
-      originDescription: validated.originDescription ?? null,
-      originPlaceId: validated.originPlaceId ?? null,
-      destinationLocationId: validated.destinationLocationId ?? null,
-      destinationSubLocationId: validated.destinationSubLocationId ?? null,
-      notes: validated.notes ?? null,
-    })
-    .returning();
-
-  // Create initial status history entry
-  await db.insert(orderStatusHistory).values({
-    orderId: order.id,
-    fromStatus: null,
-    toStatus: status,
-    notes: "Order created",
-  });
+  // The order and its first history row are one write
+  const [inserted] = await atomic((d) =>
+    newOrderQueries(d, randomUUID(), validated.workId, validated, status),
+  );
+  const [order] = inserted as (typeof orders.$inferSelect)[];
 
   // Sync work catalogue status from all orders for this work
   await syncWorkCatalogueStatusFromAllOrders(
@@ -493,6 +524,49 @@ export async function createOrder(input: CreateOrderInput) {
 
   invalidate(CACHE_TAGS.orders);
   return order;
+}
+
+const newBookSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(500),
+  authorName: z.string().trim().min(1, "Author is required").max(300),
+});
+
+/**
+ * Orders a book the catalogue does not have yet. The author (found by name or
+ * created), the book (on order) and the order with its first history row are
+ * one write, so a failure or a cancelled dialog leaves no book behind.
+ */
+export async function createOrderForNewBook(input: {
+  book: z.input<typeof newBookSchema>;
+  order: OrderFields;
+}) {
+  const book = newBookSchema.parse(input.book);
+  const validated = createOrderSchema.omit({ workId: true }).parse(input.order);
+  const status: OrderStatus = validated.status ?? "placed";
+  const author = await bookAuthorFor(book.authorName);
+  const work = await planBookWork(
+    createWorkSchema.parse({
+      title: book.title,
+      authorIds: [{ authorId: author.id, role: "author" }],
+      catalogueStatus: "on_order",
+    }),
+    author.name,
+  );
+  let orderAt = -1;
+  const results = await atomic((d) => {
+    const queries: unknown[] = [...newAuthorQueries(d, author), ...work.queries(d)];
+    orderAt = queries.length;
+    queries.push(...newOrderQueries(d, randomUUID(), work.id, validated, status));
+    return queries;
+  });
+  const [order] = results[orderAt] as (typeof orders.$inferSelect)[];
+
+  await syncWorkCatalogueStatusFromAllOrders(
+    work.id,
+    `Order created with status "${status}"`,
+  );
+  invalidate(CACHE_TAGS.orders, CACHE_TAGS.works, CACHE_TAGS.authors);
+  return { order, slug: work.slug };
 }
 
 export async function updateOrder(id: string, input: UpdateOrderInput) {
@@ -626,18 +700,29 @@ export async function updateOrderStatus(
     additionalFields.actualDeliveryDate = today;
   }
 
-  const [updated] = await db
-    .update(orders)
-    .set({ status: newStatus, ...additionalFields, updatedAt: new Date() })
-    .where(eq(orders.id, id))
-    .returning();
-
-  await db.insert(orderStatusHistory).values({
-    orderId: id,
-    fromStatus,
-    toStatus: newStatus,
-    notes: notes ?? null,
-  });
+  // The change, checked against the status it was validated from, and its
+  // history row are one write: a concurrent change makes this one fail
+  const results = await atomic((d) => [
+    d.execute(sql`select id from orders where id=${id}::uuid for update`),
+    d.execute(
+      assertSql(
+        sql`exists(select 1 from orders where id=${id}::uuid and status=${fromStatus})`,
+        "The order changed; reload before changing its status",
+      ),
+    ),
+    d
+      .update(orders)
+      .set({ status: newStatus, ...additionalFields, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning(),
+    d.insert(orderStatusHistory).values({
+      orderId: id,
+      fromStatus,
+      toStatus: newStatus,
+      notes: notes ?? null,
+    }),
+  ]);
+  const [updated] = results[2] as (typeof orders.$inferSelect)[];
 
   // C1: always sync work status from all orders (handles cancel, return, delivery)
   await syncWorkCatalogueStatusFromAllOrders(
@@ -664,15 +749,16 @@ export async function deleteOrder(id: string) {
     );
   }
 
-  // C2: record history before deletion
-  await db.insert(orderStatusHistory).values({
-    orderId: id,
-    fromStatus: order.status,
-    toStatus: "cancelled" as OrderStatus,
-    notes: "Order deleted",
-  });
-
-  await db.delete(orders).where(eq(orders.id, id));
+  // C2: the history row and the deletion are one write
+  await atomic((d) => [
+    d.insert(orderStatusHistory).values({
+      orderId: id,
+      fromStatus: order.status,
+      toStatus: "cancelled" as OrderStatus,
+      notes: "Order deleted",
+    }),
+    d.delete(orders).where(eq(orders.id, id)),
+  ]);
 
   // C2: sync work status after removing order
   await syncWorkCatalogueStatusFromAllOrders(

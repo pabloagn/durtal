@@ -2,13 +2,14 @@
 
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 import { atomic } from "@/lib/db/atomic";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { getPersonMergePreview, mergePeople } from "./people";
 
 import { db } from "@/lib/db";
 import { compareWorks } from "@/lib/utils/title-order";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
 import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
-import { eq, and, asc, desc, like, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 import {
@@ -21,7 +22,7 @@ import {
   createAuthorSchema,
   type CreateAuthorInput,
 } from "@/lib/validations";
-import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
+import { generateAuthorSlug } from "@/lib/utils/slugify";
 import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
@@ -361,30 +362,15 @@ export async function createAuthor(input: CreateAuthorInput) {
       ? computeZodiacSign(parsed.birthMonth, parsed.birthDay)
       : null;
 
+  // The slug is decided first: the author and its slug are one statement
+  const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
   const [author] = await db
     .insert(authors)
-    .values({ ...parsed, sortName, zodiacSign })
+    .values({ ...parsed, sortName, zodiacSign, slug })
     .returning();
 
-  // Generate and set slug
-  const baseSlug = generateAuthorSlug(author.name);
-  const existing = await db
-    .select({ slug: authors.slug })
-    .from(authors)
-    .where(like(authors.slug, `${baseSlug}%`));
-  const existingSlugs = existing
-    .map((r) => r.slug)
-    .filter((s): s is string => s !== null);
-  const slug = makeUnique(baseSlug, existingSlugs);
-
-  const [updated] = await db
-    .update(authors)
-    .set({ slug })
-    .where(eq(authors.id, author.id))
-    .returning();
-
-  recordActivity("author", updated.id, "author.created", { newValue: parsed.name });
-  return updated;
+  recordActivity("author", author.id, "author.created", { newValue: parsed.name });
+  return author;
 }
 
 /**
@@ -436,9 +422,17 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
     zodiacSign = month != null && day != null ? computeZodiacSign(month, day) : null;
   }
 
+  // A new name gives a new slug, decided first and written with the name
+  const slug =
+    input.name !== undefined && prev
+      ? await uniqueSlug(authors, generateAuthorSlug(input.name), {
+          own: prev.slug,
+        })
+      : undefined;
   const updatePayload = {
     ...input,
     ...(zodiacSign !== undefined ? { zodiacSign } : {}),
+    ...(slug !== undefined ? { slug } : {}),
     updatedAt: new Date(),
   };
 
@@ -447,25 +441,7 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
     .set(updatePayload)
     .where(eq(authors.id, id));
 
-  // Regenerate slug when name changes
   if (input.name !== undefined) {
-    const currentAuthor = await db.query.authors.findFirst({
-      where: eq(authors.id, id),
-      columns: { name: true, slug: true },
-    });
-
-    if (currentAuthor) {
-      const baseSlug = generateAuthorSlug(currentAuthor.name);
-      const existing = await db
-        .select({ slug: authors.slug })
-        .from(authors)
-        .where(like(authors.slug, `${baseSlug}%`));
-      const existingSlugs = existing
-        .map((r) => r.slug)
-        .filter((s): s is string => s !== null && s !== currentAuthor.slug);
-      const slug = makeUnique(baseSlug, existingSlugs);
-      await db.update(authors).set({ slug }).where(eq(authors.id, id));
-    }
     // Book slugs carry the author's name
     if ((await refreshAuthorWorkSlugs(id)).length > 0) {
       invalidate(CACHE_TAGS.works, CACHE_TAGS.series);

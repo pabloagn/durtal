@@ -184,7 +184,7 @@ export function EditionForm({
     const trimmed = newContributorName.trim();
     if (!trimmed) return;
 
-    // A typed name without a pick is resolved on save (findOrCreateAuthor)
+    // A typed name without a pick is found or created by the save, in its write
     const existing = pickedAuthor?.name === trimmed ? pickedAuthor : null;
 
     const entry: ContributorEntry = existing

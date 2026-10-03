@@ -125,7 +125,7 @@ Fetches edition with: `work`, `instances` (with locations), `contributors` (with
 createEdition(input: CreateEditionInput): Promise<Edition>
 ```
 
-Creates the edition record. If `coverSourceUrl` is provided, calls `processAndUploadCover()` to download, resize, and upload the cover image to S3. Links contributors, genres, and tags via junction tables.
+Refuses an ISBN-13 that another edition has. A contributor is `{ authorId, role }` or, for a person not yet in the library, `{ authorName, role }`; the name is matched to an existing author first. Then uploads the cover from `coverSourceUrl` under the new edition's id and writes the edition, its publishers, contributors (and any new authors), genres, tags and activity in one transaction. A failure writes nothing and deletes the uploaded cover. Returns the edition plus `coverUnavailable` when the cover could not be downloaded (its source URL is still saved).
 
 ### `updateEdition(id, input)`
 
@@ -133,7 +133,30 @@ Creates the edition record. If `coverSourceUrl` is provided, calls `processAndUp
 updateEdition(id: string, input: Partial<CreateEditionInput>): Promise<Edition>
 ```
 
-Updates edition metadata. If a new `coverSourceUrl` is provided and differs from the existing one, reprocesses the cover. Updates contributor, genre, and tag relationships.
+Updates edition metadata. If a new `coverSourceUrl` is provided and differs from the existing one, reprocesses the cover. The edition row, its publishers, contributors (and any new authors named by `authorName`), genres and tags change in one transaction.
+
+---
+
+## Add-book wizard (`src/lib/actions/wizard.ts`)
+
+### `isIsbnInUse(isbn13)`
+
+```typescript
+isIsbnInUse(isbn13: string): Promise<{ inUse: false } | { inUse: true; title: string | null }>
+```
+
+The edition step calls this before it moves on, so a duplicate ISBN shows on that step.
+
+### `createBookFromWizard(input)`
+
+```typescript
+createBookFromWizard(input: WizardBookInput): Promise<
+  | { ok: true; workId: string; slug: string | null; editionId: string; coverUnavailable: boolean }
+  | { ok: false; error: string }
+>
+```
+
+Adds a book in one write. Validated against `wizardBookSchema`: the primary author's name, a new work (or `existingWorkId`), its taxonomy, the edition, up to 50 copies and the collections to join. Reads and checks come first: a duplicate ISBN, the locations and collections, and that the existing work is a book. Then the author is found by name or planned, the work and edition get their ids and slugs, and the cover is uploaded. The author, work, taxonomy, edition, copies, collection links and all their activity go out as one transaction. A failure writes nothing and deletes the cover. Errors come back as `{ ok: false, error }`, because a production build hides a thrown error's message.
 
 ## Match (`src/lib/actions/match.ts`)
 
@@ -261,7 +284,7 @@ Returns author with: `workAuthors` (with work data), `editionContributors` (with
 createAuthor(input: CreateAuthorInput): Promise<Author>
 ```
 
-Creates author record. Auto-generates `sortName` from `name` if not provided (inverts "First Last" to "Last, First").
+Creates author record. Auto-generates `sortName` from `name` if not provided (inverts "First Last" to "Last, First"). The unique slug is decided first and written with the row; `updateAuthor` writes a renamed author's new slug in the same update.
 
 ### `findOrCreateAuthor(name)`
 
@@ -269,7 +292,7 @@ Creates author record. Auto-generates `sortName` from `name` if not provided (in
 findOrCreateAuthor(name: string): Promise<Author>
 ```
 
-Finds an existing author by name (case-insensitive `ilike` match) or creates a new one. Used by the add-book wizard to prevent duplicate author records. If creating, auto-generates `sortName`.
+Finds an existing author by name (case-insensitive `ilike` match) or creates a new one. The work edit dialogs use it when the user adds a new author. The wizard, fast track and the edition dialogs do not: they send the name and the new author is written with the book.
 
 ### `updateAuthor(id, input)`
 
@@ -372,6 +395,33 @@ removeEditionFromCollection(
   editionId: string
 ): Promise<void>
 ```
+
+---
+
+## Orders (`src/lib/actions/orders.ts`)
+
+### `createOrder(input)`
+
+```typescript
+createOrder(input: CreateOrderInput): Promise<Order>
+```
+
+Writes the order and its first `order_status_history` row in one transaction, then syncs the book's catalogue status from all its orders.
+
+### `createOrderForNewBook(input)`
+
+```typescript
+createOrderForNewBook(input: {
+  book: { title: string; authorName: string };
+  order: Omit<CreateOrderInput, "workId">;
+}): Promise<{ order: Order; slug: string | null }>
+```
+
+Orders a book the library does not have yet. The author (found by name or created), the book (`catalogue_status = 'on_order'`), the order and its first history row are one transaction. The order dialog keeps a typed book as a draft and calls this on submit, so a cancelled dialog writes nothing.
+
+### `updateOrderStatus(id, status, notes?)` / `deleteOrder(id)`
+
+Each status change writes the order and its history row in one transaction. It is refused with "The order changed; reload before changing its status" when another change moved the order first. A delete removes the order with its history rows (they cascade); the book's own status history records the change.
 
 ---
 

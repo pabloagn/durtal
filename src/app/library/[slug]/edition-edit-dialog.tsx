@@ -11,7 +11,6 @@ import {
   type EditionFormValues,
 } from "@/components/books/edition-form";
 import { updateEdition } from "@/lib/actions/editions";
-import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { EditionWithRelations } from "@/lib/types/index";
 
@@ -94,15 +93,12 @@ export function EditionEditDialog({
   async function handleSubmit(values: EditionFormValues) {
     setIsPending(true);
     try {
-      // Resolve contributors: find or create authors that have no authorId
-      const resolvedContributors = await Promise.all(
-        values.contributors.map(async (c) => {
-          if (c.authorId) {
-            return { authorId: c.authorId, role: c.role };
-          }
-          const author = await findOrCreateAuthor(c.authorName);
-          return { authorId: author.id, role: c.role };
-        }),
+      // A contributor without an id is found by name, or created with the
+      // edition in the same write
+      const resolvedContributors = values.contributors.map((c) =>
+        c.authorId
+          ? { authorId: c.authorId, role: c.role }
+          : { authorName: c.authorName, role: c.role },
       );
 
       await updateEdition(edition.id, {

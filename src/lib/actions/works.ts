@@ -1,6 +1,5 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import {
@@ -15,6 +14,7 @@ import {
 } from "@/lib/publishers/conditions";
 import { bookAuthorQueries } from "@/lib/catalogue/book-credits";
 import { curationQueries } from "@/lib/catalogue/curation-store";
+import { planBookWork, workSubjectQueries } from "@/lib/catalogue/book-store";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { workSeriesPlan, resultRows } from "@/lib/series/work-series";
@@ -22,7 +22,6 @@ import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
 import {
   works,
   workAuthors,
-  workSubjects,
   editions,
   editionPublishers,
   publishingHouses,
@@ -39,7 +38,6 @@ import {
   desc,
   asc,
   ilike,
-  like,
   count,
   and,
   or,
@@ -57,7 +55,6 @@ import {
   type UpdateWorkInput,
 } from "@/lib/validations";
 import { bookLinksSchema } from "@/lib/validations/book-links";
-import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 import { refreshWorkSlug } from "@/lib/works/slug";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
@@ -594,72 +591,17 @@ export async function findDuplicateWork(opts: {
 
 export async function createWork(input: CreateWorkInput) {
   const parsed = createWorkSchema.parse(input);
-  const { authorIds, subjectIds, recommenderIds, ...workData } = parsed;
-
   // The id and slug are known before the write, so the work, its authors,
-  // subjects and recommendations go out as one transaction: a failure leaves
-  // no half-created book.
-  const id = randomUUID();
+  // subjects, recommendations and activity go out as one transaction: a
+  // failure leaves no half-created book.
   const primaryAuthor = await db.query.authors.findFirst({
-    where: eq(authors.id, authorIds[0].authorId),
+    where: eq(authors.id, parsed.authorIds[0].authorId),
     columns: { name: true },
   });
-  const baseSlug = generateWorkSlug(
-    workData.title,
-    primaryAuthor?.name ?? "unknown",
-    id,
-  );
-  const existing = await db
-    .select({ slug: works.slug })
-    .from(works)
-    .where(like(works.slug, `${baseSlug}%`));
-  const slug = makeUnique(
-    baseSlug,
-    existing.map((r) => r.slug).filter((s): s is string => s !== null),
-  );
-
-  const seriesPlan = workSeriesPlan(workData);
-  let insertAt = -1;
-  const results = await atomic((d) => {
-    const queries: unknown[] = seriesPlan.queries(d);
-    insertAt = queries.length;
-    queries.push(
-      d
-        .insert(works)
-        .values({ ...workData, ...seriesPlan.values, id, slug })
-        .returning(),
-      ...bookAuthorQueries(d, id, authorIds),
-      ...workSubjectQueries(d, id, subjectIds),
-      ...curationQueries(d, { id, kind: "book" }, { recommenderIds }),
-    );
-    return queries;
-  });
-  const [work] = resultRows<typeof works.$inferSelect>(results[insertAt]);
-
-  recordActivity("work", work.id, "work.created", {
-    newValue: workData.title,
-  });
+  const plan = await planBookWork(parsed, primaryAuthor?.name ?? "unknown");
+  await atomic(plan.queries);
   invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
-  return work;
-}
-
-/** Replaces a book's subjects; nothing when the edit leaves them alone. */
-function workSubjectQueries(
-  d: typeof db,
-  workId: string,
-  subjectIds: string[] | undefined,
-) {
-  if (!subjectIds) return [];
-  return [
-    d.delete(workSubjects).where(eq(workSubjects.workId, workId)),
-    ...(subjectIds.length
-      ? [
-          d.insert(workSubjects).values(
-            [...new Set(subjectIds)].map((subjectId) => ({ workId, subjectId })),
-          ),
-        ]
-      : []),
-  ];
+  return (await db.query.works.findFirst({ where: eq(works.id, plan.id) }))!;
 }
 
 export async function updateWork(id: string, input: UpdateWorkInput) {

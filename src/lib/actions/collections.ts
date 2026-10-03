@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { addMembers, idArray, lockCollection } from "@/lib/collections/members";
 import {
   collections,
   collectionEditions,
@@ -40,28 +41,6 @@ const activeArtwork = {
 function rows<T>(result: unknown): T[] {
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
 }
-function idArray(ids: string[]) {
-  return sql`ARRAY[${sql.join(
-    ids.map((id) => sql`${id}::uuid`),
-    sql`, `,
-  )}]::uuid[]`;
-}
-function lockCollection(id: string) {
-  return sql`select id from collections where id=${id}::uuid for update`;
-}
-function addMembers(id: string, ids: string[]) {
-  return sql`with added as (
-    insert into collection_editions(collection_id,edition_id,sort_order)
-    select ${id}::uuid, selected.id, (coalesce((select max(sort_order) from collection_editions where collection_id=${id}::uuid),-1) + selected.n)::int
-    from unnest(${idArray(ids)}) with ordinality selected(id,n)
-    on conflict do nothing returning edition_id
-  ), events as (
-    insert into activity_events(entity_type,entity_id,event_key,metadata)
-    select distinct 'work', e.work_id, 'work.collection_added', jsonb_build_object('collectionName',c.name,'extra',jsonb_build_object('collectionId',c.id))
-    from added join editions e on e.id=added.edition_id cross join collections c where c.id=${id}::uuid
-  ) select count(*)::int as changed from added`;
-}
-
 export async function getCollections(pagination?: {
   limit: number;
   offset: number;
