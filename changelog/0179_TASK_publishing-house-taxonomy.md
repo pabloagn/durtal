@@ -1,6 +1,6 @@
 # Task 0179: Publishing house taxonomy
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-03
 **Priority**: HIGH
 **Type**: Feature
@@ -23,3 +23,9 @@ The owner asked for an industry-standard, impeccable taxonomy for publishing hou
 - Dry run on a fresh copy of live data (rolled back): 24 new houses, 16 changed, 2 unchanged. 253 editions in these families; with a house 74 → 252; each has one link: 142 to an imprint, 110 to a publisher, none to a group. 71 imprints and 160 countries from Open Library (244 of 251 ISBNs answered); 0 refused by the ISBN check; 3 disagreements left for the owner (Memoirs of Hadrian, The Magic Mountain, Vineland). "Coma" (Semiotext(e), labelled National Geographic Books) stays in the inbox.
 - Review of the first dry run found and fixed: two sibling imprints on one book, publisher names written into the imprint field, group-level links where the ISBN's publisher was known, and same-name imprints chosen by list order on group-wide prefixes (now by market).
 - Screens checked on the copy: group, publisher and imprint pages, the Group filter, the editor's type and parent fields, the search box path. Alignment audit: 0 deviations.
+
+## Live Activation — 2026-10-03
+- Owner approved ("Go"). Merged the branch's four newer commits into the taxonomy branch (one import conflict on the publisher page), 796 tests and lint passed, then fast-forwarded `fix/backlog-0116-0121`; the uncommitted author-picker work (task 0151) was untouched.
+- Full `pg_dump` backup, then migration 0036 applied (36 recorded).
+- Live dry run matched the reviewed one (same structure, names, prefixes and 195 link changes; two newer books also got their country). Applied as run `2b8ad683-717f-4399-9d7f-24de5018262e`: 3 groups, 225 publishers, 27 imprints; 431 of 445 editions with a publisher name have a house; no edition has two links; 71 imprints and 162 countries set; 16 hierarchy changes logged. The Publisher names inbox has 13 editions (12 names) left.
+- Verification on :3100 found every full page load failing with "window is not defined": the Copy menu (task 0177) read `window.location` while the command palette rendered on the server. Fixed in `src/components/shortcuts/shortcuts-provider.tsx` (empty link on the server, the real one in the browser). All pages load; Lolita links to Vintage International only; no console errors.
