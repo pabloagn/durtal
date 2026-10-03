@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
+import { monogramTint } from "@/components/shared/no-photo";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
 
@@ -66,16 +67,10 @@ function Portrait({
     );
   }
 
+  // No photo: the initial on the author's Monogram tint, as on their card
   return (
-    <div style={containerStyle}>
-      <span
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontSize: size * 0.45,
-          color: "var(--color-fg-muted)",
-          userSelect: "none",
-        }}
-      >
+    <div style={{ ...containerStyle, ...monogramTint(author.name) }}>
+      <span className="select-none font-serif text-micro leading-none text-fg-secondary">
         {author.name[0]}
       </span>
     </div>
@@ -122,6 +117,8 @@ export function AuthorTimelineRow({
     borderRadius: 2,
     overflow: "hidden",
     cursor: "pointer",
+    // The rows layer ignores the pointer, so the canvas can pan; a bar takes it
+    pointerEvents: "auto",
     display: "flex",
     alignItems: "center",
     transition: "box-shadow 120ms ease",
@@ -202,63 +199,13 @@ export function AuthorTimelineRow({
 
         {showLabel && (
           <span
-            style={{
-              fontSize: 11,
-              fontFamily: "var(--font-sans)",
-              color: "var(--color-fg-primary)",
-              opacity: 0.8,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: barWidth - PORTRAIT_SIZE - 32,
-              lineHeight: 1,
-              userSelect: "none",
-            }}
+            className="select-none truncate font-sans text-micro leading-4 text-fg-primary"
+            style={{ maxWidth: barWidth - PORTRAIT_SIZE - 32 }}
           >
             {author.name}
           </span>
         )}
       </div>
-
-      {/* Birth year — left outer edge label (only when bar is visible) */}
-      {barWidth > 10 && (
-        <span
-          style={{
-            position: "absolute",
-            left: 2,
-            bottom: -14,
-            fontSize: 10,
-            fontFamily: "var(--font-mono)",
-            color: "var(--color-fg-muted)",
-            opacity: 0.6,
-            pointerEvents: "none",
-            zIndex: 3,
-            userSelect: "none",
-          }}
-        >
-          {displayYear(author.birthYear)}
-        </span>
-      )}
-
-      {/* Death year — right outer edge label */}
-      {!isAlive && author.deathYear && barWidth > 30 && (
-        <span
-          style={{
-            position: "absolute",
-            right: 2,
-            bottom: -14,
-            fontSize: 10,
-            fontFamily: "var(--font-mono)",
-            color: "var(--color-fg-muted)",
-            opacity: 0.6,
-            pointerEvents: "none",
-            zIndex: 3,
-            userSelect: "none",
-          }}
-        >
-          {displayYear(author.deathYear)}
-        </span>
-      )}
 
       {/* Living author edge fade */}
       {isAlive && <div style={aliveEdgeStyle} />}

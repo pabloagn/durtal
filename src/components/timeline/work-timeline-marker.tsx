@@ -13,13 +13,31 @@ const COVER_W = 20;
 const COVER_H = 28;
 const EDITION_DOT_SIZE = 5;
 
-export const MARKER_LANE_HEIGHT = 80;
+/** A 12px label on a 15px line: the title above the cover, the author below */
+const LABEL_H = 15;
 
-// ── Helper ───────────────────────────────────────────────────────────────────
+/**
+ * A label is as wide as the room to the nearest marker in its lane allows,
+ * less a gap, from 72 to 128px; with less room it is hidden. Two labels in a
+ * lane are then always LABEL_GAP apart or more. Lanes keep markers LABEL_ROOM
+ * apart at scale 1, so every label shows there.
+ */
+const LABEL_GAP = 8;
+const LABEL_MIN_W = 72;
+const LABEL_MAX_W = 128;
+export const LABEL_ROOM = LABEL_MIN_W + LABEL_GAP;
 
-function truncate(s: string, maxLen: number): string {
-  return s.length > maxLen ? s.slice(0, maxLen - 1) + "\u2026" : s;
+/** Label width for a marker whose nearest lane neighbor is `room` px away */
+export function labelWidth(room: number): number {
+  return Math.min(LABEL_MAX_W, room - LABEL_GAP);
 }
+
+// Top to bottom inside the lane: title, cover, diamond, author
+const COVER_TOP = LABEL_H + 3;
+const DIAMOND_CY = COVER_TOP + COVER_H + 4 + DIAMOND_SIZE_BASE / 2;
+const AUTHOR_TOP = DIAMOND_CY + DIAMOND_SIZE_BASE / 2 + 5;
+
+export const MARKER_LANE_HEIGHT = AUTHOR_TOP + LABEL_H;
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +49,8 @@ export interface WorkTimelineMarkerProps {
   y: number;
   /** Current timeline scale (from useTimelineTransform) */
   scale: number;
+  /** Width of the title and author labels, from `labelWidth` */
+  labelW: number;
   isHovered: boolean;
   /** Called with (id, clientX, clientY) on hover, or (null) on leave */
   onHover: (id: string | null, clientX?: number, clientY?: number) => void;
@@ -45,6 +65,7 @@ export function WorkTimelineMarker({
   x,
   y,
   scale,
+  labelW,
   isHovered,
   onHover,
   scaledPixelsPerYear,
@@ -52,9 +73,10 @@ export function WorkTimelineMarker({
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
 
+  const labelsFit = labelW >= LABEL_MIN_W;
   const showCover = scale > 0.3;
-  const showAuthor = scale > 0.5;
-  const showTitle = scale > 0.8;
+  const showAuthor = scale > 0.5 && labelsFit;
+  const showTitle = scale > 0.8 && labelsFit;
   const showEditions = scale > 0.8;
 
   const diamondSize = isHovered ? DIAMOND_SIZE_HOVER : DIAMOND_SIZE_BASE;
@@ -67,8 +89,7 @@ export function WorkTimelineMarker({
     [router, work.slug],
   );
 
-  // The marker is anchored so the diamond centre is at (x, y).
-  // The container is 80px wide, centred on x.
+  // The container is 80px wide, centred on x, and spans the lane
   const containerStyle: CSSProperties = {
     position: "absolute",
     transform: `translate3d(${x - 40}px, ${y - MARKER_LANE_HEIGHT / 2}px, 0)`,
@@ -82,12 +103,11 @@ export function WorkTimelineMarker({
 
   // Diamond centre within the 80px container
   const diamondCX = 40;
-  const diamondCY = MARKER_LANE_HEIGHT / 2;
 
   const diamondStyle: CSSProperties = {
     position: "absolute",
     left: diamondCX - diamondSize / 2,
-    top: diamondCY - diamondSize / 2,
+    top: DIAMOND_CY - diamondSize / 2,
     width: diamondSize,
     height: diamondSize,
     backgroundColor: "var(--color-accent-gold)",
@@ -100,63 +120,28 @@ export function WorkTimelineMarker({
       : undefined,
   };
 
-  // Cover sits above the diamond
-  const coverTop = diamondCY - diamondSize / 2 - 4 - COVER_H;
-  const coverLeft = diamondCX - COVER_W / 2;
-
   const coverStyle: CSSProperties = {
     position: "absolute",
-    left: coverLeft,
-    top: coverTop,
+    left: diamondCX - COVER_W / 2,
+    top: COVER_TOP,
     width: COVER_W,
     height: COVER_H,
     borderRadius: 2,
     overflow: "hidden",
     backgroundColor: "var(--color-bg-tertiary)",
     boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
-    opacity: showCover ? 1 : 0,
-    transition: "opacity 150ms ease",
     pointerEvents: "none",
   };
 
-  // Title above the cover
-  const titleTop = coverTop - 14;
-  const titleStyle: CSSProperties = {
+  // Title above the cover, author below the diamond
+  const labelStyle = (top: number): CSSProperties => ({
     position: "absolute",
-    left: diamondCX - 36,
-    width: 72,
-    top: titleTop,
-    fontSize: 10,
-    fontFamily: "var(--font-serif)",
-    color: "rgba(193,198,196,0.7)",
-    textAlign: "center",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    opacity: showTitle ? 1 : 0,
-    transition: "opacity 150ms ease",
+    left: diamondCX - labelW / 2,
+    width: labelW,
+    top,
+    lineHeight: `${LABEL_H}px`,
     pointerEvents: "none",
-  };
-
-  // Author below the diamond
-  const authorStyle: CSSProperties = {
-    position: "absolute",
-    left: diamondCX - 36,
-    width: 72,
-    top: diamondCY + diamondSize / 2 + 5,
-    fontSize: 9,
-    fontFamily: "var(--font-sans)",
-    color: "rgba(74,79,77,0.8)",
-    textAlign: "center",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    opacity: showAuthor ? 1 : 0,
-    transition: "opacity 150ms ease",
-    pointerEvents: "none",
-  };
-
-  const editionLineY = diamondCY;
+  });
 
   return (
     <div
@@ -179,7 +164,12 @@ export function WorkTimelineMarker({
     >
       {/* Title */}
       {showTitle && (
-        <span style={titleStyle}>{truncate(work.title, 14)}</span>
+        <span
+          className="truncate text-center font-serif text-micro text-fg-primary"
+          style={labelStyle(0)}
+        >
+          {work.title}
+        </span>
       )}
 
       {/* Book cover */}
@@ -209,14 +199,7 @@ export function WorkTimelineMarker({
                 backgroundColor: "var(--color-bg-tertiary)",
               }}
             >
-              <span
-                style={{
-                  fontFamily: "var(--font-serif)",
-                  fontSize: 10,
-                  color: "var(--color-fg-muted)",
-                  opacity: 0.5,
-                }}
-              >
+              <span className="font-serif text-micro leading-none text-fg-secondary">
                 {work.title[0]}
               </span>
             </div>
@@ -245,7 +228,7 @@ export function WorkTimelineMarker({
           {work.editions.length > 1 && (
             <line
               x1={diamondSize / 2}
-              y1={editionLineY}
+              y1={DIAMOND_CY}
               x2={(() => {
                 const maxYr = work.editions.reduce<number>((max, e) => {
                   const yr = e.publicationYear ?? work.originalYear;
@@ -253,7 +236,7 @@ export function WorkTimelineMarker({
                 }, work.originalYear);
                 return (maxYr - work.originalYear) * scaledPixelsPerYear + EDITION_DOT_SIZE / 2;
               })()}
-              y2={editionLineY}
+              y2={DIAMOND_CY}
               stroke="rgba(88,110,117,0.2)"
               strokeWidth={1}
             />
@@ -268,7 +251,7 @@ export function WorkTimelineMarker({
               <circle
                 key={edition.id}
                 cx={offsetX + EDITION_DOT_SIZE / 2}
-                cy={editionLineY}
+                cy={DIAMOND_CY}
                 r={EDITION_DOT_SIZE / 2}
                 fill="rgba(88,110,117,0.5)"
               />
@@ -279,7 +262,12 @@ export function WorkTimelineMarker({
 
       {/* Author */}
       {showAuthor && (
-        <span style={authorStyle}>{truncate(work.authorName, 18)}</span>
+        <span
+          className="truncate text-center font-sans text-micro text-fg-secondary"
+          style={labelStyle(AUTHOR_TOP)}
+        >
+          {work.authorName}
+        </span>
       )}
     </div>
   );

@@ -33,6 +33,14 @@ function hash(text: string) {
   return Math.abs(h);
 }
 
+/**
+ * The tint behind a subject's `Monogram`, for a small portrait elsewhere (the
+ * timelines): the same author gets the same tone everywhere.
+ */
+export function monogramTint(name: string) {
+  return tint(TONES[hash(name) % TONES.length], 18);
+}
+
 /** Up to three of the subject's book covers, fanned like books on a table */
 const FAN = {
   1: [{ x: 0, r: 0 }],
@@ -87,7 +95,7 @@ export function Monogram({ name }: { name: string }) {
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"
-      style={tint(TONES[hash(name) % TONES.length], 18)}
+      style={monogramTint(name)}
       aria-hidden
     >
       <span className="font-serif text-4xl leading-none tracking-wide text-fg-secondary">
