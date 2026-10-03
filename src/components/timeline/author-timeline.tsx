@@ -11,6 +11,7 @@ import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
 import { AuthorTimelineRow, ROW_HEIGHT } from "./author-timeline-row";
+import { monogramTint } from "@/components/shared/no-photo";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
 
@@ -18,8 +19,6 @@ import { displayYear } from "@/lib/utils/years";
 
 const PIXELS_PER_YEAR = 20;
 const CURRENT_YEAR = new Date().getFullYear();
-/** Space at the bottom occupied by the axis label row + minimap strip */
-const BOTTOM_CHROME_HEIGHT = 68;
 
 // ── Tooltip content ──────────────────────────────────────────────────────────
 
@@ -38,7 +37,8 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
         minWidth: 180,
       }}
     >
-      {/* Portrait 48×48 */}
+      {/* Portrait 48×48. With no photo, the letter is fg-primary: fg-secondary
+          is under 4.5:1 on four of the six Monogram tints. */}
       <div
         style={{
           flexShrink: 0,
@@ -51,6 +51,7 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          ...(author.posterUrl ? {} : monogramTint(author.name)),
         }}
       >
         {author.posterUrl ? (
@@ -65,14 +66,7 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
             }}
           />
         ) : (
-          <span
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: 22,
-              color: "var(--color-fg-muted)",
-              userSelect: "none",
-            }}
-          >
+          <span className="select-none font-serif text-lg leading-none text-fg-primary">
             {author.name[0]}
           </span>
         )}
@@ -80,46 +74,19 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
 
       {/* Text block */}
       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        <span
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: 14,
-            color: "var(--color-fg-primary)",
-            lineHeight: 1.2,
-          }}
-        >
+        <span className="font-serif text-xs leading-tight text-fg-primary">
           {author.name}
         </span>
         {author.nationality && (
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--color-fg-secondary)",
-              fontFamily: "var(--font-sans)",
-            }}
-          >
+          <span className="font-sans text-micro text-fg-secondary">
             {author.nationality}
           </span>
         )}
-        <span
-          style={{
-            fontSize: 11,
-            fontFamily: "var(--font-mono)",
-            color: "var(--color-fg-muted)",
-            letterSpacing: "0.02em",
-          }}
-        >
+        <span className="font-mono text-micro tracking-wide text-fg-secondary">
           {lifeDates}
         </span>
         {author.worksCount > 0 && (
-          <span
-            style={{
-              fontSize: 10,
-              color: "var(--color-fg-muted)",
-              fontFamily: "var(--font-sans)",
-              opacity: 0.8,
-            }}
-          >
+          <span className="font-sans text-micro text-fg-secondary">
             {author.worksCount} {author.worksCount === 1 ? "work" : "works"}
           </span>
         )}
@@ -315,32 +282,28 @@ export function AuthorTimeline({
     ? sorted.find((a) => a.id === hoveredId) ?? null
     : null;
 
-  // The canvas must be tall enough to contain all author rows plus the
-  // bottom chrome (axis + minimap).
-  const rowsHeight = sorted.length * ROW_HEIGHT;
-  const canvasHeight = rowsHeight + BOTTOM_CHROME_HEIGHT + 16; // 16px top padding
+  // The rows, with 8px above and below
+  const rowsHeight = sorted.length * ROW_HEIGHT + 16;
 
   return (
     <>
-      {/* The canvas height grows with number of authors so vertical scroll
-          on the canvas reveals all rows. The TimelineCanvas handles both
-          vertical scrolling and horizontal pan/zoom. */}
-      <div style={{ width: "100%", height: canvasHeight }}>
-        <TimelineCanvas
+      {/* The canvas fills its parent and scrolls through the rows; it also
+          handles horizontal pan and zoom. */}
+      <TimelineCanvas
+        minYear={minYear}
+        maxYear={maxYear}
+        pixelsPerYear={PIXELS_PER_YEAR}
+        contentHeight={rowsHeight}
+        className="h-full w-full"
+      >
+        <InnerContent
+          authors={sorted}
           minYear={minYear}
-          maxYear={maxYear}
-          pixelsPerYear={PIXELS_PER_YEAR}
-          className="h-full w-full"
-        >
-          <InnerContent
-            authors={sorted}
-            minYear={minYear}
-            hoveredId={hoveredId}
-            onHover={handleHover}
-            onClickAuthor={handleClickAuthor}
-          />
-        </TimelineCanvas>
-      </div>
+          hoveredId={hoveredId}
+          onHover={handleHover}
+          onClickAuthor={handleClickAuthor}
+        />
+      </TimelineCanvas>
 
       {/* Fixed-position tooltip — only appears after 3-second hover */}
       <TimelineTooltip
