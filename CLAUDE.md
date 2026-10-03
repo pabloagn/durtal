@@ -104,6 +104,7 @@ Dark-mode only. Gothic-minimal aesthetic. Reference: `docs/03_DESIGN_LANGUAGE.md
 Key constraints:
 - Border radius: 2px default (squared, not rounded)
 - Colors: All desaturated, muted. No bright neons.
+- Text contrast is at least 4.5:1: text a reader needs uses `fg-secondary` or brighter; `fg-muted` is for placeholders, disabled text, separators and decoration only; rose and red text use `accent-rose-text` / `accent-red-text`. Check with `scripts/qa/design-audit.js`
 - Typography: Serif headings (EB Garamond), sans body (Inter)
 - Icons: Lucide, 1.5px stroke, 16px max
 - Glassmorphism: Navigation bar and command palette ONLY

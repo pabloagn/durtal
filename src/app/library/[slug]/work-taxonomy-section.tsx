@@ -26,7 +26,7 @@ function TaxonomyGroup({ label, familySlug, items, variant }: TaxonomyGroupProps
   if (items.length === 0) return null;
   return (
     <div>
-      <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-muted">
+      <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
         {label}
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -103,7 +103,7 @@ export async function WorkTaxonomySection({
         {headerAction}
       </div>
       {!hasAny && !custom.length && (
-        <p className="text-sm text-fg-muted">No taxonomy assigned</p>
+        <p className="text-sm text-fg-secondary">No taxonomy assigned</p>
       )}
       <div className="space-y-4">
         <TaxonomyGroup label="Subjects" familySlug="subjects" items={subjects} variant="default" />

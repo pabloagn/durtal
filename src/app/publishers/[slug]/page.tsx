@@ -38,7 +38,7 @@ export default async function PublisherPage({
   return (
     <>
       <CopyShortcuts name={p.name} />
-      <Link href="/publishers" className="text-sm text-fg-muted">
+      <Link href="/publishers" className="text-sm text-fg-secondary">
         ← Publishers
       </Link>
       <PageHeader
@@ -164,7 +164,7 @@ export default async function PublisherPage({
             className={
               filter === value
                 ? "text-fg-primary border-b border-accent-rose"
-                : "text-fg-muted"
+                : "text-fg-secondary"
             }
           >
             {label}
@@ -177,7 +177,7 @@ export default async function PublisherPage({
           View in library
         </Link>
       </nav>
-      <p className="mb-4 text-xs text-fg-muted">
+      <p className="mb-4 text-xs text-fg-secondary">
         {totals.works} book{totals.works === 1 ? "" : "s"} · {totals.editions}{" "}
         edition{totals.editions === 1 ? "" : "s"} recorded in Durtal
       </p>
@@ -205,7 +205,7 @@ export default async function PublisherPage({
               <Link href={`/library/${t.work.slug ?? t.work.id}`}>
                 {t.work.title}
               </Link>
-              <span className="text-fg-muted">
+              <span className="text-fg-secondary">
                 {t.publisher.name} · {t.state.replace("_", " ")}
               </span>
             </div>
@@ -226,7 +226,7 @@ export default async function PublisherPage({
               {items[0].work.title}
             </Link>
             {items[0].authors && (
-              <p className="mt-1 text-sm text-fg-muted">{items[0].authors}</p>
+              <p className="mt-1 text-sm text-fg-secondary">{items[0].authors}</p>
             )}
             <div className="mt-3 grid gap-4 md:grid-cols-2">
               {items.map(({ edition: e, poster, owned, onOrder, wanted }) => (
@@ -251,7 +251,7 @@ export default async function PublisherPage({
                         .join(" · ")}
                     </p>
                     {e.isbn13 && (
-                      <p className="font-mono text-xs text-fg-muted">
+                      <p className="font-mono text-xs text-fg-secondary">
                         {e.isbn13}
                       </p>
                     )}
@@ -268,7 +268,7 @@ export default async function PublisherPage({
         ))}
       </div>
       {!rows.length && !pendingTargets.length && (
-        <p className="py-10 text-fg-muted">No editions match this view.</p>
+        <p className="py-10 text-fg-secondary">No editions match this view.</p>
       )}
       </PaginatedSection>
     </>

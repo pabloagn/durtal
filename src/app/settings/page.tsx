@@ -56,7 +56,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <SettingRow label="Google Books">
-              <span className="font-mono text-xs text-fg-muted">
+              <span className="font-mono text-xs text-fg-secondary">
                 {process.env.GOOGLE_BOOKS_API_KEY
                   ? "Configured"
                   : "Not configured"}
@@ -102,11 +102,11 @@ export default function SettingsPage() {
             </SettingRow>
             <Divider />
             <SettingRow label="Version">
-              <span className="font-mono text-xs text-fg-muted">0.1.0</span>
+              <span className="font-mono text-xs text-fg-secondary">0.1.0</span>
             </SettingRow>
             <Divider />
             <SettingRow label="Data model">
-              <span className="font-mono text-xs text-fg-muted">
+              <span className="font-mono text-xs text-fg-secondary">
                 Work &rarr; Edition &rarr; Instance
               </span>
             </SettingRow>

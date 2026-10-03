@@ -29,7 +29,7 @@ export const COVER_CHIP_TONE = {
   muted: "text-fg-secondary",
   blue: "text-accent-blue",
   gold: "text-accent-gold",
-  rose: "text-accent-rose",
+  rose: "text-accent-rose-text",
   sage: "text-accent-sage",
-  red: "text-accent-red",
+  red: "text-accent-red-text",
 } as const;

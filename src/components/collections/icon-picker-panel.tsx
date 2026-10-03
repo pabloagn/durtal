@@ -172,7 +172,7 @@ export default function IconPickerPanel({
           <button
             type="button"
             onClick={() => onPick(null)}
-            className="shrink-0 rounded-sm px-2 py-1 text-xs text-fg-muted hover:bg-bg-tertiary hover:text-fg-primary"
+            className="shrink-0 rounded-sm px-2 py-1 text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
           >
             Remove
           </button>
@@ -182,23 +182,23 @@ export default function IconPickerPanel({
         {results ? (
           results.length ? (
             <>
-              <p className="mb-1.5 px-1 text-micro uppercase tracking-wider text-fg-muted">
+              <p className="mb-1.5 px-1 text-micro uppercase tracking-wider text-fg-secondary">
                 {results.length} {results.length === 1 ? "icon" : "icons"}
               </p>
               <IconGrid names={results} value={value} onPick={onPick} />
             </>
           ) : (
-            <p className="py-8 text-center text-sm text-fg-muted">
+            <p className="py-8 text-center text-sm text-fg-secondary">
               No icons match “{deferred.trim()}”
             </p>
           )
         ) : (
           <>
-            <p className="mb-1.5 px-1 text-micro uppercase tracking-wider text-fg-muted">
+            <p className="mb-1.5 px-1 text-micro uppercase tracking-wider text-fg-secondary">
               Suggested
             </p>
             <IconGrid names={SUGGESTED} value={value} onPick={onPick} />
-            <p className="mb-1.5 mt-4 px-1 text-micro uppercase tracking-wider text-fg-muted">
+            <p className="mb-1.5 mt-4 px-1 text-micro uppercase tracking-wider text-fg-secondary">
               All icons
             </p>
             <IconGrid

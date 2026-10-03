@@ -60,12 +60,12 @@ export function SeriesSuggestions({
             {showSeriesTitles ? (
               <Link
                 href={`/series/${seriesId}`}
-                className="font-serif text-lg text-fg-primary hover:text-accent-rose"
+                className="font-serif text-lg text-fg-primary hover:text-accent-rose-text"
               >
                 {items[0].seriesTitle}
               </Link>
             ) : (
-              <span className="text-xs text-fg-muted">
+              <span className="text-xs text-fg-secondary">
                 Books whose titles match this series
               </span>
             )}
@@ -90,7 +90,7 @@ export function SeriesSuggestions({
                   <p className="truncate text-sm text-fg-primary">
                     {item.workTitle}
                   </p>
-                  <p className="truncate text-xs text-fg-muted">
+                  <p className="truncate text-xs text-fg-secondary">
                     {item.authors}
                     {item.currentSeriesTitle && (
                       <span className="text-accent-gold">

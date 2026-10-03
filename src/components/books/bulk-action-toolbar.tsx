@@ -155,13 +155,13 @@ export function BulkActionToolbar({
 
         <button
           onClick={() => onSelectAll(allIds)}
-          className="text-xs text-fg-muted transition-colors hover:text-fg-primary"
+          className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
         >
           Select all
         </button>
         <button
           onClick={onDeselectAll}
-          className="text-xs text-fg-muted transition-colors hover:text-fg-primary"
+          className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
         >
           Deselect
         </button>

@@ -95,7 +95,7 @@ export function ReaderToolbar({
                 </>
               )}
             </div>
-            <p className="truncate text-micro text-fg-muted">{author}</p>
+            <p className="truncate text-micro text-fg-secondary">{author}</p>
           </div>
         </div>
 

@@ -131,7 +131,7 @@ export function Sidebar({
       <div className="shrink-0 overflow-hidden px-3 pb-2">
         <button
           onClick={onCommandPalette}
-          className={`flex w-full items-center rounded-sm border border-glass-border bg-bg-primary/50 text-sm text-fg-muted transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 ${
+          className={`flex w-full items-center rounded-sm border border-glass-border bg-bg-primary/50 text-sm text-fg-secondary transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 ${
             isCollapsed ? "justify-center px-0 py-1.5" : "gap-2 px-3 py-1.5"
           }`}
         >
@@ -139,7 +139,7 @@ export function Sidebar({
           {!isCollapsed && (
             <>
               <span>Search...</span>
-              <kbd className="ml-auto font-mono text-micro text-fg-muted">
+              <kbd className="ml-auto font-mono text-micro text-fg-secondary">
                 <span className="text-nano">&#8984;</span>K
               </kbd>
             </>
@@ -185,7 +185,7 @@ export function Sidebar({
       {/* Footer */}
       {!isCollapsed && (
         <div className="shrink-0 border-t border-glass-border px-5 py-3">
-          <p className="font-mono text-micro text-fg-muted">
+          <p className="font-mono text-micro text-fg-secondary">
             catalogue &middot; index &middot; archive
           </p>
         </div>

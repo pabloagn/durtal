@@ -29,19 +29,23 @@ Information density is high, ornamentation is absent, and every pixel earns its 
 | Token | Hex | Usage |
 |---|---|---|
 | `--color-fg-primary` | `#c1c6c4` | Body text, titles, primary content |
-| `--color-fg-secondary` | `#7d8380` | Secondary text, descriptions, metadata |
-| `--color-fg-muted` | `#4a4f4d` | Disabled text, placeholders, tertiary info |
+| `--color-fg-secondary` | `#7d8380` | Secondary text, descriptions, metadata, labels, counts, dates |
+| `--color-fg-muted` | `#4a4f4d` | Disabled text, placeholders, separators, decorative icons. Never text a reader needs |
+
+**Contrast.** Text that a reader needs is at least 4.5:1 against its background (3:1 at 24px and larger). `fg-secondary` is 4.6–5.3:1 on the three backgrounds; `fg-muted` is 2.2–2.5:1, so it is for decoration only. `scripts/qa/design-audit.js` lists every text under the limit.
 
 ### Accents
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-accent-rose` | `#7d3d52` | Primary interactive (buttons, focus rings, active states) |
+| `--color-accent-rose` | `#7d3d52` | Primary interactive (buttons, focus rings, active states). Fills, borders and rings only |
+| `--color-accent-rose-text` | `#b96b83` | Rose text: links, active labels, rose badges (4.7–5.3:1) |
 | `--color-accent-plum` | `#20131e` | Selection highlight, active nav item background |
 | `--color-accent-slate` | `#586e75` | Secondary accent, info badges |
 | `--color-accent-gold` | `#c0a36e` | Metadata highlights, ratings, special indicators |
 | `--color-accent-sage` | `#76946a` | Success states, positive indicators |
-| `--color-accent-red` | `#bb3e41` | Destructive actions, error states |
+| `--color-accent-red` | `#bb3e41` | Destructive actions, error states. Fills, borders and icons only |
+| `--color-accent-red-text` | `#cf5f5e` | Red text: destructive actions, errors (4.7–5.3:1) |
 | `--color-accent-blue` | `#648493` | Links, informational badges |
 
 ### Gothic Underlay
@@ -148,7 +152,7 @@ Four variants:
 | **Primary** | `accent-rose` | none | `fg-primary` | Primary actions |
 | **Secondary** | transparent | 1px `bg-tertiary` | `fg-secondary` | Secondary actions |
 | **Ghost** | transparent | none | `fg-secondary` | Tertiary actions |
-| **Danger** | transparent | 1px `accent-red` | `accent-red` | Destructive actions |
+| **Danger** | transparent | 1px `accent-red` | `accent-red-text` | Destructive actions |
 
 Three sizes: `sm`, `md` (default), `lg`. All squared (2px radius). Focus ring uses `accent-rose`.
 

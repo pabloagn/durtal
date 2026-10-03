@@ -165,7 +165,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
           <dl className="grid max-w-xl grid-cols-[auto_1fr] gap-x-6 gap-y-2">
             {metadataFields.map((field) => (
               <div key={field.label} className="contents">
-                <dt className="text-xs text-fg-muted">{field.label}</dt>
+                <dt className="text-xs text-fg-secondary">{field.label}</dt>
                 <dd className="text-sm text-fg-secondary">{field.value}</dd>
               </div>
             ))}
@@ -266,7 +266,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                     {edition.title}
                   </span>
                   {edition.publicationYear && (
-                    <span className="ml-2 font-mono text-xs text-fg-muted">
+                    <span className="ml-2 font-mono text-xs text-fg-secondary">
                       {edition.publicationYear}
                     </span>
                   )}
@@ -296,7 +296,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                 href={author.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-accent-rose transition-colors hover:underline"
+                className="text-sm text-accent-rose-text transition-colors hover:underline"
               >
                 Website
               </a>
@@ -306,7 +306,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                 href={`https://openlibrary.org${author.openLibraryKey}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-accent-rose transition-colors hover:underline"
+                className="text-sm text-accent-rose-text transition-colors hover:underline"
               >
                 Open Library
               </a>
@@ -316,7 +316,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                 href={`https://www.goodreads.com/author/show/${author.goodreadsId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-accent-rose transition-colors hover:underline"
+                className="text-sm text-accent-rose-text transition-colors hover:underline"
               >
                 Goodreads
               </a>

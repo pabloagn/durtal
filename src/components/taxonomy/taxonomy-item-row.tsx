@@ -157,7 +157,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-rose"
+            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-rose-text"
           >
             {item.name}
           </Link>

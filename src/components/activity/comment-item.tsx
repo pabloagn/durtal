@@ -93,7 +93,7 @@ export function CommentItem({
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-medium text-fg-primary">Comment</span>
                 <time
-                  className="text-[11px] text-fg-muted"
+                  className="text-[11px] text-fg-secondary"
                   title={full}
                 >
                   {relative}
@@ -105,7 +105,7 @@ export function CommentItem({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
                 >
                   Edit
                 </button>
@@ -113,7 +113,7 @@ export function CommentItem({
                   type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-accent-red disabled:opacity-50"
+                  className="rounded-sm px-1.5 py-0.5 text-[11px] text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text disabled:opacity-50"
                 >
                   {isDeleting ? "..." : "Delete"}
                 </button>

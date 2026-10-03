@@ -125,7 +125,7 @@ export function CollectionCard({
         <p className="mt-1 lines-1 text-sm text-fg-secondary">
           {collection.description}
         </p>
-        <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-muted">
+        <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
           {footer && <span className="min-w-0 truncate">{footer}</span>}
           <span className="ml-auto shrink-0">
             {count} {count === 1 ? "edition" : "editions"}

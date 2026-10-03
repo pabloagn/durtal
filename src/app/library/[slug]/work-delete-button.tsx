@@ -53,7 +53,7 @@ export function WorkDeleteButton({
       <Button
         variant="ghost"
         size="sm"
-        className="text-fg-muted hover:text-accent-red"
+        className="text-fg-secondary hover:text-accent-red-text"
         onClick={() => setOpen(true)}
       >
         <Trash2 className="h-4 w-4" strokeWidth={1.5} />

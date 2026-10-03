@@ -155,7 +155,7 @@ export function AuthorDetailHeader({
                 {name}
               </h1>
               {realName && realName !== name && (
-                <p className="mt-1 text-sm text-fg-muted italic">
+                <p className="mt-1 text-sm text-fg-secondary italic">
                   {realName}
                 </p>
               )}
@@ -177,7 +177,7 @@ export function AuthorDetailHeader({
               (countryCode ? (
                 <Link
                   href={nationalityFilterHref(countryCode)}
-                  className="text-fg-primary font-medium transition-colors hover:text-accent-rose"
+                  className="text-fg-primary font-medium transition-colors hover:text-accent-rose-text"
                 >
                   {countryName}
                 </Link>

@@ -88,10 +88,10 @@ async function OrderHistory({ params }: { params: ListSearchParams }) {
     <h2 className="font-serif text-2xl text-fg-primary">Acquisition history</h2>
     <PaginatedSection page={page} perPage={perPage} total={total} noun="orders">
       <div className="space-y-2">{orders.map((order) => <Link key={order.id} href={`/library/${order.work.slug}`} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-glass-border p-3 hover:bg-bg-secondary">
-        <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-muted">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>
-        <span className="font-mono text-xs text-fg-muted">{order.orderDate} · {order.status.replace(/_/g, " ")}{order.venue ? ` · ${order.venue.name}` : ""}</span>
+        <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-secondary">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>
+        <span className="font-mono text-xs text-fg-secondary">{order.orderDate} · {order.status.replace(/_/g, " ")}{order.venue ? ` · ${order.venue.name}` : ""}</span>
       </Link>)}</div>
-      {!total && <p className="py-6 text-sm text-fg-muted">No acquisitions yet.</p>}
+      {!total && <p className="py-6 text-sm text-fg-secondary">No acquisitions yet.</p>}
     </PaginatedSection>
   </section>;
 }

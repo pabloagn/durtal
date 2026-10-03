@@ -40,7 +40,7 @@ export function EditionImageBox({
           style={mediaImageStyle(image.crop)}
         />
       ) : size === "md" ? (
-        <span className="flex h-full items-center justify-center text-center text-micro text-fg-muted">
+        <span className="flex h-full items-center justify-center text-center text-micro text-fg-secondary">
           No cover
         </span>
       ) : (

@@ -13,7 +13,7 @@ interface MetaRowProps {
 function MetaRow({ label, children }: MetaRowProps) {
   return (
     <>
-      <dt className="text-xs text-fg-muted">{label}</dt>
+      <dt className="text-xs text-fg-secondary">{label}</dt>
       <dd className="text-sm text-fg-secondary">{children}</dd>
     </>
   );
@@ -64,12 +64,12 @@ export function WorkMetadataGrid({ work }: WorkMetadataGridProps) {
           <MetaRow label="Series">
             <Link
               href={`/series/${work.series.id}`}
-              className="transition-colors hover:text-accent-rose"
+              className="transition-colors hover:text-accent-rose-text"
             >
               {work.series.title}
             </Link>
             {work.seriesPosition && (
-              <span className="ml-1 font-mono text-xs text-fg-muted">
+              <span className="ml-1 font-mono text-xs text-fg-secondary">
                 #{work.seriesPosition}
               </span>
             )}
@@ -79,7 +79,7 @@ export function WorkMetadataGrid({ work }: WorkMetadataGridProps) {
           <MetaRow label="Series">
             {work.seriesName}
             {work.seriesPosition && (
-              <span className="ml-1 font-mono text-xs text-fg-muted">
+              <span className="ml-1 font-mono text-xs text-fg-secondary">
                 #{work.seriesPosition}
               </span>
             )}

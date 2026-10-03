@@ -69,7 +69,7 @@ export function RangeSlider({
   return (
     <div className="px-1.5 pb-3 pt-1">
       {label && (
-        <div className="mb-2 px-0 text-[11px] font-medium uppercase tracking-wider text-fg-muted">
+        <div className="mb-2 px-0 text-[11px] font-medium uppercase tracking-wider text-fg-secondary">
           {label}
         </div>
       )}

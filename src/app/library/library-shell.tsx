@@ -21,7 +21,7 @@ const WorkTimeline = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[400px] items-center justify-center font-mono text-sm text-fg-muted">
+      <div className="flex h-[400px] items-center justify-center font-mono text-sm text-fg-secondary">
         Loading timeline...
       </div>
     ),

@@ -214,7 +214,7 @@ export function MatchAgainDialog({
           <button
             onClick={backToResults}
             disabled={confirming}
-            className="flex items-center gap-1.5 text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+            className="flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
             Back to results
@@ -242,12 +242,12 @@ export function MatchAgainDialog({
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {selected.year && (
-                  <span className="font-mono text-xs text-fg-muted">
+                  <span className="font-mono text-xs text-fg-secondary">
                     {selected.year}
                   </span>
                 )}
                 {selected.isbn && (
-                  <span className="font-mono text-xs text-fg-muted">
+                  <span className="font-mono text-xs text-fg-secondary">
                     {selected.isbn}
                   </span>
                 )}
@@ -267,7 +267,7 @@ export function MatchAgainDialog({
               onSave={handleSave}
             />
           ) : (
-            <div className="flex items-center justify-center gap-2 py-6 text-xs text-fg-muted">
+            <div className="flex items-center justify-center gap-2 py-6 text-xs text-fg-secondary">
               <Spinner className="h-4 w-4" />
               Comparing with your edition...
             </div>
@@ -325,7 +325,7 @@ export function MatchAgainDialog({
           )}
 
           {!loading && searched && results.length === 0 && (
-            <p className="py-6 text-center text-sm text-fg-muted">
+            <p className="py-6 text-center text-sm text-fg-secondary">
               No results found. Try a different search query.
             </p>
           )}
@@ -362,12 +362,12 @@ export function MatchAgainDialog({
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {result.year && (
-                        <span className="font-mono text-micro text-fg-muted">
+                        <span className="font-mono text-micro text-fg-secondary">
                           {result.year}
                         </span>
                       )}
                       {result.isbn && (
-                        <span className="font-mono text-micro text-fg-muted">
+                        <span className="font-mono text-micro text-fg-secondary">
                           {result.isbn}
                         </span>
                       )}

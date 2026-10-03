@@ -210,7 +210,7 @@ export function TaxonomyFamilyShell({
       {/* Back link */}
       <Link
         href="/taxonomy"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg-secondary"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
         Taxonomy
@@ -237,7 +237,7 @@ export function TaxonomyFamilyShell({
                 {family.description}
               </p>
             )}
-            <p className="mt-1 font-mono text-xs text-fg-muted">
+            <p className="mt-1 font-mono text-xs text-fg-secondary">
               {items.length} item{items.length === 1 ? "" : "s"}
               {" · "}
               {scopeLabels.join(", ")}
@@ -308,7 +308,7 @@ export function TaxonomyFamilyShell({
 
       {/* Loading indicator for transitions */}
       {isPending && (
-        <div className="mb-2 text-xs text-fg-muted">Updating...</div>
+        <div className="mb-2 text-xs text-fg-secondary">Updating...</div>
       )}
 
       {/* Tree / list */}
@@ -331,7 +331,7 @@ export function TaxonomyFamilyShell({
           />
         ) : (
           <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-fg-muted">
+            <p className="text-sm text-fg-secondary">
               No items matching &ldquo;{searchQuery}&rdquo;
             </p>
           </div>

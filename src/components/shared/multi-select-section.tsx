@@ -48,7 +48,7 @@ export function MultiSelectSection({
         />
       )}
       {items.length === 0 ? (
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           No {title.toLowerCase()} available
         </p>
       ) : (
@@ -68,7 +68,7 @@ export function MultiSelectSection({
             </label>
           ))}
           {filtered.length === 0 && (
-            <p className="px-2 py-1 text-xs text-fg-muted">No matches</p>
+            <p className="px-2 py-1 text-xs text-fg-secondary">No matches</p>
           )}
         </div>
       )}

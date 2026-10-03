@@ -77,7 +77,7 @@ const ACTION_ITEMS: PaletteItem[] = [
 const NO_RESULTS: QuickSearchResult = { works: [], authors: [] };
 
 const GROUP_CLASS =
-  "text-xs font-medium text-fg-muted [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
+  "text-xs font-medium text-fg-secondary [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
 const ITEM_CLASS =
   "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-accent-plum/60 aria-selected:text-fg-primary";
 
@@ -217,14 +217,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     <span className="min-w-0 flex-1 truncate">
                       {work.title}
                       {work.authors.length > 0 && (
-                        <span className="text-fg-muted">
+                        <span className="text-fg-secondary">
                           {"  ·  "}
                           {work.authors.slice(0, 2).join(", ")}
                         </span>
                       )}
                     </span>
                     {work.year && (
-                      <span className="shrink-0 text-xs tabular-nums text-fg-muted">
+                      <span className="shrink-0 text-xs tabular-nums text-fg-secondary">
                         {work.year}
                       </span>
                     )}
@@ -314,7 +314,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             )}
           </Command.List>
 
-          <div className="flex items-center gap-4 border-t border-glass-border px-4 py-2 text-[11px] text-fg-muted">
+          <div className="flex items-center gap-4 border-t border-glass-border px-4 py-2 text-[11px] text-fg-secondary">
             <span className="flex items-center gap-1.5">
               <Kbd>↑</Kbd>
               <Kbd>↓</Kbd>

@@ -33,7 +33,7 @@ export function ReadButton({ calibreBooks }: ReadButtonProps) {
       <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
       <span>Read</span>
       {formats.length > 0 && (
-        <span className="font-mono text-micro text-fg-muted">
+        <span className="font-mono text-micro text-fg-secondary">
           {formatLabels}
         </span>
       )}

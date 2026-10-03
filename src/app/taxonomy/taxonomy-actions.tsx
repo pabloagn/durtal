@@ -142,7 +142,7 @@ function ReorderFamiliesDialog({
         ))}
       </ol>
       {error && (
-        <p role="alert" className="mt-3 text-xs text-accent-red">
+        <p role="alert" className="mt-3 text-xs text-accent-red-text">
           {error}
         </p>
       )}

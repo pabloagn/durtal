@@ -39,7 +39,7 @@ export function LeaderMenu({
         onMouseDown={(e) => e.stopPropagation()}
         className="absolute left-1/2 top-[20%] w-80 -translate-x-1/2 overflow-hidden rounded-sm border border-glass-border bg-bg-secondary shadow-[0_24px_48px_-12px_rgba(0,0,0,0.7)]"
       >
-        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2 text-xs text-fg-muted">
+        <div className="flex items-center justify-between border-b border-glass-border px-3 py-2 text-xs text-fg-secondary">
           <span className="font-medium">{title}</span>
           <span className="flex items-center gap-1.5">
             <Kbd>Esc</Kbd>
@@ -62,7 +62,7 @@ export function LeaderMenu({
                 {/* The label and its smaller preview share one baseline */}
                 <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
                   <span className="shrink-0">{item.label}</span>
-                  <span className="min-w-0 flex-1 truncate text-right text-xs text-fg-muted">
+                  <span className="min-w-0 flex-1 truncate text-right text-xs text-fg-secondary">
                     {item.hint}
                   </span>
                 </span>
@@ -71,7 +71,7 @@ export function LeaderMenu({
             </li>
           ))}
         </ul>
-        <div className="flex items-center gap-4 border-t border-glass-border px-3 py-2 text-[11px] text-fg-muted">
+        <div className="flex items-center gap-4 border-t border-glass-border px-3 py-2 text-[11px] text-fg-secondary">
           <span className="flex items-center gap-1.5">
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd>

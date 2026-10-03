@@ -49,7 +49,7 @@ export function BookLinks({ goodreadsUrl, storygraphUrl }: BookLinksProps) {
             rel="noopener noreferrer"
             aria-label={label}
             title={label}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
           >
             <span aria-hidden className="inline-flex">
               {GLYPHS[field]}

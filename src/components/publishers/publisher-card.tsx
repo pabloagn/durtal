@@ -34,7 +34,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}
       <div className="flex items-start gap-2 p-4 pb-2 font-serif text-xl leading-snug">
-        <h3 className="lines-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
+        <h3 className="lines-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose-text">
           {p.name}
         </h3>
         <CapAligned height={32} className="relative z-20 -mr-2">
@@ -51,11 +51,11 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
           </Badge>
         )}
       </div>
-      <p className="mt-2 lines-1 px-4 text-xs text-fg-muted">
+      <p className="mt-2 lines-1 px-4 text-xs text-fg-secondary">
         {p.parentName ? `Imprint of ${p.parentName}` : null}
       </p>
       <div className="mt-auto flex items-center justify-between gap-2 px-4 pb-3.5 pt-3">
-        <span className="font-mono text-micro text-fg-muted">
+        <span className="font-mono text-micro text-fg-secondary">
           {editionsLabel(p.editionCount)}
         </span>
         {p.website && (
@@ -92,10 +92,10 @@ export function PublisherListItem({
           </span>
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+          <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
             {p.name}
           </h3>
-          <p className="truncate text-xs text-fg-muted">
+          <p className="truncate text-xs text-fg-secondary">
             {[p.country, parentPhrase(p.kind, p.parentName)]
               .filter(Boolean)
               .join(" · ") || " "}
@@ -104,7 +104,7 @@ export function PublisherListItem({
         <div className="flex flex-shrink-0 items-center gap-3">
           {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
           {p.kind === "group" && <Badge variant="gold">Group</Badge>}
-          <span className="w-20 text-right font-mono text-micro text-fg-muted">
+          <span className="w-20 text-right font-mono text-micro text-fg-secondary">
             {editionsLabel(p.editionCount)}
           </span>
         </div>

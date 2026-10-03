@@ -28,7 +28,7 @@ export function KeyCombo({ keys, then = false }: { keys: Keys; then?: boolean })
     <span className="inline-flex shrink-0 items-center gap-1">
       {keys.map((key, i) => (
         <span key={i} className="inline-flex items-center gap-1">
-          {then && i > 0 && <span className="text-[11px] text-fg-muted">then</span>}
+          {then && i > 0 && <span className="text-[11px] text-fg-secondary">then</span>}
           <Kbd>{keyLabel(key, mac)}</Kbd>
         </span>
       ))}

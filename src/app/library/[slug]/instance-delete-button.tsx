@@ -35,7 +35,7 @@ export function InstanceDeleteButton({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        className="text-fg-muted hover:text-accent-red"
+        className="text-fg-secondary hover:text-accent-red-text"
         title="Delete instance"
       >
         <Trash2 className="h-4 w-4" strokeWidth={1.5} />

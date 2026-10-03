@@ -42,7 +42,7 @@ export function DeleteConfirmDialog({
           <p className="text-sm font-medium text-fg-primary">{itemName}</p>
         </div>
         {cascade && (
-          <p className="rounded-sm border border-accent-red/20 bg-accent-red/5 px-3 py-2 text-xs text-accent-red">
+          <p className="rounded-sm border border-accent-red/20 bg-accent-red/5 px-3 py-2 text-xs text-accent-red-text">
             {cascade}
           </p>
         )}

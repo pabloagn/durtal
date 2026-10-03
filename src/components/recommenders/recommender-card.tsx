@@ -20,7 +20,7 @@ function WebsiteLink({ url, name }: { url: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`${name} website`}
-      className="relative z-20 inline-flex min-w-0 items-center gap-1 text-xs text-fg-muted transition-colors hover:text-accent-rose"
+      className="relative z-20 inline-flex min-w-0 items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
     >
       <ExternalLink className="h-3 w-3 shrink-0" strokeWidth={1.5} />
       <span className="truncate">{websiteLabel(url)}</span>
@@ -43,14 +43,14 @@ export function RecommenderCard({
       />
       {/* Fixed rows: every recommender card has the same height */}
       <div className="p-4 pb-2">
-        <h3 className="lines-2 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose">
+        <h3 className="lines-2 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose-text">
           {r.name}
         </h3>
       </div>
       <div className="flex h-4 min-w-0 items-center px-4">
         {r.url && <WebsiteLink url={r.url} name={r.name} />}
       </div>
-      <p className="mt-auto px-4 pb-3.5 pt-3 font-mono text-micro text-fg-muted">
+      <p className="mt-auto px-4 pb-3.5 pt-3 font-mono text-micro text-fg-secondary">
         {booksLabel(r.bookCount)}
       </p>
     </div>
@@ -74,12 +74,12 @@ export function RecommenderListItem({
         <span className="font-serif text-sm text-fg-muted/50">{r.name[0]}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+        <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
           {r.name}
         </h3>
         {r.url && <WebsiteLink url={r.url} name={r.name} />}
       </div>
-      <span className="w-20 flex-shrink-0 text-right font-mono text-micro text-fg-muted">
+      <span className="w-20 flex-shrink-0 text-right font-mono text-micro text-fg-secondary">
         {booksLabel(r.bookCount)}
       </span>
     </div>

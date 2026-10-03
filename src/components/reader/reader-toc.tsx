@@ -29,7 +29,7 @@ export function ReaderToc({ toc, open, onClose, onNavigate }: ReaderTocProps) {
           </h2>
           <button
             onClick={onClose}
-            className="text-micro text-fg-muted transition-colors hover:text-fg-primary"
+            className="text-micro text-fg-secondary transition-colors hover:text-fg-primary"
           >
             ESC
           </button>

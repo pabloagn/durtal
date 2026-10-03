@@ -119,7 +119,7 @@ export function CreateItemDialog({
           </label>
           <div className="flex items-center gap-2">
             <TaxonomyColorPicker value={color} onChange={setColor} />
-            <span className="font-mono text-xs text-fg-muted">
+            <span className="font-mono text-xs text-fg-secondary">
               {color ?? "None"}
             </span>
           </div>
@@ -146,7 +146,7 @@ export function CreateItemDialog({
         )}
 
         {/* Error */}
-        {error && <p className="text-xs text-accent-red">{error}</p>}
+        {error && <p className="text-xs text-accent-red-text">{error}</p>}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2">

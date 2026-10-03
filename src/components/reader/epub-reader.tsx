@@ -184,7 +184,7 @@ export function EpubReader({
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-bg-primary">
           <div className="flex flex-col items-center gap-4">
             <div className="h-8 w-8 animate-pulse rounded-sm bg-accent-plum" />
-            <p className="font-mono text-micro text-fg-muted">
+            <p className="font-mono text-micro text-fg-secondary">
               Loading book...
             </p>
           </div>

@@ -213,14 +213,14 @@ export function MarkToggle({
               {marked && date && (
                 <time
                   dateTime={date}
-                  className="ml-auto font-mono text-micro text-fg-muted"
+                  className="ml-auto font-mono text-micro text-fg-secondary"
                   title={`Marked ${formatMarkDate(date)}`}
                 >
                   {formatMarkDate(date)}
                 </time>
               )}
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-fg-muted">
+            <p className="mt-1 text-xs leading-relaxed text-fg-secondary">
               {mark.hint}
             </p>
 
@@ -259,7 +259,7 @@ export function MarkToggle({
                     onDateChange(localToday());
                     setEditing(false);
                   }}
-                  className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-1 text-micro text-fg-muted hover:bg-bg-tertiary hover:text-fg-primary"
+                  className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-1 text-micro text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
                 >
                   Today
                 </button>
@@ -272,7 +272,7 @@ export function MarkToggle({
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="-ml-1.5 rounded-sm px-1.5 py-0.5 text-micro text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                  className="-ml-1.5 rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
                 >
                   Change date
                 </button>
@@ -281,7 +281,7 @@ export function MarkToggle({
                 type="button"
                 disabled={pending}
                 onClick={onToggle}
-                className="-mr-1.5 ml-auto rounded-sm px-1.5 py-0.5 text-micro text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-50"
+                className="-mr-1.5 ml-auto rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-50"
               >
                 {action}
               </button>

@@ -65,7 +65,7 @@ export function CreateFamilyDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         <FamilyForm value={value} onChange={setValue} />
         {error && (
-          <p role="alert" className="text-xs text-accent-red">
+          <p role="alert" className="text-xs text-accent-red-text">
             {error}
           </p>
         )}

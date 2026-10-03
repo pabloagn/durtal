@@ -104,11 +104,11 @@ export function AddSeriesBooksDialog({
         />
         <div className="max-h-[40dvh] space-y-1 overflow-y-auto">
           {!query.trim() ? (
-            <p className="py-6 text-center text-sm text-fg-muted">
+            <p className="py-6 text-center text-sm text-fg-secondary">
               Type a title or an author.
             </p>
           ) : loading ? (
-            <p role="status" className="py-6 text-center text-sm text-fg-muted">
+            <p role="status" className="py-6 text-center text-sm text-fg-secondary">
               Finding books…
             </p>
           ) : results.length ? (
@@ -145,12 +145,12 @@ export function AddSeriesBooksDialog({
                   </div>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{w.title}</span>
-                    <span className="block truncate text-xs text-fg-muted">
+                    <span className="block truncate text-xs text-fg-secondary">
                       {w.authors}
                     </span>
                     {w.seriesTitle && (
                       <span
-                        className={`block truncate text-xs ${inThis ? "text-fg-muted" : "text-accent-gold"}`}
+                        className={`block truncate text-xs ${inThis ? "text-fg-secondary" : "text-accent-gold"}`}
                       >
                         {inThis
                           ? "Already in this series"
@@ -162,7 +162,7 @@ export function AddSeriesBooksDialog({
               );
             })
           ) : (
-            <p className="py-6 text-center text-sm text-fg-muted">
+            <p className="py-6 text-center text-sm text-fg-secondary">
               No books match.
             </p>
           )}

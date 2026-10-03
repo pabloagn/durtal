@@ -622,7 +622,7 @@ export function WorkEditDialog({
                           type="button"
                           onClick={() => addNewAuthor(authorSearch)}
                           disabled={isAddingAuthor}
-                          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+                          className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
                         >
                           {isAddingAuthor ? (
                             <Loader2
@@ -642,7 +642,7 @@ export function WorkEditDialog({
                         setShowAuthorAdd(false);
                         setAuthorSearch("");
                       }}
-                      className="mt-2 text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+                      className="mt-2 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                     >
                       Cancel
                     </button>
@@ -651,7 +651,7 @@ export function WorkEditDialog({
                   <button
                     type="button"
                     onClick={() => setShowAuthorAdd(true)}
-                    className="flex items-center gap-1.5 rounded-sm border border-dashed border-glass-border px-3 py-2 text-sm text-fg-muted transition-colors hover:border-bg-secondary hover:text-fg-secondary"
+                    className="flex items-center gap-1.5 rounded-sm border border-dashed border-glass-border px-3 py-2 text-sm text-fg-secondary transition-colors hover:border-bg-secondary hover:text-fg-primary"
                   >
                     <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Add author

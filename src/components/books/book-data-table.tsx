@@ -67,7 +67,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
         <div className="flex items-center gap-2">
         <Link
           href={`/library/${book.slug}`}
-          className="flex items-center gap-2 hover:text-accent-rose"
+          className="flex items-center gap-2 hover:text-accent-rose-text"
         >
           <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (

@@ -129,7 +129,7 @@ const PIPELINE_COLUMNS: { status: OrderStatus; label: string }[] = [
 ];
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
-  placed: "text-fg-muted",
+  placed: "text-fg-secondary",
   confirmed: "text-accent-blue",
   processing: "text-accent-gold",
   shipped: "text-accent-sage",
@@ -140,8 +140,8 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   received: "text-accent-sage",
   bid: "text-accent-gold",
   won: "text-accent-sage",
-  cancelled: "text-accent-red",
-  returned: "text-accent-red",
+  cancelled: "text-accent-red-text",
+  returned: "text-accent-red-text",
 };
 
 const STATUS_BADGE_VARIANT: Record<
@@ -320,7 +320,7 @@ function StatCard({
     <div className="rounded-sm border border-glass-border bg-bg-secondary p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="font-mono text-micro text-fg-muted uppercase tracking-wider">
+          <p className="font-mono text-micro text-fg-secondary uppercase tracking-wider">
             {label}
           </p>
           <p
@@ -328,7 +328,7 @@ function StatCard({
           >
             {value}
           </p>
-          {subtext && <p className="mt-1 text-xs text-fg-muted">{subtext}</p>}
+          {subtext && <p className="mt-1 text-xs text-fg-secondary">{subtext}</p>}
         </div>
         <div className="rounded-sm border border-glass-border bg-bg-tertiary/40 p-2">
           <Icon
@@ -402,11 +402,11 @@ function PipelineOrderCard({
           <p className="line-clamp-2 text-xs font-medium leading-snug text-fg-primary">
             {order.work.title}
           </p>
-          <p className="mt-0.5 truncate font-mono text-micro text-fg-muted">
+          <p className="mt-0.5 truncate font-mono text-micro text-fg-secondary">
             {authorName}
           </p>
           {order.venue && (
-            <p className="mt-1 truncate font-mono text-micro text-fg-muted">
+            <p className="mt-1 truncate font-mono text-micro text-fg-secondary">
               {order.venue.name}
             </p>
           )}
@@ -415,13 +415,13 @@ function PipelineOrderCard({
 
       {/* Footer badges */}
       <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-        <span className="font-mono text-micro text-fg-muted">
+        <span className="font-mono text-micro text-fg-secondary">
           {days === 0 ? "today" : `${days}d ago`}
         </span>
 
         {hasEta && (
           <span
-            className={`ml-auto font-mono text-micro ${etaOverdue ? "text-accent-red" : "text-accent-gold"}`}
+            className={`ml-auto font-mono text-micro ${etaOverdue ? "text-accent-red-text" : "text-accent-gold"}`}
           >
             {etaOverdue
               ? `${Math.abs(etaDays ?? 0)}d late`
@@ -675,7 +675,7 @@ function OrderDetailPanel({
 
           {/* M1: method-aware order timeline */}
           <div className="mt-6">
-            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+            <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
               Timeline
             </h3>
             <div className="space-y-1">
@@ -693,11 +693,11 @@ function OrderDetailPanel({
                     />
                   )}
                   <span
-                    className={`text-xs ${done ? "text-fg-primary" : "text-fg-muted"}`}
+                    className={`text-xs ${done ? "text-fg-primary" : "text-fg-secondary"}`}
                   >
                     {label}
                   </span>
-                  <span className="ml-auto font-mono text-micro text-fg-muted">
+                  <span className="ml-auto font-mono text-micro text-fg-secondary">
                     {formatDate(date)}
                   </span>
                 </div>
@@ -708,13 +708,13 @@ function OrderDetailPanel({
           {/* Shipping info */}
           {(order.carrier || order.trackingNumber) && (
             <div className="mt-6">
-              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
                 Shipping
               </h3>
               <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
                 {order.carrier && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-muted">Carrier</span>
+                    <span className="text-xs text-fg-secondary">Carrier</span>
                     <span className="text-xs text-fg-primary">
                       {order.carrier}
                     </span>
@@ -722,7 +722,7 @@ function OrderDetailPanel({
                 )}
                 {order.trackingNumber && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-muted">Tracking #</span>
+                    <span className="text-xs text-fg-secondary">Tracking #</span>
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-micro text-fg-primary">
                         {order.trackingNumber}
@@ -747,13 +747,13 @@ function OrderDetailPanel({
           {/* Price breakdown */}
           {(order.price || order.totalCost) && (
             <div className="mt-6">
-              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
                 Cost
               </h3>
               <div className="rounded-sm border border-glass-border bg-bg-tertiary/30 p-3 space-y-2">
                 {order.price && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-muted">Price</span>
+                    <span className="text-xs text-fg-secondary">Price</span>
                     <span className="font-mono text-micro text-fg-primary">
                       {formatMoney(order.price, order.currency)}
                     </span>
@@ -761,7 +761,7 @@ function OrderDetailPanel({
                 )}
                 {order.shippingCost && parseFloat(order.shippingCost) > 0 && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-muted">Shipping</span>
+                    <span className="text-xs text-fg-secondary">Shipping</span>
                     <span className="font-mono text-micro text-fg-primary">
                       {formatMoney(order.shippingCost, order.currency)}
                     </span>
@@ -784,7 +784,7 @@ function OrderDetailPanel({
           {/* Venue */}
           {order.venue && (
             <div className="mt-6">
-              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-muted">
+              <h3 className="mb-3 font-mono text-micro uppercase tracking-wider text-fg-secondary">
                 Venue
               </h3>
               <Link
@@ -831,7 +831,7 @@ function OrderDetailPanel({
           {/* Notes */}
           {order.notes && (
             <div className="mt-6">
-              <h3 className="mb-2 font-mono text-micro uppercase tracking-wider text-fg-muted">
+              <h3 className="mb-2 font-mono text-micro uppercase tracking-wider text-fg-secondary">
                 Notes
               </h3>
               <p className="text-xs leading-relaxed text-fg-secondary">
@@ -891,7 +891,7 @@ function OrderDetailPanel({
                           onClick={() => handleStatusChange(s)}
                           className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-bg-tertiary ${
                             isDestructive
-                              ? "text-accent-red hover:text-accent-red"
+                              ? "text-accent-red-text hover:text-accent-red-text"
                               : "text-fg-secondary hover:text-fg-primary"
                           }`}
                         >
@@ -1167,7 +1167,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       <p className="truncate text-sm text-fg-primary">
                         {order.work.title}
                       </p>
-                      <p className="truncate text-xs text-fg-muted">
+                      <p className="truncate text-xs text-fg-secondary">
                         {authorName}
                       </p>
                     </div>
@@ -1177,7 +1177,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                     <Badge variant="muted">
                       {METHOD_LABELS[order.acquisitionMethod]}
                     </Badge>
-                    <span className="font-mono text-micro text-fg-muted">
+                    <span className="font-mono text-micro text-fg-secondary">
                       {formatDate(order.orderDate)}
                     </span>
                     <ChevronRight
@@ -1230,7 +1230,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       <p className="truncate text-sm text-fg-primary">
                         {order.work.title}
                       </p>
-                      <p className="truncate text-xs text-fg-muted">
+                      <p className="truncate text-xs text-fg-secondary">
                         {authorName}
                       </p>
                     </div>
@@ -1238,7 +1238,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       {order.status.replace(/_/g, " ")}
                     </Badge>
                     <Badge variant="muted">Auction</Badge>
-                    <span className="font-mono text-micro text-fg-muted">
+                    <span className="font-mono text-micro text-fg-secondary">
                       {formatDate(order.orderDate)}
                     </span>
                     <ChevronRight
@@ -1261,7 +1261,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
             <p className="font-serif text-xl text-fg-secondary">
               No active orders
             </p>
-            <p className="mt-1 text-sm text-fg-muted">
+            <p className="mt-1 text-sm text-fg-secondary">
               Create a new order to start tracking provenance
             </p>
           </div>

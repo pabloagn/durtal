@@ -364,7 +364,7 @@ export function EditionForm({
                 update("publishers", [...values.publishers!, p])
               }
             />
-            <p className="text-xs text-fg-muted">
+            <p className="text-xs text-fg-secondary">
               These links are preserved during metadata refresh. The original
               publication text stays below.
             </p>
@@ -578,7 +578,7 @@ export function EditionForm({
       <Section title="Cover">
         {existingCoverUrl && (
           <div className="mb-2">
-            <p className="mb-1.5 text-xs text-fg-muted">Current cover</p>
+            <p className="mb-1.5 text-xs text-fg-secondary">Current cover</p>
             <img
               src={existingCoverUrl}
               alt="Current cover"
@@ -594,7 +594,7 @@ export function EditionForm({
           onChange={(e) => update("coverSourceUrl", e.target.value)}
           placeholder="https://..."
         />
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           Entering a new URL will re-process the cover on save.
         </p>
       </Section>
@@ -611,7 +611,7 @@ export function EditionForm({
                 <span className="flex-1 text-xs text-fg-secondary">
                   {c.authorName}
                 </span>
-                <span className="text-xs text-fg-muted capitalize">
+                <span className="text-xs text-fg-secondary capitalize">
                   {c.role}
                 </span>
                 <button
@@ -685,7 +685,7 @@ export function EditionForm({
       <Section title="Genres & Tags">
         {availableGenres.length > 0 && (
           <div>
-            <p className="mb-2 text-xs text-fg-muted">Genres</p>
+            <p className="mb-2 text-xs text-fg-secondary">Genres</p>
             <div className="flex flex-wrap gap-2">
               {availableGenres.map((g) => {
                 const selected = values.genreIds.includes(g.id);
@@ -696,8 +696,8 @@ export function EditionForm({
                     onClick={() => toggleGenre(g.id)}
                     className={`rounded-sm border px-2 py-0.5 text-xs transition-colors ${
                       selected
-                        ? "border-accent-rose bg-accent-rose/10 text-accent-rose"
-                        : "border-glass-border text-fg-muted hover:border-fg-muted hover:text-fg-secondary"
+                        ? "border-accent-rose bg-accent-rose/10 text-accent-rose-text"
+                        : "border-glass-border text-fg-secondary hover:border-fg-muted hover:text-fg-primary"
                     }`}
                   >
                     {g.name}
@@ -709,7 +709,7 @@ export function EditionForm({
         )}
         {availableTags.length > 0 && (
           <div>
-            <p className="mb-2 text-xs text-fg-muted">Tags</p>
+            <p className="mb-2 text-xs text-fg-secondary">Tags</p>
             <div className="flex flex-wrap gap-2">
               {availableTags.map((t) => {
                 const selected = values.tagIds.includes(t.id);
@@ -720,8 +720,8 @@ export function EditionForm({
                     onClick={() => toggleTag(t.id)}
                     className={`rounded-sm border px-2 py-0.5 text-xs transition-colors ${
                       selected
-                        ? "border-accent-rose bg-accent-rose/10 text-accent-rose"
-                        : "border-glass-border text-fg-muted hover:border-fg-muted hover:text-fg-secondary"
+                        ? "border-accent-rose bg-accent-rose/10 text-accent-rose-text"
+                        : "border-glass-border text-fg-secondary hover:border-fg-muted hover:text-fg-primary"
                     }`}
                   >
                     {t.name}
@@ -745,7 +745,7 @@ export function EditionForm({
           Lock metadata (prevent auto-updates)
         </label>
         {values.metadataSource && (
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             Source:{" "}
             <span className="text-fg-secondary">{values.metadataSource}</span>
           </p>

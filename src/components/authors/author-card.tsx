@@ -158,7 +158,7 @@ export function AuthorCard({
           </p>
           <div className="mt-2.5 flex h-5 items-center gap-2">
             {years && (
-              <span className="font-mono text-micro text-fg-muted">{years}</span>
+              <span className="font-mono text-micro text-fg-secondary">{years}</span>
             )}
           </div>
         </div>

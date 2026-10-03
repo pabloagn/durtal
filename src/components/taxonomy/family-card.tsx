@@ -69,7 +69,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
         </CapAligned>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <h3 className="truncate font-serif text-base text-fg-primary transition-colors group-hover:text-accent-rose">
+            <h3 className="truncate font-serif text-base text-fg-primary transition-colors group-hover:text-accent-rose-text">
               {family.name}
             </h3>
             {family.isSystem && (
@@ -82,23 +82,23 @@ export function FamilyCard({ family }: FamilyCardProps) {
           <p className="mt-0.5 lines-2 text-xs leading-relaxed text-fg-secondary">
             {family.description}
           </p>
-          <p className="mt-0.5 lines-1 text-xs text-fg-muted">{appliesTo}</p>
+          <p className="mt-0.5 lines-1 text-xs text-fg-secondary">{appliesTo}</p>
         </div>
       </div>
 
       {/* Stats row */}
       <div className="mt-3 flex items-center gap-3 overflow-hidden whitespace-nowrap border-t border-glass-border/40 pt-2.5">
-        <span className="font-mono text-micro text-fg-muted">
+        <span className="font-mono text-micro text-fg-secondary">
           {family.itemCount} item{family.itemCount === 1 ? "" : "s"}
         </span>
         <span className="text-fg-muted/30">|</span>
-        <span className="font-mono text-micro text-fg-muted">
+        <span className="font-mono text-micro text-fg-secondary">
           {family.entityCount} classified
         </span>
         {family.hierarchical && (
           <>
             <span className="text-fg-muted/30">|</span>
-            <span className="font-mono text-micro text-fg-muted">
+            <span className="font-mono text-micro text-fg-secondary">
               hierarchical
             </span>
           </>

@@ -218,7 +218,7 @@ function CloseButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="absolute right-2 top-2 text-fg-muted hover:text-fg-secondary"
+      className="absolute right-2 top-2 text-fg-secondary hover:text-fg-primary"
       aria-label="Close"
     >
       <svg
@@ -411,7 +411,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
   if (!token) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="font-mono text-sm text-fg-muted">
+        <p className="font-mono text-sm text-fg-secondary">
           Map unavailable —{" "}
           <code className="text-fg-secondary">NEXT_PUBLIC_MAPBOX_TOKEN</code> is
           not configured.
@@ -423,7 +423,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
   if (authors.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="font-mono text-sm text-fg-muted">
+        <p className="font-mono text-sm text-fg-secondary">
           No authors with location data match the current filters.
         </p>
       </div>
@@ -486,17 +486,17 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                 <div className="min-w-0 flex-1 pr-3">
                   <Link
                     href={`/authors/${selection.author.slug}`}
-                    className="block truncate font-serif text-sm font-medium text-fg-primary hover:text-accent-rose"
+                    className="block truncate font-serif text-sm font-medium text-fg-primary hover:text-accent-rose-text"
                   >
                     {selection.author.name}
                   </Link>
                   {selection.author.locationName && (
-                    <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">
+                    <p className="mt-0.5 truncate font-mono text-xs text-fg-secondary">
                       {selection.author.locationName}
                     </p>
                   )}
                   {selection.author.birthYear != null && (
-                    <p className="mt-1 font-mono text-xs text-fg-muted">
+                    <p className="mt-1 font-mono text-xs text-fg-secondary">
                       {lifeYears(selection.author.birthYear, selection.author.deathYear)}
                     </p>
                   )}
@@ -505,7 +505,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
               {selection.author.nationalityCode && selection.author.nationalityName && (
                 <button
                   onClick={() => showNationality(selection.author.nationalityCode!)}
-                  className="mt-2 block w-full border-t border-glass-border pt-2 text-left text-xs leading-snug text-fg-secondary transition-colors hover:text-accent-rose"
+                  className="mt-2 block w-full border-t border-glass-border pt-2 text-left text-xs leading-snug text-fg-secondary transition-colors hover:text-accent-rose-text"
                 >
                   {`All authors from ${shortCountryName(selection.author.nationalityName)} \u2192`}
                 </button>
@@ -538,7 +538,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                   ? selection.group.nationalities[0].name
                   : selection.group.locationName || "Authors here"}
               </p>
-              <p className="mt-0.5 font-mono text-xs text-fg-muted">
+              <p className="mt-0.5 font-mono text-xs text-fg-secondary">
                 {selection.group.authors.length} authors
               </p>
 
@@ -550,10 +550,10 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                   <li key={a.id}>
                     <Link
                       href={`/authors/${a.slug}`}
-                      className="flex items-baseline justify-between gap-2 py-0.5 text-xs text-fg-secondary transition-colors hover:text-accent-rose"
+                      className="flex items-baseline justify-between gap-2 py-0.5 text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
                     >
                       <span className="truncate">{a.name}</span>
-                      <span className="flex-shrink-0 font-mono text-[10px] text-fg-muted">
+                      <span className="flex-shrink-0 font-mono text-[10px] text-fg-secondary">
                         {lifeYears(a.birthYear, a.deathYear)}
                       </span>
                     </Link>
@@ -561,7 +561,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                 ))}
               </ul>
               {selection.group.authors.length > POPUP_AUTHOR_LIMIT && (
-                <p className="mt-1 font-mono text-[10px] text-fg-muted">
+                <p className="mt-1 font-mono text-[10px] text-fg-secondary">
                   + {selection.group.authors.length - POPUP_AUTHOR_LIMIT} more
                 </p>
               )}

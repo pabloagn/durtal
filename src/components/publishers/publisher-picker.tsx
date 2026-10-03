@@ -164,7 +164,7 @@ export function PublisherSearch({
                 <>
                   <span className="lines-1 min-w-0">{item.publisher.name}</span>
                   {publisherDetail(item.publisher) && (
-                    <span className="lines-1 min-w-0 shrink-0 text-fg-muted">
+                    <span className="lines-1 min-w-0 shrink-0 text-fg-secondary">
                       {publisherDetail(item.publisher)}
                     </span>
                   )}
@@ -190,7 +190,7 @@ export function PublisherSearch({
             </button>
           ))}
           {!items.length && (
-            <p className="px-2 py-1.5 text-sm text-fg-muted">
+            <p className="px-2 py-1.5 text-sm text-fg-secondary">
               {isSearching ? "Searching…" : "No publisher found"}
             </p>
           )}

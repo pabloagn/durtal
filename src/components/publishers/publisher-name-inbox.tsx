@@ -78,7 +78,7 @@ function AutomaticLine({ row }: { row: PublisherNameRow }) {
     <p className="text-sm text-fg-secondary">
       <span className="text-accent-sage">Safe to decide:</span>{" "}
       {a.action === "alias" ? `link to ${a.publisher.name}` : `new house “${a.name}”`}
-      <span className="text-fg-muted"> · {a.reason}</span>
+      <span className="text-fg-secondary"> · {a.reason}</span>
     </p>
   );
 }
@@ -106,7 +106,7 @@ function NameRow({
     <article className="space-y-3 rounded-sm border border-glass-border p-4">
       <div className="space-y-1">
         <h3 className="font-serif text-xl text-fg-primary">{row.name}</h3>
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           {plural(row.editions.length, "edition")}
           {row.prefixes.length > 0 &&
             ` · ISBN ${row.prefixes.map((p) => p.label).join(", ")}`}
@@ -124,7 +124,7 @@ function NameRow({
           </Link>
         ))}
         {row.editions.length > COVERS && (
-          <span className="flex h-12 items-center px-1 text-xs text-fg-muted">
+          <span className="flex h-12 items-center px-1 text-xs text-fg-secondary">
             +{row.editions.length - COVERS}
           </span>
         )}
@@ -143,7 +143,7 @@ function NameRow({
           >
             {s.publisher.name}
           </Link>
-          <span className="text-fg-muted"> · {s.reason}</span>
+          <span className="text-fg-secondary"> · {s.reason}</span>
         </p>
       ))}
       <div className="flex flex-wrap gap-2">
@@ -287,12 +287,12 @@ export function PublisherNameInbox({
         />
       ))}
       {!rows.length && (
-        <p className="py-6 text-fg-muted">Every edition with a publisher name has a house.</p>
+        <p className="py-6 text-fg-secondary">Every edition with a publisher name has a house.</p>
       )}
       {decisions.length > 0 && (
         <section className="space-y-2 border-t border-glass-border pt-5">
           <h2 className="font-serif text-xl text-fg-primary">Automatic decisions</h2>
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             Made when books were added or from the safe list. Undo returns the
             name here for you to decide; it is never decided automatically again.
           </p>
@@ -302,7 +302,7 @@ export function PublisherNameInbox({
                 key={d.id}
                 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-fg-secondary"
               >
-                <span className="font-mono text-xs text-fg-muted">
+                <span className="font-mono text-xs text-fg-secondary">
                   {d.createdAt.slice(0, 10)}
                 </span>
                 <span>
@@ -315,11 +315,11 @@ export function PublisherNameInbox({
                     "a removed house"
                   )}
                 </span>
-                <span className="text-xs text-fg-muted">
+                <span className="text-xs text-fg-secondary">
                   {plural(d.editionCount, "edition")} · {d.reason}
                 </span>
                 {d.undone ? (
-                  <span className="text-xs text-fg-muted">Undone</span>
+                  <span className="text-xs text-fg-secondary">Undone</span>
                 ) : (
                   <button
                     type="button"
@@ -330,7 +330,7 @@ export function PublisherNameInbox({
                         return "Undone";
                       })
                     }
-                    className="text-xs text-fg-muted transition-colors hover:text-fg-primary"
+                    className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                   >
                     Undo
                   </button>
@@ -343,7 +343,7 @@ export function PublisherNameInbox({
       {ignored.length > 0 && (
         <section className="space-y-2 border-t border-glass-border pt-5">
           <h2 className="font-serif text-xl text-fg-primary">Not publishers</h2>
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             These names never link to a house. Their editions link by ISBN only.
           </p>
           <ul className="space-y-1">
@@ -358,7 +358,7 @@ export function PublisherNameInbox({
                       await restorePublisherName(n.key);
                     })
                   }
-                  className="text-xs text-fg-muted transition-colors hover:text-fg-primary"
+                  className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                 >
                   Restore
                 </button>

@@ -181,7 +181,7 @@ export function PublisherEditor({
               ))}
           </div>
         </div>
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           Alternative names help match imported editions. Shared or ambiguous
           names stay unresolved for review.
         </p>

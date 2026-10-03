@@ -104,7 +104,7 @@ export function AddCollectionBooksDialog({
         />
         <div className="max-h-[40dvh] space-y-1 overflow-y-auto">
           {loading ? (
-            <p role="status" className="py-6 text-center text-sm text-fg-muted">
+            <p role="status" className="py-6 text-center text-sm text-fg-secondary">
               Finding books…
             </p>
           ) : error ? (
@@ -143,10 +143,10 @@ export function AddCollectionBooksDialog({
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm">{e.editionTitle}</span>
-                    <span className="block text-xs text-fg-muted">
+                    <span className="block text-xs text-fg-secondary">
                       {e.authorName}
                     </span>
-                    <span className="block text-xs text-fg-muted">
+                    <span className="block text-xs text-fg-secondary">
                       {[e.publisher, e.publicationYear, e.language, e.isbn13]
                         .filter(Boolean)
                         .join(" · ")}
@@ -157,13 +157,13 @@ export function AddCollectionBooksDialog({
               );
             })
           ) : (
-            <p className="py-6 text-center text-sm text-fg-muted">
+            <p className="py-6 text-center text-sm text-fg-secondary">
               No editions match. Try another title, author or ISBN.
             </p>
           )}
         </div>
         {results.length === 30 && !loading && (
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             Showing the first 30 matches. Refine your search to find more.
           </p>
         )}
@@ -177,7 +177,7 @@ export function AddCollectionBooksDialog({
                 <button
                   key={id}
                   type="button"
-                  className="block text-xs text-fg-muted"
+                  className="block text-xs text-fg-secondary"
                   disabled={saving}
                   onClick={() =>
                     setSelected((old) => {
@@ -194,7 +194,7 @@ export function AddCollectionBooksDialog({
           </details>
         )}
         <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-3">
-          <span className="text-xs text-fg-muted">{ids.length} selected</span>
+          <span className="text-xs text-fg-secondary">{ids.length} selected</span>
           <div className="flex gap-2">
             <Button disabled={saving} onClick={onClose}>
               Cancel

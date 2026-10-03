@@ -115,14 +115,14 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <span className="font-mono text-xs text-fg-muted">
+          <span className="font-mono text-xs text-fg-secondary">
             Loading activity...
           </span>
         </div>
       ) : events.length === 0 ? (
         <>
           <div className="flex items-center justify-center py-6">
-            <span className="font-mono text-xs text-fg-muted">
+            <span className="font-mono text-xs text-fg-secondary">
               No activity yet
             </span>
           </div>
@@ -170,7 +170,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="flex items-center gap-1 rounded-sm px-3 py-1.5 font-mono text-xs text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+                className="flex items-center gap-1 rounded-sm px-3 py-1.5 font-mono text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
               >
                 <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
                 {loadingMore ? "Loading..." : "Show more"}

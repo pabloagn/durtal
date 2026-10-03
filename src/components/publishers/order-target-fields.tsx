@@ -36,13 +36,13 @@ export function OrderTargetFields({
   }, [workId]);
   if (error)
     return (
-      <p role="alert" className="text-sm text-accent-red">
+      <p role="alert" className="text-sm text-accent-red-text">
         Could not load edition preferences. Reopen the form to try again.
       </p>
     );
   if (!data)
     return (
-      <p className="text-xs text-fg-muted">Loading edition preferences…</p>
+      <p className="text-xs text-fg-secondary">Loading edition preferences…</p>
     );
   const editions = data.editions.filter(
     (e) =>
@@ -102,7 +102,7 @@ export function OrderTargetFields({
         </select>
       </label>
       {value.acquisitionTargetId && !value.editionId && (
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           Identify the matching edition before marking this purchase as
           received. Add an edition on the book page if needed.
         </p>

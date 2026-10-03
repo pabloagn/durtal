@@ -80,12 +80,12 @@ export function InstanceStatusButton({
       case "missing":
       case "damaged":
       case "deaccessioned":
-        return "text-accent-red border-accent-red/30";
+        return "text-accent-red-text border-accent-red/30";
       case "in_transit":
       case "in_storage":
-        return "text-fg-muted border-glass-border";
+        return "text-fg-secondary border-glass-border";
       default:
-        return "text-fg-muted border-glass-border";
+        return "text-fg-secondary border-glass-border";
     }
   })();
 
@@ -118,14 +118,14 @@ export function InstanceStatusButton({
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="flex-1 rounded-sm bg-accent-rose/10 px-2 py-1 text-xs text-accent-rose hover:bg-accent-rose/20 disabled:opacity-50"
+                  className="flex-1 rounded-sm bg-accent-rose/10 px-2 py-1 text-xs text-accent-rose-text hover:bg-accent-rose/20 disabled:opacity-50"
                 >
                   {isPending ? "..." : "Confirm"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setPendingStatus(null)}
-                  className="rounded-sm px-2 py-1 text-xs text-fg-muted hover:text-fg-secondary"
+                  className="rounded-sm px-2 py-1 text-xs text-fg-secondary hover:text-fg-primary"
                 >
                   Back
                 </button>
@@ -140,13 +140,13 @@ export function InstanceStatusButton({
                 disabled={isPending}
                 className={`w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-bg-tertiary disabled:opacity-50 ${
                   s === currentStatus
-                    ? "text-accent-rose"
+                    ? "text-accent-rose-text"
                     : "text-fg-secondary"
                 }`}
               >
                 {s.replace(/_/g, " ")}
                 {s === currentStatus && (
-                  <span className="ml-1 text-fg-muted">(current)</span>
+                  <span className="ml-1 text-fg-secondary">(current)</span>
                 )}
               </button>
             ))

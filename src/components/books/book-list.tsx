@@ -112,7 +112,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
 
           {/* Info */}
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-serif text-lg text-fg-primary transition-colors group-hover:text-accent-rose">
+            <h3 className="truncate font-serif text-lg text-fg-primary transition-colors group-hover:text-accent-rose-text">
               {book.title}
             </h3>
             <p className="truncate text-sm text-fg-secondary">
@@ -146,14 +146,14 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               ) : null;
             })()}
             {book.publicationYear && (
-              <span className="font-mono text-micro text-fg-muted">
+              <span className="font-mono text-micro text-fg-secondary">
                 {book.publicationYear}
               </span>
             )}
             {book.rating && (
               <Badge variant="gold">{book.rating}/5</Badge>
             )}
-            <span className="w-14 text-right font-mono text-micro text-fg-muted">
+            <span className="w-14 text-right font-mono text-micro text-fg-secondary">
               {book.instanceCount} {book.instanceCount === 1 ? "copy" : "copies"}
             </span>
           </div>

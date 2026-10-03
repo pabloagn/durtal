@@ -413,11 +413,11 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 <div className="mt-2 flex flex-wrap items-center gap-1">
                   {primaryAuthors.map((author, i) => (
                     <span key={author.id} className="text-sm text-fg-secondary">
-                      {i > 0 && <span className="mr-1 text-fg-muted">,</span>}
+                      {i > 0 && <span className="mr-1 text-fg-secondary">,</span>}
                       {author.slug ? (
                         <Link
                           href={`/authors/${author.slug}`}
-                          className="transition-colors hover:text-accent-rose"
+                          className="transition-colors hover:text-accent-rose-text"
                         >
                           {author.name}
                         </Link>
@@ -432,7 +432,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
               {/* Year and rating */}
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 {work.originalYear && (
-                  <span className="font-mono text-xs text-fg-muted">
+                  <span className="font-mono text-xs text-fg-secondary">
                     {work.originalYear}
                   </span>
                 )}
@@ -496,15 +496,15 @@ export default async function WorkDetailPage({ params }: PageProps) {
               {/* Recommended by */}
               {work.workRecommenders.length > 0 && (
                 <div className="mt-3">
-                  <span className="text-xs text-fg-muted">Recommended by </span>
+                  <span className="text-xs text-fg-secondary">Recommended by </span>
                   {work.workRecommenders.map((wr, i) => (
                     <span key={wr.recommender.id}>
                       {i > 0 && (
-                        <span className="text-xs text-fg-muted">, </span>
+                        <span className="text-xs text-fg-secondary">, </span>
                       )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
-                        className="text-xs text-accent-rose transition-colors hover:text-fg-primary"
+                        className="text-xs text-accent-rose-text transition-colors hover:text-fg-primary"
                       >
                         {wr.recommender.name}
                       </Link>
@@ -616,7 +616,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             titleHref={`/series/${work.series.id}`}
             works={seriesWorks}
             caption={(w) => (
-              <p className="mt-1.5 lines-1 text-micro text-fg-muted">
+              <p className="mt-1.5 lines-1 text-micro text-fg-secondary">
                 {w.seriesPosition
                   ? `Volume ${w.seriesPosition}`
                   : "Position not set"}
@@ -689,7 +689,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             caption={
               workCollections.length > 1
                 ? (w) => (
-                    <p className="mt-1.5 lines-2 text-micro text-fg-muted">
+                    <p className="mt-1.5 lines-2 text-micro text-fg-secondary">
                       {w.reasons.map((r) => r.name).join(" · ")}
                     </p>
                   )
@@ -721,7 +721,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             </h2>
             <Link
               href="/provenance"
-              className="inline-flex items-center gap-1.5 text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+              className="inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
             >
               <Route className="h-3 w-3" strokeWidth={1.5} />
               View pipeline
@@ -760,11 +760,11 @@ export default async function WorkDetailPage({ params }: PageProps) {
                     {order.acquisitionMethod.replace(/_/g, " ")}
                   </span>
                   {order.venue && (
-                    <span className="truncate text-xs text-fg-muted">
+                    <span className="truncate text-xs text-fg-secondary">
                       {order.venue.name}
                     </span>
                   )}
-                  <span className="ml-auto font-mono text-micro text-fg-muted">
+                  <span className="ml-auto font-mono text-micro text-fg-secondary">
                     {new Date(order.orderDate).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "short",
@@ -799,11 +799,11 @@ export default async function WorkDetailPage({ params }: PageProps) {
           </h2>
           <div className="flex flex-wrap gap-4">
             {work.metadataSource && (
-              <span className="text-xs text-fg-muted">
+              <span className="text-xs text-fg-secondary">
                 Metadata:{" "}
                 <span className="text-fg-secondary">{work.metadataSource}</span>
                 {work.metadataSourceId && (
-                  <span className="ml-1 font-mono text-fg-muted">
+                  <span className="ml-1 font-mono text-fg-secondary">
                     ({work.metadataSourceId})
                   </span>
                 )}
@@ -815,7 +815,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-fg-secondary transition-colors hover:text-accent-rose"
+                className="text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
               >
                 {link.label}
               </a>

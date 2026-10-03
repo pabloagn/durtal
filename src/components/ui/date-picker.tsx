@@ -79,7 +79,7 @@ export function DatePicker({
           className="block text-xs font-medium text-fg-secondary"
         >
           {label}
-          {required && <span className="ml-0.5 text-accent-red">*</span>}
+          {required && <span className="ml-0.5 text-accent-red-text">*</span>}
         </label>
       )}
 
@@ -92,7 +92,7 @@ export function DatePicker({
             error ? "border-accent-red" : ""
           } ${open ? "border-accent-rose" : ""}`}
         >
-          <span className={value ? "text-fg-primary" : "text-fg-muted"}>
+          <span className={value ? "text-fg-primary" : "text-fg-secondary"}>
             {value || placeholder}
           </span>
           <CalendarDays
@@ -122,7 +122,7 @@ export function DatePicker({
                   "rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary",
                 weekdays: "flex",
                 weekday:
-                  "w-8 text-center font-mono text-micro text-fg-muted uppercase",
+                  "w-8 text-center font-mono text-micro text-fg-secondary uppercase",
                 week: "flex",
                 day: "p-0",
                 day_button:
@@ -154,7 +154,7 @@ export function DatePicker({
                 <button
                   type="button"
                   onClick={() => handleSelect(undefined)}
-                  className="text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+                  className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                 >
                   Clear date
                 </button>
@@ -164,7 +164,7 @@ export function DatePicker({
         )}
       </div>
 
-      {error && <p className="text-xs text-accent-red">{error}</p>}
+      {error && <p className="text-xs text-accent-red-text">{error}</p>}
     </div>
   );
 }

@@ -61,7 +61,7 @@ export function AddressInput({ value, onChange }: AddressInputProps) {
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium transition-colors ${
               mode === key
                 ? "bg-bg-tertiary text-fg-primary"
-                : "text-fg-muted hover:text-fg-secondary"
+                : "text-fg-secondary hover:text-fg-primary"
             }`}
           >
             <Icon className="h-3 w-3" strokeWidth={1.5} />

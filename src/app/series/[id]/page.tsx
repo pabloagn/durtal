@@ -70,7 +70,7 @@ export default async function SeriesDetailPage({
             {s.title}
           </h1>
           {s.originalTitle && s.originalTitle !== s.title && (
-            <p className="mt-1 text-sm italic text-fg-muted">
+            <p className="mt-1 text-sm italic text-fg-secondary">
               {s.originalTitle}
             </p>
           )}
@@ -117,7 +117,7 @@ export default async function SeriesDetailPage({
               size={24}
               strokeWidth={1}
             />
-            <p className="text-sm text-fg-muted">
+            <p className="text-sm text-fg-secondary">
               No books yet. Use Add books, or pick this series in a book&apos;s
               Edit dialog.
             </p>

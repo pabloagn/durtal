@@ -90,7 +90,7 @@ export function VenueCard({
             </Badge>
           </div>
 
-          <p className="mb-2 flex h-4 items-start gap-1 text-xs text-fg-muted">
+          <p className="mb-2 flex h-4 items-start gap-1 text-xs text-fg-secondary">
             {location && (
               <>
                 <CapAligned height={12}><MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} /></CapAligned>

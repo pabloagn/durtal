@@ -121,7 +121,7 @@ export function MonochromeControls({
         <button
           type="button"
           onClick={handleReset}
-          className="flex items-center gap-1 text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+          className="flex items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
         >
           <RotateCcw className="h-3 w-3" strokeWidth={1.5} />
           Reset to defaults

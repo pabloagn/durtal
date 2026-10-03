@@ -95,7 +95,7 @@ export function CreateCollectionDialog({
             disabled={saving}
           />
           <details>
-            <summary className="cursor-pointer text-xs text-fg-muted">
+            <summary className="cursor-pointer text-xs text-fg-secondary">
               Add a description
             </summary>
             <Textarea
@@ -107,7 +107,7 @@ export function CreateCollectionDialog({
               disabled={saving}
             />
           </details>
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             Add books and artwork after creating it.
           </p>
           <div className="flex justify-end gap-2">

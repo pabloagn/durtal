@@ -16,7 +16,7 @@ const variantStyles: Record<Variant, string> = {
   ghost:
     "text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary active:bg-bg-tertiary/80",
   danger:
-    "bg-accent-red/8 text-accent-red border border-accent-red/15 hover:bg-accent-red/15 active:bg-accent-red/20",
+    "bg-accent-red/8 text-accent-red-text border border-accent-red/15 hover:bg-accent-red/15 active:bg-accent-red/20",
 };
 
 const sizeStyles: Record<Size, string> = {

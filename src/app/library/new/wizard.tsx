@@ -595,10 +595,10 @@ export function AddBookWizard() {
                 onClick={() => isCompleted && setStep(s.key)}
                 className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
                   isCurrent
-                    ? "bg-accent-plum text-accent-rose"
+                    ? "bg-accent-plum text-accent-rose-text"
                     : isCompleted
                       ? "text-fg-secondary hover:text-fg-primary cursor-pointer"
-                      : "text-fg-muted cursor-default"
+                      : "text-fg-secondary cursor-default"
                 }`}
               >
                 {isCompleted && (
@@ -685,12 +685,12 @@ export function AddBookWizard() {
                         </p>
                         <div className="mt-1 flex items-center gap-2">
                           {result.publicationYear && (
-                            <span className="font-mono text-micro text-fg-muted">
+                            <span className="font-mono text-micro text-fg-secondary">
                               {result.publicationYear}
                             </span>
                           )}
                           {result.publisher && (
-                            <span className="line-clamp-1 text-micro text-fg-muted">
+                            <span className="line-clamp-1 text-micro text-fg-secondary">
                               {result.publisher}
                             </span>
                           )}
@@ -712,7 +712,7 @@ export function AddBookWizard() {
                   {isSearching && searchResults.length === 0 && (
                     <div className="flex items-center gap-2 px-3 py-4">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" />
-                      <span className="text-xs text-fg-muted">
+                      <span className="text-xs text-fg-secondary">
                         Searching...
                       </span>
                     </div>
@@ -720,7 +720,7 @@ export function AddBookWizard() {
 
                   {!isSearching && searchResults.length === 0 &&
                     searchQuery.trim().length >= 2 && (
-                      <div className="px-3 py-4 text-xs text-fg-muted">
+                      <div className="px-3 py-4 text-xs text-fg-secondary">
                         No books found. Try a different search or enter details
                         manually.
                       </div>
@@ -890,7 +890,7 @@ export function AddBookWizard() {
                               prev.filter((x) => x !== id),
                             )
                           }
-                          className="ml-0.5 text-fg-muted hover:text-fg-primary"
+                          className="ml-0.5 text-fg-secondary hover:text-fg-primary"
                         >
                           x
                         </button>
@@ -921,7 +921,7 @@ export function AddBookWizard() {
             </div>
 
             <div className="border-t border-bg-tertiary pt-4 mt-2">
-              <p className="text-micro font-medium uppercase tracking-wider text-fg-muted mb-3">
+              <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary mb-3">
                 Catalogue status
               </p>
               <div className="grid grid-cols-2 gap-4">
@@ -953,7 +953,7 @@ export function AddBookWizard() {
                 />
               </div>
               {isWishlistStatus && (
-                <p className="mt-2 text-xs text-fg-muted">
+                <p className="mt-2 text-xs text-fg-secondary">
                   You can add copies later from the book detail page.
                 </p>
               )}
@@ -961,7 +961,7 @@ export function AddBookWizard() {
           </div>
 
           {fastTrackError && (
-            <p role="alert" className="text-sm text-accent-red">
+            <p role="alert" className="text-sm text-accent-red-text">
               {fastTrackError}
             </p>
           )}
@@ -1108,7 +1108,7 @@ export function AddBookWizard() {
           {locations.length === 0 ? (
             <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-4 text-xs text-fg-secondary">
               No locations exist yet. Go to{" "}
-              <a href="/locations" className="text-accent-rose underline">
+              <a href="/locations" className="text-accent-rose-text underline">
                 /locations
               </a>{" "}
               to create one first.
@@ -1243,7 +1243,7 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
                     Work
                   </p>
                   <h3 className="mt-1 font-serif text-lg text-fg-primary">
@@ -1300,7 +1300,7 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
                     Edition
                   </p>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
@@ -1338,12 +1338,12 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div className="w-full">
-                  <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
+                  <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
                     Copies ({copiesToCreate.length})
                   </p>
                   <div className="mt-2 space-y-2">
                     {copiesToCreate.length === 0 ? (
-                      <p className="text-xs text-fg-muted">
+                      <p className="text-xs text-fg-secondary">
                         No copies -- you can add them later from the book detail page.
                       </p>
                     ) : (
@@ -1374,7 +1374,7 @@ export function AddBookWizard() {
                               <Badge variant="gold">1st printing</Badge>
                             )}
                             {d.acquisitionPrice && d.acquisitionCurrency && (
-                              <span className="font-mono text-fg-muted">
+                              <span className="font-mono text-fg-secondary">
                                 {d.acquisitionPrice} {d.acquisitionCurrency}
                               </span>
                             )}
@@ -1414,7 +1414,7 @@ export function AddBookWizard() {
               <CardContent className="py-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-micro font-medium uppercase tracking-wider text-fg-muted">
+                    <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
                       Categorization
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">

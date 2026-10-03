@@ -258,7 +258,7 @@ export function UploadZone({
         }`}
       >
         <Upload className="mb-2 h-5 w-5 text-fg-muted" strokeWidth={1.5} />
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           Drop {mediaType} image{multiple ? "s" : ""} here or click to browse
         </p>
         <p className="mt-0.5 text-[10px] text-fg-muted/60">
@@ -287,14 +287,14 @@ export function UploadZone({
               role={u.status === "error" ? "alert" : "status"}
             >
               <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate text-fg-muted">
+                <span className="min-w-0 flex-1 truncate text-fg-secondary">
                   {u.filename}
                 </span>
                 <span
                   className={
                     u.status === "error"
-                      ? "text-accent-red"
-                      : "animate-pulse text-fg-muted"
+                      ? "text-accent-red-text"
+                      : "animate-pulse text-fg-secondary"
                   }
                 >
                   {u.status === "error"
@@ -304,7 +304,7 @@ export function UploadZone({
                 {u.status === "error" && (
                   <button
                     type="button"
-                    className="text-fg-muted hover:text-fg-primary"
+                    className="text-fg-secondary hover:text-fg-primary"
                     aria-label={`Dismiss error for ${u.filename}`}
                     onClick={() =>
                       setUploads((prev) =>
@@ -316,7 +316,7 @@ export function UploadZone({
                   </button>
                 )}
               </div>
-              {u.error && <p className="mt-1 text-accent-red">{u.error}</p>}
+              {u.error && <p className="mt-1 text-accent-red-text">{u.error}</p>}
             </div>
           ))}
         </div>

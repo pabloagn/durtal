@@ -98,7 +98,7 @@ function FamilyAssignment({
 
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 text-sm">
-      <span className="w-32 shrink-0 text-xs leading-6 text-fg-muted">
+      <span className="w-32 shrink-0 text-xs leading-6 text-fg-secondary">
         {family.name}
       </span>
       <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5">
@@ -108,7 +108,7 @@ function FamilyAssignment({
             className="inline-flex items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary"
           >
             {item.parentName && (
-              <span className="text-fg-muted">{item.parentName} ›</span>
+              <span className="text-fg-secondary">{item.parentName} ›</span>
             )}
             {item.name}
             <CapAligned height={16}>
@@ -144,7 +144,7 @@ function FamilyAssignment({
             disabled={saving}
             onClick={() => setSearching(true)}
             aria-label={`Add to ${family.name}`}
-            className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-muted transition-colors hover:text-fg-primary"
+            className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
           >
             <CapAligned height={12}>
               <Plus className="h-3 w-3" strokeWidth={1.5} />
@@ -231,9 +231,9 @@ function ItemSearch({
         className="h-6 w-48 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
       />
       <div className="absolute left-0 top-7 z-20 w-64 rounded-sm border border-glass-border bg-bg-secondary py-1 shadow-lg">
-        {error && <p className="px-2 py-1 text-xs text-accent-red">{error}</p>}
+        {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
         {!error && result === null && (
-          <p className="px-2 py-1 text-xs text-fg-muted">Searching...</p>
+          <p className="px-2 py-1 text-xs text-fg-secondary">Searching...</p>
         )}
         {choices.map((item) => (
           <button
@@ -243,16 +243,16 @@ function ItemSearch({
             className="block w-full truncate px-2 py-1 text-left text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
           >
             {item.parentName && (
-              <span className="text-fg-muted">{item.parentName} › </span>
+              <span className="text-fg-secondary">{item.parentName} › </span>
             )}
             {item.name}
           </button>
         ))}
         {result && !choices.length && !name && (
-          <p className="px-2 py-1 text-xs text-fg-muted">No items yet</p>
+          <p className="px-2 py-1 text-xs text-fg-secondary">No items yet</p>
         )}
         {result?.hasMore && (
-          <p className="px-2 py-1 text-[11px] text-fg-muted">
+          <p className="px-2 py-1 text-[11px] text-fg-secondary">
             More match; type to narrow the list
           </p>
         )}
@@ -261,7 +261,7 @@ function ItemSearch({
             type="button"
             disabled={creating}
             onClick={create}
-            className="block w-full truncate px-2 py-1 text-left text-xs text-accent-rose hover:bg-bg-tertiary"
+            className="block w-full truncate px-2 py-1 text-left text-xs text-accent-rose-text hover:bg-bg-tertiary"
           >
             {creating ? "Creating..." : `Create “${name}”`}
           </button>

@@ -113,7 +113,7 @@ export function AuthorListItem({
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+          <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
             {name}
           </h3>
           <p className="truncate text-sm text-fg-secondary">
@@ -124,9 +124,9 @@ export function AuthorListItem({
         {/* Meta */}
         <div className="flex flex-shrink-0 items-center gap-3">
           {years && (
-            <span className="font-mono text-micro text-fg-muted">{years}</span>
+            <span className="font-mono text-micro text-fg-secondary">{years}</span>
           )}
-          <span className="w-14 text-right font-mono text-micro text-fg-muted">
+          <span className="w-14 text-right font-mono text-micro text-fg-secondary">
             {worksCount} {worksCount === 1 ? "work" : "works"}
           </span>
         </div>

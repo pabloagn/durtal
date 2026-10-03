@@ -65,13 +65,13 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
       </div>
       <div className="p-3.5">
         {/* Fixed lines: every series card has the same height */}
-        <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary group-hover:text-accent-rose">
+        <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary group-hover:text-accent-rose-text">
           {s.title}
         </h3>
-        <p className="mt-0.5 lines-1 text-xs italic text-fg-muted">
+        <p className="mt-0.5 lines-1 text-xs italic text-fg-secondary">
           {s.originalTitle !== s.title ? s.originalTitle : null}
         </p>
-        <p className="mt-2 font-mono text-micro text-fg-muted">
+        <p className="mt-2 font-mono text-micro text-fg-secondary">
           {countsLabel(s)}
         </p>
       </div>
@@ -102,17 +102,17 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+        <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
           {s.title}
         </h3>
         {s.originalTitle && s.originalTitle !== s.title && (
-          <p className="truncate text-xs italic text-fg-muted">
+          <p className="truncate text-xs italic text-fg-secondary">
             {s.originalTitle}
           </p>
         )}
       </div>
       {s.isComplete && <Badge variant="gold">Complete</Badge>}
-      <span className="w-40 flex-shrink-0 text-right font-mono text-micro text-fg-muted">
+      <span className="w-40 flex-shrink-0 text-right font-mono text-micro text-fg-secondary">
         {countsLabel(s)}
       </span>
     </div>

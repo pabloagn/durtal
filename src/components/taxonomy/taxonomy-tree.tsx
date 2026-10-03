@@ -315,7 +315,7 @@ export function TaxonomyTree({
   if (visibleRows.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center">
-        <p className="text-sm text-fg-muted">No items in this family yet.</p>
+        <p className="text-sm text-fg-secondary">No items in this family yet.</p>
       </div>
     );
   }

@@ -93,7 +93,7 @@ export function AuthorMergeDialog({
         <div className="rounded-sm border border-glass-border bg-bg-primary px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-fg-muted">
+              <p className="text-xs text-fg-secondary">
                 Will be deleted ({selectedSources.length})
               </p>
               {selectedSources.length > 0 ? (
@@ -116,15 +116,15 @@ export function AuthorMergeDialog({
                   ))}
                 </div>
               ) : (
-                <p className="mt-0.5 text-sm text-fg-muted">
+                <p className="mt-0.5 text-sm text-fg-secondary">
                   Select duplicates below...
                 </p>
               )}
             </div>
             <ArrowRight className="h-4 w-4 flex-shrink-0 text-fg-muted" strokeWidth={1.5} />
             <div className="min-w-0 flex-shrink-0 text-right">
-              <p className="text-xs text-fg-muted">Will be kept</p>
-              <p className="text-sm font-medium text-accent-rose">
+              <p className="text-xs text-fg-secondary">Will be kept</p>
+              <p className="text-sm font-medium text-accent-rose-text">
                 {targetAuthorName}
               </p>
             </div>
@@ -154,7 +154,7 @@ export function AuthorMergeDialog({
               </button>
             ))
           ) : (
-            <p className="px-3 py-4 text-center text-xs text-fg-muted">
+            <p className="px-3 py-4 text-center text-xs text-fg-secondary">
               No authors found
             </p>
           )}

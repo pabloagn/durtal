@@ -192,7 +192,7 @@ async function PlaceContent({ slug }: { slug: string }) {
                 href={venue.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-2 break-all text-sm text-accent-rose transition-colors hover:underline"
+                className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
               >
                 <CapAligned height={14}><Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                 {venue.website}
@@ -221,7 +221,7 @@ async function PlaceContent({ slug }: { slug: string }) {
                 href={`https://instagram.com/${venue.instagramHandle.replace(/^@/, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-2 break-all text-sm text-accent-rose transition-colors hover:underline"
+                className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
               >
                 <CapAligned height={14}><AtSign className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                 {venue.instagramHandle.startsWith("@")
@@ -252,7 +252,7 @@ async function PlaceContent({ slug }: { slug: string }) {
           <dl className="grid max-w-xs grid-cols-[auto_1fr] gap-x-6 gap-y-2">
             {venue.firstVisitDate && (
               <>
-                <dt className="text-xs text-fg-muted">First visit</dt>
+                <dt className="text-xs text-fg-secondary">First visit</dt>
                 <dd className="text-sm text-fg-secondary">
                   {venue.firstVisitDate}
                 </dd>
@@ -260,7 +260,7 @@ async function PlaceContent({ slug }: { slug: string }) {
             )}
             {venue.lastVisitDate && (
               <>
-                <dt className="text-xs text-fg-muted">Last visit</dt>
+                <dt className="text-xs text-fg-secondary">Last visit</dt>
                 <dd className="text-sm text-fg-secondary">
                   {venue.lastVisitDate}
                 </dd>
@@ -274,7 +274,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       <section className="mb-8">
         <h2 className="mb-3 font-serif text-xl text-fg-primary">Map</h2>
         <div className="flex h-48 items-center justify-center rounded-sm border border-dashed border-glass-border bg-bg-secondary/50">
-          <p className="text-sm text-fg-muted">
+          <p className="text-sm text-fg-secondary">
             Map integration coming soon (Task 0058)
           </p>
         </div>

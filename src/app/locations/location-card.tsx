@@ -127,9 +127,9 @@ export function LocationCard({
           <div className="flex items-center justify-between">
             <Link
               href={`/library?location=${id}`}
-              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-rose"
+              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-rose-text"
             >
-              <h3 className="font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+              <h3 className="font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
                 {name}
               </h3>
               <Badge variant={type === "physical" ? "sage" : "blue"}>
@@ -139,7 +139,7 @@ export function LocationCard({
             </Link>
 
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-fg-muted">
+              <span className="font-mono text-xs text-fg-secondary">
                 {instanceCount} {instanceCount === 1 ? "item" : "items"}
               </span>
               <button

@@ -210,7 +210,7 @@ export function DropdownMenuItem({
     "flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors outline-none";
   const variantClass =
     variant === "danger"
-      ? "text-accent-red hover:bg-accent-red/10 focus:bg-accent-red/10"
+      ? "text-accent-red-text hover:bg-accent-red/10 focus:bg-accent-red/10"
       : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary focus:bg-bg-tertiary focus:text-fg-primary";
   const disabledClass = disabled
     ? "opacity-40 cursor-not-allowed"
@@ -256,7 +256,7 @@ export function DropdownMenuSeparator() {
 
 export function DropdownMenuLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-fg-muted">
+    <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-fg-secondary">
       {children}
     </div>
   );

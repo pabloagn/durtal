@@ -214,7 +214,7 @@ export function GooglePlacesSearch({
 
       {/* Error */}
       {error && !isOpen && (
-        <p className="mt-1.5 text-xs text-accent-red">{error}</p>
+        <p className="mt-1.5 text-xs text-accent-red-text">{error}</p>
       )}
 
       {/* Dropdown */}
@@ -249,7 +249,7 @@ export function GooglePlacesSearch({
                   {place.name}
                 </p>
                 {place.formattedAddress && (
-                  <p className="truncate text-xs text-fg-muted">
+                  <p className="truncate text-xs text-fg-secondary">
                     {place.formattedAddress}
                   </p>
                 )}
@@ -262,7 +262,7 @@ export function GooglePlacesSearch({
       {/* No results */}
       {isOpen && !isLoading && results.length === 0 && query.length >= MIN_QUERY_LENGTH && (
         <div className="absolute z-50 mt-1 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 py-3 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
-          <p className="text-xs text-fg-muted">No results for &ldquo;{query}&rdquo;</p>
+          <p className="text-xs text-fg-secondary">No results for &ldquo;{query}&rdquo;</p>
         </div>
       )}
     </div>

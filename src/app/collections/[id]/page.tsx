@@ -128,7 +128,7 @@ export default async function CollectionPage({
                   {collection.description}
                 </p>
               )}
-              <p className="my-4 text-xs text-fg-muted">
+              <p className="my-4 text-xs text-fg-secondary">
                 {bookCount} {bookCount === 1 ? "book" : "books"} · {total}{" "}
                 {total === 1 ? "edition" : "editions"}
               </p>
@@ -192,12 +192,12 @@ export default async function CollectionPage({
                       <p className="mt-1 lines-1 text-sm text-fg-secondary">
                         {names.join(" & ")}
                       </p>
-                      <p className="mt-2 lines-1 text-xs text-fg-muted">
+                      <p className="mt-2 lines-1 text-xs text-fg-secondary">
                         {[e.publisher, e.publicationYear, e.language, e.binding]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
-                      <p className="mt-1 lines-1 font-mono text-xs text-fg-muted">
+                      <p className="mt-1 lines-1 font-mono text-xs text-fg-secondary">
                         {e.isbn13}
                       </p>
                       <div className="mt-auto flex items-center justify-between pt-3">
@@ -227,7 +227,7 @@ export default async function CollectionPage({
             strokeWidth={1}
           />
           <h2 className="font-serif text-2xl">Build your collection</h2>
-          <p className="mt-2 text-sm text-fg-muted">
+          <p className="mt-2 text-sm text-fg-secondary">
             Use Add books above, or select books in your library and choose
             Collections.
           </p>

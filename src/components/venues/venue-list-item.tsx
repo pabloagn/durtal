@@ -60,7 +60,7 @@ export function VenueListItem({
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2 font-serif text-lg">
-            <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose">
+            <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
               {name}
             </h3>
             {isFavorite && (
@@ -68,7 +68,7 @@ export function VenueListItem({
             )}
           </div>
           {location && (
-            <p className="flex items-start gap-1 truncate text-xs text-fg-muted">
+            <p className="flex items-start gap-1 truncate text-xs text-fg-secondary">
               <CapAligned height={10}><MapPin className="h-2.5 w-2.5 shrink-0" strokeWidth={1.5} /></CapAligned>
               {location}
             </p>

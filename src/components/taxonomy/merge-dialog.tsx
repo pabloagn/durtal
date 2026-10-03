@@ -95,7 +95,7 @@ export function MergeDialog({
 
         {/* Arrow indicator */}
         <div className="flex justify-center">
-          <span className="text-xs text-fg-muted">merges into</span>
+          <span className="text-xs text-fg-secondary">merges into</span>
         </div>
 
         {/* Target search + selection */}
@@ -112,7 +112,7 @@ export function MergeDialog({
           />
           <div className="max-h-40 overflow-y-auto rounded-sm border border-glass-border bg-bg-primary/40">
             {filteredTargets.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-fg-muted">
+              <div className="px-3 py-2 text-xs text-fg-secondary">
                 No matching items
               </div>
             ) : (

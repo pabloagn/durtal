@@ -158,7 +158,7 @@ export function Select({
           className="block text-xs font-medium text-fg-secondary"
         >
           {label}
-          {required && <span className="ml-0.5 text-accent-red">*</span>}
+          {required && <span className="ml-0.5 text-accent-red-text">*</span>}
         </label>
       )}
 
@@ -188,7 +188,7 @@ export function Select({
           <span
             className={
               value === "" || value === undefined
-                ? "text-fg-muted"
+                ? "text-fg-secondary"
                 : "text-fg-primary"
             }
           >
@@ -230,7 +230,7 @@ export function Select({
                   <span>{opt.label}</span>
                   <div className="flex items-center gap-1.5">
                     {isSelected && (
-                      <span className="text-micro text-accent-rose">
+                      <span className="text-micro text-accent-rose-text">
                         &#10003;
                       </span>
                     )}
@@ -266,7 +266,7 @@ export function Select({
         )}
       </div>
 
-      {error && <p className="text-xs text-accent-red">{error}</p>}
+      {error && <p className="text-xs text-accent-red-text">{error}</p>}
     </div>
   );
 }

@@ -100,7 +100,7 @@ export function DataTable<T>({
               {visibleColumns.map((col) => (
                 <th
                   key={col.key}
-                  className="cursor-pointer px-3 py-2 font-normal text-fg-muted transition-colors hover:text-fg-secondary"
+                  className="cursor-pointer px-3 py-2 font-normal text-fg-secondary transition-colors hover:text-fg-primary"
                   onClick={() => toggleSort(col.key)}
                   aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                 >

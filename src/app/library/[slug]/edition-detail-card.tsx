@@ -65,7 +65,7 @@ interface DetailRowProps {
 function DetailRow({ label, children }: DetailRowProps) {
   return (
     <>
-      <dt className="text-xs text-fg-muted">{label}</dt>
+      <dt className="text-xs text-fg-secondary">{label}</dt>
       <dd className="text-sm text-fg-secondary">{children}</dd>
     </>
   );
@@ -140,7 +140,7 @@ export function EditionDetailCard({
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
                 {edition.publisher && <span>{edition.publisher}</span>}
                 {edition.imprint && edition.imprint !== edition.publisher && (
-                  <span className="text-fg-muted">{edition.imprint}</span>
+                  <span className="text-fg-secondary">{edition.imprint}</span>
                 )}
                 {edition.publicationYear && (
                   <span className="font-mono">{edition.publicationYear}</span>
@@ -158,7 +158,7 @@ export function EditionDetailCard({
             <div className="flex flex-col items-end gap-1.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 {edition.isbn13 && (
-                  <span className="font-mono text-xs text-fg-muted">
+                  <span className="font-mono text-xs text-fg-secondary">
                     {edition.isbn13}
                   </span>
                 )}
@@ -215,7 +215,7 @@ export function EditionDetailCard({
 
       {hasDetailGrid && (
         <div className="border-b border-glass-border px-4 py-3">
-          <p className="mb-2 text-xs uppercase tracking-wide text-fg-muted">
+          <p className="mb-2 text-xs uppercase tracking-wide text-fg-secondary">
             Publication Details
           </p>
           <dl className="grid grid-cols-2 gap-x-8 gap-y-1.5">
@@ -292,7 +292,7 @@ export function EditionDetailCard({
           <div className="space-y-2">
             {hasGenres && (
               <div>
-                <p className="mb-1 text-xs uppercase tracking-wide text-fg-muted">
+                <p className="mb-1 text-xs uppercase tracking-wide text-fg-secondary">
                   Genres
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -306,7 +306,7 @@ export function EditionDetailCard({
             )}
             {hasTags && (
               <div>
-                <p className="mb-1 text-xs uppercase tracking-wide text-fg-muted">
+                <p className="mb-1 text-xs uppercase tracking-wide text-fg-secondary">
                   Tags
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -328,7 +328,7 @@ export function EditionDetailCard({
           <div className="flex flex-wrap gap-4">
             {Object.entries(contributorsByRole).map(([role, contributors]) => (
               <div key={role}>
-                <span className="text-xs text-fg-muted capitalize">
+                <span className="text-xs text-fg-secondary capitalize">
                   {role}:{" "}
                 </span>
                 {contributors.map((c, i) => (
@@ -337,7 +337,7 @@ export function EditionDetailCard({
                     {c.author.slug ? (
                       <Link
                         href={`/authors/${c.author.slug}`}
-                        className="text-xs text-fg-secondary transition-colors hover:text-accent-rose"
+                        className="text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
                       >
                         {c.author.name}
                       </Link>
@@ -374,7 +374,7 @@ export function EditionDetailCard({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-fg-muted">No copies recorded</p>
+          <p className="text-xs text-fg-secondary">No copies recorded</p>
         )}
       </CardContent>
     </Card>

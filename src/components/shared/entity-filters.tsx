@@ -128,7 +128,7 @@ export function EntityFilters({
             className={`rounded-sm px-2.5 py-1 text-xs transition-colors ${
               currentSort === opt.value
                 ? "bg-accent-plum text-fg-primary"
-                : "text-fg-muted hover:bg-bg-tertiary hover:text-fg-secondary"
+                : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
             }`}
           >
             {/* The arrow sits on the label's cap-height center */}

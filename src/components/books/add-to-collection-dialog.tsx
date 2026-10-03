@@ -181,13 +181,13 @@ export function AddToCollectionDialog({
             <Button onClick={() => setAttempt((n) => n + 1)}>Retry</Button>
           </div>
         ) : !data ? (
-          <p role="status" className="text-sm text-fg-muted">
+          <p role="status" className="text-sm text-fg-secondary">
             Loading collections…
           </p>
         ) : (
           <>
             {data.withoutEditions.length > 0 && (
-              <p className="text-xs text-fg-muted">
+              <p className="text-xs text-fg-secondary">
                 {data.withoutEditions.map((w) => w.title).join(", ")}: add an
                 edition to include{" "}
                 {data.withoutEditions.length === 1
@@ -222,7 +222,7 @@ export function AddToCollectionDialog({
                       />
                       <span>
                         {e.title}
-                        <span className="block text-fg-muted">
+                        <span className="block text-fg-secondary">
                           {[
                             e.publisher,
                             e.publicationYear,
@@ -304,14 +304,14 @@ export function AddToCollectionDialog({
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {c.name}
                       </span>
-                      <span className="text-xs text-fg-muted">
+                      <span className="text-xs text-fg-secondary">
                         {c.collectionEditions.length}
                       </span>
                     </button>
                   );
                 })
               ) : (
-                <p className="py-4 text-center text-sm text-fg-muted">
+                <p className="py-4 text-center text-sm text-fg-secondary">
                   {query
                     ? "No matching collections. Create one above."
                     : "Name your first collection above."}

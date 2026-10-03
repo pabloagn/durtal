@@ -60,7 +60,7 @@ export function SeriesFields({
             placeholder="Series title"
             required
           />
-          <p className="mt-1 text-xs text-fg-muted">
+          <p className="mt-1 text-xs text-fg-secondary">
             Created when you save the book. An existing series with the same
             name will be reused.
           </p>

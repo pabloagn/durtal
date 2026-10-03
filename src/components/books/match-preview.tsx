@@ -49,12 +49,12 @@ function Value({
     return src ? (
       <img src={src} alt="" className="h-16 w-11 rounded-sm object-cover" />
     ) : (
-      <span className="italic text-fg-muted">none</span>
+      <span className="italic text-fg-secondary">none</span>
     );
   }
   const text = shown(row.field, value);
   if (text === null)
-    return <span className="italic text-fg-muted">empty</span>;
+    return <span className="italic text-fg-secondary">empty</span>;
   return (
     <span
       className={`break-words ${row.field === "description" ? "line-clamp-3" : ""}`}
@@ -69,7 +69,7 @@ function housePath(h: MatchHouse) {
 }
 
 function HouseList({ houses }: { houses: MatchHouse[] }) {
-  if (!houses.length) return <span className="italic text-fg-muted">none</span>;
+  if (!houses.length) return <span className="italic text-fg-secondary">none</span>;
   return (
     <span className="break-words">{houses.map(housePath).join("; ")}</span>
   );
@@ -229,7 +229,7 @@ export function MatchPreviewStep({
                   disabled={!!row.blocked || saving}
                   onChange={(on) => toggle(row.field, on)}
                 />
-                <span className="col-span-3 text-fg-muted sm:col-span-1">
+                <span className="col-span-3 text-fg-secondary sm:col-span-1">
                   {MATCH_FIELD_LABEL[row.field]}
                 </span>
                 <span className="col-start-2 text-fg-secondary sm:col-start-auto">
@@ -244,14 +244,14 @@ export function MatchPreviewStep({
                 {ARROW}
                 <span className="text-fg-primary">
                   {row.next === null ? (
-                    <span className="italic text-fg-muted">clear</span>
+                    <span className="italic text-fg-secondary">clear</span>
                   ) : (
                     <Value row={row} value={row.next} />
                   )}
                 </span>
                 {(row.note || row.blocked) && (
                   <span
-                    className={`col-start-4 text-micro leading-4 sm:col-start-5 ${row.blocked ? "text-accent-red" : "text-fg-muted"}`}
+                    className={`col-start-4 text-micro leading-4 sm:col-start-5 ${row.blocked ? "text-accent-red-text" : "text-fg-secondary"}`}
                   >
                     {row.blocked ?? row.note}
                   </span>
@@ -271,7 +271,7 @@ export function MatchPreviewStep({
                 ) : (
                   <span />
                 )}
-                <span className="col-span-3 text-fg-muted sm:col-span-1">
+                <span className="col-span-3 text-fg-secondary sm:col-span-1">
                   House
                 </span>
                 <span className="col-start-2 text-fg-secondary sm:col-start-auto">
@@ -283,7 +283,7 @@ export function MatchPreviewStep({
                 >
                   <HouseList houses={nextHouses} />
                 </span>
-                <span className="col-start-4 text-micro leading-4 text-fg-muted sm:col-start-5">
+                <span className="col-start-4 text-micro leading-4 text-fg-secondary sm:col-start-5">
                   {houses.confirmed
                     ? relink
                       ? "You set these links by hand. Ticked: they follow the new data."
@@ -299,7 +299,7 @@ export function MatchPreviewStep({
       )}
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-fg-muted">
+        <span className="text-xs text-fg-secondary">
           {preview.same > 0 &&
             `${preview.same} ${preview.same === 1 ? "field agrees" : "fields agree"} already.`}
         </span>

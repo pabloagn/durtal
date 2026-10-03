@@ -152,7 +152,7 @@ export function AddressPostalLookup({ value, onChange }: AddressPostalLookupProp
               .join(", ")}
           </p>
           {value.latitude != null && value.longitude != null && (
-            <p className="mt-1 font-mono text-fg-muted">
+            <p className="mt-1 font-mono text-fg-secondary">
               {value.latitude.toFixed(4)}, {value.longitude.toFixed(4)}
             </p>
           )}

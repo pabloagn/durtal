@@ -67,7 +67,7 @@ export function AcquisitionTargets({
         </Button>
       </div>
       {targets.length === 0 && !open && (
-        <p className="text-sm text-fg-muted">
+        <p className="text-sm text-fg-secondary">
           Choose a preferred publisher or an exact edition to acquire.
         </p>
       )}
@@ -91,7 +91,7 @@ export function AcquisitionTargets({
                 "Any edition"
               )}
             </span>
-            <span className="text-xs text-fg-muted">
+            <span className="text-xs text-fg-secondary">
               {state.replace("_", " ")}
             </span>
             {state === "wanted" && (

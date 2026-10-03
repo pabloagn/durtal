@@ -89,11 +89,11 @@ export function EditionPublishers({
         <button
           type="button"
           onClick={open}
-          className="text-xs text-fg-muted hover:text-fg-primary"
+          className="text-xs text-fg-secondary hover:text-fg-primary"
         >
           {linked.length ? "Edit publisher links" : "Link publisher"}
         </button>
-        {confirmed && <span className="text-xs text-fg-muted">Confirmed</span>}
+        {confirmed && <span className="text-xs text-fg-secondary">Confirmed</span>}
       </div>
       {editing && (
         <div className="max-w-md space-y-3 rounded-sm border border-glass-border p-3">
@@ -172,7 +172,7 @@ export function EditionPublishers({
               </Button>
             )}
           </div>
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             Confirmed links stay unchanged when metadata is refreshed. Add more
             than one for co-published editions.
           </p>

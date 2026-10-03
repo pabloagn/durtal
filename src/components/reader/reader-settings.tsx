@@ -36,7 +36,7 @@ export function ReaderSettings({
           </h2>
           <button
             onClick={onClose}
-            className="text-micro text-fg-muted transition-colors hover:text-fg-primary"
+            className="text-micro text-fg-secondary transition-colors hover:text-fg-primary"
           >
             ESC
           </button>
@@ -45,7 +45,7 @@ export function ReaderSettings({
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Font family */}
           <div>
-            <label className="mb-2 block text-micro font-medium text-fg-muted uppercase tracking-wider">
+            <label className="mb-2 block text-micro font-medium text-fg-secondary uppercase tracking-wider">
               Font
             </label>
             <div className="grid grid-cols-2 gap-1.5">
@@ -109,7 +109,7 @@ export function ReaderSettings({
 
           {/* Text alignment */}
           <div>
-            <label className="mb-2 block text-micro font-medium text-fg-muted uppercase tracking-wider">
+            <label className="mb-2 block text-micro font-medium text-fg-secondary uppercase tracking-wider">
               Alignment
             </label>
             <div className="flex gap-1.5">
@@ -134,7 +134,7 @@ export function ReaderSettings({
         <div className="shrink-0 border-t border-glass-border p-4">
           <button
             onClick={onReset}
-            className="w-full rounded-sm border border-glass-border px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-fg-muted/20 hover:text-fg-secondary"
+            className="w-full rounded-sm border border-glass-border px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:border-fg-muted/20 hover:text-fg-primary"
           >
             Reset to defaults
           </button>
@@ -166,7 +166,7 @@ function SettingSlider({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <label className="text-micro font-medium text-fg-muted uppercase tracking-wider">
+        <label className="text-micro font-medium text-fg-secondary uppercase tracking-wider">
           {label}
         </label>
         <span className="font-mono text-micro text-fg-secondary">

@@ -280,7 +280,7 @@ export function MediaManagerDialog({
               className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
                 activeTab === tab.key
                   ? "bg-bg-tertiary text-fg-primary"
-                  : "text-fg-muted hover:text-fg-secondary"
+                  : "text-fg-secondary hover:text-fg-primary"
               }`}
             >
               {tab.label}
@@ -312,7 +312,7 @@ export function MediaManagerDialog({
                     />
                   </>
                 ) : (
-                  <p className="py-3 text-sm text-fg-muted">
+                  <p className="py-3 text-sm text-fg-secondary">
                     No active {activeTab}
                   </p>
                 )}
@@ -324,7 +324,7 @@ export function MediaManagerDialog({
               <div className="space-y-2">
                 <p className="text-xs font-medium text-fg-secondary">
                   {isGallery ? "Gallery images" : `All ${activeTab}s`}
-                  <span className="ml-1 font-mono text-fg-muted">
+                  <span className="ml-1 font-mono text-fg-secondary">
                     ({items.length})
                   </span>
                 </p>
@@ -424,12 +424,12 @@ export function MediaManagerDialog({
                         {/* Dimensions */}
                         <div className="mt-1 flex flex-col">
                           {item.width && item.height && (
-                            <span className="font-mono text-micro text-fg-muted">
+                            <span className="font-mono text-micro text-fg-secondary">
                               {item.width}x{item.height}
                             </span>
                           )}
                           {isGallery && item.caption && (
-                            <span className="truncate text-micro text-fg-muted">
+                            <span className="truncate text-micro text-fg-secondary">
                               {item.caption}
                             </span>
                           )}
@@ -451,7 +451,7 @@ export function MediaManagerDialog({
             )}
 
             {items.length === 0 && !loading && (
-              <p className="py-4 text-center text-sm text-fg-muted">
+              <p className="py-4 text-center text-sm text-fg-secondary">
                 No {activeTab} images uploaded yet
               </p>
             )}
@@ -469,7 +469,7 @@ export function MediaManagerDialog({
               <button
                 type="button"
                 onClick={() => setShowUrlSection((v) => !v)}
-                className="mt-3 flex items-center gap-1 text-xs text-fg-muted cursor-pointer hover:text-fg-secondary transition-colors"
+                className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors"
               >
                 <ChevronRight
                   className={`h-3 w-3 transition-transform ${showUrlSection ? "rotate-90" : ""}`}

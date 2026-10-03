@@ -111,7 +111,7 @@ export function GallerySectionClient({
           <button
             onClick={handleRandomize}
             disabled={isPending}
-            className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs text-fg-muted transition-colors hover:text-fg-primary disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary disabled:opacity-40"
             aria-label="Randomize layout"
           >
             <Shuffle

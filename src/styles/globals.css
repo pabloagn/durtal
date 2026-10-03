@@ -17,6 +17,9 @@
 
   /* ── Primary accent ──────────────────────────────────────────────────── */
   --color-accent-rose: #7d3d52;
+  /* Rose for text: accent-rose is 2.3–2.6:1 on the backgrounds, this is 4.7–5.3:1.
+     accent-rose stays for fills, borders and rings. */
+  --color-accent-rose-text: #b96b83;
 
   /* ── Selection / underlay ────────────────────────────────────────────── */
   --color-accent-plum: #20131e;
@@ -25,6 +28,8 @@
   --color-accent-gold: #c0a36e;
   --color-accent-sage: #76946a;
   --color-accent-red: #bb3e41;
+  /* Red for text: accent-red is 3.3–3.8:1 on the backgrounds, this is 4.7–5.3:1 */
+  --color-accent-red-text: #cf5f5e;
   --color-accent-blue: #648493;
   --color-accent-slate: #586e75;
 
@@ -278,7 +283,7 @@ dialog::backdrop {
   font-style: italic;
 }
 .bio-content a {
-  color: var(--color-accent-rose);
+  color: var(--color-accent-rose-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color 0.15s;
@@ -340,11 +345,11 @@ dialog::backdrop {
 .tiptap-content blockquote {
   border-left: 2px solid var(--color-bg-tertiary);
   padding-left: 0.75em;
-  color: var(--color-fg-muted);
+  color: var(--color-fg-secondary);
   margin: 0.5em 0;
 }
 .tiptap-content a {
-  color: var(--color-accent-rose);
+  color: var(--color-accent-rose-text);
   text-decoration: underline;
 }
 .tiptap-content ul,

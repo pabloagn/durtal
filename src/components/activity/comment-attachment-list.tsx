@@ -58,7 +58,7 @@ export function CommentAttachmentList({
             <span className="max-w-[120px] truncate text-xs text-fg-secondary">
               {attachment.fileName}
             </span>
-            <span className="font-mono text-micro text-fg-muted">
+            <span className="font-mono text-micro text-fg-secondary">
               {formatFileSize(attachment.fileSize)}
             </span>
           </div>

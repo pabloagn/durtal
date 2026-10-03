@@ -269,14 +269,14 @@ export function BookCard({
           </p>
           <div className="mt-2.5 flex h-5 items-center gap-2">
             {publicationYear && (
-              <span className="font-mono text-micro text-fg-muted">
+              <span className="font-mono text-micro text-fg-secondary">
                 {publicationYear}
               </span>
             )}
             {language && language !== "en" && (
               <Badge variant="blue">{language}</Badge>
             )}
-            <span className="ml-auto font-mono text-micro text-fg-muted">
+            <span className="ml-auto font-mono text-micro text-fg-secondary">
               {instanceCount} {instanceCount === 1 ? "copy" : "copies"}
             </span>
           </div>

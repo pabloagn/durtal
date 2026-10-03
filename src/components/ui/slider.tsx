@@ -23,7 +23,7 @@ export function Slider({
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <label className="text-xs text-fg-secondary">{label}</label>
-        <span className="font-mono text-micro text-fg-muted">
+        <span className="font-mono text-micro text-fg-secondary">
           {formatValue ? formatValue(value) : value.toFixed(2)}
         </span>
       </div>

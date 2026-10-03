@@ -30,7 +30,7 @@ const AuthorsMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-muted">
+      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-secondary">
         Loading map...
       </div>
     ),
@@ -45,7 +45,7 @@ const AuthorTimeline = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-muted">
+      <div className="flex h-full items-center justify-center font-mono text-sm text-fg-secondary">
         Loading timeline...
       </div>
     ),
@@ -108,7 +108,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
       return (
         <Link
           href={`/authors/${author.slug}`}
-          className="flex items-center gap-2 hover:text-accent-rose"
+          className="flex items-center gap-2 hover:text-accent-rose-text"
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
             {author.photoUrl ? (
@@ -156,7 +156,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
           href={author.website}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent-rose hover:underline"
+          className="text-accent-rose-text hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           Link

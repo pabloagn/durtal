@@ -109,7 +109,7 @@ export function DeleteItemDialog({
         )}
 
         {/* Confirmation text */}
-        <p className="text-xs text-fg-muted">
+        <p className="text-xs text-fg-secondary">
           This action cannot be undone.
         </p>
 

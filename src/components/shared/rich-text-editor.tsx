@@ -38,7 +38,7 @@ function ToolbarButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40 disabled:cursor-not-allowed"
+      className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {children}
     </button>
@@ -109,7 +109,7 @@ export function RichTextEditor({
   return (
     <div>
       {label && (
-        <label className="mb-1.5 block text-xs font-medium text-fg-muted">
+        <label className="mb-1.5 block text-xs font-medium text-fg-secondary">
           {label}
         </label>
       )}

@@ -156,7 +156,7 @@ export function Pagination({
   }
   const jumpForm = (
     <form onSubmit={submitJump} className="flex items-center gap-2">
-      <label htmlFor={`${id}-jump`} className="text-xs text-fg-muted">
+      <label htmlFor={`${id}-jump`} className="text-xs text-fg-secondary">
         Go to page
       </label>
       <input
@@ -181,7 +181,7 @@ export function Pagination({
       aria-label={compact ? "Pagination overview" : "Pagination"}
       className="my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums"
     >
-      <p className="text-xs text-fg-muted">
+      <p className="text-xs text-fg-secondary">
         Showing{" "}
         {total ? ((current - 1) * perPage + 1).toLocaleString("en-US") : 0}–
         {Math.min(current * perPage, total).toLocaleString("en-US")} of{" "}
@@ -211,7 +211,7 @@ export function Pagination({
               p === "ellipsis" ? (
                 <span
                   key={`gap-${i}`}
-                  className="px-1 text-fg-muted"
+                  className="px-1 text-fg-secondary"
                   aria-hidden
                 >
                   …
@@ -260,7 +260,7 @@ export function Pagination({
         )}
       </div>
       <label
-        className="flex items-center gap-2 text-xs text-fg-muted"
+        className="flex items-center gap-2 text-xs text-fg-secondary"
         htmlFor={`${id}-size`}
       >
         Per page

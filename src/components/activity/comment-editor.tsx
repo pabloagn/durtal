@@ -60,7 +60,7 @@ function ToolbarButton({
       className={`flex items-center justify-center p-1.5 rounded-sm transition-colors ${
         active
           ? "bg-bg-tertiary text-fg-primary"
-          : "text-fg-muted hover:bg-bg-tertiary hover:text-fg-secondary"
+          : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
       }`}
     >
       {children}
@@ -225,7 +225,7 @@ export function CommentEditor({
         }}
         className="flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary/30 px-3 py-2 text-left transition-colors hover:border-fg-muted/20 hover:bg-bg-secondary/50"
       >
-        <span className="flex-1 text-[13px] text-fg-muted">
+        <span className="flex-1 text-[13px] text-fg-secondary">
           Leave a comment...
         </span>
         <Paperclip
@@ -353,7 +353,7 @@ export function CommentEditor({
             <button
               type="button"
               onClick={onCancelEdit}
-              className="px-2.5 py-1 rounded-sm text-[11px] text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+              className="px-2.5 py-1 rounded-sm text-[11px] text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
             >
               Cancel
             </button>

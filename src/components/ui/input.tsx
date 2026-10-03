@@ -48,7 +48,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         ) : (
           field
         )}
-        {error && <p id={errorId} className="text-xs text-accent-red">{error}</p>}
+        {error && <p id={errorId} className="text-xs text-accent-red-text">{error}</p>}
       </div>
     );
   },

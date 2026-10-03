@@ -98,7 +98,7 @@ async function ItemContent({
   return (
     <div>
       {/* Breadcrumb */}
-      <nav className="mb-6 flex items-center gap-1.5 text-sm text-fg-muted">
+      <nav className="mb-6 flex items-center gap-1.5 text-sm text-fg-secondary">
         <Link
           href="/taxonomy"
           className="transition-colors hover:text-fg-secondary"
@@ -140,7 +140,7 @@ async function ItemContent({
             {entityIds.length === 1 ? "" : "s"}
           </Badge>
           {"createdAt" in item && item.createdAt && (
-            <span className="font-mono text-micro text-fg-muted">
+            <span className="font-mono text-micro text-fg-secondary">
               Created{" "}
               {new Date(item.createdAt as string | Date).toLocaleDateString()}
             </span>
@@ -215,7 +215,7 @@ async function ItemContent({
           <h2 className="mb-4 font-serif text-xl text-fg-primary">
             Associated Editions
           </h2>
-          <p className="text-sm text-fg-muted">
+          <p className="text-sm text-fg-secondary">
             {entityIds.length} edition{entityIds.length === 1 ? "" : "s"}{" "}
             linked to this item.
           </p>

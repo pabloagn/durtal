@@ -29,7 +29,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           } ${className}`}
           {...props}
         />
-        {error && <p id={errorId} className="text-xs text-accent-red">{error}</p>}
+        {error && <p id={errorId} className="text-xs text-accent-red-text">{error}</p>}
       </div>
     );
   },

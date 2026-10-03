@@ -33,7 +33,7 @@ export function ReaderProgressBar({
         {/* Info */}
         <div className="flex items-center gap-2 shrink-0">
           {chapter && (
-            <span className="text-micro text-fg-muted truncate max-w-40">
+            <span className="text-micro text-fg-secondary truncate max-w-40">
               {chapter}
             </span>
           )}

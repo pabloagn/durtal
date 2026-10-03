@@ -57,7 +57,7 @@ export function ReaderLibrary({
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="font-serif text-2xl text-fg-primary">Reader</h1>
-          <p className="mt-1 text-sm text-fg-muted">
+          <p className="mt-1 text-sm text-fg-secondary">
             {total} {total === 1 ? "book" : "books"} in digital library
           </p>
         </div>
@@ -80,7 +80,7 @@ export function ReaderLibrary({
       {/* Continue Reading */}
       {recentlyRead.length > 0 && !query && (
         <section className="mb-8">
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-muted">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-secondary">
             Continue Reading
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -100,7 +100,7 @@ export function ReaderLibrary({
       {/* All books */}
       <section>
         {query && (
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-muted">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-secondary">
             Results for &ldquo;{query}&rdquo;
           </h2>
         )}
@@ -110,7 +110,7 @@ export function ReaderLibrary({
               className="mb-4 h-12 w-12 text-fg-muted"
               strokeWidth={1}
             />
-            <p className="text-sm text-fg-muted">
+            <p className="text-sm text-fg-secondary">
               {query
                 ? "No books match your search."
                 : "No books in the digital library yet. Run the Calibre sync to populate."}
@@ -163,7 +163,7 @@ function ReaderBookCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center p-3">
-            <span className="text-center font-serif text-xs text-fg-muted leading-tight">
+            <span className="text-center font-serif text-xs text-fg-secondary leading-tight">
               {book.title}
             </span>
           </div>
@@ -184,12 +184,12 @@ function ReaderBookCard({
         {/* Format badges */}
         <div className="absolute right-1.5 top-1.5 flex gap-1">
           {hasEpub && (
-            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-nano uppercase text-fg-muted backdrop-blur-sm">
+            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-nano uppercase text-fg-secondary backdrop-blur-sm">
               epub
             </span>
           )}
           {hasPdf && (
-            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-nano uppercase text-fg-muted backdrop-blur-sm">
+            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-nano uppercase text-fg-secondary backdrop-blur-sm">
               pdf
             </span>
           )}
@@ -202,7 +202,7 @@ function ReaderBookCard({
           {book.title}
         </h3>
         {book.authorSort && (
-          <p className="truncate text-micro text-fg-muted">
+          <p className="truncate text-micro text-fg-secondary">
             {book.authorSort}
           </p>
         )}

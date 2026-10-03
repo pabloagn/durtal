@@ -223,7 +223,7 @@ function WorkSearchStep({
           <button
             type="button"
             onClick={() => setShowCreate(false)}
-            className="text-xs text-fg-muted transition-colors hover:text-fg-secondary"
+            className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
           >
             Back to search
           </button>
@@ -240,7 +240,7 @@ function WorkSearchStep({
 
         <div className="space-y-1.5">
           <label className="block text-xs font-medium text-fg-secondary">
-            Author <span className="ml-0.5 text-accent-red">*</span>
+            Author <span className="ml-0.5 text-accent-red-text">*</span>
           </label>
           <div className="relative">
             <input
@@ -282,7 +282,7 @@ function WorkSearchStep({
           {authorQuery.trim() &&
             !isSearchingAuthors &&
             authorResults.length === 0 && (
-              <p className="text-xs text-fg-muted">
+              <p className="text-xs text-fg-secondary">
                 No existing author found. A new author &ldquo;
                 {authorQuery.trim()}&rdquo; will be created.
               </p>
@@ -410,7 +410,7 @@ function WorkSearchStep({
                   <p className="truncate text-sm text-fg-primary">
                     {work.title}
                   </p>
-                  <p className="truncate text-xs text-fg-muted">{authorName}</p>
+                  <p className="truncate text-xs text-fg-secondary">{authorName}</p>
                 </div>
                 {isSelected && (
                   <span className="ml-auto font-mono text-micro text-accent-sage">
@@ -425,7 +425,7 @@ function WorkSearchStep({
 
       {query.trim() && !isSearching && results.length === 0 && (
         <div className="space-y-3 text-center">
-          <p className="text-xs text-fg-muted">
+          <p className="text-xs text-fg-secondary">
             No works found for &ldquo;{query}&rdquo;
           </p>
           <Button

@@ -27,7 +27,7 @@ export default function ImportPage() {
                 Upload a CSV file with book data. The file will be processed
                 through the medallion pipeline (bronze &rarr; silver &rarr; gold).
               </p>
-              <p className="mt-4 text-center text-micro text-fg-muted">
+              <p className="mt-4 text-center text-micro text-fg-secondary">
                 Coming soon &mdash; use Python ingestion scripts for now
               </p>
             </div>
@@ -55,7 +55,7 @@ export default function ImportPage() {
                     scripts/ingest/
                   </code>
                 </p>
-                <div className="mt-3 space-y-1 font-mono text-micro text-fg-muted">
+                <div className="mt-3 space-y-1 font-mono text-micro text-fg-secondary">
                   <p>task ingest:dry &mdash; Preview without writing</p>
                   <p>task ingest &mdash; Full ingestion run</p>
                   <p>task ingest:report &mdash; Post-ingestion report</p>

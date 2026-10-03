@@ -98,7 +98,7 @@ export function DeleteFamilyDialog({
             </div>
           )}
           {error && (
-            <p role="alert" className="text-xs text-accent-red">
+            <p role="alert" className="text-xs text-accent-red-text">
               {error}
             </p>
           )}

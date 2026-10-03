@@ -34,7 +34,7 @@ export default async function ReviewPublisherNames({
   const names = `${inbox.total} name${inbox.total === 1 ? "" : "s"}`;
   return (
     <>
-      <Link href="/publishers" className="text-sm text-fg-muted">
+      <Link href="/publishers" className="text-sm text-fg-secondary">
         ← Publishers
       </Link>
       <PageHeader

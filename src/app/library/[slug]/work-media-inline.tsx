@@ -63,7 +63,7 @@ export function WorkMediaInline({
         )}
       </div>
 
-      <div className="flex gap-4 text-xs text-fg-muted">
+      <div className="flex gap-4 text-xs text-fg-secondary">
         <span>
           <span className="font-mono text-fg-secondary">{posterCount}</span>{" "}
           {posterCount === 1 ? "poster" : "posters"}

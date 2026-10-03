@@ -50,7 +50,7 @@ export default async function RecommenderPage({
                 href={recommender.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-w-0 items-center gap-1.5 font-medium text-fg-primary transition-colors hover:text-accent-rose"
+                className="inline-flex min-w-0 items-center gap-1.5 font-medium text-fg-primary transition-colors hover:text-accent-rose-text"
               >
                 <ExternalLink
                   className="h-3.5 w-3.5 shrink-0"
@@ -83,7 +83,7 @@ export default async function RecommenderPage({
           Books ({count})
         </h2>
         {count === 0 ? (
-          <p className="rounded-sm border border-dashed border-glass-border px-6 py-10 text-center text-sm text-fg-muted">
+          <p className="rounded-sm border border-dashed border-glass-border px-6 py-10 text-center text-sm text-fg-secondary">
             {`No books yet. Add ${recommender.name} in a book's Edit dialog, under Recommended by.`}
           </p>
         ) : (

@@ -115,7 +115,7 @@ export function FilterDropdown({
         className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs transition-colors ${
           activeCount > 0
             ? "bg-accent-plum/20 text-fg-primary"
-            : "text-fg-muted hover:bg-bg-tertiary hover:text-fg-secondary"
+            : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
         }`}
       >
         <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
@@ -133,14 +133,14 @@ export function FilterDropdown({
           {/* Header with clear all */}
           {activeCount > 0 && (
             <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
-              <span className="text-xs text-fg-muted">
+              <span className="text-xs text-fg-secondary">
                 {activeCount} active
               </span>
               <button
                 onClick={() => {
                   onClearAll();
                 }}
-                className="text-xs text-accent-rose transition-colors hover:text-accent-rose/80"
+                className="text-xs text-accent-rose-text transition-colors hover:text-accent-rose-text/80"
               >
                 Clear all
               </button>
@@ -174,7 +174,7 @@ export function FilterDropdown({
                     className="flex w-full items-center justify-between px-3 pb-1 pt-2.5 text-left"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-fg-muted">
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-fg-secondary">
                         {group.label}
                       </span>
                       {groupActiveCount > 0 && (

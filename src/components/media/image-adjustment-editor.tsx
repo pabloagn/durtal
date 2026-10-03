@@ -207,7 +207,7 @@ function LoadedEditor({
         />
       </div>
       {initial.monochrome && (
-        <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+        <p className="flex items-center gap-1.5 text-xs text-fg-secondary">
           <Lock className="h-3 w-3" strokeWidth={1.5} />
           Author monochrome stays on
         </p>
@@ -225,7 +225,7 @@ function LoadedEditor({
               key={item.key}
               aria-pressed={control.key === item.key}
               onClick={() => setActive(item.key)}
-              className={`rounded-sm px-2 py-1 text-xs ${control.key === item.key ? "bg-accent-rose/20 text-fg-primary" : "text-fg-muted hover:text-fg-primary"}`}
+              className={`rounded-sm px-2 py-1 text-xs ${control.key === item.key ? "bg-accent-rose/20 text-fg-primary" : "text-fg-secondary hover:text-fg-primary"}`}
             >
               {item.label}
             </button>
@@ -328,13 +328,13 @@ export function ImageAdjustmentEditor({
   }, [source, attempt]);
   if (!result || result.source !== source)
     return (
-      <p className="py-8 text-center text-sm text-fg-muted" role="status">
+      <p className="py-8 text-center text-sm text-fg-secondary" role="status">
         Loading image adjustments…
       </p>
     );
   if (!result.data)
     return (
-      <div role="alert" className="space-y-2 text-sm text-fg-muted">
+      <div role="alert" className="space-y-2 text-sm text-fg-secondary">
         <p>Could not load this image.</p>
         <Button
           type="button"

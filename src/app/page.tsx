@@ -263,7 +263,7 @@ async function DashboardContent() {
                   <p className="mt-1 lines-1 text-sm text-fg-secondary">
                     {author.nationality}
                   </p>
-                  <p className="mt-1.5 lines-1 font-mono text-micro text-fg-muted">
+                  <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
                     {author.birthYear
                       ? `${author.birthYear}–${author.deathYear ?? ""}`
                       : null}
@@ -310,7 +310,7 @@ async function DashboardContent() {
                   </p>
                   <div className="mt-3 flex h-5 items-center gap-2">
                     {edition?.publicationYear && (
-                      <span className="font-mono text-micro text-fg-muted">
+                      <span className="font-mono text-micro text-fg-secondary">
                         {edition.publicationYear}
                       </span>
                     )}

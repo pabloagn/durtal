@@ -75,7 +75,7 @@ export function InstanceDetail({
           <span className="text-sm text-fg-primary">
             {instance.location.name}
             {instance.subLocation && (
-              <span className="text-fg-muted">
+              <span className="text-fg-secondary">
                 {" "}/ {instance.subLocation.name}
               </span>
             )}
@@ -150,14 +150,14 @@ export function InstanceDetail({
       {/* Signed by */}
       {instance.signedBy && (
         <p className="mb-1 text-fg-secondary">
-          <span className="text-fg-muted">Signed by:</span> {instance.signedBy}
+          <span className="text-fg-secondary">Signed by:</span> {instance.signedBy}
         </p>
       )}
 
       {/* Inscription */}
       {instance.inscription && (
         <p className="mb-1 italic text-fg-secondary">
-          <span className="not-italic text-fg-muted">Inscription:</span>{" "}
+          <span className="not-italic text-fg-secondary">Inscription:</span>{" "}
           {instance.inscription}
         </p>
       )}
@@ -165,7 +165,7 @@ export function InstanceDetail({
       {/* Provenance */}
       {instance.provenance && (
         <p className="mb-1 text-fg-secondary">
-          <span className="text-fg-muted">Provenance:</span>{" "}
+          <span className="text-fg-secondary">Provenance:</span>{" "}
           {instance.provenance}
         </p>
       )}
@@ -173,7 +173,7 @@ export function InstanceDetail({
       {/* Condition notes */}
       {instance.conditionNotes && (
         <p className="mb-1 text-fg-secondary">
-          <span className="text-fg-muted">Condition notes:</span>{" "}
+          <span className="text-fg-secondary">Condition notes:</span>{" "}
           {instance.conditionNotes}
         </p>
       )}
@@ -181,26 +181,26 @@ export function InstanceDetail({
       {/* Instance notes */}
       {instance.notes && (
         <p className="mb-1 text-fg-secondary">
-          <span className="text-fg-muted">Notes:</span> {instance.notes}
+          <span className="text-fg-secondary">Notes:</span> {instance.notes}
         </p>
       )}
 
       {/* Acquisition details */}
       {hasAcquisition && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-muted">
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
             Acquisition
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
             {instance.acquisitionType && (
               <>
-                <dt className="text-fg-muted">Type</dt>
+                <dt className="text-fg-secondary">Type</dt>
                 <dd className="text-fg-secondary">{instance.acquisitionType}</dd>
               </>
             )}
             {instance.acquisitionDate && (
               <>
-                <dt className="text-fg-muted">Date</dt>
+                <dt className="text-fg-secondary">Date</dt>
                 <dd className="font-mono text-fg-secondary">
                   {formatDate(instance.acquisitionDate)}
                 </dd>
@@ -208,13 +208,13 @@ export function InstanceDetail({
             )}
             {instance.acquisitionSource && (
               <>
-                <dt className="text-fg-muted">Source</dt>
+                <dt className="text-fg-secondary">Source</dt>
                 <dd className="text-fg-secondary">{instance.acquisitionSource}</dd>
               </>
             )}
             {instance.acquisitionPrice && (
               <>
-                <dt className="text-fg-muted">Price</dt>
+                <dt className="text-fg-secondary">Price</dt>
                 <dd className="font-mono text-fg-secondary">
                   {formatPrice(
                     instance.acquisitionPrice,
@@ -230,13 +230,13 @@ export function InstanceDetail({
       {/* Digital details */}
       {hasDigital && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-muted">
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
             Digital
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
             {instance.calibreId && (
               <>
-                <dt className="text-fg-muted">Calibre ID</dt>
+                <dt className="text-fg-secondary">Calibre ID</dt>
                 <dd className="font-mono text-fg-secondary">
                   {instance.calibreId}
                 </dd>
@@ -244,13 +244,13 @@ export function InstanceDetail({
             )}
             {instance.calibreUrl && (
               <>
-                <dt className="text-fg-muted">Calibre</dt>
+                <dt className="text-fg-secondary">Calibre</dt>
                 <dd>
                   <a
                     href={instance.calibreUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-fg-secondary transition-colors hover:text-accent-rose"
+                    className="font-mono text-fg-secondary transition-colors hover:text-accent-rose-text"
                   >
                     {instance.calibreUrl}
                   </a>
@@ -259,7 +259,7 @@ export function InstanceDetail({
             )}
             {instance.fileSizeBytes != null && (
               <>
-                <dt className="text-fg-muted">File Size</dt>
+                <dt className="text-fg-secondary">File Size</dt>
                 <dd className="font-mono text-fg-secondary">
                   {formatFileSize(instance.fileSizeBytes)}
                 </dd>
@@ -272,17 +272,17 @@ export function InstanceDetail({
       {/* Lending status */}
       {isLentOut && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-muted">
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
             On Loan
           </p>
           {instance.lentTo && (
             <p className="text-fg-secondary">
-              <span className="text-fg-muted">Lent to:</span> {instance.lentTo}
+              <span className="text-fg-secondary">Lent to:</span> {instance.lentTo}
             </p>
           )}
           {instance.lentDate && (
             <p className="font-mono text-fg-secondary">
-              <span className="font-sans text-fg-muted">Since:</span>{" "}
+              <span className="font-sans text-fg-secondary">Since:</span>{" "}
               {formatDate(instance.lentDate)}
             </p>
           )}
@@ -292,19 +292,19 @@ export function InstanceDetail({
       {/* Disposition details */}
       {hasDisposition && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-muted">
+          <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
             Disposition
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
             {instance.dispositionType && (
               <>
-                <dt className="text-fg-muted">Type</dt>
+                <dt className="text-fg-secondary">Type</dt>
                 <dd className="text-fg-secondary">{instance.dispositionType}</dd>
               </>
             )}
             {instance.dispositionDate && (
               <>
-                <dt className="text-fg-muted">Date</dt>
+                <dt className="text-fg-secondary">Date</dt>
                 <dd className="font-mono text-fg-secondary">
                   {formatDate(instance.dispositionDate)}
                 </dd>
@@ -312,13 +312,13 @@ export function InstanceDetail({
             )}
             {instance.dispositionTo && (
               <>
-                <dt className="text-fg-muted">To</dt>
+                <dt className="text-fg-secondary">To</dt>
                 <dd className="text-fg-secondary">{instance.dispositionTo}</dd>
               </>
             )}
             {instance.dispositionPrice && (
               <>
-                <dt className="text-fg-muted">Price</dt>
+                <dt className="text-fg-secondary">Price</dt>
                 <dd className="font-mono text-fg-secondary">
                   {formatPrice(
                     instance.dispositionPrice,
@@ -329,7 +329,7 @@ export function InstanceDetail({
             )}
             {instance.dispositionNotes && (
               <>
-                <dt className="text-fg-muted">Notes</dt>
+                <dt className="text-fg-secondary">Notes</dt>
                 <dd className="col-span-1 text-fg-secondary">
                   {instance.dispositionNotes}
                 </dd>

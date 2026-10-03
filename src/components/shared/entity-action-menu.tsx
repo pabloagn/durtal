@@ -48,7 +48,7 @@ export function EntityActionMenu({
         >
           <span className="flex-1">{item.label}</span>
           {item.shortcut && (
-            <span className="ml-4 font-mono text-[10px] text-fg-muted">
+            <span className="ml-4 font-mono text-[10px] text-fg-secondary">
               {item.shortcut}
             </span>
           )}
