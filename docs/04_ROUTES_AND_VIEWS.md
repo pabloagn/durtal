@@ -24,7 +24,7 @@
 /settings/data              Settings: counts, review queues, export, cache
 /settings/shortcuts         Settings: keyboard shortcuts
 /settings/about             Settings: versions, schema, storage, collections
-/perfumes                   Perfumes: the perfume collection's home
+/perfumes                   Perfumes: the perfume collection's home (open)
 /perfumes/new               Add a perfume
 /perfumes/[slug]            Perfume detail (slug format: {title}-by-{house});
                             ?formulation={id} chooses one formulation

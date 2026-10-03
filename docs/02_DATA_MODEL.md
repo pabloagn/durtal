@@ -9,11 +9,15 @@ Migration `0037_work_kinds` adds `works.kind` using `work_kind_enum`:
 column default to `book`. This identity is independent of `work_type_id` and all
 taxonomies: a book about painting remains a book.
 
-Only books are currently enabled. The `works_kind_enabled_check` constraint
-rejects all non-book writes until their models and legacy-query isolation pass
-the rollout gates. `src/lib/catalogue/domains.ts` records the same application
-readiness plus domain labels, routes, primary creator vocabulary and image
-presentation defaults. Unready domains must not be advertised in navigation.
+Books and perfumes are enabled. The `works_kind_enabled_check` constraint
+(`kind IN ('book', 'perfume')` since migration `0053_open_perfumes`) rejects
+film and painting writes until their screens, models and legacy-query isolation
+pass the rollout gates. `src/lib/catalogue/domains.ts` records the same
+application readiness plus domain labels, routes, primary creator vocabulary and
+image presentation defaults. The write services do not read that switch, so the
+constraint is the write guard: each domain widens it in the same change that
+turns its switch on, and `work-kind-migration.test.ts` keeps the two equal.
+Unready domains must not be advertised in navigation.
 
 Kind is immutable. The `works_kind_immutable` trigger rejects a changed kind,
 even after a future activation migration widens the enabled-kind check.
@@ -42,7 +46,7 @@ scans exclude other kinds, and executable book merges require two books.
 ## Perfume domain model
 
 Migration `0044_perfume_model` adds a fragrance profile, formulations and personal
-containers. The domain remains disabled pending its services, UI and release gates.
+containers. The domain is open since migration `0053_open_perfumes` (task 0222).
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |
@@ -141,7 +145,7 @@ read-time hint (default 30 days); an old observation stays visibly dated.
 
 Migration `0046_film_model` adds a film profile, versions (cuts), releases and
 optional personal copies. The domain stays disabled until its screens and
-release gates pass (`works_kind_enabled_check` still allows only books).
+release gates pass (`works_kind_enabled_check` does not allow films yet).
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |
