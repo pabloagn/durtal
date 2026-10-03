@@ -37,7 +37,8 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
         minWidth: 180,
       }}
     >
-      {/* Portrait 48×48 */}
+      {/* Portrait 48×48. With no photo, the letter is fg-primary: fg-secondary
+          is under 4.5:1 on four of the six Monogram tints. */}
       <div
         style={{
           flexShrink: 0,
@@ -65,7 +66,7 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
             }}
           />
         ) : (
-          <span className="select-none font-serif text-lg leading-none text-fg-secondary">
+          <span className="select-none font-serif text-lg leading-none text-fg-primary">
             {author.name[0]}
           </span>
         )}

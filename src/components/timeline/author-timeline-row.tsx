@@ -67,10 +67,11 @@ function Portrait({
     );
   }
 
-  // No photo: the initial on the author's Monogram tint, as on their card
+  // No photo: the initial on the author's Monogram tint, as on their card. At
+  // 12px it is fg-primary: fg-secondary is under 4.5:1 on four of the tints.
   return (
     <div style={{ ...containerStyle, ...monogramTint(author.name) }}>
-      <span className="select-none font-serif text-micro leading-none text-fg-secondary">
+      <span className="select-none font-serif text-micro leading-none text-fg-primary">
         {author.name[0]}
       </span>
     </div>

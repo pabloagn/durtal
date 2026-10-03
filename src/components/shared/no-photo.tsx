@@ -18,7 +18,9 @@ const TONES = [
 
 /**
  * A token mixed into the darkest card color: a tint, not a color block. The
- * dark base keeps `fg-secondary` text above 4.5:1.
+ * dark base keeps `fg-secondary` text above 4.5:1 up to 10%, and above 4:1 at
+ * 18%: enough for large text only. Small text on a stronger tint uses
+ * `fg-primary` (9:1 or more at 18%).
  */
 function tint(token: string, percent: number) {
   return {
@@ -35,7 +37,8 @@ function hash(text: string) {
 
 /**
  * The tint behind a subject's `Monogram`, for a small portrait elsewhere (the
- * timelines): the same author gets the same tone everywhere.
+ * timelines): the same author gets the same tone everywhere. A letter under
+ * 24px on it is `fg-primary`.
  */
 export function monogramTint(name: string) {
   return tint(TONES[hash(name) % TONES.length], 18);
