@@ -51,7 +51,7 @@ export function BookLinks({ goodreadsUrl, storygraphUrl }: BookLinksProps) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={label}
-              title={label}
+              data-tooltip={label}
               className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
             >
               <span aria-hidden className="inline-flex">

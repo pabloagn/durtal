@@ -145,7 +145,8 @@ export function VenueCreateDialog({
           size="sm"
           onClick={() => setOpen(true)}
           type="button"
-          title="Add Venue (A, then L)"
+          data-tooltip="Add Venue"
+          data-tooltip-keys="a then l"
           className="shrink-0 whitespace-nowrap"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />

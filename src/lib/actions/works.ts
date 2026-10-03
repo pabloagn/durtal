@@ -68,6 +68,7 @@ import { compareWorks } from "@/lib/utils/title-order";
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
 import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
+import { normalizeSearchText } from "@/lib/utils/search-text";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -553,9 +554,13 @@ export async function findDuplicateWork(opts: {
     if (byIsbn?.work) return byIsbn.work;
   }
 
-  // Fuzzy title + author match
+  // Same title, ignoring accents, case and punctuation ("Agua Viva" and
+  // "Água Viva"), then an author with the same name words (SLN-287)
   const candidates = await db.query.works.findMany({
-    where: and(bookCondition, ilike(works.title, opts.title.trim())),
+    where: and(
+      bookCondition,
+      sql`search_normalize(${works.title}) = search_normalize(${opts.title.trim()})`,
+    ),
     with: {
       workAuthors: {
         with: { author: true },
@@ -569,14 +574,19 @@ export async function findDuplicateWork(opts: {
     limit: 5,
   });
 
-  // Check if any candidate has a matching author
-  const authorLower = opts.authorName.trim().toLowerCase();
+  // An author matches when the words of one name are all in the other:
+  // "Lem", "Stanislaw Lem" and "Stanisław Lem"; "Arkady Strugatsky" and
+  // "Arkady and Boris Strugatsky"
+  const words = (name: string) =>
+    new Set(normalizeSearchText(name).split(" ").filter(Boolean));
+  const wanted = words(opts.authorName);
+  const within = (a: Set<string>, b: Set<string>) =>
+    a.size > 0 && [...a].every((w) => b.has(w));
   const match = candidates.find((w) =>
-    w.workAuthors.some(
-      (wa) =>
-        wa.author.name.toLowerCase().includes(authorLower) ||
-        authorLower.includes(wa.author.name.toLowerCase()),
-    ),
+    w.workAuthors.some((wa) => {
+      const have = words(wa.author.name);
+      return within(wanted, have) || within(have, wanted);
+    }),
   );
 
   return match ?? null;

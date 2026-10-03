@@ -21,7 +21,7 @@ export function PublisherFavourite({
         favourite ? "Remove favourite publisher" : "Favourite publisher"
       }
       aria-pressed={favourite}
-      title={favourite ? "Remove favourite" : "Favourite publisher"}
+      data-tooltip={favourite ? "Remove favourite" : "Favourite publisher"}
       className="block shrink-0 p-2 text-accent-gold disabled:opacity-40"
       onClick={() =>
         start(async () => {

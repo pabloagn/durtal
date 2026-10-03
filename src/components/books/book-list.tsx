@@ -141,7 +141,9 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               return priorityInfo ? (
                 <span
                   className={`inline-block h-2 w-2 rounded-full ${priorityInfo.dotColor}`}
-                  title={priorityInfo.label}
+                  role="img"
+                  aria-label={`${priorityInfo.label} priority`}
+                  data-tooltip={`${priorityInfo.label} priority`}
                 />
               ) : null;
             })()}

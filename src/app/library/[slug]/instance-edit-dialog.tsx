@@ -133,7 +133,7 @@ export function InstanceEditDialog({
           setDraft(instanceToDraft(instance));
           setOpen(true);
         }}
-        title="Edit instance"
+        data-tooltip="Edit instance"
       >
         <Pencil className="h-4 w-4" strokeWidth={1.5} />
         Edit

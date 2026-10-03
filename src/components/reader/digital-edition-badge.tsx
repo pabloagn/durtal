@@ -9,11 +9,14 @@ export function DigitalEditionBadge() {
   return (
     <div
       className={COVER_CHIP}
-      title="Digital edition available"
+      role="img"
+      aria-label="Digital edition available"
+      data-tooltip="Digital edition available"
     >
       <BookOpen
         className={`${COVER_CHIP_ICON} text-accent-blue`}
         strokeWidth={1.5}
+        aria-hidden="true"
       />
     </div>
   );

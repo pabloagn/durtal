@@ -121,6 +121,7 @@ function ReorderFamiliesDialog({
                 <button
                   type="button"
                   aria-label={`Move ${family.name} up`}
+                  data-tooltip={`Move ${family.name} up`}
                   disabled={index === 0}
                   onClick={() => move(index, -1)}
                   className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose disabled:opacity-30"
@@ -130,6 +131,7 @@ function ReorderFamiliesDialog({
                 <button
                   type="button"
                   aria-label={`Move ${family.name} down`}
+                  data-tooltip={`Move ${family.name} down`}
                   disabled={index === order.length - 1}
                   onClick={() => move(index, 1)}
                   className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose disabled:opacity-30"

@@ -164,7 +164,7 @@ export function BookCard({
               <div className={COVER_CORNER.topLeft}>
                 <span
                   className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE[statusInfo.variant]}`}
-                  title={statusInfo.label}
+                  data-tooltip={statusInfo.label}
                 >
                   <span className="hidden @[220px]:inline">{statusInfo.label}</span>
                   <span className="@[220px]:hidden">{statusInfo.shortLabel}</span>
@@ -177,7 +177,7 @@ export function BookCard({
               <div className={COVER_CORNER.topRight}>
                 <span
                   className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE.gold}`}
-                  title={`Rated ${rating}/5`}
+                  data-tooltip={`Rated ${rating}/5`}
                 >
                   <span className="hidden @[220px]:inline">{rating}/5</span>
                   <span className="@[220px]:hidden">{rating}</span>
@@ -193,7 +193,9 @@ export function BookCard({
                   return (
                     <div
                       className={COVER_CHIP}
-                      title={`${pConfig?.label ?? acquisitionPriority} priority`}
+                      role="img"
+                      aria-label={`${pConfig?.label ?? acquisitionPriority} priority`}
+                      data-tooltip={`${pConfig?.label ?? acquisitionPriority} priority`}
                     >
                       <span
                         className={`block h-1.5 w-1.5 rounded-full @[220px]:h-2 @[220px]:w-2 ${pConfig?.dotColor ?? "bg-fg-muted"} ${pConfig?.glowColor ?? ""}`}

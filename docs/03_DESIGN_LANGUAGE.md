@@ -224,6 +224,16 @@ Multiple semantic variants:
 
 Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette.
 
+### Tooltips
+
+One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
+
+- Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
+- `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then l"` (a sequence).
+- `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
+- Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
+- Style: `bg-secondary`, 1px glass border, 2px radius, 14px text, 6px from the control. It renders in the top layer, above dialogs.
+
 ---
 
 ## Iconography
@@ -241,7 +251,7 @@ Rules:
 - Icons **supplement** text; they never replace it
 - No emoji anywhere in the interface
 - No colored icons — all icons inherit text color
-- Icon-only buttons require a tooltip or `aria-label`
+- Icon-only controls have an `aria-label` and a tooltip (`data-tooltip`, see Tooltips)
 
 ---
 

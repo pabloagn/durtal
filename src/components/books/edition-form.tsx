@@ -613,6 +613,8 @@ export function EditionForm({
                   {c.role}
                 </span>
                 <button
+                  aria-label="Remove contributor"
+                  data-tooltip="Remove contributor"
                   type="button"
                   onClick={() => removeContributor(i)}
                   className="text-fg-muted hover:text-accent-red"

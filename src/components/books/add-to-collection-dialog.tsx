@@ -343,7 +343,7 @@ export function CollectionButton({
     <>
       <button
         type="button"
-        title="Add to collection"
+        data-tooltip="Add to collection"
         aria-label="Add to collection"
         onClick={(e) => {
           e.preventDefault();

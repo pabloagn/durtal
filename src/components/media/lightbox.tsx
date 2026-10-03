@@ -58,6 +58,7 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
         <button
           onClick={onClose}
           aria-label="Close image"
+          data-tooltip="Close image"
           className="absolute right-4 top-4 z-10 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
         >
           <X className="h-5 w-5" strokeWidth={1.5} />
@@ -66,6 +67,8 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
         {/* Nav prev */}
         {images.length > 1 && (
           <button
+            aria-label="Previous image"
+            data-tooltip="Previous image"
             onClick={goPrev}
             className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
           >
@@ -94,6 +97,8 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
         {/* Nav next */}
         {images.length > 1 && (
           <button
+            aria-label="Next image"
+            data-tooltip="Next image"
             onClick={goNext}
             className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
           >

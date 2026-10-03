@@ -51,6 +51,8 @@ export function MediaGallery({
             />
             {editable && (
               <button
+                aria-label="Delete image"
+                data-tooltip="Delete image"
                 onClick={(e) => handleDelete(item.id, e)}
                 className="absolute right-2 top-2 rounded-sm bg-bg-primary/80 p-1 opacity-0 transition-opacity group-hover:opacity-100"
               >

@@ -53,6 +53,7 @@ export function ImageLightbox({ src, alt, open, onClose }: ImageLightboxProps) {
       <button
         onClick={onClose}
         aria-label="Close image"
+        data-tooltip="Close image"
         className="absolute right-4 top-4 z-10 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
       >
         <X className="h-4 w-4" strokeWidth={1.5} />

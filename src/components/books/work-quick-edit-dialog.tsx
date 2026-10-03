@@ -467,6 +467,8 @@ export function WorkQuickEditDialog({
                             >
                               {r.name}
                               <button
+                                aria-label={`Remove ${r.name}`}
+                                data-tooltip={`Remove ${r.name}`}
                                 type="button"
                                 onClick={() =>
                                   setRecommenderIds((prev) =>
@@ -548,7 +550,8 @@ export function WorkQuickEditDialog({
                         onClick={() => removeAuthor(author.id)}
                         disabled={authors.length <= 1}
                         className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:pointer-events-none disabled:opacity-30"
-                        title="Remove author"
+                        aria-label="Remove author"
+                        data-tooltip="Remove author"
                       >
                         <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                       </button>

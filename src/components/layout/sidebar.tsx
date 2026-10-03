@@ -6,6 +6,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { NAV_SECTIONS, isSectionActive } from "@/lib/navigation";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
+import { GO_TO } from "@/lib/shortcuts/shortcuts";
 
 const SIDEBAR_DEFAULT = 224;
 const SIDEBAR_COLLAPSED = 56;
@@ -100,6 +101,11 @@ export function Sidebar({
       <div className="shrink-0 overflow-hidden px-3 pb-2">
         <button
           onClick={onCommandPalette}
+          // Collapsed, the button is an icon: its tooltip names it
+          aria-label={isCollapsed ? "Search" : undefined}
+          data-tooltip={isCollapsed ? "Search" : undefined}
+          data-tooltip-keys="mod k"
+          data-tooltip-side="right"
           className={`flex w-full items-center rounded-sm border border-glass-border bg-bg-primary/50 text-sm text-fg-secondary transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 ${
             isCollapsed ? "justify-center px-0 py-1.5" : "gap-2 px-3 py-1.5"
           }`}
@@ -122,10 +128,16 @@ export function Sidebar({
           {NAV_SECTIONS.map(({ href, label }) => {
             const Icon = SECTION_ICONS[href];
             const isActive = isSectionActive(href, pathname);
+            const go = GO_TO.find((g) => g.href === href);
             return (
-              <li key={href} className="relative group">
+              <li key={href}>
                 <Link
                   href={href}
+                  // Collapsed, the link is an icon: its tooltip names it
+                  aria-label={isCollapsed ? label : undefined}
+                  data-tooltip={isCollapsed ? label : undefined}
+                  data-tooltip-keys={go ? `g then ${go.key}` : undefined}
+                  data-tooltip-side="right"
                   className={`flex items-center rounded-sm text-sm transition-all duration-150 ${
                     isCollapsed
                       ? "justify-center px-0 py-1.5"
@@ -139,12 +151,6 @@ export function Sidebar({
                   <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   {!isCollapsed && <span className="truncate">{label}</span>}
                 </Link>
-                {/* Tooltip for collapsed mode */}
-                {isCollapsed && (
-                  <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 rounded-sm border border-glass-border bg-bg-secondary px-2.5 py-1 text-xs text-fg-primary opacity-0 shadow-lg transition-opacity duration-150 whitespace-nowrap group-hover:opacity-100">
-                    {label}
-                  </div>
-                )}
               </li>
             );
           })}

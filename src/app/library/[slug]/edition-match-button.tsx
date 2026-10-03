@@ -28,7 +28,7 @@ export function EditionMatchButton({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        title="Match again"
+        data-tooltip="Match again"
       >
         <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
         Match

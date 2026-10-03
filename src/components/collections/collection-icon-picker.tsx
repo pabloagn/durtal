@@ -122,7 +122,7 @@ export function CollectionIconPicker({
         aria-label={
           value ? "Change collection icon" : "Choose a collection icon"
         }
-        title={value ? "Change icon" : "Choose an icon"}
+        data-tooltip={value ? "Change icon" : "Choose an icon"}
         aria-haspopup="dialog"
         aria-expanded={!!position}
         aria-controls={position ? panelId : undefined}

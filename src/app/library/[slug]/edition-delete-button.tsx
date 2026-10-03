@@ -38,7 +38,7 @@ export function EditionDeleteButton({
         size="sm"
         onClick={() => setOpen(true)}
         className="text-fg-secondary hover:text-accent-red-text"
-        title="Delete edition"
+        data-tooltip="Delete edition"
       >
         <Trash2 className="h-4 w-4" strokeWidth={1.5} />
         Delete

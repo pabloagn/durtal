@@ -1,19 +1,29 @@
 """Step 3: Seed publishing houses, publisher specialties, and their junction."""
 
+import re
+
 import openpyxl
 from rich.console import Console
 
 from scripts.ingest.config import EXCEL_PATH
 from scripts.ingest.db import (
+    bulk_load_lookup,
+    insert_junction,
     transaction,
     upsert_returning_id,
-    bulk_load_lookup,
-    lookup_id_ilike,
-    insert_junction,
 )
-from scripts.ingest.utils import clean, slugify, parse_semicolons
+from scripts.ingest.utils import clean, parse_semicolons, slugify
 
 console = Console()
+
+
+# Common forms the countries table does not carry (SLN-330)
+COUNTRY_ALIASES = {
+    "united states": "US", "usa": "US", "us": "US", "america": "US",
+    "united kingdom": "GB", "uk": "GB", "great britain": "GB", "england": "GB",
+    "scotland": "GB", "wales": "GB", "holland": "NL", "russia": "RU",
+    "south korea": "KR", "czechia": "CZ",
+}
 
 
 def _load_sheet(wb, name: str):
@@ -70,18 +80,23 @@ def seed_publishing_houses(cur, wb, *, dry_run: bool = False) -> tuple[int, int]
             houses_count += 1
             continue
 
-        # Resolve country → country_id
+        # Resolve country → country_id: exact name, the short name before the
+        # comma ("India, Republic of"), or a common form. A "contains" match
+        # picked "United States Minor Outlying Islands" (SLN-330). With
+        # several countries ("United Kingdom/India"), the first is primary.
         country_id = None
         if country_text:
-            country_id = lookup_id_ilike(cur, "countries", "name", country_text)
-            if not country_id:
-                # Try partial match: "United States" → "United States of America"
-                cur.execute(
-                    "SELECT id FROM countries WHERE LOWER(name) LIKE %s LIMIT 1",
-                    (f"%{country_text.lower()}%",),
-                )
-                r = cur.fetchone()
-                country_id = r[0] if r else None
+            primary = re.split(r"\s*[;/]\s*", country_text)[0].strip()
+            code = COUNTRY_ALIASES.get(primary.lower())
+            cur.execute(
+                """SELECT id FROM countries
+                   WHERE LOWER(name) = LOWER(%s)
+                      OR LOWER(SPLIT_PART(name, ',', 1)) = LOWER(%s)
+                      OR alpha_2 = %s""",
+                (primary, primary, code),
+            )
+            found = cur.fetchall()
+            country_id = found[0][0] if len(found) == 1 else None
 
         cur.execute(
             "SELECT id FROM publishing_houses WHERE name = %s AND country IS NOT DISTINCT FROM %s AND kind = 'publisher'",

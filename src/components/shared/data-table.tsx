@@ -114,6 +114,8 @@ export function DataTable<T>({
               ))}
               <th className="px-2 py-2">
                 <button
+                  aria-label="Configure columns"
+                  data-tooltip="Configure columns"
                   onClick={() => setShowConfig(true)}
                   className="text-fg-muted transition-colors hover:text-fg-secondary"
                 >

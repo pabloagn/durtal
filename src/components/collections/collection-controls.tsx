@@ -123,6 +123,7 @@ export function CollectionControls({
         <Button
           variant="ghost"
           aria-label="Delete collection"
+          data-tooltip="Delete collection"
           onClick={() => setDeleting(true)}
         >
           <Trash2 size={14} strokeWidth={1.5} />
@@ -255,7 +256,7 @@ export function CollectionMemberControls({
       <Button
         size="sm"
         variant="ghost"
-        title="Move earlier"
+        data-tooltip="Move earlier"
         aria-label={`Move ${title} earlier`}
         disabled={busy || first}
         onClick={() => act(-1)}
@@ -265,7 +266,7 @@ export function CollectionMemberControls({
       <Button
         size="sm"
         variant="ghost"
-        title="Move later"
+        data-tooltip="Move later"
         aria-label={`Move ${title} later`}
         disabled={busy || last}
         onClick={() => act(1)}
@@ -275,7 +276,7 @@ export function CollectionMemberControls({
       <Button
         size="sm"
         variant="ghost"
-        title="Remove from collection"
+        data-tooltip="Remove from collection"
         aria-label={`Remove ${title} from collection`}
         disabled={busy}
         onClick={() => act()}

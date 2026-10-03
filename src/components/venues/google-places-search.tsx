@@ -205,6 +205,7 @@ export function GooglePlacesSearch({
             onClick={handleClear}
             className="absolute right-2.5 flex items-center text-fg-muted transition-colors hover:text-fg-secondary"
             aria-label="Clear search"
+            data-tooltip="Clear search"
             tabIndex={-1}
           >
             <X className="h-3 w-3" strokeWidth={1.5} />

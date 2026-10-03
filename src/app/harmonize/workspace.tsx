@@ -360,7 +360,7 @@ export function HarmonizeWorkspace({
       {error && (
         <div className="h-error" role="alert">
           <p>{error}</p>
-          <button aria-label="Dismiss error" onClick={() => setError(null)}>
+          <button aria-label="Dismiss error" data-tooltip="Dismiss error" onClick={() => setError(null)}>
             <X size={14} />
           </button>
         </div>

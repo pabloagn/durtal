@@ -94,7 +94,7 @@ export function CommentItem({
                 <span className="text-xs font-medium text-fg-primary">Comment</span>
                 <time
                   className="text-micro text-fg-secondary"
-                  title={full}
+                  data-tooltip={full}
                 >
                   {relative}
                 </time>

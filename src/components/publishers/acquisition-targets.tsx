@@ -168,7 +168,7 @@ export function AcquisitionTargets({
             )}
             {state === "wanted" && (
               <button
-                title="Remove target"
+                data-tooltip="Remove target"
                 aria-label="Remove target"
                 disabled={pending}
                 onClick={() =>

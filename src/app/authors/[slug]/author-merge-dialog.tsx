@@ -99,6 +99,8 @@ export function AuthorMergeDialog({
                     >
                       {s.name}
                       <button
+                        aria-label={`Remove ${s.name}`}
+                        data-tooltip={`Remove ${s.name}`}
                         type="button"
                         onClick={() => removeSource(s.id)}
                         disabled={isPending}

@@ -43,12 +43,12 @@ interface CommentEditorProps {
 
 function ToolbarButton({
   onClick,
-  title,
+  label,
   active = false,
   children,
 }: {
   onClick: () => void;
-  title: string;
+  label: string;
   active?: boolean;
   children: React.ReactNode;
 }) {
@@ -56,7 +56,8 @@ function ToolbarButton({
     <button
       type="button"
       onClick={onClick}
-      title={title}
+      aria-label={label}
+      data-tooltip={label}
       className={`flex items-center justify-center p-1.5 rounded-sm transition-colors ${
         active
           ? "bg-bg-tertiary text-fg-primary"
@@ -254,7 +255,7 @@ export function CommentEditor({
         <div className="flex items-center gap-0.5">
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBold().run()}
-            title="Bold"
+            label="Bold"
             active={editor?.isActive("bold") ?? false}
           >
             <Bold className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -262,7 +263,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleItalic().run()}
-            title="Italic"
+            label="Italic"
             active={editor?.isActive("italic") ?? false}
           >
             <Italic className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -270,7 +271,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleUnderline().run()}
-            title="Underline"
+            label="Underline"
             active={editor?.isActive("underline") ?? false}
           >
             <UnderlineIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -278,7 +279,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleStrike().run()}
-            title="Strikethrough"
+            label="Strikethrough"
             active={editor?.isActive("strike") ?? false}
           >
             <Strikethrough className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -288,7 +289,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleCode().run()}
-            title="Code"
+            label="Code"
             active={editor?.isActive("code") ?? false}
           >
             <Code className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -296,7 +297,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-            title="Code Block"
+            label="Code Block"
             active={editor?.isActive("codeBlock") ?? false}
           >
             <Braces className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -306,7 +307,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBulletList().run()}
-            title="Bullet List"
+            label="Bullet List"
             active={editor?.isActive("bulletList") ?? false}
           >
             <List className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -314,7 +315,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-            title="Numbered List"
+            label="Numbered List"
             active={editor?.isActive("orderedList") ?? false}
           >
             <ListOrdered className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -324,7 +325,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-            title="Blockquote"
+            label="Blockquote"
             active={editor?.isActive("blockquote") ?? false}
           >
             <Quote className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -332,7 +333,7 @@ export function CommentEditor({
 
           <ToolbarButton
             onClick={handleLinkInsert}
-            title="Link"
+            label="Link"
             active={editor?.isActive("link") ?? false}
           >
             <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -343,7 +344,8 @@ export function CommentEditor({
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            title="Attach file"
+            aria-label="Attach file"
+            data-tooltip="Attach file"
             className="flex items-center justify-center p-1.5 rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
           >
             <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -360,6 +362,8 @@ export function CommentEditor({
           )}
 
           <button
+            aria-label={isEditing ? "Save comment" : "Post comment"}
+            data-tooltip={isEditing ? "Save comment" : "Post comment"}
             type="button"
             onClick={handleSubmit}
             disabled={submitting || editorEmpty}

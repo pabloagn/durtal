@@ -33,7 +33,7 @@ export function TimelineZoomControls({
         className={buttonBase}
         onClick={onZoomIn}
         aria-label="Zoom in"
-        title="Zoom in"
+        data-tooltip="Zoom in"
       >
         <span className="text-xs leading-none select-none" aria-hidden>+</span>
       </button>
@@ -43,7 +43,7 @@ export function TimelineZoomControls({
         className={buttonBase}
         onClick={onZoomOut}
         aria-label="Zoom out"
-        title="Zoom out"
+        data-tooltip="Zoom out"
       >
         <span className="text-xs leading-none select-none" aria-hidden>−</span>
       </button>
@@ -53,7 +53,7 @@ export function TimelineZoomControls({
         className={buttonBase}
         onClick={onReset}
         aria-label="Reset view"
-        title="Reset view"
+        data-tooltip="Reset view"
       >
         <RotateCcw size={12} strokeWidth={1.5} aria-hidden />
       </button>

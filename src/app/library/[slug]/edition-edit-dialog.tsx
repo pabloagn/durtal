@@ -177,7 +177,7 @@ export function EditionEditDialog({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        title="Edit edition"
+        data-tooltip="Edit edition"
       >
         <Pencil className="h-4 w-4" strokeWidth={1.5} />
         Edit

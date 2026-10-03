@@ -219,6 +219,7 @@ export function PublisherChip({
           onClick={onRemove}
           disabled={disabled}
           aria-label={`Remove ${publisher.name}`}
+          data-tooltip={`Remove ${publisher.name}`}
           className="block text-fg-muted transition-colors hover:text-fg-primary"
         >
           <X size={12} strokeWidth={1.5} />

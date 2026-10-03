@@ -62,7 +62,7 @@ export function ActivityEventItem({
         <p className="min-w-0 text-xs leading-snug text-fg-secondary">
           <DescriptionText segments={segments} />
         </p>
-        <time className="flex-shrink-0 text-micro text-fg-secondary" title={full}>
+        <time className="flex-shrink-0 text-micro text-fg-secondary" data-tooltip={full}>
           {relative}
         </time>
       </div>

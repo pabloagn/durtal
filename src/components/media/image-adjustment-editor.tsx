@@ -368,7 +368,7 @@ export function ImageAdjustButton({
     <>
       <button
         type="button"
-        title={label}
+        data-tooltip={label}
         aria-label={label}
         onClick={(event) => {
           event.preventDefault();
