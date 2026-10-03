@@ -16,6 +16,11 @@ import {
   PAGE_SIZES,
   pageHref,
 } from "@/lib/utils/pagination";
+import {
+  perPageCookieName,
+  readCookie,
+  writeCookie,
+} from "@/lib/utils/preference-cookies";
 
 export interface PaginationData {
   page: number;
@@ -59,25 +64,32 @@ export function Pagination({
       document.getElementById(anchor)?.scrollIntoView({ block: "start" });
     }
   }, [compact, anchor, current, perPage]);
+  // Older builds kept the page size in localStorage: move it to the cookie
+  // that src/proxy.ts reads
   useEffect(() => {
     if (!compact) return;
-    const key = `durtal-per-page:${pathname}`;
-    const search = new URLSearchParams(query);
+    const legacyKey = `durtal-per-page:${pathname}`;
     try {
-      if (search.has("perPage")) {
-        localStorage.setItem(key, String(perPage));
-      } else {
-        const saved = Number(localStorage.getItem(key));
-        if (PAGE_SIZES.some((n) => n === saved) && saved !== perPage) {
-          router.replace(pageHref(pathname, search, 1, saved), {
-            scroll: false,
-          });
-        }
+      const legacy = localStorage.getItem(legacyKey);
+      if (legacy === null) return;
+      localStorage.removeItem(legacyKey);
+      const name = perPageCookieName(pathname);
+      if (readCookie(name) !== undefined) return;
+      writeCookie(name, legacy);
+      // The server did not have the size for this one load
+      const search = new URLSearchParams(window.location.search);
+      const saved = Number(legacy);
+      if (
+        !search.has("perPage") &&
+        saved !== perPage &&
+        PAGE_SIZES.some((n) => n === saved)
+      ) {
+        router.replace(pageHref(pathname, search, 1, saved), { scroll: false });
       }
     } catch {
-      /* Pagination still works when storage is unavailable. */
+      /* optional preference */
     }
-  }, [compact, pathname, query, perPage, router]);
+  }, [compact, pathname, perPage, router]);
 
   useEffect(() => {
     if (!compact) return;
@@ -112,12 +124,9 @@ export function Pagination({
   }, [compact, current, totalPages, pathname, query, anchor, router]);
 
   function changeSize(size: number) {
-    try {
-      localStorage.setItem(`durtal-per-page:${pathname}`, String(size));
-    } catch {
-      /* optional preference */
-    }
-    router.push(href(1, size));
+    writeCookie(perPageCookieName(pathname), String(size));
+    // Open the page that holds the first item shown now
+    router.push(href(Math.floor(((current - 1) * perPage) / size) + 1, size));
   }
   function submitJump(event: React.FormEvent) {
     event.preventDefault();

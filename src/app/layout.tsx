@@ -6,6 +6,9 @@ import { ImageGuard } from "@/components/shared/image-guard";
 import "@/styles/globals.css";
 import { getImageAdjustmentStyles } from "@/lib/actions/image-adjustments";
 import { ImageAdjustmentProvider } from "@/components/media/image-adjustment-provider";
+import { cookies } from "next/headers";
+import { PreferencesProvider } from "@/lib/hooks/use-preference";
+import { PREFERENCE_COOKIE_PREFIX } from "@/lib/utils/preference-cookies";
 
 const serif = localFont({
   src: [
@@ -50,6 +53,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const adjustments = await getImageAdjustmentStyles();
+  const preferences = Object.fromEntries(
+    (await cookies())
+      .getAll()
+      .filter((cookie) => cookie.name.startsWith(PREFERENCE_COOKIE_PREFIX))
+      .map((cookie) => [cookie.name, cookie.value]),
+  );
   return (
     <html
       lang="en"
@@ -57,7 +66,7 @@ export default async function RootLayout({
     >
       <body>
         <ImageGuard />
-        <ImageAdjustmentProvider initial={adjustments}><Shell>{children}</Shell></ImageAdjustmentProvider>
+        <PreferencesProvider initial={preferences}><ImageAdjustmentProvider initial={adjustments}><Shell>{children}</Shell></ImageAdjustmentProvider></PreferencesProvider>
       </body>
     </html>
   );

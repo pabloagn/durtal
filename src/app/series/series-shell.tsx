@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import {
   Pagination,
   type PaginationData,
@@ -34,14 +34,14 @@ export function SeriesShell({
   pagination: PaginationData;
 }) {
   const searchParams = useSearchParams();
-  const [storedViewMode] = useLocalStorage<ViewMode>(
+  const [storedViewMode] = usePreference<ViewMode>(
     "durtal-series-view-mode",
     "grid",
   );
   const viewMode = SERIES_VIEW_MODES.includes(storedViewMode)
     ? storedViewMode
     : "grid";
-  const [gridColumns] = useLocalStorage("durtal-series-grid-columns", 4);
+  const [gridColumns] = usePreference("durtal-series-grid-columns", 4);
 
   if (pagination.total === 0)
     return (

@@ -22,7 +22,7 @@ import Link from "next/link";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { AuthorMapPoint } from "@/lib/actions/author-map";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import {
   groupMapAuthors,
   isSingleSpot,
@@ -243,7 +243,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [, setViewMode] = useLocalStorage<ViewMode>("durtal-authors-view-mode", "grid");
+  const [, setViewMode] = usePreference<ViewMode>("durtal-authors-view-mode", "grid");
   const [selection, setSelection] = useState<MapSelection | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 

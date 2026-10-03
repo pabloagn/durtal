@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import {
   Pagination,
   type PaginationData,
@@ -119,16 +119,16 @@ export function PublishersShell({
 }) {
   const searchParams = useSearchParams();
 
-  // Written by PublishersFiltersBar; kept in sync through useLocalStorage events
-  const [storedViewMode] = useLocalStorage<ViewMode>(
+  // Written by PublishersFiltersBar; kept in sync through usePreference
+  const [storedViewMode] = usePreference<ViewMode>(
     "durtal-publishers-view-mode",
     "grid",
   );
   const viewMode = PUBLISHER_VIEW_MODES.includes(storedViewMode)
     ? storedViewMode
     : "grid";
-  const [gridColumns] = useLocalStorage("durtal-publishers-grid-columns", 4);
-  const [columnConfig, setColumnConfig] = useLocalStorage(
+  const [gridColumns] = usePreference("durtal-publishers-grid-columns", 4);
+  const [columnConfig, setColumnConfig] = usePreference(
     "durtal-publishers-column-config",
     DEFAULT_COLUMN_CONFIG,
   );

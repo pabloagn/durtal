@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { BookGrid } from "./book-grid";
 import { BookList } from "./book-list";
 import {
@@ -56,7 +56,7 @@ const DEFAULT_COLUMN_CONFIG = ALL_COLUMNS.map((c) => ({
 }));
 
 export function LibraryView({ books, viewMode, gridColumns, isSelecting, selectedIds, onSelect }: LibraryViewProps) {
-  const [columnConfig, setColumnConfig] = useLocalStorage(
+  const [columnConfig, setColumnConfig] = usePreference(
     "durtal-column-config",
     DEFAULT_COLUMN_CONFIG,
   );

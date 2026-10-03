@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { VenueCard } from "@/components/venues/venue-card";
 import { VenueListItem } from "@/components/venues/venue-list-item";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
@@ -46,12 +46,12 @@ const PLACE_FILTER_PARAMS = ["type", "favorite"];
 export function PlacesShell({ venues, total }: PlacesShellProps) {
   const searchParams = useSearchParams();
 
-  // Written by PlacesFiltersBar; kept in sync through useLocalStorage events
-  const [storedViewMode] = useLocalStorage<ViewMode>(
+  // Written by PlacesFiltersBar; kept in sync through usePreference
+  const [storedViewMode] = usePreference<ViewMode>(
     "durtal-places-view-mode",
     "grid",
   );
-  const [gridColumns] = useLocalStorage(
+  const [gridColumns] = usePreference(
     "durtal-places-grid-columns",
     4,
   );

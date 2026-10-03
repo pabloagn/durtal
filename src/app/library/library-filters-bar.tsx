@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { LibraryFilters } from "./filters";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 
@@ -11,11 +11,11 @@ const LIBRARY_VIEW_MODES: ViewMode[] = ["grid", "list", "detailed", "timeline"];
  * Used outside the Suspense/data boundary so it's never hidden.
  */
 export function LibraryFiltersBar() {
-  const [viewMode, setViewMode] = useLocalStorage<ViewMode>(
+  const [viewMode, setViewMode] = usePreference<ViewMode>(
     "durtal-view-mode",
     "grid",
   );
-  const [gridColumns, setGridColumns] = useLocalStorage(
+  const [gridColumns, setGridColumns] = usePreference(
     "durtal-grid-columns",
     6,
   );

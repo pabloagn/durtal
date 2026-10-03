@@ -3,7 +3,7 @@
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import { FilterDropdown, type AnyFilterGroup } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
@@ -50,11 +50,11 @@ export function AuthorsFiltersBar({
   const searchParams = useSearchParams();
   const isSearching = !!searchParams.get("q")?.trim();
 
-  const [viewMode, setViewMode] = useLocalStorage<ViewMode>(
+  const [viewMode, setViewMode] = usePreference<ViewMode>(
     "durtal-authors-view-mode",
     "grid",
   );
-  const [gridColumns, setGridColumns] = useLocalStorage(
+  const [gridColumns, setGridColumns] = usePreference(
     "durtal-authors-grid-columns",
     5,
   );

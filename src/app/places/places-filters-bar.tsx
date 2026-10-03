@@ -4,7 +4,7 @@ import { VENUE_TYPE_LABELS, VENUE_TYPES } from "@/lib/catalogue/venues";
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import { FilterDropdown, type AnyFilterGroup } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
@@ -30,13 +30,13 @@ export function PlacesFiltersBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [storedViewMode, setViewMode] = useLocalStorage<ViewMode>(
+  const [storedViewMode, setViewMode] = usePreference<ViewMode>(
     "durtal-places-view-mode",
     "grid",
   );
   // Older stored modes (e.g. "detailed") are not rendered for places
   const viewMode: ViewMode = storedViewMode === "list" ? "list" : "grid";
-  const [gridColumns, setGridColumns] = useLocalStorage(
+  const [gridColumns, setGridColumns] = usePreference(
     "durtal-places-grid-columns",
     4,
   );

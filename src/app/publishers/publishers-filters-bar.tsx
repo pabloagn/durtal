@@ -3,7 +3,7 @@
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import {
   FilterDropdown,
@@ -35,11 +35,11 @@ export function PublishersFiltersBar({ countries }: { countries: string[] }) {
   const searchParams = useSearchParams();
   const isSearching = !!searchParams.get("q")?.trim();
 
-  const [viewMode, setViewMode] = useLocalStorage<ViewMode>(
+  const [viewMode, setViewMode] = usePreference<ViewMode>(
     "durtal-publishers-view-mode",
     "grid",
   );
-  const [gridColumns, setGridColumns] = useLocalStorage(
+  const [gridColumns, setGridColumns] = usePreference(
     "durtal-publishers-grid-columns",
     4,
   );

@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
 import { CheckSquare } from "lucide-react";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { useAuthorSelection } from "@/lib/hooks/use-author-selection";
 import { DataTable } from "@/components/shared/data-table";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
@@ -198,16 +198,16 @@ export function AuthorsShell({
 }: AuthorsShellProps) {
   const searchParams = useSearchParams();
 
-  // Written by AuthorsFiltersBar; kept in sync through useLocalStorage events
-  const [viewMode] = useLocalStorage<ViewMode>(
+  // Written by AuthorsFiltersBar; kept in sync through usePreference
+  const [viewMode] = usePreference<ViewMode>(
     "durtal-authors-view-mode",
     "grid",
   );
-  const [gridColumns] = useLocalStorage(
+  const [gridColumns] = usePreference(
     "durtal-authors-grid-columns",
     5,
   );
-  const [columnConfig, setColumnConfig] = useLocalStorage(
+  const [columnConfig, setColumnConfig] = usePreference(
     "durtal-authors-column-config",
     DEFAULT_COLUMN_CONFIG,
   );

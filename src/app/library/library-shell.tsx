@@ -2,7 +2,7 @@
 
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import { useLibrarySelection } from "@/lib/hooks/use-library-selection";
 import { LibraryView } from "@/components/books/library-view";
 import { BulkActionToolbar } from "@/components/books/bulk-action-toolbar";
@@ -60,11 +60,11 @@ interface LibraryShellProps {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryShellProps) {
-  const [viewMode] = useLocalStorage<ViewMode>(
+  const [viewMode] = usePreference<ViewMode>(
     "durtal-view-mode",
     "grid",
   );
-  const [gridColumns] = useLocalStorage(
+  const [gridColumns] = usePreference(
     "durtal-grid-columns",
     6,
   );

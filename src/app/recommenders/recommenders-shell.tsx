@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useLocalStorage } from "@/lib/hooks/use-local-storage";
+import { usePreference } from "@/lib/hooks/use-preference";
 import {
   Pagination,
   type PaginationData,
@@ -34,15 +34,15 @@ export function RecommendersShell({
   pagination: PaginationData;
 }) {
   const searchParams = useSearchParams();
-  // Written by RecommendersFiltersBar; kept in sync through useLocalStorage events
-  const [storedViewMode] = useLocalStorage<ViewMode>(
+  // Written by RecommendersFiltersBar; kept in sync through usePreference
+  const [storedViewMode] = usePreference<ViewMode>(
     "durtal-recommenders-view-mode",
     "grid",
   );
   const viewMode = RECOMMENDER_VIEW_MODES.includes(storedViewMode)
     ? storedViewMode
     : "grid";
-  const [gridColumns] = useLocalStorage("durtal-recommenders-grid-columns", 4);
+  const [gridColumns] = usePreference("durtal-recommenders-grid-columns", 4);
 
   if (pagination.total === 0) {
     return (
