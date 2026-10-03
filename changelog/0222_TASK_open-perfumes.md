@@ -29,7 +29,7 @@ Why Joris saw nothing (checked 2026-10-04):
 
 ## Completion Notes
 
-**Joris must apply the migration after merge:** `pnpm db:migrate`. Until then `/perfumes` opens but saving a perfume fails on the old check. Take a backup first, as for every live migration.
+**Live migration:** I apply `0053_open_perfumes` after the merge, from an up-to-date main checkout, with a backup first and a read-only check after. Until then `/perfumes` opens but saving a perfume fails on the old check.
 
 **Migration number:** the films branch (SLN-367) also generates a `0053` that widens the same check to `('book', 'film')`. Whichever merges second regenerates its migration on rebase and must list all three kinds: `('book', 'perfume', 'film')`.
 
