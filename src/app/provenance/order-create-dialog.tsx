@@ -23,6 +23,7 @@ import {
   searchWorksForOrder,
 } from "@/lib/actions/orders";
 import { searchAuthorsLite } from "@/lib/actions/authors";
+import { todayLocal } from "@/lib/utils/date";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
 import { getValidInitialStatuses } from "@/lib/constants/orders";
 import {
@@ -625,7 +626,7 @@ interface DetailsForm {
 }
 
 const INITIAL_DETAILS: DetailsForm = {
-  orderDate: new Date().toISOString().split("T")[0],
+  orderDate: todayLocal(),
   venueName: "",
   orderConfirmation: "",
   orderUrl: "",
