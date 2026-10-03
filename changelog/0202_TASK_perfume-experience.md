@@ -87,7 +87,8 @@ range, approximate) with plain error messages (`src/lib/catalogue/date-draft.ts`
   same encoding.
 
 ## Completion Notes
-- Tests: the full local suite passes 1326 tests across 102 files, none
+- Tests: the full local suite passes 1326 tests across 102 files on the
+  task commit, and 1359 across 103 after merging fix/backlog-0116-0121, none
   skipped, plus the Python book import checks. New: `perfume-home.test.ts`,
   `date-draft.test.ts` and `perfume-experience.test.ts` (slugs, roles,
   filters, filter options, related perfumes, formulation images, cited
@@ -98,12 +99,15 @@ range, approximate) with plain error messages (`src/lib/catalogue/date-draft.ts`
   sources, favourite, rating and personal notes, each saved and reloaded; every
   filter in the URL; portrait, square and transparent images.
 - Measured with `alignment-audit.js` (the 9073348 baseline) and
-  `design-audit.js` at 1440, 768 and 390px on the home (grid and list), detail
-  (with and without a formulation), a sparse perfume, the create page, the
-  dashboard and all ten dialogs: no deviation over 0.5px, no text under
-  4.5:1, no unnamed control, no horizontal overflow. Title and row menus sit
+  `design-audit.js`: the home (grid and list), detail (with and without a
+  formulation), a sparse perfume, the create page and the dashboard at 1440,
+  768 and 390px; the home list and the detail also at 1024px; all ten dialogs
+  at 1440 and 390px. Everywhere: no deviation over 0.5px, no text under 4.5:1,
+  no unnamed control, no horizontal overflow. Title and row menus sit
   0.00–0.01px from the title's cap-height center.
 - Follow-ups outside this task: the book and other slider grids have the same
   phone-width fault (a separate session is on it); the book title buttons sit
   5.35px above the cap-height center (SLN-398 session); the audit misses icons
-  more than four levels below their row (alignment audit session).
+  more than four levels below their row (alignment audit session); the book
+  list toolbar overflows by 12px at 1024px and its view icons measure 10.09px
+  off where it wraps (older than this task, `entity-filters.tsx`).
