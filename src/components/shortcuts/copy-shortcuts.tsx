@@ -4,7 +4,7 @@ import { useCopyItems } from "@/components/shortcuts/shortcuts-provider";
 import { COPY_KEYS } from "@/lib/shortcuts/shortcuts";
 
 /**
- * What Y copies on a detail page: Y then A copies the name, T the title, I
+ * What Y copies on a detail page: Y then N copies the name, T the title, I
  * the ISBN, D the address (Y then L, the link, works everywhere). An entry
  * without text is not offered. Renders nothing.
  */

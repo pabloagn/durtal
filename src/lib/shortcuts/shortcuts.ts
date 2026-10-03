@@ -49,7 +49,7 @@ export const ADD: ({ key: string; label: string; section: string } & (
  * name, a publisher's name.
  */
 export const COPY_KEYS = {
-  name: "a",
+  name: "n",
   title: "t",
   isbn: "i",
   address: "d",
