@@ -86,7 +86,7 @@ import {
   updateOrderStatus,
   updateOrder,
 } from "@/lib/actions/orders";
-import { getWorks, getWorkCount } from "@/lib/actions/works";
+import { getWorks, getWorkCount, findDuplicateWork } from "@/lib/actions/works";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 
 describe.skipIf(!url)(
@@ -1291,6 +1291,29 @@ describe.skipIf(!url)(
         .where(eq(schema.collectionEditions.collectionId, shelf.id));
       expect(members.map((m) => m.editionId)).toEqual([real.id]);
       expect(await db.select().from(schema.editions).where(eq(schema.editions.id, e.id))).toEqual([]);
+    });
+
+    it("finds a duplicate book across accents, case and author name forms (SLN-287)", async () => {
+      async function book(title: string, author: string) {
+        const w = await work(title);
+        const [a] = await db
+          .insert(schema.authors)
+          .values({ name: author, slug: `${author}-${w.id}`.toLowerCase().replace(/[^a-z0-9]+/g, "-") })
+          .returning();
+        await db.insert(schema.workAuthors).values({ workId: w.id, authorId: a.id });
+        return w;
+      }
+      const viva = await book("Água Viva", "Clarice Lispector");
+      const solaris = await book("Solaris", "Stanisław Lem");
+      const picnic = await book("Roadside Picnic", "Arkady and Boris Strugatsky");
+      const dup = async (title: string, authorName: string) =>
+        (await findDuplicateWork({ title, authorName }))?.id ?? null;
+      expect(await dup("Agua Viva", "Clarice Lispector")).toBe(viva.id);
+      expect(await dup("solaris", "Stanislaw Lem")).toBe(solaris.id);
+      expect(await dup("Solaris", "Lem")).toBe(solaris.id);
+      expect(await dup("Roadside Picnic", "Arkady Strugatsky")).toBe(picnic.id);
+      // Same title, another author: not a duplicate
+      expect(await dup("Solaris", "Someone Else")).toBeNull();
     });
 
     it("concurrent duplicate acquisition requests create exactly one target", async () => {
