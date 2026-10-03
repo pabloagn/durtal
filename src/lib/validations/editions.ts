@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { normalizeBinding } from "@/lib/utils/binding";
 
 export const createEditionSchema = z.object({
   workId: z.string().uuid(),
@@ -48,7 +49,23 @@ export const createEditionSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => (v === 0 ? null : v)),
-  binding: z.string().nullable().optional(),
+  // A source's text ("Mass Market Paperback") takes its code; unknown text fails
+  binding: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((value, ctx) => {
+      if (value === undefined || value === null || !value.trim())
+        return value === undefined ? undefined : null;
+      const code = normalizeBinding(value);
+      if (!code)
+        ctx.issues.push({
+          code: "custom",
+          message: `Unknown binding: ${value}`,
+          input: value,
+        });
+      return code ?? z.NEVER;
+    }),
   heightMm: z
     .number()
     .int()

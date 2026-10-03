@@ -131,7 +131,12 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.background_default_changed":() => [text("Changed default background")],
   "work.gallery_image_added":       () => [text("Added gallery image")],
   "work.gallery_image_removed":     () => [text("Removed gallery image")],
-  "work.rematched":                 () => [text("Rematched with external source")],
+  "work.rematched":                 (m) => {
+    const fields = m?.extra?.fields;
+    return Array.isArray(fields) && m?.newValue
+      ? [text("Matched with "), label(String(m.newValue)), text(`: ${fields.join(", ").toLowerCase()}`)]
+      : [text("Rematched with external source")];
+  },
   "work.taxonomy_added":            (m) => [text(`Added ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
   "work.taxonomy_removed":          (m) => [text(`Removed ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
   "work.edition_added":             (m) => m?.editionIsbn

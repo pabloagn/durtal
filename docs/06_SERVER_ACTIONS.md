@@ -135,6 +135,34 @@ updateEdition(id: string, input: Partial<CreateEditionInput>): Promise<Edition>
 
 Updates edition metadata. If a new `coverSourceUrl` is provided and differs from the existing one, reprocesses the cover. Updates contributor, genre, and tag relationships.
 
+## Match (`src/lib/actions/match.ts`)
+
+Match with a preview (task 0184). Nothing is saved until the reader ticks it.
+
+### `previewMatch(editionId, source, sourceId)`
+
+```typescript
+previewMatch(editionId: string, source: MatchSource, sourceId: string): Promise<MatchPreview>
+```
+
+Reads the record from ISBNdb, Google Books or Open Library and compares it with the edition, field by field (`planMatch` in `src/lib/match/plan.ts`). Writes nothing. Guardrails: an empty source value never clears a field; with the same ISBN only empty fields are ticked; with a new ISBN every change is ticked and the old imprint and country are offered for clearing; a distributor or placeholder publisher name is never ticked; an ISBN another edition holds is blocked and nothing is ticked. Source values that cannot be right (bad ISBN check digit, year 0, unknown language or binding, hidden control characters) are dropped by `cleanRecord` in `src/lib/match/source.ts`. Returns the rows, warnings, and the house the edition links to with the ticked values.
+
+### `previewMatchHouses(editionId, values)`
+
+```typescript
+previewMatchHouses(editionId: string, values: { publisher, imprint, isbn13, isbn10 }): Promise<MatchHouses>
+```
+
+The houses `edition_publisher_matches` gives for these values, the current links, and whether the links were set by hand. Used when the reader ticks or unticks a field.
+
+### `applyMatch(editionId, source, sourceId, accepted, relink?)`
+
+```typescript
+applyMatch(editionId: string, source: MatchSource, sourceId: string, accepted: { field: MatchField; value: MatchValue }[], relink?: boolean): Promise<{ changed: number }>
+```
+
+Reads the source again and saves only the accepted fields. A value that is not the one the preview showed, or a blocked value, stops the save. A locked edition is refused. `relink` lets links set by hand follow the new data. Records `work.rematched` with the fields and their old and new values.
+
 ### `deleteEdition(id)`
 
 ```typescript

@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { rematchEdition, getPrimaryEdition } from "@/lib/actions/editions";
+import { getPrimaryEdition } from "@/lib/actions/editions";
+import {
+  applyMatch,
+  previewMatch,
+  type MatchPreview,
+} from "@/lib/actions/match";
+import type { MatchField, MatchValue } from "@/lib/match/plan";
+import type { MatchSource } from "@/lib/match/source";
+import { MatchPreviewStep } from "@/components/books/match-preview";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "sonner";
 
@@ -20,7 +28,7 @@ interface MatchResult {
   year?: number;
   isbn?: string;
   coverUrl?: string;
-  source: string;
+  source: MatchSource;
   sourceId: string;
   publisher?: string;
   pageCount?: number;
@@ -68,21 +76,20 @@ export function MatchAgainDialog({
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  // Confirmation step
+  // Preview step
   const [selected, setSelected] = useState<MatchResult | null>(null);
+  const [preview, setPreview] = useState<MatchPreview | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   // Resolved edition ID (from prop or fetched)
   const [resolvedEditionId, setResolvedEditionId] = useState<string | null>(
     propEditionId ?? null,
   );
-  const [resolvingEdition, setResolvingEdition] = useState(false);
 
   const resolveEditionId = useCallback(async () => {
     if (propEditionId) return propEditionId;
     if (resolvedEditionId) return resolvedEditionId;
 
-    setResolvingEdition(true);
     try {
       const edition = await getPrimaryEdition(workId);
       if (!edition) {
@@ -94,8 +101,6 @@ export function MatchAgainDialog({
     } catch {
       toast.error("Failed to resolve edition");
       return null;
-    } finally {
-      setResolvingEdition(false);
     }
   }, [propEditionId, resolvedEditionId, workId]);
 
@@ -123,30 +128,60 @@ export function MatchAgainDialog({
     }
   }
 
-  async function handleConfirm() {
-    if (!selected) return;
-
-    setConfirming(true);
+  async function handleSelect(result: MatchResult) {
+    setSelected(result);
+    setPreview(null);
     try {
       const edId = await resolveEditionId();
-      if (!edId) return;
+      if (!edId) return setSelected(null);
+      setPreview(await previewMatch(edId, result.source, result.sourceId));
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not read the source",
+      );
+      setSelected(null);
+    }
+  }
 
-      await rematchEdition(edId, selected.source, selected.sourceId);
+  async function handleSave(
+    accepted: { field: MatchField; value: MatchValue }[],
+    relink: boolean,
+  ) {
+    if (!selected || !resolvedEditionId) return;
+    setConfirming(true);
+    try {
+      const { changed } = await applyMatch(
+        resolvedEditionId,
+        selected.source,
+        selected.sourceId,
+        accepted,
+        relink,
+      );
       toast.success(
-        `Metadata updated from ${SOURCE_LABELS[selected.source] ?? selected.source}`,
+        changed
+          ? `${changed} ${changed === 1 ? "field" : "fields"} updated from ${SOURCE_LABELS[selected.source] ?? selected.source}`
+          : "House links updated",
       );
       router.refresh();
       triggerActivityRefresh();
       handleClose();
-    } catch {
-      toast.error("Failed to update metadata");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update metadata",
+      );
     } finally {
       setConfirming(false);
     }
   }
 
+  function backToResults() {
+    setSelected(null);
+    setPreview(null);
+  }
+
   function handleClose() {
     setSelected(null);
+    setPreview(null);
     setResults([]);
     setSearched(false);
     setLoading(false);
@@ -173,81 +208,70 @@ export function MatchAgainDialog({
       title="Match again"
       description={`Current source: ${sourceLabel}`}
     >
-      {/* Confirmation view */}
+      {/* Preview view */}
       {selected ? (
         <div className="space-y-4">
           <button
-            onClick={() => setSelected(null)}
+            onClick={backToResults}
+            disabled={confirming}
             className="flex items-center gap-1.5 text-xs text-fg-muted transition-colors hover:text-fg-secondary"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
             Back to results
           </button>
 
-          <div className="rounded-sm border border-glass-border bg-bg-primary/60 p-4">
-            <h4 className="font-serif text-base text-fg-primary">
-              {selected.title}
-            </h4>
-            {selected.subtitle && (
-              <p className="mt-0.5 text-xs text-fg-secondary">
-                {selected.subtitle}
-              </p>
+          <div className="flex gap-3 rounded-sm border border-glass-border bg-bg-primary/60 p-4">
+            {selected.coverUrl && (
+              <img
+                src={selected.coverUrl}
+                alt=""
+                className="h-16 w-11 flex-shrink-0 rounded-sm object-cover"
+              />
             )}
-            <p className="mt-1 text-sm text-fg-secondary">
-              {selected.authors.join(", ")}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {selected.year && (
-                <span className="font-mono text-xs text-fg-muted">
-                  {selected.year}
-                </span>
+            <div className="min-w-0">
+              <h4 className="font-serif text-base text-fg-primary">
+                {selected.title}
+              </h4>
+              {selected.subtitle && (
+                <p className="mt-0.5 text-xs text-fg-secondary">
+                  {selected.subtitle}
+                </p>
               )}
-              {selected.isbn && (
-                <span className="font-mono text-xs text-fg-muted">
-                  {selected.isbn}
-                </span>
-              )}
-              <Badge variant={sourceBadgeVariant(selected.source)}>
-                {SOURCE_LABELS[selected.source] ?? selected.source}
-              </Badge>
+              <p className="mt-1 text-sm text-fg-secondary">
+                {selected.authors.join(", ")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {selected.year && (
+                  <span className="font-mono text-xs text-fg-muted">
+                    {selected.year}
+                  </span>
+                )}
+                {selected.isbn && (
+                  <span className="font-mono text-xs text-fg-muted">
+                    {selected.isbn}
+                  </span>
+                )}
+                <Badge variant={sourceBadgeVariant(selected.source)}>
+                  {SOURCE_LABELS[selected.source] ?? selected.source}
+                </Badge>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-sm border border-accent-gold/15 bg-accent-gold/5 p-3">
-            <p className="text-xs text-fg-secondary">
-              Replace edition metadata from{" "}
-              <strong className="text-fg-primary">
-                {SOURCE_LABELS[selected.source] ?? selected.source}
-              </strong>
-              ? This will update the edition&apos;s title, ISBN, publisher,
-              cover, and other metadata fields.
-            </p>
-            <p className="mt-1.5 text-xs text-fg-muted">
-              Your manual edits to the work (title, authors, rating, catalogue
-              status) will NOT be changed.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleConfirm}
-              disabled={confirming || resolvingEdition}
-            >
-              {confirming ? (
-                <>
-                  <Spinner className="h-3.5 w-3.5" />
-                  Updating...
-                </>
-              ) : (
-                "Confirm rematch"
-              )}
-            </Button>
-          </div>
+          {preview && resolvedEditionId ? (
+            <MatchPreviewStep
+              editionId={resolvedEditionId}
+              preview={preview}
+              saving={confirming}
+              onCancel={backToResults}
+              onSave={handleSave}
+            />
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-6 text-xs text-fg-muted">
+              <Spinner className="h-4 w-4" />
+              Comparing with your edition...
+            </div>
+          )}
         </div>
       ) : (
         /* Search view */
@@ -358,7 +382,7 @@ export function MatchAgainDialog({
                     variant="ghost"
                     size="sm"
                     className="flex-shrink-0"
-                    onClick={() => setSelected(result)}
+                    onClick={() => handleSelect(result)}
                   >
                     Select
                   </Button>

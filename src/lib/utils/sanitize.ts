@@ -67,3 +67,11 @@ export function stripHtmlToText(html: string): string {
     .replace(/[ \t]+/g, " ")
     .trim();
 }
+
+/**
+ * Text without control characters. Library records mark the words a sort
+ * skips with hidden ones ("\u0098The\u009c loser"); tabs and line breaks stay.
+ */
+export function stripControlChars(text: string): string {
+  return text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, "");
+}

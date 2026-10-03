@@ -67,11 +67,12 @@ import {
 import { applyAutomaticDecisions } from "@/lib/publishers/resolution";
 import { applyTaxonomy, undoTaxonomyRun } from "@/lib/publishers/taxonomy-apply";
 import type { HouseSpec } from "@/lib/publishers/taxonomy";
+import { createEdition, updateEdition } from "@/lib/actions/editions";
 import {
-  createEdition,
-  updateEdition,
-  rematchEdition,
-} from "@/lib/actions/editions";
+  applyMatch,
+  previewMatch,
+  previewMatchHouses,
+} from "@/lib/actions/match";
 import {
   createOrder,
   updateOrderStatus,
@@ -1000,37 +1001,167 @@ describe.skipIf(!url)(
         .where(eq(schema.instances.id, copy.id));
       expect((await getAcquisitionTargets(w.id))[0].state).toBe("wanted");
     });
-    it("provider refresh keeps manual publisher identities and honours metadata locks", async () => {
+    /** A Google Books answer with these volume fields */
+    function googleVolume(info: Record<string, unknown>) {
+      return vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+        new Response(JSON.stringify({ volumeInfo: info }), { status: 200 }),
+      );
+    }
+    const ids = (isbn13: string) => [{ type: "ISBN_13", identifier: isbn13 }];
+
+    it("Match keeps manual publisher identities and honours metadata locks", async () => {
       const p = await publisher(),
         w = await work(),
         e = await edition(w.id, p.name);
       await setEditionPublisherLinks(e.id, [p.id]);
-      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            volumeInfo: {
-              title: "Refreshed title",
-              publisher: "Unrecognised spelling",
-            },
-          }),
-          { status: 200 },
-        ),
-      );
+      const fetchMock = googleVolume({
+        title: "Refreshed title",
+        publisher: "Unrecognised spelling",
+      });
       try {
-        await rematchEdition(e.id, "google_books", "synthetic-volume");
-        expect((await getEditionPublisherLinks(e.id))[0].publisher.id).toBe(
-          p.id,
-        );
+        const preview = await previewMatch(e.id, "google_books", "synthetic-volume");
+        expect(preview.houses.confirmed).toBe(true);
+        // Same edition: values the reader has are not ticked
+        expect(preview.rows.every((r) => !r.checked)).toBe(true);
+        await applyMatch(e.id, "google_books", "synthetic-volume", [
+          { field: "title", value: "Refreshed title" },
+          { field: "publisher", value: "Unrecognised spelling" },
+        ]);
+        const [saved] = await db
+          .select()
+          .from(schema.editions)
+          .where(eq(schema.editions.id, e.id));
+        expect(saved).toMatchObject({
+          title: "Refreshed title",
+          publisher: "Unrecognised spelling",
+          metadataSource: "google_books",
+          googleBooksId: "synthetic-volume",
+        });
+        expect((await getEditionPublisherLinks(e.id))[0].publisher.id).toBe(p.id);
         await updateEdition(e.id, { metadataLocked: true });
         fetchMock.mockClear();
+        expect((await previewMatch(e.id, "google_books", "synthetic-volume")).locked).toBe(true);
         await expect(
-          rematchEdition(e.id, "google_books", "synthetic-volume"),
+          applyMatch(e.id, "google_books", "synthetic-volume", [
+            { field: "title", value: "Refreshed title" },
+          ]),
         ).rejects.toThrow("Unlock");
         expect(fetchMock).not.toHaveBeenCalled();
       } finally {
         fetchMock.mockRestore();
       }
     });
+
+    it("Match previews the house and saves only ticked values the source still sends", async () => {
+      const vintage = await savePublisher({ name: "Vintage International", country: "United States" });
+      const penguin = await savePublisher({ name: "Penguin Books", country: "United Kingdom" });
+      const w = await work("The Stranger");
+      const old = isbn("978067972020");
+      const e = await createEdition({
+        workId: w.id,
+        title: "The Stranger",
+        publisher: "Vintage",
+        imprint: "Vintage International",
+        publicationCountry: "United States",
+        isbn13: old,
+      });
+      expect((await getEditionPublisherLinks(e.id)).map((l) => l.publisher.id)).toEqual([vintage.id]);
+      const next = isbn("978014118250");
+      let fetchMock = googleVolume({
+        title: "The Stranger",
+        publisher: "Penguin Books",
+        industryIdentifiers: ids(next),
+        pageCount: 111,
+        printType: "BOOK",
+      });
+      try {
+        const preview = await previewMatch(e.id, "google_books", "vol-1");
+        expect(preview.newEdition).toBe(true);
+        const ticked = preview.rows.filter((r) => r.checked);
+        expect(ticked.map((r) => r.field).sort()).toEqual(
+          ["imprint", "isbn10", "isbn13", "pageCount", "publicationCountry", "publisher"].sort(),
+        );
+        // With the ticked values the edition leaves Vintage for Penguin
+        expect(preview.houses.current.map((h) => h.id)).toEqual([vintage.id]);
+        expect(preview.houses.next.map((h) => h.id)).toEqual([penguin.id]);
+        // Unticking the imprint keeps Vintage International in the links
+        const kept = await previewMatchHouses(e.id, {
+          publisher: "Penguin Books",
+          imprint: "Vintage International",
+          isbn13: next,
+          isbn10: null,
+        });
+        expect(kept.next.map((h) => h.id).sort()).toEqual([vintage.id, penguin.id].sort());
+        // Nothing is written by a preview
+        expect((await getEditionPublisherLinks(e.id)).map((l) => l.publisher.id)).toEqual([vintage.id]);
+
+        // The source now answers another page count: the save stops
+        fetchMock.mockRestore();
+        fetchMock = googleVolume({
+          title: "The Stranger",
+          publisher: "Penguin Books",
+          industryIdentifiers: ids(next),
+          pageCount: 999,
+        });
+        const accepted = ticked.map((r) => ({ field: r.field, value: r.next }));
+        await expect(applyMatch(e.id, "google_books", "vol-1", accepted)).rejects.toThrow(
+          "changed since the preview",
+        );
+        fetchMock.mockRestore();
+        fetchMock = googleVolume({
+          title: "The Stranger",
+          publisher: "Penguin Books",
+          industryIdentifiers: ids(next),
+          pageCount: 111,
+        });
+        await applyMatch(e.id, "google_books", "vol-1", accepted);
+        const [saved] = await db
+          .select()
+          .from(schema.editions)
+          .where(eq(schema.editions.id, e.id));
+        expect(saved).toMatchObject({
+          isbn13: next,
+          publisher: "Penguin Books",
+          imprint: null,
+          publicationCountry: null,
+          pageCount: 111,
+          // Not ticked: the reader's title stays
+          title: "The Stranger",
+        });
+        expect((await getEditionPublisherLinks(e.id)).map((l) => l.publisher.id)).toEqual([penguin.id]);
+      } finally {
+        fetchMock.mockRestore();
+      }
+    });
+
+    it("Match blocks an ISBN another edition holds", async () => {
+      const w = await work("The Stranger");
+      const taken = isbn("978014118250");
+      await createEdition({ workId: (await work("Another book")).id, title: "Another book", isbn13: taken });
+      const e = await createEdition({ workId: w.id, title: "The Stranger", isbn13: isbn("978067972020") });
+      const fetchMock = googleVolume({ title: "The Stranger", industryIdentifiers: ids(taken), pageCount: 90 });
+      try {
+        const preview = await previewMatch(e.id, "google_books", "vol-2");
+        expect(preview.rows.find((r) => r.field === "isbn13")?.blocked).toMatch(/Another book/);
+        expect(preview.rows.some((r) => r.checked)).toBe(false);
+        await expect(
+          applyMatch(e.id, "google_books", "vol-2", [{ field: "isbn13", value: taken }]),
+        ).rejects.toThrow("Already on");
+      } finally {
+        fetchMock.mockRestore();
+      }
+    });
+
+    it("binding takes its code and the database refuses free text", async () => {
+      const w = await work();
+      const e = await createEdition({ workId: w.id, title: "Bound", binding: "Mass Market Paperback" });
+      expect(e.binding).toBe("paperback");
+      await expect(updateEdition(e.id, { binding: "Kindle Edition" })).rejects.toThrow();
+      await expect(
+        db.update(schema.editions).set({ binding: "Paperback" }).where(eq(schema.editions.id, e.id)),
+      ).rejects.toThrow();
+    });
+
     it("concurrent duplicate acquisition requests create exactly one target", async () => {
       const p = await publisher(),
         w = await work();

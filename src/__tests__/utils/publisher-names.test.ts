@@ -119,6 +119,8 @@ describe("publisher name guardrails", () => {
     ["The Complete Tales and Poems of Edgar Allan Poe", "The Complete Tales and Poems of Edgar Allan Poe", true],
     ["Tales of Mystery and Imagination", "Mystery and Imagination: Tales", true],
     ["Sports Nutrition: A Handbook for Professionals", "Light in August", false],
+    // A shared article does not make one book
+    ["The Outsider", "The Stranger", false],
   ])("compares edition %s with work %s", (edition, work, same) => {
     expect(sameBookTitle(edition, work)).toBe(same);
   });

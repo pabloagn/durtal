@@ -30,6 +30,8 @@ import {
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { languageName, normalizeLanguage } from "@/lib/utils/language";
+import { bindingLabel } from "@/lib/utils/binding";
+import { BINDING_TYPES } from "@/lib/types/index";
 import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
@@ -90,6 +92,8 @@ interface SearchResult {
   categories?: string[];
   coverUrl?: string;
   language?: string;
+  /** One of BINDING_TYPES, when the source names a printed binding */
+  binding?: string;
 }
 
 interface DuplicateWork {
@@ -338,6 +342,7 @@ export function AddBookWizard() {
     setPublicationYear(String(result.publicationYear ?? ""));
     setLanguage(normalizeLanguage(result.language) ?? "en");
     setPageCount(String(result.pageCount ?? ""));
+    setBinding(result.binding ?? "");
     setCoverUrl(result.coverUrl ?? "");
     setMetadataSource(result.source);
     setMetadataSourceId(result.sourceId);
@@ -1039,15 +1044,10 @@ export function AddBookWizard() {
               value={binding}
               onChange={(e) => setBinding(e.target.value)}
               placeholder="Select binding"
-              options={[
-                { value: "hardcover", label: "Hardcover" },
-                { value: "paperback", label: "Paperback" },
-                { value: "leather", label: "Leather" },
-                { value: "cloth", label: "Cloth" },
-                { value: "boards", label: "Boards" },
-                { value: "wrappers", label: "Wrappers" },
-                { value: "other", label: "Other" },
-              ]}
+              options={BINDING_TYPES.map((b) => ({
+                value: b,
+                label: bindingLabel(b)!,
+              }))}
             />
             <Input
               label="Cover image URL"
@@ -1311,7 +1311,7 @@ export function AddBookWizard() {
                     {publicationYear && (
                       <span className="font-mono">{publicationYear}</span>
                     )}
-                    {binding && <Badge variant="muted">{binding}</Badge>}
+                    {binding && <Badge variant="muted">{bindingLabel(binding)}</Badge>}
                     {pageCount && <span>{pageCount} pp.</span>}
                   </div>
                   {coverUrl && (

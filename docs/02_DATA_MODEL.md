@@ -528,7 +528,7 @@ A specific published form of a work. Carries all publication-level metadata.
 | `language` | TEXT | NOT NULL, default `'en'` | Language code; stored form set by trigger (see `languages`) |
 | `is_translated` | BOOLEAN | NOT NULL, default `false` | |
 | `page_count` | INTEGER | nullable | |
-| `binding` | TEXT | nullable | See `BINDING_TYPES` enum |
+| `binding` | TEXT | nullable, CHECK in `BINDING_TYPES` | One of `BINDING_TYPES` (migration 0050). Source text ("Mass Market Paperback") takes its code through `normalizeBinding` (`src/lib/utils/binding.ts`); text that names no printed binding ("Kindle Edition") is not stored |
 | `height_mm` | SMALLINT | nullable | |
 | `width_mm` | SMALLINT | nullable | |
 | `depth_mm` | SMALLINT | nullable | |
@@ -1140,6 +1140,8 @@ Migration 0025 adds exact matching at the database boundary for web, API and Pyt
 Migration 0034 extends the matching. Names in `ignored_publisher_names` are skipped. When neither the publisher nor the imprint text identifies exactly one house, the longest `publisher_isbn_prefixes` rule that starts the edition's ISBN links it (`edition_isbn_digits` reads `isbn_13`, or `978` + the first nine digits of `isbn_10`). ISBN changes now recompute an edition's links, and rule or ignored-name changes recompute every unconfirmed edition. Name matches always win over ISBN rules.
 
 Migration 0036 adds three rules. A name that several houses carry (Vintage in the UK, Vintage Books in the US, each with the other's spelling as an alias) links to the one whose family holds an ISBN rule for the edition. After matching, only the most specific house stays: an edition that names both Penguin and Penguin Classics links to the imprint alone. A transaction that sets `durtal.defer_publisher_refresh = 'on'` skips the per-statement recomputation and calls `refresh_all_publisher_links()` once.
+
+Migration 0050 (task 0184) moves these rules unchanged into `edition_publisher_matches(publisher, imprint, isbn)`, which returns the houses as an array and writes nothing. `refresh_edition_publishers` stores its answer; Match calls it to show the house before it saves.
 
 The publisher names inbox (`/publishers/review`, `src/lib/actions/publisher-names.ts`) groups unconfirmed editions without a house by publisher/imprint text (`publisher_name_key`). It suggests a house by similar name (company words, accents, punctuation and parentheses removed; aliases included) and by ISBN publisher prefix (`isbn3` ranges; linked books of exactly one house share the prefix). One decision applies to every edition with the name: link (saves an alias; an ambiguous name, or an ISBN-only suggestion, confirms each edition instead), create a house, or mark the name as not a publisher. Saving the editions' ISBN prefixes as rules is optional; it is skipped for a prefix that books of another house already use.
 

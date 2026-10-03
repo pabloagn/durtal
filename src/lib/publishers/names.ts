@@ -187,11 +187,18 @@ export function relatedPublisherKey(
  * shorter title's words are shared. A metadata source that answers with
  * another book fails this.
  */
+const TITLE_FILLER = new Set([
+  "the", "and", "for", "with", "from", "into",
+  "les", "las", "los", "der", "die", "das", "del", "des", "una", "uno",
+]);
+
 export function sameBookTitle(edition: string, work: string): boolean {
   const x = normalizeSearchText(edition),
     y = normalizeSearchText(work);
   if (!x || !y || x.includes(y) || y.includes(x)) return true;
-  const words = (t: string) => new Set(t.split(" ").filter((w) => w.length > 2));
+  // Articles and joining words do not make two titles one book
+  const words = (t: string) =>
+    new Set(t.split(" ").filter((w) => w.length > 2 && !TITLE_FILLER.has(w)));
   const a = words(x),
     b = words(y);
   if (!a.size || !b.size) return false;

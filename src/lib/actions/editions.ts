@@ -20,7 +20,6 @@ import {
 import { processAndUploadCover } from "@/lib/s3/covers";
 import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
-import { normalizeLanguage } from "@/lib/utils/language";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
 
 export async function getEdition(id: string) {
@@ -284,7 +283,7 @@ export async function deleteEdition(id: string) {
 
 /**
  * Get the primary (first) edition for a work.
- * Used by the match-again dialog to know which edition to rematch.
+ * Used by the match-again dialog to know which edition to match.
  */
 export async function getPrimaryEdition(workId: string) {
   const edition = await db.query.editions.findFirst({
@@ -301,176 +300,4 @@ export async function getPrimaryEdition(workId: string) {
     },
   });
   return edition ?? null;
-}
-
-/**
- * Re-match an edition against an external API source.
- * Fetches fresh metadata from Google Books or Open Library and updates the edition.
- * Does NOT modify the parent work's title, authors, rating, or catalogue status.
- */
-export async function rematchEdition(
-  editionId: string,
-  source: string,
-  sourceId: string,
-) {
-  const current = await db.query.editions.findFirst({
-    where: eq(editions.id, editionId),
-    columns: { metadataLocked: true },
-  });
-  if (!current) throw new Error("Edition not found");
-  if (current.metadataLocked)
-    throw new Error("Unlock this edition before refreshing metadata");
-  // Fetch full metadata from the source API
-  let coverUrl: string | undefined;
-  // The source's language ("eng", "English"); an unknown one keeps the current
-  let language: string | undefined;
-  const updates: Record<string, unknown> = {
-    metadataSource: source,
-    metadataLastFetched: new Date(),
-    updatedAt: new Date(),
-  };
-
-  if (source === "google_books") {
-    const { searchGoogleBooks } = await import("@/lib/api/google-books");
-    // Fetch the specific volume by ID via the Google Books API
-    const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
-    const params = apiKey ? `?key=${apiKey}` : "";
-    const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes/${sourceId}${params}`,
-    );
-    if (!res.ok) {
-      // Fallback: search by sourceId
-      const results = await searchGoogleBooks(sourceId, 1);
-      if (results.length === 0)
-        throw new Error("Could not fetch from Google Books");
-      const r = results[0];
-      updates.title = r.title;
-      updates.subtitle = r.subtitle ?? null;
-      updates.publisher = r.publisher ?? null;
-      updates.publicationYear = r.publicationYear ?? null;
-      updates.pageCount = r.pageCount ?? null;
-      language = r.language;
-      updates.isbn13 = r.isbn13 ?? null;
-      updates.isbn10 = r.isbn10 ?? null;
-      updates.description = r.description ?? null;
-      updates.googleBooksId = r.sourceId;
-      coverUrl = r.coverUrl;
-    } else {
-      const volume = await res.json();
-      const info = volume.volumeInfo ?? {};
-      updates.title = info.title ?? "Untitled";
-      updates.subtitle = info.subtitle ?? null;
-      updates.publisher = info.publisher ?? null;
-      updates.publicationYear = info.publishedDate
-        ? parseInt(info.publishedDate.match(/^(\d{4})/)?.[1] ?? "0", 10) || null
-        : null;
-      updates.pageCount = info.pageCount ?? null;
-      language = info.language;
-      const identifiers: { type: string; identifier: string }[] =
-        info.industryIdentifiers ?? [];
-      updates.isbn13 =
-        identifiers.find((i: { type: string }) => i.type === "ISBN_13")
-          ?.identifier ?? null;
-      updates.isbn10 =
-        identifiers.find((i: { type: string }) => i.type === "ISBN_10")
-          ?.identifier ?? null;
-      updates.description = info.description ?? null;
-      updates.googleBooksId = sourceId;
-      // Best cover
-      const imageLinks = info.imageLinks;
-      if (imageLinks) {
-        coverUrl = (
-          imageLinks.large ??
-          imageLinks.medium ??
-          imageLinks.small ??
-          imageLinks.thumbnail ??
-          imageLinks.smallThumbnail
-        )?.replace("http://", "https://");
-      }
-    }
-  } else if (source === "open_library") {
-    // Open Library: sourceId is like "/works/OL123W"
-    // Fetch the work or edition data
-    const olKey = sourceId.startsWith("/") ? sourceId : `/${sourceId}`;
-    const res = await fetch(`https://openlibrary.org${olKey}.json`);
-    if (!res.ok) throw new Error("Could not fetch from Open Library");
-    const data = await res.json();
-
-    updates.title = data.title ?? "Untitled";
-    updates.subtitle = data.subtitle ?? null;
-    updates.openLibraryKey = sourceId;
-
-    // Try to get edition-level details
-    if (data.publishers) updates.publisher = data.publishers[0] ?? null;
-    if (data.publish_date) {
-      const yearMatch = String(data.publish_date).match(/(\d{4})/);
-      updates.publicationYear = yearMatch ? parseInt(yearMatch[1], 10) : null;
-    }
-    if (data.number_of_pages) updates.pageCount = data.number_of_pages;
-    // "/languages/eng" -> "eng"
-    if (data.languages?.[0]?.key)
-      language = String(data.languages[0].key).split("/").pop();
-    if (data.isbn_13) updates.isbn13 = data.isbn_13[0] ?? null;
-    if (data.isbn_10) updates.isbn10 = data.isbn_10[0] ?? null;
-
-    // Description
-    if (typeof data.description === "string") {
-      updates.description = data.description;
-    } else if (data.description?.value) {
-      updates.description = data.description.value;
-    }
-
-    // Cover
-    if (data.covers?.[0]) {
-      coverUrl = `https://covers.openlibrary.org/b/id/${data.covers[0]}-L.jpg`;
-    } else if (data.cover_i) {
-      coverUrl = `https://covers.openlibrary.org/b/id/${data.cover_i}-L.jpg`;
-    }
-  } else if (source === "isbndb") {
-    const { searchIsbndbByIsbn } = await import("@/lib/api/isbndb");
-    // sourceId is the ISBN for ISBNdb results
-    const result = await searchIsbndbByIsbn(sourceId);
-    if (!result) throw new Error("Could not fetch from ISBNdb");
-
-    updates.title = result.title;
-    updates.subtitle = result.subtitle ?? null;
-    updates.publisher = result.publisher ?? null;
-    updates.publicationYear = result.publicationYear ?? null;
-    updates.pageCount = result.pageCount ?? null;
-    language = result.language;
-    updates.isbn13 = result.isbn13 ?? null;
-    updates.isbn10 = result.isbn10 ?? null;
-    updates.description = result.description ?? null;
-    coverUrl = result.coverUrl;
-  } else {
-    throw new Error(`Unsupported source: ${source}`);
-  }
-
-  const languageCode = normalizeLanguage(language);
-  if (languageCode) updates.language = languageCode;
-
-  // Process cover if a new URL was found
-  if (coverUrl) {
-    const result = await processAndUploadCover(editionId, coverUrl);
-    if (result) {
-      updates.coverS3Key = result.coverKey;
-      updates.thumbnailS3Key = result.thumbnailKey;
-      updates.coverSourceUrl = coverUrl;
-    }
-  }
-
-  // Apply the update
-  await db.update(editions).set(updates).where(eq(editions.id, editionId));
-  await autoResolveEditions([editionId]);
-
-  // Return the updated edition
-  const updated = await db.query.editions.findFirst({
-    where: eq(editions.id, editionId),
-  });
-
-  if (updated) {
-    recordActivity("work", updated.workId, "work.rematched");
-  }
-
-  return updated;
 }

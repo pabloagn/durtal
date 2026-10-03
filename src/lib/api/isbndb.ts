@@ -1,7 +1,9 @@
 import type { SearchResult } from "./types";
 import { reportSearchFailure } from "./search-diagnostics";
+import { normalizeBinding } from "@/lib/utils/binding";
+import { stripControlChars } from "@/lib/utils/sanitize";
 
-interface IsbndbBook {
+export interface IsbndbBook {
   title: string;
   isbn13: string;
   isbn10?: string;
@@ -45,29 +47,34 @@ function parseYear(dateStr?: string): number | undefined {
   return match ? parseInt(match[1], 10) : undefined;
 }
 
+/** ISBNdb text without the hidden sort markers of library records */
+function clean(text: string | undefined): string | undefined {
+  return text === undefined ? undefined : stripControlChars(text);
+}
+
 function bookToResult(book: IsbndbBook): SearchResult {
   return {
     source: "isbndb",
     sourceId: book.isbn13 ?? book.isbn10 ?? "",
-    title: book.title ?? "Untitled",
-    authors: book.authors ?? [],
-    publisher: book.publisher,
+    title: clean(book.title) || "Untitled",
+    authors: (book.authors ?? []).map((a) => stripControlChars(a)),
+    publisher: clean(book.publisher),
     publishedDate: book.date_published,
     publicationYear: parseYear(book.date_published),
-    description: book.synopsis ?? book.excerpt,
+    description: clean(book.synopsis ?? book.excerpt),
     isbn13: book.isbn13,
     isbn10: book.isbn10,
     pageCount: book.pages,
     categories: (book.subjects ?? []).slice(0, 10),
     coverUrl: book.image || undefined,
     language: book.language,
+    binding: normalizeBinding(book.binding) ?? undefined,
   };
 }
 
-export async function searchIsbndbByIsbn(
-  isbn: string,
-): Promise<SearchResult | null> {
-  const res = await fetch(`${BASE_URL}/book/${isbn}`, {
+/** The raw ISBNdb record for one ISBN, or null */
+export async function getIsbndbBook(isbn: string): Promise<IsbndbBook | null> {
+  const res = await fetch(`${BASE_URL}/book/${encodeURIComponent(isbn)}`, {
     headers: getHeaders(),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     next: { revalidate: 3600 },
@@ -78,7 +85,14 @@ export async function searchIsbndbByIsbn(
   }
 
   const data: IsbndbBookResponse = await res.json();
-  return data.book ? bookToResult(data.book) : null;
+  return data.book ?? null;
+}
+
+export async function searchIsbndbByIsbn(
+  isbn: string,
+): Promise<SearchResult | null> {
+  const book = await getIsbndbBook(isbn);
+  return book ? bookToResult(book) : null;
 }
 
 export async function searchIsbndb(

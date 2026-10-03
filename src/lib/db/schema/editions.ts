@@ -8,8 +8,9 @@ import {
   date,
   timestamp,
   index,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { editionPublishers } from "./publisher-links";
 import { works } from "./works";
 import { instances } from "./instances";
@@ -102,6 +103,11 @@ export const editions = pgTable(
     index("editions_work_id_idx").on(t.workId),
     index("editions_language_idx").on(t.language),
     index("editions_publication_year_idx").on(t.publicationYear),
+    // BINDING_TYPES in src/lib/types; sources' text goes through normalizeBinding
+    check(
+      "editions_binding_check",
+      sql`${t.binding} in ('hardcover', 'paperback', 'leather', 'cloth', 'boards', 'wrappers', 'spiral', 'saddle_stitch', 'other')`,
+    ),
   ],
 );
 

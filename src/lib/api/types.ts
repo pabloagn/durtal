@@ -1,3 +1,5 @@
+import type { BindingType } from "@/lib/types/index";
+
 /**
  * Unified search result type produced by both Google Books and Open Library adapters.
  * Backward-compatible with the wizard's existing SearchResult usage.
@@ -19,6 +21,8 @@ export interface SearchResult {
   coverUrl?: string;
   language?: string;
   languages?: string[];
+  /** One of BINDING_TYPES, when the source names a printed binding */
+  binding?: BindingType;
   editionCount?: number;
   /** Internal: Open Library author keys for cross-reference */
   _authorKeys?: string[];
