@@ -29,9 +29,12 @@
   /**
    * Layout baseline of the line that holds character `index` of a text node,
    * in viewport px. A range's box is not a reliable base: for JetBrains Mono
-   * at 14px it is 18.5px tall against an ascent + descent of 18px. Instead, a
-   * zero-height inline-block goes right after the character: its bottom sits
-   * on the baseline. The DOM is restored before returning.
+   * at 14px it is 18.5px tall against an ascent + descent of 18px. Instead, an
+   * empty inline with a font size and line height of 0 goes right after the
+   * character: its box has no height and sits on the baseline. An inline-block
+   * would not do: an atomic inline adds a line break opportunity, so text in
+   * a shrink-fit box could wrap after the character. The DOM is restored
+   * before returning.
    */
   function baseline(text, index) {
     // Text directly in a flex or grid box lays out in an anonymous item. A
@@ -51,11 +54,10 @@
       wrap.append(...run);
     }
     const probe = document.createElement("span");
-    probe.style.cssText =
-      "all:unset;display:inline-block;width:1px;height:0;margin-right:-1px;vertical-align:baseline";
+    probe.style.cssText = "all:unset;font-size:0;line-height:0";
     const rest = text.splitText(index + 1);
     rest.before(probe);
-    const y = probe.getBoundingClientRect().bottom;
+    const y = probe.getBoundingClientRect().top;
     probe.remove();
     text.appendData(rest.data);
     rest.remove();
