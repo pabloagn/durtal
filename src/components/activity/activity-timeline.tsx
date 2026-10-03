@@ -17,6 +17,7 @@ interface ActivityTimelineProps {
 export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps) {
   const [events, setEvents] = useState<TimelineItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -33,6 +34,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
     fetchEvents().then((result) => {
       setEvents(result.events);
       setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);
       setLoading(false);
     });
   }, [fetchEvents]);
@@ -43,20 +45,18 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
       fetchEvents().then((result) => {
         setEvents(result.events);
         setHasMore(result.hasMore);
+        setNextCursor(result.nextCursor);
       });
     });
   }, [fetchEvents]);
 
   const loadMore = async () => {
-    if (!hasMore || loadingMore) return;
+    if (!hasMore || !nextCursor || loadingMore) return;
     setLoadingMore(true);
-    const lastEvent = events[events.length - 1];
-    const cursor = lastEvent?.createdAt
-      ? new Date(lastEvent.createdAt).toISOString()
-      : undefined;
-    const result = await fetchEvents(cursor);
+    const result = await fetchEvents(nextCursor);
     setEvents((prev) => [...prev, ...result.events]);
     setHasMore(result.hasMore);
+    setNextCursor(result.nextCursor);
     setLoadingMore(false);
   };
 
@@ -90,6 +90,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
     fetchEvents().then((result) => {
       setEvents(result.events);
       setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);
     });
   };
 
@@ -107,6 +108,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
     fetchEvents().then((result) => {
       setEvents(result.events);
       setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);
     });
   };
 
