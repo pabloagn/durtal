@@ -7,12 +7,19 @@
  * "shift", "enter", "esc", or the character itself.
  */
 
+import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+
 export type Keys = string[];
 
 /** G opens the "Go to" menu; then one of these keys */
 export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: "d", label: "Dashboard", href: "/" },
-  { key: "l", label: "Library", href: "/library" },
+  // Each open collection's home: Books (L), and the others when they open
+  ...getEnabledWorkKinds().map((kind) => ({
+    key: WORK_DOMAINS[kind].keys.go,
+    label: WORK_DOMAINS[kind].pluralLabel,
+    href: WORK_DOMAINS[kind].basePath,
+  })),
   { key: "a", label: "Authors", href: "/authors" },
   { key: "p", label: "Publishers", href: "/publishers" },
   { key: "s", label: "Series", href: "/series" },
@@ -33,7 +40,12 @@ export const ADD: ({ key: string; label: string; section: string } & (
   | { href: string }
   | { dialog: AddDialog }
 ))[] = [
-  { key: "b", label: "Book", section: "/library", href: "/library/new" },
+  ...getEnabledWorkKinds().map((kind) => ({
+    key: WORK_DOMAINS[kind].keys.add,
+    label: WORK_DOMAINS[kind].label,
+    section: WORK_DOMAINS[kind].basePath,
+    href: `${WORK_DOMAINS[kind].basePath}/new`,
+  })),
   { key: "a", label: "Author", section: "/authors", dialog: "author" },
   { key: "p", label: "Publisher", section: "/publishers", href: "/publishers/new" },
   { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },

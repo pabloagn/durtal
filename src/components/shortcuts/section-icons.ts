@@ -3,7 +3,10 @@ import {
   BookOpen,
   BookOpenText,
   Building2,
+  Film,
+  FlaskRound,
   FolderOpen,
+  Frame,
   Layers,
   Library,
   MapPin,
@@ -15,11 +18,23 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
+
+/** Each collection's icon: its home, its add action and its dashboard block */
+export const DOMAIN_ICONS: Record<WorkKind, LucideIcon> = {
+  book: Library,
+  perfume: FlaskRound,
+  film: Film,
+  painting: Frame,
+};
 
 /** The sidebar's icon for each section, shared by the menus and the palette */
 export const SECTION_ICONS: Record<string, LucideIcon> = {
   "/": BookOpen,
-  "/library": Library,
+  ...Object.fromEntries(
+    WORK_KINDS.map((kind) => [WORK_DOMAINS[kind].basePath, DOMAIN_ICONS[kind]]),
+  ),
   "/reader": BookOpenText,
   "/authors": Users,
   "/publishers": Building2,

@@ -2,17 +2,20 @@ import { Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import Link from "next/link";
-import { Plus, Library } from "lucide-react";
+import { Library } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults } from "@/components/shared/no-results";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
 import { LibraryShell } from "./library-shell";
 import { LibraryFiltersBar } from "./library-filters-bar";
+import { DomainSwitch } from "@/components/domains/domain-switch";
+import {
+  DomainAddLink,
+  domainDescription,
+} from "@/components/domains/domain-add-link";
 import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { parseMarks } from "@/lib/constants/marks";
@@ -138,7 +141,7 @@ async function LibraryContent({
       // The filters bar is rendered by the page, so it stays visible here
       return (
         <NoResults
-          noun="works"
+          noun="books"
           search={search}
           hasFilters={
             !!(
@@ -157,16 +160,9 @@ async function LibraryContent({
     return (
       <EmptyState
         icon={Library}
-        title="Your library is empty"
+        title="No books yet"
         description="Add your first book to get started"
-        action={
-          <Link href="/library/new">
-            <Button variant="primary">
-              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Add book
-            </Button>
-          </Link>
-        }
+        action={<DomainAddLink kind="book" />}
       />
     );
   }
@@ -230,16 +226,10 @@ export default async function LibraryPage({ searchParams }: PageProps) {
   return (
     <>
       <PageHeader
-        title="Library"
-        description="Browse your complete catalogue"
-        actions={
-          <Link href="/library/new">
-            <Button variant="primary" size="md">
-              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Add book
-            </Button>
-          </Link>
-        }
+        title="Books"
+        description={domainDescription("book")}
+        tabs={<DomainSwitch current="book" searchParams={params} />}
+        actions={<DomainAddLink kind="book" />}
       />
 
       <LibraryFiltersBar />

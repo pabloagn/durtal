@@ -18,6 +18,8 @@ interface WorkDomain {
   readonly label: string;
   readonly pluralLabel: string;
   readonly basePath: string;
+  /** Keys after G (go to its home) and after A (add one); unique per menu */
+  readonly keys: { readonly go: string; readonly add: string };
   readonly enabled: boolean;
   readonly capabilities: Readonly<Record<WorkCapability, boolean>>;
   readonly creatorRoles: readonly string[];
@@ -38,6 +40,7 @@ export const WORK_DOMAINS = {
     label: "Book",
     pluralLabel: "Books",
     basePath: "/library",
+    keys: { go: "l", add: "b" },
     enabled: true,
     capabilities: {
       curation: true,
@@ -57,6 +60,7 @@ export const WORK_DOMAINS = {
     label: "Film",
     pluralLabel: "Films",
     basePath: "/films",
+    keys: { go: "f", add: "f" },
     enabled: false,
     capabilities: {
       curation: true,
@@ -76,6 +80,7 @@ export const WORK_DOMAINS = {
     label: "Perfume",
     pluralLabel: "Perfumes",
     basePath: "/perfumes",
+    keys: { go: "e", add: "e" },
     enabled: false,
     capabilities: {
       curation: true,
@@ -95,6 +100,7 @@ export const WORK_DOMAINS = {
     label: "Painting",
     pluralLabel: "Paintings",
     basePath: "/paintings",
+    keys: { go: "i", add: "i" },
     enabled: false,
     capabilities: {
       curation: true,
@@ -112,9 +118,17 @@ export const WORK_DOMAINS = {
   },
 } as const satisfies Record<WorkKind, WorkDomain>;
 
+/** The order collections are listed in: navigation, menus and the dashboard. */
+export const DOMAIN_ORDER = [
+  "book",
+  "perfume",
+  "film",
+  "painting",
+] as const satisfies readonly WorkKind[];
+
 /** Safe for navigation: never advertise an unfinished domain. */
 export function getEnabledWorkKinds(): WorkKind[] {
-  return WORK_KINDS.filter((kind) => WORK_DOMAINS[kind].enabled);
+  return DOMAIN_ORDER.filter((kind) => WORK_DOMAINS[kind].enabled);
 }
 
 /** Structural support is distinct from rollout readiness. */

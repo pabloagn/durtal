@@ -6,19 +6,33 @@ import {
   Layers,
   Copy,
   Users,
-  Plus,
   Upload,
   ArrowRight,
   Star,
   ShoppingCart,
+  FolderOpen,
 } from "lucide-react";
 import { getLibraryStats } from "@/lib/actions/works";
+import {
+  getCollectionCoverPreviews,
+  getCollections,
+} from "@/lib/actions/collections";
+import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import {
+  loadDomainCounts,
+  loadRecentTiles,
+  type HomeKind,
+} from "@/lib/catalogue/domain-homes";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { BookCard } from "@/components/books/book-card";
+import { CollectionCard } from "@/components/collections/collection-card";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
+import { DomainTileCard } from "@/components/domains/domain-tile";
+import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaCrop } from "@/lib/utils/media-style";
@@ -36,7 +50,8 @@ function StatCard({
   return (
     <Card glass>
       <CardContent className="flex items-center gap-4 py-5">
-        <div className="rounded-sm border border-glass-border bg-bg-primary/50 p-2.5">
+        {/* Decoration only: on a phone the count and its label need the room */}
+        <div className="hidden rounded-sm border border-glass-border bg-bg-primary/50 p-2.5 sm:block">
           <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
         </div>
         <div>
@@ -74,7 +89,7 @@ function SectionHeader({
       {href && (
         <Link
           href={href}
-          className="flex items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
         >
           View all
           <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
@@ -154,61 +169,152 @@ function workToCardProps(work: {
   };
 }
 
+/** The other open collections: counts, newest records. Books come from getLibraryStats. */
+async function otherDomains() {
+  const kinds = getEnabledWorkKinds().filter(
+    (kind): kind is HomeKind => kind !== "book",
+  );
+  return Promise.all(
+    kinds.map(async (kind) => ({
+      kind,
+      counts: await loadDomainCounts(kind),
+      recent: await loadRecentTiles(kind, 8),
+    })),
+  );
+}
+
+const CREATOR_LABELS: Record<HomeKind, string> = {
+  perfume: "Perfumers",
+  film: "Directors",
+  painting: "Painters",
+};
+
 async function DashboardContent() {
-  const stats = await getLibraryStats();
+  const [stats, others, collections] = await Promise.all([
+    getLibraryStats(),
+    otherDomains(),
+    getCollections({ limit: 4, offset: 0 }),
+  ]);
+  const covers = await getCollectionCoverPreviews(
+    collections.map((collection) => collection.id),
+  );
+  // Newest first across the open collections
+  const recent = [
+    ...stats.recentWorks.map((work) => ({
+      key: work.id,
+      createdAt: work.createdAt,
+      card: <BookCard key={work.id} {...workToCardProps(work)} />,
+    })),
+    ...others.flatMap(({ kind, recent: tiles }) =>
+      tiles.map((tile) => ({
+        key: tile.id,
+        createdAt: tile.createdAt,
+        card: <DomainTileCard key={tile.id} kind={kind} tile={tile} />,
+      })),
+    ),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 8);
+  const singleDomain = others.length === 0;
 
   return (
     <>
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Works" value={stats.works} icon={BookOpen} />
-        <StatCard label="Editions" value={stats.editions} icon={Layers} />
-        <StatCard label="Instances" value={stats.instances} icon={Copy} />
-        <StatCard label="Authors" value={stats.authors} icon={Users} />
-      </div>
-
-      {/* Quick actions */}
-      <div className="mt-8 flex items-center gap-3">
-        <Link href="/library/new">
-          <Button variant="primary" size="md">
-            <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Add book
-          </Button>
-        </Link>
-        <Link href="/library/import">
-          <Button variant="secondary" size="md">
+      {/* Books: counts and the book actions */}
+      <section>
+        <SectionHeader
+          title={WORK_DOMAINS.book.pluralLabel}
+          icon={DOMAIN_ICONS.book}
+          href={WORK_DOMAINS.book.basePath}
+        />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Books" value={stats.works} icon={BookOpen} />
+          <StatCard label="Editions" value={stats.editions} icon={Layers} />
+          <StatCard label="Instances" value={stats.instances} icon={Copy} />
+          <StatCard label="Authors" value={stats.authors} icon={Users} />
+        </div>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <DomainAddLink kind="book" />
+          <Link
+            href="/library/import"
+            className={`${buttonClass("secondary", "md")} whitespace-nowrap`}
+          >
             <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Import
-          </Button>
-        </Link>
-      </div>
+            Import books
+          </Link>
+        </div>
+      </section>
 
-      {/* Favourite books (top rated) */}
-      {stats.topRatedWorks.length > 0 && (
+      {/* Each other open collection: its counts and its add action */}
+      {others.map(({ kind, counts }) => (
+        <section key={kind} className="mt-12">
+          <SectionHeader
+            title={WORK_DOMAINS[kind].pluralLabel}
+            icon={DOMAIN_ICONS[kind]}
+            href={WORK_DOMAINS[kind].basePath}
+          />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard
+              label={WORK_DOMAINS[kind].pluralLabel}
+              value={counts.records}
+              icon={DOMAIN_ICONS[kind]}
+            />
+            <StatCard
+              label={CREATOR_LABELS[kind]}
+              value={counts.creators}
+              icon={Users}
+            />
+          </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <DomainAddLink kind={kind} />
+          </div>
+        </section>
+      ))}
+
+      {/* Recent additions, newest first across the open collections */}
+      {recent.length > 0 && (
         <section className="mt-12">
           <SectionHeader
-            title="Favourites"
-            icon={Star}
-            href="/library?sort=rating"
+            title="Recent additions"
+            icon={BookOpen}
+            href={singleDomain ? "/library?sort=recent" : undefined}
           />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {stats.topRatedWorks.map((work) => (
-              <BookCard key={work.id} {...workToCardProps(work)} />
+            {recent.map((item) => item.card)}
+          </div>
+        </section>
+      )}
+
+      {/* Collections: the first ones in their curated order */}
+      {collections.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader title="Collections" icon={FolderOpen} href="/collections" />
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+            {collections.map((collection) => (
+              <CollectionCard
+                key={collection.id}
+                collection={{
+                  ...collection,
+                  editionCount: collection.collectionEditions?.length ?? 0,
+                }}
+                covers={covers
+                  .filter((preview) => preview.collectionId === collection.id)
+                  .map((preview) => preview.s3Key)}
+              />
             ))}
           </div>
         </section>
       )}
 
-      {/* Recent additions */}
-      {stats.recentWorks.length > 0 && (
+      {/* Highest rated books */}
+      {stats.topRatedWorks.length > 0 && (
         <section className="mt-12">
           <SectionHeader
-            title="Recent additions"
-            icon={BookOpen}
-            href="/library?sort=recent"
+            title="Highest rated"
+            icon={Star}
+            href="/library?sort=rating"
           />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {stats.recentWorks.map((work) => (
+            {stats.topRatedWorks.map((work) => (
               <BookCard key={work.id} {...workToCardProps(work)} />
             ))}
           </div>

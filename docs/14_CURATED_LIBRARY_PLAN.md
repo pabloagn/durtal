@@ -332,5 +332,12 @@ existing row was preserved, and the only additions were the eight domain
 taxonomy families. Later migrations continue from 0050 and need the same
 backup, rehearsal and before/after comparison.
 
+Collection navigation (SLN-364, task 0188) names each open collection in the
+sidebar, the Add and Go menus, the command palette and the dashboard; Books
+stays at `/library`. `/perfumes`, `/films` and `/paintings` answer 404 until
+their collection opens, from a gate in each route's layout. Their homes, the
+collection switch with its filter rules and per-collection saved views are in
+place for SLN-366–SLN-368 to fill with domain cards and detail pages.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

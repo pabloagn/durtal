@@ -263,7 +263,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-            Back to library
+            Back to books
           </Link>
 
           {/* Header */}

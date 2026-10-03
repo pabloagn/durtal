@@ -2,13 +2,16 @@
 
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
-import { usePreference } from "@/lib/hooks/use-preference";
+import {
+  usePreference,
+  useViewModePreference,
+} from "@/lib/hooks/use-preference";
+import { LIBRARY_VIEW_MODES } from "./view-modes";
 import { useLibrarySelection } from "@/lib/hooks/use-library-selection";
 import { LibraryView } from "@/components/books/library-view";
 import { BulkActionToolbar } from "@/components/books/bulk-action-toolbar";
 import { CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ViewMode } from "@/components/books/view-mode-switcher";
 import type { CoverCrop } from "@/components/books/book-card";
 import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
 
@@ -60,8 +63,9 @@ interface LibraryShellProps {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryShellProps) {
-  const [viewMode] = usePreference<ViewMode>(
+  const [viewMode] = useViewModePreference(
     "durtal-view-mode",
+    LIBRARY_VIEW_MODES,
     "grid",
   );
   const [gridColumns] = usePreference(
@@ -103,7 +107,7 @@ export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryS
         </div>
       )}
 
-      {!isTimeline && <Pagination {...pagination} noun="works" compact />}
+      {!isTimeline && <Pagination {...pagination} noun="books" compact />}
 
       {/* Standard list/grid/detailed views */}
       {!isTimeline && (
@@ -129,7 +133,7 @@ export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryS
         />
       )}
 
-      {!isTimeline && <Pagination {...pagination} noun="works" />}
+      {!isTimeline && <Pagination {...pagination} noun="books" />}
     </>
   );
 }

@@ -198,3 +198,17 @@ export function legacyYearDate(
       : { precision: "year", start: { year }, approximate },
   );
 }
+
+function yearLabel(year: number) {
+  return year < 0 ? `${-year} BC` : String(year);
+}
+
+/** "1888", "c. 1503–1519": a catalogue date to the year. */
+export function catalogueDateYears(date: CatalogueDate | null) {
+  if (!date?.start) return date?.label ?? null;
+  const end =
+    date.end && date.end.year !== date.start.year
+      ? `–${yearLabel(date.end.year)}`
+      : "";
+  return `${date.approximate ? "c. " : ""}${yearLabel(date.start.year)}${end}`;
+}

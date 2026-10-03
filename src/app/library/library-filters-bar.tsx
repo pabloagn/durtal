@@ -1,18 +1,20 @@
 "use client";
 
-import { usePreference } from "@/lib/hooks/use-preference";
+import {
+  usePreference,
+  useViewModePreference,
+} from "@/lib/hooks/use-preference";
 import { LibraryFilters } from "./filters";
-import type { ViewMode } from "@/components/books/view-mode-switcher";
-
-const LIBRARY_VIEW_MODES: ViewMode[] = ["grid", "list", "detailed", "timeline"];
+import { LIBRARY_VIEW_MODES } from "./view-modes";
 
 /**
  * Standalone filters bar that always renders, independent of book data.
  * Used outside the Suspense/data boundary so it's never hidden.
  */
 export function LibraryFiltersBar() {
-  const [viewMode, setViewMode] = usePreference<ViewMode>(
+  const [viewMode, setViewMode] = useViewModePreference(
     "durtal-view-mode",
+    LIBRARY_VIEW_MODES,
     "grid",
   );
   const [gridColumns, setGridColumns] = usePreference(

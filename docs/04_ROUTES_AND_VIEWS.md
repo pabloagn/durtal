@@ -4,7 +4,7 @@
 
 ```
 /                           Dashboard
-/library                    Main catalogue view
+/library                    Books: the book collection's home (title "Books")
 /library/[slug]             Work detail page (slug format: {title}-by-{author})
 /library/new                Add new book (wizard)
 /library/import             Bulk import interface
@@ -17,7 +17,14 @@
 /tags                       Tag management
 /subjects                   Subject management
 /settings                   Application settings
+/perfumes, /films, /paintings   Homes of the other collections; 404 until each opens
 ```
+
+A collection opens when `WORK_DOMAINS[kind].enabled` is true
+(`src/lib/catalogue/domains.ts`). Each of its route folders has a `layout.tsx`
+that calls `requireEnabledDomain(kind)`, so every page below it (home, and later
+detail and new) answers 404 while the collection is unready. Books stay at
+`/library`; no book URL changes.
 
 All data pages use `force-dynamic` rendering — no static generation, no ISR. Every request fetches fresh data from Neon.
 
@@ -32,15 +39,13 @@ Fixed left sidebar (`w-56`, `h-dvh`, `z-40`). Always visible on desktop.
 Structure from top to bottom:
 1. **Logo**: "Durtal" text
 2. **Search trigger**: Button that opens the command palette (`Cmd+K`)
-3. **Navigation links**:
-   - Dashboard (`/`)
-   - Library (`/library`)
-   - Authors (`/authors`)
-   - Series (`/series`)
-   - Locations (`/locations`)
-   - Collections (`/collections`)
-   - Tags (`/tags`)
-   - Settings (`/settings`)
+3. **Navigation links**: `NAV_SECTIONS` in `src/lib/navigation.ts`, the one
+   list the sidebar and the command palette read. Dashboard, then one entry per
+   open collection in the order Books, Perfumes, Films, Paintings
+   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Recommenders, Series,
+   Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
+   Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
+   (`src/components/shortcuts/section-icons.ts`).
 4. **Footer**: "catalogue . index . archive" text
 
 Active route is highlighted with `bg-accent-plum`.
@@ -49,9 +54,11 @@ Active route is highlighted with `bg-accent-plum`.
 
 Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmdk` library.
 
-Two groups:
-- **Navigate**: Links to all main sections (Dashboard, Library, Authors, Locations, Collections, Tags, Settings)
-- **Actions**: Add Book, Import Books
+Groups:
+- **Books** and **Authors**: matches for the typed text
+- **Search**: one "Search books for …" entry per open collection
+- **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
+- **Go to**: every `NAV_SECTIONS` entry
 
 Features:
 - Real-time fuzzy filtering
@@ -64,7 +71,7 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (book, author, publisher, recommender, series, collection, place), `G` → the Go to menu, `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G L`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 
 ---
@@ -73,35 +80,33 @@ The root `Shell` component wraps all page content:
 
 ### Dashboard (`/`)
 
-The landing page. Provides an overview of the entire library.
+The landing page: each open collection, then what is new and curated across them.
 
-**Stats cards** (top row):
-- Works count
-- Editions count
-- Instances count
-- Authors count
-- Books per location breakdown
-- Books per catalogue status
+**One block per open collection** (Books first): a heading with its icon and
+"View all" to its home, its counts and its add actions.
+- Books: Books (book works only), Editions, Instances, Authors; Add book,
+  Import books.
+- Perfumes, Films, Paintings: the record count and the people with the
+  collection's first creator role (perfumers, directors, painters); Add perfume,
+  film or painting.
 
-**Quick actions**:
-- Add book → navigates to `/library/new`
-- Import → navigates to `/library/import`
-- Quick add: Inline ISBN input field for rapid entry
+**Recent additions**: the 8 newest records across the open collections, newest
+first. A book shows as its book card; other records as a `DomainTileCard`.
 
-**Recent additions**:
-- Grid of the 8 most recently added works
-- Each shows cover thumbnail, title, author, year
+**Collections**: the first 4 collections in their curated order, with "View all".
 
-**Additional panels**:
-- Location breakdown (visual, minimal chart)
-- Wishlist count with "next to buy" highlights
-- Series count, complete series count
+**Highest rated**, **Recent authors** and **Wanted**: book sections.
 
 ---
 
-### Library (`/library`)
+### Books (`/library`)
 
-The main catalogue view. Displays all works with pagination and search.
+The book collection's home, titled "Books". Displays all books with pagination
+and search. When more than one collection is open, a switch under the title
+(`DomainSwitch`) links to the others and keeps only the search, the filters and
+the sort that each home understands (`domainSwitchHref`); the page and page
+size start again. The saved view (`durtal-view-mode` cookie) is used only when
+the page offers it; any other value shows the grid.
 
 **View modes** (togglable):
 - **Grid**: Book cards in a responsive grid (adjustable columns via slider)
@@ -140,6 +145,17 @@ The main catalogue view. Displays all works with pagination and search.
 - Rating (if set)
 
 ---
+
+### Perfumes, Films, Paintings (`/perfumes`, `/films`, `/paintings`)
+
+Reachable once the collection opens (see Route Map). `DomainHome`
+(`src/components/domains/domain-home.tsx`) shows the title, "Add perfume" (film,
+painting), the collection switch, search, the collection's sorts, grid and list
+views (saved per collection: `durtal-perfumes-view-mode`), paging, and empty,
+no-results, loading and error states. Records use `DomainTileCard` and
+`DomainTileRow`: the image in the collection's slot (contained, never cropped)
+or the title's first letter, the credited people and the years. Detail and
+domain-specific cards belong to the collection's own task (SLN-366 to SLN-368).
 
 ### Work Detail (`/library/[slug]`)
 

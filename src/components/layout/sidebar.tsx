@@ -3,40 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useCallback, useEffect, useState } from "react";
-import {
-  Library,
-  Building2,
-  Users,
-  Layers,
-  MapPin,
-  FolderOpen,
-  Tags,
-  BookOpen,
-  BookOpenText,
-  Settings,
-  Search,
-  Archive,
-  Route,
-  ThumbsUp,
-  ScanLine,
-} from "lucide-react";
-
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: BookOpen },
-  { href: "/library", label: "Library", icon: Library },
-  { href: "/reader", label: "Reader", icon: BookOpenText },
-  { href: "/authors", label: "Authors", icon: Users },
-  { href: "/publishers", label: "Publishers", icon: Building2 },
-  { href: "/recommenders", label: "Recommenders", icon: ThumbsUp },
-  { href: "/series", label: "Series", icon: Layers },
-  { href: "/places", label: "Places", icon: MapPin },
-  { href: "/provenance", label: "Provenance", icon: Route },
-  { href: "/locations", label: "Locations", icon: Archive },
-  { href: "/collections", label: "Collections", icon: FolderOpen },
-  { href: "/taxonomy", label: "Taxonomy", icon: Tags },
-  { href: "/harmonize", label: "Harmonize", icon: ScanLine },
-  { href: "/settings", label: "Settings", icon: Settings },
-] as const;
+import { Search } from "lucide-react";
+import { NAV_SECTIONS, isSectionActive } from "@/lib/navigation";
+import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 
 const SIDEBAR_DEFAULT = 224;
 const SIDEBAR_COLLAPSED = 56;
@@ -150,9 +119,9 @@ export function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2">
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const isActive =
-              href === "/" ? pathname === "/" : pathname.startsWith(href);
+          {NAV_SECTIONS.map(({ href, label }) => {
+            const Icon = SECTION_ICONS[href];
+            const isActive = isSectionActive(href, pathname);
             return (
               <li key={href} className="relative group">
                 <Link

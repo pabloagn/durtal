@@ -20,6 +20,7 @@ import { quickSearch, type QuickSearchResult } from "@/lib/actions/quick-search"
 import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
+import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -37,22 +38,7 @@ interface PaletteItem {
   run?: "help";
 }
 
-const NAVIGATION_ITEMS: PaletteItem[] = [
-  { label: "Dashboard", href: "/" },
-  { label: "Library", href: "/library" },
-  { label: "Reader", href: "/reader" },
-  { label: "Authors", href: "/authors" },
-  { label: "Publishers", href: "/publishers" },
-  { label: "Recommenders", href: "/recommenders" },
-  { label: "Series", href: "/series" },
-  { label: "Places", href: "/places" },
-  { label: "Provenance", href: "/provenance" },
-  { label: "Locations", href: "/locations" },
-  { label: "Collections", href: "/collections" },
-  { label: "Taxonomy", href: "/taxonomy" },
-  { label: "Harmonize", href: "/harmonize" },
-  { label: "Settings", href: "/settings" },
-].map((item) => {
+const NAVIGATION_ITEMS: PaletteItem[] = NAV_SECTIONS.map((item) => {
   const go = GO_TO.find((g) => g.href === item.href);
   return {
     ...item,
@@ -159,7 +145,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
     (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
-    (trimmed && "library-search") ||
+    (trimmed && DOMAIN_SECTIONS[0] && `search:${DOMAIN_SECTIONS[0].href}`) ||
     "";
 
   // The best match is selected, so Enter opens it
@@ -250,19 +236,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             )}
 
             {trimmed && !searching && (
-              <Command.Group heading="Library" className={GROUP_CLASS}>
-                <Command.Item
-                  value="library-search"
-                  onSelect={() =>
-                    navigate(`/library?q=${encodeURIComponent(trimmed)}`)
-                  }
-                  className={ITEM_CLASS}
-                >
-                  <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span className="min-w-0 flex-1 truncate">
-                    Search the library for &ldquo;{trimmed}&rdquo;
-                  </span>
-                </Command.Item>
+              <Command.Group heading="Search" className={GROUP_CLASS}>
+                {DOMAIN_SECTIONS.map((domain) => (
+                  <Command.Item
+                    key={domain.href}
+                    value={`search:${domain.href}`}
+                    onSelect={() =>
+                      navigate(`${domain.href}?q=${encodeURIComponent(trimmed)}`)
+                    }
+                    className={ITEM_CLASS}
+                  >
+                    <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">
+                      Search {domain.label.toLowerCase()} for &ldquo;{trimmed}&rdquo;
+                    </span>
+                  </Command.Item>
+                ))}
               </Command.Group>
             )}
 

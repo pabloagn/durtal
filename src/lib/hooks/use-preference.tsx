@@ -94,3 +94,16 @@ export function usePreference<T>(key: string, fallback: T) {
 
   return [value, setValue] as const;
 }
+
+/**
+ * A saved view mode that this page offers. A value the page does not offer
+ * (an older build's, or another page's) gives the fallback instead.
+ */
+export function useViewModePreference<T extends string>(
+  key: string,
+  modes: readonly T[],
+  fallback: T,
+) {
+  const [value, setValue] = usePreference<T>(key, fallback);
+  return [modes.includes(value) ? value : fallback, setValue] as const;
+}
