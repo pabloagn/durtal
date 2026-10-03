@@ -5,7 +5,6 @@ import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import Link from "next/link";
 import { Library, ListChecks } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
-import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { PageHeader } from "@/components/layout/page-header";
 import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -87,7 +86,7 @@ async function LibraryContent({
         ? false
         : undefined;
 
-  const [works, total, timelineWorks] = await Promise.all([
+  const [works, total] = await Promise.all([
     getWorks({
       search,
       sort,
@@ -119,21 +118,11 @@ async function LibraryContent({
       locationId,
       hasPoster,
     }),
-    getWorksForTimeline({
-      search,
-      filters: {
-        catalogueStatus: statusFilter?.length ? statusFilter : undefined,
-        marks: markFilter,
-        publisherIds: searchParams.publisher
-          ?.split(",")
-          .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
-      },
-    }),
   ]);
 
   if (page > lastPage(total, limit)) redirect(pageHref("/library", searchParams, lastPage(total, limit)));
 
-  if (works.length === 0 && timelineWorks.length === 0) {
+  if (works.length === 0) {
     const params = new URLSearchParams(
       Object.entries(searchParams).filter(
         (e): e is [string, string] => typeof e[1] === "string",
@@ -218,7 +207,20 @@ async function LibraryContent({
 
   return (
     <>
-      <LibraryShell books={books} timelineWorks={timelineWorks} pagination={{ page, perPage: limit, total }} />
+      <LibraryShell
+        books={books}
+        timelineQuery={{
+          search,
+          filters: {
+            catalogueStatus: statusFilter?.length ? statusFilter : undefined,
+            marks: markFilter,
+            publisherIds: searchParams.publisher
+              ?.split(",")
+              .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
+          },
+        }}
+        pagination={{ page, perPage: limit, total }}
+      />
     </>
   );
 }
