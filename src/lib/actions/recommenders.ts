@@ -5,7 +5,7 @@ import { bookReferenceCondition } from "@/lib/catalogue/book-boundary";
 import { z } from "zod/v4";
 import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
-import { recommenders } from "@/lib/db/schema";
+import { recommenders, workRecommenders } from "@/lib/db/schema";
 import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
@@ -196,4 +196,24 @@ export async function deleteRecommender(id: string) {
   z.uuid().parse(id);
   await db.delete(recommenders).where(eq(recommenders.id, id));
   changed();
+}
+
+/**
+ * Adds recommenders to a work and keeps the ones it already has (the Edit
+ * dialog replaces the whole list instead). Returns how many links are new.
+ */
+export async function addWorkRecommenders(
+  workId: string,
+  recommenderIds: string[],
+): Promise<number> {
+  z.uuid().parse(workId);
+  z.array(z.uuid()).parse(recommenderIds);
+  if (recommenderIds.length === 0) return 0;
+  const added = await db
+    .insert(workRecommenders)
+    .values(recommenderIds.map((recommenderId) => ({ workId, recommenderId })))
+    .onConflictDoNothing()
+    .returning();
+  if (added.length > 0) changed();
+  return added.length;
 }

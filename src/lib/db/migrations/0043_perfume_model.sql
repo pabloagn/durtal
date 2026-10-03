@@ -155,6 +155,14 @@ CREATE INDEX "perfume_variant_taxon_idx" ON "perfume_variant_taxa" USING btree (
 CREATE INDEX "perfume_variant_work_idx" ON "perfume_variants" USING btree ("work_id");--> statement-breakpoint
 ALTER TABLE "works" ADD CONSTRAINT "works_language_domain_check" CHECK (("works"."kind"='book' and "works"."original_language" is not null) or ("works"."kind"<>'book' and "works"."original_language" is null));
 --> statement-breakpoint
+-- Language codes (0035) normalize every stored language. A non-book work stores
+-- none; an absent value is not an unknown language.
+CREATE OR REPLACE FUNCTION normalize_work_language() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF NEW.original_language IS NOT NULL THEN NEW.original_language := stored_language(NEW.original_language); END IF;
+ RETURN NEW;
+END $$;
+--> statement-breakpoint
 CREATE FUNCTION catalogue_require_date_order(start_id uuid,end_id uuid) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
  IF EXISTS(SELECT 1 FROM catalogue_dates a,catalogue_dates b WHERE a.id=start_id AND b.id=end_id AND a.lower_bound>b.upper_bound) THEN

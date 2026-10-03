@@ -16,6 +16,8 @@ import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
+import { AuthorNameInput } from "@/components/shared/author-name-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +29,7 @@ import {
 } from "@/components/books/instance-form";
 import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
+import { languageName, normalizeLanguage } from "@/lib/utils/language";
 import { findDuplicateWork, createWork, getWork } from "@/lib/actions/works";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
@@ -328,12 +331,12 @@ export function AddBookWizard() {
     setTitle(result.title);
     setAuthorName(result.authors[0] ?? "");
     setOriginalYear(String(result.publicationYear ?? ""));
-    setOriginalLanguage(result.language ?? "en");
+    setOriginalLanguage(normalizeLanguage(result.language) ?? "en");
     setDescription(stripHtmlToText(result.description ?? ""));
     setIsbn13(result.isbn13 ?? "");
     setPublisher(result.publisher ?? "");
     setPublicationYear(String(result.publicationYear ?? ""));
-    setLanguage(result.language ?? "en");
+    setLanguage(normalizeLanguage(result.language) ?? "en");
     setPageCount(String(result.pageCount ?? ""));
     setCoverUrl(result.coverUrl ?? "");
     setMetadataSource(result.source);
@@ -608,7 +611,8 @@ export function AddBookWizard() {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl">
+    // Enter goes to the next step, ⌘Enter runs Fast Track or adds the book
+    <div className="max-w-2xl" data-shortcut-scope="">
       <StepProgress />
 
       {/* ── Step: Search ──────────────────────────────────────────────── */}
@@ -621,6 +625,7 @@ export function AddBookWizard() {
               <input
                 type="text"
                 placeholder="Search by title, author, or ISBN..."
+                data-shortcut-search=""
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -801,19 +806,20 @@ export function AddBookWizard() {
           aria-busy={fastTrackSaving}
         >
           <div className="space-y-4">
-            <Input
+            <TitleInput
               label="Title"
               id="title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onValueChange={setTitle}
+              language={originalLanguage}
               placeholder="The Master and Margarita"
               required
             />
-            <Input
+            <AuthorNameInput
               label="Author"
               id="author"
               value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
+              onValueChange={setAuthorName}
               placeholder="Mikhail Bulgakov"
               required
             />
@@ -974,7 +980,7 @@ export function AddBookWizard() {
                   Fast Track
                 </Button>
               )}
-              <Button onClick={() => setStep("edition")}>
+              <Button data-shortcut="next" onClick={() => setStep("edition")}>
                 Edition details
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1076,6 +1082,7 @@ export function AddBookWizard() {
                 </Button>
               )}
               <Button
+                data-shortcut="next"
                 onClick={() => {
                   setSkipCopies(false);
                   setStep("instance");
@@ -1153,6 +1160,7 @@ export function AddBookWizard() {
                 Skip copies
               </Button>
               <Button
+                data-shortcut="next"
                 onClick={() => {
                   setSkipCopies(false);
                   setStep("categorize");
@@ -1218,7 +1226,7 @@ export function AddBookWizard() {
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Skip
               </Button>
-              <Button onClick={() => setStep("confirm")}>
+              <Button data-shortcut="next" onClick={() => setStep("confirm")}>
                 Review
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1248,7 +1256,7 @@ export function AddBookWizard() {
                     {originalYear && (
                       <Badge variant="muted">{originalYear}</Badge>
                     )}
-                    <Badge variant="muted">{originalLanguage}</Badge>
+                    <Badge variant="muted">{languageName(originalLanguage)}</Badge>
                     {seriesName && (
                       <Badge variant="blue">
                         {seriesName}

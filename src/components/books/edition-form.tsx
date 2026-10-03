@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BINDING_TYPES, EDITION_CONTRIBUTOR_ROLES } from "@/lib/types/index";
+import { languageOptions } from "@/lib/utils/language";
 import { filterBySearch } from "@/lib/utils/search-text";
 
-import { getPublisherOptions } from "@/lib/actions/publishers";
 import {
-  PublisherPicker,
+  PublisherChip,
+  PublisherSearch,
   type PublisherOption,
 } from "@/components/publishers/publisher-picker";
 
@@ -35,7 +37,8 @@ export interface EditionFormValues {
   openLibraryKey: string;
   googleBooksId: string;
   goodreadsId: string;
-  publisherIds?: string[];
+  /** Confirmed publishing houses; undefined leaves them to automatic matching */
+  publishers?: PublisherOption[];
   publisher: string;
   imprint: string;
   publicationYear: string;
@@ -165,20 +168,6 @@ export function EditionForm({
   isPending,
   existingCoverUrl,
 }: EditionFormProps) {
-  const [publisherOptions, setPublisherOptions] = useState<PublisherOption[]>(
-    [],
-  );
-  useEffect(() => {
-    let active = true;
-    getPublisherOptions()
-      .then((rows) => {
-        if (active) setPublisherOptions(rows);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
   const [values, setValues] = useState<EditionFormValues>(initialValues);
   const [newContributorName, setNewContributorName] = useState("");
   const [newContributorRole, setNewContributorRole] = useState("translator");
@@ -247,19 +236,21 @@ export function EditionForm({
     <form onSubmit={handleSubmit} className="space-y-0">
       {/* Section 1: Title & Identifiers */}
       <Section title="Title & Identifiers" defaultOpen>
-        <Input
+        <TitleInput
           label="Title"
           id="ed-title"
           value={values.title}
-          onChange={(e) => update("title", e.target.value)}
+          onValueChange={(v) => update("title", v)}
+          language={values.language}
           required
           placeholder="Edition title..."
         />
-        <Input
+        <TitleInput
           label="Subtitle"
           id="ed-subtitle"
           value={values.subtitle}
-          onChange={(e) => update("subtitle", e.target.value)}
+          onValueChange={(v) => update("subtitle", v)}
+          language={values.language}
           placeholder="Optional subtitle..."
         />
         <div className="grid grid-cols-2 gap-3">
@@ -339,42 +330,38 @@ export function EditionForm({
         <label className="flex items-center gap-2 text-sm text-fg-secondary">
           <input
             type="checkbox"
-            disabled={initialValues.publisherIds !== undefined}
-            checked={values.publisherIds !== undefined}
+            disabled={initialValues.publishers !== undefined}
+            checked={values.publishers !== undefined}
             onChange={(e) =>
-              update("publisherIds", e.target.checked ? [] : undefined)
+              update("publishers", e.target.checked ? [] : undefined)
             }
           />
           Choose publisher identities manually
         </label>
-        {values.publisherIds !== undefined && (
+        {values.publishers !== undefined && (
           <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
-              {values.publisherIds.map((id) => (
-                <button
-                  type="button"
-                  key={id}
-                  className="text-xs text-fg-secondary"
-                  onClick={() =>
-                    update(
-                      "publisherIds",
-                      values.publisherIds!.filter((v) => v !== id),
-                    )
-                  }
-                >
-                  {publisherOptions.find((p) => p.id === id)?.name ??
-                    "Publisher"}{" "}
-                  ×
-                </button>
-              ))}
-            </div>
-            <PublisherPicker
-              options={publisherOptions.filter(
-                (p) => !values.publisherIds!.includes(p.id),
-              )}
-              value=""
-              onChange={(id) =>
-                id && update("publisherIds", [...values.publisherIds!, id])
+            {values.publishers.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {values.publishers.map((p) => (
+                  <PublisherChip
+                    key={p.id}
+                    publisher={p}
+                    onRemove={() =>
+                      update(
+                        "publishers",
+                        values.publishers!.filter((v) => v.id !== p.id),
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            <PublisherSearch
+              label="Publishing house"
+              exclude={values.publishers.map((p) => p.id)}
+              allowCreate
+              onSelect={(p) =>
+                update("publishers", [...values.publishers!, p])
               }
             />
             <p className="text-xs text-fg-muted">
@@ -481,12 +468,12 @@ export function EditionForm({
 
       {/* Section 4: Language */}
       <Section title="Language">
-        <Input
+        <Select
           label="Language"
           id="ed-language"
           value={values.language}
           onChange={(e) => update("language", e.target.value)}
-          placeholder="en"
+          options={languageOptions(initialValues.language)}
         />
         <label className="flex items-center gap-2 text-xs text-fg-secondary">
           <input

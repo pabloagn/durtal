@@ -11,6 +11,9 @@ import { EditionDeleteButton } from "./edition-delete-button";
 import { InstanceAddDialog } from "./instance-add-dialog";
 import { EditionMatchButton } from "./edition-match-button";
 import { formatDimensions, formatDate } from "@/lib/utils/format";
+import { languageName } from "@/lib/utils/language";
+import { EditionCover } from "@/components/books/edition-cover";
+import type { PosterImage } from "@/lib/utils/edition-image";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import type {
   Edition,
@@ -44,6 +47,8 @@ type EditionFull = Edition & {
 
 interface EditionDetailCardProps {
   edition: EditionFull;
+  /** The book's active poster, shown when the edition has no cover */
+  poster?: PosterImage | null;
   workId?: string;
   authorName?: string;
   availableLocations?: LocationWithSubLocations[];
@@ -68,6 +73,7 @@ function DetailRow({ label, children }: DetailRowProps) {
 
 export function EditionDetailCard({
   edition,
+  poster,
   workId,
   authorName,
   availableLocations = [],
@@ -115,75 +121,94 @@ export function EditionDetailCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="font-serif text-lg text-fg-primary">
-              {edition.title}
-              {edition.subtitle && (
-                <span className="text-fg-secondary">: {edition.subtitle}</span>
-              )}
-            </h3>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
-              {edition.publisher && <span>{edition.publisher}</span>}
-              {edition.imprint && edition.imprint !== edition.publisher && (
-                <span className="text-fg-muted">{edition.imprint}</span>
-              )}
-              {edition.publicationYear && (
-                <span className="font-mono">{edition.publicationYear}</span>
-              )}
-              {edition.language && (
-                <Badge variant="blue">{edition.language}</Badge>
-              )}
-              {edition.binding && (
-                <Badge variant="muted">{edition.binding}</Badge>
-              )}
-            </div>
-          </div>
-
-          {/* Right side: ISBN badges + action buttons */}
-          <div className="flex flex-col items-end gap-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {edition.isbn13 && (
-                <span className="font-mono text-xs text-fg-muted">
-                  {edition.isbn13}
-                </span>
-              )}
-              {edition.isFirstEdition && <Badge variant="gold">1st ed.</Badge>}
-              {edition.isLimitedEdition && (
-                <Badge variant="rose">Limited</Badge>
-              )}
-            </div>
-            {hasActionProps && (
-              <div className="flex items-center gap-1">
-                <CollectionButton editionId={edition.id} title={edition.title} />
-                {(edition.coverS3Key || edition.thumbnailS3Key) && <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent((edition.coverS3Key || edition.thumbnailS3Key)!)}`} label="Adjust edition cover" />}
-                {workId && (
-                  <EditionMatchButton
-                    workId={workId}
-                    editionId={edition.id}
-                    currentTitle={edition.title}
-                    currentAuthor={authorName ?? ""}
-                    currentMetadataSource={edition.metadataSource}
-                  />
+        <div className="flex gap-4">
+          <EditionCover
+            edition={edition}
+            poster={poster}
+            title={edition.title}
+          />
+          <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-serif text-lg text-fg-primary">
+                {edition.title}
+                {edition.subtitle && (
+                  <span className="text-fg-secondary">
+                    : {edition.subtitle}
+                  </span>
                 )}
-                <EditionEditDialog
-                  edition={edition}
-                  availableAuthors={availableAuthors}
-                  availableGenres={availableGenres}
-                  availableTags={availableTags}
-                />
-                <InstanceAddDialog
-                  editionId={edition.id}
-                  editionTitle={edition.title}
-                  availableLocations={availableLocations}
-                />
-                <EditionDeleteButton
-                  editionId={edition.id}
-                  editionTitle={edition.title}
-                  instanceCount={edition.instances.length}
-                />
+              </h3>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
+                {edition.publisher && <span>{edition.publisher}</span>}
+                {edition.imprint && edition.imprint !== edition.publisher && (
+                  <span className="text-fg-muted">{edition.imprint}</span>
+                )}
+                {edition.publicationYear && (
+                  <span className="font-mono">{edition.publicationYear}</span>
+                )}
+                {edition.language && (
+                  <Badge variant="blue">{languageName(edition.language)}</Badge>
+                )}
+                {edition.binding && (
+                  <Badge variant="muted">{edition.binding}</Badge>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Right side: ISBN badges + action buttons */}
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {edition.isbn13 && (
+                  <span className="font-mono text-xs text-fg-muted">
+                    {edition.isbn13}
+                  </span>
+                )}
+                {edition.isFirstEdition && (
+                  <Badge variant="gold">1st ed.</Badge>
+                )}
+                {edition.isLimitedEdition && (
+                  <Badge variant="rose">Limited</Badge>
+                )}
+              </div>
+              {hasActionProps && (
+                <div className="flex items-center gap-1">
+                  <CollectionButton
+                    editionId={edition.id}
+                    title={edition.title}
+                  />
+                  {(edition.coverS3Key || edition.thumbnailS3Key) && (
+                    <ImageAdjustButton
+                      source={`/api/s3/read?key=${encodeURIComponent((edition.coverS3Key || edition.thumbnailS3Key)!)}`}
+                      label="Adjust edition cover"
+                    />
+                  )}
+                  {workId && (
+                    <EditionMatchButton
+                      workId={workId}
+                      editionId={edition.id}
+                      currentTitle={edition.title}
+                      currentAuthor={authorName ?? ""}
+                      currentMetadataSource={edition.metadataSource}
+                    />
+                  )}
+                  <EditionEditDialog
+                    edition={edition}
+                    availableAuthors={availableAuthors}
+                    availableGenres={availableGenres}
+                    availableTags={availableTags}
+                  />
+                  <InstanceAddDialog
+                    editionId={edition.id}
+                    editionTitle={edition.title}
+                    availableLocations={availableLocations}
+                  />
+                  <EditionDeleteButton
+                    editionId={edition.id}
+                    editionTitle={edition.title}
+                    instanceCount={edition.instances.length}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </CardHeader>

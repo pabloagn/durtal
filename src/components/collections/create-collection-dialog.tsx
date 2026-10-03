@@ -9,17 +9,33 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createCollection } from "@/lib/actions/collections";
 
-export function CreateCollectionDialog() {
+/**
+ * New collection. With `open` and `onOpenChange` the caller controls it (the
+ * A menu); otherwise it shows its own "New collection" button.
+ */
+export function CreateCollectionDialog({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false),
+  const [ownOpen, setOwnOpen] = useState(false),
     [name, setName] = useState(""),
     [description, setDescription] = useState(""),
     [saving, setSaving] = useState(false);
   const requestId = useRef("");
   const busy = useRef(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy.current || !name.trim()) return;
+    // One id per opened form, so a retry never makes a second collection
+    if (!requestId.current) requestId.current = crypto.randomUUID();
     busy.current = true;
     setSaving(true);
     try {
@@ -43,18 +59,21 @@ export function CreateCollectionDialog() {
   }
   return (
     <>
-      <Button
-        onClick={() => {
-          setName("");
-          setDescription("");
-          requestId.current = crypto.randomUUID();
-          setOpen(true);
-        }}
-        variant="primary"
-      >
-        <Plus size={14} strokeWidth={1.5} />
-        New collection
-      </Button>
+      {!controlled && (
+        <Button
+          onClick={() => {
+            setName("");
+            setDescription("");
+            requestId.current = crypto.randomUUID();
+            setOpen(true);
+          }}
+          variant="primary"
+          title="New collection (A, then C)"
+        >
+          <Plus size={14} strokeWidth={1.5} />
+          New collection
+        </Button>
+      )}
       <Dialog
         open={open}
         onClose={() => {

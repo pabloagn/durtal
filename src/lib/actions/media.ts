@@ -10,7 +10,7 @@ import { withReadableErrors } from "@/lib/db/errors";
 import { MEDIA_OWNER_COLUMN, mediaOwnerOf } from "@/lib/media/owner";
 import type { MediaEntityType } from "@/lib/s3/keys";
 import { media } from "@/lib/db/schema";
-import { deleteUnusedObjects, keysOf } from "@/lib/s3/cleanup";
+import { deleteUnusedObjects } from "@/lib/s3/cleanup";
 import type { CreateMediaInput, MediaAttribution, UpdateMediaInput, UpdateMediaCropInput } from "@/lib/validations/media";
 import { createMediaSchema, mediaAttributionSchema, updateMediaSchema, updateMediaCropSchema } from "@/lib/validations/media";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -32,6 +32,15 @@ function recordMediaActivity(item: MediaRow, event: string) {
 function mediaChanged() {
   invalidate(CACHE_TAGS.works, CACHE_TAGS.media, CACHE_TAGS.collections);
 }
+
+/** Every stored file of a media item: display, uncropped and color original. */
+function mediaFiles(item: MediaRow): string[] {
+  return [item.s3Key, item.thumbnailS3Key, item.uncroppedS3Key, item.originalS3Key].filter(
+    (key): key is string => !!key,
+  );
+}
+
+/** Delete files after their rows are gone. Files another row uses stay. */
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -109,15 +118,6 @@ export async function updateMediaDetails(id: string, input: MediaAttribution) {
   return row;
 }
 
-function storedFiles(items: MediaRow[]) {
-  return keysOf(
-    items.map((item) => ({
-      s3Key: item.s3Key,
-      thumbnailS3Key: item.thumbnailS3Key,
-      originalS3Key: item.originalS3Key,
-    })),
-  );
-}
 
 export async function deleteMedia(id: string) {
   // Row first, then its files: a failed delete never leaves a row without files.
@@ -140,7 +140,7 @@ export async function deleteMedia(id: string) {
 
   mediaChanged();
   await deleteUnusedObjects(
-    { keys: storedFiles([existing]), prefixes: [] },
+    { keys: mediaFiles(existing), prefixes: [] },
     `media ${id}`,
   );
 }
@@ -153,7 +153,7 @@ export async function bulkDeleteMedia(ids: string[]) {
     .returning();
   mediaChanged();
   await deleteUnusedObjects(
-    { keys: storedFiles(items), prefixes: [] },
+    { keys: items.flatMap(mediaFiles), prefixes: [] },
     `media ${ids.join(",")}`,
   );
 }

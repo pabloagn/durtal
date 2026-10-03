@@ -2,7 +2,6 @@ import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
 import {
   getAcquisitionTargets,
-  getPublisherOptions,
 } from "@/lib/actions/publishers";
 import { AcquisitionTargets } from "@/components/publishers/acquisition-targets";
 import { notFound } from "next/navigation";
@@ -134,7 +133,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
     digitalBooks,
     relatedWorks,
     acquisitionTargets,
-    publisherOptions,
     workCollections,
     similarWorks,
     markRows,
@@ -146,7 +144,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
       ? getWorksByAuthorId(primaryAuthor.id, work.id, 12)
       : Promise.resolve([]),
     getAcquisitionTargets(work.id),
-    getPublisherOptions(),
     getCollectionsForWork(work.id),
     getSimilarWorks(work.id, 12),
     // One row of other books for each mark this book has
@@ -560,7 +557,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
       <AcquisitionTargets
         workId={work.id}
         targets={acquisitionTargets}
-        publishers={publisherOptions}
         editions={work.editions}
       />
 
@@ -587,6 +583,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
             <EditionDetailCard
               key={edition.id}
               edition={edition}
+              poster={poster}
               workId={work.id}
               authorName={primaryAuthor?.name}
               availableLocations={allLocations}

@@ -12,6 +12,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
@@ -228,10 +229,10 @@ function WorkSearchStep({
           </button>
         </div>
 
-        <Input
+        <TitleInput
           label="Title"
           value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
+          onValueChange={setNewTitle}
           placeholder="Book title"
           required
           autoFocus
@@ -247,6 +248,8 @@ function WorkSearchStep({
               value={authorQuery}
               onChange={(e) => setAuthorQuery(e.target.value)}
               placeholder="Author name"
+              // ↑ ↓ and Enter pick from the author suggestions
+              data-picker=""
               className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
             />
             {isSearchingAuthors && (

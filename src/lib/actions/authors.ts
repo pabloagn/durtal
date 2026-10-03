@@ -22,6 +22,7 @@ import {
   type CreateAuthorInput,
 } from "@/lib/validations";
 import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
+import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -465,6 +466,10 @@ export async function updateAuthor(id: string, input: Partial<CreateAuthorInput>
       const slug = makeUnique(baseSlug, existingSlugs);
       await db.update(authors).set({ slug }).where(eq(authors.id, id));
     }
+    // Book slugs carry the author's name
+    if ((await refreshAuthorWorkSlugs(id)).length > 0) {
+      invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
+    }
   }
 
   // Record activity diffs
@@ -520,5 +525,9 @@ export async function mergeAuthors(sourceId: string, targetId: string) {
   const preview = await getPersonMergePreview(sourceId, targetId);
   const choices = Object.fromEntries(preview.fields.filter((field) => field.conflict).map((field) => [field.key, "target"]));
   await mergePeople({ sourceId, targetId, fingerprint: preview.fingerprint, choices });
+  // Book slugs now carry the target author's name
+  if ((await refreshAuthorWorkSlugs(targetId)).length > 0) {
+    invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
+  }
   return { targetId, sourceName: preview.source.name, targetName: preview.target.name };
 }

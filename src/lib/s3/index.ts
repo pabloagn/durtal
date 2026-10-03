@@ -27,5 +27,4 @@ export {
   renderImage,
   renderAuthorImage,
   applyMonochromeProcessing,
-  reprocessAuthorMedia,
 } from "./media";

@@ -61,7 +61,7 @@ export interface IngestInput {
 }
 
 /** The owner's domain decides its image policy; a missing owner is refused. */
-async function ownerKind(owner: IngestInput["owner"]): Promise<WorkKind | null> {
+export async function mediaOwnerKind(owner: IngestInput["owner"]): Promise<WorkKind | null> {
   const id = owner.id;
   const found = await (async () => {
     switch (owner.type) {
@@ -123,7 +123,7 @@ export async function ingestMedia(input: IngestInput) {
   if (!supportsMediaType(owner.type, mediaType))
     throw new MediaIngestError("This owner does not accept that image type", 400);
   const attribution = mediaAttributionSchema.parse(input.attribution ?? {});
-  const kind = await ownerKind(owner);
+  const kind = await mediaOwnerKind(owner);
   const policy = imagePolicy({ type: owner.type, kind }, mediaType);
   const params = policy.monochrome
     ? (input.processingParams ?? DEFAULT_MONOCHROME_PARAMS)

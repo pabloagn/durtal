@@ -178,6 +178,9 @@ export {
   editionPublishersRelations,
   acquisitionTargets,
   acquisitionTargetCopies,
+  publisherIsbnPrefixes,
+  ignoredPublisherNames,
+  publisherAutoDecisions,
 } from "./publisher-links";
 
 export { imageAdjustments } from "./image-adjustments";

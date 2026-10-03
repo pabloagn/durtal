@@ -1,0 +1,286 @@
+/**
+ * Keyboard shortcuts: the list (one source for the handler, the help sheet
+ * and the command palette hints) and the page rules that decide what Enter
+ * and ⌘Enter press. Client module.
+ *
+ * Keys are written as tokens: "mod" (⌘ on a Mac, Ctrl elsewhere), "alt",
+ * "shift", "enter", "esc", or the character itself.
+ */
+
+export type Keys = string[];
+
+/** G opens the "Go to" menu; then one of these keys */
+export const GO_TO: { key: string; label: string; href: string }[] = [
+  { key: "d", label: "Dashboard", href: "/" },
+  { key: "l", label: "Library", href: "/library" },
+  { key: "a", label: "Authors", href: "/authors" },
+  { key: "p", label: "Publishers", href: "/publishers" },
+  { key: "s", label: "Series", href: "/series" },
+  { key: "c", label: "Collections", href: "/collections" },
+  { key: "o", label: "Provenance", href: "/provenance" },
+  { key: "m", label: "Places", href: "/places" },
+  { key: "t", label: "Taxonomy", href: "/taxonomy" },
+  { key: "h", label: "Harmonize", href: "/harmonize" },
+  { key: "r", label: "Reader", href: "/reader" },
+  { key: ",", label: "Settings", href: "/settings" },
+];
+
+/** Add dialogs that open on any page */
+export type AddDialog = "author" | "recommender" | "series" | "collection" | "place";
+
+/** A opens the "Add" menu; then one of these keys */
+export const ADD: ({ key: string; label: string; section: string } & (
+  | { href: string }
+  | { dialog: AddDialog }
+))[] = [
+  { key: "b", label: "Book", section: "/library", href: "/library/new" },
+  { key: "a", label: "Author", section: "/authors", dialog: "author" },
+  { key: "p", label: "Publisher", section: "/publishers", href: "/publishers/new" },
+  { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
+  { key: "s", label: "Series", section: "/series", dialog: "series" },
+  { key: "c", label: "Collection", section: "/collections", dialog: "collection" },
+  { key: "l", label: "Place", section: "/places", dialog: "place" },
+];
+
+export const SHORTCUTS = {
+  palette: ["mod", "k"],
+  search: ["/"],
+  addMenu: ["a"],
+  goMenu: ["g"],
+  help: ["?"],
+  pick: ["↑", "↓"],
+  confirm: ["enter"],
+  save: ["mod", "enter"],
+  fixField: ["alt", "f"],
+  close: ["esc"],
+} satisfies Record<string, Keys>;
+
+export const SHORTCUT_GROUPS: {
+  title: string;
+  /** Spans the sheet's two columns, with its rows in two columns */
+  wide?: boolean;
+  items: { keys: Keys; label: string; then?: boolean }[];
+}[] = [
+  {
+    title: "Menus",
+    items: [
+      { keys: SHORTCUTS.addMenu, label: "Add: book, author, publisher..." },
+      { keys: SHORTCUTS.goMenu, label: "Go to a section" },
+      { keys: SHORTCUTS.palette, label: "Search books, authors, commands" },
+      { keys: SHORTCUTS.search, label: "Search this list" },
+      { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
+    ],
+  },
+  {
+    title: "Lists, forms and dialogs",
+    items: [
+      { keys: SHORTCUTS.pick, label: "Move in a list or menu" },
+      { keys: SHORTCUTS.confirm, label: "Pick, confirm, or next step" },
+      { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
+      { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
+      { keys: SHORTCUTS.close, label: "Close" },
+    ],
+  },
+  {
+    title: "Add",
+    wide: true,
+    items: ADD.map((a) => ({ keys: ["a", a.key], label: a.label, then: true })),
+  },
+  {
+    title: "Go to",
+    wide: true,
+    items: GO_TO.map((g) => ({ keys: ["g", g.key], label: g.label, then: true })),
+  },
+];
+
+export function isMacPlatform(): boolean {
+  if (typeof navigator === "undefined") return true;
+  return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+}
+
+/** How a key token is printed on a key cap */
+export function keyLabel(token: string, mac: boolean): string {
+  switch (token) {
+    case "mod":
+      return mac ? "⌘" : "Ctrl";
+    case "alt":
+      return mac ? "⌥" : "Alt";
+    case "shift":
+      return "⇧";
+    case "enter":
+      return "↵";
+    case "esc":
+      return "Esc";
+    default:
+      return token.toUpperCase();
+  }
+}
+
+const NOT_TEXT = new Set([
+  "checkbox", "radio", "button", "submit", "reset", "file", "range", "color", "image",
+]);
+
+/** The user types into this element: single-key shortcuts must not fire */
+export function isTyping(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)
+    return true;
+  return el instanceof HTMLInputElement && !NOT_TEXT.has(el.type);
+}
+
+const CONFIRM_TYPES = new Set([
+  "text", "email", "url", "tel", "number", "date", "month", "time",
+]);
+
+/**
+ * A one-line field where Enter means "confirm". Not a search or suggestion
+ * field (Enter picks a result there), and not inside a native form (the
+ * browser submits that one itself).
+ */
+export function isConfirmField(el: EventTarget | null): el is HTMLInputElement {
+  if (!(el instanceof HTMLInputElement)) return false;
+  if (!CONFIRM_TYPES.has(el.type) || el.readOnly || el.form) return false;
+  if (
+    el.hasAttribute("list") ||
+    el.hasAttribute("aria-autocomplete") ||
+    el.hasAttribute("aria-haspopup") ||
+    el.hasAttribute("aria-expanded") ||
+    el.closest('[data-enter="ignore"], [cmdk-root], [role="combobox"], [role="listbox"]')
+  )
+    return false;
+  return !isPickerField(el);
+}
+
+/** A field that searches or filters a list: Enter picks from the list */
+export function isPickerField(el: HTMLInputElement): boolean {
+  return (
+    el.type === "search" ||
+    el.hasAttribute("data-picker") ||
+    /^\s*(search|filter|find)\b/i.test(el.placeholder)
+  );
+}
+
+/** A list box: a menu or a scrolling list of choices */
+function isList(el: Element): boolean {
+  if (el.matches('[role="listbox"], [role="menu"]')) return true;
+  const style = getComputedStyle(el);
+  return (
+    style.position === "absolute" ||
+    style.position === "fixed" ||
+    /auto|scroll/.test(style.overflowY)
+  );
+}
+
+const OPTION = '[role="option"], [data-option], button, label';
+
+/** A choice in a list: it has text, and a label holds a checkbox or radio */
+function isChoice(el: HTMLElement): boolean {
+  return (
+    shown(el) &&
+    !!el.textContent?.trim() &&
+    !el.closest("[data-variant]") &&
+    !el.matches(':disabled, [aria-disabled="true"]') &&
+    (el.tagName !== "LABEL" ||
+      !!el.querySelector('input[type="checkbox"], input[type="radio"]'))
+  );
+}
+
+/**
+ * The choices that a picker field shows (the author results under "Search
+ * author by name...", the options under "Search genres..."): the list after
+ * the field or one of its wrappers, or the choices that follow it directly.
+ * The dialog's own buttons are never choices.
+ */
+export function pickerOptions(field: HTMLInputElement): HTMLElement[] {
+  if (!isPickerField(field)) return [];
+  let node: Element | null = field;
+  for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+    if (node.matches("dialog, form, main, [data-shortcut-scope]")) break;
+    const found: HTMLElement[] = [];
+    for (let next = node.nextElementSibling; next; next = next.nextElementSibling) {
+      if (!(next instanceof HTMLElement) || !shown(next)) continue;
+      if (next.matches(OPTION)) {
+        if (isChoice(next)) found.push(next);
+        continue;
+      }
+      for (const list of [next, ...next.children].filter(isList))
+        found.push(
+          ...[...list.querySelectorAll<HTMLElement>(OPTION)].filter(isChoice),
+        );
+    }
+    if (found.length) return found;
+  }
+  return [];
+}
+
+function shown(el: Element): boolean {
+  return (
+    el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden"
+  );
+}
+
+function usable(button: HTMLButtonElement | undefined) {
+  return button && !button.disabled && button.getAttribute("aria-disabled") !== "true"
+    ? button
+    : null;
+}
+
+function lastShown(root: Element, selector: string) {
+  return [...root.querySelectorAll<HTMLButtonElement>(selector)]
+    .filter(shown)
+    .pop();
+}
+
+/** The dialog on top, else the page part that takes Enter (the Add Book steps) */
+function shortcutScope(from: Element | null): Element | null {
+  const dialogs = document.querySelectorAll("dialog[open]");
+  if (dialogs.length) return dialogs[dialogs.length - 1];
+  return (
+    from?.closest("[data-shortcut-scope]") ??
+    document.querySelector("[data-shortcut-scope]")
+  );
+}
+
+const MAIN_BUTTON = 'button[data-variant="primary"]';
+
+/**
+ * The button that Enter ("next") or ⌘Enter ("save") presses, or null.
+ *
+ * Enter presses the step's forward button (`data-shortcut="next"`), else the
+ * main button of the nearest group around the field: in a dialog with an
+ * "Add" row above "Save", Enter in that row presses "Add". ⌘Enter presses
+ * the scope's save button (`data-shortcut="save"`), else its last main
+ * button. A disabled button blocks: the key never skips to another button.
+ */
+export function shortcutButton(
+  from: Element | null,
+  mode: "next" | "save",
+): HTMLButtonElement | null {
+  const scope = shortcutScope(from);
+  if (!scope) return null;
+  const inside = from && scope.contains(from) ? from : null;
+  if (!inside && from && from !== document.body) return null;
+
+  if (mode === "save")
+    return usable(
+      lastShown(scope, 'button[data-shortcut="save"]') ?? lastShown(scope, MAIN_BUTTON),
+    );
+
+  const next = lastShown(scope, 'button[data-shortcut="next"]');
+  if (next) return usable(next);
+  for (let el = inside?.parentElement ?? null; el; el = el === scope ? null : el.parentElement) {
+    const main = lastShown(el, MAIN_BUTTON);
+    if (main) return usable(main);
+  }
+  return null;
+}
+
+/** The list search box on this page ("Search authors...") */
+export function pageSearchField(): HTMLInputElement | null {
+  return (
+    [...document.querySelectorAll<HTMLInputElement>("[data-shortcut-search]")]
+      .filter(shown)
+      .pop() ?? null
+  );
+}

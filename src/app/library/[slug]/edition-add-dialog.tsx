@@ -78,7 +78,7 @@ export function EditionAddDialog({
         openLibraryKey: values.openLibraryKey || null,
         googleBooksId: values.googleBooksId || null,
         goodreadsId: values.goodreadsId || null,
-        publisherIds: values.publisherIds,
+        publisherIds: values.publishers?.map((p) => p.id),
         publisher: values.publisher || null,
         imprint: values.imprint || null,
         publicationYear: values.publicationYear

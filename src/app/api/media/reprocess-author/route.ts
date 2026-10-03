@@ -2,15 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
-import { reprocessAuthorMedia } from "@/lib/s3/media";
+import { applyMonochromeProcessing } from "@/lib/s3/media";
 import { monochromeParamsSchema } from "@/lib/validations/media";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import {
+  buildDisplayFiles,
+  commitDisplay,
+  displayFraming,
+  editorCrop,
+  readS3Object,
+} from "@/lib/media/display";
 
 /**
  * POST /api/media/reprocess-author
  *
  * Re-process an author media item from its stored original with new
  * monochrome parameters. The original (color) image is never modified.
+ * A saved crop is applied again to the new monochrome image.
  *
  * Body: { mediaId: string, processingParams: MonochromeParams }
  */
@@ -45,27 +53,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { width, height } = await reprocessAuthorMedia(
-      {
-        s3Key: record.s3Key,
-        thumbnailS3Key: record.thumbnailS3Key,
-        originalS3Key: record.originalS3Key,
-      },
+    const mono = await applyMonochromeProcessing(
+      await readS3Object(record.originalS3Key),
       parsed.data,
     );
+    const crop = editorCrop(record);
+    const files = await buildDisplayFiles(record, crop, mono);
+    const updated = await commitDisplay(record, files, {
+      processingParams: parsed.data,
+      ...displayFraming(crop),
+    });
+    if (!updated) {
+      return NextResponse.json(
+        { error: "This image changed while you edited it. Reload and try again." },
+        { status: 409 },
+      );
+    }
 
-    // Update DB record with new params and dimensions
-    const [updated] = await db
-      .update(media)
-      .set({
-        processingParams: parsed.data,
-        width,
-        height,
-      })
-      .where(eq(media.id, mediaId))
-      .returning();
-
-    invalidate(CACHE_TAGS.works, CACHE_TAGS.media);
+    invalidate(CACHE_TAGS.works, CACHE_TAGS.media, CACHE_TAGS.authors);
 
     return NextResponse.json({ media: updated });
   } catch (err) {

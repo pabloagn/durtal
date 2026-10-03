@@ -14,7 +14,7 @@ import { s3, S3_BUCKET } from "./client";
 
 /** Every column that stores an S3 key. A key in any of them is still in use. */
 export const KEY_COLUMNS = {
-  media: ["s3_key", "thumbnail_s3_key", "original_s3_key"],
+  media: ["s3_key", "thumbnail_s3_key", "original_s3_key", "uncropped_s3_key"],
   editions: ["cover_s3_key", "thumbnail_s3_key"],
   authors: ["photo_s3_key"],
   venues: ["poster_s3_key", "thumbnail_s3_key"],
@@ -92,6 +92,7 @@ const mediaKeys = {
   s3Key: media.s3Key,
   thumbnailS3Key: media.thumbnailS3Key,
   originalS3Key: media.originalS3Key,
+  uncroppedS3Key: media.uncroppedS3Key,
 };
 
 function commentFiles(entityType: "work" | "author", entityId: string) {

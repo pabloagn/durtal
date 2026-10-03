@@ -845,8 +845,15 @@ export function scanDataset(data: Dataset): Finding[] {
               65,
               field,
             );
+        // A name marked as not a publisher, or an explicit empty choice, is decided
+        const nameKey = String(row.publisher ?? "")
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase();
         if (
           row.publisher &&
+          !row.publisher_links_confirmed &&
+          !(data.ignored_publisher_names || []).some((i) => i.name_key === nameKey) &&
           !(data.edition_publishers || []).some((p) => p.edition_id === row.id)
         )
           add(
@@ -855,7 +862,7 @@ export function scanDataset(data: Dataset): Finding[] {
             "unlinked-publisher",
             "metadata",
             "Publisher is only plain text",
-            "Connect the imported publisher name to a publishing house to unify its catalogue.",
+            "Connect the imported publisher name to a publishing house to unify its catalogue. Publishers → Publisher names decides each name once for all its editions.",
             [`Imported publisher: ${row.publisher}`],
             { kind: "review" },
             "high",

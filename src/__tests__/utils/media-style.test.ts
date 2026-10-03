@@ -55,6 +55,12 @@ describe("mediaImageStyle", () => {
     });
   });
 
+  it("applies only the focal point when there is no zoom", () => {
+    expect(mediaImageStyle({ ...DEFAULT_MEDIA_CROP, x: 20, y: 90 })).toEqual({
+      objectPosition: "20% 90%",
+    });
+  });
+
   it("applies only the filter when the crop is default", () => {
     expect(mediaImageStyle({ ...DEFAULT_MEDIA_CROP, brightness: 130, contrast: 110 })).toEqual({
       filter: "brightness(130%) contrast(110%)",

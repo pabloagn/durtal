@@ -31,6 +31,9 @@ if (url) {
     );
 }
 
+/** The last migration applied to the live database. */
+const LIVE_MIGRATION = "0035_language_codes";
+
 describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   const client = url ? postgres(url, { max: 1, onnotice: () => {} }) : null;
   const c = client!;
@@ -172,12 +175,14 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     const journal = JSON.parse(
       await readFile("src/lib/db/migrations/meta/_journal.json", "utf8"),
     );
-    const expansionEntries = journal.entries.filter(
-      (entry: { idx: number }) => entry.idx > 32,
+    // Start from the schema that is live today; every later migration is an
+    // expansion that must preserve the populated catalogue.
+    const live = journal.entries.findIndex(
+      (entry: { tag: string }) => entry.tag === LIVE_MIGRATION,
     );
-    journal.entries = journal.entries.filter(
-      (entry: { idx: number }) => entry.idx <= 32,
-    );
+    expect(live).toBeGreaterThan(0);
+    const expansionEntries = journal.entries.slice(live + 1);
+    journal.entries = journal.entries.slice(0, live + 1);
     await writeFile(
       join(folder, "meta/_journal.json"),
       JSON.stringify(journal),
@@ -292,7 +297,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         join(folder, "meta/_journal.json"),
         JSON.stringify(journal),
       );
-      if (entry.tag === "0041_venues_retailer_observations") {
+      if (entry.tag === "0044_venues_retailer_observations") {
         // Legacy writes skipped validation: stop with a clear error, change nothing.
         const [invalid] =
           await c`insert into venues(name,slug,type,personal_rating) values ('Unrated','unrated','other',0) returning id`;
@@ -372,8 +377,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   });
 
   it("preserves every existing row and classifies art-tagged books as books", async () => {
-    expect(reconciled).toContain("0033_work_kinds");
-    expect(reconciled).toContain("0034_book_boundaries");
+    expect(reconciled).toContain("0036_work_kinds");
+    expect(reconciled).toContain("0037_book_boundaries");
     const after = await snapshot();
     expect(after.works).toHaveLength(1);
     expect(after.works[0].kind).toBe("book");

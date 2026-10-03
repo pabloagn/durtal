@@ -1,12 +1,14 @@
 import { PaginatedSection } from "@/components/shared/pagination";
 import { parsePagination, pageHref, lastPage, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { getPublisher, getPublisherCatalogue } from "@/lib/actions/publishers";
+import { getPublisherSuggestionSummary } from "@/lib/actions/publisher-names";
 import { PageHeader } from "@/components/layout/page-header";
 import { PublisherFavourite } from "@/components/publishers/favourite-button";
 import { Badge } from "@/components/ui/badge";
+import { EditionCover } from "@/components/books/edition-cover";
+import { languageName } from "@/lib/utils/language";
 export default async function PublisherPage({
   params,
   searchParams,
@@ -25,12 +27,10 @@ export default async function PublisherPage({
     ? filterValue!
     : "all";
   const { page, perPage } = parsePagination(query);
-  const { rows, totals, pendingTargets } = await getPublisherCatalogue(
-    p.id,
-    filter,
-    page,
-    perPage,
-  );
+  const [{ rows, totals, pendingTargets }, suggested] = await Promise.all([
+    getPublisherCatalogue(p.id, filter, page, perPage),
+    getPublisherSuggestionSummary(p.id),
+  ]);
   if (page > lastPage(totals.works, perPage)) redirect(pageHref(`/publishers/${slug}`, query, lastPage(totals.works, perPage)));
   const groups = Map.groupBy(rows, (r) => r.work.id);
   return (
@@ -92,6 +92,27 @@ export default async function PublisherPage({
             </Badge>
           ))}
         </div>
+        {p.createdFrom && (
+          <p>
+            Created automatically on{" "}
+            <span className="font-mono">
+              {p.createdFrom.createdAt.toISOString().slice(0, 10)}
+            </span>{" "}
+            from the book data name &ldquo;{p.createdFrom.name}&rdquo;.{" "}
+            <Link href="/publishers/review" className="text-accent-blue">
+              Undo in Publisher names
+            </Link>
+          </p>
+        )}
+        {p.aliases.length > 0 && (
+          <p>Other names: {p.aliases.join(" · ")}</p>
+        )}
+        {p.isbnPrefixes.length > 0 && (
+          <p>
+            ISBN prefixes:{" "}
+            <span className="font-mono">{p.isbnPrefixes.join(" · ")}</span>
+          </p>
+        )}
         {p.children.length > 0 && (
           <p>
             Imprints:{" "}
@@ -143,6 +164,19 @@ export default async function PublisherPage({
         {totals.works} book{totals.works === 1 ? "" : "s"} · {totals.editions}{" "}
         edition{totals.editions === 1 ? "" : "s"} recorded in Durtal
       </p>
+      {suggested.editions > 0 && (
+        <p className="mb-4 text-sm text-fg-secondary">
+          {suggested.editions} more edition{suggested.editions === 1 ? "" : "s"}{" "}
+          without a publishing house look{suggested.editions === 1 ? "s" : ""}{" "}
+          like {p.name}.{" "}
+          <Link
+            href={`/publishers/review?publisher=${p.slug}`}
+            className="text-accent-blue"
+          >
+            Review
+          </Link>
+        </p>
+      )}
       {pendingTargets.length > 0 && (
         <div className="mb-6 space-y-2">
           <h2 className="font-serif text-xl">Publisher preferences</h2>
@@ -178,22 +212,9 @@ export default async function PublisherPage({
               <p className="mt-1 text-sm text-fg-muted">{items[0].authors}</p>
             )}
             <div className="mt-3 grid gap-4 md:grid-cols-2">
-              {items.map(({ edition: e, owned, onOrder, wanted }) => (
+              {items.map(({ edition: e, poster, owned, onOrder, wanted }) => (
                 <div key={e.id} className="flex gap-3">
-                  {e.thumbnailS3Key || e.coverS3Key ? (
-                    <Image
-                      src={`/api/s3/read?key=${encodeURIComponent((e.thumbnailS3Key ?? e.coverS3Key)!)}`}
-                      alt={e.title}
-                      width={64}
-                      height={96}
-                      className="h-24 w-16 object-contain"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-24 w-16 shrink-0 items-center justify-center bg-bg-secondary text-xs text-fg-muted">
-                      No cover
-                    </div>
-                  )}
+                  <EditionCover edition={e} poster={poster} title={e.title} />
                   <div className="space-y-1 text-sm">
                     <Link
                       href={`/library/${items[0].work.slug ?? id}#edition-${e.id}`}
@@ -206,7 +227,7 @@ export default async function PublisherPage({
                         e.publisher,
                         e.imprint,
                         e.publicationYear,
-                        e.language,
+                        languageName(e.language),
                         e.binding,
                       ]
                         .filter(Boolean)

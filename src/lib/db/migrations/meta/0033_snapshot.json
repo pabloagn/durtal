@@ -1,5 +1,5 @@
 {
-  "id": "caf4edc1-f2f3-4a98-8700-4568d04a8cb5",
+  "id": "0992af6a-6b3e-48a9-b84d-e8a32c4549ff",
   "prevId": "0cfc02db-6c5c-4614-9a1f-f482a9aa953e",
   "version": "7",
   "dialect": "postgresql",
@@ -3801,6 +3801,18 @@
           "notNull": true,
           "default": 100
         },
+        "uncropped_s3_key": {
+          "name": "uncropped_s3_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "applied_crop": {
+          "name": "applied_crop",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "brightness": {
           "name": "brightness",
           "type": "real",
@@ -3979,6 +3991,10 @@
         "media_owner_check": {
           "name": "media_owner_check",
           "value": "num_nonnulls(\"media\".\"work_id\", \"media\".\"author_id\", \"media\".\"collection_id\") = 1"
+        },
+        "media_applied_crop_check": {
+          "name": "media_applied_crop_check",
+          "value": "num_nonnulls(\"media\".\"uncropped_s3_key\", \"media\".\"applied_crop\") in (0, 2)"
         }
       },
       "isRLSEnabled": false
@@ -6511,14 +6527,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "kind": {
-          "name": "kind",
-          "type": "work_kind_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'book'"
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -6770,10 +6778,6 @@
       },
       "policies": {},
       "checkConstraints": {
-        "works_kind_enabled_check": {
-          "name": "works_kind_enabled_check",
-          "value": "\"works\".\"kind\" = 'book'"
-        },
         "works_hunt_assessment_check": {
           "name": "works_hunt_assessment_check",
           "value": "(\n    (NOT \"works\".\"is_rare\" AND \"works\".\"hunt_assessed_on\" IS NULL)\n    OR (\"works\".\"is_rare\" AND \"works\".\"hunt_assessed_on\" IS NOT NULL)\n  )"
@@ -6889,16 +6893,6 @@
         "publisher",
         "individual",
         "other"
-      ]
-    },
-    "public.work_kind_enum": {
-      "name": "work_kind_enum",
-      "schema": "public",
-      "values": [
-        "book",
-        "film",
-        "perfume",
-        "painting"
       ]
     }
   },

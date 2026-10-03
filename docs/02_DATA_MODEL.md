@@ -4,7 +4,7 @@ Durtal's book catalogue uses a three-tier data model drawn from FRBR (Functional
 
 ## Work domains (foundation)
 
-Migration `0033_work_kinds` adds `works.kind` using `work_kind_enum`:
+Migration `0036_work_kinds` adds `works.kind` using `work_kind_enum`:
 `book`, `film`, `perfume`, `painting`. Existing rows and inserts that omit the
 column default to `book`. This identity is independent of `work_type_id` and all
 taxonomies: a book about painting remains a book.
@@ -21,7 +21,7 @@ Book create and fast-track inputs accept only `book`; the update schema and
 action reject an explicit kind. Domain pages remain gated while shared data
 tables are introduced. No current IDs, slugs, edition/copy relations or media keys are rewritten.
 
-Migration `0034_book_boundaries` preserves that separation after future domain
+Migration `0037_book_boundaries` preserves that separation after future domain
 activation. The `book_parent_required` triggers reject non-book parents on
 insert and reparenting of `editions`, `work_authors`, `acquisition_targets`,
 `orders`, `calibre_books`, and `work_status_history`. Calibre links may remain
@@ -41,7 +41,7 @@ scans exclude other kinds, and executable book merges require two books.
 
 ## Perfume domain model
 
-Migration `0040_perfume_model` adds a fragrance profile, formulations and personal
+Migration `0043_perfume_model` adds a fragrance profile, formulations and personal
 containers. The domain remains disabled pending its services, UI and release gates.
 
 | Table | Key and relationships | Purpose |
@@ -105,7 +105,7 @@ narrow this invariant, preserving their return contracts and UI callers.
 
 ### Perfume retailer listings and dated observations
 
-Migration `0041_venues_retailer_observations` records where a fragrance is sold.
+Migration `0044_venues_retailer_observations` records where a fragrance is sold.
 Price and stock are dated observations, never permanent facts. There are no live
 commerce actions and no scraping.
 
@@ -135,7 +135,7 @@ read-time hint (default 30 days); an old observation stays visibly dated.
 
 ## Film domain model
 
-Migration `0042_film_model` adds a film profile, versions (cuts), releases and
+Migration `0045_film_model` adds a film profile, versions (cuts), releases and
 optional personal copies. The domain stays disabled until its screens and
 release gates pass (`works_kind_enabled_check` still allows only books).
 
@@ -170,7 +170,7 @@ create one. A copy protects its film, version and release from deletion
 
 ## Painting domain model
 
-Migration `0043_painting_model` adds a painting profile and identifiable art
+Migration `0046_painting_model` adds a painting profile and identifiable art
 objects. A curated painting needs no object, edition or owned copy. The domain
 stays disabled until its screens and release gates pass.
 
@@ -205,7 +205,7 @@ and surrounding spaces. Physical whereabouts are a separate dated record
 
 ### `art_object_whereabouts`
 
-Migration `0044_art_whereabouts` records where each art object physically is or
+Migration `0047_art_whereabouts` records where each art object physically is or
 was, as dated, sourced statements.
 
 | Column | Meaning |
@@ -242,7 +242,7 @@ days by default).
 
 ## Personal curation and holdings contracts
 
-Migration `0039_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT
+Migration `0042_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT
 false`. Shared notes/rating and `work_recommenders` keep their existing canonical
 storage. Being in the catalogue expresses personal curation; it never implies
 ownership, acquisition intent, reading or viewing. There is no duplicated curation
@@ -279,7 +279,7 @@ there are no placeholder editions or generic untyped holding rows.
 
 ## Typed identifiers, source observations and uncertain dates
 
-Migration `0038_catalogue_provenance` adds these shared value structures. It does
+Migration `0041_catalogue_provenance` adds these shared value structures. It does
 not rewrite historic book/person provider strings, source IDs or edition locks.
 
 | Table | Identity and fields | Integrity |
@@ -292,7 +292,7 @@ Identifiers are idempotently registered for their existing owner. Claiming the
 same provider/kind/ID for another record is an explicit conflict, even if the
 titles match. Different providers or entity kinds may reuse the same external
 ID. Owner foreign keys cascade only when their catalogue record is deleted,
-except venues: migration 0041 makes the venue owner FK RESTRICT, so a venue with
+except venues: migration 0044 makes the venue owner FK RESTRICT, so a venue with
 identifiers or source observations must be archived, not deleted.
 Reparenting requires the exact audited harmonization move; deferred checks retain
 identifier/source consistency when a merge transfers them in separate statements.
@@ -468,8 +468,8 @@ The abstract intellectual creation. A work exists independently of any particula
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
 | `kind` | `work_kind_enum` | NOT NULL, default `book`; immutable; currently book-only CHECK | Stable domain identity, independent of work-type taxonomy |
-| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug (format: `{title}-by-{author}`) |
-| `original_language` | TEXT | NOT NULL, default `'en'` | ISO 639-1 code |
+| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug. Books: `{title}-by-{author}`, with `-2`, `-3`... when taken; it follows the title and primary author, so a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`, books only). Other domains: `{title}-{uuid}`, unchanged by renames. Old slugs do not redirect |
+| `original_language` | TEXT | nullable, default `'en'`; required for books and null for other domains (`works_language_domain_check`) | Language code; stored form set by trigger (see `languages`). An absent value stays absent |
 | `original_year` | SMALLINT | nullable | Year of first publication |
 | `description` | TEXT | nullable | Synopsis or summary |
 | `series_name` | TEXT | nullable | Series title (deprecated; migrating to `series_id` FK) |
@@ -525,7 +525,7 @@ A specific published form of a work. Carries all publication-level metadata.
 | `is_first_edition` | BOOLEAN | NOT NULL, default `false` | |
 | `is_limited_edition` | BOOLEAN | NOT NULL, default `false` | |
 | `limited_edition_count` | INTEGER | nullable | Total copies in limited run |
-| `language` | TEXT | NOT NULL, default `'en'` | ISO 639-1 code |
+| `language` | TEXT | NOT NULL, default `'en'` | Language code; stored form set by trigger (see `languages`) |
 | `is_translated` | BOOLEAN | NOT NULL, default `false` | |
 | `page_count` | INTEGER | nullable | |
 | `binding` | TEXT | nullable | See `BINDING_TYPES` enum |
@@ -632,7 +632,7 @@ Audit trail for instance-level status changes.
 ### `authors`
 
 Canonical person identities across books, films, perfumes and paintings. Migration
-`0035_shared_people_credits` retains the physical `authors` table, its UUIDs,
+`0038_shared_people_credits` retains the physical `authors` table, its UUIDs,
 slugs, biographies and media; shared person APIs use the same rows. No duplicate
 person table or synchronized copy is maintained. Legacy author routes and book
 directories filter `person_domains.kind = 'book'`; identity pickers can find any
@@ -913,6 +913,8 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 
 Normalized language reference data. ISO 639-1/2/3 compliant.
 
+**Stored language codes** (migration 0035): `editions.language` and `works.original_language` hold one form per language: the ISO 639-1 code when the language has one (`en`), otherwise ISO 639-3 (`grc`). The function `language_code(text)` resolves any code of a `languages` row (639-2 B or T: `fre`, `fra`), a regional tag (`en-US`, `en_GB`) or the English name (`English`), case-insensitively; it returns NULL for unknown values and for values that name two languages. BEFORE INSERT/UPDATE triggers on both columns store the resolved code. A value the table does not know is kept only when it already has the form of a code (2–3 lowercase letters), so a database without reference data still accepts codes; other text is rejected (`check_violation`). The app shows English names (`src/lib/utils/language.ts`).
+
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | UUID | PK |
@@ -1061,7 +1063,7 @@ People or channels who recommended a work. Many-to-many with works via `work_rec
 
 ### `publishing_houses`
 
-Migration `0036_shared_organizations` extends the existing identity row into the
+Migration `0039_shared_organizations` extends the existing identity row into the
 shared organization root while retaining its physical table name and every
 publisher UUID. Common identity fields and aliases remain in one canonical
 store. The existing `kind`/`parent_id` pair is an optional book profile, not a
@@ -1135,6 +1137,50 @@ cannot be removed (deferred constraint trigger).
 
 Migration 0025 adds exact matching at the database boundary for web, API and Python writes. `publisher_name_key` trims and collapses whitespace, then lowercases. Only one globally unique name/alias candidate links automatically. No fuzzy matching, inferred imprint membership, or source-text rewrites. Publisher/alias changes recompute unconfirmed links, including removing links that become ambiguous. `set_edition_publishers` locks the edition and atomically replaces links; `publisher_links_confirmed` prevents imports/rematching from altering them. The review page identifies unmatched or ambiguous nonempty source fields; missing text remains unknown.
 
+Migration 0034 extends the matching. Names in `ignored_publisher_names` are skipped. When neither the publisher nor the imprint text identifies exactly one house, the longest `publisher_isbn_prefixes` rule that starts the edition's ISBN links it (`edition_isbn_digits` reads `isbn_13`, or `978` + the first nine digits of `isbn_10`). ISBN changes now recompute an edition's links, and rule or ignored-name changes recompute every unconfirmed edition. Name matches always win over ISBN rules.
+
+The publisher names inbox (`/publishers/review`, `src/lib/actions/publisher-names.ts`) groups unconfirmed editions without a house by publisher/imprint text (`publisher_name_key`). It suggests a house by similar name (company words, accents, punctuation and parentheses removed; aliases included) and by ISBN publisher prefix (`isbn3` ranges; linked books of exactly one house share the prefix). One decision applies to every edition with the name: link (saves an alias; an ambiguous name, or an ISBN-only suggestion, confirms each edition instead), create a house, or mark the name as not a publisher. Saving the editions' ISBN prefixes as rules is optional; it is skipped for a prefix that books of another house already use.
+
+### `publisher_isbn_prefixes`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `prefix` | TEXT | PK; CHECK `^97[89][0-9]{2,10}$` (digits of GS1 prefix, group and registrant, e.g. `978159017`) |
+| `publisher_id` | UUID | NOT NULL, FK → `publishing_houses.id`, CASCADE; indexed |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+Edited as "ISBN prefixes" on publisher profiles (hyphens allowed on input) and saved from the inbox.
+
+### `ignored_publisher_names`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `name_key` | TEXT | PK; CHECK `name_key = publisher_name_key(name)` |
+| `name` | TEXT | NOT NULL; display spelling |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+Publisher text that names no publisher (a distributor or a printer). Such text never matches a house; the edition's ISBN rule still applies. Restored from the inbox.
+
+### `publisher_auto_decisions`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `name_key` | TEXT | NOT NULL, UNIQUE (`publisher_name_key` of the name) |
+| `name` | TEXT | NOT NULL; the source spelling |
+| `action` | TEXT | NOT NULL; CHECK `alias` or `create` |
+| `publisher_id` | UUID | FK → `publishing_houses.id`, SET NULL; indexed |
+| `reason` | TEXT | NOT NULL; the evidence shown to the reader |
+| `edition_count` | INTEGER | NOT NULL; editions that carried the name then |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+| `undone_at` | TIMESTAMPTZ | nullable |
+
+Log of automatic publisher decisions (`src/lib/publishers/resolution.ts`). When an edition is created, rematched or edited (publisher, imprint or ISBN), and from the inbox's "Apply safe decisions", a name without a house is decided only when it is safe:
+- **alias**: exactly one house has a similar loose name, the ISBNs point at no other house, the name passes the guardrails and the edition titles match their works;
+- **create**: no house is similar or related (shared two-word phrase or distinctive first word), every edition has a valid ISBN that no house uses, the name spans at most two ISBN publishers, no other new name shares its ISBN, spellings of one new name share one house, close new names are held, the name passes the guardrails and the titles match. The house gets the cleaned name ("Dedalus" for "Dedalus Limited"); the source spelling becomes its alias. At most 20 houses per 24 hours on the add-a-book path.
+
+Guardrails hold placeholders, print-on-demand platforms, distributors and parent labels, cut-off or multi-name text, web addresses, numbers and names equal to the book's author. Automatic decisions never save ISBN rules. Undo removes the alias, or deletes the created house with its automatic links while nothing else depends on it (no confirmed links, targets, imprints, rules, specialties or added details, and not a merge survivor). A name with a logged decision, undone or not, is never decided automatically again.
+
 ### `acquisition_targets`
 
 | Column | Type | Constraints |
@@ -1182,7 +1228,7 @@ with UUID identity, family FK, name, family-unique slug, description, color,
 parent, sort order and creation timestamp. Work and edition links retain their
 existing composite keys and foreign keys. No prior IDs or assignments are moved.
 
-Migration `0037_taxonomy_applicability` adds `taxonomy_applicability`:
+Migration `0040_taxonomy_applicability` adds `taxonomy_applicability`:
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -1468,9 +1514,9 @@ Images attached to works, people, collections, organizations, art objects or per
 | `work_id` | UUID | FK → `works.id`, CASCADE, nullable |
 | `author_id` | UUID | FK → `authors.id`, CASCADE, nullable |
 | `collection_id` | UUID | FK → `collections.id`, CASCADE, nullable (migration `0029_collection_media`) |
-| `organization_id` | UUID | FK → `publishing_houses.id`, CASCADE, nullable (migration `0045`) |
-| `art_object_id` | UUID | FK → `art_objects.id`, CASCADE, nullable (migration `0045`) |
-| `perfume_variant_id` | UUID | FK → `perfume_variants.id`, CASCADE, nullable (migration `0045`) |
+| `organization_id` | UUID | FK → `publishing_houses.id`, CASCADE, nullable (migration `0048`) |
+| `art_object_id` | UUID | FK → `art_objects.id`, CASCADE, nullable (migration `0048`) |
+| `perfume_variant_id` | UUID | FK → `perfume_variants.id`, CASCADE, nullable (migration `0048`) |
 | `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background; organizations, art objects and perfume formulations use poster and gallery) |
 | `s3_key` | TEXT | NOT NULL |
 | `thumbnail_s3_key` | TEXT | nullable |
@@ -1480,9 +1526,11 @@ Images attached to works, people, collections, organizations, art objects or per
 | `height` | INTEGER | nullable |
 | `size_bytes` | INTEGER | nullable |
 | `is_active` | BOOLEAN | NOT NULL, default `true`. For poster/background: only one active per owner+type. For gallery: always true. |
-| `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position`. |
-| `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position`. |
-| `crop_zoom` | REAL | NOT NULL, default `100`. Zoom percentage (100 = no zoom, up to 300). Applied as CSS `transform: scale()`. |
+| `crop_x` | REAL | NOT NULL, default `50`. Horizontal focal-point percentage (0-100) for CSS `object-position` on the display file. |
+| `crop_y` | REAL | NOT NULL, default `50`. Vertical focal-point percentage (0-100) for CSS `object-position` on the display file. |
+| `crop_zoom` | REAL | NOT NULL, default `100`. Legacy CSS zoom (`transform: scale()`). A saved crop always sets it to `100`: the zoom is in the file. |
+| `uncropped_s3_key` | TEXT | nullable (migration `0033_media_applied_crop`). The full-size image before the crop. Never modified. Set when `s3_key` and `thumbnail_s3_key` hold a cropped image. |
+| `applied_crop` | JSONB | nullable (migration `0033_media_applied_crop`). `{ x, y, zoom }`: the editor crop that the display files hold, relative to `uncropped_s3_key`. |
 | `brightness` | REAL | NOT NULL, default `100`. Display brightness percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: brightness()`. |
 | `contrast` | REAL | NOT NULL, default `100`. Display contrast percentage (100 = unchanged; editor range 0-200). Applied as CSS `filter: contrast()`. |
 | `original_s3_key` | TEXT | nullable. The kept original: the colour original of an author portrait, or the full-resolution copy of a painting or art object image. |
@@ -1498,7 +1546,9 @@ Images attached to works, people, collections, organizations, art objects or per
 | `source_record_id` | UUID | FK → `source_records.id`, nullable. Must belong to the same record as the image (`media_source_guard`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-**Check constraints**: `media_owner_check` — exactly one of the six owner columns; `media_type_check` — the owner's image types (above); `media_attribution_check` — lengths and HTTP(S) URLs. Migration `0045` stops with an error, and changes nothing, if an existing row has an unknown type or a collection gallery.
+**Check constraints**: `media_owner_check` — exactly one of the six owner columns; `media_type_check` — the owner's image types (above); `media_attribution_check` — lengths and HTTP(S) URLs. Migration `0048` stops with an error, and changes nothing, if an existing row has an unknown type or a collection gallery.
+
+**Check constraint** `media_applied_crop_check`: `num_nonnulls(uncropped_s3_key, applied_crop) in (0, 2)` — both set, or neither.
 
 **Indexes**: `(work_id, type, is_active)`, `(author_id, is_active)`, `(collection_id, type, is_active)`, and `(owner, type, is_active)` for each new owner.
 
@@ -1506,13 +1556,19 @@ Images attached to works, people, collections, organizations, art objects or per
 
 **One ingest path** (`src/lib/media/ingest.ts`): every upload route renders the sizes, stores the files, then records the row and makes a poster or background active in one transaction. If storing or recording fails, the files already stored are deleted again.
 
+**Saved crops** (`src/lib/media/display.ts`): a crop on a poster or background is written into new display files at the owner's policy sizes; the uncropped image stays in `uncropped_s3_key`. A contained image (perfume, painting, art object) is never cropped. Replaced files are removed through the shared cleanup (`src/lib/s3/cleanup.ts`), which counts `uncropped_s3_key` as in use.
+
 **Active selection**: Multiple posters/backgrounds can exist for a work, but only one is active at a time. Uploading a new poster deactivates the previous one (without deleting it). Users can switch the active poster/background or permanently delete unwanted items.
 
-**Crop positioning**: The `crop_x`, `crop_y`, and `crop_zoom` fields store CSS-only positioning metadata. They control how an image is displayed within its container via `object-position` and `transform: scale()`, without modifying the original S3 files. Users adjust these values through a drag-and-zoom editor in the media manager.
+**Crop** (migration `0033_media_applied_crop`, task 0155): the crop is in the image files, so every view shows it (cards, lists, timelines, map popups, lightboxes, thumbnails). Saving a crop in the editor (`src/lib/media/display.ts`) writes a cropped full image and thumbnail to new keys, points `s3_key` / `thumbnail_s3_key` at them, and keeps the image before the crop at `uncropped_s3_key`. The editor always crops from `uncropped_s3_key`. Reset points `s3_key` back at the uncropped image. The crop is the rectangle the editor frame shows (2:3 for posters, 16:9 for backgrounds): `cropRegion()` in `src/lib/media/crop.ts`.
+
+Safety rules: the uncropped image and `original_s3_key` are never modified; each new version uses fresh keys (no object is overwritten); the row is swapped in one transaction only when it is unchanged since it was read; replaced files are deleted after the swap and only when no row references them (`src/lib/s3/references.ts`, also used by media delete and collection cleanup). Display settings in `image_adjustments` follow the image to its new key.
+
+After a crop, `crop_x` / `crop_y` keep its focal point and `crop_zoom` is `100`. Views of another shape (wide banners, square avatars) then show the chosen part, and `object-position` only moves the image inside the cropped file. A crop that cuts nothing (the frame's own aspect, no zoom) writes no file. Crops saved before task 0155 as CSS framing were moved into files by `POST /api/media/apply-crops`.
 
 **Brightness and contrast** (migration `0022_media_brightness_contrast`, task 0116): `brightness` and `contrast` work like the crop fields: CSS-only (`filter: brightness() contrast()`), edited with two sliders in the same editor, never written to S3. Every render site builds its style through `mediaImageStyle()` (`src/lib/utils/media-style.ts`), which adds the crop only when it differs from the default and the filter only when a value differs from 100. Not the same as the author monochrome `processing_params` below, which rewrites the S3 image.
 
-**Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss.
+**Author monochrome processing**: Author images are automatically processed through a grayscale + normalization pipeline. The original color image is stored in `original_s3_key`, and the processed monochrome variant is stored in `s3_key`. Processing parameters are configurable per media item via `processing_params`, allowing per-image tuning of contrast, sharpness, gamma, and brightness. Re-processing fetches the original and applies new parameters without quality loss. It writes new files and applies the saved crop again: the new monochrome image becomes `uncropped_s3_key`.
 
 **Color palette extraction**: For poster images (`type = 'poster'`), a color palette is extracted at upload time using node-vibrant. The multi-pass algorithm extracts six semantic swatches (Vibrant, Muted, DarkVibrant, DarkMuted, LightVibrant, LightMuted) and the dominant color via sharp stats. These are then processed through a crystal pipeline that enforces diversity (delta-E > 25 between selected colors), clamps saturation/lightness to the design language bounds (S: 12-65%, L: 18-45%), and assigns 3-4 roles (primary, secondary, accent, halo) with per-color opacity recommendations (0.08-0.18). The resulting `crystal` array drives the ambient color crystallization effect on book detail pages.
 
@@ -1715,6 +1771,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `contribution_types` | `author_contribution_types` | CASCADE |
 | `publishing_houses` | `publishing_house_specialties` | CASCADE |
 | `publisher_specialties` | `publishing_house_specialties` | CASCADE |
+| `publishing_houses` | `publisher_isbn_prefixes` | CASCADE |
+| `publishing_houses` | `publisher_auto_decisions` | SET NULL |
 | `countries` | `publishing_houses.country_id` | SET NULL |
 | `series` | `works.series_id` | SET NULL |
 | `work_types` | `works.work_type_id` | SET NULL |
@@ -1740,7 +1798,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Taxonomy (work) | `subjects`, `book_categories`, `literary_movements`, `themes`, `art_types`, `art_movements`, `keywords`, `attributes` | `work_subjects`, `work_categories`, `work_literary_movements`, `work_themes`, `work_art_types`, `work_art_movements`, `work_keywords`, `work_attributes` |
 | Recommenders | `recommenders` | `work_recommenders` |
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
-| Publishing | `publishing_houses`, `publisher_specialties` | `publishing_house_specialties` |
+| Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
@@ -1873,7 +1931,7 @@ Real-world and online establishments where works are acquired, browsed, seen or 
 
 **Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`, `perfumery`, `cinema`. The TypeScript source is `VENUE_TYPES` in `src/lib/catalogue/venues.ts`.
 
-**Rules (migration 0041)**:
+**Rules (migration 0044)**:
 
 - The trigger `venue_write_guard` rejects a blank or over-long name, a rating outside 1–5 and a last visit before the first visit. The migration stops with an error, and changes nothing, if an existing venue breaks these rules.
 - Deletion is blocked when orders, identifiers, source observations or artwork location history reference the venue (RESTRICT and `venue_delete_guard`). Use archive and restore instead. A deleted venue's images are removed after commit unless another row still uses them (`src/lib/s3/cleanup.ts`).

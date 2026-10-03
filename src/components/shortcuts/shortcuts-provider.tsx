@@ -1,0 +1,338 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { AuthorCreateDialog } from "@/app/authors/author-create-dialog";
+import { VenueCreateDialog } from "@/app/places/venue-create-dialog";
+import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
+import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
+import { SeriesFormDialog } from "@/components/series/series-form-dialog";
+import { LeaderMenu } from "@/components/shortcuts/leader-menu";
+import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
+import { ShortcutsHelp } from "@/components/shortcuts/shortcuts-help";
+import {
+  ADD,
+  GO_TO,
+  isConfirmField,
+  isMacPlatform,
+  isTyping,
+  pageSearchField,
+  pickerOptions,
+  shortcutButton,
+  type AddDialog,
+} from "@/lib/shortcuts/shortcuts";
+
+interface PageShortcut {
+  key: string;
+  label: string;
+  run: () => void;
+}
+
+interface ShortcutsContextValue {
+  register: (shortcut: PageShortcut) => () => void;
+  openHelp: () => void;
+  /** Runs an "Add" entry by its key ("b" adds a book) */
+  add: (key: string) => void;
+}
+
+const ShortcutsContext = createContext<ShortcutsContextValue | null>(null);
+
+/** Actions that the command palette shares with the keys */
+export function useShortcutActions() {
+  const value = useContext(ShortcutsContext);
+  if (!value) throw new Error("useShortcutActions needs ShortcutsProvider");
+  return value;
+}
+
+/**
+ * A single-key shortcut for the page that is open ("E" edits the book). It
+ * shows in the shortcuts sheet under "This page" while the page is open.
+ */
+export function useShortcut(key: string, label: string, run: () => void) {
+  const context = useContext(ShortcutsContext);
+  const runRef = useRef(run);
+  useEffect(() => {
+    runRef.current = run;
+  });
+  useEffect(() => {
+    if (!context) return;
+    return context.register({ key, label, run: () => runRef.current() });
+  }, [context, key, label]);
+}
+
+/** Reader view (/reader/{id}) keeps single keys for its own controls */
+const READER_VIEW_RE = /^\/reader\/\d+/;
+
+const MENUS = {
+  add: {
+    title: "Add",
+    items: ADD.map((a) => ({ key: a.key, label: a.label, icon: SECTION_ICONS[a.section] })),
+  },
+  go: {
+    title: "Go to",
+    items: GO_TO.map((g) => ({ key: g.key, label: g.label, icon: SECTION_ICONS[g.href] })),
+  },
+};
+
+/** The list choice that ↑ ↓ moved to; Enter picks it (else the first) */
+let activeChoice: HTMLElement | null = null;
+function setActiveChoice(choice: HTMLElement | null) {
+  activeChoice?.removeAttribute("data-kb-active");
+  activeChoice = choice;
+  if (!choice) return;
+  choice.setAttribute("data-kb-active", "");
+  choice.scrollIntoView({ block: "nearest" });
+}
+
+export function ShortcutsProvider({
+  paletteOpen,
+  onPaletteOpenChange,
+  children,
+}: {
+  paletteOpen: boolean;
+  onPaletteOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [addDialog, setAddDialog] = useState<AddDialog | null>(null);
+  const [menu, setMenu] = useState<keyof typeof MENUS | null>(null);
+  const [menuIndex, setMenuIndex] = useState(0);
+  const [pageShortcuts, setPageShortcuts] = useState<PageShortcut[]>([]);
+
+  const register = useCallback((shortcut: PageShortcut) => {
+    setPageShortcuts((list) => [...list, shortcut]);
+    return () => setPageShortcuts((list) => list.filter((s) => s !== shortcut));
+  }, []);
+
+  const add = useCallback(
+    (key: string) => {
+      const entry = ADD.find((a) => a.key === key);
+      if (!entry) return;
+      if ("href" in entry) router.push(entry.href);
+      else setAddDialog(entry.dialog);
+    },
+    [router],
+  );
+
+  const context = useMemo(
+    () => ({ register, openHelp: () => setHelpOpen(true), add }),
+    [register, add],
+  );
+
+  const openMenu = (name: keyof typeof MENUS) => {
+    setMenuIndex(0);
+    setMenu(name);
+  };
+
+  const pickMenuItem = useCallback(
+    (name: keyof typeof MENUS, index: number) => {
+      setMenu(null);
+      if (name === "add") add(ADD[index].key);
+      else router.push(GO_TO[index].href);
+    },
+    [add, router],
+  );
+
+  // An open A or G menu takes every key first (capture phase)
+  useEffect(() => {
+    if (!menu) return;
+    const open = menu;
+    const items = MENUS[open].items;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "ArrowDown")
+        setMenuIndex((i) => (i + 1) % items.length);
+      else if (event.key === "ArrowUp")
+        setMenuIndex((i) => (i - 1 + items.length) % items.length);
+      else if (event.key === "Enter") pickMenuItem(open, menuIndex);
+      else if (event.key === "Escape") setMenu(null);
+      else {
+        const index = items.findIndex((item) => item.key === event.key.toLowerCase());
+        if (index >= 0) pickMenuItem(open, index);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [menu, menuIndex, pickMenuItem]);
+
+  // Typing changes a list: the ↑ ↓ choice starts over
+  useEffect(() => {
+    const reset = () => setActiveChoice(null);
+    window.addEventListener("input", reset, true);
+    return () => window.removeEventListener("input", reset, true);
+  }, []);
+
+  useEffect(() => {
+    const mac = isMacPlatform();
+
+    function press(event: KeyboardEvent, button: HTMLElement | null) {
+      if (!button) return;
+      event.preventDefault();
+      button.click();
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      // A handler on the page took the key, or an input method is composing
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229)
+        return;
+      const target = event.target as HTMLElement | null;
+      const mod = mac ? event.metaKey : event.ctrlKey;
+      const otherMod = mac ? event.ctrlKey : event.metaKey;
+      const plain = !mod && !otherMod && !event.altKey && !event.shiftKey;
+      const key = event.key.toLowerCase();
+
+      // ⌘K: the command palette, everywhere
+      if (mod && !otherMod && !event.altKey && !event.shiftKey && key === "k") {
+        event.preventDefault();
+        onPaletteOpenChange(!paletteOpen);
+        return;
+      }
+      if (paletteOpen) {
+        if (event.key === "Escape") onPaletteOpenChange(false);
+        return;
+      }
+
+      // ⌥F: the fix button of the field ("Capitalize title", name order).
+      // event.code, as ⌥F types "ƒ" on a Mac.
+      if (event.altKey && !mod && !otherMod && event.code === "KeyF") {
+        const button = target
+          ?.closest("[data-field]")
+          ?.querySelector<HTMLButtonElement>("[data-field-action]");
+        if (button) {
+          event.preventDefault();
+          if (button.dataset.active !== undefined && !button.disabled) button.click();
+        }
+        return;
+      }
+
+      // A search field with a list under it: ↑ ↓ move, Enter picks
+      if (
+        plain &&
+        target instanceof HTMLInputElement &&
+        ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)
+      ) {
+        const choices = pickerOptions(target);
+        if (choices.length) {
+          event.preventDefault();
+          const at = activeChoice ? choices.indexOf(activeChoice) : -1;
+          if (event.key === "Enter") {
+            const choice = at >= 0 ? choices[at] : choices[0];
+            setActiveChoice(null);
+            choice.click();
+          } else if (event.key === "ArrowDown")
+            setActiveChoice(choices[(at + 1) % choices.length]);
+          else setActiveChoice(choices[at <= 0 ? choices.length - 1 : at - 1]);
+          return;
+        }
+      }
+
+      if (event.key === "Enter" && !event.altKey && !event.shiftKey && !otherMod) {
+        // ⌘Enter saves
+        if (mod) return press(event, shortcutButton(target, "save"));
+        // Enter ticks a checkbox in a list or menu
+        if (
+          target instanceof HTMLInputElement &&
+          (target.type === "checkbox" || target.type === "radio") &&
+          !target.form
+        )
+          return press(event, target);
+        // Enter in a one-line field confirms
+        if (isConfirmField(target)) press(event, shortcutButton(target, "next"));
+        return;
+      }
+
+      // Single keys: never while typing, in a dialog, or in the reader
+      if (
+        mod ||
+        otherMod ||
+        event.altKey ||
+        isTyping(target) ||
+        document.querySelector("dialog[open]") ||
+        READER_VIEW_RE.test(pathname)
+      )
+        return;
+
+      if (event.key === "?") {
+        event.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
+      if (event.key === "/") {
+        event.preventDefault();
+        const field = pageSearchField();
+        if (field) {
+          field.focus();
+          field.select();
+        } else onPaletteOpenChange(true);
+        return;
+      }
+      // "?" and "/" may need Shift; letters never do
+      if (event.shiftKey || event.key.length !== 1) return;
+
+      const pageShortcut = pageShortcuts.findLast((s) => s.key === key);
+      if (pageShortcut) {
+        event.preventDefault();
+        pageShortcut.run();
+        return;
+      }
+      if (key === "a" || key === "g") {
+        event.preventDefault();
+        openMenu(key === "a" ? "add" : "go");
+      }
+    }
+
+    // Window, bubble phase: page handlers run first and can take a key
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts]);
+
+  const closeAddDialog = () => setAddDialog(null);
+
+  return (
+    <ShortcutsContext.Provider value={context}>
+      {children}
+      <ShortcutsHelp
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        pageShortcuts={pageShortcuts}
+      />
+      {/* Mounted only while open, so each opens with an empty form */}
+      {addDialog === "author" && (
+        <AuthorCreateDialog open onOpenChange={(open) => !open && closeAddDialog()} />
+      )}
+      {addDialog === "recommender" && (
+        <RecommenderFormDialog open onClose={closeAddDialog} />
+      )}
+      {addDialog === "series" && <SeriesFormDialog open onClose={closeAddDialog} />}
+      {addDialog === "collection" && (
+        <CreateCollectionDialog open onOpenChange={(open) => !open && closeAddDialog()} />
+      )}
+      {addDialog === "place" && (
+        <VenueCreateDialog open onOpenChange={(open) => !open && closeAddDialog()} />
+      )}
+      {menu && (
+        <LeaderMenu
+          title={MENUS[menu].title}
+          items={MENUS[menu].items}
+          active={menuIndex}
+          onActiveChange={setMenuIndex}
+          onPick={(index) => pickMenuItem(menu, index)}
+          onClose={() => setMenu(null)}
+        />
+      )}
+    </ShortcutsContext.Provider>
+  );
+}

@@ -4,7 +4,13 @@ All REST API routes live under `src/app/api/`. These endpoints serve two consume
 1. Client-side components that need to call external services (search, geocode, S3)
 2. The Python TUI application (`scripts/tui/`)
 
-CRUD operations use server actions (see [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md)), not REST endpoints.
+The app's own pages use server actions (see [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md)). The write routes below (orders, copies, works) call the same server actions, so a change through the API is the same as a change in the app: status history, activity log and catalogue status included.
+
+### Write access
+
+Every write route (`POST`, `PATCH`) needs the header `Authorization: Bearer <DURTAL_API_TOKEN>`. The token lives in `.env.local`. When `DURTAL_API_TOKEN` is not set, every write returns `503`, so a missing setting never leaves the API open. A wrong or missing token returns `401`.
+
+Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
 ---
 
@@ -143,6 +149,116 @@ Fetch a single work with all relations loaded.
 { "error": "Work not found" }
 ```
 
+### `PATCH /api/works/[id]`
+
+Change a work's title or catalogue status (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
+
+**Body** (all optional):
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | string | New title |
+| `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
+| `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
+
+**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug.
+
+### `POST /api/works/refresh-slugs`
+
+Gives every work whose slug no longer fits its title and primary author the slug it should have. Needs the token. Safe to run again: fitting slugs stay as they are.
+
+**Query parameters**: `dryRun=1` lists the changes and writes nothing. `id=<work id>` checks one work.
+
+**Response** `200`: `{ "dryRun", "checked", "changed", "changes": [{ "id", "title", "from", "to" }] }`
+
+---
+
+## Editions
+
+### `PATCH /api/editions/[id]`
+
+Rename an edition, as the Edit Edition dialog does (activity log included). Other fields stay as they are. Needs the token.
+
+**Body** (all optional): `{ "title": "string", "subtitle": "string or null" }`
+
+**Response** `200`: `{ "id", "title", "subtitle", "workId" }`. `404` when the edition does not exist.
+
+---
+
+## Orders
+
+### `GET /api/orders`
+
+With `?workId=<uuid>`: every order of that work. Without it: every active order (not delivered, cancelled or returned), with work, venue and destination.
+
+**Response** `200`: `{ "orders": [...] }`
+
+### `GET /api/orders/[id]`
+
+One order with its work, edition, venue, places and status history.
+
+### `POST /api/orders`
+
+Create an order, as the New Order dialog does: the initial status history entry is written and the work's catalogue status follows (usually `on_order`). Needs the token.
+
+**Body**: the fields of `createOrderSchema` (`src/lib/validations/orders.ts`). Required: `workId`, `acquisitionMethod`, `orderDate`. Money fields are strings (`"12.50"`).
+
+```json
+{
+  "workId": "uuid",
+  "venueId": "uuid",
+  "acquisitionMethod": "online_order",
+  "status": "confirmed",
+  "orderDate": "2026-10-03",
+  "price": "12.50",
+  "shippingCost": "0.00",
+  "totalCost": "12.50",
+  "currency": "EUR",
+  "estimatedDeliveryDate": "2026-10-09"
+}
+```
+
+**Response** `201`: the order. `404` when the work does not exist.
+
+**Response** `409` when the work already has an active order, so the same order entered twice is refused. Add `?allowDuplicate=1` to order a second copy on purpose.
+
+### `PATCH /api/orders/[id]`
+
+Change order details: price, dates, carrier, tracking, notes and the other `createOrderSchema` fields. `status` is refused here; use the status route. Needs the token.
+
+### `POST /api/orders/[id]/status`
+
+Move an order to a new status, as the order page does: the transition is checked, the history is recorded, `shippedDate` / `actualDeliveryDate` are set when empty, and the work's catalogue status follows (`accessioned` on arrival). Needs the token.
+
+**Body**: `{ "status": "delivered", "notes": "optional" }`
+
+**Response** `409` for a transition that is not allowed, with the allowed statuses:
+```json
+{ "error": "Cannot move from \"delivered\" to \"shipped\"", "allowed": ["returned"] }
+```
+
+---
+
+## Copies
+
+### `POST /api/instances`
+
+Add a copy of an edition at a location, as the Add Copy dialog does. The work's catalogue status does not change here; an arrival moves its order with the status route. Needs the token.
+
+**Body**: the fields of `createInstanceSchema` (`src/lib/validations/instances.ts`). Required: `editionId`, `locationId`.
+
+```json
+{
+  "editionId": "uuid",
+  "locationId": "uuid",
+  "format": "paperback",
+  "condition": "mint",
+  "status": "available"
+}
+```
+
+**Response** `201`: the copy. `404` when the edition or the location does not exist.
+
 ---
 
 ## Authors
@@ -194,11 +310,22 @@ Fetch a single author with works and edition contributions.
 
 ### `DELETE /api/media/[id]`
 
-Delete a media record and its associated S3 objects (both full image and thumbnail).
+Delete a media record, then its S3 objects (full image, thumbnail, uncropped image and color original). An object that another record still references is kept.
 
 **Response** `200`:
 ```json
 { "success": true }
+```
+
+### `POST /api/media/apply-crops`
+
+One-time move of crops saved as CSS framing into cropped files (task 0155). The uncropped image stays at `uncropped_s3_key`. Rows already moved are skipped, so a second run changes nothing. Requires `x-admin-token` when `ADMIN_TOKEN` is set.
+
+**Query**: `dryRun=1` lists the rows and changes nothing. `id=<media id>` limits the run to one item.
+
+**Response** `200`:
+```json
+{ "total": 169, "applied": 168, "unchanged": 1, "failed": [] }
 ```
 
 ### `POST /api/media/process`

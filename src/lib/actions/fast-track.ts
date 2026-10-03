@@ -26,6 +26,7 @@ import {
 import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
 import { authorNameEquals } from "@/lib/actions/utils/author-search";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { autoResolveEditions } from "@/lib/publishers/resolution";
 
 type Result =
   | {
@@ -160,6 +161,8 @@ export async function fastTrackBook(
         },
       ]),
     ]);
+    // A publisher name no house knows yet is decided when it is safe
+    await autoResolveEditions([editionId]);
     invalidate(
       CACHE_TAGS.series,
       CACHE_TAGS.works,

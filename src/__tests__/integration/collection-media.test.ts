@@ -45,6 +45,10 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3", () => ({ deleteFromS3: vi.fn(async () => undefined) }));
+vi.mock("@/lib/s3/cleanup", async (original) => ({
+  ...(await original<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: vi.fn(async () => false),
+}));
 vi.mock("@/lib/s3/media", () => ({
   renderImage: vi.fn(async () => ({
     full: Buffer.from("full"),

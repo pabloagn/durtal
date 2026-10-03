@@ -199,7 +199,7 @@ Parent: [SLN-345](https://linear.app/sanctum-black/issue/SLN-345).
 
 The first foundation steps (SLN-346–348) have local implementations. Non-book
 creation remains disabled while the shared models and domain experiences are
-built. Migrations 0033–0034 preserve existing book identities and add immutable
+built. Migrations 0036–0037 preserve existing book identities and add immutable
 work kinds and database-enforced book relationships.
 
 Run `pnpm test:local` to provision disposable PostgreSQL databases and execute
@@ -208,7 +208,7 @@ dependencies are prerequisites. No production URL or environment file is used.
 The runner emits test results and per-migration reconciliation JSON, and removes
 its container afterward. `pnpm typecheck` is a separate required check.
 
-Shared people and credits (SLN-349, migration 0035) now preserve the existing
+Shared people and credits (SLN-349, migration 0038) now preserve the existing
 author identity and book junctions while adding explicit domains, aliases and
 repeatable non-book credits. Shared mutations are atomic, merges preserve credit
 IDs and concurrent replacements reject overlapping edits. The full local run
@@ -216,34 +216,34 @@ passes 718 tests with zero skips, plus five Python ingestion tests. The expanded
 populated fixture also verifies historical custom roles and book domain backfill.
 People directories and the new domain interfaces remain separate delivery work.
 
-Shared organizations (SLN-350, migration 0036) retain publisher identities and
+Shared organizations (SLN-350, migration 0039) retain publisher identities and
 aliases as the canonical root, with an optional book profile and independent
 non-book roles. Legacy publisher APIs and database links require that book
 profile. Organization/venue affiliations support multiple branches and protect
 linked records from deletion. The subsequent full local run passes 728 tests
 across 58 files, zero skipped, plus five Python checks.
 
-Taxonomy applicability (SLN-352, migration 0037) now separates domain and record
+Taxonomy applicability (SLN-352, migration 0040) now separates domain and record
 level while preserving existing vocabulary tables, book art classifications and
 edition genres/tags. Work/edition assignments, family boundaries and concurrent
 hierarchy changes are guarded. Domain child tables will reuse that contract in
 their own migrations. The full local suite passes 738 tests across 59 files,
 zero skipped, plus five Python checks.
 
-Typed provenance and dates (SLN-355, migration 0038) now support provider/kind/ID
+Typed provenance and dates (SLN-355, migration 0041) now support provider/kind/ID
 namespaces, immutable observations, reviewed refreshes, manual locks and uncertain
 civil dates. Legacy book provenance remains exposed without backfill. The full
 local suite passes 777 tests across 61 files, zero skipped, plus five Python checks.
 An additional Neon-driver contract verifies source refresh and lock behavior.
 
-Shared curation (SLN-354, migration 0039) now provides atomic notes/rating/favorite
+Shared curation (SLN-354, migration 0042) now provides atomic notes/rating/favorite
 and recommendation edits independently of acquisition. Book lifecycle fields are
 guarded, and typed holdings projections specify personal ownership for each
 domain. Persistent non-book projections will be connected in their model tasks.
 The full local suite passes 795 tests across 63 files, zero skipped, plus five
 Python checks, including the Neon curation transaction contract.
 
-The perfume relational model (SLN-356, migration 0040) now separates fragrance,
+The perfume relational model (SLN-356, migration 0043) now separates fragrance,
 formulation/concentration and personal containers. Positioned notes, family and
 perfumer inheritance, sourced partial dates and real inventory projections are
 implemented. Non-book roots no longer receive a fictional book language. The full
@@ -251,7 +251,7 @@ local suite passes 817 tests across 65 files, zero skipped, plus five Python che
 Perfume services, retailer observations, screens and activation remain their own
 delivery gates.
 
-Venues and retailer listings (SLN-351, migration 0041) add perfumery and cinema
+Venues and retailer listings (SLN-351, migration 0044) add perfumery and cinema
 venue types, archive/restore, normalized search and validated atomic writes.
 Renames keep URLs. Orders, identifiers and source observations now block venue
 deletion instead of losing their venue. Perfume retailer listings link a fragrance
@@ -275,7 +275,7 @@ full local suite passes 853 tests across 69 files, zero skipped, plus five Pytho
 checks, including a Neon-driver contract for perfume writes. Perfume screens and
 activation remain SLN-366 and SLN-382; the flanker link itself is SLN-363.
 
-The film model and services (SLN-358, migration 0042) add a film profile with
+The film model and services (SLN-358, migration 0045) add a film profile with
 original title, production countries, languages and companies; ordered cast and
 crew through shared credits; versions with runtimes; releases by territory, date,
 format and distributor; and optional personal copies. Remakes are separate films
@@ -287,7 +287,7 @@ The full local suite passes 863 tests across 70 files, zero skipped, plus five
 Python checks, including a Neon-driver contract for film writes. Film screens
 remain SLN-367.
 
-The painting model and services (SLN-359, migration 0043) add a painting profile
+The painting model and services (SLN-359, migration 0046) add a painting profile
 and identifiable art objects: originals, identified versions and reproductions,
 each with its own attribution, technique, dimensions and ownership. Institutional
 owners, collections and institution-scoped accession numbers are separate from
@@ -297,7 +297,7 @@ fingerprinted pattern, with browse filters by painter, taxonomy, movement,
 owning institution, creation years, holdings and favourites. The full local
 suite passes 874 tests across 71 files, zero skipped, plus five Python checks.
 
-Original whereabouts (SLN-360, migration 0044) add dated, sourced location
+Original whereabouts (SLN-360, migration 0047) add dated, sourced location
 records per art object: venue, private, unknown, lost or destroyed places;
 custody (collection, loans, private); display status that is never inferred;
 and certainty. Confirmed records form one non-overlapping history, moves close
@@ -308,7 +308,7 @@ suite passes 882 tests across 72 files, zero skipped, plus five Python checks.
 Milestone 03 (perfume, film and painting domain models) is complete; the domain
 screens follow in milestone 04.
 
-Domain media (SLN-361, migration 0045) builds on the merged SLN-282 file
+Domain media (SLN-361, migration 0048) builds on the merged SLN-282 file
 cleanup and SLN-278 safe downloads. Images can belong to organizations, art
 objects and perfume formulations; sizes and frames follow each domain (portrait
 books and films, contained square perfumes, large native paintings with kept

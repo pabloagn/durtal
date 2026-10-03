@@ -1,6 +1,4 @@
 {
-  "id": "f8e58f41-b8bc-402f-92cc-0bde23eb99b5",
-  "prevId": "c5f8a0c2-a883-49a3-8b57-36baaaefc407",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4255,6 +4253,18 @@
           "notNull": true,
           "default": 100
         },
+        "uncropped_s3_key": {
+          "name": "uncropped_s3_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "applied_crop": {
+          "name": "applied_crop",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "brightness": {
           "name": "brightness",
           "type": "real",
@@ -4332,9 +4342,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "media_author_id_active_idx": {
           "name": "media_author_id_active_idx",
@@ -4353,9 +4363,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "media_collection_id_type_active_idx": {
           "name": "media_collection_id_type_active_idx",
@@ -4380,50 +4390,50 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "media_work_id_works_id_fk": {
           "name": "media_work_id_works_id_fk",
           "tableFrom": "media",
-          "tableTo": "works",
           "columnsFrom": [
             "work_id"
           ],
+          "tableTo": "works",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "media_author_id_authors_id_fk": {
           "name": "media_author_id_authors_id_fk",
           "tableFrom": "media",
-          "tableTo": "authors",
           "columnsFrom": [
             "author_id"
           ],
+          "tableTo": "authors",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "media_collection_id_collections_id_fk": {
           "name": "media_collection_id_collections_id_fk",
           "tableFrom": "media",
-          "tableTo": "collections",
           "columnsFrom": [
             "collection_id"
           ],
+          "tableTo": "collections",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -4433,6 +4443,10 @@
         "media_owner_check": {
           "name": "media_owner_check",
           "value": "num_nonnulls(\"media\".\"work_id\", \"media\".\"author_id\", \"media\".\"collection_id\") = 1"
+        },
+        "media_applied_crop_check": {
+          "name": "media_applied_crop_check",
+          "value": "num_nonnulls(\"media\".\"uncropped_s3_key\", \"media\".\"applied_crop\") in (0, 2)"
         }
       },
       "isRLSEnabled": false
@@ -9946,178 +9960,112 @@
       },
       "isRLSEnabled": false
     },
-    "public.film_countries": {
-      "name": "film_countries",
+    "public.publisher_isbn_prefixes": {
+      "name": "publisher_isbn_prefixes",
       "schema": "",
       "columns": {
-        "work_id": {
-          "name": "work_id",
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "publisher_id": {
+          "name": "publisher_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "country_id": {
-          "name": "country_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": 0
+          "default": "now()"
         }
       },
       "indexes": {
-        "film_country_idx": {
-          "name": "film_country_idx",
+        "publisher_isbn_prefixes_publisher_idx": {
+          "name": "publisher_isbn_prefixes_publisher_idx",
           "columns": [
             {
-              "expression": "country_id",
+              "expression": "publisher_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
-        "film_countries_work_id_film_details_work_id_fk": {
-          "name": "film_countries_work_id_film_details_work_id_fk",
-          "tableFrom": "film_countries",
-          "tableTo": "film_details",
+        "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_isbn_prefixes",
           "columnsFrom": [
-            "work_id"
+            "publisher_id"
           ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "film_countries_country_id_countries_id_fk": {
-          "name": "film_countries_country_id_countries_id_fk",
-          "tableFrom": "film_countries",
-          "tableTo": "countries",
-          "columnsFrom": [
-            "country_id"
-          ],
+          "tableTo": "publishing_houses",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
-      "compositePrimaryKeys": {
-        "film_countries_work_id_country_id_pk": {
-          "name": "film_countries_work_id_country_id_pk",
-          "columns": [
-            "work_id",
-            "country_id"
-          ]
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "film_country_order_check": {
-          "name": "film_country_order_check",
-          "value": "\"film_countries\".\"sort_order\">=0"
+        "publisher_isbn_prefix_format": {
+          "name": "publisher_isbn_prefix_format",
+          "value": "\"publisher_isbn_prefixes\".\"prefix\" ~ '^97[89][0-9]{2,10}$'"
         }
       },
       "isRLSEnabled": false
     },
-    "public.film_details": {
-      "name": "film_details",
+    "public.ignored_publisher_names": {
+      "name": "ignored_publisher_names",
       "schema": "",
       "columns": {
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
           "primaryKey": true,
           "notNull": true
         },
-        "original_title": {
-          "name": "original_title",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "release_date_id": {
-          "name": "release_date_id",
-          "type": "uuid",
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "film_details_work_id_works_id_fk": {
-          "name": "film_details_work_id_works_id_fk",
-          "tableFrom": "film_details",
-          "tableTo": "works",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "film_details_release_date_id_catalogue_dates_id_fk": {
-          "name": "film_details_release_date_id_catalogue_dates_id_fk",
-          "tableFrom": "film_details",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "release_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "film_details_source_record_id_source_records_id_fk": {
-          "name": "film_details_source_record_id_source_records_id_fk",
-          "tableFrom": "film_details",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "film_original_title_check": {
-          "name": "film_original_title_check",
-          "value": "\"film_details\".\"original_title\" is null or length(trim(\"film_details\".\"original_title\")) between 1 and 500"
+        "ignored_publisher_name_key": {
+          "name": "ignored_publisher_name_key",
+          "value": "\"ignored_publisher_names\".\"name_key\" = publisher_name_key(\"ignored_publisher_names\".\"name\")"
         }
       },
       "isRLSEnabled": false
     },
-    "public.film_holdings": {
-      "name": "film_holdings",
+    "public.publisher_auto_decisions": {
+      "name": "publisher_auto_decisions",
       "schema": "",
       "columns": {
         "id": {
@@ -10127,108 +10075,41 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version_id": {
-          "name": "version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "release_id": {
-          "name": "release_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "medium": {
-          "name": "medium",
+        "name_key": {
+          "name": "name_key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "format_label": {
-          "name": "format_label",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "status": {
-          "name": "status",
+        "action": {
+          "name": "action",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'held'"
+          "notNull": true
         },
-        "condition": {
-          "name": "condition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "location_id": {
-          "name": "location_id",
+        "publisher_id": {
+          "name": "publisher_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
-        "sub_location_id": {
-          "name": "sub_location_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acquisition_date_id": {
-          "name": "acquisition_date_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "supplier_id": {
-          "name": "supplier_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acquisition_price": {
-          "name": "acquisition_price",
-          "type": "numeric(11, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acquisition_currency": {
-          "name": "acquisition_currency",
+        "reason": {
+          "name": "reason",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "disposition_date_id": {
-          "name": "disposition_date_id",
-          "type": "uuid",
+        "edition_count": {
+          "name": "edition_count",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false
-        },
-        "disposition_reason": {
-          "name": "disposition_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -10237,1839 +10118,69 @@
           "notNull": true,
           "default": "now()"
         },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "film_holding_work_idx": {
-          "name": "film_holding_work_idx",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_holding_version_idx": {
-          "name": "film_holding_version_idx",
-          "columns": [
-            {
-              "expression": "version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_holding_release_idx": {
-          "name": "film_holding_release_idx",
-          "columns": [
-            {
-              "expression": "release_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_holding_location_idx": {
-          "name": "film_holding_location_idx",
-          "columns": [
-            {
-              "expression": "location_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_holding_supplier_idx": {
-          "name": "film_holding_supplier_idx",
-          "columns": [
-            {
-              "expression": "supplier_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_holding_venue_idx": {
-          "name": "film_holding_venue_idx",
-          "columns": [
-            {
-              "expression": "venue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "film_holdings_work_id_film_details_work_id_fk": {
-          "name": "film_holdings_work_id_film_details_work_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "film_details",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_version_id_film_versions_id_fk": {
-          "name": "film_holdings_version_id_film_versions_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "film_versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_release_id_film_releases_id_fk": {
-          "name": "film_holdings_release_id_film_releases_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "film_releases",
-          "columnsFrom": [
-            "release_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_location_id_locations_id_fk": {
-          "name": "film_holdings_location_id_locations_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "locations",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_sub_location_id_sub_locations_id_fk": {
-          "name": "film_holdings_sub_location_id_sub_locations_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "sub_locations",
-          "columnsFrom": [
-            "sub_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_acquisition_date_id_catalogue_dates_id_fk": {
-          "name": "film_holdings_acquisition_date_id_catalogue_dates_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "acquisition_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "film_holdings_supplier_id_publishing_houses_id_fk": {
-          "name": "film_holdings_supplier_id_publishing_houses_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "supplier_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_venue_id_venues_id_fk": {
-          "name": "film_holdings_venue_id_venues_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "venues",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_holdings_disposition_date_id_catalogue_dates_id_fk": {
-          "name": "film_holdings_disposition_date_id_catalogue_dates_id_fk",
-          "tableFrom": "film_holdings",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "disposition_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "film_holding_kind_check": {
-          "name": "film_holding_kind_check",
-          "value": "\"film_holdings\".\"medium\" in ('physical','digital') and \"film_holdings\".\"status\" in ('held','lent_out','in_storage','missing','disposed') and (\"film_holdings\".\"format_label\" is null or length(trim(\"film_holdings\".\"format_label\")) between 1 and 200)"
-        },
-        "film_holding_location_check": {
-          "name": "film_holding_location_check",
-          "value": "\"film_holdings\".\"sub_location_id\" is null or \"film_holdings\".\"location_id\" is not null"
-        },
-        "film_holding_price_check": {
-          "name": "film_holding_price_check",
-          "value": "(\"film_holdings\".\"acquisition_price\" is null and \"film_holdings\".\"acquisition_currency\" is null) or (\"film_holdings\".\"acquisition_price\" is not null and \"film_holdings\".\"acquisition_price\">=0 and \"film_holdings\".\"acquisition_price\"<=999999999.99 and \"film_holdings\".\"acquisition_currency\" is not null and \"film_holdings\".\"acquisition_currency\" ~ '^[A-Z]{3}$')"
-        },
-        "film_holding_disposition_check": {
-          "name": "film_holding_disposition_check",
-          "value": "\"film_holdings\".\"status\"='disposed' or (\"film_holdings\".\"disposition_date_id\" is null and \"film_holdings\".\"disposition_reason\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.film_languages": {
-      "name": "film_languages",
-      "schema": "",
-      "columns": {
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "language_id": {
-          "name": "language_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "film_language_idx": {
-          "name": "film_language_idx",
-          "columns": [
-            {
-              "expression": "language_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "film_languages_work_id_film_details_work_id_fk": {
-          "name": "film_languages_work_id_film_details_work_id_fk",
-          "tableFrom": "film_languages",
-          "tableTo": "film_details",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "film_languages_language_id_languages_id_fk": {
-          "name": "film_languages_language_id_languages_id_fk",
-          "tableFrom": "film_languages",
-          "tableTo": "languages",
-          "columnsFrom": [
-            "language_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "film_languages_work_id_language_id_pk": {
-          "name": "film_languages_work_id_language_id_pk",
-          "columns": [
-            "work_id",
-            "language_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "film_language_order_check": {
-          "name": "film_language_order_check",
-          "value": "\"film_languages\".\"sort_order\">=0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.film_organizations": {
-      "name": "film_organizations",
-      "schema": "",
-      "columns": {
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "film_organization_idx": {
-          "name": "film_organization_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "role",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "film_organizations_work_id_film_details_work_id_fk": {
-          "name": "film_organizations_work_id_film_details_work_id_fk",
-          "tableFrom": "film_organizations",
-          "tableTo": "film_details",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "film_organizations_organization_id_publishing_houses_id_fk": {
-          "name": "film_organizations_organization_id_publishing_houses_id_fk",
-          "tableFrom": "film_organizations",
-          "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_organizations_source_record_id_source_records_id_fk": {
-          "name": "film_organizations_source_record_id_source_records_id_fk",
-          "tableFrom": "film_organizations",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "film_organizations_work_id_organization_id_role_pk": {
-          "name": "film_organizations_work_id_organization_id_role_pk",
-          "columns": [
-            "work_id",
-            "organization_id",
-            "role"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "film_organization_role_check": {
-          "name": "film_organization_role_check",
-          "value": "\"film_organizations\".\"role\" in ('production_company') and \"film_organizations\".\"sort_order\">=0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.film_releases": {
-      "name": "film_releases",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "version_id": {
-          "name": "version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "country_id": {
-          "name": "country_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "territory_label": {
-          "name": "territory_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "release_date_id": {
-          "name": "release_date_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "distributor_id": {
-          "name": "distributor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "film_release_version_idx": {
-          "name": "film_release_version_idx",
-          "columns": [
-            {
-              "expression": "version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_release_country_idx": {
-          "name": "film_release_country_idx",
-          "columns": [
-            {
-              "expression": "country_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "film_release_distributor_idx": {
-          "name": "film_release_distributor_idx",
-          "columns": [
-            {
-              "expression": "distributor_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "film_releases_version_id_film_versions_id_fk": {
-          "name": "film_releases_version_id_film_versions_id_fk",
-          "tableFrom": "film_releases",
-          "tableTo": "film_versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "film_releases_country_id_countries_id_fk": {
-          "name": "film_releases_country_id_countries_id_fk",
-          "tableFrom": "film_releases",
-          "tableTo": "countries",
-          "columnsFrom": [
-            "country_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_releases_release_date_id_catalogue_dates_id_fk": {
-          "name": "film_releases_release_date_id_catalogue_dates_id_fk",
-          "tableFrom": "film_releases",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "release_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "film_releases_distributor_id_publishing_houses_id_fk": {
-          "name": "film_releases_distributor_id_publishing_houses_id_fk",
-          "tableFrom": "film_releases",
-          "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "distributor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "film_releases_source_record_id_source_records_id_fk": {
-          "name": "film_releases_source_record_id_source_records_id_fk",
-          "tableFrom": "film_releases",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "film_release_check": {
-          "name": "film_release_check",
-          "value": "\"film_releases\".\"format\" in ('theatrical','festival','television','home_media','streaming','other') and (\"film_releases\".\"territory_label\" is null or length(trim(\"film_releases\".\"territory_label\")) between 1 and 200)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.film_versions": {
-      "name": "film_versions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "runtime_seconds": {
-          "name": "runtime_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "film_version_work_idx": {
-          "name": "film_version_work_idx",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sort_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "film_versions_work_id_film_details_work_id_fk": {
-          "name": "film_versions_work_id_film_details_work_id_fk",
-          "tableFrom": "film_versions",
-          "tableTo": "film_details",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "film_versions_source_record_id_source_records_id_fk": {
-          "name": "film_versions_source_record_id_source_records_id_fk",
-          "tableFrom": "film_versions",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "film_version_identity_unique": {
-          "name": "film_version_identity_unique",
-          "nullsNotDistinct": true,
-          "columns": [
-            "work_id",
-            "label"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "film_version_check": {
-          "name": "film_version_check",
-          "value": "(\"film_versions\".\"label\" is null or length(trim(\"film_versions\".\"label\")) between 1 and 200) and (\"film_versions\".\"runtime_seconds\" is null or \"film_versions\".\"runtime_seconds\" between 1 and 3600000) and \"film_versions\".\"sort_order\">=0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.art_object_credits": {
-      "name": "art_object_credits",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "object_id": {
-          "name": "object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "person_id": {
-          "name": "person_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "credited_as": {
-          "name": "credited_as",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "attribution": {
-          "name": "attribution",
-          "type": "attribution_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unspecified'"
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "art_object_credit_order_idx": {
-          "name": "art_object_credit_order_idx",
-          "columns": [
-            {
-              "expression": "object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sort_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_credit_person_idx": {
-          "name": "art_object_credit_person_idx",
-          "columns": [
-            {
-              "expression": "person_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "art_object_credits_object_id_art_objects_id_fk": {
-          "name": "art_object_credits_object_id_art_objects_id_fk",
-          "tableFrom": "art_object_credits",
-          "tableTo": "art_objects",
-          "columnsFrom": [
-            "object_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "art_object_credits_person_id_authors_id_fk": {
-          "name": "art_object_credits_person_id_authors_id_fk",
-          "tableFrom": "art_object_credits",
-          "tableTo": "authors",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_object_credits_source_record_id_source_records_id_fk": {
-          "name": "art_object_credits_source_record_id_source_records_id_fk",
-          "tableFrom": "art_object_credits",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "art_object_credit_check": {
-          "name": "art_object_credit_check",
-          "value": "\"art_object_credits\".\"sort_order\">=0 and (\"art_object_credits\".\"person_id\" is not null or coalesce(length(trim(\"art_object_credits\".\"credited_as\")),0)>0 or \"art_object_credits\".\"attribution\" in ('anonymous','unknown'))"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.art_object_taxa": {
-      "name": "art_object_taxa",
-      "schema": "",
-      "columns": {
-        "object_id": {
-          "name": "object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "item_id": {
-          "name": "item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "art_object_taxon_idx": {
-          "name": "art_object_taxon_idx",
-          "columns": [
-            {
-              "expression": "item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "art_object_taxa_object_id_art_objects_id_fk": {
-          "name": "art_object_taxa_object_id_art_objects_id_fk",
-          "tableFrom": "art_object_taxa",
-          "tableTo": "art_objects",
-          "columnsFrom": [
-            "object_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "art_object_taxa_item_id_custom_taxonomy_items_id_fk": {
-          "name": "art_object_taxa_item_id_custom_taxonomy_items_id_fk",
-          "tableFrom": "art_object_taxa",
-          "tableTo": "custom_taxonomy_items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_object_taxa_source_record_id_source_records_id_fk": {
-          "name": "art_object_taxa_source_record_id_source_records_id_fk",
-          "tableFrom": "art_object_taxa",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "art_object_taxa_object_id_item_id_pk": {
-          "name": "art_object_taxa_object_id_item_id_pk",
-          "columns": [
-            "object_id",
-            "item_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.art_object_whereabouts": {
-      "name": "art_object_whereabouts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "object_id": {
-          "name": "object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "place_kind": {
-          "name": "place_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "place_label": {
-          "name": "place_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "custody": {
-          "name": "custody",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
-        },
-        "display_status": {
-          "name": "display_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
-        },
-        "certainty": {
-          "name": "certainty",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "starts_on_id": {
-          "name": "starts_on_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ends_on_id": {
-          "name": "ends_on_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "occasion_label": {
-          "name": "occasion_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "verified_at": {
-          "name": "verified_at",
+        "undone_at": {
+          "name": "undone_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {
-        "art_whereabouts_object_idx": {
-          "name": "art_whereabouts_object_idx",
+        "publisher_auto_decisions_publisher_idx": {
+          "name": "publisher_auto_decisions_publisher_idx",
           "columns": [
             {
-              "expression": "object_id",
+              "expression": "publisher_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
-        "art_whereabouts_venue_idx": {
-          "name": "art_whereabouts_venue_idx",
+        "publisher_auto_decisions_name_key": {
+          "name": "publisher_auto_decisions_name_key",
           "columns": [
             {
-              "expression": "venue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_whereabouts_current_unique": {
-          "name": "art_whereabouts_current_unique",
-          "columns": [
-            {
-              "expression": "object_id",
+              "expression": "name_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
-          "where": "\"art_object_whereabouts\".\"certainty\" = 'confirmed' and \"art_object_whereabouts\".\"ends_on_id\" is null",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
-        "art_object_whereabouts_object_id_art_objects_id_fk": {
-          "name": "art_object_whereabouts_object_id_art_objects_id_fk",
-          "tableFrom": "art_object_whereabouts",
-          "tableTo": "art_objects",
+        "publisher_auto_decisions_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_auto_decisions_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_auto_decisions",
           "columnsFrom": [
-            "object_id"
+            "publisher_id"
           ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "art_object_whereabouts_venue_id_venues_id_fk": {
-          "name": "art_object_whereabouts_venue_id_venues_id_fk",
-          "tableFrom": "art_object_whereabouts",
-          "tableTo": "venues",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_object_whereabouts_starts_on_id_catalogue_dates_id_fk": {
-          "name": "art_object_whereabouts_starts_on_id_catalogue_dates_id_fk",
-          "tableFrom": "art_object_whereabouts",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "starts_on_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "art_object_whereabouts_ends_on_id_catalogue_dates_id_fk": {
-          "name": "art_object_whereabouts_ends_on_id_catalogue_dates_id_fk",
-          "tableFrom": "art_object_whereabouts",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "ends_on_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "art_object_whereabouts_source_record_id_source_records_id_fk": {
-          "name": "art_object_whereabouts_source_record_id_source_records_id_fk",
-          "tableFrom": "art_object_whereabouts",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "art_whereabouts_place_check": {
-          "name": "art_whereabouts_place_check",
-          "value": "\"art_object_whereabouts\".\"place_kind\" in ('venue','private','unknown','lost','destroyed')\n        and (\"art_object_whereabouts\".\"place_kind\"='venue') = (\"art_object_whereabouts\".\"venue_id\" is not null)\n        and (\"art_object_whereabouts\".\"place_label\" is null or length(trim(\"art_object_whereabouts\".\"place_label\")) between 1 and 300)\n        and (\"art_object_whereabouts\".\"occasion_label\" is null or length(trim(\"art_object_whereabouts\".\"occasion_label\")) between 1 and 300)"
-        },
-        "art_whereabouts_custody_check": {
-          "name": "art_whereabouts_custody_check",
-          "value": "\"art_object_whereabouts\".\"custody\" in ('permanent_collection','temporary_loan','long_term_loan','private','unknown')\n        and \"art_object_whereabouts\".\"display_status\" in ('on_display','in_storage','unknown')\n        and \"art_object_whereabouts\".\"certainty\" in ('confirmed','probable','uncertain')\n        and (\"art_object_whereabouts\".\"custody\" not in ('permanent_collection','temporary_loan','long_term_loan') or \"art_object_whereabouts\".\"place_kind\"='venue')\n        and (\"art_object_whereabouts\".\"display_status\"='unknown' or \"art_object_whereabouts\".\"place_kind\"='venue')\n        and (\"art_object_whereabouts\".\"place_kind\" not in ('lost','destroyed') or \"art_object_whereabouts\".\"custody\"='unknown')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.art_objects": {
-      "name": "art_objects",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reproduces_object_id": {
-          "name": "reproduces_object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "creation_date_id": {
-          "name": "creation_date_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "height": {
-          "name": "height",
-          "type": "numeric(10, 3)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "width": {
-          "name": "width",
-          "type": "numeric(10, 3)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "depth": {
-          "name": "depth",
-          "type": "numeric(10, 3)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dimension_unit": {
-          "name": "dimension_unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dimensions_note": {
-          "name": "dimensions_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "height_cm": {
-          "name": "height_cm",
-          "type": "numeric(14, 4)",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "height * case dimension_unit when 'mm' then 0.1 when 'in' then 2.54 else 1 end",
-            "type": "stored"
-          }
-        },
-        "width_cm": {
-          "name": "width_cm",
-          "type": "numeric(14, 4)",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "width * case dimension_unit when 'mm' then 0.1 when 'in' then 2.54 else 1 end",
-            "type": "stored"
-          }
-        },
-        "attribution_override": {
-          "name": "attribution_override",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "ownership": {
-          "name": "ownership",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
-        },
-        "owner_organization_id": {
-          "name": "owner_organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "owner_label": {
-          "name": "owner_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "collection_name": {
-          "name": "collection_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "accession_number": {
-          "name": "accession_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "holding_status": {
-          "name": "holding_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "location_id": {
-          "name": "location_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sub_location_id": {
-          "name": "sub_location_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acquisition_date_id": {
-          "name": "acquisition_date_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acquisition_price": {
-          "name": "acquisition_price",
-          "type": "numeric(11, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "acquisition_currency": {
-          "name": "acquisition_currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "disposition_date_id": {
-          "name": "disposition_date_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "disposition_reason": {
-          "name": "disposition_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "art_object_work_idx": {
-          "name": "art_object_work_idx",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_reproduces_idx": {
-          "name": "art_object_reproduces_idx",
-          "columns": [
-            {
-              "expression": "reproduces_object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_owner_idx": {
-          "name": "art_object_owner_idx",
-          "columns": [
-            {
-              "expression": "owner_organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_location_idx": {
-          "name": "art_object_location_idx",
-          "columns": [
-            {
-              "expression": "location_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_venue_idx": {
-          "name": "art_object_venue_idx",
-          "columns": [
-            {
-              "expression": "venue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_identity_unique": {
-          "name": "art_object_identity_unique",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"label\", '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"art_objects\".\"kind\" <> 'reproduction'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "art_object_accession_unique": {
-          "name": "art_object_accession_unique",
-          "columns": [
-            {
-              "expression": "owner_organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(btrim(\"accession_number\"))",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"art_objects\".\"accession_number\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "art_objects_work_id_painting_details_work_id_fk": {
-          "name": "art_objects_work_id_painting_details_work_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "painting_details",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "art_objects_reproduces_object_id_art_objects_id_fk": {
-          "name": "art_objects_reproduces_object_id_art_objects_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "art_objects",
-          "columnsFrom": [
-            "reproduces_object_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_objects_creation_date_id_catalogue_dates_id_fk": {
-          "name": "art_objects_creation_date_id_catalogue_dates_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "creation_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "art_objects_owner_organization_id_publishing_houses_id_fk": {
-          "name": "art_objects_owner_organization_id_publishing_houses_id_fk",
-          "tableFrom": "art_objects",
           "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "owner_organization_id"
-          ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_objects_location_id_locations_id_fk": {
-          "name": "art_objects_location_id_locations_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "locations",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_objects_sub_location_id_sub_locations_id_fk": {
-          "name": "art_objects_sub_location_id_sub_locations_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "sub_locations",
-          "columnsFrom": [
-            "sub_location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_objects_acquisition_date_id_catalogue_dates_id_fk": {
-          "name": "art_objects_acquisition_date_id_catalogue_dates_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "acquisition_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "art_objects_venue_id_venues_id_fk": {
-          "name": "art_objects_venue_id_venues_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "venues",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "art_objects_disposition_date_id_catalogue_dates_id_fk": {
-          "name": "art_objects_disposition_date_id_catalogue_dates_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "disposition_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "art_objects_source_record_id_source_records_id_fk": {
-          "name": "art_objects_source_record_id_source_records_id_fk",
-          "tableFrom": "art_objects",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "art_object_kind_check": {
-          "name": "art_object_kind_check",
-          "value": "\"art_objects\".\"kind\" in ('original','version','reproduction') and (\"art_objects\".\"reproduces_object_id\" is null or \"art_objects\".\"kind\"='reproduction') and (\"art_objects\".\"label\" is null or length(trim(\"art_objects\".\"label\")) between 1 and 200)"
-        },
-        "art_object_dimension_check": {
-          "name": "art_object_dimension_check",
-          "value": "(\"art_objects\".\"height\" is null or \"art_objects\".\"height\" between 0.001 and 100000) and (\"art_objects\".\"width\" is null or \"art_objects\".\"width\" between 0.001 and 100000) and (\"art_objects\".\"depth\" is null or \"art_objects\".\"depth\" between 0.001 and 100000)\n        and (\"art_objects\".\"dimension_unit\" is null) = (\"art_objects\".\"height\" is null and \"art_objects\".\"width\" is null and \"art_objects\".\"depth\" is null)\n        and (\"art_objects\".\"dimension_unit\" is null or \"art_objects\".\"dimension_unit\" in ('mm','cm','in'))\n        and (\"art_objects\".\"dimensions_note\" is null or length(trim(\"art_objects\".\"dimensions_note\")) between 1 and 500)"
-        },
-        "art_object_ownership_check": {
-          "name": "art_object_ownership_check",
-          "value": "\"art_objects\".\"ownership\" in ('institutional','private','personal','unknown')\n        and (\"art_objects\".\"ownership\"='institutional') = (\"art_objects\".\"owner_organization_id\" is not null)\n        and (\"art_objects\".\"owner_label\" is null or (\"art_objects\".\"ownership\"='private' and length(trim(\"art_objects\".\"owner_label\")) between 1 and 300))\n        and ((\"art_objects\".\"collection_name\" is null and \"art_objects\".\"accession_number\" is null) or \"art_objects\".\"ownership\"='institutional')\n        and (\"art_objects\".\"collection_name\" is null or length(trim(\"art_objects\".\"collection_name\")) between 1 and 300)\n        and (\"art_objects\".\"accession_number\" is null or length(trim(\"art_objects\".\"accession_number\")) between 1 and 200)"
-        },
-        "art_object_holding_check": {
-          "name": "art_object_holding_check",
-          "value": "(\"art_objects\".\"ownership\"='personal') = (\"art_objects\".\"holding_status\" is not null)\n        and (\"art_objects\".\"holding_status\" is null or \"art_objects\".\"holding_status\" in ('held','lent_out','in_storage','missing','disposed'))\n        and (\"art_objects\".\"ownership\"='personal' or (\"art_objects\".\"location_id\" is null and \"art_objects\".\"sub_location_id\" is null and \"art_objects\".\"acquisition_date_id\" is null and \"art_objects\".\"venue_id\" is null and \"art_objects\".\"acquisition_price\" is null and \"art_objects\".\"disposition_date_id\" is null and \"art_objects\".\"disposition_reason\" is null))\n        and (\"art_objects\".\"sub_location_id\" is null or \"art_objects\".\"location_id\" is not null)\n        and ((\"art_objects\".\"acquisition_price\" is null and \"art_objects\".\"acquisition_currency\" is null) or (\"art_objects\".\"acquisition_price\" is not null and \"art_objects\".\"acquisition_price\">=0 and \"art_objects\".\"acquisition_price\"<=999999999.99 and \"art_objects\".\"acquisition_currency\" is not null and \"art_objects\".\"acquisition_currency\" ~ '^[A-Z]{3}$'))\n        and (\"art_objects\".\"holding_status\"='disposed' or (\"art_objects\".\"disposition_date_id\" is null and \"art_objects\".\"disposition_reason\" is null))"
+        "publisher_auto_decision_action": {
+          "name": "publisher_auto_decision_action",
+          "value": "\"publisher_auto_decisions\".\"action\" in ('alias', 'create')"
         }
       },
-      "isRLSEnabled": false
-    },
-    "public.painting_details": {
-      "name": "painting_details",
-      "schema": "",
-      "columns": {
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "creation_date_id": {
-          "name": "creation_date_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "painting_details_work_id_works_id_fk": {
-          "name": "painting_details_work_id_works_id_fk",
-          "tableFrom": "painting_details",
-          "tableTo": "works",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "painting_details_creation_date_id_catalogue_dates_id_fk": {
-          "name": "painting_details_creation_date_id_catalogue_dates_id_fk",
-          "tableFrom": "painting_details",
-          "tableTo": "catalogue_dates",
-          "columnsFrom": [
-            "creation_date_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "painting_details_source_record_id_source_records_id_fk": {
-          "name": "painting_details_source_record_id_source_records_id_fk",
-          "tableFrom": "painting_details",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },
@@ -12216,5 +10327,7 @@
     "columns": {},
     "schemas": {},
     "tables": {}
-  }
+  },
+  "id": "5ae03cf9-0f45-403a-bfc4-3cc78164a6f0",
+  "prevId": "42fd5651-a15a-49b7-aa4b-a8465ea1bf19"
 }

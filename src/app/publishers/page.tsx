@@ -131,7 +131,7 @@ export default async function PublishersPage({
               className={buttonClass("ghost", "sm")}
             >
               <ListChecks className="h-4 w-4" strokeWidth={1.5} />
-              Review unmatched editions
+              Publisher names
             </Link>
             <Link
               href="/publishers/new"

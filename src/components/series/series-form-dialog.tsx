@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { createSeries, updateSeries } from "@/lib/actions/series";
 
@@ -122,20 +123,20 @@ export function SeriesFormDialog({
         expandable={false}
       >
         <form onSubmit={submit} noValidate className="space-y-4">
-          <Input
+          <TitleInput
             ref={titleRef}
             label="Title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onValueChange={setTitle}
             maxLength={300}
             placeholder="e.g. In Search of Lost Time"
             disabled={pending}
             required
           />
-          <Input
+          <TitleInput
             label="Original title"
             value={originalTitle}
-            onChange={(e) => setOriginalTitle(e.target.value)}
+            onValueChange={setOriginalTitle}
             maxLength={300}
             placeholder="e.g. À la recherche du temps perdu"
             disabled={pending}

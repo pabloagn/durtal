@@ -44,6 +44,11 @@ CREATE TRIGGER publisher_profile_required BEFORE INSERT OR UPDATE OF publisher_i
 --> statement-breakpoint
 CREATE TRIGGER publisher_profile_required BEFORE INSERT OR UPDATE OF publishing_house_id ON publishing_house_specialties FOR EACH ROW EXECUTE FUNCTION require_publisher_profile();
 --> statement-breakpoint
+-- ISBN prefixes and automatic decisions (0034) link book editions to publishers.
+CREATE TRIGGER publisher_profile_required BEFORE INSERT OR UPDATE OF publisher_id ON publisher_isbn_prefixes FOR EACH ROW EXECUTE FUNCTION require_publisher_profile();
+--> statement-breakpoint
+CREATE TRIGGER publisher_profile_required BEFORE INSERT OR UPDATE OF publisher_id ON publisher_auto_decisions FOR EACH ROW EXECUTE FUNCTION require_publisher_profile();
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION validate_publisher_parent() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE parent_kind text;
 BEGIN
@@ -56,7 +61,8 @@ BEGIN
  AND (EXISTS(SELECT 1 FROM edition_publishers WHERE publisher_id = OLD.id)
    OR EXISTS(SELECT 1 FROM acquisition_targets WHERE publisher_id = OLD.id)
    OR EXISTS(SELECT 1 FROM publishing_houses WHERE parent_id = OLD.id)
-   OR EXISTS(SELECT 1 FROM publishing_house_specialties WHERE publishing_house_id = OLD.id)) THEN
+   OR EXISTS(SELECT 1 FROM publishing_house_specialties WHERE publishing_house_id = OLD.id)
+   OR EXISTS(SELECT 1 FROM publisher_isbn_prefixes WHERE publisher_id = OLD.id)) THEN
    RAISE EXCEPTION 'This publisher identity is in use; its type and parent cannot be changed';
  END IF;
  RETURN NEW;
@@ -80,9 +86,10 @@ BEGIN
    IF TG_OP='INSERT' AND NEW.kind IS NULL THEN RETURN NULL; END IF;
    IF TG_OP='DELETE' AND OLD.kind IS NULL THEN RETURN NULL; END IF;
    IF TG_OP='UPDATE' AND OLD.kind IS NULL AND NEW.kind IS NULL THEN RETURN NULL; END IF;
- ELSE
+ ELSIF TG_TABLE_NAME = 'publisher_aliases' THEN
    IF NOT EXISTS (SELECT 1 FROM publishing_houses WHERE id IN (NEW.publisher_id, OLD.publisher_id) AND kind IS NOT NULL) THEN RETURN NULL; END IF;
  END IF;
+ -- Statement-level triggers (ISBN prefixes, ignored names) have no row: refresh all.
  FOR edition_id_arg IN SELECT id FROM editions WHERE NOT publisher_links_confirmed ORDER BY id LOOP
    PERFORM refresh_edition_publishers(edition_id_arg);
  END LOOP;

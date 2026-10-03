@@ -16,9 +16,23 @@ import { VENUE_TYPES, VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/
 
 const VENUE_TYPE_OPTIONS = VENUE_TYPES.map(value => ({ value, label: VENUE_TYPE_LABELS[value] }));
 
-export function VenueCreateDialog() {
+/**
+ * Add Venue. With `open` and `onOpenChange` the caller controls it (the A
+ * menu); otherwise it shows its own "Add Venue" button.
+ */
+export function VenueCreateDialog({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
   const [isPending, startTransition] = useTransition();
 
   // Form state
@@ -125,16 +139,19 @@ export function VenueCreateDialog() {
 
   return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => setOpen(true)}
-        type="button"
-        className="shrink-0 whitespace-nowrap"
-      >
-        <Plus className="h-4 w-4" strokeWidth={1.5} />
-        Add Venue
-      </Button>
+      {!controlled && (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setOpen(true)}
+          type="button"
+          title="Add Venue (A, then L)"
+          className="shrink-0 whitespace-nowrap"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
+          Add Venue
+        </Button>
+      )}
 
       <Dialog
         open={open}

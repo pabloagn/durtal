@@ -64,7 +64,7 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
   });
   beforeEach(async () => {
     await db.execute(
-      sql`truncate works, authors, recommenders, activity_events, gallery_layouts cascade`,
+      sql`truncate works, authors, recommenders, activity_events, gallery_layouts, publishing_houses cascade`,
     );
     vi.resetAllMocks();
     vi.mocked(processAndUploadCover).mockResolvedValue(null);

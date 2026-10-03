@@ -1,6 +1,4 @@
 {
-  "id": "e3432e1d-a1d7-46b7-81a0-40a8249bdf96",
-  "prevId": "3cbee898-8b77-4a2e-a552-a68fa6396783",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1625,65 +1623,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.credit_roles": {
-      "name": "credit_roles",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "work_kind_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "level": {
-          "name": "level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "legacy_role": {
-          "name": "legacy_role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "credit_role_legacy_unique": {
-          "name": "credit_role_legacy_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "kind",
-            "level",
-            "legacy_role"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "credit_role_level_check": {
-          "name": "credit_role_level_check",
-          "value": "\"credit_roles\".\"level\" in ('work', 'edition')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.custom_taxonomy_item_editions": {
       "name": "custom_taxonomy_item_editions",
       "schema": "",
@@ -1927,27 +1866,6 @@
       "name": "edition_contributors",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "credited_as": {
-          "name": "credited_as",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "attribution": {
-          "name": "attribution",
-          "type": "attribution_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unspecified'"
-        },
         "edition_id": {
           "name": "edition_id",
           "type": "uuid",
@@ -2013,15 +1931,7 @@
           ]
         }
       },
-      "uniqueConstraints": {
-        "edition_contributors_id_unique": {
-          "name": "edition_contributors_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -3889,6 +3799,18 @@
           "notNull": true,
           "default": 100
         },
+        "uncropped_s3_key": {
+          "name": "uncropped_s3_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "applied_crop": {
+          "name": "applied_crop",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "brightness": {
           "name": "brightness",
           "type": "real",
@@ -3966,9 +3888,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "media_author_id_active_idx": {
           "name": "media_author_id_active_idx",
@@ -3987,9 +3909,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "media_collection_id_type_active_idx": {
           "name": "media_collection_id_type_active_idx",
@@ -4014,50 +3936,50 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "media_work_id_works_id_fk": {
           "name": "media_work_id_works_id_fk",
           "tableFrom": "media",
-          "tableTo": "works",
           "columnsFrom": [
             "work_id"
           ],
+          "tableTo": "works",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "media_author_id_authors_id_fk": {
           "name": "media_author_id_authors_id_fk",
           "tableFrom": "media",
-          "tableTo": "authors",
           "columnsFrom": [
             "author_id"
           ],
+          "tableTo": "authors",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "media_collection_id_collections_id_fk": {
           "name": "media_collection_id_collections_id_fk",
           "tableFrom": "media",
-          "tableTo": "collections",
           "columnsFrom": [
             "collection_id"
           ],
+          "tableTo": "collections",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -4067,6 +3989,10 @@
         "media_owner_check": {
           "name": "media_owner_check",
           "value": "num_nonnulls(\"media\".\"work_id\", \"media\".\"author_id\", \"media\".\"collection_id\") = 1"
+        },
+        "media_applied_crop_check": {
+          "name": "media_applied_crop_check",
+          "value": "num_nonnulls(\"media\".\"uncropped_s3_key\", \"media\".\"applied_crop\") in (0, 2)"
         }
       },
       "isRLSEnabled": false
@@ -4491,296 +4417,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.organization_roles": {
-      "name": "organization_roles",
-      "schema": "",
-      "columns": {
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "organization_role_idx": {
-          "name": "organization_role_idx",
-          "columns": [
-            {
-              "expression": "role",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "organization_roles_organization_id_publishing_houses_id_fk": {
-          "name": "organization_roles_organization_id_publishing_houses_id_fk",
-          "tableFrom": "organization_roles",
-          "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "organization_roles_organization_id_role_pk": {
-          "name": "organization_roles_organization_id_role_pk",
-          "columns": [
-            "organization_id",
-            "role"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "organization_role_check": {
-          "name": "organization_role_check",
-          "value": "\"organization_roles\".\"role\" in ('perfume_house', 'brand', 'manufacturer', 'retailer', 'production_company', 'distribution_company', 'museum', 'gallery')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.organization_venues": {
-      "name": "organization_venues",
-      "schema": "",
-      "columns": {
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'operator'"
-        }
-      },
-      "indexes": {
-        "organization_venue_idx": {
-          "name": "organization_venue_idx",
-          "columns": [
-            {
-              "expression": "venue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "organization_venues_organization_id_publishing_houses_id_fk": {
-          "name": "organization_venues_organization_id_publishing_houses_id_fk",
-          "tableFrom": "organization_venues",
-          "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "organization_venues_venue_id_venues_id_fk": {
-          "name": "organization_venues_venue_id_venues_id_fk",
-          "tableFrom": "organization_venues",
-          "tableTo": "venues",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "organization_venues_organization_id_venue_id_role_pk": {
-          "name": "organization_venues_organization_id_venue_id_role_pk",
-          "columns": [
-            "organization_id",
-            "venue_id",
-            "role"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "organization_venue_role_check": {
-          "name": "organization_venue_role_check",
-          "value": "\"organization_venues\".\"role\" in ('operator', 'owner')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.person_aliases": {
-      "name": "person_aliases",
-      "schema": "",
-      "columns": {
-        "person_id": {
-          "name": "person_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "search_text": {
-          "name": "search_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "search_normalize(name)",
-            "type": "stored"
-          }
-        }
-      },
-      "indexes": {
-        "person_alias_search_idx": {
-          "name": "person_alias_search_idx",
-          "columns": [
-            {
-              "expression": "search_text",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "person_aliases_person_id_authors_id_fk": {
-          "name": "person_aliases_person_id_authors_id_fk",
-          "tableFrom": "person_aliases",
-          "tableTo": "authors",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "person_aliases_person_id_name_pk": {
-          "name": "person_aliases_person_id_name_pk",
-          "columns": [
-            "person_id",
-            "name"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "person_alias_name_check": {
-          "name": "person_alias_name_check",
-          "value": "length(trim(\"person_aliases\".\"name\")) between 1 and 300"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.person_domains": {
-      "name": "person_domains",
-      "schema": "",
-      "columns": {
-        "person_id": {
-          "name": "person_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "work_kind_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "person_domains_person_id_authors_id_fk": {
-          "name": "person_domains_person_id_authors_id_fk",
-          "tableFrom": "person_domains",
-          "tableTo": "authors",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "person_domains_person_id_kind_pk": {
-          "name": "person_domains_person_id_kind_pk",
-          "columns": [
-            "person_id",
-            "kind"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.places": {
       "name": "places",
       "schema": "",
@@ -4904,16 +4540,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "search_text": {
-          "name": "search_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "search_normalize(name)",
-            "type": "stored"
-          }
         }
       },
       "indexes": {
@@ -4930,22 +4556,6 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
-          "with": {}
-        },
-        "organization_alias_search_idx": {
-          "name": "organization_alias_search_idx",
-          "columns": [
-            {
-              "expression": "search_text",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
           "with": {}
         }
       },
@@ -5131,7 +4741,7 @@
           "name": "kind",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "default": "'publisher'"
         },
         "parent_id": {
@@ -5164,16 +4774,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "search_text": {
-          "name": "search_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "search_normalize(name)",
-            "type": "stored"
-          }
         },
         "created_at": {
           "name": "created_at",
@@ -5212,22 +4812,6 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
-          "with": {}
-        },
-        "organization_search_idx": {
-          "name": "organization_search_idx",
-          "columns": [
-            {
-              "expression": "search_text",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
           "with": {}
         }
       },
@@ -5273,7 +4857,7 @@
       "checkConstraints": {
         "publisher_kind_parent_check": {
           "name": "publisher_kind_parent_check",
-          "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'publisher' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
+          "value": "(\"publishing_houses\".\"kind\" = 'publisher' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")"
         }
       },
       "isRLSEnabled": false
@@ -5766,94 +5350,6 @@
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.taxonomy_applicability": {
-      "name": "taxonomy_applicability",
-      "schema": "",
-      "columns": {
-        "family_id": {
-          "name": "family_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "work_kind_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "level": {
-          "name": "level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "taxonomy_applicability_scope_idx": {
-          "name": "taxonomy_applicability_scope_idx",
-          "columns": [
-            {
-              "expression": "kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "level",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "family_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "taxonomy_applicability_family_id_taxonomy_families_id_fk": {
-          "name": "taxonomy_applicability_family_id_taxonomy_families_id_fk",
-          "tableFrom": "taxonomy_applicability",
-          "tableTo": "taxonomy_families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "taxonomy_applicability_family_id_kind_level_pk": {
-          "name": "taxonomy_applicability_family_id_kind_level_pk",
-          "columns": [
-            "family_id",
-            "kind",
-            "level"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "taxonomy_scope_check": {
-          "name": "taxonomy_scope_check",
-          "value": "\"taxonomy_applicability\".\"level\" = 'work' or (\"taxonomy_applicability\".\"kind\" = 'book' and \"taxonomy_applicability\".\"level\" = 'edition') or (\"taxonomy_applicability\".\"kind\" = 'perfume' and \"taxonomy_applicability\".\"level\" = 'perfume_variant') or (\"taxonomy_applicability\".\"kind\" = 'film' and \"taxonomy_applicability\".\"level\" = 'film_version') or (\"taxonomy_applicability\".\"kind\" = 'painting' and \"taxonomy_applicability\".\"level\" = 'art_object')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.taxonomy_families": {
@@ -6460,27 +5956,6 @@
       "name": "work_authors",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "credited_as": {
-          "name": "credited_as",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "attribution": {
-          "name": "attribution",
-          "type": "attribution_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unspecified'"
-        },
         "work_id": {
           "name": "work_id",
           "type": "uuid",
@@ -6547,15 +6022,7 @@
           ]
         }
       },
-      "uniqueConstraints": {
-        "work_authors_id_unique": {
-          "name": "work_authors_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -6618,181 +6085,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.work_credits": {
-      "name": "work_credits",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "person_id": {
-          "name": "person_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role_id": {
-          "name": "role_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "credited_as": {
-          "name": "credited_as",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "attribution": {
-          "name": "attribution",
-          "type": "attribution_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unspecified'"
-        },
-        "characters": {
-          "name": "characters",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "work_credit_work_order_idx": {
-          "name": "work_credit_work_order_idx",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sort_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "work_credit_person_idx": {
-          "name": "work_credit_person_idx",
-          "columns": [
-            {
-              "expression": "person_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "work_credits_work_id_works_id_fk": {
-          "name": "work_credits_work_id_works_id_fk",
-          "tableFrom": "work_credits",
-          "tableTo": "works",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "work_credits_person_id_authors_id_fk": {
-          "name": "work_credits_person_id_authors_id_fk",
-          "tableFrom": "work_credits",
-          "tableTo": "authors",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "work_credits_role_id_credit_roles_id_fk": {
-          "name": "work_credits_role_id_credit_roles_id_fk",
-          "tableFrom": "work_credits",
-          "tableTo": "credit_roles",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "work_credit_order_check": {
-          "name": "work_credit_order_check",
-          "value": "\"work_credits\".\"sort_order\" >= 0"
-        },
-        "work_credit_identity_check": {
-          "name": "work_credit_identity_check",
-          "value": "\"work_credits\".\"person_id\" is not null or coalesce(length(trim(\"work_credits\".\"credited_as\")), 0) > 0 or \"work_credits\".\"attribution\" in ('anonymous', 'unknown')"
-        },
-        "work_credit_characters_check": {
-          "name": "work_credit_characters_check",
-          "value": "cardinality(\"work_credits\".\"characters\") <= 50 and array_position(\"work_credits\".\"characters\", null) is null"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.work_keywords": {
@@ -7506,6 +6798,229 @@
         }
       },
       "isRLSEnabled": false
+    },
+    "public.publisher_isbn_prefixes": {
+      "name": "publisher_isbn_prefixes",
+      "schema": "",
+      "columns": {
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "publisher_isbn_prefixes_publisher_idx": {
+          "name": "publisher_isbn_prefixes_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_isbn_prefixes",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "tableTo": "publishing_houses",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "publisher_isbn_prefix_format": {
+          "name": "publisher_isbn_prefix_format",
+          "value": "\"publisher_isbn_prefixes\".\"prefix\" ~ '^97[89][0-9]{2,10}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.ignored_publisher_names": {
+      "name": "ignored_publisher_names",
+      "schema": "",
+      "columns": {
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ignored_publisher_name_key": {
+          "name": "ignored_publisher_name_key",
+          "value": "\"ignored_publisher_names\".\"name_key\" = publisher_name_key(\"ignored_publisher_names\".\"name\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.publisher_auto_decisions": {
+      "name": "publisher_auto_decisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_count": {
+          "name": "edition_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "publisher_auto_decisions_publisher_idx": {
+          "name": "publisher_auto_decisions_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "publisher_auto_decisions_name_key": {
+          "name": "publisher_auto_decisions_name_key",
+          "columns": [
+            {
+              "expression": "name_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "publisher_auto_decisions_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_auto_decisions_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_auto_decisions",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "tableTo": "publishing_houses",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "publisher_auto_decision_action": {
+          "name": "publisher_auto_decision_action",
+          "value": "\"publisher_auto_decisions\".\"action\" in ('alias', 'create')"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -7530,18 +7045,6 @@
         "medium",
         "high",
         "urgent"
-      ]
-    },
-    "public.attribution_enum": {
-      "name": "attribution_enum",
-      "schema": "public",
-      "values": [
-        "unspecified",
-        "confirmed",
-        "attributed",
-        "uncertain",
-        "anonymous",
-        "unknown"
       ]
     },
     "public.catalogue_status_enum": {
@@ -7649,5 +7152,7 @@
     "columns": {},
     "schemas": {},
     "tables": {}
-  }
+  },
+  "id": "81e3bd75-1816-4f46-b8f5-b01b77d5bce3",
+  "prevId": "caf4edc1-f2f3-4a98-8700-4568d04a8cb5"
 }

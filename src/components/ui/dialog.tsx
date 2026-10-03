@@ -22,6 +22,9 @@ interface DialogProps {
   expandable?: boolean;
 }
 
+const FIRST_FIELD =
+  'input:not([type="hidden"],[type="checkbox"],[type="radio"],[type="file"],[type="range"],[type="color"],[type="button"],[type="submit"]):not(:disabled), textarea:not(:disabled), [contenteditable="true"]';
+
 export function Dialog({
   open,
   onClose,
@@ -39,7 +42,13 @@ export function Dialog({
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
+    if (open && !el.open) {
+      el.showModal();
+      // The browser focuses the header's first button; start in the first
+      // field instead, so typing (and Enter to confirm) works at once. With
+      // no field, the dialog itself takes the focus.
+      (el.querySelector<HTMLElement>(FIRST_FIELD) ?? el).focus();
+    }
     if (!open && el.open) el.close();
   }, [open]);
 
@@ -63,11 +72,12 @@ export function Dialog({
   return (
     <dialog
       ref={dialogRef}
+      tabIndex={-1}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
       }}
-      className={`dialog-enter m-auto w-full rounded-md p-0 text-fg-primary border border-glass-border bg-bg-secondary shadow-[0_24px_64px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(125,61,82,0.08)] backdrop:bg-black/60 backdrop:backdrop-blur-lg transition-[max-width] duration-200 ease-out ${sizeClass}`}
+      className={`dialog-enter m-auto w-full rounded-md p-0 outline-none text-fg-primary border border-glass-border bg-bg-secondary shadow-[0_24px_64px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(125,61,82,0.08)] backdrop:bg-black/60 backdrop:backdrop-blur-lg transition-[max-width] duration-200 ease-out ${sizeClass}`}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}

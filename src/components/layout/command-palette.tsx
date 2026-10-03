@@ -5,74 +5,88 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
   Library,
-  Building2,
-  Users,
-  Layers,
-  MapPin,
-  FolderOpen,
-  Plus,
-  Settings,
-  BookOpen,
-  BookOpenText,
+  User,
+  Book,
   Search,
-  Tags,
-  Archive,
-  Route,
-  ThumbsUp,
-  ScanLine,
+  Keyboard,
+  Loader2,
+  type LucideIcon,
 } from "lucide-react";
+import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
+import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
+import { quickSearch, type QuickSearchResult } from "@/lib/actions/quick-search";
+import { ADD, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
+import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
+import { filterBySearch } from "@/lib/utils/search-text";
 
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const NAVIGATION_ITEMS = [
-  { label: "Dashboard", href: "/", icon: BookOpen, group: "Navigate" },
-  { label: "Library", href: "/library", icon: Library, group: "Navigate" },
-  { label: "Reader", href: "/reader", icon: BookOpenText, group: "Navigate" },
-  { label: "Authors", href: "/authors", icon: Users, group: "Navigate" },
-  {
-    label: "Publishers",
-    href: "/publishers",
-    icon: Building2,
-    group: "Navigate",
-  },
-  {
-    label: "Recommenders",
-    href: "/recommenders",
-    icon: ThumbsUp,
-    group: "Navigate",
-  },
-  { label: "Series", href: "/series", icon: Layers, group: "Navigate" },
-  { label: "Places", href: "/places", icon: MapPin, group: "Navigate" },
-  { label: "Provenance", href: "/provenance", icon: Route, group: "Navigate" },
-  { label: "Locations", href: "/locations", icon: Archive, group: "Navigate" },
-  {
-    label: "Collections",
-    href: "/collections",
-    icon: FolderOpen,
-    group: "Navigate",
-  },
-  { label: "Taxonomy", href: "/taxonomy", icon: Tags, group: "Navigate" },
-  { label: "Harmonize", href: "/harmonize", icon: ScanLine, group: "Navigate" },
-  { label: "Settings", href: "/settings", icon: Settings, group: "Navigate" },
+interface PaletteItem {
+  label: string;
+  icon: LucideIcon;
+  keys?: Keys;
+  then?: boolean;
+  href?: string;
+  /** An "Add" entry's key: "b" adds a book */
+  add?: string;
+  run?: "help";
+}
+
+const NAVIGATION_ITEMS: PaletteItem[] = [
+  { label: "Dashboard", href: "/" },
+  { label: "Library", href: "/library" },
+  { label: "Reader", href: "/reader" },
+  { label: "Authors", href: "/authors" },
+  { label: "Publishers", href: "/publishers" },
+  { label: "Recommenders", href: "/recommenders" },
+  { label: "Series", href: "/series" },
+  { label: "Places", href: "/places" },
+  { label: "Provenance", href: "/provenance" },
+  { label: "Locations", href: "/locations" },
+  { label: "Collections", href: "/collections" },
+  { label: "Taxonomy", href: "/taxonomy" },
+  { label: "Harmonize", href: "/harmonize" },
+  { label: "Settings", href: "/settings" },
+].map((item) => {
+  const go = GO_TO.find((g) => g.href === item.href);
+  return {
+    ...item,
+    icon: SECTION_ICONS[item.href],
+    keys: go ? ["g", go.key] : undefined,
+    then: true,
+  };
+});
+
+const ACTION_ITEMS: PaletteItem[] = [
+  ...ADD.map((a) => ({
+    label: `Add ${/^[aeiou]/i.test(a.label) ? "an" : "a"} ${a.label.toLowerCase()}`,
+    add: a.key,
+    icon: SECTION_ICONS[a.section],
+    keys: ["a", a.key],
+    then: true,
+  })),
+  { label: "Import books", href: "/library/import", icon: Library },
+  { label: "Keyboard shortcuts", run: "help", icon: Keyboard, keys: SHORTCUTS.help },
 ];
 
-const ACTION_ITEMS = [
-  { label: "Add new book", href: "/library/new", icon: Plus, group: "Actions" },
-  {
-    label: "Import books",
-    href: "/library/import",
-    icon: Library,
-    group: "Actions",
-  },
-];
+const NO_RESULTS: QuickSearchResult = { works: [], authors: [] };
+
+const GROUP_CLASS =
+  "text-xs font-medium text-fg-muted [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
+const ITEM_CLASS =
+  "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-accent-plum/60 aria-selected:text-fg-primary";
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
+  const actions = useShortcutActions();
   const [, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState("");
+  const [results, setResults] = useState<QuickSearchResult>(NO_RESULTS);
+  const [searching, setSearching] = useState(false);
 
   const navigate = useCallback(
     (href: string) => {
@@ -84,9 +98,64 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     [router, onOpenChange],
   );
 
+  function runItem(item: PaletteItem) {
+    if (item.href) return navigate(item.href);
+    onOpenChange(false);
+    if (item.add) actions.add(item.add);
+    if (item.run === "help") actions.openHelp();
+  }
+
   useEffect(() => {
-    if (!open) setQuery("");
+    if (!open) {
+      setQuery("");
+      setResults(NO_RESULTS);
+    }
   }, [open]);
+
+  // Books and authors from the catalogue; an older answer never replaces a newer one
+  const trimmed = query.trim();
+  useEffect(() => {
+    if (trimmed.length < 2) {
+      setResults(NO_RESULTS);
+      setSearching(false);
+      return;
+    }
+    let stale = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const found = await quickSearch(trimmed);
+        if (!stale) setResults(found);
+      } catch {
+        if (!stale) setResults(NO_RESULTS);
+      } finally {
+        if (!stale) setSearching(false);
+      }
+    }, 120);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [trimmed]);
+
+  const actionItems = trimmed
+    ? filterBySearch(ACTION_ITEMS, trimmed, (i) => i.label)
+    : ACTION_ITEMS;
+  const navigationItems = trimmed
+    ? filterBySearch(NAVIGATION_ITEMS, trimmed, (i) => i.label)
+    : NAVIGATION_ITEMS;
+  const firstValue =
+    (results.works[0] && `work:${results.works[0].id}`) ||
+    (results.authors[0] && `author:${results.authors[0].id}`) ||
+    (actionItems[0] && `action:${actionItems[0].label}`) ||
+    (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
+    (trimmed && "library-search") ||
+    "";
+
+  // The best match is selected, so Enter opens it
+  useEffect(() => {
+    setSelected(firstValue);
+  }, [firstValue]);
 
   if (!open) return null;
 
@@ -99,65 +168,156 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       />
 
       {/* Palette */}
-      <div className="absolute left-1/2 top-[20%] w-full max-w-lg -translate-x-1/2">
+      <div className="absolute left-1/2 top-[20%] w-full max-w-xl -translate-x-1/2 px-4">
         <Command
           className="overflow-hidden rounded-sm glass-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
-          shouldFilter={true}
-          value={query}
-          onValueChange={setQuery}
+          shouldFilter={false}
+          value={selected}
+          onValueChange={setSelected}
+          loop
         >
           <div className="flex items-center border-b border-glass-border px-4">
-            <Search className="mr-2 h-4 w-4 shrink-0 text-fg-muted" />
+            <Search className="mr-2 h-4 w-4 shrink-0 text-fg-muted" strokeWidth={1.5} />
             <Command.Input
-              placeholder="Search catalogue, navigate, or take an action..."
+              value={query}
+              onValueChange={setQuery}
+              placeholder="Search books and authors, or type a command..."
               className="h-11 w-full bg-transparent text-sm text-fg-primary outline-none placeholder:text-fg-muted"
               autoFocus
             />
+            {searching && (
+              <Loader2
+                className="ml-2 h-4 w-4 shrink-0 animate-spin text-fg-muted"
+                strokeWidth={1.5}
+              />
+            )}
           </div>
 
-          <Command.List className="max-h-80 overflow-y-auto p-2">
-            <Command.Empty className="py-6 text-center text-sm text-fg-muted">
-              No results found.
-            </Command.Empty>
+          <Command.List className="max-h-96 overflow-y-auto p-2">
+            {results.works.length > 0 && (
+              <Command.Group heading="Books" className={GROUP_CLASS}>
+                {results.works.map((work) => (
+                  <Command.Item
+                    key={work.id}
+                    value={`work:${work.id}`}
+                    onSelect={() => navigate(`/library/${work.slug}`)}
+                    className={ITEM_CLASS}
+                  >
+                    <Book className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {work.title}
+                      {work.authors.length > 0 && (
+                        <span className="text-fg-muted">
+                          {"  ·  "}
+                          {work.authors.slice(0, 2).join(", ")}
+                        </span>
+                      )}
+                    </span>
+                    {work.year && (
+                      <span className="shrink-0 text-xs tabular-nums text-fg-muted">
+                        {work.year}
+                      </span>
+                    )}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
 
-            <Command.Group
-              heading="Navigate"
-              className="text-xs font-medium text-fg-muted [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5"
-            >
-              {NAVIGATION_ITEMS.map((item) => (
+            {results.authors.length > 0 && (
+              <Command.Group heading="Authors" className={GROUP_CLASS}>
+                {results.authors.map((author) => (
+                  <Command.Item
+                    key={author.id}
+                    value={`author:${author.id}`}
+                    onSelect={() => navigate(`/authors/${author.slug}`)}
+                    className={ITEM_CLASS}
+                  >
+                    <User className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">{author.name}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {trimmed && !searching && (
+              <Command.Group heading="Library" className={GROUP_CLASS}>
                 <Command.Item
-                  key={item.href}
-                  value={item.label}
-                  onSelect={() => navigate(item.href)}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-accent-plum/60 aria-selected:text-fg-primary"
+                  value="library-search"
+                  onSelect={() =>
+                    navigate(`/library?q=${encodeURIComponent(trimmed)}`)
+                  }
+                  className={ITEM_CLASS}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  {item.label}
+                  <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span className="min-w-0 flex-1 truncate">
+                    Search the library for &ldquo;{trimmed}&rdquo;
+                  </span>
                 </Command.Item>
-              ))}
-            </Command.Group>
+              </Command.Group>
+            )}
 
-            <Command.Separator className="my-1 h-px bg-glass-border" />
+            {actionItems.length > 0 && (
+              <Command.Group heading="Actions" className={GROUP_CLASS}>
+                {actionItems.map((item) => (
+                  <PaletteRow
+                    key={item.label}
+                    item={item}
+                    value={`action:${item.label}`}
+                    onSelect={() => runItem(item)}
+                  />
+                ))}
+              </Command.Group>
+            )}
 
-            <Command.Group
-              heading="Actions"
-              className="text-xs font-medium text-fg-muted [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5"
-            >
-              {ACTION_ITEMS.map((item) => (
-                <Command.Item
-                  key={item.href}
-                  value={item.label}
-                  onSelect={() => navigate(item.href)}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-accent-plum/60 aria-selected:text-fg-primary"
-                >
-                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  {item.label}
-                </Command.Item>
-              ))}
-            </Command.Group>
+            {navigationItems.length > 0 && (
+              <Command.Group heading="Go to" className={GROUP_CLASS}>
+                {navigationItems.map((item) => (
+                  <PaletteRow
+                    key={item.label}
+                    item={item}
+                    value={`nav:${item.label}`}
+                    onSelect={() => runItem(item)}
+                  />
+                ))}
+              </Command.Group>
+            )}
           </Command.List>
+
+          <div className="flex items-center gap-4 border-t border-glass-border px-4 py-2 text-[11px] text-fg-muted">
+            <span className="flex items-center gap-1.5">
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd>
+              move
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Kbd>↵</Kbd>
+              open
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Kbd>Esc</Kbd>
+              close
+            </span>
+          </div>
         </Command>
       </div>
     </div>
+  );
+}
+
+function PaletteRow({
+  item,
+  value,
+  onSelect,
+}: {
+  item: PaletteItem;
+  value: string;
+  onSelect: () => void;
+}) {
+  return (
+    <Command.Item value={value} onSelect={onSelect} className={ITEM_CLASS}>
+      <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {item.keys && <KeyCombo keys={item.keys} then={item.then} />}
+    </Command.Item>
   );
 }

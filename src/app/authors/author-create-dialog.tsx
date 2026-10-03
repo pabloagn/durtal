@@ -6,6 +6,7 @@ import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AuthorNameInput } from "@/components/shared/author-name-input";
 import { Select } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/shared/rich-text-editor";
 import { Dialog } from "@/components/ui/dialog";
@@ -18,9 +19,23 @@ const GENDER_OPTIONS = [
   { value: "female", label: "Female" },
 ];
 
-export function AuthorCreateDialog() {
+/**
+ * Add Author. With `open` and `onOpenChange` the caller controls it (the
+ * global "A" shortcut); otherwise it shows its own "Add Author" button.
+ */
+export function AuthorCreateDialog({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [countriesLoaded, setCountriesLoaded] = useState(false);
@@ -123,7 +138,14 @@ export function AuthorCreateDialog() {
           openLibraryKey: openLibraryKey.trim() || null,
           goodreadsId: goodreadsId.trim() || null,
         });
-        toast.success(`Author "${author.name}" created`);
+        toast.success(`Author "${author.name}" created`, {
+          action: author.slug
+            ? {
+                label: "Open",
+                onClick: () => router.push(`/authors/${author.slug}`),
+              }
+            : undefined,
+        });
         setOpen(false);
         resetForm();
         router.refresh();
@@ -137,15 +159,18 @@ export function AuthorCreateDialog() {
 
   return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => setOpen(true)}
-        type="button"
-      >
-        <Plus className="h-4 w-4" strokeWidth={1.5} />
-        Add Author
-      </Button>
+      {!controlled && (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setOpen(true)}
+          type="button"
+          title="Add Author (A, then A)"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
+          Add Author
+        </Button>
+      )}
 
       <Dialog
         open={open}
@@ -166,10 +191,16 @@ export function AuthorCreateDialog() {
                     Identity
                   </h3>
                   <div className="space-y-3">
-                    <Input
+                    <AuthorNameInput
                       label="Name"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onValueChange={setName}
+                      onNameOrder={(parts) => {
+                        // Fill only what is still empty
+                        if (!sortName.trim()) setSortName(parts.sortName);
+                        if (!firstName.trim()) setFirstName(parts.first);
+                        if (!lastName.trim()) setLastName(parts.last);
+                      }}
                       required
                       autoFocus
                     />

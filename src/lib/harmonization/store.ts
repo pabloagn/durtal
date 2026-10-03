@@ -26,6 +26,7 @@ const SCAN_TABLES = [
     "media",
     "work_authors",
     "edition_publishers",
+    "ignored_publisher_names",
     "collection_editions",
     "taxonomy_families",
   ]),
