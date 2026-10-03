@@ -9,14 +9,16 @@
  *
  * Dry run by default: the whole run happens in one transaction that is rolled
  * back, and the plan is written to --report. `--apply` commits and writes the
- * old values to --undo-file; `--undo FILE` puts them back.
+ * old values and the identifiers it created to --undo-file; `--undo FILE`
+ * puts them back. `--rehash RUN_ID` (with --apply) replaces a run's source
+ * records with identical ones whose payload hash follows the sorted-key rule.
  *
  *   pnpm exec tsx --tsconfig tsconfig.json scripts/publishers/enrich.ts \
  *     [--apply] [--undo FILE] [--report FILE] [--cache FILE] [--undo-file FILE] [--env-dir DIR]
  */
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import dotenv from "dotenv";
 import postgres from "postgres";
@@ -29,6 +31,7 @@ import {
 import {
   PUBLISHER_ROOTS,
   planHouse,
+  sourcePayloadHash,
   searchTexts,
   type HouseEvidence,
   type HousePlan,
@@ -40,6 +43,7 @@ const { values } = parseArgs({
   options: {
     apply: { type: "boolean", default: false },
     undo: { type: "string" },
+    rehash: { type: "string" },
     report: { type: "string", default: "publisher-enrichment.md" },
     cache: { type: "string", default: "publisher-wikidata.json" },
     "undo-file": { type: "string", default: "publisher-enrichment-undo.json" },
@@ -65,21 +69,92 @@ type Saved = {
   description: string | null;
 };
 
+type UndoFile = {
+  runId: string;
+  houses: Saved[];
+  /** Identifiers this run created; undo removes these and no others */
+  identifiers?: string[];
+};
+
+/** Identifiers the run's own source records point to */
+async function runIdentifiers(tx: postgres.Sql, runId: string) {
+  return (
+    await tx<{ id: string }[]>`select distinct identifier_id as id from source_records
+      where provider = 'wikidata' and payload->>'runId' = ${runId} and identifier_id is not null`
+  ).map((r) => r.id);
+}
+
 if (values.undo) {
-  const saved: { runId: string; houses: Saved[] } = JSON.parse(
-    readFileSync(values.undo, "utf8"),
-  );
-  await sql.begin(async (tx) => {
+  const saved: UndoFile = JSON.parse(readFileSync(values.undo, "utf8"));
+  await sql.begin(async (t) => {
+    const tx = t as unknown as postgres.Sql;
     for (const s of saved.houses)
       await tx`update publishing_houses set country = ${s.country}, country_id = ${s.countryId},
         website = ${s.website}, description = ${s.description} where id = ${s.id}`;
+    // An undo file from before the list was kept: the run created every
+    // identifier its records point to (there were none before it)
+    const created = saved.identifiers ?? (await runIdentifiers(tx, saved.runId));
     await tx`delete from source_records where provider = 'wikidata'
       and payload->>'runId' = ${saved.runId}`;
-    await tx`delete from catalogue_identifiers c where provider = 'wikidata'
-      and c.organization_id is not null and not exists (
-        select 1 from source_records s where s.identifier_id = c.id)`;
+    if (created.length)
+      await tx`delete from catalogue_identifiers c where c.id in ${tx(created)}
+        and not exists (select 1 from source_records s where s.identifier_id = c.id)`;
   });
   console.log(`Restored ${saved.houses.length} houses of run ${saved.runId}`);
+  await sql.end();
+  process.exit(0);
+}
+
+// Replaces a run's source records with identical ones whose payload_hash
+// follows the sorted-key rule. Source records cannot be edited, only
+// deleted and added; the houses are not touched. Dry run unless --apply.
+if (values.rehash) {
+  class Rollback extends Error {}
+  let replaced = 0;
+  let identifiers: string[] = [];
+  try {
+    await sql.begin(async (t) => {
+      const tx = t as unknown as postgres.Sql;
+      identifiers = await runIdentifiers(tx, values.rehash!);
+      const rows = await tx<Record<string, unknown>[]>`select * from source_records
+        where provider = 'wikidata' and payload->>'runId' = ${values.rehash!}
+          and supersedes_id is null
+          and not exists (select 1 from source_records n where n.supersedes_id = source_records.id)
+        for update`;
+      for (const r of rows) {
+        const payload = r.payload as Record<string, unknown>;
+        await tx`delete from source_records where id = ${r.id as string}`;
+        await tx`insert into source_records (id, entity_kind, organization_id, identifier_id, provider, url,
+            attribution, retrieved_at, verified_at, payload, payload_hash, review_status, locked, created_at)
+          values (${r.id as string}, ${r.entity_kind as string}, ${r.organization_id as string},
+            ${r.identifier_id as string}, ${r.provider as string}, ${r.url as string}, ${r.attribution as string},
+            ${r.retrieved_at as Date}, ${r.verified_at as Date}, ${sql.json(payload as never)},
+            ${sourcePayloadHash(payload)}, ${r.review_status as string}, ${r.locked as boolean},
+            ${r.created_at as Date})`;
+        replaced++;
+      }
+      // Every hash now matches its stored payload
+      const stored = await tx<{ payload: Record<string, unknown>; payload_hash: string }[]>`
+        select payload, payload_hash from source_records
+        where provider = 'wikidata' and payload->>'runId' = ${values.rehash!}`;
+      const wrong = stored.filter((s) => sourcePayloadHash(s.payload) !== s.payload_hash);
+      if (wrong.length) throw new Error(`${wrong.length} hashes still do not match their payload`);
+      if (!values.apply) throw new Rollback();
+    });
+  } catch (err) {
+    if (!(err instanceof Rollback)) throw err;
+  }
+  console.log(
+    `${values.apply ? "Replaced" : "Would replace"} ${replaced} source records of run ${values.rehash}; every hash matches its payload.`,
+  );
+  // Keep the undo file precise: the identifiers this run created
+  if (values.apply && existsSync(values["undo-file"]!)) {
+    const saved: UndoFile = JSON.parse(readFileSync(values["undo-file"]!, "utf8"));
+    if (saved.runId === values.rehash && !saved.identifiers) {
+      writeFileSync(values["undo-file"]!, JSON.stringify({ ...saved, identifiers }, null, 2));
+      console.log(`Undo file now lists the ${identifiers.length} identifiers the run created.`);
+    }
+  }
   await sql.end();
   process.exit(0);
 }
@@ -188,6 +263,26 @@ for (const [qid, idx] of byItem) {
   }
 }
 
+// A Wikidata item another house already holds stays with that house
+const planned = plans.flatMap((p) => (p.match ? [p.match.id] : []));
+const held = planned.length
+  ? await sql<{ qid: string; houseId: string; house: string }[]>`
+      select c.external_id as qid, c.organization_id as "houseId", h.name as house
+      from catalogue_identifiers c join publishing_houses h on h.id = c.organization_id
+      where c.provider = 'wikidata' and c.entity_kind = 'organization'
+        and c.external_id in ${sql(planned)}`
+  : [];
+for (const [i, p] of plans.entries()) {
+  const owner = held.find((o) => o.qid === p.match?.id && o.houseId !== houses[i].id);
+  if (owner)
+    plans[i] = {
+      ...p,
+      match: null,
+      fill: {},
+      held: [`${p.match!.id} already belongs to ${owner.house}`],
+    };
+}
+
 // Every link follows the country text (after any fill)
 const runId = randomUUID();
 const retrievedAt = new Date();
@@ -215,6 +310,7 @@ for (const [i, h] of houses.entries()) {
 }
 
 class Rollback extends Error {}
+const createdIdentifiers: string[] = [];
 try {
   await sql.begin(async (tx) => {
     for (const w of writes) {
@@ -225,17 +321,25 @@ try {
           and description is not distinct from ${w.description}`;
       const m = w.plan.match;
       if (!m) continue;
-      const [identifier] = await tx<{ id: string }[]>`
+      const [created] = await tx<{ id: string }[]>`
         insert into catalogue_identifiers (entity_kind, organization_id, provider, external_id)
         values ('organization', ${w.id}, 'wikidata', ${m.id})
-        on conflict (provider, entity_kind, external_id) do update set provider = excluded.provider
+        on conflict (provider, entity_kind, external_id) do nothing
         returning id`;
+      if (created) createdIdentifiers.push(created.id);
+      const [identifier] = created
+        ? [created]
+        : await tx<{ id: string; organization_id: string }[]>`
+            select id, organization_id from catalogue_identifiers
+            where provider = 'wikidata' and entity_kind = 'organization' and external_id = ${m.id}`;
+      if (!created && (identifier as { organization_id?: string }).organization_id !== w.id)
+        throw new Error(`${m.id} belongs to another house, not ${w.name}`);
       const payload = { runId, ...m.facts, evidence: w.plan.evidence, confidence: m.confidence };
       await tx`insert into source_records (entity_kind, organization_id, identifier_id, provider, url,
           attribution, retrieved_at, verified_at, payload, payload_hash, review_status)
         values ('organization', ${w.id}, ${identifier.id}, 'wikidata',
           ${`https://www.wikidata.org/wiki/${m.id}`}, 'Wikidata (CC0)', ${retrievedAt}, ${retrievedAt},
-          ${sql.json(payload)}, ${createHash("sha256").update(JSON.stringify(payload)).digest("hex")},
+          ${sql.json(payload)}, ${sourcePayloadHash(payload)},
           'accepted')`;
     }
     if (!values.apply) throw new Rollback();
@@ -303,7 +407,15 @@ writeFileSync(values.report!, out.join("\n"));
 if (values.apply) {
   writeFileSync(
     values["undo-file"]!,
-    JSON.stringify({ runId, houses: writes.map(({ id, country, countryId, website, description }) => ({ id, country, countryId, website, description })) }, null, 2),
+    JSON.stringify(
+      {
+        runId,
+        houses: writes.map(({ id, country, countryId, website, description }) => ({ id, country, countryId, website, description })),
+        identifiers: createdIdentifiers,
+      } satisfies UndoFile,
+      null,
+      2,
+    ),
   );
   console.log(`Applied run ${runId}. Old values: ${values["undo-file"]}`);
 }

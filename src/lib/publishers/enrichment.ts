@@ -6,7 +6,9 @@
  * registration groups of those books. Only empty fields are filled. Pure
  * module.
  */
+import { createHash } from "node:crypto";
 import ISBN from "isbn3";
+import { stableStringify } from "@/lib/harmonization/normalize";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { publisherLooseKeys } from "@/lib/publishers/names";
 import {
@@ -438,4 +440,13 @@ export function planHouse(
   const about = aboutText(facts);
   if (!h.description && about) plan.fill.description = about;
   return researched();
+}
+
+/**
+ * The hash a source record stores: sha256 of the payload with sorted keys,
+ * the rule of src/lib/actions/catalogue-provenance.ts. Postgres jsonb
+ * reorders keys, so a hash of insertion order would never match a refresh.
+ */
+export function sourcePayloadHash(payload: Record<string, unknown>): string {
+  return createHash("sha256").update(stableStringify(payload)).digest("hex");
 }

@@ -6,8 +6,11 @@ import {
   nameRank,
   planHouse,
   searchTexts,
+  sourcePayloadHash,
   type HouseEvidence,
 } from "@/lib/publishers/enrichment";
+import { createHash } from "node:crypto";
+import { stableStringify } from "@/lib/harmonization/normalize";
 import { countryLookup } from "@/lib/utils/countries";
 import type { WikidataItem } from "@/lib/publishers/wikidata";
 
@@ -303,5 +306,15 @@ describe("evidence helpers", () => {
     // Wikidata's search matches the start of a label: short forms too
     expect(searchTexts({ name: "Tin House Books", aliases: [] })).toEqual(["Tin House Books", "Tin House"]);
     expect(searchTexts({ name: "Dedalus", aliases: [] })).toEqual(["Dedalus", "Dedalus Books", "Dedalus Press"]);
+  });
+});
+
+describe("source record hash", () => {
+  it("follows the sorted-key rule, whatever the key order", () => {
+    const a = { runId: "r", label: "Canongate Books", countries: ["GB"], founded: 1973 };
+    const b = { founded: 1973, countries: ["GB"], label: "Canongate Books", runId: "r" };
+    expect(sourcePayloadHash(a)).toBe(sourcePayloadHash(b));
+    expect(sourcePayloadHash(a)).toBe(createHash("sha256").update(stableStringify(b)).digest("hex"));
+    expect(sourcePayloadHash(a)).not.toBe(createHash("sha256").update(JSON.stringify(b)).digest("hex"));
   });
 });

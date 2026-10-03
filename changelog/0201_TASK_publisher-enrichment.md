@@ -44,3 +44,8 @@ The owner asked for the publisher country fix to be done with proper research, a
   - 188 links set; none removed, and none points to the US islands or the British Indian Ocean Territory.
   - 164 Wikidata identifiers and source records.
 - 87 houses have no Wikidata item (small presses); their country text was already set.
+- Follow-up after a review by the curated-library session:
+  - The payload hash now follows the provenance rule: sha256 of the payload with sorted keys (`sourcePayloadHash`, test added). The 164 live records of the run were replaced with identical ones carrying the right hash (`--rehash`, after a backup). Records can be deleted and added but not edited, and the houses were not touched.
+  - `--undo` removes only the identifiers its run created, which the undo file now lists. An older undo file falls back to the identifiers its run's records point to.
+  - A Wikidata item that already belongs to another house is held with both names, instead of stopping the run.
+
