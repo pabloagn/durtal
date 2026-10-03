@@ -27,7 +27,7 @@ const sizeStyles: Record<Size, string> = {
 
 /** Button styles for a link that should look like a Button. */
 export function buttonClass(variant: Variant = "secondary", size: Size = "md") {
-  return `inline-flex items-center justify-center rounded-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose focus-visible:ring-offset-1 focus-visible:ring-offset-bg-primary ${variantStyles[variant]} ${sizeStyles[size]}`;
+  return `inline-flex items-center justify-center rounded-sm font-medium transition-all duration-150 ${variantStyles[variant]} ${sizeStyles[size]}`;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -37,7 +37,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         // Keyboard shortcuts find a dialog's main button by this mark
         data-variant={variant}
-        className={`inline-flex items-center justify-center rounded-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose focus-visible:ring-offset-1 focus-visible:ring-offset-bg-primary disabled:pointer-events-none disabled:opacity-40 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-40 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         {...props}
       />
     );

@@ -15,7 +15,7 @@ import type { ReactNode } from "react";
  * that edge to the box's center and keep the box from stretching the line.
  * `vertical-align: 0.5cap` then raises the center to the cap-height center.
  * Measured in Chrome: 0.00–0.02px off for serif and sans text of 13–46px and
- * boxes of 14–44px. Focus rings inside must be inset (the box clips).
+ * boxes of 14–44px. The box clips, so focus rings inside it are drawn inset.
  */
 export function CapAligned({
   height,
@@ -30,7 +30,7 @@ export function CapAligned({
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="inline-block overflow-hidden align-[0.5cap]"
+        className="inline-block overflow-hidden align-[0.5cap] [&_:focus-visible]:-outline-offset-1"
         style={{ height, marginBlock: -height / 2 }}
       >
         {children}

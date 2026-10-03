@@ -80,7 +80,10 @@ export function VenueCard({
           {/* Fixed rows: every place card has the same height */}
           <div className="mb-1.5 flex items-start justify-between gap-2">
             <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary">
-              <Link href={href}>{name}</Link>
+              {/* Same link as the image above: one Tab stop per card */}
+              <Link href={href} tabIndex={-1}>
+                {name}
+              </Link>
             </h3>
             <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
               {VENUE_TYPE_LABELS[type]}

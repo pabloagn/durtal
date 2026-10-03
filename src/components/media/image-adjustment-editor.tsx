@@ -225,7 +225,7 @@ function LoadedEditor({
               key={item.key}
               aria-pressed={control.key === item.key}
               onClick={() => setActive(item.key)}
-              className={`rounded-sm px-2 py-1 text-xs focus-visible:outline focus-visible:outline-accent-rose ${control.key === item.key ? "bg-accent-rose/20 text-fg-primary" : "text-fg-muted hover:text-fg-primary"}`}
+              className={`rounded-sm px-2 py-1 text-xs ${control.key === item.key ? "bg-accent-rose/20 text-fg-primary" : "text-fg-muted hover:text-fg-primary"}`}
             >
               {item.label}
             </button>
@@ -375,7 +375,7 @@ export function ImageAdjustButton({
           event.stopPropagation();
           setOpen(true);
         }}
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm border border-glass-border bg-bg-primary/85 text-fg-secondary hover:text-fg-primary focus-visible:outline focus-visible:outline-accent-rose ${className}`}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm border border-glass-border bg-bg-primary/85 text-fg-secondary hover:text-fg-primary ${className}`}
       >
         <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
       </button>

@@ -116,7 +116,7 @@ export function AuthorDetailHeader({
             className="h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary cursor-pointer"
           >
             <div
-              className="relative h-full w-full"
+              className="relative h-full w-full focus-visible:-outline-offset-1"
               onClick={() => setLightboxOpen(true)}
               role="button"
               aria-label={`View full image: ${name} portrait`}

@@ -127,7 +127,7 @@ export function CollectionIconPicker({
         aria-expanded={!!position}
         aria-controls={position ? panelId : undefined}
         aria-busy={pending}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-fg-primary transition-colors hover:bg-bg-tertiary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-accent-rose disabled:opacity-50"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-fg-primary transition-colors hover:bg-bg-tertiary disabled:opacity-50"
       >
         {value && children ? (
           children

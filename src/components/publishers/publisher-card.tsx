@@ -29,7 +29,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
       <Link
         href={`/publishers/${p.slug}`}
         aria-label={`Open ${p.name}`}
-        className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
+        className="absolute inset-0 z-10 rounded-sm"
       />
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}

@@ -63,7 +63,7 @@ export function CollectionCard({
       <Link
         href={`/collections/${collection.id}`}
         aria-label={`Open ${collection.name}`}
-        className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
+        className="absolute inset-0 z-10 rounded-sm"
       />
       <div className="relative aspect-[2/3] overflow-hidden rounded-t-sm bg-bg-primary">
         {poster ? (

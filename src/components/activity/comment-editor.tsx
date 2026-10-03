@@ -244,7 +244,7 @@ export function CommentEditor({
 
   // Expanded state: editor with toolbar
   return (
-    <div className="rounded-sm border border-glass-border bg-bg-secondary/30 focus-within:border-fg-muted/20">
+    <div className="rounded-sm border border-glass-border bg-bg-secondary/30 focus-within:border-accent-rose">
       {/* Editor content */}
       <EditorContent editor={editor} />
 

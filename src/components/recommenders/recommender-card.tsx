@@ -39,7 +39,7 @@ export function RecommenderCard({
       <Link
         href={`/recommenders/${r.id}`}
         aria-label={`Open ${r.name}`}
-        className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
+        className="absolute inset-0 z-10 rounded-sm"
       />
       {/* Fixed rows: every recommender card has the same height */}
       <div className="p-4 pb-2">

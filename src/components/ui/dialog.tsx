@@ -100,7 +100,7 @@ export function Dialog({
                 type="button"
                 onClick={() => setExpanded((prev) => !prev)}
                 title={expanded ? "Collapse" : "Expand"}
-                className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-fg-muted"
+                className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
               >
                 {expanded ? (
                   <Minimize2 className="h-4 w-4" strokeWidth={1.5} />
@@ -113,7 +113,7 @@ export function Dialog({
               type="button"
               onClick={onClose}
               aria-label={`Close ${title}`}
-              className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-fg-muted"
+              className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />
             </button>

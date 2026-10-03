@@ -49,7 +49,7 @@ export function FieldActionButton({
       aria-disabled={!active}
       aria-label={label}
       title={`${label} (⌥F)`}
-      className="flex h-6 w-6 cursor-default items-center justify-center rounded-sm text-fg-muted transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose disabled:opacity-40 data-[active]:cursor-pointer data-[active]:text-accent-gold/85 data-[active]:hover:bg-accent-gold/10 data-[active]:hover:text-accent-gold"
+      className="flex h-6 w-6 cursor-default items-center justify-center rounded-sm text-fg-muted transition-colors duration-150 disabled:opacity-40 data-[active]:cursor-pointer data-[active]:text-accent-gold/85 data-[active]:hover:bg-accent-gold/10 data-[active]:hover:text-accent-gold"
     >
       <Icon className="h-4 w-4" strokeWidth={1.5} />
     </button>

@@ -28,7 +28,7 @@ interface Props extends PaginationData {
   anchor?: string;
 }
 const control =
-  "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rose disabled:pointer-events-none disabled:opacity-35";
+  "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary disabled:pointer-events-none disabled:opacity-35";
 
 export function Pagination({
   page,

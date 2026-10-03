@@ -32,7 +32,7 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
       <Link
         href={`/series/${s.id}`}
         aria-label={`Open ${s.title}`}
-        className="absolute inset-0 z-10 rounded-sm focus-visible:outline focus-visible:outline-accent-rose"
+        className="absolute inset-0 z-10 rounded-sm"
       />
       <div className="relative aspect-[3/2] overflow-hidden rounded-t-sm bg-bg-primary">
         {s.covers.length ? (

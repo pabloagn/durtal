@@ -131,7 +131,7 @@ export function Sidebar({
       <div className="shrink-0 overflow-hidden px-3 pb-2">
         <button
           onClick={onCommandPalette}
-          className={`flex w-full items-center rounded-sm border border-glass-border bg-bg-primary/50 text-sm text-fg-muted transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary ${
+          className={`flex w-full items-center rounded-sm border border-glass-border bg-bg-primary/50 text-sm text-fg-muted transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 ${
             isCollapsed ? "justify-center px-0 py-1.5" : "gap-2 px-3 py-1.5"
           }`}
         >

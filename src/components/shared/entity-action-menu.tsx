@@ -32,7 +32,7 @@ export function EntityActionMenu({
   const trigger = (
     <button
       aria-label="Open action menu"
-      className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-glass-border bg-bg-tertiary/50 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus:outline-none"
+      className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-glass-border bg-bg-tertiary/50 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
     >
       <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
     </button>

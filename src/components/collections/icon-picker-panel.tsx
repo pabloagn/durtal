@@ -105,7 +105,7 @@ const IconGrid = memo(function IconGrid({
             title={label(name)}
             aria-label={label(name)}
             aria-pressed={selected}
-            className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent-rose ${selected ? "bg-bg-tertiary text-fg-primary ring-1 ring-accent-rose/60" : "text-fg-secondary"}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary hover:text-fg-primary ${selected ? "bg-bg-tertiary text-fg-primary ring-1 ring-accent-rose/60" : "text-fg-secondary"}`}
           >
             <Icon
               className="h-[18px] w-[18px]"

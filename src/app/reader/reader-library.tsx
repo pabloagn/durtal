@@ -72,7 +72,7 @@ export function ReaderLibrary({
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             placeholder="Search by title or author..."
-            className="w-full rounded-sm border border-glass-border bg-bg-primary/50 py-2 pl-9 pr-3 text-sm text-fg-primary outline-none placeholder:text-fg-muted focus:border-fg-muted/30"
+            className="w-full rounded-sm border border-glass-border bg-bg-primary/50 py-2 pl-9 pr-3 text-sm text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent-rose"
           />
         </div>
       </form>

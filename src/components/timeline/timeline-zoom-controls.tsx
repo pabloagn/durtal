@@ -12,8 +12,7 @@ const buttonBase =
   "flex h-7 w-7 items-center justify-center text-fg-secondary " +
   "hover:bg-bg-tertiary/60 hover:text-fg-primary " +
   "active:bg-bg-tertiary/80 " +
-  "transition-colors duration-100 " +
-  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose";
+  "transition-colors duration-100";
 
 export function TimelineZoomControls({
   onZoomIn,
