@@ -62,9 +62,9 @@ export function BookCardActionsMenu({
         side="top"
         label="Actions"
         trigger={
-          <span className="flex h-7 w-7 items-center justify-center rounded-[2px] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80">
+          <button className="flex h-7 w-7 items-center justify-center rounded-[2px] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80">
             <MoreVertical className="h-4 w-4" strokeWidth={1.5} />
-          </span>
+          </button>
         }
       >
         <DropdownMenuItem
