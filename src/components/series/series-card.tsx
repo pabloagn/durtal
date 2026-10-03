@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { FadeImage } from "@/components/shared/fade-image";
 
 export interface SeriesItem {
   id: string;
@@ -34,16 +35,16 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
         aria-label={`Open ${s.title}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="relative aspect-[3/2] overflow-hidden rounded-t-sm bg-bg-primary">
+      <div className="relative aspect-[3/2] overflow-hidden rounded-t-sm bg-bg-tertiary">
         {s.covers.length ? (
           <div className="flex h-full">
             {s.covers.map((key) => (
-              <img
+              <FadeImage
                 key={key}
                 src={imageUrl(key)}
                 alt=""
                 loading="lazy"
-                className="protected-image h-full min-w-0 flex-1 object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                className="protected-image h-full min-w-0 flex-1 object-cover group-hover:scale-[1.02]"
               />
             ))}
           </div>

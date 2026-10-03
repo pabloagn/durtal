@@ -4,6 +4,7 @@ import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CollectionIcon } from "./collection-icon";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { FadeImage } from "@/components/shared/fade-image";
 
 type ArtworkRow = {
   type: string;
@@ -65,13 +66,13 @@ export function CollectionCard({
         aria-label={`Open ${collection.name}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="relative aspect-[2/3] overflow-hidden rounded-t-sm bg-bg-primary">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-t-sm bg-bg-tertiary">
         {poster ? (
-          <img
+          <FadeImage
             src={imageUrl(poster.thumbnailS3Key ?? poster.s3Key)}
             alt={collection.name}
             loading="lazy"
-            className="protected-image h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            className="protected-image h-full w-full object-cover group-hover:scale-[1.02]"
             style={mediaImageStyle(mediaCrop(poster))}
           />
         ) : covers.length ? (
@@ -79,7 +80,7 @@ export function CollectionCard({
             className={`grid h-full ${covers.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
           >
             {covers.map((key, index) => (
-              <img
+              <FadeImage
                 key={key}
                 src={imageUrl(key)}
                 alt=""

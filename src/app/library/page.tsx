@@ -200,6 +200,7 @@ async function LibraryContent({
         ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
         : null,
       coverCrop: activePoster ? mediaCrop(activePoster) : null,
+      coverTone: activePoster?.tone ?? null,
       publicationYear: firstEdition?.publicationYear ?? work.originalYear,
       language: firstEdition?.language,
       instanceCount,

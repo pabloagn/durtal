@@ -161,6 +161,7 @@ async function AuthorsContent({
       posterCrop: activePoster
         ? mediaCrop(activePoster)
         : null,
+      photoTone: activePoster?.tone ?? null,
       website: a.website,
       bio: a.bio,
       worksCount: a.workAuthors.length,

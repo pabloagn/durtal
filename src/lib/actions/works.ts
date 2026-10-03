@@ -65,7 +65,7 @@ import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { authorOrderedBookIds } from "@/lib/actions/utils/author-ordered-books";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
-import { workCardWith } from "@/lib/actions/utils/work-card-query";
+import { posterTone, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
@@ -324,6 +324,7 @@ export async function getWorks(opts?: {
           brightness: true,
           contrast: true,
         },
+        extras: posterTone,
       },
     },
   });
@@ -953,6 +954,7 @@ export async function getLibraryStats() {
         brightness: true,
         contrast: true,
       },
+      extras: posterTone,
     },
   } as const;
 
@@ -1012,6 +1014,7 @@ export async function getLibraryStats() {
                     type: true,
                     isActive: true,
                   },
+                  extras: posterTone,
                 },
               },
             },
@@ -1030,6 +1033,7 @@ export async function getLibraryStats() {
     slug: string | null;
     name: string;
     photoS3Key: string | null;
+    photoTone: string | null;
     nationality: string | null;
     birthYear: number | null;
     deathYear: number | null;
@@ -1054,6 +1058,8 @@ export async function getLibraryStats() {
         slug: author.slug,
         name: author.name,
         photoS3Key: photoKey,
+        photoTone:
+          (activePoster as { tone?: string | null } | undefined)?.tone ?? null,
         nationality: author.country?.name ?? null,
         birthYear: author.birthYear,
         deathYear: author.deathYear,

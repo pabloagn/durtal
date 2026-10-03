@@ -47,6 +47,7 @@ export function WorkCarousel<T extends WorkCardData>({
                   : null
               }
               coverCrop={poster ? mediaCrop(poster) : null}
+              coverTone={poster?.tone ?? null}
               publicationYear={edition?.publicationYear ?? work.originalYear}
               language={edition?.language}
               instanceCount={edition?.instances?.length ?? 0}

@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { posterTone } from "@/lib/actions/utils/work-card-query";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ async function getWorksByIds(ids: string[]) {
           brightness: true,
           contrast: true,
         },
+        extras: posterTone,
       },
     },
   });
@@ -191,6 +193,7 @@ async function ItemContent({
                   authorNames={work.workAuthors.map((wa) => wa.author.name)}
                   coverUrl={coverUrl}
                   coverCrop={coverCrop}
+                  coverTone={poster?.tone ?? null}
                   publicationYear={primaryEdition?.publicationYear}
                   language={primaryEdition?.language}
                   instanceCount={instanceCount}

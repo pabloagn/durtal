@@ -75,3 +75,17 @@ export function mediaImageStyle(crop: MediaCrop | null | undefined): CSSProperti
   if (filter) style.filter = filter;
   return Object.keys(style).length > 0 ? style : undefined;
 }
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/**
+ * A cover frame's background while its image loads: the poster's main color
+ * (`tone`, from its palette), 40% into the dark frame color, so it emerges
+ * from the dark instead of a bright block. Undefined when there is none; the
+ * frame then keeps `bg-bg-tertiary`.
+ */
+export function coverToneStyle(tone: string | null | undefined): CSSProperties | undefined {
+  return tone && HEX.test(tone)
+    ? { backgroundColor: `color-mix(in oklab, ${tone} 40%, var(--color-bg-tertiary))` }
+    : undefined;
+}

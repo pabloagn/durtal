@@ -77,6 +77,7 @@ export interface AuthorItem {
   gender: string | null;
   photoUrl: string | null;
   posterCrop: PosterCrop | null;
+  photoTone: string | null;
   website: string | null;
   bio: string | null;
   worksCount: number;
@@ -290,6 +291,7 @@ export function AuthorsShell({
               deathYear={a.deathYear}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
+              photoTone={a.photoTone}
               worksCount={a.worksCount}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}

@@ -26,6 +26,7 @@ import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { posterTone } from "@/lib/actions/utils/work-card-query";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -109,6 +110,7 @@ export async function getAuthors(opts?: {
         workAuthors: { columns: { workId: true } },
         media: {
           columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
+          extras: posterTone,
         },
       },
     });
@@ -148,6 +150,7 @@ export async function getAuthors(opts?: {
       },
       media: {
         columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
+        extras: posterTone,
       },
     },
   });
@@ -304,6 +307,7 @@ export async function getAuthorBySlug(slug: string) {
               },
               media: {
                 columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
+                extras: posterTone,
               },
               workAuthors: {
                 with: { author: { columns: { name: true } } },
