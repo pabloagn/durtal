@@ -261,7 +261,7 @@ export function BookCard({
       >
         <div className="p-3.5">
           {/* Fixed lines: every book card has the same height */}
-          <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary">
+          <h3 className="type-item-title lines-2">
             {title}
           </h3>
           <p className="mt-1 lines-1 text-sm text-fg-secondary">

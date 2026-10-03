@@ -5,6 +5,7 @@ import { UploadZone } from "@/components/media/upload-zone";
 import { MediaGallery } from "@/components/media/media-gallery";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { Media } from "@/lib/types";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface WorkMediaSectionProps {
   workId: string;
@@ -33,9 +34,7 @@ export function WorkMediaSection({
       {/* Upload zones for poster and background */}
       {(!hasPoster || !hasBackground) && (
         <section className="mb-8">
-          <h2 className="mb-3 font-serif text-2xl text-fg-primary">
-            Media
-          </h2>
+          <SectionHeading title="Media" />
           <div className="grid grid-cols-2 gap-3">
             {!hasPoster && (
               <UploadZone
@@ -59,12 +58,10 @@ export function WorkMediaSection({
 
       {/* Gallery */}
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-2xl text-fg-primary">
-          Gallery
-          {gallery.length > 0 && (
-            <span className="ml-1">({gallery.length})</span>
-          )}
-        </h2>
+        <SectionHeading
+          title="Gallery"
+          count={gallery.length > 0 ? gallery.length : undefined}
+        />
         <MediaGallery
           media={gallery}
           editable

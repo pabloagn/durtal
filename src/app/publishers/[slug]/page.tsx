@@ -11,6 +11,7 @@ import { EditionCover } from "@/components/books/edition-cover";
 import { languageName } from "@/lib/utils/language";
 import { HOUSE_KIND_LABEL } from "@/lib/publishers/kinds";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { SectionHeading } from "@/components/shared/section-heading";
 export default async function PublisherPage({
   params,
   searchParams,
@@ -196,7 +197,7 @@ export default async function PublisherPage({
       )}
       {pendingTargets.length > 0 && (
         <div className="mb-6 space-y-2">
-          <h2 className="font-serif text-xl">Publisher preferences</h2>
+          <SectionHeading title="Publisher preferences" />
           {pendingTargets.map((t) => (
             <div
               key={t.target.id}
@@ -221,7 +222,7 @@ export default async function PublisherPage({
           >
             <Link
               href={`/library/${items[0].work.slug ?? id}`}
-              className="font-serif text-xl"
+              className="type-item-title"
             >
               {items[0].work.title}
             </Link>

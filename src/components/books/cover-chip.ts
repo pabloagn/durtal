@@ -9,7 +9,7 @@ export const COVER_CHIP =
 
 /** Text chips (status, rating): side padding and small type */
 export const COVER_CHIP_TEXT =
-  "px-0.5 font-mono text-[10px] leading-none tracking-wider @[220px]:px-1.5 @[220px]:text-micro";
+  "px-0.5 font-mono text-micro leading-none tracking-wider @[220px]:px-1.5";
 
 /** An icon inside a chip */
 export const COVER_CHIP_ICON = "h-2.5 w-2.5 @[220px]:h-3 @[220px]:w-3";

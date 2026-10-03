@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { UploadZone } from "@/components/media/upload-zone";
 import { DEFAULT_MONOCHROME_PARAMS } from "@/lib/validations/media";
 import type { Media } from "@/lib/types";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface AuthorMediaSectionProps {
   authorId: string;
@@ -19,7 +20,7 @@ export function AuthorMediaSection({ authorId }: AuthorMediaSectionProps) {
     <>
       {/* Upload zones for poster and background */}
       <section className="mb-8">
-        <h2 className="mb-3 font-serif text-2xl text-fg-primary">Media</h2>
+        <SectionHeading title="Media" />
         <div className="grid grid-cols-2 gap-3">
           <UploadZone
             entityType="author"
@@ -40,9 +41,7 @@ export function AuthorMediaSection({ authorId }: AuthorMediaSectionProps) {
 
       {/* Gallery upload zone */}
       <section className="mb-4">
-        <h2 className="mb-3 font-serif text-2xl text-fg-primary">
-          Gallery Upload
-        </h2>
+        <SectionHeading title="Gallery Upload" />
         <UploadZone
           entityType="author"
           entityId={authorId}

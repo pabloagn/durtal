@@ -677,7 +677,7 @@ export function AddBookWizard() {
 
                       {/* Details */}
                       <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 font-serif text-base text-fg-primary">
+                        <h3 className="type-item-title line-clamp-1">
                           {result.title}
                         </h3>
                         <p className="mt-0.5 line-clamp-1 text-xs text-fg-secondary">
@@ -745,7 +745,7 @@ export function AddBookWizard() {
       {step === "duplicate" && duplicateWork && (
         <div className="space-y-6">
           <div className="rounded-sm border border-accent-gold/30 bg-accent-gold/5 p-4">
-            <h3 className="font-serif text-lg text-fg-primary">
+            <h3 className="type-item-title">
               Possible duplicate found
             </h3>
             <p className="mt-1 text-xs text-fg-secondary">
@@ -756,7 +756,7 @@ export function AddBookWizard() {
 
           <Card>
             <CardContent className="py-4">
-              <h3 className="font-serif text-lg text-fg-primary">
+              <h3 className="type-item-title">
                 {duplicateWork.title}
               </h3>
               <p className="mt-1 text-xs text-fg-secondary">
@@ -870,7 +870,7 @@ export function AddBookWizard() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-secondary">
+              <label className="type-label mb-1.5 block">
                 Recommended by
               </label>
               {selectedRecommenderIds.length > 0 && (
@@ -921,7 +921,7 @@ export function AddBookWizard() {
             </div>
 
             <div className="border-t border-bg-tertiary pt-4 mt-2">
-              <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary mb-3">
+              <p className="type-caption mb-3">
                 Catalogue status
               </p>
               <div className="grid grid-cols-2 gap-4">
@@ -1243,10 +1243,10 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
+                  <p className="type-caption">
                     Work
                   </p>
-                  <h3 className="mt-1 font-serif text-lg text-fg-primary">
+                  <h3 className="type-item-title mt-1">
                     {title}
                   </h3>
                   <p className="mt-0.5 text-xs text-fg-secondary">
@@ -1300,7 +1300,7 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
+                  <p className="type-caption">
                     Edition
                   </p>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
@@ -1338,7 +1338,7 @@ export function AddBookWizard() {
             <CardContent className="py-4">
               <div className="flex items-start justify-between">
                 <div className="w-full">
-                  <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
+                  <p className="type-caption">
                     Copies ({copiesToCreate.length})
                   </p>
                   <div className="mt-2 space-y-2">
@@ -1414,7 +1414,7 @@ export function AddBookWizard() {
               <CardContent className="py-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-micro font-medium uppercase tracking-wider text-fg-secondary">
+                    <p className="type-caption">
                       Categorization
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">

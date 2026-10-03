@@ -84,11 +84,9 @@ export function Dialog({
     >
       {/* Header. The row carries the title's type: the buttons sit on the
           title's cap-height center, also when a description follows */}
-      <div className="flex items-start justify-between border-b border-glass-border px-6 py-4 font-serif text-2xl leading-tight">
+      <div className="type-section-title flex items-start justify-between border-b border-glass-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h2 className="font-serif text-2xl leading-tight text-fg-primary">
-            {title}
-          </h2>
+          <h2 className="type-section-title">{title}</h2>
           {description && (
             <p className="mt-1 text-sm text-fg-secondary">{description}</p>
           )}

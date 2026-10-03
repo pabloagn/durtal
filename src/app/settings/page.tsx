@@ -33,7 +33,7 @@ export default function SettingsPage() {
       <div className="max-w-2xl space-y-6">
         <Card>
           <CardHeader>
-            <h2 className="font-serif text-lg text-fg-primary">Database</h2>
+            <h2 className="type-item-title">Database</h2>
           </CardHeader>
           <CardContent>
             <SettingRow label="Provider">
@@ -50,7 +50,7 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <h2 className="font-serif text-lg text-fg-primary">
+            <h2 className="type-item-title">
               External APIs
             </h2>
           </CardHeader>
@@ -73,7 +73,7 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <h2 className="font-serif text-lg text-fg-primary">
+            <h2 className="type-item-title">
               Storage (S3)
             </h2>
           </CardHeader>
@@ -94,7 +94,7 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <h2 className="font-serif text-lg text-fg-primary">About</h2>
+            <h2 className="type-item-title">About</h2>
           </CardHeader>
           <CardContent>
             <SettingRow label="Application">

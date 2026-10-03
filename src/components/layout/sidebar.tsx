@@ -109,7 +109,7 @@ export function Sidebar({
             <>
               <span>Search...</span>
               <kbd className="ml-auto font-mono text-micro text-fg-secondary">
-                <span className="text-nano">&#8984;</span>K
+                <span className="text-micro">&#8984;</span>K
               </kbd>
             </>
           )}

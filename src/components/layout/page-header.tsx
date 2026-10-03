@@ -16,9 +16,7 @@ export function PageHeader({
     <div className="mb-10">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div>
-          <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
-            {title}
-          </h1>
+          <h1 className="type-page-title">{title}</h1>
           {description && (
             <p className="mt-1.5 text-sm text-fg-secondary">{description}</p>
           )}

@@ -100,7 +100,7 @@ export function MergeDialog({
 
         {/* Target search + selection */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-fg-secondary">
+          <label className="type-label block">
             Target item
           </label>
           <input

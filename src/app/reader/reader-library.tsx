@@ -10,6 +10,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search, BookOpenText } from "lucide-react";
 import type { CalibreBookRow } from "@/lib/calibre/queries";
+import { PageHeader } from "@/components/layout/page-header";
 
 interface ReaderLibraryProps {
   books: CalibreBookRow[];
@@ -54,14 +55,10 @@ export function ReaderLibrary({
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-serif text-2xl text-fg-primary">Reader</h1>
-          <p className="mt-1 text-sm text-fg-secondary">
-            {total} {total === 1 ? "book" : "books"} in digital library
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Reader"
+        description={`${total} ${total === 1 ? "book" : "books"} in digital library`}
+      />
 
       {/* Search */}
       <form onSubmit={handleSearch} className="mb-6">
@@ -80,7 +77,7 @@ export function ReaderLibrary({
       {/* Continue Reading */}
       {recentlyRead.length > 0 && !query && (
         <section className="mb-8">
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-secondary">
+          <h2 className="type-caption mb-3">
             Continue Reading
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -100,7 +97,7 @@ export function ReaderLibrary({
       {/* All books */}
       <section>
         {query && (
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-secondary">
+          <h2 className="type-caption mb-3">
             Results for &ldquo;{query}&rdquo;
           </h2>
         )}
@@ -184,12 +181,12 @@ function ReaderBookCard({
         {/* Format badges */}
         <div className="absolute right-1.5 top-1.5 flex gap-1">
           {hasEpub && (
-            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-nano uppercase text-fg-secondary backdrop-blur-sm">
+            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-micro uppercase text-fg-secondary backdrop-blur-sm">
               epub
             </span>
           )}
           {hasPdf && (
-            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-nano uppercase text-fg-secondary backdrop-blur-sm">
+            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-micro uppercase text-fg-secondary backdrop-blur-sm">
               pdf
             </span>
           )}
@@ -198,7 +195,7 @@ function ReaderBookCard({
 
       {/* Info */}
       <div className="flex flex-col gap-0.5 p-2">
-        <h3 className="truncate text-xs font-medium text-fg-primary leading-tight">
+        <h3 className="type-item-title truncate">
           {book.title}
         </h3>
         {book.authorSort && (

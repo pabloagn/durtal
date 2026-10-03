@@ -229,7 +229,7 @@ export function MatchAgainDialog({
               />
             )}
             <div className="min-w-0">
-              <h4 className="font-serif text-base text-fg-primary">
+              <h4 className="type-item-title">
                 {selected.title}
               </h4>
               {selected.subtitle && (

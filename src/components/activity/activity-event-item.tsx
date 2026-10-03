@@ -22,7 +22,7 @@ function DescriptionText({ segments }: { segments: DescriptionSegment[] }) {
         seg.type === "label" ? (
           <span
             key={i}
-            className="inline-flex rounded-sm bg-bg-tertiary px-1.5 py-0.5 font-mono text-[11px] leading-none text-fg-primary"
+            className="inline-flex rounded-sm bg-bg-tertiary px-1.5 py-0.5 font-mono text-micro leading-none text-fg-primary"
           >
             {seg.value}
           </span>
@@ -49,7 +49,7 @@ export function ActivityEventItem({
   return (
     // The row carries the description's type: the dot sits on the cap-height
     // center of its first line, and the time on the same baseline
-    <div className="relative flex items-start gap-3 py-1.5 text-[13px] leading-snug">
+    <div className="relative flex items-start gap-3 py-1.5 text-xs leading-snug">
       {/* Icon dot sitting on the timeline line */}
       <CapAligned height={20} className="relative z-10">
         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-bg-primary">
@@ -59,10 +59,10 @@ export function ActivityEventItem({
 
       {/* Description + timestamp */}
       <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-        <p className="min-w-0 text-[13px] leading-snug text-fg-secondary">
+        <p className="min-w-0 text-xs leading-snug text-fg-secondary">
           <DescriptionText segments={segments} />
         </p>
-        <time className="flex-shrink-0 text-[11px] text-fg-secondary" title={full}>
+        <time className="flex-shrink-0 text-micro text-fg-secondary" title={full}>
           {relative}
         </time>
       </div>

@@ -64,6 +64,7 @@ import type { CrystalColor, ColorPalette } from "@/lib/types";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { formatBookClipboardText } from "@/lib/utils/copy-book";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -280,7 +281,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">
-                <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
+                <h1 className="type-page-title">
                   {work.title}
                 </h1>
                 <div className="flex shrink-0 items-center gap-2">
@@ -570,11 +571,11 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
       {/* Editions */}
       <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-2xl text-fg-primary">
-            Editions ({work.editions.length})
-          </h2>
-          <EditionAddDialog
+        <SectionHeading
+          title="Editions"
+          count={work.editions.length}
+          action={
+            <EditionAddDialog
             workId={work.id}
             workTitle={work.title}
             availableAuthors={allAuthors.map((a) => ({
@@ -584,7 +585,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
             availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
             availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
           />
-        </div>
+          }
+        />
 
         <div className="space-y-4">
           {work.editions.map((edition) => (
@@ -715,18 +717,19 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Orders */}
       {workOrders.length > 0 && (
         <section className="mb-8">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-serif text-2xl text-fg-primary">
-              Orders ({workOrders.length})
-            </h2>
-            <Link
+          <SectionHeading
+            title="Orders"
+            count={workOrders.length}
+            action={
+              <Link
               href="/provenance"
               className="inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
             >
               <Route className="h-3 w-3" strokeWidth={1.5} />
               View pipeline
             </Link>
-          </div>
+            }
+          />
           <div className="space-y-2">
             {workOrders.map((order) => {
               const statusVariantMap: Record<
@@ -784,7 +787,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Notes */}
       {work.notes && (
         <section className="mb-8">
-          <h2 className="mb-2 font-serif text-2xl text-fg-primary">Notes</h2>
+          <SectionHeading title="Notes" />
           <p className="max-w-2xl whitespace-pre-wrap text-sm text-fg-secondary">
             {work.notes}
           </p>
@@ -794,9 +797,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* External links */}
       {(uniqueExternalLinks.length > 0 || work.metadataSource) && (
         <section className="mb-8">
-          <h2 className="mb-2 font-serif text-2xl text-fg-primary">
-            External Links
-          </h2>
+          <SectionHeading title="External Links" />
           <div className="flex flex-wrap gap-4">
             {work.metadataSource && (
               <span className="text-xs text-fg-secondary">

@@ -109,7 +109,7 @@ export function RichTextEditor({
   return (
     <div>
       {label && (
-        <label className="mb-1.5 block text-xs font-medium text-fg-secondary">
+        <label className="type-label mb-1.5 block">
           {label}
         </label>
       )}

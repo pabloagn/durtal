@@ -84,15 +84,35 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mon
 
 CSS custom properties (`--font-serif`, `--font-sans`, `--font-mono`) are set via Tailwind's `@theme` block, allowing usage throughout as `font-serif`, `font-sans`, `font-mono` utility classes.
 
-### Hierarchy
+### Scale
 
-- **Page titles**: Serif, large
-- **Section headings**: Serif
-- **Card titles**: Serif
-- **Body text**: Sans
-- **Metadata labels**: Sans, secondary color
-- **Data values**: Sans or mono depending on content
-- **ISBNs, IDs**: Mono
+Seven sizes, defined in `src/styles/globals.css`. Tailwind's own sizes are cleared, so no other size class exists (`text-base`, `text-xl`, `text-5xl` and `text-[13px]` generate nothing).
+
+| Class | Size | Use |
+|---|---|---|
+| `text-micro` | 12px | Captions, chips, timestamps, keyboard hints |
+| `text-xs` | 14px | Metadata, field labels, small UI text |
+| `text-sm` | 16px | Body text, controls |
+| `text-lg` | 21px | Card and item titles, field group titles |
+| `text-2xl` | 30px | Section titles, dialog titles |
+| `text-3xl` | 38px | Stat numbers |
+| `text-4xl` | 46px | Page titles |
+
+### Roles
+
+A heading never picks its own size and color: it uses its role. Each role sets family, size, line height, tracking and color.
+
+| Role | Look | Use |
+|---|---|---|
+| `type-page-title` | Serif 46px, tight tracking, primary | The h1 of every page (`PageHeader`) |
+| `type-section-title` | Serif 30px, primary | Every titled block on a page, through `SectionHeading`; dialog titles |
+| `type-item-title` | Serif 21px, line height 1.375, primary | Card titles, the title of a block inside a section, empty and error states |
+| `type-group-title` | Serif 21px, secondary | A group of fields in a form or dialog |
+| `type-stat` | Serif 38px, tight tracking | The number in a stat tile |
+| `type-label` | Sans 14px, medium, secondary | The label above a form field |
+| `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels |
+
+`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`).
 
 ---
 

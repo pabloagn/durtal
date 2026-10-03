@@ -141,7 +141,7 @@ export function AuthorDetailHeader({
           </ProtectedImageWrapper>
         ) : (
           <div className="flex h-64 w-48 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
-            <span className="font-serif text-5xl text-fg-muted/20">
+            <span className="font-serif text-4xl text-fg-muted/20">
               {name[0]}
             </span>
           </div>
@@ -151,7 +151,7 @@ export function AuthorDetailHeader({
           {/* Actions wrap below the name when the column is narrow */}
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
             <div className="min-w-0">
-              <h1 className="font-serif text-4xl tracking-tight text-fg-primary break-words">
+              <h1 className="type-page-title break-words">
                 {name}
               </h1>
               {realName && realName !== name && (

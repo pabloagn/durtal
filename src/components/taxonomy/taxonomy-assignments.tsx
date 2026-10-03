@@ -252,7 +252,7 @@ function ItemSearch({
           <p className="px-2 py-1 text-xs text-fg-secondary">No items yet</p>
         )}
         {result?.hasMore && (
-          <p className="px-2 py-1 text-[11px] text-fg-secondary">
+          <p className="px-2 py-1 text-micro text-fg-secondary">
             More match; type to narrow the list
           </p>
         )}

@@ -114,7 +114,7 @@ export function CreateItemDialog({
 
         {/* Color */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-fg-secondary">
+          <label className="type-label block">
             Color
           </label>
           <div className="flex items-center gap-2">

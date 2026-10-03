@@ -121,7 +121,7 @@ export function FilterDropdown({
         <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
         Filter
         {activeCount > 0 && (
-          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent-rose text-[10px] font-medium leading-none text-fg-primary">
+          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent-rose text-micro font-medium leading-none text-fg-primary">
             {activeCount}
           </span>
         )}
@@ -174,11 +174,11 @@ export function FilterDropdown({
                     className="flex w-full items-center justify-between px-3 pb-1 pt-2.5 text-left"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-fg-secondary">
+                      <span className="type-caption">
                         {group.label}
                       </span>
                       {groupActiveCount > 0 && (
-                        <span className="flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-accent-plum/30 text-[9px] font-medium leading-none text-fg-secondary">
+                        <span className="flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-accent-plum/30 text-micro font-medium leading-none text-fg-secondary">
                           {groupActiveCount}
                         </span>
                       )}

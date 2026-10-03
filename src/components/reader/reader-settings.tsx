@@ -45,7 +45,7 @@ export function ReaderSettings({
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Font family */}
           <div>
-            <label className="mb-2 block text-micro font-medium text-fg-secondary uppercase tracking-wider">
+            <label className="type-caption mb-2 block">
               Font
             </label>
             <div className="grid grid-cols-2 gap-1.5">
@@ -109,7 +109,7 @@ export function ReaderSettings({
 
           {/* Text alignment */}
           <div>
-            <label className="mb-2 block text-micro font-medium text-fg-secondary uppercase tracking-wider">
+            <label className="type-caption mb-2 block">
               Alignment
             </label>
             <div className="flex gap-1.5">
@@ -166,7 +166,7 @@ function SettingSlider({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <label className="text-micro font-medium text-fg-secondary uppercase tracking-wider">
+        <label className="type-caption">
           {label}
         </label>
         <span className="font-mono text-micro text-fg-secondary">

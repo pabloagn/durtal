@@ -65,7 +65,7 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
       </div>
       <div className="p-3.5">
         {/* Fixed lines: every series card has the same height */}
-        <h3 className="lines-2 font-serif text-lg leading-snug text-fg-primary group-hover:text-accent-rose-text">
+        <h3 className="type-item-title lines-2 group-hover:text-accent-rose-text">
           {s.title}
         </h3>
         <p className="mt-0.5 lines-1 text-xs italic text-fg-secondary">
@@ -102,7 +102,7 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
+        <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
           {s.title}
         </h3>
         {s.originalTitle && s.originalTitle !== s.title && (

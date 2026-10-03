@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface WorkMediaInlineProps {
   workId: string;
@@ -44,24 +45,23 @@ export function WorkMediaInline({
 
   return (
     <section className="mb-8">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-2xl text-fg-primary">
-          Media
-          {totalCount > 0 && (
-            <span className="ml-1">({totalCount})</span>
-          )}
-        </h2>
-        {showButton && !isControlled && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setMediaOpen(true)}
-          >
-            <Image className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Manage media
-          </Button>
-        )}
-      </div>
+      <SectionHeading
+        title="Media"
+        count={totalCount > 0 ? totalCount : undefined}
+        action={
+          showButton &&
+          !isControlled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMediaOpen(true)}
+            >
+              <Image className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Manage media
+            </Button>
+          )
+        }
+      />
 
       <div className="flex gap-4 text-xs text-fg-secondary">
         <span>

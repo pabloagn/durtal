@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { WorkWithRelations } from "@/lib/types";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface WorkMetadataGridProps {
   work: WorkWithRelations;
@@ -36,7 +37,7 @@ export function WorkMetadataGrid({ work }: WorkMetadataGridProps) {
 
   return (
     <section className="mb-8">
-      <h2 className="mb-3 font-serif text-2xl text-fg-primary">Details</h2>
+      <SectionHeading title="Details" />
       <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
         {work.originalLanguage && (
           <MetaRow label="Original Language">

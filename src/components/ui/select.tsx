@@ -155,7 +155,7 @@ export function Select({
       {label && (
         <label
           htmlFor={id}
-          className="block text-xs font-medium text-fg-secondary"
+          className="type-label block"
         >
           {label}
           {required && <span className="ml-0.5 text-accent-red-text">*</span>}

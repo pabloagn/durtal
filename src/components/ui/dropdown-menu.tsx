@@ -256,7 +256,7 @@ export function DropdownMenuSeparator() {
 
 export function DropdownMenuLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-fg-secondary">
+    <div className="type-caption px-3 py-1.5">
       {children}
     </div>
   );

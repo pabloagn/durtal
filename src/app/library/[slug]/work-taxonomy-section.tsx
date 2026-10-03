@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import type { WorkWithRelations } from "@/lib/types";
 import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
+import { SectionHeading } from "@/components/shared/section-heading";
 
 interface WorkTaxonomySectionProps {
   work: WorkWithRelations;
@@ -26,7 +27,7 @@ function TaxonomyGroup({ label, familySlug, items, variant }: TaxonomyGroupProps
   if (items.length === 0) return null;
   return (
     <div>
-      <p className="mb-1.5 text-xs uppercase tracking-wide text-fg-secondary">
+      <p className="type-caption mb-1.5">
         {label}
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -98,10 +99,7 @@ export async function WorkTaxonomySection({
 
   return (
     <section className="mb-8">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-serif text-2xl text-fg-primary">Taxonomy</h2>
-        {headerAction}
-      </div>
+      <SectionHeading title="Taxonomy" action={headerAction} />
       {!hasAny && !custom.length && (
         <p className="text-sm text-fg-secondary">No taxonomy assigned</p>
       )}

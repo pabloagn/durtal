@@ -63,9 +63,7 @@ export function DomainTileCard({
       </div>
       <div className="p-3">
         {/* Fixed lines: every tile of a grid has the same height */}
-        <h3 className="lines-2 font-serif text-base leading-snug text-fg-primary">
-          {tile.title}
-        </h3>
+        <h3 className="type-item-title lines-2">{tile.title}</h3>
         <p className="mt-1 lines-1 text-sm text-fg-secondary">{tile.creators}</p>
         <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
           {tile.date}
@@ -86,9 +84,7 @@ export function DomainTileRow({ tile }: { tile: DomainTile }) {
         <TileImage tile={tile} sizes="48px" letterClass="text-lg" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-serif text-base leading-snug text-fg-primary">
-          {tile.title}
-        </p>
+        <p className="type-item-title truncate">{tile.title}</p>
         <p className="truncate text-sm text-fg-secondary">{tile.creators}</p>
       </div>
       <span className="shrink-0 font-mono text-micro leading-6 text-fg-secondary">

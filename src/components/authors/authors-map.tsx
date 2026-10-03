@@ -553,7 +553,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                       className="flex items-baseline justify-between gap-2 py-0.5 text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
                     >
                       <span className="truncate">{a.name}</span>
-                      <span className="flex-shrink-0 font-mono text-[10px] text-fg-secondary">
+                      <span className="flex-shrink-0 font-mono text-micro text-fg-secondary">
                         {lifeYears(a.birthYear, a.deathYear)}
                       </span>
                     </Link>
@@ -561,7 +561,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                 ))}
               </ul>
               {selection.group.authors.length > POPUP_AUTHOR_LIMIT && (
-                <p className="mt-1 font-mono text-[10px] text-fg-secondary">
+                <p className="mt-1 font-mono text-micro text-fg-secondary">
                   + {selection.group.authors.length - POPUP_AUTHOR_LIMIT} more
                 </p>
               )}

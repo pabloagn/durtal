@@ -101,7 +101,7 @@ export function CommentEditor({
     editorProps: {
       attributes: {
         class:
-          "tiptap-content outline-none min-h-[60px] text-[13px] text-fg-primary px-3 py-2",
+          "tiptap-content outline-none min-h-[60px] text-xs text-fg-primary px-3 py-2",
       },
     },
   });
@@ -225,7 +225,7 @@ export function CommentEditor({
         }}
         className="flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary/30 px-3 py-2 text-left transition-colors hover:border-fg-muted/20 hover:bg-bg-secondary/50"
       >
-        <span className="flex-1 text-[13px] text-fg-secondary">
+        <span className="flex-1 text-xs text-fg-secondary">
           Leave a comment...
         </span>
         <Paperclip
@@ -353,7 +353,7 @@ export function CommentEditor({
             <button
               type="button"
               onClick={onCancelEdit}
-              className="px-2.5 py-1 rounded-sm text-[11px] text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+              className="px-2.5 py-1 rounded-sm text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
             >
               Cancel
             </button>

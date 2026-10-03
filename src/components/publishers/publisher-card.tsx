@@ -33,8 +33,8 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
       />
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}
-      <div className="flex items-start gap-2 p-4 pb-2 font-serif text-xl leading-snug">
-        <h3 className="lines-2 min-w-0 flex-1 font-serif text-xl leading-snug text-fg-primary group-hover:text-accent-rose-text">
+      <div className="type-item-title flex items-start gap-2 p-4 pb-2">
+        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-rose-text">
           {p.name}
         </h3>
         <CapAligned height={32} className="relative z-20 -mr-2">
@@ -92,7 +92,7 @@ export function PublisherListItem({
           </span>
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-serif text-lg text-fg-primary group-hover:text-accent-rose-text">
+          <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
             {p.name}
           </h3>
           <p className="truncate text-xs text-fg-secondary">

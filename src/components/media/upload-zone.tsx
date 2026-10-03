@@ -261,7 +261,7 @@ export function UploadZone({
         <p className="text-xs text-fg-secondary">
           Drop {mediaType} image{multiple ? "s" : ""} here or click to browse
         </p>
-        <p className="mt-0.5 text-[10px] text-fg-muted/60">
+        <p className="mt-0.5 text-micro text-fg-muted/60">
           Drag from browser or file system
         </p>
         <input
