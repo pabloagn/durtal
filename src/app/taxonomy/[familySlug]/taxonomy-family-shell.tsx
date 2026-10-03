@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useTransition } from "react";
 import Link from "next/link";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Plus, Search, Tags } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Search, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ import type { TaxonomyItemData } from "@/components/taxonomy/taxonomy-item-row";
 import { CreateItemDialog } from "@/components/taxonomy/create-item-dialog";
 import { MergeDialog } from "@/components/taxonomy/merge-dialog";
 import { DeleteItemDialog } from "@/components/taxonomy/delete-item-dialog";
+import { EditFamilyDialog } from "@/components/taxonomy/edit-family-dialog";
+import { DeleteFamilyDialog } from "@/components/taxonomy/delete-family-dialog";
+import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
+import {
+  taxonomyScopeLabel,
+  type TaxonomyLevel,
+} from "@/lib/catalogue/taxonomies";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +38,7 @@ interface Family {
   entityLevel: string;
   hierarchical: boolean;
   sortOrder: number;
+  applicability: { kind: WorkKind; level: TaxonomyLevel }[];
 }
 
 type SortMode = "manual" | "alphabetical" | "most-used";
@@ -65,6 +74,13 @@ export function TaxonomyFamilyShell({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [mergeItemId, setMergeItemId] = useState<string | null>(null);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [familyDialog, setFamilyDialog] = useState<"edit" | "delete" | null>(
+    null,
+  );
+  const enabled = new Set<WorkKind>(getEnabledWorkKinds());
+  const scopeLabels = family.applicability
+    .filter((scope) => enabled.has(scope.kind))
+    .map((scope) => taxonomyScopeLabel(scope.kind, scope.level));
 
   // Derived
   const mergeItem = mergeItemId
@@ -202,7 +218,7 @@ export function TaxonomyFamilyShell({
 
       {/* Family header */}
       <div className="mb-8">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="font-serif text-4xl tracking-tight text-fg-primary">
@@ -224,9 +240,29 @@ export function TaxonomyFamilyShell({
             <p className="mt-1 font-mono text-xs text-fg-muted">
               {items.length} item{items.length === 1 ? "" : "s"}
               {" · "}
-              {family.entityLevel} level
+              {scopeLabels.join(", ")}
               {family.hierarchical ? " · hierarchical" : ""}
             </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setFamilyDialog("edit")}
+            >
+              <Pencil className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+              Edit
+            </Button>
+            {!family.isSystem && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFamilyDialog("delete")}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+                Delete
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -281,7 +317,7 @@ export function TaxonomyFamilyShell({
           <EmptyState
             icon={Tags}
             title="No items yet"
-            description={`Add items to the ${family.name} taxonomy to start classifying your ${family.entityLevel}s`}
+            description={`Add items to ${family.name} to start classifying with it`}
             action={
               <Button
                 variant="primary"
@@ -362,6 +398,30 @@ export function TaxonomyFamilyShell({
             .filter((i) => i.id !== deleteItem.id)
             .map((i) => ({ id: i.id, name: i.name }))}
           onDeleted={refresh}
+        />
+      )}
+
+      {familyDialog === "edit" && (
+        <EditFamilyDialog
+          family={family}
+          nested={items.some((item) => !!item.parentId)}
+          onClose={() => setFamilyDialog(null)}
+          onSaved={() => {
+            setFamilyDialog(null);
+            toast.success("Family saved");
+            refresh();
+          }}
+        />
+      )}
+      {familyDialog === "delete" && (
+        <DeleteFamilyDialog
+          family={family}
+          onClose={() => setFamilyDialog(null)}
+          onDeleted={() => {
+            toast.success(`Deleted ${family.name}`);
+            router.replace("/taxonomy");
+            router.refresh();
+          }}
         />
       )}
     </div>

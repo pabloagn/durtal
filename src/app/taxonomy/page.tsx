@@ -5,16 +5,20 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { FamilyCard } from "@/components/taxonomy/family-card";
+import { TaxonomyActions } from "./taxonomy-actions";
 
-async function TaxonomyContent() {
-  const families = await getTaxonomyFamilies();
+async function TaxonomyContent({
+  families,
+}: {
+  families: Awaited<ReturnType<typeof getTaxonomyFamilies>>;
+}) {
 
   if (families.length === 0) {
     return (
       <EmptyState
         icon={Tags}
         title="No taxonomy families"
-        description="Create taxonomy families to classify your works and editions"
+        description="Create a family to classify your collections with your own terms"
       />
     );
   }
@@ -28,22 +32,34 @@ async function TaxonomyContent() {
   );
 }
 
-export default function TaxonomyPage() {
+async function TaxonomyDirectory() {
+  const families = await getTaxonomyFamilies();
   return (
     <>
       <PageHeader
         title="Taxonomy"
         description="Manage your classification system"
-      />
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center py-16">
-            <Spinner className="h-6 w-6" />
-          </div>
+        actions={
+          <TaxonomyActions
+            families={families.map(({ id, name }) => ({ id, name }))}
+          />
         }
-      >
-        <TaxonomyContent />
-      </Suspense>
+      />
+      <TaxonomyContent families={families} />
     </>
+  );
+}
+
+export default function TaxonomyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-16">
+          <Spinner className="h-6 w-6" />
+        </div>
+      }
+    >
+      <TaxonomyDirectory />
+    </Suspense>
   );
 }

@@ -2,6 +2,12 @@ import Link from "next/link";
 import * as LucideIcons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
+import {
+  taxonomyScopeLabel,
+  type TaxonomyLevel,
+} from "@/lib/catalogue/taxonomies";
 
 interface FamilyCardProps {
   family: {
@@ -16,10 +22,16 @@ interface FamilyCardProps {
     hierarchical: boolean;
     itemCount: number;
     entityCount: number;
+    scopes: { kind: WorkKind; level: TaxonomyLevel }[];
   };
 }
 
 export function FamilyCard({ family }: FamilyCardProps) {
+  const enabled = new Set<WorkKind>(getEnabledWorkKinds());
+  const appliesTo = family.scopes
+    .filter((scope) => enabled.has(scope.kind))
+    .map((scope) => taxonomyScopeLabel(scope.kind, scope.level))
+    .join(", ");
   // Resolve Lucide icon by name, fallback to Tag
   const IconComponent: LucideIcons.LucideIcon = family.icon
     ? (((LucideIcons as Record<string, unknown>)[
@@ -70,6 +82,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
           <p className="mt-0.5 lines-2 text-xs leading-relaxed text-fg-secondary">
             {family.description}
           </p>
+          <p className="mt-0.5 lines-1 text-xs text-fg-muted">{appliesTo}</p>
         </div>
       </div>
 
@@ -80,8 +93,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
         </span>
         <span className="text-fg-muted/30">|</span>
         <span className="font-mono text-micro text-fg-muted">
-          {family.entityCount} {family.entityLevel}
-          {family.entityCount === 1 ? "" : "s"}
+          {family.entityCount} classified
         </span>
         {family.hierarchical && (
           <>

@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { WorkWithRelations } from "@/lib/types";
+import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
+import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 
 interface WorkTaxonomySectionProps {
   work: WorkWithRelations;
@@ -38,10 +40,19 @@ function TaxonomyGroup({ label, familySlug, items, variant }: TaxonomyGroupProps
   );
 }
 
-export function WorkTaxonomySection({
+/**
+ * Built-in book families (edited in the work dialog) and the custom families
+ * that apply to books, edited in place.
+ */
+export async function WorkTaxonomySection({
   work,
   headerAction,
 }: WorkTaxonomySectionProps) {
+  const custom = await getTaxonomyAssignments({
+    kind: "book",
+    level: "work",
+    ownerId: work.id,
+  });
   const subjects = work.workSubjects.map((ws) => ({
     name: ws.subject.name,
     slug: ws.subject.slug,
@@ -91,7 +102,7 @@ export function WorkTaxonomySection({
         <h2 className="font-serif text-2xl text-fg-primary">Taxonomy</h2>
         {headerAction}
       </div>
-      {!hasAny && (
+      {!hasAny && !custom.length && (
         <p className="text-sm text-fg-muted">No taxonomy assigned</p>
       )}
       <div className="space-y-4">
@@ -114,6 +125,16 @@ export function WorkTaxonomySection({
         <TaxonomyGroup label="Keywords" familySlug="keywords" items={keywordItems} variant="default" />
         <TaxonomyGroup label="Attributes" familySlug="attributes" items={attributeItems} variant="muted" />
       </div>
+      {custom.length > 0 && (
+        <div className={hasAny ? "mt-4" : ""}>
+          <TaxonomyAssignments
+            kind="book"
+            level="work"
+            ownerId={work.id}
+            families={custom}
+          />
+        </div>
+      )}
     </section>
   );
 }

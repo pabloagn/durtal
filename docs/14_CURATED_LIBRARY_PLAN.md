@@ -317,5 +317,13 @@ and deletes stored files if anything fails. Images carry alt text, credit,
 license and source, editable in the media manager. The full local suite passes
 1000 tests across 79 files, zero skipped, plus five Python checks.
 
+Taxonomy management (SLN-353) completes custom families: create with explicit
+scopes, edit, reorder, and delete when unused, from the taxonomy directory and
+family pages. Editors show which scopes records use before a change. Book pages
+assign custom families in place with a bounded, keyboard-driven search that can
+also create an item. Families of collections that are not open yet stay hidden
+and keep their scopes and order. `scripts/qa/preview-local.py` runs the app
+against a disposable local database for browser checks.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

@@ -57,6 +57,7 @@ import {
   reorderTaxonomyItems,
   getTaxonomyItems,
   replaceTaxonomyAssignments,
+  getTaxonomyFamilyUsage,
 } from "@/lib/actions/taxonomy-families";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
 
@@ -148,7 +149,7 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect(await c`select * from work_art_types`).toHaveLength(2);
   });
   it("preserves old assignments while changing custom scopes and blocks removal of used scopes", async () => {
-    const family = await createTaxonomyFamily({ name: "Mood", slug: "mood" });
+    const family = await createTaxonomyFamily({ name: "Mood", scopes: [{ kind: "book", level: "work" }] });
     const item = await createTaxonomyItem("mood", { name: "Dark" });
     await setTaxonomyApplicability(family.id, [
       { kind: "book", level: "work" },
@@ -174,13 +175,11 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
   });
   it("keeps custom families isolated in edit, reorder, move, merge and assignment", async () => {
     await createTaxonomyFamily({
-      name: "One",
-      slug: "one",
+      name: "One", scopes: [{ kind: "book", level: "work" }],
       hierarchical: true,
     });
     await createTaxonomyFamily({
-      name: "Two",
-      slug: "two",
+      name: "Two", scopes: [{ kind: "book", level: "work" }],
       hierarchical: true,
     });
     const a = await createTaxonomyItem("one", { name: "A" }),
@@ -283,8 +282,7 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
   });
   it("merges all custom levels and children atomically and protects linked deletion", async () => {
     const family = await createTaxonomyFamily({
-      name: "Both levels",
-      slug: "both-levels",
+      name: "Both levels", scopes: [{ kind: "book", level: "work" }],
       hierarchical: true,
     });
     await setTaxonomyApplicability(family.id, [
@@ -356,15 +354,88 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     const builtIn = (await getTaxonomyFamily("subjects"))!;
     await expect(deleteTaxonomyFamily(builtIn.id)).rejects.toThrow();
     await expect(
-      updateTaxonomyFamily(builtIn.id, { slug: "renamed-system" }),
+      updateTaxonomyFamily(builtIn.id, { slug: "renamed-system" } as never),
     ).rejects.toThrow();
+    await expect(
+      updateTaxonomyFamily(builtIn.id, { hierarchical: true }),
+    ).rejects.toThrow(/^Taxonomy storage identity is immutable$/);
     const custom = await createTaxonomyFamily({
-      name: "Temporary",
-      slug: "temporary",
+      name: "Temporary", scopes: [{ kind: "book", level: "work" }],
     });
     const item = await createTaxonomyItem("temporary", { name: "Unused" });
     await deleteTaxonomyItem("temporary", item.id);
     await deleteTaxonomyFamily(custom.id);
     expect(await getTaxonomyFamily("temporary")).toBeNull();
+  });
+
+  it("creates families with exactly the chosen scopes and keeps their URL on rename", async () => {
+    const film = await createTaxonomyFamily({ name: "Mood", scopes: [{ kind: "film", level: "work" }] });
+    expect(film.slug).toBe("mood");
+    expect(film.applicability.map(({ kind, level }) => ({ kind, level }))).toEqual([{ kind: "film", level: "work" }]);
+    const twin = await createTaxonomyFamily({ name: "Mood!", scopes: [{ kind: "book", level: "edition" }] });
+    expect(twin.slug).toBe("mood-2");
+    expect(twin.entityLevel).toBe("edition");
+    await expect(
+      createTaxonomyFamily({ name: "Mood", scopes: [{ kind: "book", level: "work" }] }),
+    ).rejects.toThrow(/^A taxonomy family with this name already exists$/);
+    await expect(
+      createTaxonomyFamily({ name: "Nowhere", scopes: [{ kind: "book", level: "art_object" }] }),
+    ).rejects.toThrow();
+    await expect(createTaxonomyFamily({ name: "Empty", scopes: [] })).rejects.toThrow();
+    const renamed = await updateTaxonomyFamily(film.id, { name: "Atmosphere", color: "#5a6b7c" });
+    expect(renamed).toMatchObject({ name: "Atmosphere", slug: "mood", color: "#5a6b7c" });
+    await expect(updateTaxonomyFamily(film.id, { color: "red" })).rejects.toThrow();
+  });
+  it("lists only families of enabled domains, with all their scopes", async () => {
+    const filmOnly = await createTaxonomyFamily({ name: "Film only", scopes: [{ kind: "film", level: "work" }] });
+    const shared = await createTaxonomyFamily({
+      name: "Shared",
+      scopes: [{ kind: "book", level: "work" }, { kind: "film", level: "work" }],
+    });
+    const listed = await getTaxonomyFamilies();
+    expect(listed.some((f) => f.id === filmOnly.id)).toBe(false);
+    expect(listed.find((f) => f.id === shared.id)?.scopes).toEqual(
+      expect.arrayContaining([{ kind: "book", level: "work" }, { kind: "film", level: "work" }]),
+    );
+    expect(listed.some((f) => f.slug === "film-genres")).toBe(false);
+  });
+  it("shares one family across two domains and explains used scopes before changes", async () => {
+    const shared = await createTaxonomyFamily({
+      name: "Shared mood",
+      scopes: [{ kind: "book", level: "work" }, { kind: "film", level: "work" }],
+      hierarchical: true,
+    });
+    const dark = await createTaxonomyItem(shared.slug, { name: "Dark" });
+    await createTaxonomyItem(shared.slug, { name: "Noir", parentId: dark.id });
+    for (const kind of ["book", "film"] as const)
+      await replaceTaxonomyAssignments({ familySlug: shared.slug, kind, level: "work", ownerId: work[kind], itemIds: [dark.id] });
+    await expect(
+      replaceTaxonomyAssignments({ familySlug: shared.slug, kind: "perfume", level: "work", ownerId: work.perfume, itemIds: [dark.id] }),
+    ).rejects.toThrow();
+    expect(await getTaxonomyFamilyUsage(shared.id)).toEqual({
+      itemCount: 2,
+      scopes: [
+        { kind: "book", level: "work", inUse: true },
+        { kind: "film", level: "work", inUse: true },
+      ],
+      deletable: false,
+    });
+    await expect(setTaxonomyApplicability(shared.id, [{ kind: "book", level: "work" }])).rejects.toThrow(
+      /^Remove or reassign taxonomy links before removing this scope$/,
+    );
+    await expect(deleteTaxonomyFamily(shared.id)).rejects.toThrow(
+      /^Records still use this family; reassign or remove those classifications first$/,
+    );
+    expect(await c`select id from custom_taxonomy_items where family_id=${shared.id}`).toHaveLength(2);
+    await replaceTaxonomyAssignments({ familySlug: shared.slug, kind: "film", level: "work", ownerId: work.film, itemIds: [] });
+    await setTaxonomyApplicability(shared.id, [{ kind: "book", level: "work" }]);
+    await replaceTaxonomyAssignments({ familySlug: shared.slug, kind: "book", level: "work", ownerId: work.book, itemIds: [] });
+    expect((await getTaxonomyFamilyUsage(shared.id))!.deletable).toBe(true);
+    await deleteTaxonomyFamily(shared.id);
+    expect(await getTaxonomyFamily(shared.slug)).toBeNull();
+    expect(await c`select id from custom_taxonomy_items where family_id=${shared.id}`).toHaveLength(0);
+    const subjects = (await getTaxonomyFamily("subjects"))!;
+    await expect(deleteTaxonomyFamily(subjects.id)).rejects.toThrow(/^System families cannot be deleted$/);
+    expect((await getTaxonomyFamilyUsage(subjects.id))!.deletable).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
-import type { WorkKind } from "./kinds";
+import { WORK_KINDS, type WorkKind } from "./kinds";
+import { WORK_DOMAINS } from "./domains";
 
 export const TAXONOMY_LEVELS = [
   "work",
@@ -16,6 +17,28 @@ export function validTaxonomyScope(kind: WorkKind, level: TaxonomyLevel) {
     (kind === "film" && level === "film_version") ||
     (kind === "painting" && level === "art_object")
   );
+}
+
+/** Every valid place a family can apply to, in a stable display order. */
+export const TAXONOMY_SCOPE_OPTIONS = WORK_KINDS.flatMap((kind) =>
+  TAXONOMY_LEVELS.filter((level) => validTaxonomyScope(kind, level)).map(
+    (level) => ({ kind, level }),
+  ),
+);
+/** "Books", "Book editions", "Perfume formulations" and so on. */
+export function taxonomyScopeLabel(kind: WorkKind, level: TaxonomyLevel) {
+  switch (level) {
+    case "work":
+      return WORK_DOMAINS[kind].pluralLabel;
+    case "edition":
+      return "Book editions";
+    case "perfume_variant":
+      return "Perfume formulations";
+    case "film_version":
+      return "Film versions";
+    case "art_object":
+      return "Art objects";
+  }
 }
 
 export const DOMAIN_TAXONOMIES = [

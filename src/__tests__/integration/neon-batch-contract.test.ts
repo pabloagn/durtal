@@ -116,7 +116,8 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
             output.push({
               command: rows.command,
               rowCount: rows.count,
-              fields: rows.columns.map((column) => ({
+              // Statements such as LOCK TABLE return no columns.
+              fields: (rows.columns ?? []).map((column) => ({
                 name: column.name,
                 dataTypeID: column.type,
               })),

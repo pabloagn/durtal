@@ -1244,6 +1244,28 @@ so a historical family used at both book levels retains both sets of assignments
 New legacy family inserts default to book applicability. Custom scope changes
 are explicit; a used scope cannot be removed or silently changed.
 
+Family management (SLN-353, `src/lib/actions/taxonomy-families.ts`):
+
+- `createTaxonomyFamily` takes explicit scopes (at least one) and writes the
+  family and exactly those scopes in one transaction; the insert trigger's
+  default book scope is removed when it was not chosen. The slug is derived from
+  the name (`mood`, `mood-2`) and never changes; renames keep the URL.
+- `updateTaxonomyFamily` changes name, description, icon, color and, for custom
+  families, hierarchy and scopes, in one transaction. System families keep their
+  storage, hierarchy and scopes.
+- `getTaxonomyFamilyUsage` reports the item count and, per scope, whether
+  records use it (`taxonomy_scope_in_use`), so editors lock used scopes before a
+  save is refused.
+- `deleteTaxonomyFamily` removes a custom family with all its items only when no
+  scope is in use; otherwise nothing changes and the message names the reason.
+- `reorderFamilies` gives the listed families positions 0..n-1; families not
+  listed (those of collections that are not open yet) follow, in their order.
+- The directory lists families with at least one scope in an enabled domain.
+- `getTaxonomyAssignments` lists the custom-item families that apply to a work or
+  book edition with its items; `searchTaxonomyItems` returns at most `limit`
+  items of one family, best matches first, and whether more exist. Built-in book
+  families keep their own editors; perfume notes keep their positioned editor.
+
 Subjects, themes and keywords are shared work vocabularies. Art types and
 movements retain book applicability and also apply to paintings. Book genres
 and tags remain edition vocabularies. Separate built-in families are:

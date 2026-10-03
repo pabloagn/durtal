@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
@@ -28,11 +28,16 @@ import {
 import {
   createTaxonomyFamilySchema,
   updateTaxonomyFamilySchema,
+  taxonomyScopesSchema,
+  type CreateTaxonomyFamilyInput,
+  type UpdateTaxonomyFamilyInput,
   createTaxonomyItemSchema,
   updateTaxonomyItemSchema,
   mergeTaxonomyItemsSchema,
 } from "@/lib/validations/taxonomy-management";
-import { slugify } from "@/lib/utils/slugify";
+import { makeUnique, slugify } from "@/lib/utils/slugify";
+import { withReadableErrors } from "@/lib/db/errors";
+import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { assertSql, resultRows, lockSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 
@@ -86,25 +91,55 @@ export async function getApplicableTaxonomyFamilies(
     );
 }
 
-/** Legacy directory stays book-scoped until the domain taxonomy UI is delivered. */
+/**
+ * Families that apply to at least one enabled domain, with every scope they
+ * have. Scopes of domains that are not enabled yet are kept, never shown.
+ */
 export const getTaxonomyFamilies = cached(
   async () => {
+    const enabled = getEnabledWorkKinds();
     const families = await db
       .select()
       .from(taxonomyFamilies)
       .where(
-        sql`exists(select 1 from taxonomy_applicability a where a.family_id=${taxonomyFamilies.id} and a.kind='book')`,
+        sql`exists(select 1 from taxonomy_applicability a where a.family_id=${taxonomyFamilies.id} and a.kind in (${sql.join(
+          enabled.map((kind) => sql`${kind}`),
+          sql`,`,
+        )}))`,
       )
       .orderBy(asc(taxonomyFamilies.sortOrder), asc(taxonomyFamilies.name));
+    const scopes = families.length
+      ? await db
+          .select()
+          .from(taxonomyApplicability)
+          .where(
+            inArray(
+              taxonomyApplicability.familyId,
+              families.map((f) => f.id),
+            ),
+          )
+      : [];
     return Promise.all(
       families.map(async (family) => {
         const storage = taxonomyStorage(family);
+        const linked = sql.join(
+          enabled.map(
+            (kind) => sql`select id,level from (${linkedEntities(storage, family.id, kind)}) l`,
+          ),
+          sql` union all `,
+        );
         const [row] = resultRows<{ itemCount: number; entityCount: number }>(
           await db.execute(sql`select
       (select count(*)::int from ${sql.identifier(storage.table)} i where ${familyItemCondition(storage, family.id)}) as "itemCount",
-      (select count(*)::int from (${linkedEntities(storage, family.id)}) linked) as "entityCount"`),
+      (select count(*)::int from (${linked}) linked) as "entityCount"`),
         );
-        return { ...family, ...row };
+        return {
+          ...family,
+          ...row,
+          scopes: scopes
+            .filter((scope) => scope.familyId === family.id)
+            .map(({ kind, level }) => ({ kind, level })),
+        };
       }),
     );
   },
@@ -126,78 +161,237 @@ async function requiredFamily(slug: string) {
   if (!family) throw new Error("Taxonomy family not found");
   return family;
 }
-export async function createTaxonomyFamily(input: unknown) {
-  const parsed = createTaxonomyFamilySchema.parse(input);
-  const [row] = await db
-    .insert(taxonomyFamilies)
-    .values({ ...parsed, isSystem: false })
-    .returning();
-  changed();
-  return row;
-}
-export async function updateTaxonomyFamily(id: string, input: unknown) {
-  z.uuid().parse(id);
-  const parsed = updateTaxonomyFamilySchema.parse(input);
-  const [row] = await db
-    .update(taxonomyFamilies)
-    .set(parsed)
-    .where(eq(taxonomyFamilies.id, id))
-    .returning();
-  if (!row) throw new Error("Taxonomy family not found");
-  changed();
-  return row;
-}
-export async function setTaxonomyApplicability(id: string, input: unknown) {
-  z.uuid().parse(id);
-  const scopes = z.array(scopeSchema).min(1).max(20).parse(input);
-  const unique = [
-    ...new Map(scopes.map((s) => [`${s.kind}:${s.level}`, s])).values(),
-  ];
-  await atomic((d) => [
+/** The family's scopes exactly as given; used scopes are protected in PostgreSQL. */
+function writeScopes(
+  d: typeof db,
+  familyId: string,
+  scopes: { kind: WorkKind; level: TaxonomyLevel }[],
+) {
+  return [
     d.execute(
-      sql`select id from taxonomy_families where id=${id}::uuid for update`,
-    ),
-    d.execute(
-      assertSql(
-        sql`exists(select 1 from taxonomy_families where id=${id}::uuid and not is_system)`,
-        "Only custom families have editable applicability",
-      ),
-    ),
-    d.execute(
-      sql`delete from taxonomy_applicability where family_id=${id}::uuid and not (${sql.join(
-        unique.map((s) => sql`(kind=${s.kind} and level=${s.level})`),
+      sql`delete from taxonomy_applicability where family_id=${familyId}::uuid and not (${sql.join(
+        scopes.map((s) => sql`(kind=${s.kind} and level=${s.level})`),
         sql` or `,
       )})`,
     ),
     d
       .insert(taxonomyApplicability)
-      .values(unique.map((s) => ({ familyId: id, ...s })))
+      .values(scopes.map((s) => ({ familyId, ...s })))
       .onConflictDoNothing(),
-  ]);
+  ];
+}
+const FAMILY_NAME_TAKEN = "A taxonomy family with this name already exists";
+
+/** A custom family and the scopes it applies to, in one transaction. */
+export async function createTaxonomyFamily(input: CreateTaxonomyFamilyInput) {
+  const { scopes, ...fields } = createTaxonomyFamilySchema.parse(input);
+  const base = slugify(fields.name) || "family";
+  const taken = await db
+    .select({ slug: taxonomyFamilies.slug })
+    .from(taxonomyFamilies)
+    .where(like(taxonomyFamilies.slug, `${base}%`));
+  const slug = makeUnique(
+    base,
+    taken.map((row) => row.slug),
+  );
+  const id = randomUUID();
+  // The legacy level column follows the first book scope; scopes are the rule.
+  const entityLevel =
+    scopes.find((s) => s.kind === "book" && s.level === "edition") &&
+    !scopes.some((s) => s.kind === "book" && s.level === "work")
+      ? "edition"
+      : "work";
+  await withReadableErrors(
+    () =>
+      atomic((d) => [
+        d.insert(taxonomyFamilies).values({
+          id,
+          ...fields,
+          slug,
+          entityLevel,
+          isSystem: false,
+          sortOrder: sql`(select coalesce(max(sort_order),-1)+1 from taxonomy_families)`,
+        }),
+        // An insert trigger adds a default book scope; keep only the chosen ones.
+        ...writeScopes(d, id, scopes),
+      ]),
+    { unique: FAMILY_NAME_TAKEN },
+  );
+  changed();
+  return (await getTaxonomyFamily(slug))!;
+}
+/**
+ * Renames keep the URL. Fields and scopes change in one transaction; system
+ * families keep their storage, hierarchy and scopes.
+ */
+export async function updateTaxonomyFamily(
+  id: string,
+  input: UpdateTaxonomyFamilyInput,
+) {
+  z.uuid().parse(id);
+  const { scopes, ...fields } = updateTaxonomyFamilySchema.parse(input);
+  if (!Object.keys(fields).length && !scopes)
+    throw new Error("No editable fields supplied");
+  await withReadableErrors(
+    () =>
+      atomic((d) => [
+        d.execute(
+          sql`select id from taxonomy_families where id=${id}::uuid for update`,
+        ),
+        d.execute(
+          assertSql(
+            sql`exists(select 1 from taxonomy_families where id=${id}::uuid)`,
+            "Taxonomy family not found",
+          ),
+        ),
+        ...(Object.keys(fields).length
+          ? [
+              d
+                .update(taxonomyFamilies)
+                .set(fields)
+                .where(eq(taxonomyFamilies.id, id)),
+            ]
+          : []),
+        ...(scopes
+          ? [
+              d.execute(
+                assertSql(
+                  sql`exists(select 1 from taxonomy_families where id=${id}::uuid and not is_system)`,
+                  "Only custom families have editable applicability",
+                ),
+              ),
+              ...writeScopes(d, id, scopes),
+            ]
+          : []),
+      ]),
+    { unique: FAMILY_NAME_TAKEN },
+  );
+  changed();
+  return (await db.query.taxonomyFamilies.findFirst({
+    where: eq(taxonomyFamilies.id, id),
+    with: { applicability: true },
+  }))!;
+}
+export async function setTaxonomyApplicability(id: string, input: unknown) {
+  z.uuid().parse(id);
+  const scopes = taxonomyScopesSchema.parse(input);
+  await withReadableErrors(() =>
+    atomic((d) => [
+      d.execute(
+        sql`select id from taxonomy_families where id=${id}::uuid for update`,
+      ),
+      d.execute(
+        assertSql(
+          sql`exists(select 1 from taxonomy_families where id=${id}::uuid and not is_system)`,
+          "Only custom families have editable applicability",
+        ),
+      ),
+      ...writeScopes(d, id, scopes),
+    ]),
+  );
   changed();
   return { id };
 }
+/**
+ * What an editor must know before changing a family: its items, and which
+ * scopes records use (those cannot be removed until reassigned).
+ */
+export async function getTaxonomyFamilyUsage(id: string) {
+  z.uuid().parse(id);
+  const family = await db.query.taxonomyFamilies.findFirst({
+    where: eq(taxonomyFamilies.id, id),
+  });
+  if (!family) return null;
+  const storage = taxonomyStorage(family);
+  const [items] = resultRows<{ count: number }>(
+    await db.execute(
+      sql`select count(*)::int as count from ${sql.identifier(storage.table)} i where ${familyItemCondition(storage, family.id)}`,
+    ),
+  );
+  const scopes = resultRows<{ kind: WorkKind; level: TaxonomyLevel; inUse: boolean }>(
+    await db.execute(
+      sql`select kind,level,taxonomy_scope_in_use(family_id,kind,level) as "inUse" from taxonomy_applicability where family_id=${id}::uuid order by kind,level`,
+    ),
+  );
+  return {
+    itemCount: items.count,
+    scopes,
+    deletable: !family.isSystem && scopes.every((scope) => !scope.inUse),
+  };
+}
+/**
+ * A custom family that no record uses goes with all its items. Families in use
+ * and system families are refused, and nothing is changed.
+ */
 export async function deleteTaxonomyFamily(id: string) {
   z.uuid().parse(id);
-  const [row] = await db
-    .delete(taxonomyFamilies)
-    .where(eq(taxonomyFamilies.id, id))
-    .returning({ id: taxonomyFamilies.id });
-  if (!row) throw new Error("Taxonomy family not found");
+  await withReadableErrors(() =>
+    atomic((d) => [
+      d.execute(
+        sql`select id from taxonomy_families where id=${id}::uuid for update`,
+      ),
+      d.execute(
+        assertSql(
+          sql`exists(select 1 from taxonomy_families where id=${id}::uuid)`,
+          "Taxonomy family not found",
+        ),
+      ),
+      d.execute(
+        assertSql(
+          sql`exists(select 1 from taxonomy_families where id=${id}::uuid and not is_system)`,
+          "System families cannot be deleted",
+        ),
+      ),
+      d.execute(
+        assertSql(
+          sql`not exists(select 1 from taxonomy_applicability a where a.family_id=${id}::uuid and taxonomy_scope_in_use(a.family_id,a.kind,a.level))`,
+          "Records still use this family; reassign or remove those classifications first",
+        ),
+      ),
+      d.execute(
+        sql`update custom_taxonomy_items set parent_id=null where family_id=${id}::uuid and parent_id is not null`,
+      ),
+      d.execute(sql`delete from custom_taxonomy_items where family_id=${id}::uuid`),
+      d.delete(taxonomyFamilies).where(eq(taxonomyFamilies.id, id)),
+    ]),
+  );
   changed();
-  return row;
+  return { id };
 }
+/**
+ * The listed families take positions 0..n-1 in the given order. Families that
+ * are not listed (for example those of collections that are not open yet)
+ * follow them, keeping their relative order.
+ */
 export async function reorderFamilies(ids: string[]) {
-  z.array(z.uuid()).max(500).parse(ids);
+  z.array(z.uuid()).min(1).max(500).parse(ids);
   if (new Set(ids).size !== ids.length)
     throw new Error("Each family must appear once");
-  await atomic((d) =>
-    ids.map((id, sortOrder) =>
-      d
-        .update(taxonomyFamilies)
-        .set({ sortOrder })
-        .where(eq(taxonomyFamilies.id, id)),
-    ),
+  const listed = sql.join(
+    ids.map((id) => sql`${id}::uuid`),
+    sql`,`,
+  );
+  await withReadableErrors(() =>
+    atomic((d) => [
+      d.execute(lockSql(["taxonomy_families"])),
+      d.execute(
+        assertSql(
+          sql`(select count(*) from taxonomy_families where id in (${listed}))=${ids.length}`,
+          "A family in this order no longer exists; reload and try again",
+        ),
+      ),
+      d.execute(
+        sql`update taxonomy_families f set sort_order=${ids.length}+r.rank from (
+          select id,row_number() over (order by sort_order,name,id)-1 as rank from taxonomy_families where id not in (${listed})
+        ) r where f.id=r.id`,
+      ),
+      ...ids.map((id, sortOrder) =>
+        d
+          .update(taxonomyFamilies)
+          .set({ sortOrder })
+          .where(eq(taxonomyFamilies.id, id)),
+      ),
+    ]),
   );
   changed();
   return { success: true };
@@ -415,6 +609,83 @@ export async function moveTaxonomyItem(
   const family = await requiredFamily(familySlug);
   if (!family.hierarchical) throw new Error("This family has no hierarchy");
   return updateTaxonomyItem(familySlug, itemId, { parentId: newParentId });
+}
+
+const assignmentOwnerSchema = z.strictObject({
+  kind: z.enum(WORK_KINDS),
+  level: z.enum(["work", "edition"]),
+  ownerId: z.uuid(),
+});
+export interface AssignedTaxonomyItem {
+  id: string;
+  name: string;
+  parentName: string | null;
+}
+/**
+ * Families a work or book edition can use, with the items it has. Only families
+ * stored as custom items appear: built-in book families keep their own editors,
+ * and positioned perfume notes have theirs.
+ */
+export async function getTaxonomyAssignments(
+  input: z.input<typeof assignmentOwnerSchema>,
+) {
+  const { kind, level, ownerId } = assignmentOwnerSchema.parse(input);
+  scopeSchema.parse({ kind, level });
+  const families = (await getApplicableTaxonomyFamilies(kind, level))
+    .map((row) => row.family)
+    .filter((family) => taxonomyStorage(family).custom && family.slug !== "perfume-notes");
+  if (!families.length) return [];
+  const link =
+    level === "work"
+      ? sql`custom_taxonomy_item_works l on l.item_id=i.id and l.work_id=${ownerId}::uuid`
+      : sql`custom_taxonomy_item_editions l on l.item_id=i.id and l.edition_id=${ownerId}::uuid`;
+  const rows = resultRows<AssignedTaxonomyItem & { familyId: string }>(
+    await db.execute(sql`select i.id,i.name,i.family_id as "familyId",p.name as "parentName"
+      from custom_taxonomy_items i join ${link} left join custom_taxonomy_items p on p.id=i.parent_id
+      where i.family_id in (${sql.join(
+        families.map((f) => sql`${f.id}::uuid`),
+        sql`,`,
+      )}) order by lower(i.name),i.id`),
+  );
+  return families.map((family) => ({
+    id: family.id,
+    name: family.name,
+    slug: family.slug,
+    color: family.color,
+    hierarchical: family.hierarchical,
+    items: rows
+      .filter((row) => row.familyId === family.id)
+      .map(({ familyId: _family, ...item }) => item),
+  }));
+}
+const itemSearchSchema = z.strictObject({
+  query: z.string().trim().max(200).default(""),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+/**
+ * At most `limit` items of one custom family, best matches first, plus
+ * whether more exist. An empty query lists the family in its own order.
+ */
+export async function searchTaxonomyItems(
+  familySlug: string,
+  input: z.input<typeof itemSearchSchema> = {},
+) {
+  const { query, limit } = itemSearchSchema.parse(input);
+  const family = await requiredFamily(familySlug);
+  if (!taxonomyStorage(family).custom)
+    throw new Error("This family is edited on its own page");
+  const match = query
+    ? sql`and search_normalize(i.name) like '%' || search_normalize(${query}) || '%'`
+    : sql``;
+  const order = query
+    ? sql`order by (search_normalize(i.name)=search_normalize(${query})) desc,(search_normalize(i.name) like search_normalize(${query}) || '%') desc,lower(i.name),i.id`
+    : sql`order by i.sort_order,lower(i.name),i.id`;
+  const rows = resultRows<AssignedTaxonomyItem>(
+    await db.execute(sql`select i.id,i.name,p.name as "parentName" from custom_taxonomy_items i
+      left join custom_taxonomy_items p on p.id=i.parent_id
+      where i.family_id=${family.id}::uuid ${match} ${order} limit ${limit + 1}`),
+  );
+  return { items: rows.slice(0, limit), hasMore: rows.length > limit };
 }
 
 /** Typed work/edition adapters; future domain child tables use taxonomy_require_scope. */
