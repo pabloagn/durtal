@@ -388,5 +388,30 @@ describe.skipIf(!url)(
         aliases: [expect.objectContaining({ name: "Preserve" })],
       });
     });
+    it("keeps the live group, publisher and imprint rules beside organizations without a book profile", async () => {
+      const museum = (await saveOrganization({ name: "City Museum", roles: ["museum"] }))!;
+      const [group] = await c`insert into publishing_houses(name,slug,kind) values ('Group','group','group') returning id`;
+      const [publisher] = await c`insert into publishing_houses(name,slug,kind,parent_id) values ('Publisher','publisher','publisher',${group.id}) returning id`;
+      await c`insert into publishing_houses(name,slug,kind,parent_id) values ('Imprint','imprint','imprint',${publisher.id})`;
+      // An organization without a book profile sits outside the hierarchy.
+      await expect(c`update publishing_houses set parent_id=${group.id} where id=${museum.id}`).rejects.toThrow("publisher_kind_parent_check");
+      await expect(c`insert into publishing_houses(name,slug,kind,parent_id) values ('Stray','stray','imprint',${museum.id})`).rejects.toThrow("An imprint belongs to a publisher");
+      // A house with imprints below cannot drop its type; one that books use
+      // keeps its publishing profile.
+      await expect(c`update publishing_houses set kind=null,parent_id=null where id=${publisher.id}`).rejects.toThrow(
+        "The houses below it do not fit this type",
+      );
+      const [solo] = await c`insert into publishing_houses(name,slug,kind) values ('Solo','solo','publisher') returning id`;
+      await c`select set_edition_publishers(${editionId}, ARRAY[${solo.id}::uuid])`;
+      await expect(c`update publishing_houses set kind=null where id=${solo.id}`).rejects.toThrow(
+        "Books use this publisher; it keeps its publishing profile",
+      );
+      // Ownership changes stay allowed when the houses below fit.
+      await c`update publishing_houses set parent_id=null where id=${publisher.id}`;
+      await expect(c`update publishing_houses set kind='imprint' where id=${publisher.id}`).rejects.toThrow();
+      // Name matching never links an edition to an organization without a profile.
+      await c`update editions set publisher='City Museum', publisher_links_confirmed=false where id=${editionId}`;
+      expect(await c`select publisher_id from edition_publishers where edition_id=${editionId}`).toHaveLength(0);
+    });
   },
 );

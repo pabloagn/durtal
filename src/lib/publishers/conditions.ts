@@ -2,13 +2,17 @@ import { sql } from "drizzle-orm";
 import { works } from "@/lib/db/schema";
 import { z } from "zod/v4";
 
+/** Works with an edition, or an open wanted edition, from these houses or any house below them */
 export function publisherWorkCondition(ids: string[]) {
-  const safe = z.array(z.uuid()).max(100).parse(ids);
+  const safe = z.array(z.uuid()).min(1).max(100).parse(ids);
+  const family = sql`(select publisher_family(r) from unnest(array[${sql.join(
+    safe.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  )}]) r)`;
   return sql`(exists (select 1 from editions e join edition_publishers ep on ep.edition_id = e.id
-    join publishing_houses p on p.id = ep.publisher_id
-    where e.work_id = ${works.id} and (p.id in ${safe} or p.parent_id in ${safe})) or exists
-    (select 1 from acquisition_targets t join publishing_houses p on p.id = t.publisher_id
-     where t.work_id = ${works.id} and not t.is_cancelled and (p.id in ${safe} or p.parent_id in ${safe})))`;
+    where e.work_id = ${works.id} and ep.publisher_id in ${family}) or exists
+    (select 1 from acquisition_targets t
+     where t.work_id = ${works.id} and not t.is_cancelled and t.publisher_id in ${family}))`;
 }
 
 // Explicit qualification avoids Drizzle relational queries re-aliasing inner target columns to works.

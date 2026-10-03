@@ -1433,7 +1433,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -4822,7 +4822,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "orders_origin_place_id_places_id_fk": {
@@ -5653,7 +5653,7 @@
       "checkConstraints": {
         "publisher_kind_parent_check": {
           "name": "publisher_kind_parent_check",
-          "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'publisher' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
+          "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'group' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'publisher' AND (\"publishing_houses\".\"parent_id\" IS NULL OR \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
         }
       },
       "isRLSEnabled": false
@@ -6231,7 +6231,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "source_records_identifier_id_catalogue_identifiers_id_fk": {
@@ -6983,22 +6983,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "search_text": {
-          "name": "search_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "search_normalize(name || ' ' || coalesce(formatted_address, ''))",
-            "type": "stored"
-          }
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -7014,23 +6998,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "venues_search_idx": {
-          "name": "venues_search_idx",
-          "columns": [
-            {
-              "expression": "\"search_text\" gin_trgm_ops",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "venues_place_id_places_id_fk": {
           "name": "venues_place_id_places_id_fk",
@@ -9575,391 +9543,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.perfume_retailer_links": {
-      "name": "perfume_retailer_links",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "variant_id": {
-          "name": "variant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "venue_id": {
-          "name": "venue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "perfume_retailer_work_idx": {
-          "name": "perfume_retailer_work_idx",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "perfume_retailer_variant_idx": {
-          "name": "perfume_retailer_variant_idx",
-          "columns": [
-            {
-              "expression": "variant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "perfume_retailer_org_idx": {
-          "name": "perfume_retailer_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "perfume_retailer_venue_idx": {
-          "name": "perfume_retailer_venue_idx",
-          "columns": [
-            {
-              "expression": "venue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "perfume_retailer_links_work_id_perfume_details_work_id_fk": {
-          "name": "perfume_retailer_links_work_id_perfume_details_work_id_fk",
-          "tableFrom": "perfume_retailer_links",
-          "tableTo": "perfume_details",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "work_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "perfume_retailer_links_variant_id_perfume_variants_id_fk": {
-          "name": "perfume_retailer_links_variant_id_perfume_variants_id_fk",
-          "tableFrom": "perfume_retailer_links",
-          "tableTo": "perfume_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "perfume_retailer_links_organization_id_publishing_houses_id_fk": {
-          "name": "perfume_retailer_links_organization_id_publishing_houses_id_fk",
-          "tableFrom": "perfume_retailer_links",
-          "tableTo": "publishing_houses",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "perfume_retailer_links_venue_id_venues_id_fk": {
-          "name": "perfume_retailer_links_venue_id_venues_id_fk",
-          "tableFrom": "perfume_retailer_links",
-          "tableTo": "venues",
-          "columnsFrom": [
-            "venue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "perfume_retailer_links_source_record_id_source_records_id_fk": {
-          "name": "perfume_retailer_links_source_record_id_source_records_id_fk",
-          "tableFrom": "perfume_retailer_links",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "perfume_retailer_identity_unique": {
-          "name": "perfume_retailer_identity_unique",
-          "nullsNotDistinct": true,
-          "columns": [
-            "work_id",
-            "variant_id",
-            "organization_id",
-            "venue_id",
-            "url"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "perfume_retailer_url_check": {
-          "name": "perfume_retailer_url_check",
-          "value": "length(\"perfume_retailer_links\".\"url\") between 1 and 4000 and \"perfume_retailer_links\".\"url\" ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.perfume_retailer_observations": {
-      "name": "perfume_retailer_observations",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "link_id": {
-          "name": "link_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "checked_at": {
-          "name": "checked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "availability": {
-          "name": "availability",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(11, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "container": {
-          "name": "container",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "capacity_ml": {
-          "name": "capacity_ml",
-          "type": "numeric(12, 3)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "package_label": {
-          "name": "package_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_record_id": {
-          "name": "source_record_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "perfume_retailer_observation_date_idx": {
-          "name": "perfume_retailer_observation_date_idx",
-          "columns": [
-            {
-              "expression": "link_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "checked_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            },
-            {
-              "expression": "recorded_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "perfume_retailer_observations_link_id_perfume_retailer_links_id_fk": {
-          "name": "perfume_retailer_observations_link_id_perfume_retailer_links_id_fk",
-          "tableFrom": "perfume_retailer_observations",
-          "tableTo": "perfume_retailer_links",
-          "columnsFrom": [
-            "link_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "perfume_retailer_observations_source_record_id_source_records_id_fk": {
-          "name": "perfume_retailer_observations_source_record_id_source_records_id_fk",
-          "tableFrom": "perfume_retailer_observations",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "perfume_retailer_availability_check": {
-          "name": "perfume_retailer_availability_check",
-          "value": "\"perfume_retailer_observations\".\"availability\" in ('unknown','in_stock','out_of_stock','preorder','discontinued','unlisted')"
-        },
-        "perfume_retailer_price_check": {
-          "name": "perfume_retailer_price_check",
-          "value": "(\"perfume_retailer_observations\".\"price\" is null and \"perfume_retailer_observations\".\"currency\" is null) or (\"perfume_retailer_observations\".\"price\" is not null and \"perfume_retailer_observations\".\"price\" between 0 and 999999999.99 and \"perfume_retailer_observations\".\"currency\" is not null and \"perfume_retailer_observations\".\"currency\" ~ '^[A-Z]{3}$')"
-        },
-        "perfume_retailer_container_check": {
-          "name": "perfume_retailer_container_check",
-          "value": "(\"perfume_retailer_observations\".\"container\" is null or \"perfume_retailer_observations\".\"container\" in ('bottle','sample','decant')) and (\"perfume_retailer_observations\".\"capacity_ml\" is null or (\"perfume_retailer_observations\".\"container\" is not null and \"perfume_retailer_observations\".\"capacity_ml\">0 and \"perfume_retailer_observations\".\"capacity_ml\"<=1000000))"
-        },
-        "perfume_retailer_checked_at_check": {
-          "name": "perfume_retailer_checked_at_check",
-          "value": "isfinite(\"perfume_retailer_observations\".\"checked_at\") and \"perfume_retailer_observations\".\"checked_at\" <= \"perfume_retailer_observations\".\"recorded_at\" + interval '5 minutes'"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.publisher_isbn_prefixes": {
       "name": "publisher_isbn_prefixes",
       "schema": "",
@@ -10182,6 +9765,218 @@
         }
       },
       "isRLSEnabled": false
+    },
+    "public.publisher_hierarchy_changes": {
+      "name": "publisher_hierarchy_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_kind": {
+          "name": "old_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_kind": {
+          "name": "new_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_parent_id": {
+          "name": "old_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_parent_id": {
+          "name": "new_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "publisher_hierarchy_changes_publisher_idx": {
+          "name": "publisher_hierarchy_changes_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "publisher_hierarchy_changes_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_hierarchy_changes_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_hierarchy_changes",
+          "tableTo": "publishing_houses",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.edition_enrichments": {
+      "name": "edition_enrichments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_id": {
+          "name": "edition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field": {
+          "name": "field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "edition_enrichments_run_idx": {
+          "name": "edition_enrichments_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "edition_enrichments_edition_idx": {
+          "name": "edition_enrichments_edition_idx",
+          "columns": [
+            {
+              "expression": "edition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "edition_enrichments_edition_id_editions_id_fk": {
+          "name": "edition_enrichments_edition_id_editions_id_fk",
+          "tableFrom": "edition_enrichments",
+          "tableTo": "editions",
+          "columnsFrom": [
+            "edition_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "edition_enrichment_field": {
+          "name": "edition_enrichment_field",
+          "value": "\"edition_enrichments\".\"field\" in ('imprint', 'publication_country')"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -10302,9 +10097,7 @@
         "fair",
         "publisher",
         "individual",
-        "other",
-        "perfumery",
-        "cinema"
+        "other"
       ]
     },
     "public.work_kind_enum": {
@@ -10328,6 +10121,6 @@
     "schemas": {},
     "tables": {}
   },
-  "id": "5ae03cf9-0f45-403a-bfc4-3cc78164a6f0",
-  "prevId": "42fd5651-a15a-49b7-aa4b-a8465ea1bf19"
+  "id": "42fd5651-a15a-49b7-aa4b-a8465ea1bf19",
+  "prevId": "78d42a39-4cc5-4265-8dd8-9edf12aad60d"
 }

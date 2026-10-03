@@ -141,8 +141,12 @@ export async function loadNameInbox() {
       from publishing_houses h left join publishing_houses p on p.id = h.parent_id`),
     db.select().from(publisherIsbnPrefixes),
     db.execute(sql`
-      select e.isbn_13, e.isbn_10, ep.publisher_id
-      from edition_publishers ep join editions e on e.id = ep.edition_id
+      -- ISBN prefixes belong to publishers: an imprint's books count for its publisher
+      select e.isbn_13, e.isbn_10,
+        case when h.kind = 'imprint' then h.parent_id else h.id end as publisher_id
+      from edition_publishers ep
+      join editions e on e.id = ep.edition_id
+      join publishing_houses h on h.id = ep.publisher_id
       where edition_isbn_digits(e.isbn_13, e.isbn_10) is not null`),
     db.execute(sql`
       select e.id, e.isbn_13, e.isbn_10 from editions e

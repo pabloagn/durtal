@@ -11,16 +11,19 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Copy, Link2 } from "lucide-react";
+import { toast } from "sonner";
 import { AuthorCreateDialog } from "@/app/authors/author-create-dialog";
 import { VenueCreateDialog } from "@/app/places/venue-create-dialog";
 import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
 import { SeriesFormDialog } from "@/components/series/series-form-dialog";
-import { LeaderMenu } from "@/components/shortcuts/leader-menu";
+import { LeaderMenu, type LeaderMenuItem } from "@/components/shortcuts/leader-menu";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { ShortcutsHelp } from "@/components/shortcuts/shortcuts-help";
 import {
   ADD,
+  COPY_KEYS,
   GO_TO,
   isConfirmField,
   isMacPlatform,
@@ -37,11 +40,22 @@ interface PageShortcut {
   run: () => void;
 }
 
+/** Something the open page offers to copy (Y menu): "ISBN", "9780099518471" */
+export interface CopyItem {
+  key: string;
+  label: string;
+  text: string;
+}
+
 interface ShortcutsContextValue {
   register: (shortcut: PageShortcut) => () => void;
+  registerCopy: (items: CopyItem[]) => () => void;
   openHelp: () => void;
   /** Runs an "Add" entry by its key ("b" adds a book) */
   add: (key: string) => void;
+  /** What Y copies on this page, the link last */
+  copyItems: () => CopyItem[];
+  copy: (item: CopyItem) => void;
 }
 
 const ShortcutsContext = createContext<ShortcutsContextValue | null>(null);
@@ -69,19 +83,57 @@ export function useShortcut(key: string, label: string, run: () => void) {
   }, [context, key, label]);
 }
 
+/**
+ * What the page offers to copy, for the Y menu and the palette. Entries with
+ * no text (a book without an ISBN) are left out.
+ */
+export function useCopyItems(items: { key: string; label: string; text?: string | null }[]) {
+  const context = useContext(ShortcutsContext);
+  const signature = JSON.stringify(items.filter((i) => i.text?.trim()));
+  useEffect(() => {
+    if (!context) return;
+    return context.registerCopy(JSON.parse(signature) as CopyItem[]);
+  }, [context, signature]);
+}
+
 /** Reader view (/reader/{id}) keeps single keys for its own controls */
 const READER_VIEW_RE = /^\/reader\/\d+/;
 
-const MENUS = {
-  add: {
-    title: "Add",
-    items: ADD.map((a) => ({ key: a.key, label: a.label, icon: SECTION_ICONS[a.section] })),
-  },
-  go: {
-    title: "Go to",
-    items: GO_TO.map((g) => ({ key: g.key, label: g.label, icon: SECTION_ICONS[g.href] })),
-  },
+type MenuName = "add" | "go" | "copy";
+
+const STATIC_MENUS = {
+  add: ADD.map((a) => ({ key: a.key, label: a.label, icon: SECTION_ICONS[a.section] })),
+  go: GO_TO.map((g) => ({ key: g.key, label: g.label, icon: SECTION_ICONS[g.href] })),
 };
+const MENU_TITLES: Record<MenuName, string> = { add: "Add", go: "Go to", copy: "Copy" };
+
+/**
+ * Puts text on the clipboard. Where the browser refuses the clipboard API
+ * (permission denied), the older copy command still works from a key press.
+ */
+async function writeClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const focused = document.activeElement as HTMLElement | null;
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand("copy");
+    area.remove();
+    focused?.focus();
+    if (!copied) throw new Error("Copy refused");
+  }
+}
+
+/** One line of copied text for the menu: long text is cut by the menu */
+function preview(text: string) {
+  return text.replace(/\s+/g, " ").trim();
+}
 
 /** The list choice that ↑ ↓ moved to; Enter picks it (else the first) */
 let activeChoice: HTMLElement | null = null;
@@ -106,13 +158,45 @@ export function ShortcutsProvider({
   const pathname = usePathname();
   const [helpOpen, setHelpOpen] = useState(false);
   const [addDialog, setAddDialog] = useState<AddDialog | null>(null);
-  const [menu, setMenu] = useState<keyof typeof MENUS | null>(null);
+  const [menu, setMenu] = useState<MenuName | null>(null);
   const [menuIndex, setMenuIndex] = useState(0);
   const [pageShortcuts, setPageShortcuts] = useState<PageShortcut[]>([]);
+  // A ref, not state: menus and the palette read it when they open, and the
+  // context stays the same object (a new one would make pages register again)
+  const pageCopyItems = useRef<CopyItem[]>([]);
 
   const register = useCallback((shortcut: PageShortcut) => {
     setPageShortcuts((list) => [...list, shortcut]);
     return () => setPageShortcuts((list) => list.filter((s) => s !== shortcut));
+  }, []);
+
+  const registerCopy = useCallback((items: CopyItem[]) => {
+    pageCopyItems.current = items;
+    return () => {
+      if (pageCopyItems.current === items) pageCopyItems.current = [];
+    };
+  }, []);
+
+  const copyItems = useCallback(
+    (): CopyItem[] => [
+      ...pageCopyItems.current,
+      // The command palette renders on the server too, which has no window
+      {
+        key: COPY_KEYS.link,
+        label: "Link",
+        text: typeof window === "undefined" ? "" : window.location.href,
+      },
+    ],
+    [],
+  );
+
+  const copy = useCallback(async (item: CopyItem) => {
+    try {
+      await writeClipboard(item.text);
+      toast.success(`${item.label} copied`, { description: preview(item.text) });
+    } catch {
+      toast.error("Could not copy. Allow clipboard access and try again.");
+    }
   }, []);
 
   const add = useCallback(
@@ -126,29 +210,49 @@ export function ShortcutsProvider({
   );
 
   const context = useMemo(
-    () => ({ register, openHelp: () => setHelpOpen(true), add }),
-    [register, add],
+    () => ({
+      register,
+      registerCopy,
+      openHelp: () => setHelpOpen(true),
+      add,
+      copyItems,
+      copy,
+    }),
+    [register, registerCopy, add, copyItems, copy],
   );
 
-  const openMenu = (name: keyof typeof MENUS) => {
+  const openMenu = (name: MenuName) => {
     setMenuIndex(0);
     setMenu(name);
   };
 
+  const menuItems = useMemo((): LeaderMenuItem[] => {
+    if (menu === "add" || menu === "go") return STATIC_MENUS[menu];
+    if (menu === "copy")
+      return copyItems().map((item) => ({
+        key: item.key,
+        label: item.label,
+        icon: item.key === COPY_KEYS.link ? Link2 : Copy,
+        hint: preview(item.text),
+      }));
+    return [];
+  }, [menu, copyItems]);
+
   const pickMenuItem = useCallback(
-    (name: keyof typeof MENUS, index: number) => {
+    (name: MenuName, index: number) => {
       setMenu(null);
       if (name === "add") add(ADD[index].key);
-      else router.push(GO_TO[index].href);
+      else if (name === "go") router.push(GO_TO[index].href);
+      else void copy(copyItems()[index]);
     },
-    [add, router],
+    [add, router, copy, copyItems],
   );
 
-  // An open A or G menu takes every key first (capture phase)
+  // An open menu takes every key first (capture phase)
   useEffect(() => {
     if (!menu) return;
     const open = menu;
-    const items = MENUS[open].items;
+    const items = menuItems;
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
@@ -166,7 +270,7 @@ export function ShortcutsProvider({
     }
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [menu, menuIndex, pickMenuItem]);
+  }, [menu, menuIndex, menuItems, pickMenuItem]);
 
   // Typing changes a list: the ↑ ↓ choice starts over
   useEffect(() => {
@@ -288,9 +392,10 @@ export function ShortcutsProvider({
         pageShortcut.run();
         return;
       }
-      if (key === "a" || key === "g") {
+      const menuKeys: Record<string, MenuName> = { a: "add", g: "go", y: "copy" };
+      if (menuKeys[key]) {
         event.preventDefault();
-        openMenu(key === "a" ? "add" : "go");
+        openMenu(menuKeys[key]);
       }
     }
 
@@ -325,8 +430,8 @@ export function ShortcutsProvider({
       )}
       {menu && (
         <LeaderMenu
-          title={MENUS[menu].title}
-          items={MENUS[menu].items}
+          title={MENU_TITLES[menu]}
+          items={menuItems}
           active={menuIndex}
           onActiveChange={setMenuIndex}
           onPick={(index) => pickMenuItem(menu, index)}

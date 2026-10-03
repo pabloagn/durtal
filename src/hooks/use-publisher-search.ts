@@ -12,7 +12,7 @@ import type { PublisherOption } from "@/components/publishers/publisher-picker";
  */
 export function usePublisherSearch(
   query: string,
-  kinds?: ("publisher" | "imprint")[],
+  kinds?: ("group" | "publisher" | "imprint")[],
   delayMs = 200,
 ) {
   const [results, setResults] = useState<PublisherOption[]>([]);
@@ -34,7 +34,7 @@ export function usePublisherSearch(
         const rows = await searchPublisherOptions(
           trimmed,
           kindKey
-            ? (kindKey.split(",") as ("publisher" | "imprint")[])
+            ? (kindKey.split(",") as ("group" | "publisher" | "imprint")[])
             : undefined,
         );
         if (!stale) setResults(rows);

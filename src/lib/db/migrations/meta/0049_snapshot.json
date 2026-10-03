@@ -4177,6 +4177,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "art_object_id": {
+          "name": "art_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "perfume_variant_id": {
+          "name": "perfume_variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "type": {
           "name": "type",
           "type": "text",
@@ -4253,18 +4271,6 @@
           "notNull": true,
           "default": 100
         },
-        "uncropped_s3_key": {
-          "name": "uncropped_s3_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "applied_crop": {
-          "name": "applied_crop",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "brightness": {
           "name": "brightness",
           "type": "real",
@@ -4310,12 +4316,60 @@
           "primaryKey": false,
           "notNull": false
         },
+        "alt_text": {
+          "name": "alt_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "credit": {
+          "name": "credit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "license": {
+          "name": "license",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "license_url": {
+          "name": "license_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_url": {
+          "name": "source_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_record_id": {
+          "name": "source_record_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "uncropped_s3_key": {
+          "name": "uncropped_s3_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "applied_crop": {
+          "name": "applied_crop",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -4342,9 +4396,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "media_author_id_active_idx": {
           "name": "media_author_id_active_idx",
@@ -4363,9 +4417,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "media_collection_id_type_active_idx": {
           "name": "media_collection_id_type_active_idx",
@@ -4390,50 +4444,183 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
+        },
+        "media_organization_id_type_active_idx": {
+          "name": "media_organization_id_type_active_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "media_art_object_id_type_active_idx": {
+          "name": "media_art_object_id_type_active_idx",
+          "columns": [
+            {
+              "expression": "art_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "media_perfume_variant_id_type_active_idx": {
+          "name": "media_perfume_variant_id_type_active_idx",
+          "columns": [
+            {
+              "expression": "perfume_variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "media_work_id_works_id_fk": {
           "name": "media_work_id_works_id_fk",
           "tableFrom": "media",
+          "tableTo": "works",
           "columnsFrom": [
             "work_id"
           ],
-          "tableTo": "works",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "media_author_id_authors_id_fk": {
           "name": "media_author_id_authors_id_fk",
           "tableFrom": "media",
+          "tableTo": "authors",
           "columnsFrom": [
             "author_id"
           ],
-          "tableTo": "authors",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "media_collection_id_collections_id_fk": {
           "name": "media_collection_id_collections_id_fk",
           "tableFrom": "media",
+          "tableTo": "collections",
           "columnsFrom": [
             "collection_id"
           ],
-          "tableTo": "collections",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "media_organization_id_publishing_houses_id_fk": {
+          "name": "media_organization_id_publishing_houses_id_fk",
+          "tableFrom": "media",
+          "tableTo": "publishing_houses",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "media_art_object_id_art_objects_id_fk": {
+          "name": "media_art_object_id_art_objects_id_fk",
+          "tableFrom": "media",
+          "tableTo": "art_objects",
+          "columnsFrom": [
+            "art_object_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "media_perfume_variant_id_perfume_variants_id_fk": {
+          "name": "media_perfume_variant_id_perfume_variants_id_fk",
+          "tableFrom": "media",
+          "tableTo": "perfume_variants",
+          "columnsFrom": [
+            "perfume_variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "media_source_record_id_source_records_id_fk": {
+          "name": "media_source_record_id_source_records_id_fk",
+          "tableFrom": "media",
+          "tableTo": "source_records",
+          "columnsFrom": [
+            "source_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4442,7 +4629,15 @@
       "checkConstraints": {
         "media_owner_check": {
           "name": "media_owner_check",
-          "value": "num_nonnulls(\"media\".\"work_id\", \"media\".\"author_id\", \"media\".\"collection_id\") = 1"
+          "value": "num_nonnulls(\"media\".\"work_id\", \"media\".\"author_id\", \"media\".\"collection_id\", \"media\".\"organization_id\", \"media\".\"art_object_id\", \"media\".\"perfume_variant_id\") = 1"
+        },
+        "media_type_check": {
+          "name": "media_type_check",
+          "value": "\"media\".\"type\" in ('poster','background','gallery')\n  and not (\"media\".\"collection_id\" is not null and \"media\".\"type\"='gallery')\n  and not ((\"media\".\"organization_id\" is not null or \"media\".\"art_object_id\" is not null or \"media\".\"perfume_variant_id\" is not null) and \"media\".\"type\"='background')"
+        },
+        "media_attribution_check": {
+          "name": "media_attribution_check",
+          "value": "(\"media\".\"alt_text\" is null or length(trim(\"media\".\"alt_text\")) between 1 and 1000)\n        and (\"media\".\"credit\" is null or length(trim(\"media\".\"credit\")) between 1 and 500)\n        and (\"media\".\"license\" is null or length(trim(\"media\".\"license\")) between 1 and 200)\n        and (\"media\".\"license_url\" is null or (length(\"media\".\"license_url\") <= 4000 and \"media\".\"license_url\" ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))\n        and (\"media\".\"source_url\" is null or (length(\"media\".\"source_url\") <= 4000 and \"media\".\"source_url\" ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))"
         },
         "media_applied_crop_check": {
           "name": "media_applied_crop_check",
@@ -12666,6 +12861,6 @@
     "schemas": {},
     "tables": {}
   },
-  "id": "f8e58f41-b8bc-402f-92cc-0bde23eb99b5",
-  "prevId": "c5f8a0c2-a883-49a3-8b57-36baaaefc407"
+  "id": "3046536a-9813-4551-963f-7354bb9a7efa",
+  "prevId": "f8e58f41-b8bc-402f-92cc-0bde23eb99b5"
 }

@@ -4,7 +4,7 @@ Durtal's book catalogue uses a three-tier data model drawn from FRBR (Functional
 
 ## Work domains (foundation)
 
-Migration `0036_work_kinds` adds `works.kind` using `work_kind_enum`:
+Migration `0037_work_kinds` adds `works.kind` using `work_kind_enum`:
 `book`, `film`, `perfume`, `painting`. Existing rows and inserts that omit the
 column default to `book`. This identity is independent of `work_type_id` and all
 taxonomies: a book about painting remains a book.
@@ -21,7 +21,7 @@ Book create and fast-track inputs accept only `book`; the update schema and
 action reject an explicit kind. Domain pages remain gated while shared data
 tables are introduced. No current IDs, slugs, edition/copy relations or media keys are rewritten.
 
-Migration `0037_book_boundaries` preserves that separation after future domain
+Migration `0038_book_boundaries` preserves that separation after future domain
 activation. The `book_parent_required` triggers reject non-book parents on
 insert and reparenting of `editions`, `work_authors`, `acquisition_targets`,
 `orders`, `calibre_books`, and `work_status_history`. Calibre links may remain
@@ -41,7 +41,7 @@ scans exclude other kinds, and executable book merges require two books.
 
 ## Perfume domain model
 
-Migration `0043_perfume_model` adds a fragrance profile, formulations and personal
+Migration `0044_perfume_model` adds a fragrance profile, formulations and personal
 containers. The domain remains disabled pending its services, UI and release gates.
 
 | Table | Key and relationships | Purpose |
@@ -105,7 +105,7 @@ narrow this invariant, preserving their return contracts and UI callers.
 
 ### Perfume retailer listings and dated observations
 
-Migration `0044_venues_retailer_observations` records where a fragrance is sold.
+Migration `0045_venues_retailer_observations` records where a fragrance is sold.
 Price and stock are dated observations, never permanent facts. There are no live
 commerce actions and no scraping.
 
@@ -135,7 +135,7 @@ read-time hint (default 30 days); an old observation stays visibly dated.
 
 ## Film domain model
 
-Migration `0045_film_model` adds a film profile, versions (cuts), releases and
+Migration `0046_film_model` adds a film profile, versions (cuts), releases and
 optional personal copies. The domain stays disabled until its screens and
 release gates pass (`works_kind_enabled_check` still allows only books).
 
@@ -170,7 +170,7 @@ create one. A copy protects its film, version and release from deletion
 
 ## Painting domain model
 
-Migration `0046_painting_model` adds a painting profile and identifiable art
+Migration `0047_painting_model` adds a painting profile and identifiable art
 objects. A curated painting needs no object, edition or owned copy. The domain
 stays disabled until its screens and release gates pass.
 
@@ -205,7 +205,7 @@ and surrounding spaces. Physical whereabouts are a separate dated record
 
 ### `art_object_whereabouts`
 
-Migration `0047_art_whereabouts` records where each art object physically is or
+Migration `0048_art_whereabouts` records where each art object physically is or
 was, as dated, sourced statements.
 
 | Column | Meaning |
@@ -242,7 +242,7 @@ days by default).
 
 ## Personal curation and holdings contracts
 
-Migration `0042_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT
+Migration `0043_shared_curation` adds `works.is_favourite BOOLEAN NOT NULL DEFAULT
 false`. Shared notes/rating and `work_recommenders` keep their existing canonical
 storage. Being in the catalogue expresses personal curation; it never implies
 ownership, acquisition intent, reading or viewing. There is no duplicated curation
@@ -279,7 +279,7 @@ there are no placeholder editions or generic untyped holding rows.
 
 ## Typed identifiers, source observations and uncertain dates
 
-Migration `0041_catalogue_provenance` adds these shared value structures. It does
+Migration `0042_catalogue_provenance` adds these shared value structures. It does
 not rewrite historic book/person provider strings, source IDs or edition locks.
 
 | Table | Identity and fields | Integrity |
@@ -292,7 +292,7 @@ Identifiers are idempotently registered for their existing owner. Claiming the
 same provider/kind/ID for another record is an explicit conflict, even if the
 titles match. Different providers or entity kinds may reuse the same external
 ID. Owner foreign keys cascade only when their catalogue record is deleted,
-except venues: migration 0044 makes the venue owner FK RESTRICT, so a venue with
+except venues: migration 0045 makes the venue owner FK RESTRICT, so a venue with
 identifiers or source observations must be archived, not deleted.
 Reparenting requires the exact audited harmonization move; deferred checks retain
 identifier/source consistency when a merge transfers them in separate statements.
@@ -632,7 +632,7 @@ Audit trail for instance-level status changes.
 ### `authors`
 
 Canonical person identities across books, films, perfumes and paintings. Migration
-`0038_shared_people_credits` retains the physical `authors` table, its UUIDs,
+`0039_shared_people_credits` retains the physical `authors` table, its UUIDs,
 slugs, biographies and media; shared person APIs use the same rows. No duplicate
 person table or synchronized copy is maintained. Legacy author routes and book
 directories filter `person_domains.kind = 'book'`; identity pickers can find any
@@ -1063,7 +1063,7 @@ People or channels who recommended a work. Many-to-many with works via `work_rec
 
 ### `publishing_houses`
 
-Migration `0039_shared_organizations` extends the existing identity row into the
+Migration `0040_shared_organizations` extends the existing identity row into the
 shared organization root while retaining its physical table name and every
 publisher UUID. Common identity fields and aliases remain in one canonical
 store. The existing `kind`/`parent_id` pair is an optional book profile, not a
@@ -1080,8 +1080,8 @@ for deterministic collision handling under concurrent creation.
 | `slug` | TEXT | UNIQUE, NOT NULL |
 | `country` | TEXT | nullable |
 | `country_id` | UUID | FK → `countries.id`, SET NULL |
-| `kind` | TEXT | Nullable book profile: publisher or imprint; legacy default publisher |
-| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; required for imprints, NULL otherwise |
+| `kind` | TEXT | Nullable book profile, default publisher: `group`, `publisher` or `imprint`; NULL for an organization without a book publishing profile |
+| `parent_id` | UUID | FK → publishing_houses.id, RESTRICT; an imprint's publisher (required), a publisher's group (optional), NULL for a group and for organizations without a book profile |
 | `is_favourite` | BOOLEAN | NOT NULL, default false |
 | `notes` | TEXT | Personal collecting notes, nullable |
 | `description` | TEXT | nullable |
@@ -1089,16 +1089,16 @@ for deterministic collision handling under concurrent creation.
 | `search_text` | TEXT | GENERATED ALWAYS from search_normalize(name), GIN trigram index |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-A trigger restricts parents to publishing houses (one level; no cycles). Type
-and parent cannot change once referenced by editions, targets, child imprints or
-publisher specialties. The parent row is locked while validating references.
-Non-publishing organizations explicitly have `kind = NULL` and `parent_id = NULL`;
-shared creation never defaults a museum or retailer to publisher. Foreign-key
-and trigger guards reject them in book publisher links and acquisition targets.
-Shared CRUD and audited merges are transactional. Merges require compatible book
-profiles and country/parent scope; roles, aliases and venue links are preserved.
-The current audit engine retains the internal `publishers` entity key for this
-physical identity. Shared UI/route integration remains downstream work.
+Three levels, as the book trade uses them (migration 0036, task 0179): a **group** owns publishers (Penguin Random House), a **publisher** owns imprints (Knopf Doubleday Publishing Group), and an **imprint** is the brand printed on the book (Vintage International). ONIX for Books keeps imprint and publisher apart; library cataloguing records the imprint. A trigger allows only imprint → publisher → group parents; types and parents may change when ownership changes, as long as the houses below still fit, and every change is logged in `publisher_hierarchy_changes`. Books stay on their imprint, so a move does not rewrite them. `publisher_family(root)` returns a house and every house below it; publisher pages, counts, the library publisher filter and `target_accepts_edition` roll up through it. The approved structure and its evidence rules live in `src/lib/publishers/taxonomy.ts` and are applied by `scripts/publishers/taxonomy.ts` (dry run by default). Sellers remain `venues`, not publisher identities.
+
+Shared organizations (migration 0040): a museum, retailer or perfume house has
+`kind = NULL` and `parent_id = NULL`; shared creation never defaults one to
+publisher. Book links (`edition_publishers`, acquisition targets, specialties,
+ISBN prefixes, automatic decisions) require a book profile, publisher name
+matching ignores organizations without one, and a house that books use keeps its
+profile. The taxonomy engine only reads houses with a profile. Shared CRUD and
+audited merges are transactional; merges require compatible book profiles and
+preserve roles, aliases and venue links.
 
 ### `publisher_aliases`
 
@@ -1139,6 +1139,8 @@ Migration 0025 adds exact matching at the database boundary for web, API and Pyt
 
 Migration 0034 extends the matching. Names in `ignored_publisher_names` are skipped. When neither the publisher nor the imprint text identifies exactly one house, the longest `publisher_isbn_prefixes` rule that starts the edition's ISBN links it (`edition_isbn_digits` reads `isbn_13`, or `978` + the first nine digits of `isbn_10`). ISBN changes now recompute an edition's links, and rule or ignored-name changes recompute every unconfirmed edition. Name matches always win over ISBN rules.
 
+Migration 0036 adds three rules. A name that several houses carry (Vintage in the UK, Vintage Books in the US, each with the other's spelling as an alias) links to the one whose family holds an ISBN rule for the edition. After matching, only the most specific house stays: an edition that names both Penguin and Penguin Classics links to the imprint alone. A transaction that sets `durtal.defer_publisher_refresh = 'on'` skips the per-statement recomputation and calls `refresh_all_publisher_links()` once.
+
 The publisher names inbox (`/publishers/review`, `src/lib/actions/publisher-names.ts`) groups unconfirmed editions without a house by publisher/imprint text (`publisher_name_key`). It suggests a house by similar name (company words, accents, punctuation and parentheses removed; aliases included) and by ISBN publisher prefix (`isbn3` ranges; linked books of exactly one house share the prefix). One decision applies to every edition with the name: link (saves an alias; an ambiguous name, or an ISBN-only suggestion, confirms each edition instead), create a house, or mark the name as not a publisher. Saving the editions' ISBN prefixes as rules is optional; it is skipped for a prefix that books of another house already use.
 
 ### `publisher_isbn_prefixes`
@@ -1160,6 +1162,27 @@ Edited as "ISBN prefixes" on publisher profiles (hyphens allowed on input) and s
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 Publisher text that names no publisher (a distributor or a printer). Such text never matches a house; the edition's ISBN rule still applies. Restored from the inbox.
+
+### `publisher_hierarchy_changes`
+
+`id` (UUID PK), `publisher_id` (UUID, FK → publishing_houses, CASCADE; indexed), `old_kind`, `new_kind` (TEXT, NOT NULL), `old_parent_id`, `new_parent_id` (UUID, no FK: history), `changed_at` (TIMESTAMPTZ). A row per change of a house's type or parent, written by trigger.
+
+### `edition_enrichments`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `run_id` | UUID | NOT NULL; indexed; one taxonomy run |
+| `edition_id` | UUID | NOT NULL, FK → `editions.id`, CASCADE; indexed |
+| `field` | TEXT | NOT NULL; CHECK `imprint` or `publication_country` |
+| `old_value` | TEXT | nullable |
+| `new_value` | TEXT | NOT NULL |
+| `source` | TEXT | NOT NULL; `open_library` or `isbn_or_place` |
+| `evidence` | TEXT | NOT NULL; what the source said |
+| `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+| `undone_at` | TIMESTAMPTZ | nullable |
+
+Edition fields filled from a second source. An imprint is written only when Open Library names a house of the taxonomy and the edition's ISBN prefix belongs to that house's publisher (or, for divisions that share prefixes, its group), and only into an empty field. The country comes from the place of publication, or from a prefix used in one market only; existing values are never overwritten. `--undo RUN_ID` restores a run's values where they are unchanged.
 
 ### `publisher_auto_decisions`
 
@@ -1228,7 +1251,7 @@ with UUID identity, family FK, name, family-unique slug, description, color,
 parent, sort order and creation timestamp. Work and edition links retain their
 existing composite keys and foreign keys. No prior IDs or assignments are moved.
 
-Migration `0040_taxonomy_applicability` adds `taxonomy_applicability`:
+Migration `0041_taxonomy_applicability` adds `taxonomy_applicability`:
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -1536,9 +1559,9 @@ Images attached to works, people, collections, organizations, art objects or per
 | `work_id` | UUID | FK → `works.id`, CASCADE, nullable |
 | `author_id` | UUID | FK → `authors.id`, CASCADE, nullable |
 | `collection_id` | UUID | FK → `collections.id`, CASCADE, nullable (migration `0029_collection_media`) |
-| `organization_id` | UUID | FK → `publishing_houses.id`, CASCADE, nullable (migration `0048`) |
-| `art_object_id` | UUID | FK → `art_objects.id`, CASCADE, nullable (migration `0048`) |
-| `perfume_variant_id` | UUID | FK → `perfume_variants.id`, CASCADE, nullable (migration `0048`) |
+| `organization_id` | UUID | FK → `publishing_houses.id`, CASCADE, nullable (migration `0049`) |
+| `art_object_id` | UUID | FK → `art_objects.id`, CASCADE, nullable (migration `0049`) |
+| `perfume_variant_id` | UUID | FK → `perfume_variants.id`, CASCADE, nullable (migration `0049`) |
 | `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background; organizations, art objects and perfume formulations use poster and gallery) |
 | `s3_key` | TEXT | NOT NULL |
 | `thumbnail_s3_key` | TEXT | nullable |
@@ -1568,7 +1591,7 @@ Images attached to works, people, collections, organizations, art objects or per
 | `source_record_id` | UUID | FK → `source_records.id`, nullable. Must belong to the same record as the image (`media_source_guard`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-**Check constraints**: `media_owner_check` — exactly one of the six owner columns; `media_type_check` — the owner's image types (above); `media_attribution_check` — lengths and HTTP(S) URLs. Migration `0048` stops with an error, and changes nothing, if an existing row has an unknown type or a collection gallery.
+**Check constraints**: `media_owner_check` — exactly one of the six owner columns; `media_type_check` — the owner's image types (above); `media_attribution_check` — lengths and HTTP(S) URLs. Migration `0049` stops with an error, and changes nothing, if an existing row has an unknown type or a collection gallery.
 
 **Check constraint** `media_applied_crop_check`: `num_nonnulls(uncropped_s3_key, applied_crop) in (0, 2)` — both set, or neither.
 
@@ -1795,6 +1818,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `publisher_specialties` | `publishing_house_specialties` | CASCADE |
 | `publishing_houses` | `publisher_isbn_prefixes` | CASCADE |
 | `publishing_houses` | `publisher_auto_decisions` | SET NULL |
+| `publishing_houses` | `publisher_hierarchy_changes` | CASCADE |
+| `editions` | `edition_enrichments` | CASCADE |
 | `countries` | `publishing_houses.country_id` | SET NULL |
 | `series` | `works.series_id` | SET NULL |
 | `work_types` | `works.work_type_id` | SET NULL |
@@ -1820,7 +1845,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Taxonomy (work) | `subjects`, `book_categories`, `literary_movements`, `themes`, `art_types`, `art_movements`, `keywords`, `attributes` | `work_subjects`, `work_categories`, `work_literary_movements`, `work_themes`, `work_art_types`, `work_art_movements`, `work_keywords`, `work_attributes` |
 | Recommenders | `recommenders` | `work_recommenders` |
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
-| Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions` | `publishing_house_specialties` |
+| Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
@@ -1953,7 +1978,7 @@ Real-world and online establishments where works are acquired, browsed, seen or 
 
 **Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`, `perfumery`, `cinema`. The TypeScript source is `VENUE_TYPES` in `src/lib/catalogue/venues.ts`.
 
-**Rules (migration 0044)**:
+**Rules (migration 0045)**:
 
 - The trigger `venue_write_guard` rejects a blank or over-long name, a rating outside 1–5 and a last visit before the first visit. The migration stops with an error, and changes nothing, if an existing venue breaks these rules.
 - Deletion is blocked when orders, identifiers, source observations or artwork location history reference the venue (RESTRICT and `venue_delete_guard`). Use archive and restore instead. A deleted venue's images are removed after commit unless another row still uses them (`src/lib/s3/cleanup.ts`).

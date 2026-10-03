@@ -18,6 +18,7 @@ import {
 import { getVenueBySlug } from "@/lib/actions/venues";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -49,6 +50,7 @@ async function PlaceContent({ slug }: { slug: string }) {
 
   return (
     <>
+      <CopyShortcuts name={venue.name} address={venue.formattedAddress} />
       {/* Back navigation */}
       <Link
         href="/places"

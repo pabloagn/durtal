@@ -61,6 +61,7 @@ export function PublishersFiltersBar({ countries }: { countries: string[] }) {
       key: "kind",
       label: "Type",
       options: [
+        { value: "group", label: "Group" },
         { value: "publisher", label: "Publisher" },
         { value: "imprint", label: "Imprint" },
       ],

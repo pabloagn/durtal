@@ -24,7 +24,7 @@ CREATE INDEX "organization_role_idx" ON "organization_roles" USING btree ("role"
 CREATE INDEX "organization_venue_idx" ON "organization_venues" USING btree ("venue_id");--> statement-breakpoint
 CREATE INDEX "organization_alias_search_idx" ON "publisher_aliases" USING gin ("search_text" gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX "organization_search_idx" ON "publishing_houses" USING gin ("search_text" gin_trgm_ops);--> statement-breakpoint
-ALTER TABLE "publishing_houses" ADD CONSTRAINT "publisher_kind_parent_check" CHECK (case when "publishing_houses"."kind" is null then "publishing_houses"."parent_id" is null else ("publishing_houses"."kind" = 'publisher' AND "publishing_houses"."parent_id" IS NULL) OR ("publishing_houses"."kind" = 'imprint' AND "publishing_houses"."parent_id" IS NOT NULL AND "publishing_houses"."parent_id" <> "publishing_houses"."id") end);--> statement-breakpoint
+ALTER TABLE "publishing_houses" ADD CONSTRAINT "publisher_kind_parent_check" CHECK (case when "publishing_houses"."kind" is null then "publishing_houses"."parent_id" is null else ("publishing_houses"."kind" = 'group' AND "publishing_houses"."parent_id" IS NULL) OR ("publishing_houses"."kind" = 'publisher' AND ("publishing_houses"."parent_id" IS NULL OR "publishing_houses"."parent_id" <> "publishing_houses"."id")) OR ("publishing_houses"."kind" = 'imprint' AND "publishing_houses"."parent_id" IS NOT NULL AND "publishing_houses"."parent_id" <> "publishing_houses"."id") end);--> statement-breakpoint
 -- The optional book profile is required by legacy publisher relationships.
 CREATE FUNCTION require_publisher_profile() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE identity_id uuid; profile_kind text;
@@ -49,55 +49,42 @@ CREATE TRIGGER publisher_profile_required BEFORE INSERT OR UPDATE OF publisher_i
 --> statement-breakpoint
 CREATE TRIGGER publisher_profile_required BEFORE INSERT OR UPDATE OF publisher_id ON publisher_auto_decisions FOR EACH ROW EXECUTE FUNCTION require_publisher_profile();
 --> statement-breakpoint
+-- The live hierarchy rules (0036): an imprint belongs to a publisher, a publisher
+-- to a group or nothing, and the houses below must fit a changed type. A shared
+-- organization without a book profile (null kind) has no parent or children,
+-- and a house that books use keeps its publishing profile.
 CREATE OR REPLACE FUNCTION validate_publisher_parent() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE parent_kind text;
 BEGIN
  IF NEW.parent_id IS NOT NULL THEN
-   SELECT kind INTO parent_kind FROM publishing_houses WHERE id=NEW.parent_id FOR SHARE;
-   IF parent_kind IS DISTINCT FROM 'publisher' THEN RAISE EXCEPTION 'Choose a publishing house as the imprint parent'; END IF;
+   SELECT kind INTO parent_kind FROM publishing_houses WHERE id = NEW.parent_id FOR SHARE;
+   IF NEW.kind = 'imprint' AND parent_kind IS DISTINCT FROM 'publisher' THEN
+     RAISE EXCEPTION 'An imprint belongs to a publisher';
+   END IF;
+   IF NEW.kind = 'publisher' AND parent_kind IS DISTINCT FROM 'group' THEN
+     RAISE EXCEPTION 'A publisher belongs to a group';
+   END IF;
  END IF;
- IF TG_OP = 'UPDATE' AND (NEW.kind IS DISTINCT FROM OLD.kind OR NEW.parent_id IS DISTINCT FROM OLD.parent_id)
- AND NOT (NEW.kind IS NOT DISTINCT FROM OLD.kind AND harmonization_allows_move('publishers', OLD.parent_id, NEW.parent_id))
- AND (EXISTS(SELECT 1 FROM edition_publishers WHERE publisher_id = OLD.id)
+ IF TG_OP = 'UPDATE' AND NEW.kind IS DISTINCT FROM OLD.kind AND EXISTS (
+   SELECT 1 FROM publishing_houses c WHERE c.parent_id = NEW.id AND NOT coalesce(
+     (NEW.kind = 'group' AND c.kind = 'publisher') OR (NEW.kind = 'publisher' AND c.kind = 'imprint'), false))
+ THEN
+   RAISE EXCEPTION 'The houses below it do not fit this type';
+ END IF;
+ IF TG_OP = 'UPDATE' AND OLD.kind IS NOT NULL AND NEW.kind IS NULL AND (
+   EXISTS(SELECT 1 FROM edition_publishers WHERE publisher_id = OLD.id)
    OR EXISTS(SELECT 1 FROM acquisition_targets WHERE publisher_id = OLD.id)
-   OR EXISTS(SELECT 1 FROM publishing_houses WHERE parent_id = OLD.id)
    OR EXISTS(SELECT 1 FROM publishing_house_specialties WHERE publishing_house_id = OLD.id)
    OR EXISTS(SELECT 1 FROM publisher_isbn_prefixes WHERE publisher_id = OLD.id)) THEN
-   RAISE EXCEPTION 'This publisher identity is in use; its type and parent cannot be changed';
+   RAISE EXCEPTION 'Books use this publisher; it keeps its publishing profile';
  END IF;
  RETURN NEW;
 END $$;
 --> statement-breakpoint
+-- Organizations without a book profile never match a publisher name. Matching
+-- keeps the live statement-level refresh and its triggers (0036).
 CREATE OR REPLACE FUNCTION publisher_candidates(value text) RETURNS SETOF uuid LANGUAGE sql STABLE AS $$
  SELECT id FROM publishing_houses WHERE kind IS NOT NULL AND publisher_name_key(name) = publisher_name_key(value)
  UNION SELECT a.publisher_id FROM publisher_aliases a JOIN publishing_houses p ON p.id=a.publisher_id
  WHERE p.kind IS NOT NULL AND publisher_name_key(a.name) = publisher_name_key(value)
 $$;
---> statement-breakpoint
--- A non-publishing organization or alias must not rematch every book edition.
-DROP TRIGGER publisher_names_changed ON publishing_houses;
---> statement-breakpoint
-DROP TRIGGER publisher_aliases_changed ON publisher_aliases;
---> statement-breakpoint
-CREATE OR REPLACE FUNCTION refresh_publisher_matches() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE edition_id_arg uuid;
-BEGIN
- IF TG_TABLE_NAME = 'publishing_houses' THEN
-   IF TG_OP='INSERT' AND NEW.kind IS NULL THEN RETURN NULL; END IF;
-   IF TG_OP='DELETE' AND OLD.kind IS NULL THEN RETURN NULL; END IF;
-   IF TG_OP='UPDATE' AND OLD.kind IS NULL AND NEW.kind IS NULL THEN RETURN NULL; END IF;
- ELSIF TG_TABLE_NAME = 'publisher_aliases' THEN
-   IF NOT EXISTS (SELECT 1 FROM publishing_houses WHERE id IN (NEW.publisher_id, OLD.publisher_id) AND kind IS NOT NULL) THEN RETURN NULL; END IF;
- END IF;
- -- Statement-level triggers (ISBN prefixes, ignored names) have no row: refresh all.
- FOR edition_id_arg IN SELECT id FROM editions WHERE NOT publisher_links_confirmed ORDER BY id LOOP
-   PERFORM refresh_edition_publishers(edition_id_arg);
- END LOOP;
- RETURN NULL;
-END $$;
---> statement-breakpoint
-CREATE TRIGGER publisher_names_changed AFTER INSERT OR UPDATE OF name, kind OR DELETE ON publishing_houses
- FOR EACH ROW EXECUTE FUNCTION refresh_publisher_matches();
---> statement-breakpoint
-CREATE TRIGGER publisher_aliases_changed AFTER INSERT OR UPDATE OR DELETE ON publisher_aliases
- FOR EACH ROW EXECUTE FUNCTION refresh_publisher_matches();

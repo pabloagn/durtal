@@ -67,6 +67,8 @@ function renderCell(p: PublisherItem, key: string) {
     case "kind":
       return p.kind === "imprint" ? (
         <Badge variant="blue">Imprint</Badge>
+      ) : p.kind === "group" ? (
+        <Badge variant="gold">Group</Badge>
       ) : (
         "Publisher"
       );

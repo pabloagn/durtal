@@ -1,4 +1,6 @@
 {
+  "id": "dd1d20dc-bcfd-4032-bd4d-22cabda13bc6",
+  "prevId": "bc345750-8be8-499a-9ed2-03bc368fad74",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1936,6 +1938,131 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.edition_enrichments": {
+      "name": "edition_enrichments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_id": {
+          "name": "edition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field": {
+          "name": "field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "edition_enrichments_run_idx": {
+          "name": "edition_enrichments_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "edition_enrichments_edition_idx": {
+          "name": "edition_enrichments_edition_idx",
+          "columns": [
+            {
+              "expression": "edition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "edition_enrichments_edition_id_editions_id_fk": {
+          "name": "edition_enrichments_edition_id_editions_id_fk",
+          "tableFrom": "edition_enrichments",
+          "tableTo": "editions",
+          "columnsFrom": [
+            "edition_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "edition_enrichment_field": {
+          "name": "edition_enrichment_field",
+          "value": "\"edition_enrichments\".\"field\" in ('imprint', 'publication_country')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.edition_genres": {
       "name": "edition_genres",
       "schema": "",
@@ -2841,6 +2968,43 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ignored_publisher_names": {
+      "name": "ignored_publisher_names",
+      "schema": "",
+      "columns": {
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ignored_publisher_name_key": {
+          "name": "ignored_publisher_name_key",
+          "value": "\"ignored_publisher_names\".\"name_key\" = publisher_name_key(\"ignored_publisher_names\".\"name\")"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.image_adjustments": {
@@ -3888,9 +4052,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "media_author_id_active_idx": {
           "name": "media_author_id_active_idx",
@@ -3909,9 +4073,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "media_collection_id_type_active_idx": {
           "name": "media_collection_id_type_active_idx",
@@ -3936,50 +4100,50 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "media_work_id_works_id_fk": {
           "name": "media_work_id_works_id_fk",
           "tableFrom": "media",
+          "tableTo": "works",
           "columnsFrom": [
             "work_id"
           ],
-          "tableTo": "works",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "media_author_id_authors_id_fk": {
           "name": "media_author_id_authors_id_fk",
           "tableFrom": "media",
+          "tableTo": "authors",
           "columnsFrom": [
             "author_id"
           ],
-          "tableTo": "authors",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "media_collection_id_collections_id_fk": {
           "name": "media_collection_id_collections_id_fk",
           "tableFrom": "media",
+          "tableTo": "collections",
           "columnsFrom": [
             "collection_id"
           ],
-          "tableTo": "collections",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4588,6 +4752,279 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.publisher_auto_decisions": {
+      "name": "publisher_auto_decisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_count": {
+          "name": "edition_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "publisher_auto_decisions_publisher_idx": {
+          "name": "publisher_auto_decisions_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "publisher_auto_decisions_name_key": {
+          "name": "publisher_auto_decisions_name_key",
+          "columns": [
+            {
+              "expression": "name_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "publisher_auto_decisions_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_auto_decisions_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_auto_decisions",
+          "tableTo": "publishing_houses",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "publisher_auto_decision_action": {
+          "name": "publisher_auto_decision_action",
+          "value": "\"publisher_auto_decisions\".\"action\" in ('alias', 'create')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.publisher_hierarchy_changes": {
+      "name": "publisher_hierarchy_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_kind": {
+          "name": "old_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_kind": {
+          "name": "new_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_parent_id": {
+          "name": "old_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_parent_id": {
+          "name": "new_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "publisher_hierarchy_changes_publisher_idx": {
+          "name": "publisher_hierarchy_changes_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "publisher_hierarchy_changes_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_hierarchy_changes_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_hierarchy_changes",
+          "tableTo": "publishing_houses",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.publisher_isbn_prefixes": {
+      "name": "publisher_isbn_prefixes",
+      "schema": "",
+      "columns": {
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "publisher_isbn_prefixes_publisher_idx": {
+          "name": "publisher_isbn_prefixes_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_isbn_prefixes",
+          "tableTo": "publishing_houses",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "publisher_isbn_prefix_format": {
+          "name": "publisher_isbn_prefix_format",
+          "value": "\"publisher_isbn_prefixes\".\"prefix\" ~ '^97[89][0-9]{2,10}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.publisher_specialties": {
       "name": "publisher_specialties",
       "schema": "",
@@ -4857,7 +5294,7 @@
       "checkConstraints": {
         "publisher_kind_parent_check": {
           "name": "publisher_kind_parent_check",
-          "value": "(\"publishing_houses\".\"kind\" = 'publisher' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")"
+          "value": "(\"publishing_houses\".\"kind\" = 'group' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'publisher' AND (\"publishing_houses\".\"parent_id\" IS NULL OR \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")"
         }
       },
       "isRLSEnabled": false
@@ -6525,14 +6962,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "kind": {
-          "name": "kind",
-          "type": "work_kind_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'book'"
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -6784,236 +7213,9 @@
       },
       "policies": {},
       "checkConstraints": {
-        "works_kind_enabled_check": {
-          "name": "works_kind_enabled_check",
-          "value": "\"works\".\"kind\" = 'book'"
-        },
         "works_hunt_assessment_check": {
           "name": "works_hunt_assessment_check",
           "value": "(\n    (NOT \"works\".\"is_rare\" AND \"works\".\"hunt_assessed_on\" IS NULL)\n    OR (\"works\".\"is_rare\" AND \"works\".\"hunt_assessed_on\" IS NOT NULL)\n  )"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.publisher_isbn_prefixes": {
-      "name": "publisher_isbn_prefixes",
-      "schema": "",
-      "columns": {
-        "prefix": {
-          "name": "prefix",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "publisher_id": {
-          "name": "publisher_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "publisher_isbn_prefixes_publisher_idx": {
-          "name": "publisher_isbn_prefixes_publisher_idx",
-          "columns": [
-            {
-              "expression": "publisher_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        }
-      },
-      "foreignKeys": {
-        "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk": {
-          "name": "publisher_isbn_prefixes_publisher_id_publishing_houses_id_fk",
-          "tableFrom": "publisher_isbn_prefixes",
-          "columnsFrom": [
-            "publisher_id"
-          ],
-          "tableTo": "publishing_houses",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "publisher_isbn_prefix_format": {
-          "name": "publisher_isbn_prefix_format",
-          "value": "\"publisher_isbn_prefixes\".\"prefix\" ~ '^97[89][0-9]{2,10}$'"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.ignored_publisher_names": {
-      "name": "ignored_publisher_names",
-      "schema": "",
-      "columns": {
-        "name_key": {
-          "name": "name_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "ignored_publisher_name_key": {
-          "name": "ignored_publisher_name_key",
-          "value": "\"ignored_publisher_names\".\"name_key\" = publisher_name_key(\"ignored_publisher_names\".\"name\")"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.publisher_auto_decisions": {
-      "name": "publisher_auto_decisions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name_key": {
-          "name": "name_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "action": {
-          "name": "action",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "publisher_id": {
-          "name": "publisher_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "edition_count": {
-          "name": "edition_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "undone_at": {
-          "name": "undone_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "publisher_auto_decisions_publisher_idx": {
-          "name": "publisher_auto_decisions_publisher_idx",
-          "columns": [
-            {
-              "expression": "publisher_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        },
-        "publisher_auto_decisions_name_key": {
-          "name": "publisher_auto_decisions_name_key",
-          "columns": [
-            {
-              "expression": "name_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        }
-      },
-      "foreignKeys": {
-        "publisher_auto_decisions_publisher_id_publishing_houses_id_fk": {
-          "name": "publisher_auto_decisions_publisher_id_publishing_houses_id_fk",
-          "tableFrom": "publisher_auto_decisions",
-          "columnsFrom": [
-            "publisher_id"
-          ],
-          "tableTo": "publishing_houses",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "publisher_auto_decision_action": {
-          "name": "publisher_auto_decision_action",
-          "value": "\"publisher_auto_decisions\".\"action\" in ('alias', 'create')"
         }
       },
       "isRLSEnabled": false
@@ -7127,16 +7329,6 @@
         "individual",
         "other"
       ]
-    },
-    "public.work_kind_enum": {
-      "name": "work_kind_enum",
-      "schema": "public",
-      "values": [
-        "book",
-        "film",
-        "perfume",
-        "painting"
-      ]
     }
   },
   "schemas": {},
@@ -7148,7 +7340,5 @@
     "columns": {},
     "schemas": {},
     "tables": {}
-  },
-  "id": "caf4edc1-f2f3-4a98-8700-4568d04a8cb5",
-  "prevId": "bc345750-8be8-499a-9ed2-03bc368fad74"
+  }
 }

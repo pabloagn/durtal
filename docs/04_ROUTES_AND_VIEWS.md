@@ -64,7 +64,7 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (book, author, publisher, recommender, series, collection, place), `G` → the Go to menu, ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (book, author, publisher, recommender, series, collection, place), `G` → the Go to menu, `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 
 ---

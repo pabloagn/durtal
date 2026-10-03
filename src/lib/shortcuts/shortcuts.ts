@@ -42,11 +42,26 @@ export const ADD: ({ key: string; label: string; section: string } & (
   { key: "l", label: "Place", section: "/places", dialog: "place" },
 ];
 
+/**
+ * Y opens the "Copy" menu: what the open page offers, plus its link. Pages
+ * give their own entries (CopyShortcuts); these keys stay the same on every
+ * page. "Name" is the page's name: a book's title and author, an author's
+ * name, a publisher's name.
+ */
+export const COPY_KEYS = {
+  name: "n",
+  title: "t",
+  isbn: "i",
+  address: "d",
+  link: "l",
+} as const;
+
 export const SHORTCUTS = {
   palette: ["mod", "k"],
   search: ["/"],
   addMenu: ["a"],
   goMenu: ["g"],
+  copyMenu: ["y"],
   help: ["?"],
   pick: ["↑", "↓"],
   confirm: ["enter"],
@@ -66,6 +81,7 @@ export const SHORTCUT_GROUPS: {
     items: [
       { keys: SHORTCUTS.addMenu, label: "Add: book, author, publisher..." },
       { keys: SHORTCUTS.goMenu, label: "Go to a section" },
+      { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
       { keys: SHORTCUTS.palette, label: "Search books, authors, commands" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
@@ -85,6 +101,17 @@ export const SHORTCUT_GROUPS: {
     title: "Add",
     wide: true,
     items: ADD.map((a) => ({ keys: ["a", a.key], label: a.label, then: true })),
+  },
+  {
+    title: "Copy",
+    wide: true,
+    items: [
+      { keys: ["y", COPY_KEYS.name], label: "Name (a book: title and author)", then: true },
+      { keys: ["y", COPY_KEYS.title], label: "Title (a book)", then: true },
+      { keys: ["y", COPY_KEYS.isbn], label: "ISBN (a book)", then: true },
+      { keys: ["y", COPY_KEYS.address], label: "Address (a place)", then: true },
+      { keys: ["y", COPY_KEYS.link], label: "Link to the page", then: true },
+    ],
   },
   {
     title: "Go to",

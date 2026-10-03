@@ -16,7 +16,7 @@ export const publisherSchema = z
       .optional(),
     description: optionalText,
     notes: optionalText,
-    kind: z.enum(["publisher", "imprint"]).default("publisher"),
+    kind: z.enum(["group", "publisher", "imprint"]).default("publisher"),
     parentId: z.uuid().nullable().optional(),
     aliases: z.array(z.string().trim().min(1).max(200)).max(100).default([]),
     /** ISBN publisher prefixes ("978-1-59017"); undefined leaves the saved rules */
@@ -32,8 +32,8 @@ export const publisherSchema = z
     specialtyIds: z.array(z.uuid()).max(100).default([]),
   })
   .refine(
-    (v) => (v.kind === "imprint" ? !!v.parentId : !v.parentId),
-    "An imprint needs a parent publishing house",
+    (v) => (v.kind === "imprint" ? !!v.parentId : v.kind === "group" ? !v.parentId : true),
+    "An imprint needs its publisher; a group has no parent",
   );
 export const targetSchema = z
   .object({

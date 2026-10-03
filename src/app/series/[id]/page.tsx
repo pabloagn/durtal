@@ -9,6 +9,7 @@ import { SeriesSuggestions } from "@/components/series/series-suggestions";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -54,6 +55,7 @@ export default async function SeriesDetailPage({
 
   return (
     <>
+      <CopyShortcuts name={s.title} />
       <Link
         href="/series"
         className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"

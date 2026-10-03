@@ -32,7 +32,7 @@ if (url) {
 }
 
 /** The last migration applied to the live database. */
-const LIVE_MIGRATION = "0035_language_codes";
+const LIVE_MIGRATION = "0036_publisher_hierarchy";
 
 describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   const client = url ? postgres(url, { max: 1, onnotice: () => {} }) : null;
@@ -297,7 +297,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         join(folder, "meta/_journal.json"),
         JSON.stringify(journal),
       );
-      if (entry.tag === "0044_venues_retailer_observations") {
+      if (entry.tag === "0045_venues_retailer_observations") {
         // Legacy writes skipped validation: stop with a clear error, change nothing.
         const [invalid] =
           await c`insert into venues(name,slug,type,personal_rating) values ('Unrated','unrated','other',0) returning id`;
@@ -377,8 +377,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   });
 
   it("preserves every existing row and classifies art-tagged books as books", async () => {
-    expect(reconciled).toContain("0036_work_kinds");
-    expect(reconciled).toContain("0037_book_boundaries");
+    expect(reconciled).toContain("0037_work_kinds");
+    expect(reconciled).toContain("0038_book_boundaries");
     const after = await snapshot();
     expect(after.works).toHaveLength(1);
     expect(after.works[0].kind).toBe("book");

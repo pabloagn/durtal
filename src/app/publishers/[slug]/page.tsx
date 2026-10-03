@@ -9,6 +9,8 @@ import { PublisherFavourite } from "@/components/publishers/favourite-button";
 import { Badge } from "@/components/ui/badge";
 import { EditionCover } from "@/components/books/edition-cover";
 import { languageName } from "@/lib/utils/language";
+import { HOUSE_KIND_LABEL } from "@/lib/publishers/kinds";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 export default async function PublisherPage({
   params,
   searchParams,
@@ -35,12 +37,16 @@ export default async function PublisherPage({
   const groups = Map.groupBy(rows, (r) => r.work.id);
   return (
     <>
+      <CopyShortcuts name={p.name} />
       <Link href="/publishers" className="text-sm text-fg-muted">
         ← Publishers
       </Link>
       <PageHeader
         title={p.name}
-        description={[p.country, p.kind === "imprint" ? "Imprint" : null]
+        description={[
+          p.kind === "publisher" ? null : HOUSE_KIND_LABEL[p.kind],
+          p.country,
+        ]
           .filter(Boolean)
           .join(" · ")}
         actions={
@@ -58,13 +64,24 @@ export default async function PublisherPage({
       <div className="mb-6 space-y-3 text-sm text-fg-secondary">
         {p.parent && (
           <p>
-            Published by{" "}
+            {p.kind === "imprint" ? "Imprint of " : "Part of "}
             <Link
               href={`/publishers/${p.parent.slug}`}
               className="text-accent-blue"
             >
               {p.parent.name}
             </Link>
+            {p.group && (
+              <>
+                {", part of "}
+                <Link
+                  href={`/publishers/${p.group.slug}`}
+                  className="text-accent-blue"
+                >
+                  {p.group.name}
+                </Link>
+              </>
+            )}
           </p>
         )}
         {p.website && /^https?:\/\//i.test(p.website) && (
@@ -115,7 +132,7 @@ export default async function PublisherPage({
         )}
         {p.children.length > 0 && (
           <p>
-            Imprints:{" "}
+            {p.kind === "group" ? "Publishers: " : "Imprints: "}
             {p.children.map((c, i) => (
               <span key={c.id}>
                 {i > 0 ? " · " : ""}

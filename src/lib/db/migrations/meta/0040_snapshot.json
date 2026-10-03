@@ -5287,7 +5287,7 @@
       "checkConstraints": {
         "publisher_kind_parent_check": {
           "name": "publisher_kind_parent_check",
-          "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'publisher' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
+          "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'group' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'publisher' AND (\"publishing_houses\".\"parent_id\" IS NULL OR \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
         }
       },
       "isRLSEnabled": false
@@ -5780,94 +5780,6 @@
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.taxonomy_applicability": {
-      "name": "taxonomy_applicability",
-      "schema": "",
-      "columns": {
-        "family_id": {
-          "name": "family_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "work_kind_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "level": {
-          "name": "level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "taxonomy_applicability_scope_idx": {
-          "name": "taxonomy_applicability_scope_idx",
-          "columns": [
-            {
-              "expression": "kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "level",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "family_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "taxonomy_applicability_family_id_taxonomy_families_id_fk": {
-          "name": "taxonomy_applicability_family_id_taxonomy_families_id_fk",
-          "tableFrom": "taxonomy_applicability",
-          "tableTo": "taxonomy_families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "taxonomy_applicability_family_id_kind_level_pk": {
-          "name": "taxonomy_applicability_family_id_kind_level_pk",
-          "columns": [
-            "family_id",
-            "kind",
-            "level"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "taxonomy_scope_check": {
-          "name": "taxonomy_scope_check",
-          "value": "\"taxonomy_applicability\".\"level\" = 'work' or (\"taxonomy_applicability\".\"kind\" = 'book' and \"taxonomy_applicability\".\"level\" = 'edition') or (\"taxonomy_applicability\".\"kind\" = 'perfume' and \"taxonomy_applicability\".\"level\" = 'perfume_variant') or (\"taxonomy_applicability\".\"kind\" = 'film' and \"taxonomy_applicability\".\"level\" = 'film_version') or (\"taxonomy_applicability\".\"kind\" = 'painting' and \"taxonomy_applicability\".\"level\" = 'art_object')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.taxonomy_families": {
@@ -7743,6 +7655,218 @@
         }
       },
       "isRLSEnabled": false
+    },
+    "public.publisher_hierarchy_changes": {
+      "name": "publisher_hierarchy_changes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "publisher_id": {
+          "name": "publisher_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_kind": {
+          "name": "old_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_kind": {
+          "name": "new_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_parent_id": {
+          "name": "old_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_parent_id": {
+          "name": "new_parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "publisher_hierarchy_changes_publisher_idx": {
+          "name": "publisher_hierarchy_changes_publisher_idx",
+          "columns": [
+            {
+              "expression": "publisher_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "publisher_hierarchy_changes_publisher_id_publishing_houses_id_fk": {
+          "name": "publisher_hierarchy_changes_publisher_id_publishing_houses_id_fk",
+          "tableFrom": "publisher_hierarchy_changes",
+          "tableTo": "publishing_houses",
+          "columnsFrom": [
+            "publisher_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.edition_enrichments": {
+      "name": "edition_enrichments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_id": {
+          "name": "edition_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field": {
+          "name": "field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "edition_enrichments_run_idx": {
+          "name": "edition_enrichments_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "edition_enrichments_edition_idx": {
+          "name": "edition_enrichments_edition_idx",
+          "columns": [
+            {
+              "expression": "edition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "edition_enrichments_edition_id_editions_id_fk": {
+          "name": "edition_enrichments_edition_id_editions_id_fk",
+          "tableFrom": "edition_enrichments",
+          "tableTo": "editions",
+          "columnsFrom": [
+            "edition_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "edition_enrichment_field": {
+          "name": "edition_enrichment_field",
+          "value": "\"edition_enrichments\".\"field\" in ('imprint', 'publication_country')"
+        }
+      },
+      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -7887,6 +8011,6 @@
     "schemas": {},
     "tables": {}
   },
-  "id": "e3432e1d-a1d7-46b7-81a0-40a8249bdf96",
-  "prevId": "3cbee898-8b77-4a2e-a552-a68fa6396783"
+  "id": "3cbee898-8b77-4a2e-a552-a68fa6396783",
+  "prevId": "ca936db2-27e7-4d28-a27c-1eb3d4ef0c2c"
 }

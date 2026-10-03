@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { savePublisher } from "@/lib/actions/publishers";
 import type { PublisherInput } from "@/lib/validations/publishers";
+import { PARENT_KIND, type HouseKind } from "@/lib/publishers/kinds";
 import { Button } from "@/components/ui/button";
 import {
   PublisherChoice,
@@ -22,7 +23,7 @@ export function PublisherEditor({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [kind, setKind] = useState(publisher?.kind ?? "publisher");
+  const [kind, setKind] = useState<HouseKind>(publisher?.kind ?? "publisher");
   const [parent, setParent] = useState<PublisherOption | null>(initialParent);
   const [chosen, setChosen] = useState(publisher?.specialtyIds ?? []);
   const [specialtySearch, setSpecialtySearch] = useState("");
@@ -40,7 +41,7 @@ export function PublisherEditor({
             description: text("description") || null,
             notes: text("notes") || null,
             kind,
-            parentId: kind === "imprint" ? (parent?.id ?? null) : null,
+            parentId: PARENT_KIND[kind] ? (parent?.id ?? null) : null,
             aliases: text("aliases")
               .split("\n")
               .map((s) => s.trim())
@@ -92,19 +93,22 @@ export function PublisherEditor({
             <select
               className={fieldClass}
               value={kind}
-              onChange={(e) =>
-                setKind(e.target.value as "publisher" | "imprint")
-              }
+              onChange={(e) => {
+                setKind(e.target.value as HouseKind);
+                // The parent's type depends on this type
+                setParent(null);
+              }}
             >
-              <option value="publisher">Publishing house</option>
-              <option value="imprint">Imprint</option>
+              <option value="group">Group: owns publishers</option>
+              <option value="publisher">Publisher: owns imprints</option>
+              <option value="imprint">Imprint: the brand on the book</option>
             </select>
           </label>
         </div>
-        {kind === "imprint" && (
+        {PARENT_KIND[kind] && (
           <PublisherChoice
-            label="Parent publisher"
-            kinds={["publisher"]}
+            label={kind === "imprint" ? "Publisher" : "Group (optional)"}
+            kinds={[PARENT_KIND[kind]!]}
             exclude={publisher ? [publisher.id] : []}
             value={parent}
             onChange={setParent}
