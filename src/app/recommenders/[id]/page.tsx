@@ -9,6 +9,7 @@ import { getRecommender } from "@/lib/actions/recommenders";
 import { websiteLabel } from "@/lib/validations/recommenders";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { RecommenderActions } from "./recommender-actions";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -28,6 +29,7 @@ export default async function RecommenderPage({
 
   return (
     <>
+      <CopyShortcuts name={recommender.name} />
       <Link
         href="/recommenders"
         className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"

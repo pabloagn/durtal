@@ -10,12 +10,14 @@ import {
   Search,
   Keyboard,
   Loader2,
+  Copy,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
 import { quickSearch, type QuickSearchResult } from "@/lib/actions/quick-search";
-import { ADD, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
+import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
 
@@ -138,6 +140,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     };
   }, [trimmed]);
 
+  // "This page" shows when the page has its own entries, or when searched
+  const allCopyItems = actions.copyItems();
+  const copyItems = trimmed
+    ? filterBySearch(allCopyItems, trimmed, (i) => `Copy ${i.label}`)
+    : allCopyItems.length > 1
+      ? allCopyItems
+      : [];
   const actionItems = trimmed
     ? filterBySearch(ACTION_ITEMS, trimmed, (i) => i.label)
     : ACTION_ITEMS;
@@ -147,6 +156,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const firstValue =
     (results.works[0] && `work:${results.works[0].id}`) ||
     (results.authors[0] && `author:${results.authors[0].id}`) ||
+    (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
     (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
     (trimmed && "library-search") ||
@@ -253,6 +263,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     Search the library for &ldquo;{trimmed}&rdquo;
                   </span>
                 </Command.Item>
+              </Command.Group>
+            )}
+
+            {copyItems.length > 0 && (
+              <Command.Group heading="This page" className={GROUP_CLASS}>
+                {copyItems.map((item) => (
+                  <PaletteRow
+                    key={item.key}
+                    item={{
+                      label: `Copy ${item.label.toLowerCase()}`,
+                      icon: item.key === COPY_KEYS.link ? Link2 : Copy,
+                      keys: ["y", item.key],
+                      then: true,
+                    }}
+                    value={`copy:${item.key}`}
+                    onSelect={() => {
+                      onOpenChange(false);
+                      void actions.copy(item);
+                    }}
+                  />
+                ))}
               </Command.Group>
             )}
 
