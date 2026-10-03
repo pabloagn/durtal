@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Shell } from "@/components/layout/shell";
 import { ImageGuard } from "@/components/shared/image-guard";
+import { TooltipLayer } from "@/components/ui/tooltip";
 import "@/styles/globals.css";
 import { getImageAdjustmentStyles } from "@/lib/actions/image-adjustments";
 import { ImageAdjustmentProvider } from "@/components/media/image-adjustment-provider";
@@ -66,6 +67,7 @@ export default async function RootLayout({
     >
       <body>
         <ImageGuard />
+        <TooltipLayer />
         <PreferencesProvider initial={preferences}><ImageAdjustmentProvider initial={adjustments}><Shell>{children}</Shell></ImageAdjustmentProvider></PreferencesProvider>
       </body>
     </html>

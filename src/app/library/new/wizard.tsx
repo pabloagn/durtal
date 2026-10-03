@@ -977,7 +977,7 @@ export function AddBookWizard() {
                   variant="primary"
                   onClick={handleFastTrack}
                   disabled={fastTrackSaving || !title.trim() || !authorName.trim()}
-                  title="Save now, skipping copies and categorization"
+                  data-tooltip="Save now, skipping copies and categorization"
                 >
                   {fastTrackSaving && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />

@@ -115,6 +115,7 @@ function FamilyAssignment({
               <button
                 type="button"
                 aria-label={`Remove ${item.name} from ${family.name}`}
+                data-tooltip={`Remove ${item.name} from ${family.name}`}
                 disabled={saving}
                 onClick={() => {
                   refocus.current = true;

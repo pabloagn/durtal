@@ -30,7 +30,7 @@ export function EditionImageBox({
           alt={
             image.source === "edition" ? `${title} cover` : `${title} poster`
           }
-          title={
+          data-tooltip={
             image.source === "poster"
               ? "Book poster: this edition has no cover"
               : undefined

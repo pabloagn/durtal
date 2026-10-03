@@ -151,6 +151,7 @@ export function MarkToggle({
         aria-pressed={marked}
         aria-busy={pending}
         aria-label={action}
+        data-tooltip={action}
         aria-describedby={position ? cardId : undefined}
         onClick={onToggle}
         onPointerEnter={openSoon}
@@ -214,7 +215,7 @@ export function MarkToggle({
                 <time
                   dateTime={date}
                   className="ml-auto font-mono text-micro text-fg-secondary"
-                  title={`Marked ${formatMarkDate(date)}`}
+                  data-tooltip={`Marked ${formatMarkDate(date)}`}
                 >
                   {formatMarkDate(date)}
                 </time>
@@ -248,7 +249,7 @@ export function MarkToggle({
                 <button
                   type="submit"
                   aria-label="Save date"
-                  title="Save date"
+                  data-tooltip="Save date"
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-sm hover:bg-bg-tertiary ${tone}`}
                 >
                   <Check className="h-3.5 w-3.5" strokeWidth={1.5} />

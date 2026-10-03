@@ -76,6 +76,8 @@ export function ReaderToolbar({
         {/* Left: back + title */}
         <div className="flex items-center gap-3 min-w-0">
           <Link
+            aria-label="Back to Reader"
+            data-tooltip="Back to Reader"
             href="/reader"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
           >
@@ -105,7 +107,9 @@ export function ReaderToolbar({
             <button
               onClick={onToggleBookmark}
               className="flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-              title="Bookmark (B)"
+              aria-label="Bookmark"
+              data-tooltip="Bookmark"
+              data-tooltip-keys="b"
             >
               <Bookmark className="h-4 w-4" strokeWidth={1.5} />
             </button>
@@ -113,21 +117,27 @@ export function ReaderToolbar({
           <button
             onClick={onToggleToc}
             className="flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-            title="Table of Contents (T)"
+            aria-label="Table of Contents"
+            data-tooltip="Table of Contents"
+            data-tooltip-keys="t"
           >
             <List className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <button
             onClick={onToggleSettings}
             className="flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-            title="Settings (S)"
+            aria-label="Settings"
+            data-tooltip="Settings"
+            data-tooltip-keys="s"
           >
             <Settings className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <button
             onClick={toggleFullscreen}
             className="flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-            title="Fullscreen (F)"
+            aria-label="Fullscreen"
+            data-tooltip="Fullscreen"
+            data-tooltip-keys="f"
           >
             {fullscreen ? (
               <Minimize className="h-4 w-4" strokeWidth={1.5} />

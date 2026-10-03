@@ -294,7 +294,8 @@ export function BulkActionToolbar({
         <button
           onClick={onExitSelection}
           className="ml-1 rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
-          title="Exit selection"
+          aria-label="Exit selection"
+          data-tooltip="Exit selection"
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.5} />
         </button>

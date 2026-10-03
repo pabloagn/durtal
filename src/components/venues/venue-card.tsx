@@ -124,6 +124,7 @@ export function VenueCard({
                 rel="noopener noreferrer"
                 className="ml-auto text-fg-muted transition-colors hover:text-accent-rose"
                 aria-label={`Visit ${name} website`}
+                data-tooltip={`Visit ${name} website`}
               >
                 <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
               </a>

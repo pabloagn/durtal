@@ -109,7 +109,8 @@ export function TaxonomyColorPicker({
                   key={preset.hex}
                   type="button"
                   onClick={() => handlePresetClick(preset.hex)}
-                  title={preset.name}
+                  aria-label={preset.name}
+                  data-tooltip={preset.name}
                   className={`flex h-8 w-full items-center justify-center rounded-sm transition-all ${
                     isActive
                       ? "ring-1 ring-fg-secondary ring-offset-1 ring-offset-bg-secondary"

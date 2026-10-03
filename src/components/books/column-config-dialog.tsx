@@ -71,6 +71,8 @@ export function ColumnConfigDialog({
             Configure Columns
           </h3>
           <button
+            aria-label="Close"
+            data-tooltip="Close"
             onClick={onClose}
             className="text-fg-muted hover:text-fg-primary"
           >
@@ -100,6 +102,8 @@ export function ColumnConfigDialog({
                   {def.label}
                 </span>
                 <button
+                  aria-label={`${col.visible ? "Hide" : "Show"} ${def.label}`}
+                  data-tooltip={`${col.visible ? "Hide" : "Show"} ${def.label}`}
                   onClick={() => toggleVisibility(col.key)}
                   className="text-fg-muted hover:text-fg-secondary"
                 >

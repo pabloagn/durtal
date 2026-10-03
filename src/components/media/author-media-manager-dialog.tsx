@@ -351,6 +351,8 @@ export function AuthorMediaManagerDialog({
                         <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent(item.s3Key)}`} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
+                          aria-label={isSelected ? "Deselect image" : "Select image"}
+                          data-tooltip={isSelected ? "Deselect image" : "Select image"}
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -370,6 +372,8 @@ export function AuthorMediaManagerDialog({
                         {/* Tune button (only for items with originals) */}
                         {item.originalS3Key && (
                           <button
+                            aria-label="Adjust image"
+                            data-tooltip="Adjust image"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -387,6 +391,8 @@ export function AuthorMediaManagerDialog({
 
                         {/* Delete button */}
                         <button
+                          aria-label="Delete image"
+                          data-tooltip="Delete image"
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();

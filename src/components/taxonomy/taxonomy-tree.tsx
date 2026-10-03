@@ -150,6 +150,8 @@ function SortableRow({
         {/* Collapse toggle for hierarchical items */}
         {depth >= 0 && hasChildren && (
           <button
+            aria-label={isCollapsed ? "Expand" : "Collapse"}
+            data-tooltip={isCollapsed ? "Expand" : "Collapse"}
             type="button"
             onClick={(e) => {
               e.stopPropagation();

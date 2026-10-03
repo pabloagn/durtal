@@ -91,12 +91,11 @@ export function TaxonomyItemRow({
   }, [item.name]);
 
   const trigger = (
-    <button
-      aria-label="Open action menu"
-      className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-bg-tertiary hover:text-fg-primary focus:opacity-100"
+    <span
+      className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-bg-tertiary hover:text-fg-primary group-focus-within:opacity-100"
     >
       <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
-    </button>
+    </span>
   );
 
   return (
@@ -170,7 +169,7 @@ export function TaxonomyItemRow({
       </Badge>
 
       {/* Action menu */}
-      <DropdownMenu trigger={trigger} align="end">
+      <DropdownMenu trigger={trigger} label="Actions" align="end">
         <DropdownMenuItem
           onClick={() => {
             startRename();

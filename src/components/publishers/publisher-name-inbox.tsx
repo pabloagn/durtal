@@ -119,7 +119,7 @@ function NameRow({
           <Link
             key={e.id}
             href={`/library/${e.workSlug}#edition-${e.id}`}
-            title={e.workTitle}
+            data-tooltip={e.workTitle}
           >
             <EditionImageBox image={e.image} title={e.workTitle} size="sm" />
           </Link>
@@ -186,7 +186,7 @@ function NameRow({
           variant="ghost"
           disabled={pending}
           onClick={() => decide([{ key: row.key, action: "ignore" }])}
-          title="A distributor or printer: this name never links to a house"
+          data-tooltip="A distributor or printer: this name never links to a house"
         >
           Not a publisher
         </Button>

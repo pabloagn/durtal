@@ -150,14 +150,16 @@ export function LocationCard({
                   <button
                     onClick={() => setEditOpen(true)}
                     className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100"
-                    title="Edit location"
+                    aria-label="Edit location"
+                    data-tooltip="Edit location"
                   >
                     <Pencil className="h-4 w-4" strokeWidth={1.5} />
                   </button>
                   <button
                     onClick={() => setDeleteOpen(true)}
                     className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
-                    title="Delete location"
+                    aria-label="Delete location"
+                    data-tooltip="Delete location"
                   >
                     <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                   </button>

@@ -15,7 +15,7 @@ export function PoisonBadge({
   return (
     <span
       className={`text-accent-red ${cover ? COVER_CHIP : "inline-flex shrink-0 items-center justify-center"}`}
-      title={label}
+      data-tooltip={label}
       role="img"
       aria-label={label}
     >

@@ -53,7 +53,7 @@ function PositionField({
   return (
     <input
       aria-label={`Position of ${book.title}`}
-      title="Position in the series (e.g. 1, 2, 2.5)"
+      data-tooltip="Position in the series (e.g. 1, 2, 2.5)"
       value={value}
       inputMode="decimal"
       maxLength={20}
@@ -146,7 +146,7 @@ export function SeriesBooks({
                       size="sm"
                       variant="ghost"
                       aria-label={`Move ${book.title} earlier`}
-                      title="Move earlier"
+                      data-tooltip="Move earlier"
                       disabled={!!busy || index === 0}
                       onClick={() => act(book, "up")}
                     >
@@ -156,7 +156,7 @@ export function SeriesBooks({
                       size="sm"
                       variant="ghost"
                       aria-label={`Move ${book.title} later`}
-                      title="Move later"
+                      data-tooltip="Move later"
                       disabled={!!busy || index === books.length - 1}
                       onClick={() => act(book, "down")}
                     >
@@ -166,7 +166,7 @@ export function SeriesBooks({
                       size="sm"
                       variant="ghost"
                       aria-label={`Remove ${book.title} from the series`}
-                      title="Remove from series"
+                      data-tooltip="Remove from series"
                       disabled={!!busy}
                       onClick={() => act(book, "remove")}
                     >

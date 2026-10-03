@@ -26,6 +26,8 @@ const DropdownMenuContext = createContext<DropdownMenuContextValue>({
 
 interface DropdownMenuProps {
   trigger: ReactNode;
+  /** Names an icon-only trigger, and shows as its tooltip */
+  label?: string;
   children: ReactNode;
   align?: "start" | "center" | "end";
   side?: "top" | "bottom";
@@ -35,6 +37,7 @@ interface DropdownMenuProps {
 
 export function DropdownMenu({
   trigger,
+  label,
   children,
   align = "end",
   side = "bottom",
@@ -156,6 +159,8 @@ export function DropdownMenu({
           tabIndex={0}
           aria-haspopup="menu"
           aria-expanded={isOpen}
+          aria-label={label}
+          data-tooltip={label}
           onClick={(e: MouseEvent) => {
             e.stopPropagation();
             e.preventDefault();

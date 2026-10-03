@@ -68,7 +68,8 @@ export function CreateCollectionDialog({
             setOpen(true);
           }}
           variant="primary"
-          title="New collection (A, then C)"
+          data-tooltip="New collection"
+          data-tooltip-keys="a then c"
         >
           <Plus size={14} strokeWidth={1.5} />
           New collection

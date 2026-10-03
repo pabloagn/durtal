@@ -64,6 +64,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${p.name} website`}
+            data-tooltip={`${p.name} website`}
             className="relative z-20 text-fg-muted transition-colors hover:text-accent-rose"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />

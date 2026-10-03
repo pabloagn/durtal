@@ -23,12 +23,12 @@ interface RichTextEditorProps {
 
 function ToolbarButton({
   onClick,
-  title,
+  label,
   children,
   disabled,
 }: {
   onClick: () => void;
-  title: string;
+  label: string;
   children: React.ReactNode;
   disabled?: boolean;
 }) {
@@ -36,7 +36,8 @@ function ToolbarButton({
     <button
       type="button"
       onClick={onClick}
-      title={title}
+      aria-label={label}
+      data-tooltip={label}
       disabled={disabled}
       className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40 disabled:cursor-not-allowed"
     >
@@ -115,28 +116,28 @@ export function RichTextEditor({
       )}
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 rounded-t-sm border border-b-0 border-glass-border bg-bg-secondary px-1.5 py-1">
-        <ToolbarButton onClick={handleBold} title="Bold" disabled={disabled}>
+        <ToolbarButton onClick={handleBold} label="Bold" disabled={disabled}>
           <Bold className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <ToolbarButton onClick={handleItalic} title="Italic" disabled={disabled}>
+        <ToolbarButton onClick={handleItalic} label="Italic" disabled={disabled}>
           <Italic className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <ToolbarButton onClick={handleUnderline} title="Underline" disabled={disabled}>
+        <ToolbarButton onClick={handleUnderline} label="Underline" disabled={disabled}>
           <Underline className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-glass-border" />
-        <ToolbarButton onClick={handleLink} title="Insert Link" disabled={disabled}>
+        <ToolbarButton onClick={handleLink} label="Insert Link" disabled={disabled}>
           <Link className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-glass-border" />
-        <ToolbarButton onClick={handleUnorderedList} title="Bullet List" disabled={disabled}>
+        <ToolbarButton onClick={handleUnorderedList} label="Bullet List" disabled={disabled}>
           <List className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <ToolbarButton onClick={handleOrderedList} title="Numbered List" disabled={disabled}>
+        <ToolbarButton onClick={handleOrderedList} label="Numbered List" disabled={disabled}>
           <ListOrdered className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-glass-border" />
-        <ToolbarButton onClick={handleRemoveFormat} title="Clear Formatting" disabled={disabled}>
+        <ToolbarButton onClick={handleRemoveFormat} label="Clear Formatting" disabled={disabled}>
           <RemoveFormatting className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
       </div>

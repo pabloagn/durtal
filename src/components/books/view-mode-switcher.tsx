@@ -31,7 +31,8 @@ export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSw
           <button
             key={mode.value}
             onClick={() => onChange(mode.value)}
-            title={mode.label}
+            aria-label={mode.label}
+            data-tooltip={mode.label}
             className={`px-2 py-1.5 transition-colors ${
               value === mode.value
                 ? "bg-accent-plum text-fg-primary"

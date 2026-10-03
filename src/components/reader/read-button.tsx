@@ -28,7 +28,7 @@ export function ReadButton({ calibreBooks }: ReadButtonProps) {
     <Link
       href={`/reader/${preferred.calibreId}`}
       className="inline-flex items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-      title={`Read (${formatLabels})`}
+      data-tooltip={`Read (${formatLabels})`}
     >
       <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
       <span>Read</span>

@@ -511,7 +511,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${wr.recommender.name} website`}
-                          title={`${wr.recommender.name} website`}
+                          data-tooltip={`${wr.recommender.name} website`}
                           className="ml-1 inline-flex align-middle text-fg-muted transition-colors hover:text-accent-rose"
                         >
                           <ExternalLink className="h-3 w-3" strokeWidth={1.5} />

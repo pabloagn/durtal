@@ -589,19 +589,23 @@ function OrderDetailPanel({
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowEditDialog(true)}
-              title="Edit order"
+              aria-label="Edit order"
+              data-tooltip="Edit order"
               className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
             >
               <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
-              title="Delete order"
+              aria-label="Delete order"
+              data-tooltip="Delete order"
               className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-accent-red"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
             <button
+              aria-label="Close"
+              data-tooltip="Close"
               onClick={onClose}
               className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
             >
@@ -732,6 +736,8 @@ function OrderDetailPanel({
                       </span>
                       {order.trackingUrl && (
                         <a
+                          aria-label="Open tracking page"
+                          data-tooltip="Open tracking page"
                           href={order.trackingUrl}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -874,6 +880,8 @@ function OrderDetailPanel({
               {/* All transitions dropdown */}
               <div className="relative" ref={statusDropdownRef}>
                 <Button
+                  aria-label="Change status"
+                  data-tooltip="Change status"
                   variant="secondary"
                   size="sm"
                   onClick={() => setStatusDropdownOpen((prev) => !prev)}

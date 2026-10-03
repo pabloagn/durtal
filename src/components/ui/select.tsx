@@ -245,6 +245,7 @@ export function Select({
                         }}
                         className="rounded-sm p-0.5 text-fg-muted transition-colors hover:text-fg-secondary"
                         aria-label={`Help for ${opt.label}`}
+                        data-tooltip={`Help for ${opt.label}`}
                       >
                         <HelpCircle className="h-3 w-3" strokeWidth={1.5} />
                       </button>
