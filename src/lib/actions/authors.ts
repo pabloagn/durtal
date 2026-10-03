@@ -304,6 +304,8 @@ export async function getAuthor(id: string) {
     where: and(bookPersonCondition, eq(authors.id, id)),
     with: {
       country: { columns: { name: true } },
+      birthPlace: { columns: { id: true, name: true, fullName: true } },
+      deathPlace: { columns: { id: true, name: true, fullName: true } },
       workAuthors: {
         with: {
           work: {

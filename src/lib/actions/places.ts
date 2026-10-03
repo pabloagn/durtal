@@ -1,10 +1,14 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { places } from "@/lib/db/schema";
+import { places, countries } from "@/lib/db/schema";
 import { eq, ilike, and, isNull } from "drizzle-orm";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { createPlaceSchema } from "@/lib/validations/places";
+import {
+  createPlaceSchema,
+  geocodedPlaceSchema,
+  type GeocodedPlaceInput,
+} from "@/lib/validations/places";
 
 type PlaceRow = typeof places.$inferSelect;
 
@@ -117,4 +121,53 @@ export async function getOrCreatePlaceChain(
 
   invalidate(CACHE_TAGS.places);
   return resultRows[0] ?? null;
+}
+
+/**
+ * Store a geocoding result (from /api/geocode) as a place.
+ * Finds or creates the country → region → city chain, then fills the
+ * most-specific place with its coordinates, full name and country.
+ */
+export async function createPlaceFromGeocode(
+  rawInput: GeocodedPlaceInput,
+): Promise<PlaceRow | null> {
+  const input = geocodedPlaceSchema.parse(rawInput);
+  // A result without a city (a county, a district) is named by the first
+  // part of its display name, so its coordinates never land on the region
+  const ownName = input.displayName.split(",")[0].trim();
+  const leaf = input.city
+    ? { name: input.city, type: "city" }
+    : ownName && ownName !== input.region && ownName !== input.country
+      ? { name: ownName, type: "district" }
+      : null;
+  const chain = [
+    leaf,
+    { name: input.region, type: "region" },
+    { name: input.country, type: "country" },
+  ].filter((p): p is { name: string; type: string } => !!p?.name?.trim());
+
+  const place = await getOrCreatePlaceChain(chain);
+  if (!place) return null;
+
+  const country = input.countryCode
+    ? await db.query.countries.findFirst({
+        where: eq(countries.alpha2, input.countryCode.toUpperCase()),
+        columns: { id: true },
+      })
+    : undefined;
+
+  // Fill only what the place lacks, so an existing place keeps its data
+  const [updated] = await db
+    .update(places)
+    .set({
+      fullName: place.fullName ?? chain.map((p) => p.name).join(", "),
+      countryId: place.countryId ?? country?.id ?? null,
+      latitude: place.latitude ?? input.latitude,
+      longitude: place.longitude ?? input.longitude,
+    })
+    .where(eq(places.id, place.id))
+    .returning();
+
+  invalidate(CACHE_TAGS.places);
+  return updated ?? place;
 }

@@ -14,7 +14,7 @@ export const places = pgTable("places", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   fullName: text("full_name"), // precomputed: "Auteuil, Paris, Île-de-France, France"
-  type: text("type").notNull(), // country | region | state | province | city | town | village | district | neighborhood
+  type: text("type").notNull(), // country | region | state | province | city | town | village | district | neighborhood | venue
   parentId: uuid("parent_id").references((): AnyPgColumn => places.id, { onDelete: "set null" }),
   countryId: uuid("country_id").references(() => countries.id, { onDelete: "set null" }),
   latitude: doublePrecision("latitude"),
