@@ -325,5 +325,12 @@ also create an item. Families of collections that are not open yet stay hidden
 and keep their scopes and order. `scripts/qa/preview-local.py` runs the app
 against a disposable local database for browser checks.
 
+Migrations 0037–0049 are live since 2026-10-03 (task 0182), and the branch is on
+`fix/backlog-0116-0121`. Only books are enabled. The rehearsal ran first on a
+restored live backup with `scripts/qa/preview-local.py --from-dump`: every
+existing row was preserved, and the only additions were the eight domain
+taxonomy families. Later migrations continue from 0050 and need the same
+backup, rehearsal and before/after comparison.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.
