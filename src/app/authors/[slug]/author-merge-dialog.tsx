@@ -80,7 +80,7 @@ export function AuthorMergeDialog({
       open={open}
       onClose={handleClose}
       title="Merge Authors"
-      description={`Select duplicate authors to merge into "${targetAuthorName}". Their works and contributions will be transferred here, and the duplicates will be deleted.`}
+      description={`Select duplicate authors to merge into "${targetAuthorName}". Their books and contributions will be transferred here, and the duplicates will be deleted.`}
     >
       <div className="space-y-4">
         {/* Selected sources → Target visual */}
@@ -164,7 +164,7 @@ export function AuthorMergeDialog({
         {/* Warning */}
         {sourceIds.length > 0 && (
           <p className="rounded-sm border border-accent-gold/30 bg-accent-gold/5 px-3 py-2 text-xs text-fg-secondary">
-            This will transfer all works and edition contributions from{" "}
+            This will transfer all books and edition contributions from{" "}
             {selectedSources.length === 1
               ? `"${selectedSources[0].name}"`
               : `${selectedSources.length} authors`}{" "}

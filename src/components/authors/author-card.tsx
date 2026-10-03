@@ -96,7 +96,7 @@ export function AuthorCard({
               {worksCount > 0 && !isSelecting && (
                 <div className="absolute right-2 top-2">
                   <Badge variant="muted">
-                    {worksCount} {worksCount === 1 ? "work" : "works"}
+                    {worksCount} {worksCount === 1 ? "book" : "books"}
                   </Badge>
                 </div>
               )}

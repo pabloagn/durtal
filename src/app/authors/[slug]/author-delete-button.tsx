@@ -52,7 +52,7 @@ export function AuthorDeleteButton({
         itemName={name}
         cascade={
           workCount > 0
-            ? "This will NOT delete the author's works, but will remove authorship links."
+            ? "This will NOT delete the author's books, but will remove authorship links."
             : undefined
         }
       />

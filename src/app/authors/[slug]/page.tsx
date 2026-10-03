@@ -167,8 +167,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       {/* Works as author */}
       {works.length > 0 && (
         <section className="mb-8">
-          <SectionHeading title="Works" count={works.length} />
-          <PaginatedSection {...paging} noun="works">
+          <SectionHeading title="Books" count={works.length} />
+          <PaginatedSection {...paging} noun="books">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {paging.items.map((work) => {
               const workActivePoster = work.media?.find(

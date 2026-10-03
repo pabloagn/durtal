@@ -23,6 +23,7 @@ import argparse
 import os
 from pathlib import Path
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
@@ -218,6 +219,9 @@ def main():
             "database": DATABASE,
         })
         env["NODE_OPTIONS"] = f"--import {bridge}"
+        # The dev data cache (unstable_cache) survives restarts: without this, a
+        # preview could show records cached by an earlier run on another database.
+        shutil.rmtree(ROOT / ".next/dev/cache/fetch-cache", ignore_errors=True)
         server = subprocess.Popen(
             ["pnpm", "exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1", "--port", str(args.port)],
             cwd=ROOT, env=env, start_new_session=True)

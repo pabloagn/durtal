@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import {
@@ -13,6 +14,7 @@ import {
   catalogueStatusCondition,
 } from "@/lib/publishers/conditions";
 import { bookAuthorQueries } from "@/lib/catalogue/book-credits";
+import { curationQueries } from "@/lib/catalogue/curation-store";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { workSeriesPlan, resultRows } from "@/lib/series/work-series";
@@ -21,7 +23,6 @@ import {
   works,
   workAuthors,
   workSubjects,
-  workRecommenders,
   editions,
   editionPublishers,
   publishingHouses,
@@ -585,81 +586,70 @@ export async function createWork(input: CreateWorkInput) {
   const parsed = createWorkSchema.parse(input);
   const { authorIds, subjectIds, recommenderIds, ...workData } = parsed;
 
-  const seriesPlan = workSeriesPlan(workData);
-  const results = await atomic((d) => [
-    ...seriesPlan.queries(d),
-    d
-      .insert(works)
-      .values({ ...workData, ...seriesPlan.values })
-      .returning(),
-  ]);
-  const [work] = resultRows<typeof works.$inferSelect>(results.at(-1));
-
-  // Link authors
-  if (authorIds.length > 0) {
-    await db.insert(workAuthors).values(
-      authorIds.map((a, i) => ({
-        workId: work.id,
-        authorId: a.authorId,
-        role: a.role,
-        sortOrder: i,
-      })),
-    );
-  }
-
-  // Link subjects
-  if (subjectIds && subjectIds.length > 0) {
-    await db.insert(workSubjects).values(
-      subjectIds.map((subjectId) => ({
-        workId: work.id,
-        subjectId,
-      })),
-    );
-  }
-
-  // Link recommenders
-  if (recommenderIds && recommenderIds.length > 0) {
-    await db.insert(workRecommenders).values(
-      recommenderIds.map((recommenderId) => ({
-        workId: work.id,
-        recommenderId,
-      })),
-    );
-  }
-
-  // Generate slug: look up primary author name, then set slug on work
-  const primaryAuthorName = await (async () => {
-    if (authorIds.length > 0) {
-      const authorRow = await db.query.authors.findFirst({
-        where: eq(authors.id, authorIds[0].authorId),
-        columns: { name: true },
-      });
-      return authorRow?.name ?? "unknown";
-    }
-    return "unknown";
-  })();
-
-  const baseSlug = generateWorkSlug(work.title, primaryAuthorName, work.id);
+  // The id and slug are known before the write, so the work, its authors,
+  // subjects and recommendations go out as one transaction: a failure leaves
+  // no half-created book.
+  const id = randomUUID();
+  const primaryAuthor = await db.query.authors.findFirst({
+    where: eq(authors.id, authorIds[0].authorId),
+    columns: { name: true },
+  });
+  const baseSlug = generateWorkSlug(
+    workData.title,
+    primaryAuthor?.name ?? "unknown",
+    id,
+  );
   const existing = await db
     .select({ slug: works.slug })
     .from(works)
     .where(like(works.slug, `${baseSlug}%`));
-  const existingSlugs = existing
-    .map((r) => r.slug)
-    .filter((s): s is string => s !== null);
-  const slug = makeUnique(baseSlug, existingSlugs);
+  const slug = makeUnique(
+    baseSlug,
+    existing.map((r) => r.slug).filter((s): s is string => s !== null),
+  );
 
-  const [updated] = await db
-    .update(works)
-    .set({ slug })
-    .where(eq(works.id, work.id))
-    .returning();
+  const seriesPlan = workSeriesPlan(workData);
+  let insertAt = -1;
+  const results = await atomic((d) => {
+    const queries: unknown[] = seriesPlan.queries(d);
+    insertAt = queries.length;
+    queries.push(
+      d
+        .insert(works)
+        .values({ ...workData, ...seriesPlan.values, id, slug })
+        .returning(),
+      ...bookAuthorQueries(d, id, authorIds),
+      ...workSubjectQueries(d, id, subjectIds),
+      ...curationQueries(d, { id, kind: "book" }, { recommenderIds }),
+    );
+    return queries;
+  });
+  const [work] = resultRows<typeof works.$inferSelect>(results[insertAt]);
 
-  recordActivity("work", updated.id, "work.created", {
+  recordActivity("work", work.id, "work.created", {
     newValue: workData.title,
   });
   invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
-  return updated;
+  return work;
+}
+
+/** Replaces a book's subjects; nothing when the edit leaves them alone. */
+function workSubjectQueries(
+  d: typeof db,
+  workId: string,
+  subjectIds: string[] | undefined,
+) {
+  if (!subjectIds) return [];
+  return [
+    d.delete(workSubjects).where(eq(workSubjects.workId, workId)),
+    ...(subjectIds.length
+      ? [
+          d.insert(workSubjects).values(
+            [...new Set(subjectIds)].map((subjectId) => ({ workId, subjectId })),
+          ),
+        ]
+      : []),
+  ];
 }
 
 export async function updateWork(id: string, input: UpdateWorkInput) {
@@ -667,10 +657,14 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
     authorIds,
     subjectIds,
     recommenderIds,
+    notes,
+    rating,
     goodreadsUrl,
     storygraphUrl,
     ...rest
   } = updateWorkSchema.parse(input);
+  // Personal curation goes through the shared path that every domain uses
+  const curation = { notes, rating, recommenderIds };
   // Book links are checked here too: only https pages on the site's own domain.
   const links = bookLinksSchema.parse({ goodreadsUrl, storygraphUrl });
   const seriesPlan = workSeriesPlan(rest);
@@ -707,60 +701,49 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
   });
 
   if (!prev) throw new Error("Work not found");
-  let savedSeriesId = prev.seriesId;
-  if (Object.keys(workData).length > 0) {
-    const results = await atomic((d) => [
-      ...seriesPlan.queries(d),
-      d
-        .update(works)
-        .set({ ...workData, updatedAt: new Date() })
-        .where(and(bookCondition, eq(works.id, id)))
-        .returning({ seriesId: works.seriesId }),
-    ]);
-    savedSeriesId =
-      resultRows<{ seriesId: string | null }>(results.at(-1))[0]?.seriesId ??
-      null;
-    if ("seriesId" in workData) workData.seriesId = savedSeriesId;
-  }
 
-  if (authorIds) await atomic((d) => bookAuthorQueries(d, id, authorIds));
-
-  if (subjectIds) {
-    await db.delete(workSubjects).where(eq(workSubjects.workId, id));
-    if (subjectIds.length > 0) {
-      await db.insert(workSubjects).values(
-        subjectIds.map((subjectId) => ({
-          workId: id,
-          subjectId,
-        })),
+  // One transaction: the work's fields, its curation, authors and subjects
+  // are all saved, or none is.
+  let updateAt = -1;
+  const results = await atomic((d) => {
+    const queries: unknown[] = [];
+    if (Object.keys(workData).length > 0) {
+      queries.push(...seriesPlan.queries(d));
+      updateAt = queries.length;
+      queries.push(
+        d
+          .update(works)
+          .set({ ...workData, updatedAt: new Date() })
+          .where(and(bookCondition, eq(works.id, id)))
+          .returning({ seriesId: works.seriesId }),
       );
     }
-  }
-
-  if (recommenderIds) {
-    await db.delete(workRecommenders).where(eq(workRecommenders.workId, id));
-    if (recommenderIds.length > 0) {
-      await db.insert(workRecommenders).values(
-        recommenderIds.map((recommenderId) => ({
-          workId: id,
-          recommenderId,
-        })),
-      );
-    }
-  }
+    queries.push(
+      ...curationQueries(d, { id, kind: "book" }, curation),
+      ...(authorIds ? bookAuthorQueries(d, id, authorIds) : []),
+      ...workSubjectQueries(d, id, subjectIds),
+    );
+    return queries;
+  });
+  if (updateAt >= 0 && "seriesId" in workData)
+    workData.seriesId =
+      resultRows<{ seriesId: string | null }>(results[updateAt])[0]
+        ?.seriesId ?? null;
+  // Activity compares the rating like the other work fields
+  const changed = rating !== undefined ? { ...workData, rating } : workData;
 
   // The slug follows the title and primary author. The check reads the work
   // after the write above, so it compares the slug with the new values.
   if (workData.title !== undefined || authorIds !== undefined) {
     const change = await refreshWorkSlug(id);
     if (change) {
-      recordWorkDiffs(id, prev, workData, authorIds);
+      recordWorkDiffs(id, prev, changed, authorIds);
       invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
       return { id, slug: change.to };
     }
   }
 
-  recordWorkDiffs(id, prev, workData, authorIds);
+  recordWorkDiffs(id, prev, changed, authorIds);
   invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
   return { id };
 }

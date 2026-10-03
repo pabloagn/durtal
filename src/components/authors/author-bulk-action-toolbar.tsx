@@ -125,7 +125,7 @@ export function AuthorBulkActionToolbar({
         title={`Delete ${selectedCount} ${selectedCount === 1 ? "author" : "authors"}`}
         description="Are you sure you want to delete the selected authors? This action cannot be undone."
         itemName={displayName}
-        cascade="This will NOT delete the authors' works, but will remove authorship links."
+        cascade="This will NOT delete the authors' books, but will remove authorship links."
       />
     </>
   );

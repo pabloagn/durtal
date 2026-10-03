@@ -58,7 +58,7 @@ Fetches a single work with all relations deeply loaded:
 createWork(input: CreateWorkInput): Promise<Work>
 ```
 
-Validated against `createWorkSchema` (Zod). Creates the work record, then inserts `work_authors` junction rows (minimum 1 author required) and `work_subjects` junction rows.
+Validated against `createWorkSchema` (Zod). Gives the book its id and slug first (`{title}-by-{author}`, numbered when taken), then writes the work, its `work_authors` (minimum 1 author, through `bookAuthorQueries`), `work_subjects` and recommendations (through the shared `curationQueries`) in one transaction (`atomic`): a failure leaves no half-created book. Returns the stored work.
 
 ### `updateWork(id, input)`
 
@@ -66,7 +66,7 @@ Validated against `createWorkSchema` (Zod). Creates the work record, then insert
 updateWork(id: string, input: Partial<CreateWorkInput>): Promise<Work>
 ```
 
-Updates work metadata. If `authorIds` is provided, deletes existing `work_authors` rows and reinserts. Same for `subjectIds` and `work_subjects`.
+Updates work metadata in one transaction: the work row, its personal curation (`rating`, `notes`, `recommenderIds` through the shared `curationQueries`, which every domain uses), `authorIds` (through `bookAuthorQueries`, which keeps credit ids) and `subjectIds`. A failure in any part changes nothing. A repeated recommender is stored once. Returns `{ id }`, plus `slug` when a new title or primary author changed the book's address; the book page goes to that address.
 
 ### `deleteWork(id)`
 

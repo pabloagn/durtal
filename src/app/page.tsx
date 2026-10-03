@@ -350,7 +350,7 @@ async function DashboardContent() {
                   {author.worksCount > 0 && (
                     <div className="absolute right-1.5 top-1.5">
                       <Badge variant="muted">
-                        {author.worksCount} {author.worksCount === 1 ? "work" : "works"}
+                        {author.worksCount} {author.worksCount === 1 ? "book" : "books"}
                       </Badge>
                     </div>
                   )}

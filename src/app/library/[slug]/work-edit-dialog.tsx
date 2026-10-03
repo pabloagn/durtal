@@ -303,7 +303,7 @@ export function WorkEditDialog({
 
     startTransition(async () => {
       try {
-        await updateWork(work.id, {
+        const result = await updateWork(work.id, {
           title: title.trim(),
           originalLanguage,
           originalYear: originalYear ? parseInt(originalYear, 10) : null,
@@ -338,7 +338,10 @@ export function WorkEditDialog({
         });
         toast.success("Work updated");
         setOpen(false);
-        router.refresh();
+        // A new title or primary author gives the book a new address; the old
+        // one does not redirect, so go to the new one
+        if (result.slug) router.replace(`/library/${result.slug}`);
+        else router.refresh();
         triggerActivityRefresh();
       } catch (err) {
         toast.error(

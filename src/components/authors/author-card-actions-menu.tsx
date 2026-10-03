@@ -94,7 +94,7 @@ export function AuthorCardActionsMenu({
         title="Delete author"
         description="Are you sure you want to delete this author? This action cannot be undone."
         itemName={name}
-        cascade="This will permanently remove the author from all associated works and editions."
+        cascade="This will permanently remove the author from all associated books and editions."
       />
     </>
   );

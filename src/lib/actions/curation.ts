@@ -1,16 +1,19 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
-import { works, workRecommenders } from "@/lib/db/schema";
 import {
   curationOwnerSchema,
   curationPatchSchema,
   type CurationOwner,
   type CurationPatch,
 } from "@/lib/catalogue/curation";
+import {
+  curationQueries,
+  hasCurationChanges,
+} from "@/lib/catalogue/curation-store";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 
@@ -44,16 +47,11 @@ export async function updateWorkCuration(input: {
   fingerprint: string;
 }) {
   const owner = curationOwnerSchema.parse(input.owner);
-  const { recommenderIds, ...fields } = curationPatchSchema.parse(input.patch);
+  const patch = curationPatchSchema.parse(input.patch);
   const fingerprint = z
     .string()
     .regex(/^[a-f0-9]{32}$/)
     .parse(input.fingerprint);
-  const recommendations = recommenderIds
-    ? [...new Set(recommenderIds)]
-    : undefined;
-  const changes =
-    Object.keys(fields).length > 0 || recommendations !== undefined;
   await atomic((d) => [
     d.execute(
       sql`select id from works where id=${owner.id}::uuid and kind=${owner.kind} for update`,
@@ -64,34 +62,8 @@ export async function updateWorkCuration(input: {
         "Personal curation changed or the work no longer exists; reload before saving",
       ),
     ),
-    ...(changes
-      ? [
-          d
-            .update(works)
-            .set({ ...fields, updatedAt: new Date() })
-            .where(and(eq(works.id, owner.id), eq(works.kind, owner.kind))),
-        ]
-      : []),
-    ...(recommendations !== undefined
-      ? [
-          d
-            .delete(workRecommenders)
-            .where(eq(workRecommenders.workId, owner.id)),
-          ...(recommendations.length
-            ? [
-                d
-                  .insert(workRecommenders)
-                  .values(
-                    recommendations.map((recommenderId) => ({
-                      workId: owner.id,
-                      recommenderId,
-                    })),
-                  ),
-              ]
-            : []),
-        ]
-      : []),
+    ...curationQueries(d, owner, patch),
   ]);
-  if (changes) invalidate(CACHE_TAGS.works, CACHE_TAGS.recommenders);
+  if (hasCurationChanges(patch)) invalidate(CACHE_TAGS.works, CACHE_TAGS.recommenders);
   return (await getWorkCuration(owner))!;
 }

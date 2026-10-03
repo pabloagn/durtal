@@ -182,7 +182,8 @@ export function EditionDetailCard({
                 )}
               </div>
               {hasActionProps && (
-                <div className="flex items-center gap-1">
+                // On a phone the actions wrap; each label stays on one line
+                <div className="flex flex-wrap items-center gap-1">
                   <CollectionButton
                     editionId={edition.id}
                     title={edition.title}

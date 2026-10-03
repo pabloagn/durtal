@@ -9,7 +9,6 @@ import {
   authors,
   works,
   workAuthors,
-  workRecommenders,
   editions,
   activityEvents,
 } from "@/lib/db/schema";
@@ -27,6 +26,7 @@ import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
 import { authorNameEquals } from "@/lib/actions/utils/author-search";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
+import { curationQueries } from "@/lib/catalogue/curation-store";
 
 type Result =
   | {
@@ -114,14 +114,7 @@ export async function fastTrackBook(
         .insert(workAuthors)
         .values({ workId, authorId, role: "author", sortOrder: 0 }),
       ...(recommenderIds.length
-        ? [
-            d.insert(workRecommenders).values(
-              [...new Set(recommenderIds)].map((recommenderId) => ({
-                workId,
-                recommenderId,
-              })),
-            ),
-          ]
+        ? curationQueries(d, { id: workId, kind: "book" }, { recommenderIds })
         : []),
       d.insert(editions).values({
         ...edition,

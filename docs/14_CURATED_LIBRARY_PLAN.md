@@ -339,5 +339,14 @@ their collection opens, from a gate in each route's layout. Their homes, the
 collection switch with its filter rules and per-collection saved views are in
 place for SLN-366–SLN-368 to fill with domain cards and detail pages.
 
+The book experience on the shared substrate (SLN-365, task 0197): book saves
+(`createWork`, `updateWork`, Fast Track) write personal curation through the
+shared `curationQueries` (`src/lib/catalogue/curation-store.ts`), the same path
+as `updateWorkCuration`, and authors through `bookAuthorQueries`. Create and
+update are each one transaction. Person pages name book counts "books". Book
+identity stays the legacy slug, ISBN and metadata fields; typed catalogue
+identifiers start with the other collections (SLN-355 kept book provenance
+without backfill). Edition and copy UI stay book-specific.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

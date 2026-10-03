@@ -127,7 +127,7 @@ export function AuthorListItem({
             <span className="font-mono text-micro text-fg-secondary">{years}</span>
           )}
           <span className="w-14 text-right font-mono text-micro text-fg-secondary">
-            {worksCount} {worksCount === 1 ? "work" : "works"}
+            {worksCount} {worksCount === 1 ? "book" : "books"}
           </span>
         </div>
       </Link>
