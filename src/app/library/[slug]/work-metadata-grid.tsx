@@ -1,92 +1,66 @@
 import Link from "next/link";
 import type { WorkWithRelations } from "@/lib/types";
-import { SectionHeading } from "@/components/shared/section-heading";
+import {
+  RecordField,
+  RecordFields,
+  RecordGroup,
+} from "@/components/shared/detail-layout";
 
-interface WorkMetadataGridProps {
+interface WorkDetailsProps {
   work: WorkWithRelations;
 }
 
-interface MetaRowProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function MetaRow({ label, children }: MetaRowProps) {
-  return (
-    <>
-      <dt className="text-xs text-fg-secondary">{label}</dt>
-      <dd className="text-sm text-fg-secondary">{children}</dd>
-    </>
+/** The work's facts, as the first group of the book page's record */
+export function WorkDetails({ work }: WorkDetailsProps) {
+  const series = work.seriesId && work.series ? work.series : null;
+  const position = work.seriesPosition && (
+    <span className="ml-1 font-mono text-xs text-fg-secondary">
+      #{work.seriesPosition}
+    </span>
   );
-}
-
-export function WorkMetadataGrid({ work }: WorkMetadataGridProps) {
-  const hasSeries = !!(work.seriesId && work.series);
-  const hasSeriesName = !!work.seriesName;
-  const hasAnyMeta =
-    work.originalLanguage ||
-    work.originalYear ||
-    work.workType ||
-    work.catalogueStatus ||
-    work.acquisitionPriority !== "none" ||
-    work.isAnthology ||
-    hasSeries ||
-    hasSeriesName;
-
-  if (!hasAnyMeta) return null;
 
   return (
-    <section className="mb-8">
-      <SectionHeading title="Details" />
-      <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
+    <RecordGroup title="Details">
+      <RecordFields>
         {work.originalLanguage && (
-          <MetaRow label="Original Language">
+          <RecordField label="Original language">
             {work.originalLanguage}
-          </MetaRow>
+          </RecordField>
         )}
         {work.originalYear && (
-          <MetaRow label="Original Year">
+          <RecordField label="Original year">
             <span className="font-mono text-xs">{work.originalYear}</span>
-          </MetaRow>
+          </RecordField>
         )}
         {work.workType && (
-          <MetaRow label="Work Type">{work.workType.name}</MetaRow>
+          <RecordField label="Work type">{work.workType.name}</RecordField>
         )}
-        <MetaRow label="Catalogue Status">{work.catalogueStatus}</MetaRow>
+        <RecordField label="Catalogue status">{work.catalogueStatus}</RecordField>
         {work.acquisitionPriority && work.acquisitionPriority !== "none" && (
-          <MetaRow label="Acquisition Priority">
+          <RecordField label="Acquisition priority">
             {work.acquisitionPriority}
-          </MetaRow>
+          </RecordField>
         )}
-        {work.isAnthology && (
-          <MetaRow label="Anthology">Yes</MetaRow>
-        )}
-        {hasSeries && work.series && (
-          <MetaRow label="Series">
+        {work.isAnthology && <RecordField label="Anthology">Yes</RecordField>}
+        {series ? (
+          <RecordField label="Series">
             <Link
-              href={`/series/${work.series.id}`}
+              href={`/series/${series.id}`}
               className="transition-colors hover:text-accent-rose-text"
             >
-              {work.series.title}
+              {series.title}
             </Link>
-            {work.seriesPosition && (
-              <span className="ml-1 font-mono text-xs text-fg-secondary">
-                #{work.seriesPosition}
-              </span>
-            )}
-          </MetaRow>
+            {position}
+          </RecordField>
+        ) : (
+          work.seriesName && (
+            <RecordField label="Series">
+              {work.seriesName}
+              {position}
+            </RecordField>
+          )
         )}
-        {!hasSeries && hasSeriesName && work.seriesName && (
-          <MetaRow label="Series">
-            {work.seriesName}
-            {work.seriesPosition && (
-              <span className="ml-1 font-mono text-xs text-fg-secondary">
-                #{work.seriesPosition}
-              </span>
-            )}
-          </MetaRow>
-        )}
-      </dl>
-    </section>
+      </RecordFields>
+    </RecordGroup>
   );
 }

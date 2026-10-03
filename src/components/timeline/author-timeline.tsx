@@ -12,6 +12,7 @@ import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
 import { AuthorTimelineRow, ROW_HEIGHT } from "./author-timeline-row";
 import { mediaImageStyle } from "@/lib/utils/media-style";
+import { displayYear } from "@/lib/utils/years";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,8 +26,8 @@ const BOTTOM_CHROME_HEIGHT = 68;
 function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
 
   const lifeDates = author.deathYear
-    ? `${author.birthYear} — ${author.deathYear}`
-    : `${author.birthYear} — present`;
+    ? `${displayYear(author.birthYear)} — ${displayYear(author.deathYear)}`
+    : `${displayYear(author.birthYear)} — present`;
 
   return (
     <div

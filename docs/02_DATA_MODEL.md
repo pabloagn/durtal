@@ -652,17 +652,17 @@ person so that a filmmaker who writes a book is reused.
 | `last_name` | TEXT | nullable | Family name |
 | `real_name` | TEXT | nullable | Birth name if using a pen name |
 | `gender` | gender_enum | nullable | `'male'`, `'female'` |
-| `birth_year` | SMALLINT | nullable | |
+| `birth_year` | SMALLINT | nullable | Civil year: negative before Christ, never 0 ("428 BC" is -428) |
 | `birth_month` | SMALLINT | nullable | |
 | `birth_day` | SMALLINT | nullable | |
 | `birth_year_is_approximate` | BOOLEAN | default `false` | |
-| `birth_year_gregorian` | SMALLINT | nullable | Gregorian calendar year |
+| `birth_year_gregorian` | SMALLINT | nullable | Gregorian calendar year, set when the stored date is in the Julian calendar and the year is certain |
 | `zodiac_sign` | TEXT | nullable | Auto-computed from birth_month/birth_day (tropical Western zodiac). Values: `aries`, `taurus`, `gemini`, `cancer`, `leo`, `virgo`, `libra`, `scorpio`, `sagittarius`, `capricorn`, `aquarius`, `pisces` |
-| `death_year` | SMALLINT | nullable | |
+| `death_year` | SMALLINT | nullable | Civil year, as `birth_year` |
 | `death_month` | SMALLINT | nullable | |
 | `death_day` | SMALLINT | nullable | |
 | `death_year_is_approximate` | BOOLEAN | default `false` | |
-| `death_year_gregorian` | SMALLINT | nullable | Gregorian calendar year |
+| `death_year_gregorian` | SMALLINT | nullable | Gregorian calendar year, as `birth_year_gregorian` |
 | `nationality_id` | UUID | FK → `countries.id`, SET NULL | |
 | `birth_place_id` | UUID | FK → `places.id`, SET NULL | Geographic place of birth |
 | `death_place_id` | UUID | FK → `places.id`, SET NULL | Geographic place of death |
@@ -688,6 +688,27 @@ book behavior, but non-book credits restrict deletion and roll back associated
 comment/activity cleanup. Distinct credit IDs survive merges; duplicate book
 memberships keep the target credit and retain the source in the merge archive.
 Shared edits keep the URL stable; same-name creation retries slug collisions.
+
+Enrichment: `scripts/authors/enrich.ts` researches authors on Wikidata (Action
+API, answers cached). A person is taken only when they are human (P31 Q5), the
+name fits (the label or an alias is a form of the author's name, or the same
+family name with fitting given names or initials), nothing the catalogue knows
+contradicts them (gender, birth and death years, a book older than the person),
+and there is evidence: one of the author's books among the person's works, or
+dates that agree. A match fills only empty columns: dates to the precision
+Wikidata gives (circa and decades set the approximate flag; centuries are not
+taken), the zodiac sign, gender (P21 only), nationality (the one citizenship
+that is a country today, or the description's demonym), birth and death
+places, birth name (Latin script), website, `open_library_key`
+(`/authors/OL…A`), `goodreads_id` and `bio` (an About text from Wikidata facts,
+sanitized). A year before Christ stored without its minus sign is put right;
+other values that disagree are reported, never changed. Photos, posters,
+backgrounds and other media are never read or written. The person is kept in
+`catalogue_identifiers` (provider `wikidata`, entity kind `person`) and the
+facts used in `source_records`. Decisions after research:
+`src/lib/authors/enrichment-review.ts`. Rules: `src/lib/authors/enrichment.ts`.
+Dry run by default; `--apply` saves the old values, identifiers and new places
+for `--undo`.
 
 ### `person_domains` and `person_aliases`
 
@@ -968,6 +989,11 @@ Hierarchical geographic locations. Used to record birth and death places for aut
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
 **Relations**: `parent` (N:1 → `places`, self-ref), `children` (1:N → `places`, self-ref), `country` (N:1 → `countries`)
+
+Author enrichment adds birth and death places as a country → top region → place
+chain. Each row is found by `wikidata_id` first, then by name, type and parent,
+and a new row carries its `wikidata_id`, `country_id`, `full_name` and P625
+coordinates. A birthplace that is a building is recorded as its town.
 
 ### `centuries`
 

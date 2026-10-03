@@ -312,7 +312,8 @@ for (const [i, h] of houses.entries()) {
 class Rollback extends Error {}
 const createdIdentifiers: string[] = [];
 try {
-  await sql.begin(async (tx) => {
+  await sql.begin(async (t) => {
+    const tx = t as unknown as postgres.Sql;
     for (const w of writes) {
       await tx`update publishing_houses set country = ${w.next.country}, country_id = ${w.next.countryId},
         website = ${w.next.website}, description = ${w.next.description}

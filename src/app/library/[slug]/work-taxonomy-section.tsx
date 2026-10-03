@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import type { WorkWithRelations } from "@/lib/types";
 import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
-import { SectionHeading } from "@/components/shared/section-heading";
+import { RecordGroup } from "@/components/shared/detail-layout";
 
 interface WorkTaxonomySectionProps {
   work: WorkWithRelations;
@@ -27,9 +27,7 @@ function TaxonomyGroup({ label, familySlug, items, variant }: TaxonomyGroupProps
   if (items.length === 0) return null;
   return (
     <div>
-      <p className="type-caption mb-1.5">
-        {label}
-      </p>
+      <p className="mb-1.5 text-xs text-fg-secondary">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {items.map((item) => (
           <Link key={item.slug} href={`/taxonomy/${familySlug}/${item.slug}`}>
@@ -42,8 +40,9 @@ function TaxonomyGroup({ label, familySlug, items, variant }: TaxonomyGroupProps
 }
 
 /**
- * Built-in book families (edited in the work dialog) and the custom families
- * that apply to books, edited in place.
+ * Built-in book families (edited in the work dialog, or with T) and the
+ * custom families that apply to books, edited in place. A group of the book
+ * page's record; nothing when no family has an item or applies.
  */
 export async function WorkTaxonomySection({
   work,
@@ -97,13 +96,11 @@ export async function WorkTaxonomySection({
     keywordItems.length > 0 ||
     attributeItems.length > 0;
 
+  if (!hasAny && !custom.length) return null;
+
   return (
-    <section className="mb-8">
-      <SectionHeading title="Taxonomy" action={headerAction} />
-      {!hasAny && !custom.length && (
-        <p className="text-sm text-fg-secondary">No taxonomy assigned</p>
-      )}
-      <div className="space-y-4">
+    <RecordGroup title="Taxonomy" action={headerAction}>
+      <div className="space-y-3">
         <TaxonomyGroup label="Subjects" familySlug="subjects" items={subjects} variant="default" />
         <TaxonomyGroup label="Categories" familySlug="categories" items={categories} variant="muted" />
         <TaxonomyGroup label="Themes" familySlug="themes" items={themes} variant="blue" />
@@ -124,7 +121,7 @@ export async function WorkTaxonomySection({
         <TaxonomyGroup label="Attributes" familySlug="attributes" items={attributeItems} variant="muted" />
       </div>
       {custom.length > 0 && (
-        <div className={hasAny ? "mt-4" : ""}>
+        <div className={hasAny ? "mt-3" : ""}>
           <TaxonomyAssignments
             kind="book"
             level="work"
@@ -133,6 +130,6 @@ export async function WorkTaxonomySection({
           />
         </div>
       )}
-    </section>
+    </RecordGroup>
   );
 }

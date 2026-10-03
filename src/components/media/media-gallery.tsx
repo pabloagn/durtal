@@ -54,7 +54,7 @@ export function MediaGallery({
                 aria-label="Delete image"
                 data-tooltip="Delete image"
                 onClick={(e) => handleDelete(item.id, e)}
-                className="absolute right-2 top-2 rounded-sm bg-bg-primary/80 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute right-2 top-2 rounded-sm bg-bg-primary/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <Trash2
                   className="h-4 w-4 text-accent-red"
@@ -63,7 +63,7 @@ export function MediaGallery({
               </button>
             )}
             {item.caption && (
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-primary/80 to-transparent px-2 pb-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg-primary/80 to-transparent px-2 pb-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <p className="text-xs text-fg-secondary">{item.caption}</p>
               </div>
             )}

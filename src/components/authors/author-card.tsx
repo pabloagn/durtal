@@ -6,6 +6,7 @@ import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
+import { displayYear } from "@/lib/utils/years";
 
 type PosterCrop = MediaCrop;
 
@@ -49,7 +50,7 @@ export function AuthorCard({
   onSelect,
 }: AuthorCardProps) {
   const years = birthYear
-    ? `${birthYear}–${deathYear ?? ""}`
+    ? `${displayYear(birthYear)}–${deathYear ? displayYear(deathYear) : ""}`
     : null;
 
 
@@ -113,7 +114,7 @@ export function AuthorCard({
         {/* Three-dot menu — outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (
           <div
-            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
+            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />

@@ -26,6 +26,43 @@
     return walker.nextNode();
   }
 
+  /**
+   * Layout baseline of the line that holds character `index` of a text node,
+   * in viewport px. A range's box is not a reliable base: for JetBrains Mono
+   * at 14px it is 18.5px tall against an ascent + descent of 18px. Instead, a
+   * zero-height inline-block goes right after the character: its bottom sits
+   * on the baseline. The DOM is restored before returning.
+   */
+  function baseline(text, index) {
+    // Text directly in a flex or grid box lays out in an anonymous item. A
+    // wrapper stands in for that item, so the probe joins the text's line.
+    let box = text.parentElement;
+    while (getComputedStyle(box).display === "contents") box = box.parentElement;
+    let wrap = null;
+    if (/flex|grid|box/.test(getComputedStyle(box).display)) {
+      const inRun = (n) =>
+        n?.nodeType === Node.TEXT_NODE || n?.nodeType === Node.COMMENT_NODE;
+      const run = [text];
+      while (inRun(run[0].previousSibling)) run.unshift(run[0].previousSibling);
+      while (inRun(run.at(-1).nextSibling)) run.push(run.at(-1).nextSibling);
+      wrap = document.createElement("span");
+      wrap.style.cssText = "all:unset";
+      run[0].before(wrap);
+      wrap.append(...run);
+    }
+    const probe = document.createElement("span");
+    probe.style.cssText =
+      "all:unset;display:inline-block;width:1px;height:0;margin-right:-1px;vertical-align:baseline";
+    const rest = text.splitText(index + 1);
+    rest.before(probe);
+    const y = probe.getBoundingClientRect().bottom;
+    probe.remove();
+    text.appendData(rest.data);
+    rest.remove();
+    wrap?.replaceWith(...wrap.childNodes);
+    return y;
+  }
+
   /** First line of a text node: its box and cap-height center, in viewport px */
   function firstLine(text) {
     const range = document.createRange();
@@ -33,14 +70,15 @@
     range.setStart(text, start);
     range.setEnd(text, start + 1);
     const rect = range.getClientRects()[0];
-    if (!rect) return null;
+    // Next keeps a hidden copy of a page after client navigation: no size
+    if (!rect?.width || !rect.height) return null;
     const cs = getComputedStyle(text.parentElement);
     ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     const metrics = ctx.measureText("H");
-    // A text range's box spans the font's ascent + descent: its top plus the
-    // ascent is the baseline.
-    const baseline = rect.top + metrics.fontBoundingBoxAscent;
-    return { rect, cap: baseline - metrics.actualBoundingBoxAscent / 2 };
+    return {
+      rect,
+      cap: baseline(text, start) - metrics.actualBoundingBoxAscent / 2,
+    };
   }
 
   /** A column of two or more text blocks, e.g. a number over its label */

@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { mediaImageStyle } from "@/lib/utils/media-style";
+import { displayYear } from "@/lib/utils/years";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,7 @@ export function AuthorTimelineRow({
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${author.name}, ${author.birthYear}–${author.deathYear ?? "present"}`}
+      aria-label={`${author.name}, ${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : "present"}`}
       style={barStyle}
       onPointerEnter={(e) => onHover(author.id, e.clientX, e.clientY)}
       onPointerLeave={() => onHover(null)}
@@ -235,7 +236,7 @@ export function AuthorTimelineRow({
             userSelect: "none",
           }}
         >
-          {author.birthYear}
+          {displayYear(author.birthYear)}
         </span>
       )}
 
@@ -255,7 +256,7 @@ export function AuthorTimelineRow({
             userSelect: "none",
           }}
         >
-          {author.deathYear}
+          {displayYear(author.deathYear)}
         </span>
       )}
 

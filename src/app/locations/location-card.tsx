@@ -149,7 +149,7 @@ export function LocationCard({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditOpen(true)}
-                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100"
+                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100 focus-visible:opacity-100"
                     aria-label="Edit location"
                     data-tooltip="Edit location"
                   >
@@ -157,7 +157,7 @@ export function LocationCard({
                   </button>
                   <button
                     onClick={() => setDeleteOpen(true)}
-                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100"
+                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100"
                     aria-label="Delete location"
                     data-tooltip="Delete location"
                   >

@@ -1,5 +1,13 @@
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { SectionHeading } from "@/components/shared/section-heading";
+import {
+  DetailColumns,
+  RecordField,
+  RecordFields,
+  RecordGroup,
+  RecordPanel,
+} from "@/components/shared/detail-layout";
+import { Prose } from "@/components/shared/prose";
 import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { Suspense } from "react";
@@ -12,7 +20,6 @@ import {
   Phone,
   Mail,
   Globe,
-  Clock,
   AtSign,
   Tag,
 } from "lucide-react";
@@ -48,6 +55,21 @@ async function PlaceContent({ slug }: { slug: string }) {
     null;
 
   const badgeVariant = VENUE_TYPE_BADGE_VARIANTS[venue.type] ?? "muted";
+  const hasTags = !!venue.tags && venue.tags.length > 0;
+  const hasContact = !!(
+    venue.phone ||
+    venue.email ||
+    venue.website ||
+    venue.instagramHandle
+  );
+  const hasVisits = !!(venue.firstVisitDate || venue.lastVisitDate);
+  const hasHours = venue.openingHours != null;
+  const hasReading = !!(
+    venue.description ||
+    venue.specialties ||
+    hasTags ||
+    venue.notes
+  );
 
   return (
     <>
@@ -136,143 +158,129 @@ async function PlaceContent({ slug }: { slug: string }) {
         </div>
       </div>
 
-      {/* Description */}
-      {venue.description && (
-        <section className="mb-8">
-          <SectionHeading title="About" />
-          <p className="max-w-2xl text-sm leading-relaxed text-fg-secondary">
-            {venue.description}
-          </p>
-        </section>
-      )}
-
-      {/* Specialties and tags */}
-      {(venue.specialties || (venue.tags && venue.tags.length > 0)) && (
-        <section className="mb-8">
-          {venue.specialties && (
-            <SectionHeading
-              title="Specialties"
-              description={venue.specialties}
-            />
-          )}
-          {venue.tags && venue.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Tag className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
-              {venue.tags.map((tag) => (
-                <Badge key={tag} variant="muted">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Opening hours */}
-      {venue.openingHours && (
-        <section className="mb-8">
-          <SectionHeading title="Opening Hours" icon={Clock} />
-          <pre className="font-mono text-xs text-fg-secondary">
-            {JSON.stringify(venue.openingHours, null, 2)}
-          </pre>
-        </section>
-      )}
-
-      {/* Contact info */}
-      {(venue.phone || venue.email || venue.website || venue.instagramHandle) && (
-        <section className="mb-8">
-          <SectionHeading title="Contact" />
-          <div className="space-y-2">
-            {venue.website && (
-              <a
-                href={venue.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
-              >
-                <CapAligned height={14}><Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
-                {venue.website}
-              </a>
+      {/* Reading column and, from lg up, the record on the right */}
+      <DetailColumns
+        record={
+          hasContact || hasHours || hasVisits ? (
+            <RecordPanel>
+              {hasContact && (
+                <RecordGroup title="Contact">
+                  <div className="space-y-2">
+                    {venue.website && (
+                      <a
+                        href={venue.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
+                      >
+                        <CapAligned height={14}><Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
+                        {venue.website}
+                      </a>
+                    )}
+                    {venue.phone && (
+                      <a
+                        href={`tel:${venue.phone}`}
+                        className="flex items-start gap-2 break-all text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+                      >
+                        <CapAligned height={14}><Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
+                        {venue.phone}
+                      </a>
+                    )}
+                    {venue.email && (
+                      <a
+                        href={`mailto:${venue.email}`}
+                        className="flex items-start gap-2 break-all text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+                      >
+                        <CapAligned height={14}><Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
+                        {venue.email}
+                      </a>
+                    )}
+                    {venue.instagramHandle && (
+                      <a
+                        href={`https://instagram.com/${venue.instagramHandle.replace(/^@/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
+                      >
+                        <CapAligned height={14}><AtSign className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
+                        {venue.instagramHandle.startsWith("@")
+                          ? venue.instagramHandle
+                          : `@${venue.instagramHandle}`}
+                      </a>
+                    )}
+                  </div>
+                </RecordGroup>
+              )}
+              {hasHours && (
+                <RecordGroup title="Opening hours">
+                  <pre className="whitespace-pre-wrap break-words font-mono text-xs text-fg-secondary">
+                    {JSON.stringify(venue.openingHours, null, 2)}
+                  </pre>
+                </RecordGroup>
+              )}
+              {hasVisits && (
+                <RecordGroup title="Visits">
+                  <RecordFields>
+                    {venue.firstVisitDate && (
+                      <RecordField label="First visit">
+                        {venue.firstVisitDate}
+                      </RecordField>
+                    )}
+                    {venue.lastVisitDate && (
+                      <RecordField label="Last visit">
+                        {venue.lastVisitDate}
+                      </RecordField>
+                    )}
+                  </RecordFields>
+                </RecordGroup>
+              )}
+            </RecordPanel>
+          ) : undefined
+        }
+      >
+        {hasReading ? (
+          <>
+            {venue.description && (
+              <section className="mb-8">
+                <SectionHeading title="About" />
+                <Prose className="whitespace-pre-wrap">{venue.description}</Prose>
+              </section>
             )}
-            {venue.phone && (
-              <a
-                href={`tel:${venue.phone}`}
-                className="flex items-start gap-2 break-all text-sm text-fg-secondary transition-colors hover:text-fg-primary"
-              >
-                <CapAligned height={14}><Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
-                {venue.phone}
-              </a>
-            )}
-            {venue.email && (
-              <a
-                href={`mailto:${venue.email}`}
-                className="flex items-start gap-2 break-all text-sm text-fg-secondary transition-colors hover:text-fg-primary"
-              >
-                <CapAligned height={14}><Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
-                {venue.email}
-              </a>
-            )}
-            {venue.instagramHandle && (
-              <a
-                href={`https://instagram.com/${venue.instagramHandle.replace(/^@/, "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
-              >
-                <CapAligned height={14}><AtSign className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
-                {venue.instagramHandle.startsWith("@")
-                  ? venue.instagramHandle
-                  : `@${venue.instagramHandle}`}
-              </a>
-            )}
-          </div>
-        </section>
-      )}
 
-      {/* Personal notes */}
-      {venue.notes && (
-        <section className="mb-8">
-          <SectionHeading title="Notes" />
-          <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
-            {venue.notes}
-          </p>
-        </section>
-      )}
-
-      {/* Visit history */}
-      {(venue.firstVisitDate || venue.lastVisitDate) && (
-        <section className="mb-8">
-          <SectionHeading title="Visit History" />
-          <dl className="grid max-w-xs grid-cols-[auto_1fr] gap-x-6 gap-y-2">
-            {venue.firstVisitDate && (
-              <>
-                <dt className="text-xs text-fg-secondary">First visit</dt>
-                <dd className="text-sm text-fg-secondary">
-                  {venue.firstVisitDate}
-                </dd>
-              </>
+            {/* Specialties and tags */}
+            {(venue.specialties || hasTags) && (
+              <section className="mb-8">
+                {venue.specialties && (
+                  <SectionHeading
+                    title="Specialties"
+                    description={venue.specialties}
+                  />
+                )}
+                {hasTags && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Tag className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+                    {venue.tags!.map((tag) => (
+                      <Badge key={tag} variant="muted">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
-            {venue.lastVisitDate && (
-              <>
-                <dt className="text-xs text-fg-secondary">Last visit</dt>
-                <dd className="text-sm text-fg-secondary">
-                  {venue.lastVisitDate}
-                </dd>
-              </>
-            )}
-          </dl>
-        </section>
-      )}
 
-      {/* Map placeholder */}
-      <section className="mb-8">
-        <SectionHeading title="Map" />
-        <div className="flex h-48 items-center justify-center rounded-sm border border-dashed border-glass-border bg-bg-secondary/50">
-          <p className="text-sm text-fg-secondary">
-            Map integration coming soon (Task 0058)
-          </p>
-        </div>
-      </section>
+            {/* Personal notes */}
+            {venue.notes && (
+              <section className="mb-8">
+                <SectionHeading title="Notes" />
+                <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
+                  {venue.notes}
+                </p>
+              </section>
+            )}
+          </>
+        ) : null}
+      </DetailColumns>
     </>
   );
 }

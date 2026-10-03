@@ -142,9 +142,11 @@ export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
     <div
       className="pointer-events-none absolute -left-6 -top-6 -right-6 z-0 h-[650px] overflow-hidden"
       aria-hidden="true"
+      // The glow stays behind the header: it is gone by 58% of its height,
+      // above the description
       style={{
         maskImage:
-          "linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 5%, #000 65%, transparent)",
+          "linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 5%, #000 35%, transparent 58%)",
         maskComposite: "intersect",
       }}
     >

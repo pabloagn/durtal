@@ -39,6 +39,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { getAuthorCoverPreviews } from "@/lib/actions/authors";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { displayYear } from "@/lib/utils/years";
 
 function StatCard({
   label,
@@ -374,7 +375,7 @@ async function DashboardContent() {
                   </p>
                   <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
                     {author.birthYear
-                      ? `${author.birthYear}–${author.deathYear ?? ""}`
+                      ? `${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`
                       : null}
                   </p>
                 </div>

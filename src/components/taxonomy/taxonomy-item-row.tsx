@@ -110,7 +110,7 @@ export function TaxonomyItemRow({
       {/* Drag handle */}
       <div
         ref={dragHandleProps?.setActivatorNodeRef}
-        className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 active:cursor-grabbing"
+        className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 focus-visible:opacity-100 active:cursor-grabbing"
         {...dragHandleProps?.listeners}
         {...dragHandleProps?.attributes}
       >
