@@ -19,6 +19,7 @@ import {
   placeChain,
   planAuthor,
   planDate,
+  roleCheck,
   sameTitle,
   settlementOf,
   type AuthorEvidence,
@@ -51,6 +52,7 @@ const author = (over: Partial<AuthorEvidence>): AuthorEvidence => ({
   goodreadsId: null,
   zodiacSign: null,
   works: [],
+  roles: [],
   ...over,
 });
 
@@ -366,6 +368,34 @@ describe("matching", () => {
     expect(dup.held[0]).toMatch(/same person as italo-calvino/);
     const accepted = chooseMatch(author({}), ctx({ review: { name: "x", accept: "Q154756", note: "researched" } }));
     expect(accepted.match?.confidence).toBe("reviewed");
+  });
+});
+
+describe("roles", () => {
+  const labels = {
+    QP: { id: "QP", label: "painter", description: null },
+    QF: { id: "QF", label: "association football player", description: null },
+  };
+  const painter = person("Q1", { label: "John Smith", occupations: ["QP"], description: "English painter" });
+  const footballer = person("Q2", { label: "John Smith", occupations: ["QF"], description: "English footballer" });
+
+  it("checks the catalogue's roles against Wikidata's occupations", () => {
+    expect(roleCheck(["Painter"], painter, labels)).toMatchObject({ agrees: true, known: true });
+    expect(roleCheck(["Painter"], footballer, labels)).toMatchObject({ agrees: false, known: true });
+    // A role that names no profession, or a person Wikidata says nothing about
+    expect(roleCheck(["Patron"], footballer, labels).known).toBe(false);
+    expect(roleCheck(["Painter"], person("Q3", {}), labels).known).toBe(false);
+    expect(roleCheck(["Theorist"], person("Q4", { description: "French philosopher" }), labels).agrees).toBe(true);
+  });
+
+  it("takes the one person whose occupation fits the roles, and holds a misfit", () => {
+    const ctxRoles = (people: PersonItem[]) =>
+      ctx({ people: Object.fromEntries(people.map((p) => [p.id, p])), candidates: people.map((p) => p.id), labels });
+    const a = author({ name: "John Smith", sortName: null, roles: ["Painter"] });
+    expect(chooseMatch(a, ctxRoles([painter, footballer])).match).toMatchObject({ id: "Q1", confidence: "medium" });
+    const held = chooseMatch(a, ctxRoles([footballer]));
+    expect(held.match).toBeNull();
+    expect(held.held[0]).toMatch(/role: catalogue Painter/);
   });
 });
 
