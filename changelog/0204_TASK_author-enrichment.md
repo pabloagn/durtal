@@ -1,6 +1,6 @@
 # Task 0204: Author enrichment from Wikidata
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-03
 **Priority**: MEDIUM
 **Type**: Feature
@@ -27,4 +27,31 @@ The owner asked for the same research as the publishers (task 0201) for author d
 - Docs: `docs/02_DATA_MODEL.md` (authors: year columns, enrichment; places).
 
 ## Completion Notes
-- Pending: dry runs, review, apply.
+- Eight dry runs on live data, read line by line. The review found and fixed:
+  - names stored only in "mul" (Victor Hugo, Ágota Kristóf): read as well as English, which also helps the publisher reader;
+  - birthplaces in today's borders held against a nationality (Bruno Schulz, Jan Potocki, Joseph Conrad): a birthplace can now only agree;
+  - near titles missed ("The Bridge Over the Drina", "Decline and Fall…, Volumes 1 to 6");
+  - works read for too few namesakes (six Mark Fishers);
+  - dates that differ only in the day: the shared year, or year and month, is now taken;
+  - a building as a birthplace (Dostoyevsky's hospital) and Paris arrondissements in About texts.
+- Research by hand, each checked against English Wikipedia:
+  - 14 values put right: the birth days of Denis Johnson, Marina Dyachenko, Patrick McGrath and Bothayna Al-Essa; Christopher Zeischegg's birth date; months for Imre Madách and Marguerite Young, where Wikidata's day is wrong; Patrick Senécal's nationality (Canada, not France).
+  - 7 birth names Wikidata has wrong or uncertain are not filled (John Steinbeck, Ian McEwan, Luis Martín-Santos, Aldous Huxley, Dante, Marcus Aurelius, Petronius).
+  - 12 people accepted (among them Homer, Moses de León, Mary Beard, Eça de Queirós) and 5 refused (Anonymous, Unknown, Luther Blissett, Melissa Brown, Donald A. Neumann).
+  - The four deaths in 2025 and 2026 (Mario Vargas Llosa, Dan Simmons, António Lobo Antunes, Péter Nádas) agree with Wikipedia to the day.
+  - 10 broken sort names put right (Graham Greene, Christopher R. Browning, Kanan Makiya, Mujica Lainez, Castellanos Moya, De La Pava, Alain-Fournier, Yan Lianke, Mo Yan, Daša Drndić).
+- Websites are filled only when they answer: 8 dead ones were left out.
+- Tests: 33 unit tests (`src/__tests__/utils/author-enrichment.test.ts`). Unit suite: 958 passed.
+- Applied to live as run `b5228b03-11c5-4829-a535-2caea9f0f0da`, after a backup (`~/personal/durtal-backups/live-before-author-enrichment-20261003-185401.dump`). The undo file and the report are in the same folder (`author-enrichment-undo.json`, `author-enrichment-applied.md`).
+- Results, of the 407 authors with books:
+  - 393 matched (338 high, 43 medium, 12 reviewed); 8 held; 6 not found (organizations, a duo and three small-press authors).
+  - Before → after: no birth year 356 → 23; no gender 99 → 11; no nationality 107 → 31; a birthplace 0 → 375; an About text 1 → 391; a day without its month 46 → 2.
+  - Also filled: 269 death years, 97 birth names, 87 websites, 347 Open Library and 310 Goodreads ids, 354 zodiac signs.
+  - 689 new places (country, region, town), 684 with coordinates: the author map now places people at their birthplace.
+  - 393 Wikidata identifiers and source records; every payload hash matches.
+  - No photo, poster, background or other media row was written.
+- Checked on :3100: Plato ("c. 428 BC - c. 348 BC"), Seneca ("4 BC–65") in the grid and list, Victor Hugo, the map popup and the timeline. Alignment audit: no deviation on the author page, the authors grid, list, map and timeline, and the home page. Design audit: no low contrast from this change. The timeline's 10px end-of-bar year labels in muted grey were already below 4.5:1; reported to the session that owns the type scale.
+- Left for the owner:
+  - merge in the app: Calvino into Italo Calvino; McEwan,IanRussell into Ian McEwan; Miguel Cervantes into Miguel de Cervantes; Petronius Arbiter into Petronius; Saint Augustine (of Hippo) into Augustine of Hippo; Sir Arthur Conan Doyle into Arthur Conan Doyle; Auguste comte de Villiers de L'Isle-Adam into Auguste Villiers de l'Isle-Adam;
+  - rename in the app: "Makiya, Kanan" to Kanan Makiya, "Yan Mo" to Mo Yan, "Daša Drndic" to Daša Drndić;
+  - the 1,759 canon people without books: a second pass.
