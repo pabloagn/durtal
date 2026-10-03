@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  ExternalFetchError,
+  fetchWithTimeout,
+} from "@/lib/api/external-fetch";
 
 const PLACES_API_BASE = "https://places.googleapis.com/v1/places:searchText";
 
@@ -110,7 +114,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(PLACES_API_BASE, {
+    const res = await fetchWithTimeout(PLACES_API_BASE, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -148,6 +152,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ results: places });
   } catch (err) {
     console.error("[search-places] Fetch error:", err);
+    if (err instanceof ExternalFetchError && err.timedOut)
+      return NextResponse.json(
+        { error: "The Places API did not answer" },
+        { status: 504 },
+      );
     return NextResponse.json(
       { error: "Failed to reach Places API" },
       { status: 502 },

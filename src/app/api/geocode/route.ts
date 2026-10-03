@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  ExternalFetchError,
+  fetchOk,
+  serialThrottle,
+} from "@/lib/api/external-fetch";
 
 export interface GeocodingResult {
   street: string | null;
@@ -15,18 +20,17 @@ export interface GeocodingResult {
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 const USER_AGENT = "Durtal/1.0 (personal book catalogue)";
 
-// Simple in-memory rate limiter: 1 request per second to Nominatim
-let lastRequestTime = 0;
+// Nominatim allows one request per second. Requests queue up, so two
+// concurrent ones never fire together (SLN-299).
+const nominatim = serialThrottle(1100);
 
-async function throttledFetch(url: string): Promise<Response> {
-  const now = Date.now();
-  const elapsed = now - lastRequestTime;
-  if (elapsed < 1100) {
-    await new Promise((resolve) => setTimeout(resolve, 1100 - elapsed));
-  }
-  lastRequestTime = Date.now();
-  return fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+/** One Nominatim call, in turn, with a time limit; a non-OK answer throws */
+async function throttledJson<T>(url: string): Promise<T> {
+  return nominatim(async () => {
+    const res = await fetchOk(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    });
+    return (await res.json()) as T;
   });
 }
 
@@ -73,8 +77,9 @@ export async function GET(req: NextRequest) {
         limit: "1",
       });
       if (country) params.set("countrycodes", country.toLowerCase());
-      const res = await throttledFetch(`${NOMINATIM_BASE}/search?${params}`);
-      const data = (await res.json()) as Record<string, unknown>[];
+      const data = await throttledJson<Record<string, unknown>[]>(
+        `${NOMINATIM_BASE}/search?${params}`,
+      );
       if (!data.length) {
         return NextResponse.json({ results: [] });
       }
@@ -96,8 +101,9 @@ export async function GET(req: NextRequest) {
         format: "jsonv2",
         addressdetails: "1",
       });
-      const res = await throttledFetch(`${NOMINATIM_BASE}/reverse?${params}`);
-      const data = (await res.json()) as Record<string, unknown>;
+      const data = await throttledJson<Record<string, unknown>>(
+        `${NOMINATIM_BASE}/reverse?${params}`,
+      );
       if (data.error) {
         return NextResponse.json({ results: [] });
       }
@@ -118,10 +124,24 @@ export async function GET(req: NextRequest) {
       addressdetails: "1",
       limit: "5",
     });
-    const res = await throttledFetch(`${NOMINATIM_BASE}/search?${params}`);
-    const data = (await res.json()) as Record<string, unknown>[];
+    const data = await throttledJson<Record<string, unknown>[]>(
+      `${NOMINATIM_BASE}/search?${params}`,
+    );
     return NextResponse.json({ results: data.map(parseNominatimResult) });
-  } catch {
+  } catch (err) {
+    if (err instanceof ExternalFetchError) {
+      console.error("[geocode]", err.message);
+      return NextResponse.json(
+        {
+          error: err.timedOut
+            ? "The geocoding service did not answer"
+            : err.status === 429
+              ? "The geocoding service is busy. Try again in a moment"
+              : "The geocoding service failed",
+        },
+        { status: err.timedOut ? 504 : err.status === 429 ? 503 : 502 },
+      );
+    }
     return NextResponse.json(
       { error: "Geocoding request failed" },
       { status: 500 },

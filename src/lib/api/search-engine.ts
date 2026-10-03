@@ -1,4 +1,5 @@
 import type { SearchResult } from "./types";
+import { normalizeSearchText } from "@/lib/utils/search-text";
 import { reportSearchFailure } from "./search-diagnostics";
 import {
   classifyQuery,
@@ -21,15 +22,9 @@ import {
 
 // ── Normalization ──────────────────────────────────────────────────────────────
 
-function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // strip diacritics
-    .replace(/[^a-z0-9\s]/g, "") // strip punctuation
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// The shared search normalizer keeps every script's letters: the old
+// [a-z0-9] filter turned Cyrillic and CJK titles into "" (SLN-299)
+const normalize = normalizeSearchText;
 
 // ── Deduplication ──────────────────────────────────────────────────────────────
 
@@ -68,7 +63,7 @@ function mergeResults(a: SearchResult, b: SearchResult): SearchResult {
   };
 }
 
-function deduplicateResults(results: SearchResult[]): SearchResult[] {
+export function deduplicateResults(results: SearchResult[]): SearchResult[] {
   // Pass 1: group by ISBN
   const isbnMap = new Map<string, SearchResult>();
   const noIsbn: SearchResult[] = [];
@@ -94,7 +89,8 @@ function deduplicateResults(results: SearchResult[]): SearchResult[] {
 
   for (const r of noIsbn) {
     const key = `${normalize(r.title)}::${normalize(r.authors[0] ?? "")}`;
-    const existing = titleAuthorMap.get(key);
+    // A result without a title to compare is never merged into another
+    const existing = normalize(r.title) ? titleAuthorMap.get(key) : undefined;
     if (existing) {
       const merged = mergeResults(existing, r);
       titleAuthorMap.set(key, merged);
