@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
 import { ShelfSpines } from "@/components/shared/no-photo";
+import { CardHeading } from "@/components/shared/card-heading";
 
 export interface SeriesItem {
   id: string;
@@ -52,25 +53,22 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
           // No book in the catalogue yet: one spine per known volume
           <ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />
         )}
-        {s.isComplete && (
-          <div className="absolute right-2 top-2">
-            <Badge variant="gold" className="backdrop-blur-md border-white/15">
-              Complete
-            </Badge>
-          </div>
-        )}
       </div>
       <div className="p-3.5">
-        {/* Fixed lines: every series card has the same height */}
-        <h3 className="type-item-title lines-2 group-hover:text-accent-rose-text">
-          {s.title}
-        </h3>
-        <p className="mt-0.5 lines-1 text-xs italic text-fg-secondary">
-          {s.originalTitle !== s.title ? s.originalTitle : null}
-        </p>
-        <p className="mt-2 font-mono text-micro text-fg-secondary">
-          {countsLabel(s)}
-        </p>
+        {/* Two title lines and one original-title line, always: every
+            series card has the same height. The covers show no overlay. */}
+        <CardHeading
+          title={s.title}
+          titleClassName="group-hover:text-accent-rose-text"
+          subtitle={s.originalTitle !== s.title ? s.originalTitle : null}
+          subtitleClassName="text-xs italic text-fg-secondary"
+        />
+        <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
+          <span className="min-w-0 truncate">{countsLabel(s)}</span>
+          {s.isComplete && (
+            <span className="ml-auto shrink-0 text-accent-gold">Complete</span>
+          )}
+        </div>
       </div>
     </div>
   );

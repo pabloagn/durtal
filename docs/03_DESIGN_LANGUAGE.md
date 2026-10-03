@@ -164,8 +164,11 @@ Nowhere else. No frosted glass cards, no blurred panels.
 - Cover image with no border radius
 - Subtle 1px border in `bg-tertiary`
 - Hover: lifts with `accent-rose` border glow
-- Title in serif, author in muted sans
-- Metadata (year, language, copy count) in secondary text
+- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and an opaque backdrop (`bg-primary` at 85%, no blur), so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show only on hover and keyboard focus.
+- Text, through `CardHeading` (`src/components/shared/card-heading.tsx`): the title in the serif (`type-item-title`), then the author 4px under the title's last line. The block always takes two title lines and one author line, so every card has the same height; a one-line title leaves its free line above the info row, not between the title and the author.
+- Info row, in secondary text: the status as a colored dot and its label (`CardStatus`; the tooltip adds the priority and the number of copies), the language from 200px card width, then on the right the rating (a gold star and the number, `CardRating`) and the year.
+
+Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold. Collection cards: name with its icon, two lines of description, then the edition count. No count or status sits on a portrait or a cover.
 
 ### Buttons
 
@@ -254,7 +257,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then l"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
-- Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
+- Text cut by `truncate`, `lines-1`, `lines-2` or `line-clamp-*` (as in `CardHeading`) shows its full text on hover, with no attribute.
 - Style: `bg-secondary`, 1px glass border, 2px radius, 14px text, 6px from the control. It renders in the top layer, above dialogs.
 
 ---

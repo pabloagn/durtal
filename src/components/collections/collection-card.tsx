@@ -3,7 +3,7 @@ import { FolderOpen } from "lucide-react";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CollectionIcon } from "./collection-icon";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CardHeading } from "@/components/shared/card-heading";
 import { FadeImage } from "@/components/shared/fade-image";
 
 type ArtworkRow = {
@@ -98,8 +98,9 @@ export function CollectionCard({
           </div>
         )}
 
+        {/* Like the other cards' controls: shown on hover and keyboard focus */}
         {poster && (
-          <div className="absolute right-2 top-2 z-20">
+          <div className="absolute right-2 top-2 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             <ImageAdjustButton
               source={imageUrl(poster.s3Key)}
               label="Adjust collection poster"
@@ -108,24 +109,22 @@ export function CollectionCard({
         )}
       </div>
 
-      {/* The book card's layout, line for line: 2-line title, 1 line of
-          text, 1 info row. Collection and book cards are the same height. */}
+      {/* Two name lines and two description lines, always: every
+          collection card has the same height */}
       <div className="p-3.5">
-        <h3 className="type-item-title flex gap-1.5">
-          {collection.icon && (
-            // On the cap-height center of the name's first line
-            <CapAligned height={16}>
+        <CardHeading
+          title={collection.name}
+          icon={
+            collection.icon && (
               <CollectionIcon
                 icon={collection.icon}
                 className="block h-4 w-4 text-fg-secondary"
               />
-            </CapAligned>
-          )}
-          <span className="lines-2 min-w-0">{collection.name}</span>
-        </h3>
-        <p className="mt-1 lines-1 text-sm text-fg-secondary">
-          {collection.description}
-        </p>
+            )
+          }
+          subtitle={collection.description}
+          subtitleLines={2}
+        />
         <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
           {footer && <span className="min-w-0 truncate">{footer}</span>}
           <span className="ml-auto shrink-0">

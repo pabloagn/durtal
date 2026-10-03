@@ -113,8 +113,8 @@ Key constraints:
 - Alignment is pixel-perfect:
   - An icon or small button beside text sits on the cap-height center of the text's first line: use `CapAligned` (`src/components/shared/cap-aligned.tsx`), never plain `items-center` beside serif text
   - Siblings in a row keep equal gaps
-  - Cards of one kind share one height: fixed text lines with `lines-1` / `lines-2`
-  - Book cover badges share one size and inset (`src/components/books/cover-chip.ts`)
+  - Cards of one kind share one height: fixed text lines with `lines-1` / `lines-2`; a card's title and the line under it go through `CardHeading` (`src/components/shared/card-heading.tsx`)
+  - Book cover badges share one size and inset (`src/components/books/cover-chip.ts`). A cover carries only the rare, poison and digital marks; status and rating sit in the card's info row
 
 ---
 

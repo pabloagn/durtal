@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
+import { CardHeading } from "@/components/shared/card-heading";
 import { displayYear } from "@/lib/utils/years";
 
 type PosterCrop = MediaCrop;
@@ -99,14 +99,6 @@ export function AuthorCard({
                 <Monogram name={name} />
               )}
 
-              {/* Works count overlay — top-right */}
-              {worksCount > 0 && !isSelecting && (
-                <div className="absolute right-2 top-2">
-                  <Badge variant="muted">
-                    {worksCount} {worksCount === 1 ? "book" : "books"}
-                  </Badge>
-                </div>
-              )}
             </div>
           </div>
         </Link>
@@ -156,16 +148,15 @@ export function AuthorCard({
         tabIndex={isSelecting ? -1 : undefined}
       >
         <div className="p-3.5">
-          {/* Fixed lines: every author card has the same height */}
-          <h3 className="type-item-title lines-2">
-            {name}
-          </h3>
-          <p className="mt-1 lines-1 text-sm text-fg-secondary">
-            {nationality}
-          </p>
-          <div className="mt-2.5 flex h-5 items-center gap-2">
-            {years && (
-              <span className="font-mono text-micro text-fg-secondary">{years}</span>
+          {/* Two name lines and one nationality line, always: every author
+              card has the same height. The portrait shows no overlay. */}
+          <CardHeading title={name} subtitle={nationality} />
+          <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
+            {years && <span>{years}</span>}
+            {worksCount > 0 && (
+              <span className="ml-auto shrink-0">
+                {worksCount} {worksCount === 1 ? "book" : "books"}
+              </span>
             )}
           </div>
         </div>

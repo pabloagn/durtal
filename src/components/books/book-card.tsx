@@ -6,17 +6,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
-import {
-  COVER_CHIP,
-  COVER_CHIP_TEXT,
-  COVER_CHIP_TONE,
-  COVER_CORNER,
-} from "./cover-chip";
+import { COVER_CORNER } from "./cover-chip";
+import { CardRating, CardStatus } from "./card-status";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
+import { CardHeading } from "@/components/shared/card-heading";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
 import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
-import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 
@@ -120,10 +115,6 @@ export function BookCard({
   isSelected = false,
   onSelect,
 }: BookCardProps) {
-  const statusInfo = catalogueStatus
-    ? STATUS_CONFIG[catalogueStatus as CatalogueStatus]
-    : null;
-
   const href = `/library/${slug}`;
 
   // In selection mode, clicking the card toggles selection instead of navigating
@@ -166,50 +157,11 @@ export function BookCard({
               <CoverPlaceholder letter={title[0]} />
             )}
 
-            {/* Status badge -- top-left */}
-            {statusInfo && (
-              <div className={COVER_CORNER.topLeft}>
-                <span
-                  className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE[statusInfo.variant]}`}
-                  data-tooltip={statusInfo.label}
-                >
-                  <span className="hidden @[220px]:inline">{statusInfo.label}</span>
-                  <span className="@[220px]:hidden">{statusInfo.shortLabel}</span>
-                </span>
-              </div>
-            )}
-
-            {/* Rating overlay */}
-            {rating && (
-              <div className={COVER_CORNER.topRight}>
-                <span
-                  className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE.gold}`}
-                  data-tooltip={`Rated ${rating}/5`}
-                >
-                  <span className="hidden @[220px]:inline">{rating}/5</span>
-                  <span className="@[220px]:hidden">{rating}</span>
-                </span>
-              </div>
-            )}
-
-            {/* Bottom-left indicators: priority dot + digital edition badge */}
-            {(isRare || isPoison || hasDigitalEdition || (acquisitionPriority && acquisitionPriority !== "none")) && (
+            {/* The cover shows its art: only the marks that make a copy
+                special sit on it, in one corner. Status and rating are in
+                the info row below. */}
+            {(isRare || isPoison || hasDigitalEdition) && (
               <div className={COVER_CORNER.bottomLeft}>
-                {acquisitionPriority && acquisitionPriority !== "none" && (() => {
-                  const pConfig = PRIORITY_CONFIG[acquisitionPriority as AcquisitionPriority];
-                  return (
-                    <div
-                      className={COVER_CHIP}
-                      role="img"
-                      aria-label={`${pConfig?.label ?? acquisitionPriority} priority`}
-                      data-tooltip={`${pConfig?.label ?? acquisitionPriority} priority`}
-                    >
-                      <span
-                        className={`block h-1.5 w-1.5 rounded-full @[220px]:h-2 @[220px]:w-2 ${pConfig?.dotColor ?? "bg-fg-muted"} ${pConfig?.glowColor ?? ""}`}
-                      />
-                    </div>
-                  );
-                })()}
                 <HuntBadge isRare={isRare} huntAssessedOn={huntAssessedOn} cover />
                 <PoisonBadge isPoison={isPoison} cover />
                 {hasDigitalEdition && <DigitalEditionBadge />}
@@ -269,27 +221,29 @@ export function BookCard({
         tabIndex={isSelecting ? -1 : undefined}
       >
         <div className="p-3.5">
-          {/* Fixed lines: every book card has the same height */}
-          <h3 className="type-item-title lines-2">
-            {title}
-          </h3>
-          <p className="mt-1 lines-1 text-sm text-fg-secondary">
-            {authorName}
-          </p>
+          {/* Two title lines and one author line, always: every book card
+              has the same height, and the author sits under the title */}
+          <CardHeading title={title} subtitle={authorName} />
           <div className="mt-2.5 flex h-5 items-center gap-2">
-            {publicationYear && (
-              <span className="font-mono text-micro text-fg-secondary">
-                {publicationYear}
-              </span>
-            )}
-            {/* A narrow card keeps the year and the count; the language does not fit */}
+            <CardStatus
+              status={catalogueStatus}
+              priority={acquisitionPriority}
+              copies={instanceCount}
+            />
+            {/* The status keeps the row: the language shows from 200px of
+                card width, the year from 160px */}
             {language && language !== "en" && (
-              <span className="hidden @[160px]:contents">
+              <span className="hidden @[200px]:contents">
                 <Badge variant="blue">{language}</Badge>
               </span>
             )}
-            <span className="ml-auto font-mono text-micro text-fg-secondary">
-              {instanceCount} {instanceCount === 1 ? "copy" : "copies"}
+            <span className="ml-auto flex shrink-0 items-center gap-2">
+              <CardRating rating={rating} />
+              {publicationYear && (
+                <span className="hidden font-mono text-micro text-fg-secondary @[160px]:inline">
+                  {publicationYear}
+                </span>
+              )}
             </span>
           </div>
         </div>

@@ -12,9 +12,10 @@ export function PoisonBadge({
 }) {
   if (!isPoison) return null;
   const label = `${MARKS.poison.label} · ${MARKS.poison.hint}`;
+  // On a cover chip the lighter red keeps 3:1 against the chip's backdrop
   return (
     <span
-      className={`text-accent-red ${cover ? COVER_CHIP : "inline-flex shrink-0 items-center justify-center"}`}
+      className={cover ? `text-accent-red-text ${COVER_CHIP}` : "inline-flex shrink-0 items-center justify-center text-accent-red"}
       data-tooltip={label}
       role="img"
       aria-label={label}
