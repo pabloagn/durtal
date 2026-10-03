@@ -37,7 +37,7 @@ that calls `requireEnabledDomain(kind)`, so every page below it (home, and later
 detail and new) answers 404 while the collection is unready. Books stay at
 `/library`; no book URL changes.
 
-All data pages use `force-dynamic` rendering — no static generation, no ISR. Every request fetches fresh data from Neon.
+All pages use `force-dynamic` rendering (set once in `src/app/layout.tsx`) — no static generation, no ISR. Every request fetches fresh data from Neon.
 
 ---
 
