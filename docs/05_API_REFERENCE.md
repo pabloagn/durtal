@@ -4,11 +4,11 @@ All REST API routes live under `src/app/api/`. These endpoints serve two consume
 1. Client-side components that need to call external services (search, geocode, S3)
 2. The Python TUI application (`scripts/tui/`)
 
-The app's own pages use server actions (see [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md)). The write routes below (orders, copies, works) call the same server actions, so a change through the API is the same as a change in the app: status history, activity log and catalogue status included.
+The app's own pages use server actions (see [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md)). The write routes below (orders, copies, works, editions, collections) call the same server actions, so a change through the API is the same as a change in the app: status history, activity log and catalogue status included.
 
 ### Write access
 
-Every write route (`POST`, `PATCH`) needs the header `Authorization: Bearer <DURTAL_API_TOKEN>`. The token lives in `.env.local`. When `DURTAL_API_TOKEN` is not set, every write returns `503`, so a missing setting never leaves the API open. A wrong or missing token returns `401`.
+Every write route (`POST`, `PATCH`, `DELETE`) needs the header `Authorization: Bearer <DURTAL_API_TOKEN>`. The token lives in `.env.local`. When `DURTAL_API_TOKEN` is not set, every write returns `503`, so a missing setting never leaves the API open. A wrong or missing token returns `401`.
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
@@ -258,6 +258,60 @@ Add a copy of an edition at a location, as the Add Copy dialog does. The work's 
 ```
 
 **Response** `201`: the copy. `404` when the edition or the location does not exist.
+
+---
+
+## Collections
+
+A collection holds editions, not works, in its own order. The routes call the collection server actions (`src/lib/actions/collections.ts`), so the activity log records each book that joins or leaves. Posters and backgrounds go through `POST /api/media/upload` with `entityType: "collection"`. Body schemas: `src/lib/validations/collections-api.ts`.
+
+### `GET /api/collections`
+
+**Response** `200`: `{ "collections": [{ "id", "name", "description", "icon", "editionCount" }] }`
+
+### `GET /api/collections/[id]`
+
+One collection with its active artwork and its editions in order, each with its work and authors. `404` when it does not exist.
+
+### `POST /api/collections`
+
+Create a collection, as the New Collection dialog does. Needs the token.
+
+**Body**: `name` is required. `icon` is a Lucide icon name (PascalCase, for example `Film`). `editionIds` join in the order given. The same `requestId` sent twice creates one collection.
+
+```json
+{
+  "name": "Before the Film",
+  "description": "string or null",
+  "icon": "Film",
+  "editionIds": ["uuid", "uuid"],
+  "requestId": "uuid"
+}
+```
+
+**Response** `201`: the collection. `404` with `{ "error": "Editions not found", "missing": [...] }` when an edition ID is unknown; nothing is created.
+
+### `PATCH /api/collections/[id]`
+
+Change `name`, `description` or `icon` (`null` clears the icon). Fields left out stay as they are. Needs the token.
+
+**Response** `200`: the collection. `404` when it does not exist.
+
+### `POST /api/collections/[id]/editions`
+
+Add editions at the end of the collection, in the order given. An edition already in it keeps its place. Needs the token.
+
+**Body**: `{ "editionIds": ["uuid", ...] }` (1 to 1000)
+
+**Response** `200`: `{ "added": 2 }`. `404` with `missing` when an edition ID is unknown; nothing is added.
+
+### `DELETE /api/collections/[id]/editions`
+
+Take editions out of the collection. Needs the token.
+
+**Body**: `{ "editionIds": ["uuid", ...] }`
+
+**Response** `200`: `{ "removed": 1 }`
 
 ---
 

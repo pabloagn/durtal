@@ -165,7 +165,7 @@ export function AuthorCreateDialog({
           size="sm"
           onClick={() => setOpen(true)}
           type="button"
-          title="Add Author (A)"
+          title="Add Author (A, then A)"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Add Author

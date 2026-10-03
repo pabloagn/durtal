@@ -1,0 +1,35 @@
+import {
+  Archive,
+  BookOpen,
+  BookOpenText,
+  Building2,
+  FolderOpen,
+  Layers,
+  Library,
+  MapPin,
+  Route,
+  ScanLine,
+  Settings,
+  Tags,
+  ThumbsUp,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
+/** The sidebar's icon for each section, shared by the menus and the palette */
+export const SECTION_ICONS: Record<string, LucideIcon> = {
+  "/": BookOpen,
+  "/library": Library,
+  "/reader": BookOpenText,
+  "/authors": Users,
+  "/publishers": Building2,
+  "/recommenders": ThumbsUp,
+  "/series": Layers,
+  "/places": MapPin,
+  "/provenance": Route,
+  "/locations": Archive,
+  "/collections": FolderOpen,
+  "/taxonomy": Tags,
+  "/harmonize": ScanLine,
+  "/settings": Settings,
+};

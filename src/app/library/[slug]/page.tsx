@@ -62,6 +62,8 @@ import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { AmbientCrystals } from "./ambient-crystals";
 import type { CrystalColor, ColorPalette } from "@/lib/types";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { formatBookClipboardText } from "@/lib/utils/copy-book";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -213,6 +215,12 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   return (
     <div className="relative">
+      <CopyShortcuts
+        name={formatBookClipboardText(work.title, primaryAuthors.map((a) => a.name))}
+        title={work.title}
+        // The first edition shown that has an ISBN, its ISBN-13 if it has one
+        isbn={work.editions.map((e) => e.isbn13 ?? e.isbn10).find(Boolean)}
+      />
       {/* Ambient color field — independent layer, spans from top of page
             down ~600px, sits behind all content. NOT inside the hero. */}
       {crystalPalette.length > 0 && (

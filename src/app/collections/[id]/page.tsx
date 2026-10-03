@@ -28,6 +28,7 @@ import {
   type ListSearchParams,
 } from "@/lib/utils/pagination";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 
 export default async function CollectionPage({
   params,
@@ -52,6 +53,7 @@ export default async function CollectionPage({
   const background = collectionBackground(collection.media);
   return (
     <>
+      <CopyShortcuts name={collection.name} />
       {/* Cinematic backdrop + header, as on author and book pages */}
       <div className={background ? "relative -mx-6 -mt-6 mb-8" : "mb-8"}>
         {background && (

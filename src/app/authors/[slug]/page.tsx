@@ -12,6 +12,7 @@ import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -93,6 +94,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
 
   return (
     <>
+      <CopyShortcuts name={author.name} />
       {/* Cinematic backdrop + header */}
       <div className={bgMedia ? "relative -mx-6 -mt-6 mb-8" : ""}>
         {/* Background image layer: always spans the full main area */}

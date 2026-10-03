@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { EditionCover } from "@/components/books/edition-cover";
 import { languageName } from "@/lib/utils/language";
 import { HOUSE_KIND_LABEL } from "@/lib/publishers/kinds";
+import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 export default async function PublisherPage({
   params,
   searchParams,
@@ -36,6 +37,7 @@ export default async function PublisherPage({
   const groups = Map.groupBy(rows, (r) => r.work.id);
   return (
     <>
+      <CopyShortcuts name={p.name} />
       <Link href="/publishers" className="text-sm text-fg-muted">
         ← Publishers
       </Link>

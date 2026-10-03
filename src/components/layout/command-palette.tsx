@@ -5,32 +5,20 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
   Library,
-  Building2,
-  Users,
   User,
-  Layers,
-  MapPin,
-  FolderOpen,
-  Plus,
-  UserPlus,
-  Settings,
-  BookOpen,
-  BookOpenText,
   Book,
   Search,
-  Tags,
-  Archive,
-  Route,
-  ThumbsUp,
-  ScanLine,
   Keyboard,
   Loader2,
+  Copy,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
 import { quickSearch, type QuickSearchResult } from "@/lib/actions/quick-search";
-import { GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
+import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
+import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
 
 interface CommandPaletteProps {
@@ -44,25 +32,10 @@ interface PaletteItem {
   keys?: Keys;
   then?: boolean;
   href?: string;
-  run?: "newAuthor" | "help";
+  /** An "Add" entry's key: "b" adds a book */
+  add?: string;
+  run?: "help";
 }
-
-const ICONS: Record<string, LucideIcon> = {
-  "/": BookOpen,
-  "/library": Library,
-  "/reader": BookOpenText,
-  "/authors": Users,
-  "/publishers": Building2,
-  "/recommenders": ThumbsUp,
-  "/series": Layers,
-  "/places": MapPin,
-  "/provenance": Route,
-  "/locations": Archive,
-  "/collections": FolderOpen,
-  "/taxonomy": Tags,
-  "/harmonize": ScanLine,
-  "/settings": Settings,
-};
 
 const NAVIGATION_ITEMS: PaletteItem[] = [
   { label: "Dashboard", href: "/" },
@@ -83,15 +56,20 @@ const NAVIGATION_ITEMS: PaletteItem[] = [
   const go = GO_TO.find((g) => g.href === item.href);
   return {
     ...item,
-    icon: ICONS[item.href],
+    icon: SECTION_ICONS[item.href],
     keys: go ? ["g", go.key] : undefined,
     then: true,
   };
 });
 
 const ACTION_ITEMS: PaletteItem[] = [
-  { label: "Add a book", href: "/library/new", icon: Plus, keys: SHORTCUTS.newBook },
-  { label: "Add an author", run: "newAuthor", icon: UserPlus, keys: SHORTCUTS.newAuthor },
+  ...ADD.map((a) => ({
+    label: `Add ${/^[aeiou]/i.test(a.label) ? "an" : "a"} ${a.label.toLowerCase()}`,
+    add: a.key,
+    icon: SECTION_ICONS[a.section],
+    keys: ["a", a.key],
+    then: true,
+  })),
   { label: "Import books", href: "/library/import", icon: Library },
   { label: "Keyboard shortcuts", run: "help", icon: Keyboard, keys: SHORTCUTS.help },
 ];
@@ -125,7 +103,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   function runItem(item: PaletteItem) {
     if (item.href) return navigate(item.href);
     onOpenChange(false);
-    if (item.run === "newAuthor") actions.openNewAuthor();
+    if (item.add) actions.add(item.add);
     if (item.run === "help") actions.openHelp();
   }
 
@@ -162,6 +140,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     };
   }, [trimmed]);
 
+  // "This page" shows when the page has its own entries, or when searched
+  const allCopyItems = actions.copyItems();
+  const copyItems = trimmed
+    ? filterBySearch(allCopyItems, trimmed, (i) => `Copy ${i.label}`)
+    : allCopyItems.length > 1
+      ? allCopyItems
+      : [];
   const actionItems = trimmed
     ? filterBySearch(ACTION_ITEMS, trimmed, (i) => i.label)
     : ACTION_ITEMS;
@@ -171,6 +156,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const firstValue =
     (results.works[0] && `work:${results.works[0].id}`) ||
     (results.authors[0] && `author:${results.authors[0].id}`) ||
+    (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
     (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
     (trimmed && "library-search") ||
@@ -277,6 +263,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     Search the library for &ldquo;{trimmed}&rdquo;
                   </span>
                 </Command.Item>
+              </Command.Group>
+            )}
+
+            {copyItems.length > 0 && (
+              <Command.Group heading="This page" className={GROUP_CLASS}>
+                {copyItems.map((item) => (
+                  <PaletteRow
+                    key={item.key}
+                    item={{
+                      label: `Copy ${item.label.toLowerCase()}`,
+                      icon: item.key === COPY_KEYS.link ? Link2 : Copy,
+                      keys: ["y", item.key],
+                      then: true,
+                    }}
+                    value={`copy:${item.key}`}
+                    onSelect={() => {
+                      onOpenChange(false);
+                      void actions.copy(item);
+                    }}
+                  />
+                ))}
               </Command.Group>
             )}
 

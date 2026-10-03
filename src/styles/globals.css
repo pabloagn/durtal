@@ -351,3 +351,10 @@ dialog::backdrop {
   float: left;
   height: 0;
 }
+
+/* The list choice that ↑ ↓ moved to (keyboard shortcuts): Enter picks it.
+   Same look as a hovered choice. Unlayered, so it wins over utilities. */
+[data-kb-active] {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-fg-primary);
+}

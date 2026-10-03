@@ -9,7 +9,7 @@
 
 export type Keys = string[];
 
-/** G, then one of these keys */
+/** G opens the "Go to" menu; then one of these keys */
 export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: "d", label: "Dashboard", href: "/" },
   { key: "l", label: "Library", href: "/library" },
@@ -25,12 +25,45 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: ",", label: "Settings", href: "/settings" },
 ];
 
+/** Add dialogs that open on any page */
+export type AddDialog = "author" | "recommender" | "series" | "collection" | "place";
+
+/** A opens the "Add" menu; then one of these keys */
+export const ADD: ({ key: string; label: string; section: string } & (
+  | { href: string }
+  | { dialog: AddDialog }
+))[] = [
+  { key: "b", label: "Book", section: "/library", href: "/library/new" },
+  { key: "a", label: "Author", section: "/authors", dialog: "author" },
+  { key: "p", label: "Publisher", section: "/publishers", href: "/publishers/new" },
+  { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
+  { key: "s", label: "Series", section: "/series", dialog: "series" },
+  { key: "c", label: "Collection", section: "/collections", dialog: "collection" },
+  { key: "l", label: "Place", section: "/places", dialog: "place" },
+];
+
+/**
+ * Y opens the "Copy" menu: what the open page offers, plus its link. Pages
+ * give their own entries (CopyShortcuts); these keys stay the same on every
+ * page. "Name" is the page's name: a book's title and author, an author's
+ * name, a publisher's name.
+ */
+export const COPY_KEYS = {
+  name: "n",
+  title: "t",
+  isbn: "i",
+  address: "d",
+  link: "l",
+} as const;
+
 export const SHORTCUTS = {
   palette: ["mod", "k"],
   search: ["/"],
-  newBook: ["n"],
-  newAuthor: ["a"],
+  addMenu: ["a"],
+  goMenu: ["g"],
+  copyMenu: ["y"],
   help: ["?"],
+  pick: ["↑", "↓"],
   confirm: ["enter"],
   save: ["mod", "enter"],
   fixField: ["alt", "f"],
@@ -44,22 +77,40 @@ export const SHORTCUT_GROUPS: {
   items: { keys: Keys; label: string; then?: boolean }[];
 }[] = [
   {
-    title: "Find and add",
+    title: "Menus",
     items: [
+      { keys: SHORTCUTS.addMenu, label: "Add: book, author, publisher..." },
+      { keys: SHORTCUTS.goMenu, label: "Go to a section" },
+      { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
       { keys: SHORTCUTS.palette, label: "Search books, authors, commands" },
       { keys: SHORTCUTS.search, label: "Search this list" },
-      { keys: SHORTCUTS.newBook, label: "Add a book" },
-      { keys: SHORTCUTS.newAuthor, label: "Add an author" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
     ],
   },
   {
-    title: "Forms and dialogs",
+    title: "Lists, forms and dialogs",
     items: [
-      { keys: SHORTCUTS.confirm, label: "Confirm, or next step" },
+      { keys: SHORTCUTS.pick, label: "Move in a list or menu" },
+      { keys: SHORTCUTS.confirm, label: "Pick, confirm, or next step" },
       { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
       { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
       { keys: SHORTCUTS.close, label: "Close" },
+    ],
+  },
+  {
+    title: "Add",
+    wide: true,
+    items: ADD.map((a) => ({ keys: ["a", a.key], label: a.label, then: true })),
+  },
+  {
+    title: "Copy",
+    wide: true,
+    items: [
+      { keys: ["y", COPY_KEYS.name], label: "Name (a book: title and author)", then: true },
+      { keys: ["y", COPY_KEYS.title], label: "Title (a book)", then: true },
+      { keys: ["y", COPY_KEYS.isbn], label: "ISBN (a book)", then: true },
+      { keys: ["y", COPY_KEYS.address], label: "Address (a place)", then: true },
+      { keys: ["y", COPY_KEYS.link], label: "Link to the page", then: true },
     ],
   },
   {
@@ -125,7 +176,69 @@ export function isConfirmField(el: EventTarget | null): el is HTMLInputElement {
     el.closest('[data-enter="ignore"], [cmdk-root], [role="combobox"], [role="listbox"]')
   )
     return false;
-  return !/^\s*search\b/i.test(el.placeholder);
+  return !isPickerField(el);
+}
+
+/** A field that searches or filters a list: Enter picks from the list */
+export function isPickerField(el: HTMLInputElement): boolean {
+  return (
+    el.type === "search" ||
+    el.hasAttribute("data-picker") ||
+    /^\s*(search|filter|find)\b/i.test(el.placeholder)
+  );
+}
+
+/** A list box: a menu or a scrolling list of choices */
+function isList(el: Element): boolean {
+  if (el.matches('[role="listbox"], [role="menu"]')) return true;
+  const style = getComputedStyle(el);
+  return (
+    style.position === "absolute" ||
+    style.position === "fixed" ||
+    /auto|scroll/.test(style.overflowY)
+  );
+}
+
+const OPTION = '[role="option"], [data-option], button, label';
+
+/** A choice in a list: it has text, and a label holds a checkbox or radio */
+function isChoice(el: HTMLElement): boolean {
+  return (
+    shown(el) &&
+    !!el.textContent?.trim() &&
+    !el.closest("[data-variant]") &&
+    !el.matches(':disabled, [aria-disabled="true"]') &&
+    (el.tagName !== "LABEL" ||
+      !!el.querySelector('input[type="checkbox"], input[type="radio"]'))
+  );
+}
+
+/**
+ * The choices that a picker field shows (the author results under "Search
+ * author by name...", the options under "Search genres..."): the list after
+ * the field or one of its wrappers, or the choices that follow it directly.
+ * The dialog's own buttons are never choices.
+ */
+export function pickerOptions(field: HTMLInputElement): HTMLElement[] {
+  if (!isPickerField(field)) return [];
+  let node: Element | null = field;
+  for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+    if (node.matches("dialog, form, main, [data-shortcut-scope]")) break;
+    const found: HTMLElement[] = [];
+    for (let next = node.nextElementSibling; next; next = next.nextElementSibling) {
+      if (!(next instanceof HTMLElement) || !shown(next)) continue;
+      if (next.matches(OPTION)) {
+        if (isChoice(next)) found.push(next);
+        continue;
+      }
+      for (const list of [next, ...next.children].filter(isList))
+        found.push(
+          ...[...list.querySelectorAll<HTMLElement>(OPTION)].filter(isChoice),
+        );
+    }
+    if (found.length) return found;
+  }
+  return [];
 }
 
 function shown(el: Element): boolean {
