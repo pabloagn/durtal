@@ -10,12 +10,13 @@ import type { ReactNode } from "react";
  * carry the text's font size, family and line height: the slot is one line
  * tall and `0.5cap` resolves against that font.
  *
- * How it works: an inline-block with `overflow: hidden` takes its baseline
- * from its bottom margin edge. Negative block margins of half its height move
- * that edge to the box's center and keep the box from stretching the line.
- * `vertical-align: 0.5cap` then raises the center to the cap-height center.
- * Measured in Chrome: 0.00–0.02px off for serif and sans text of 13–46px and
- * boxes of 14–44px. Focus rings inside must be inset (the box clips).
+ * How it works: an inline-block whose only content is a float has no line
+ * boxes, so its baseline is its bottom margin edge. Negative block margins of
+ * half its height move that edge to the box's center and keep the box from
+ * stretching the line. `vertical-align: 0.5cap` then raises the center to the
+ * cap-height center. The float sizes the box and clips nothing: focus rings
+ * and menus that open from the box stay visible. Measured in Chrome:
+ * 0.00–0.02px off for serif and sans text of 13–46px and boxes of 14–44px.
  */
 export function CapAligned({
   height,
@@ -30,10 +31,10 @@ export function CapAligned({
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="inline-block overflow-hidden align-[0.5cap]"
+        className="inline-block align-[0.5cap]"
         style={{ height, marginBlock: -height / 2 }}
       >
-        {children}
+        <span className="float-left flex">{children}</span>
       </span>
     </span>
   );

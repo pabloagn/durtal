@@ -8,6 +8,7 @@ import {
   CollectionMemberControls,
 } from "@/components/collections/collection-controls";
 import { CopyBookButton } from "@/components/books/copy-book-button";
+import { EditionCard } from "@/components/books/edition-card";
 import {
   collectionBackground,
   collectionPoster,
@@ -161,44 +162,21 @@ export default async function CollectionPage({
                   work.media[0]?.thumbnailS3Key ??
                   work.media[0]?.s3Key;
                 return (
-                  <article
+                  <EditionCard
                     key={e.id}
-                    className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4"
-                  >
-                    <Link
-                      href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
-                      className="flex h-32 w-20 shrink-0 items-center justify-center rounded-sm bg-bg-primary"
-                    >
-                      {image ? (
-                        <img
-                          src={`/api/s3/read?key=${encodeURIComponent(image)}`}
-                          alt={e.title}
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <BookOpen size={24} className="text-fg-muted" />
-                      )}
-                    </Link>
-                    {/* Fixed lines: every member card has the same height */}
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <Link
-                        href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
-                        className="lines-2 font-serif text-xl"
-                      >
-                        {e.title}
-                      </Link>
-                      <p className="mt-1 lines-1 text-sm text-fg-secondary">
-                        {names.join(" & ")}
-                      </p>
-                      <p className="mt-2 lines-1 text-xs text-fg-muted">
-                        {[e.publisher, e.publicationYear, e.language, e.binding]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      <p className="mt-1 lines-1 font-mono text-xs text-fg-muted">
-                        {e.isbn13}
-                      </p>
-                      <div className="mt-auto flex items-center justify-between pt-3">
+                    href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
+                    title={e.title}
+                    imageKey={image}
+                    authorNames={names}
+                    details={[
+                      e.publisher,
+                      e.publicationYear,
+                      e.language,
+                      e.binding,
+                    ]}
+                    isbn={e.isbn13}
+                    footer={
+                      <>
                         <CopyBookButton
                           title={work.title}
                           authorNames={names}
@@ -210,9 +188,9 @@ export default async function CollectionPage({
                           first={offset + index === 0}
                           last={offset + index === total - 1}
                         />
-                      </div>
-                    </div>
-                  </article>
+                      </>
+                    }
+                  />
                 );
               })}
           </div>

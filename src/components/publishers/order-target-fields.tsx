@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getOrderAcquisitionOptions } from "@/lib/actions/publishers";
-import { fieldClass } from "./publisher-picker";
+import { Select } from "@/components/ui/select";
 export interface OrderTargetValue {
   acquisitionTargetId: string;
   editionId: string;
@@ -53,54 +53,42 @@ export function OrderTargetFields({
   );
   return (
     <div className="space-y-3 border-t border-glass-border pt-3">
-      <label className="block space-y-1 text-xs text-fg-secondary">
-        <span>Acquisition target</span>
-        <select
-          className={fieldClass}
-          value={value.acquisitionTargetId}
-          onChange={(e) => {
-            const t = data.targets.find((t) => t.target.id === e.target.value);
-            onChange({
-              acquisitionTargetId: e.target.value,
-              editionId: t?.target.editionId ?? "",
-            });
-          }}
-        >
-          <option value="">No target</option>
-          {data.targets
-            .filter(
-              (t) =>
-                t.state !== "received" ||
-                t.target.id === value.acquisitionTargetId,
-            )
-            .map((t) => (
-              <option key={t.target.id} value={t.target.id}>
-                {t.publisher
-                  ? `${t.publisher.name} edition`
-                  : t.edition
-                    ? `${t.edition.title} · ${t.edition.publisher ?? ""} · ${t.edition.isbn13 ?? t.edition.language}`
-                    : "Any edition"}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label className="block space-y-1 text-xs text-fg-secondary">
-        <span>Ordered edition</span>
-        <select
-          className={fieldClass}
-          value={value.editionId}
-          onChange={(e) => onChange({ ...value, editionId: e.target.value })}
-        >
-          <option value="">Not identified yet</option>
-          {editions.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.title} · {e.publisher ?? "Unspecified publisher"} ·{" "}
-              {e.isbn13 ?? e.language}
-              {e.publicationYear ? ` · ${e.publicationYear}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Select
+        label="Acquisition target"
+        placeholder="No target"
+        value={value.acquisitionTargetId}
+        onChange={(e) => {
+          const t = data.targets.find((t) => t.target.id === e.target.value);
+          onChange({
+            acquisitionTargetId: e.target.value,
+            editionId: t?.target.editionId ?? "",
+          });
+        }}
+        options={data.targets
+          .filter(
+            (t) =>
+              t.state !== "received" ||
+              t.target.id === value.acquisitionTargetId,
+          )
+          .map((t) => ({
+            value: t.target.id,
+            label: t.publisher
+              ? `${t.publisher.name} edition`
+              : t.edition
+                ? `${t.edition.title} · ${t.edition.publisher ?? ""} · ${t.edition.isbn13 ?? t.edition.language}`
+                : "Any edition",
+          }))}
+      />
+      <Select
+        label="Ordered edition"
+        placeholder="Not identified yet"
+        value={value.editionId}
+        onChange={(e) => onChange({ ...value, editionId: e.target.value })}
+        options={editions.map((e) => ({
+          value: e.id,
+          label: `${e.title} · ${e.publisher ?? "Unspecified publisher"} · ${e.isbn13 ?? e.language}${e.publicationYear ? ` · ${e.publicationYear}` : ""}`,
+        }))}
+      />
       {value.acquisitionTargetId && !value.editionId && (
         <p className="text-xs text-fg-muted">
           Identify the matching edition before marking this purchase as

@@ -5,11 +5,32 @@ import { toast } from "sonner";
 import { savePublisher } from "@/lib/actions/publishers";
 import type { PublisherInput } from "@/lib/validations/publishers";
 import { Button } from "@/components/ui/button";
-import {
-  PublisherPicker,
-  fieldClass,
-  type PublisherOption,
-} from "./publisher-picker";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { MultiSelectSection } from "@/components/shared/multi-select-section";
+import { PublisherPicker, type PublisherOption } from "./publisher-picker";
+
+const KIND_OPTIONS = [
+  { value: "publisher", label: "Publishing house" },
+  { value: "imprint", label: "Imprint" },
+];
+
+function FormSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 font-serif text-lg text-fg-secondary">{title}</h3>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
 export function PublisherEditor({
   publisher,
   options,
@@ -24,7 +45,6 @@ export function PublisherEditor({
   const [kind, setKind] = useState(publisher?.kind ?? "publisher");
   const [parent, setParent] = useState(publisher?.parentId ?? "");
   const [chosen, setChosen] = useState(publisher?.specialtyIds ?? []);
-  const [specialtySearch, setSpecialtySearch] = useState("");
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -59,122 +79,93 @@ export function PublisherEditor({
     });
   }
   return (
-    <form onSubmit={submit} className="max-w-2xl space-y-5">
-      <fieldset disabled={pending} className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            ["name", "Name", publisher?.name],
-            ["country", "Country", publisher?.country],
-            ["website", "Website", publisher?.website],
-          ].map(([name, label, value]) => (
-            <label
-              key={name}
-              className="block space-y-1 text-sm text-fg-secondary"
-            >
-              <span>{label}</span>
-              <input
-                name={name!}
-                aria-label={label!}
-                className={fieldClass}
-                defaultValue={value ?? ""}
-                required={name === "name"}
-                type={name === "website" ? "url" : "text"}
-              />
-            </label>
-          ))}
-          <label className="block space-y-1 text-sm text-fg-secondary">
-            <span>Type</span>
-            <select
-              className={fieldClass}
+    <form
+      onSubmit={submit}
+      className="max-w-2xl rounded-sm border border-glass-border bg-bg-secondary p-6"
+    >
+      <fieldset disabled={pending} className="space-y-6">
+        <FormSection title="Identity">
+          <Input
+            label="Name"
+            name="name"
+            defaultValue={publisher?.name ?? ""}
+            required
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select
+              label="Type"
+              options={KIND_OPTIONS}
               value={kind}
               onChange={(e) =>
                 setKind(e.target.value as "publisher" | "imprint")
               }
-            >
-              <option value="publisher">Publishing house</option>
-              <option value="imprint">Imprint</option>
-            </select>
-          </label>
-        </div>
-        {kind === "imprint" && (
-          <PublisherPicker
-            label="Parent publisher"
-            options={options.filter(
-              (p) => p.kind === "publisher" && p.id !== publisher?.id,
-            )}
-            value={parent}
-            onChange={setParent}
-          />
-        )}
-        {[
-          ["description", "About", publisher?.description],
-          ["notes", "My notes", publisher?.notes],
-          [
-            "aliases",
-            "Alternative names (one per line)",
-            publisher?.aliases?.join("\n"),
-          ],
-        ].map(([name, label, value]) => (
-          <label
-            key={name}
-            className="block space-y-1 text-sm text-fg-secondary"
-          >
-            <span>{label}</span>
-            <textarea
-              name={name!}
-              aria-label={label!}
-              className={fieldClass}
-              rows={3}
-              defaultValue={value ?? ""}
             />
-          </label>
-        ))}
-        <div className="space-y-2">
-          <label className="text-sm text-fg-secondary">
-            Specialties
-            <input
-              className={`${fieldClass} mt-1`}
-              aria-label="Search specialties"
-              placeholder="Search specialties…"
-              value={specialtySearch}
-              onChange={(e) => setSpecialtySearch(e.target.value)}
+            <Input
+              label="Country"
+              name="country"
+              defaultValue={publisher?.country ?? ""}
             />
-          </label>
-          <div className="max-h-40 overflow-auto space-y-1">
-            {specialties
-              .filter(
-                (s) =>
-                  chosen.includes(s.id) ||
-                  s.name.toLowerCase().includes(specialtySearch.toLowerCase()),
-              )
-              .map((s) => (
-                <label
-                  key={s.id}
-                  className="flex items-center gap-2 text-sm text-fg-secondary"
-                >
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(s.id)}
-                    onChange={(e) =>
-                      setChosen(
-                        e.target.checked
-                          ? [...chosen, s.id]
-                          : chosen.filter((id) => id !== s.id),
-                      )
-                    }
-                  />
-                  {s.name}
-                </label>
-              ))}
           </div>
+          {kind === "imprint" && (
+            <PublisherPicker
+              label="Parent publisher"
+              options={options.filter(
+                (p) => p.kind === "publisher" && p.id !== publisher?.id,
+              )}
+              value={parent}
+              onChange={setParent}
+            />
+          )}
+          <Input
+            label="Website"
+            name="website"
+            type="url"
+            placeholder="https://"
+            defaultValue={publisher?.website ?? ""}
+          />
+        </FormSection>
+        <FormSection title="Description">
+          <Textarea
+            label="About"
+            name="description"
+            rows={4}
+            defaultValue={publisher?.description ?? ""}
+          />
+          <Textarea
+            label="My notes"
+            name="notes"
+            rows={3}
+            defaultValue={publisher?.notes ?? ""}
+          />
+        </FormSection>
+        <FormSection title="Matching">
+          <Textarea
+            label="Alternative names (one per line)"
+            name="aliases"
+            rows={3}
+            defaultValue={publisher?.aliases?.join("\n") ?? ""}
+          />
+          <p className="text-xs text-fg-muted">
+            Alternative names help match imported editions. Shared or ambiguous
+            names stay unresolved for review.
+          </p>
+        </FormSection>
+        <FormSection title="Classification">
+          <MultiSelectSection
+            title="Specialties"
+            items={specialties}
+            selectedIds={chosen}
+            onChange={setChosen}
+          />
+        </FormSection>
+        <div className="flex justify-end gap-2 border-t border-glass-border pt-4">
+          <Button type="button" variant="ghost" onClick={() => router.back()}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={pending}>
+            {pending ? "Saving…" : "Save publisher"}
+          </Button>
         </div>
-        <p className="text-xs text-fg-muted">
-          Alternative names help match imported editions. Shared or ambiguous
-          names stay unresolved for review.
-        </p>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save publisher"}
-        </Button>
       </fieldset>
     </form>
   );

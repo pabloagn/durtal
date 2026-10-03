@@ -83,11 +83,11 @@
     const box = svg.getBoundingClientRect();
     if (box.width > MAX_ICON || box.height > MAX_ICON) continue;
 
-    // Nearest flex row (up to 4 levels) that holds text beside the icon
+    // Nearest flex row (up to 5 levels) that holds text beside the icon
     let node = svg;
     let text = null;
     let holder = null;
-    for (let depth = 0; depth < 4 && node.parentElement && !text; depth++) {
+    for (let depth = 0; depth < 5 && node.parentElement && !text; depth++) {
       const row = node.parentElement;
       const cs = getComputedStyle(row);
       const isRow =

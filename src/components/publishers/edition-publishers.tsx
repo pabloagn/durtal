@@ -3,12 +3,9 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  PublisherPicker,
-  publisherLabel,
-  type PublisherOption,
-} from "./publisher-picker";
+import { PublisherLinksField, type PublisherOption } from "./publisher-picker";
 import {
   getEditionPublisherLinks,
   getPublisherOptions,
@@ -62,46 +59,42 @@ export function EditionPublishers({
           <Link
             key={p.id}
             href={`/publishers/${p.slug}`}
-            className="text-accent-blue hover:underline"
+            className="text-fg-primary transition-colors hover:text-accent-rose"
           >
             {p.name}
           </Link>
         ))}
-        <button
-          type="button"
-          onClick={open}
-          className="text-xs text-fg-muted hover:text-fg-primary"
-        >
-          {linked.length ? "Edit publisher links" : "Link publisher"}
-        </button>
-        {confirmed && <span className="text-xs text-fg-muted">Confirmed</span>}
+        {confirmed && <Badge variant="muted">Confirmed</Badge>}
+        {!editing && (
+          <Button size="sm" variant="ghost" onClick={open}>
+            {linked.length ? "Edit publisher links" : "Link publisher"}
+          </Button>
+        )}
       </div>
       {editing && (
-        <div className="max-w-md space-y-3 rounded-sm border border-glass-border p-3">
-          <div className="flex flex-wrap gap-2">
-            {ids.map((id) => (
-              <button
-                key={id}
-                type="button"
-                disabled={pending}
-                title="Remove link"
-                onClick={() => setIds(ids.filter((x) => x !== id))}
-                className="border border-glass-border px-2 py-1 text-xs"
-              >
-                {publisherLabel(options.find((p) => p.id === id)!)} ×
-              </button>
-            ))}
-          </div>
-          <PublisherPicker
-            options={options.filter((p) => !ids.includes(p.id))}
-            value=""
-            onChange={(id) => id && setIds([...ids, id])}
+        <div className="max-w-md space-y-3 rounded-sm border border-glass-border bg-bg-primary/40 p-3">
+          <PublisherLinksField
+            options={options}
+            ids={ids}
+            onChange={setIds}
             disabled={pending}
           />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={pending} onClick={() => save()}>
-              Save links
-            </Button>
+          <p className="text-xs text-fg-muted">
+            Confirmed links stay unchanged when metadata is refreshed. Add more
+            than one for co-published editions.
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            {confirmed && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={pending}
+                onClick={() => save(true)}
+                className="mr-auto"
+              >
+                Use automatic matching
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -110,21 +103,15 @@ export function EditionPublishers({
             >
               Cancel
             </Button>
-            {confirmed && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => save(true)}
-              >
-                Use automatic matching
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={pending}
+              onClick={() => save()}
+            >
+              {pending ? "Saving…" : "Save links"}
+            </Button>
           </div>
-          <p className="text-xs text-fg-muted">
-            Confirmed links stay unchanged when metadata is refreshed. Add more
-            than one for co-published editions.
-          </p>
         </div>
       )}
     </div>

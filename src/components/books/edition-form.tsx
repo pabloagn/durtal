@@ -12,7 +12,7 @@ import { filterBySearch } from "@/lib/utils/search-text";
 
 import { getPublisherOptions } from "@/lib/actions/publishers";
 import {
-  PublisherPicker,
+  PublisherLinksField,
   type PublisherOption,
 } from "@/components/publishers/publisher-picker";
 
@@ -336,7 +336,7 @@ export function EditionForm({
 
       {/* Section 2: Publication */}
       <Section title="Publication" defaultOpen>
-        <label className="flex items-center gap-2 text-sm text-fg-secondary">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-secondary">
           <input
             type="checkbox"
             disabled={initialValues.publisherIds !== undefined}
@@ -344,38 +344,16 @@ export function EditionForm({
             onChange={(e) =>
               update("publisherIds", e.target.checked ? [] : undefined)
             }
+            className="h-4 w-4 rounded-sm border-glass-border accent-accent-rose"
           />
           Choose publisher identities manually
         </label>
         {values.publisherIds !== undefined && (
           <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
-              {values.publisherIds.map((id) => (
-                <button
-                  type="button"
-                  key={id}
-                  className="text-xs text-fg-secondary"
-                  onClick={() =>
-                    update(
-                      "publisherIds",
-                      values.publisherIds!.filter((v) => v !== id),
-                    )
-                  }
-                >
-                  {publisherOptions.find((p) => p.id === id)?.name ??
-                    "Publisher"}{" "}
-                  ×
-                </button>
-              ))}
-            </div>
-            <PublisherPicker
-              options={publisherOptions.filter(
-                (p) => !values.publisherIds!.includes(p.id),
-              )}
-              value=""
-              onChange={(id) =>
-                id && update("publisherIds", [...values.publisherIds!, id])
-              }
+            <PublisherLinksField
+              options={publisherOptions}
+              ids={values.publisherIds}
+              onChange={(ids) => update("publisherIds", ids)}
             />
             <p className="text-xs text-fg-muted">
               These links are preserved during metadata refresh. The original
