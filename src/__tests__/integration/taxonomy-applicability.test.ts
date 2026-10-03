@@ -110,9 +110,10 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
         .map((r) => r.family.slug)
         .sort(),
     ).toEqual(["genres", "tags"]);
-    expect(
-      (await getTaxonomyFamilies()).some((f) => f.slug === "film-genres"),
-    ).toBe(false);
+    // Films are open; paintings are not yet
+    const listed = (await getTaxonomyFamilies()).map((f) => f.slug);
+    expect(listed).toContain("film-genres");
+    expect(listed).not.toContain("painting-genres");
     await expect(
       getApplicableTaxonomyFamilies("book", "film_version"),
     ).rejects.toThrow();
@@ -387,17 +388,19 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     await expect(updateTaxonomyFamily(film.id, { color: "red" })).rejects.toThrow();
   });
   it("lists only families of enabled domains, with all their scopes", async () => {
-    const filmOnly = await createTaxonomyFamily({ name: "Film only", scopes: [{ kind: "film", level: "work" }] });
+    const paintingOnly = await createTaxonomyFamily({ name: "Painting only", scopes: [{ kind: "painting", level: "work" }] });
     const shared = await createTaxonomyFamily({
       name: "Shared",
-      scopes: [{ kind: "book", level: "work" }, { kind: "film", level: "work" }],
+      scopes: [{ kind: "book", level: "work" }, { kind: "painting", level: "work" }],
     });
     const listed = await getTaxonomyFamilies();
-    expect(listed.some((f) => f.id === filmOnly.id)).toBe(false);
+    expect(listed.some((f) => f.id === paintingOnly.id)).toBe(false);
     expect(listed.find((f) => f.id === shared.id)?.scopes).toEqual(
-      expect.arrayContaining([{ kind: "book", level: "work" }, { kind: "film", level: "work" }]),
+      expect.arrayContaining([{ kind: "book", level: "work" }, { kind: "painting", level: "work" }]),
     );
-    expect(listed.some((f) => f.slug === "film-genres")).toBe(false);
+    expect(listed.some((f) => f.slug === "painting-genres")).toBe(false);
+    // Films are open, so their own family is listed
+    expect(listed.some((f) => f.slug === "film-genres")).toBe(true);
   });
   it("shares one family across two domains and explains used scopes before changes", async () => {
     const shared = await createTaxonomyFamily({
