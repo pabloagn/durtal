@@ -1100,6 +1100,20 @@ profile. The taxonomy engine only reads houses with a profile. Shared CRUD and
 audited merges are transactional; merges require compatible book profiles and
 preserve roles, aliases and venue links.
 
+Enrichment (SLN-330): `scripts/publishers/enrich.ts` researches every house with
+a book profile on Wikidata (Action API, answers cached). An item is taken only
+when it is a kind of publisher (an instance of a subclass of publisher or
+imprint), its English label or alias is the house's name (or a close form that
+the catalogue confirms), and nothing the catalogue knows contradicts it: the
+country text, the publication countries of the house's books and their ISBN
+registration groups. A match fills only an empty `country`, `website` and
+`description` (an About text built from Wikidata facts: its description, the
+founding year and the headquarters); the item is kept in
+`catalogue_identifiers` (provider `wikidata`) and the facts used in
+`source_records` (accepted, attribution "Wikidata (CC0)"). Rules:
+`src/lib/publishers/enrichment.ts`. Dry run by default; `--apply` saves the old
+values for `--undo`.
+
 ### `publisher_aliases`
 
 Canonical organization aliases: `publisher_id` (UUID, FK → publishing_houses,
