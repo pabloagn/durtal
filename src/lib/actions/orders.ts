@@ -31,6 +31,7 @@ import {
   ne,
   sql,
 } from "drizzle-orm";
+import { containsPattern } from "@/lib/utils/like";
 import type { SQL } from "drizzle-orm";
 import type {
   OrderStatus,
@@ -787,11 +788,8 @@ export async function searchWorksForOrder(query: string) {
   const { works } = await import("@/lib/db/schema");
   const { ilike } = await import("drizzle-orm");
 
-  // L1: escape SQL pattern characters to prevent unintended matches
-  const escaped = query.replace(/[%_\\]/g, (c) => `\\${c}`);
-
   return db.query.works.findMany({
-    where: and(bookCondition, ilike(works.title, `%${escaped}%`)),
+    where: and(bookCondition, ilike(works.title, containsPattern(query))),
     limit: 20,
     orderBy: asc(works.title),
     with: {

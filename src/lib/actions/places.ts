@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { places } from "@/lib/db/schema";
 import { eq, ilike, and, isNull } from "drizzle-orm";
+import { containsPattern, escapeLike } from "@/lib/utils/like";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { createPlaceSchema } from "@/lib/validations/places";
 
@@ -27,7 +28,7 @@ export async function createPlace(input: {
 
 export async function searchPlaces(query: string, limit = 20) {
   return db.query.places.findMany({
-    where: ilike(places.name, `%${query}%`),
+    where: ilike(places.name, containsPattern(query)),
     limit,
     with: {
       country: { columns: { name: true, alpha2: true } },
@@ -83,12 +84,12 @@ export async function getOrCreatePlaceChain(
       .where(
         parentId
           ? and(
-              ilike(places.name, name),
+              ilike(places.name, escapeLike(name)),
               eq(places.type, type),
               eq(places.parentId, parentId),
             )
           : and(
-              ilike(places.name, name),
+              ilike(places.name, escapeLike(name)),
               eq(places.type, type),
               isNull(places.parentId),
             ),
