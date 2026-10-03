@@ -12,7 +12,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import { deletePerfumeVariant } from "@/lib/actions/perfumes";
 import { PerfumeImage } from "./perfume-image";
-import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import {
   FormulationDialog,
   type EditableFormulation,

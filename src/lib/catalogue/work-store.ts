@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import {
   catalogueDates,
   customTaxonomyItemWorks,
+  organizationRoles,
   workCredits,
 } from "@/lib/db/schema";
 import {
@@ -14,6 +15,7 @@ import {
   type CatalogueDate,
 } from "./dates";
 import type { WorkKind } from "./kinds";
+import type { NON_PUBLISHING_ROLES } from "./organizations";
 import { resultRows } from "@/lib/harmonization/store";
 import type { creditInputSchema } from "@/lib/validations/people";
 
@@ -173,4 +175,29 @@ export function supplied<T extends object>(patch: T) {
   return Object.fromEntries(
     Object.entries(patch).filter(([, value]) => value !== undefined),
   ) as Partial<T>;
+}
+
+/**
+ * Naming an organization in a role (a perfume house, a production company, a
+ * retailer) gives it that role, in the same write: the database requires the
+ * role, and the user chose it. A role it already has stays as it is; no other
+ * role is added.
+ */
+export function organizationRoleQueries(
+  d: Db,
+  list: { organizationId: string; role: (typeof NON_PUBLISHING_ROLES)[number] }[],
+) {
+  const unique = [
+    ...new Map(list.map((o) => [`${o.organizationId}:${o.role}`, o])).values(),
+  ];
+  return unique.length
+    ? [
+        d
+          .insert(organizationRoles)
+          .values(
+            unique.map(({ organizationId, role }) => ({ organizationId, role })),
+          )
+          .onConflictDoNothing(),
+      ]
+    : [];
 }

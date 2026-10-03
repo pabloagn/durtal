@@ -27,8 +27,8 @@ import {
   formatVolume,
   type PerfumeContainer,
 } from "@/lib/catalogue/perfume-labels";
-import { SingleChoiceField, useOrganizationSearch } from "./perfume-fields";
-import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { SingleChoiceField, useOrganizationSearch } from "@/components/catalogue/record-fields";
+import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 
 type Listing = Awaited<ReturnType<typeof getPerfumeRetailerLinks>>[number];
 
