@@ -123,7 +123,22 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     for (const row of projected.venues) {
       if ("archived_at" in row) { expect(row.archived_at).toBeNull(); delete row.archived_at; }
     }
+    // 0052 adds the one settings row with today's defaults. This catalogue has
+    // no Amsterdam or Mexico City, so new copies get no default location.
+    if (projected.app_settings)
+      expect(projected.app_settings).toEqual([
+        expect.objectContaining({
+          id: true,
+          new_book_status: "tracked",
+          new_book_language: "en",
+          new_copy_location_id: null,
+          new_copy_format: "paperback",
+          new_copy_condition: "mint",
+          home_currency: "EUR",
+        }),
+      ]);
     for (const table of [
+      "app_settings",
       "credit_roles",
       "person_domains",
       "person_aliases",
