@@ -54,7 +54,6 @@ interface EditionDetailCardProps {
   workId?: string;
   authorName?: string;
   availableLocations?: LocationWithSubLocations[];
-  availableAuthors?: { id: string; name: string }[];
   availableGenres?: { id: string; name: string }[];
   availableTags?: { id: string; name: string }[];
 }
@@ -79,7 +78,6 @@ export function EditionDetailCard({
   workId,
   authorName,
   availableLocations = [],
-  availableAuthors = [],
   availableGenres = [],
   availableTags = [],
 }: EditionDetailCardProps) {
@@ -117,8 +115,9 @@ export function EditionDetailCard({
     return acc;
   }, {});
 
+  // Actions show where the card sits on a work page
   const hasActionProps =
-    availableAuthors.length > 0 || availableLocations.length > 0;
+    workId !== undefined || availableLocations.length > 0;
 
   return (
     <Card>
@@ -205,7 +204,6 @@ export function EditionDetailCard({
                   )}
                   <EditionEditDialog
                     edition={edition}
-                    availableAuthors={availableAuthors}
                     availableGenres={availableGenres}
                     availableTags={availableTags}
                   />

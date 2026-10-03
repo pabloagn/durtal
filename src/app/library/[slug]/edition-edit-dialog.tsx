@@ -17,7 +17,6 @@ import type { EditionWithRelations } from "@/lib/types/index";
 
 interface EditionEditDialogProps {
   edition: EditionWithRelations;
-  availableAuthors: { id: string; name: string }[];
   availableGenres: { id: string; name: string }[];
   availableTags: { id: string; name: string }[];
 }
@@ -81,7 +80,6 @@ function editionToFormValues(edition: EditionWithRelations): EditionFormValues {
 
 export function EditionEditDialog({
   edition,
-  availableAuthors,
   availableGenres,
   availableTags,
 }: EditionEditDialogProps) {
@@ -195,7 +193,6 @@ export function EditionEditDialog({
         <div className="max-h-[75vh] overflow-y-auto">
           <EditionForm
             initialValues={editionToFormValues(edition)}
-            availableAuthors={availableAuthors}
             availableGenres={availableGenres}
             availableTags={availableTags}
             onSubmit={handleSubmit}

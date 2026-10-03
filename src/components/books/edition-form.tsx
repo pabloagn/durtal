@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BINDING_TYPES, EDITION_CONTRIBUTOR_ROLES } from "@/lib/types/index";
 import { languageOptions } from "@/lib/utils/language";
-import { filterBySearch } from "@/lib/utils/search-text";
+import { useAuthorSearch, type AuthorOption } from "@/hooks/use-author-search";
 
 import {
   PublisherChip,
@@ -114,7 +114,6 @@ export const EMPTY_EDITION: EditionFormValues = {
 
 interface EditionFormProps {
   initialValues: EditionFormValues;
-  availableAuthors: { id: string; name: string }[];
   availableGenres: { id: string; name: string }[];
   availableTags: { id: string; name: string }[];
   onSubmit: (values: EditionFormValues) => Promise<void>;
@@ -159,7 +158,6 @@ function Section({
 
 export function EditionForm({
   initialValues,
-  availableAuthors,
   availableGenres,
   availableTags,
   onSubmit,
@@ -172,6 +170,8 @@ export function EditionForm({
   const [newContributorName, setNewContributorName] = useState("");
   const [newContributorRole, setNewContributorRole] = useState("translator");
   const [authorSearch, setAuthorSearch] = useState("");
+  // The author picked from the suggestions, while the name field still shows it
+  const [pickedAuthor, setPickedAuthor] = useState<AuthorOption | null>(null);
 
   function update<K extends keyof EditionFormValues>(
     field: K,
@@ -184,10 +184,8 @@ export function EditionForm({
     const trimmed = newContributorName.trim();
     if (!trimmed) return;
 
-    // Check if author exists in available list (case-insensitive)
-    const existing = availableAuthors.find(
-      (a) => a.name.toLowerCase() === trimmed.toLowerCase(),
-    );
+    // A typed name without a pick is resolved on save (findOrCreateAuthor)
+    const existing = pickedAuthor?.name === trimmed ? pickedAuthor : null;
 
     const entry: ContributorEntry = existing
       ? {
@@ -200,6 +198,7 @@ export function EditionForm({
     update("contributors", [...values.contributors, entry]);
     setNewContributorName("");
     setAuthorSearch("");
+    setPickedAuthor(null);
   }
 
   function removeContributor(index: number) {
@@ -223,9 +222,8 @@ export function EditionForm({
     update("tagIds", next);
   }
 
-  const filteredAuthors = authorSearch.trim()
-    ? filterBySearch(availableAuthors, authorSearch, (a) => a.name)
-    : availableAuthors.slice(0, 8);
+  // Author search runs on the server, so every author can be found
+  const { results: filteredAuthors } = useAuthorSearch(authorSearch);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -638,6 +636,7 @@ export function EditionForm({
                 onChange={(e) => {
                   setNewContributorName(e.target.value);
                   setAuthorSearch(e.target.value);
+                  setPickedAuthor(null);
                 }}
               />
               {authorSearch && filteredAuthors.length > 0 && (
@@ -649,6 +648,7 @@ export function EditionForm({
                       onClick={() => {
                         setNewContributorName(a.name);
                         setAuthorSearch("");
+                        setPickedAuthor(a);
                       }}
                       className="w-full px-3 py-1.5 text-left text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
                     >

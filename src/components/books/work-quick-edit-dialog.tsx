@@ -15,12 +15,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { updateWork } from "@/lib/actions/works";
 import { getWork } from "@/lib/actions/works";
-import { getAuthors, findOrCreateAuthor } from "@/lib/actions/authors";
+import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { getSeries } from "@/lib/actions/series";
 import { getWorkTypes } from "@/lib/actions/taxonomy";
 import { getRecommenders } from "@/lib/actions/recommenders";
 import { LANGUAGES } from "@/lib/constants/languages";
-import { filterBySearch } from "@/lib/utils/search-text";
+import { normalizeSearchText } from "@/lib/utils/search-text";
+import { useAuthorSearch } from "@/hooks/use-author-search";
 import {
   BookLinksFields,
   bookLinkValues,
@@ -86,9 +87,6 @@ export function WorkQuickEditDialog({
   const [loaded, setLoaded] = useState(false);
 
   // Reference data
-  const [allAuthors, setAllAuthors] = useState<{ id: string; name: string }[]>(
-    [],
-  );
   const [allSeries, setAllSeries] = useState<{ id: string; title: string }[]>(
     [],
   );
@@ -123,10 +121,9 @@ export function WorkQuickEditDialog({
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [work, authorsData, seriesData, workTypesData, recommendersData] =
+      const [work, seriesData, workTypesData, recommendersData] =
         await Promise.all([
           getWork(workId),
-          getAuthors({ limit: 1000 }),
           getSeries(),
           getWorkTypes(),
           getRecommenders(),
@@ -138,7 +135,6 @@ export function WorkQuickEditDialog({
         return;
       }
 
-      setAllAuthors(authorsData.map((a) => ({ id: a.id, name: a.name })));
       setAllSeries(seriesData.map((s) => ({ id: s.id, title: s.title })));
       setAllWorkTypes(
         workTypesData.map((wt) => ({ id: wt.id, name: wt.name })),
@@ -197,9 +193,13 @@ export function WorkQuickEditDialog({
     }
   }, [open]);
 
-  const filteredAuthors = authorSearch.trim()
-    ? filterBySearch(allAuthors, authorSearch, (a) => a.name)
-    : allAuthors.slice(0, 10);
+  // Author search runs on the server, so every author can be found
+  const { results: filteredAuthors, isSearching: isSearchingAuthors } =
+    useAuthorSearch(authorSearch);
+  // "Create" only when the typed name is not already an author
+  const authorExists = filteredAuthors.some(
+    (a) => normalizeSearchText(a.name) === normalizeSearchText(authorSearch),
+  );
 
   const authorAlreadyAdded = (id: string) => authors.some((a) => a.id === id);
 
@@ -585,7 +585,7 @@ export function WorkQuickEditDialog({
                               </button>
                             ))
                           : null}
-                        {authorSearch.trim() && (
+                        {authorSearch.trim() && !isSearchingAuthors && !authorExists && (
                           <button
                             type="button"
                             onClick={() => addNewAuthor(authorSearch)}

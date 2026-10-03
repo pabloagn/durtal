@@ -16,7 +16,8 @@ import { updateWork } from "@/lib/actions/works";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { LANGUAGES } from "@/lib/constants/languages";
-import { filterBySearch } from "@/lib/utils/search-text";
+import { normalizeSearchText } from "@/lib/utils/search-text";
+import { useAuthorSearch } from "@/hooks/use-author-search";
 import {
   BookLinksFields,
   bookLinkValues,
@@ -53,7 +54,6 @@ interface WorkEditDialogProps {
     recommenderIds: string[];
   };
   authors: AuthorRow[];
-  availableAuthors: { id: string; name: string }[];
   availableSeries: { id: string; title: string }[];
   availableWorkTypes: { id: string; name: string }[];
   availableRecommenders: { id: string; name: string }[];
@@ -105,7 +105,6 @@ const AUTHOR_ROLE_OPTIONS = [
 export function WorkEditDialog({
   work,
   authors: initialAuthors,
-  availableAuthors,
   availableSeries,
   availableWorkTypes,
   availableRecommenders,
@@ -166,10 +165,13 @@ export function WorkEditDialog({
   const [showAuthorAdd, setShowAuthorAdd] = useState(false);
   const [isAddingAuthor, setIsAddingAuthor] = useState(false);
 
-  // Filtered authors for combobox
-  const filteredAuthors = authorSearch.trim()
-    ? filterBySearch(availableAuthors, authorSearch, (a) => a.name)
-    : availableAuthors.slice(0, 10);
+  // Author search runs on the server, so every author can be found
+  const { results: filteredAuthors, isSearching: isSearchingAuthors } =
+    useAuthorSearch(authorSearch);
+  // "Create" only when the typed name is not already an author
+  const authorExists = filteredAuthors.some(
+    (a) => normalizeSearchText(a.name) === normalizeSearchText(authorSearch),
+  );
 
   const authorAlreadyAdded = (id: string) => authors.some((a) => a.id === id);
 
@@ -617,7 +619,7 @@ export function WorkEditDialog({
                             </button>
                           ))
                         : null}
-                      {authorSearch.trim() && (
+                      {authorSearch.trim() && !isSearchingAuthors && !authorExists && (
                         <button
                           type="button"
                           onClick={() => addNewAuthor(authorSearch)}

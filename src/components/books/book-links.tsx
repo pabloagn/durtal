@@ -1,3 +1,4 @@
+import { CapAligned } from "@/components/shared/cap-aligned";
 import {
   BOOK_LINK_SITES,
   parseBookLink,
@@ -37,26 +38,29 @@ export function BookLinks({ goodreadsUrl, storygraphUrl }: BookLinksProps) {
   });
   if (links.length === 0) return null;
 
+  // The links sit on the cap-height center of the row's text
   return (
-    <div className="inline-flex items-center gap-1">
-      {links.map(({ field, href }) => {
-        const label = `Open on ${BOOK_LINK_SITES[field].label}`;
-        return (
-          <a
-            key={field}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={label}
-            title={label}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-          >
-            <span aria-hidden className="inline-flex">
-              {GLYPHS[field]}
-            </span>
-          </a>
-        );
-      })}
-    </div>
+    <CapAligned height={28}>
+      <div className="flex items-center gap-1">
+        {links.map(({ field, href }) => {
+          const label = `Open on ${BOOK_LINK_SITES[field].label}`;
+          return (
+            <a
+              key={field}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={label}
+              title={label}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+            >
+              <span aria-hidden className="inline-flex">
+                {GLYPHS[field]}
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </CapAligned>
   );
 }

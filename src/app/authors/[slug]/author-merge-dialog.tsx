@@ -6,16 +6,16 @@ import { Loader2, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { mergeAuthors } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { filterBySearch } from "@/lib/utils/search-text";
+import { useAuthorSearch, type AuthorOption } from "@/hooks/use-author-search";
 
 interface AuthorMergeDialogProps {
   open: boolean;
   onClose: () => void;
   targetAuthorId: string;
   targetAuthorName: string;
-  allAuthors: { id: string; name: string; slug: string | null }[];
 }
 
 export function AuthorMergeDialog({
@@ -23,38 +23,32 @@ export function AuthorMergeDialog({
   onClose,
   targetAuthorId,
   targetAuthorName,
-  allAuthors,
 }: AuthorMergeDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<AuthorOption[]>([]);
+  const sourceIds = selectedSources.map((s) => s.id);
 
-  const candidates = allAuthors.filter(
+  // Author search runs on the server, so every author can be found
+  const { results, isSearching } = useAuthorSearch(search);
+  const filtered = results.filter(
     (a) => a.id !== targetAuthorId && !sourceIds.includes(a.id),
   );
 
-  const filtered = search.trim()
-    ? filterBySearch(candidates, search, (a) => a.name)
-    : candidates.slice(0, 15);
-
-  const selectedSources = sourceIds
-    .map((id) => allAuthors.find((a) => a.id === id))
-    .filter(Boolean) as { id: string; name: string; slug: string | null }[];
-
-  function addSource(id: string) {
-    setSourceIds((prev) => [...prev, id]);
+  function addSource(author: AuthorOption) {
+    setSelectedSources((prev) => [...prev, author]);
     setSearch("");
   }
 
   function removeSource(id: string) {
-    setSourceIds((prev) => prev.filter((s) => s !== id));
+    setSelectedSources((prev) => prev.filter((s) => s.id !== id));
   }
 
   function handleClose() {
     if (isPending) return;
     setSearch("");
-    setSourceIds([]);
+    setSelectedSources([]);
     onClose();
   }
 
@@ -91,7 +85,7 @@ export function AuthorMergeDialog({
       <div className="space-y-4">
         {/* Selected sources → Target visual */}
         <div className="rounded-sm border border-glass-border bg-bg-primary px-4 py-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-xs text-fg-secondary">
                 Will be deleted ({selectedSources.length})
@@ -121,7 +115,10 @@ export function AuthorMergeDialog({
                 </p>
               )}
             </div>
-            <ArrowRight className="h-4 w-4 flex-shrink-0 text-fg-muted" strokeWidth={1.5} />
+            {/* The arrow sits on the label line, so it stays put as names wrap */}
+            <CapAligned height={16} className="text-xs">
+              <ArrowRight className="h-4 w-4 text-fg-muted" strokeWidth={1.5} />
+            </CapAligned>
             <div className="min-w-0 flex-shrink-0 text-right">
               <p className="text-xs text-fg-secondary">Will be kept</p>
               <p className="text-sm font-medium text-accent-rose-text">
@@ -147,7 +144,7 @@ export function AuthorMergeDialog({
               <button
                 key={a.id}
                 type="button"
-                onClick={() => addSource(a.id)}
+                onClick={() => addSource(a)}
                 className="flex w-full items-center px-3 py-2 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
               >
                 {a.name}
@@ -155,7 +152,11 @@ export function AuthorMergeDialog({
             ))
           ) : (
             <p className="px-3 py-4 text-center text-xs text-fg-secondary">
-              No authors found
+              {!search.trim()
+                ? "Type a name to search"
+                : isSearching
+                  ? "Searching..."
+                  : "No authors found"}
             </p>
           )}
         </div>

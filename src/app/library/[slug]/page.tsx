@@ -9,6 +9,7 @@ import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { ArrowLeft, Star, Route, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
@@ -16,7 +17,6 @@ import {
   getWorksWithMark,
 } from "@/lib/actions/works";
 import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
-import { getAuthors } from "@/lib/actions/authors";
 import { getOrdersForWork } from "@/lib/actions/orders";
 import { getSeries, getOtherWorksInSeries } from "@/lib/actions/series";
 import {
@@ -93,7 +93,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
   const [
     work,
-    allAuthors,
     allSeries,
     allWorkTypes,
     allSubjects,
@@ -110,7 +109,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
     allRecommenders,
   ] = await Promise.all([
     getWorkBySlug(slug),
-    getAuthors({ limit: 1000 }),
     getSeries(),
     getWorkTypes(),
     getSubjects(),
@@ -347,10 +345,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
                         (wa) => wa.attribute.id,
                       ),
                     }}
-                    availableAuthors={allAuthors.map((a) => ({
-                      id: a.id,
-                      name: a.name,
-                    }))}
                     availableSeries={allSeries.map((s) => ({
                       id: s.id,
                       title: s.title,
@@ -430,39 +424,41 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Year and rating */}
-              <div className="mt-2 flex flex-wrap items-center gap-3">
+              {/* Year and rating. The row carries the year's type: icons
+                  and buttons sit on its cap-height center */}
+              {/* py-1: the 28px buttons fit in the row, which keeps its height */}
+              <div className="mt-2 flex flex-wrap items-start gap-3 py-1 font-mono text-xs">
                 {work.originalYear && (
-                  <span className="font-mono text-xs text-fg-secondary">
-                    {work.originalYear}
-                  </span>
+                  <span className="text-fg-secondary">{work.originalYear}</span>
                 )}
                 {work.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star
-                      className="h-3 w-3 text-accent-gold"
-                      strokeWidth={1.5}
-                      fill="currentColor"
-                    />
-                    <span className="font-mono text-xs text-accent-gold">
-                      {work.rating}/5
-                    </span>
+                  <div className="flex items-start gap-1">
+                    <CapAligned height={12}>
+                      <Star
+                        className="block h-3 w-3 text-accent-gold"
+                        strokeWidth={1.5}
+                        fill="currentColor"
+                      />
+                    </CapAligned>
+                    <span className="text-accent-gold">{work.rating}/5</span>
                   </div>
                 )}
                 {/* Marks: one group; the negative margin cancels the
                     buttons' padding so every icon sits 12px from its neighbour */}
-                <div
-                  role="group"
-                  aria-label={MARKS_LABEL}
-                  className="-mx-1.5 flex items-center"
-                >
-                  <HuntAssessmentControl
-                    workId={work.id}
-                    isRare={work.isRare}
-                    huntAssessedOn={work.huntAssessedOn}
-                  />
-                  <PoisonToggle workId={work.id} isPoison={work.isPoison} />
-                </div>
+                <CapAligned height={28}>
+                  <div
+                    role="group"
+                    aria-label={MARKS_LABEL}
+                    className="-mx-1.5 flex items-center"
+                  >
+                    <HuntAssessmentControl
+                      workId={work.id}
+                      isRare={work.isRare}
+                      huntAssessedOn={work.huntAssessedOn}
+                    />
+                    <PoisonToggle workId={work.id} isPoison={work.isPoison} />
+                  </div>
+                </CapAligned>
                 <BookLinks
                   goodreadsUrl={work.goodreadsUrl}
                   storygraphUrl={work.storygraphUrl}
@@ -578,10 +574,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
             <EditionAddDialog
             workId={work.id}
             workTitle={work.title}
-            availableAuthors={allAuthors.map((a) => ({
-              id: a.id,
-              name: a.name,
-            }))}
             availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
             availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
           />
@@ -597,10 +589,6 @@ export default async function WorkDetailPage({ params }: PageProps) {
               workId={work.id}
               authorName={primaryAuthor?.name}
               availableLocations={allLocations}
-              availableAuthors={allAuthors.map((a) => ({
-                id: a.id,
-                name: a.name,
-              }))}
               availableGenres={allGenres.map((g) => ({
                 id: g.id,
                 name: g.name,

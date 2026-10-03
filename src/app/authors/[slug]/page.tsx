@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
-import { getAuthorBySlug, getAuthors } from "@/lib/actions/authors";
+import { getAuthorBySlug } from "@/lib/actions/authors";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { AuthorDetailHeader } from "./author-detail-header";
@@ -22,18 +22,9 @@ interface PageProps {
 
 export default async function AuthorDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const [author, allAuthorRows] = await Promise.all([
-    getAuthorBySlug(slug),
-    getAuthors({ limit: 5000 }),
-  ]);
+  const author = await getAuthorBySlug(slug);
 
   if (!author) notFound();
-
-  const allAuthors = allAuthorRows.map((a) => ({
-    id: a.id,
-    name: a.name,
-    slug: a.slug,
-  }));
 
   const works = author.workAuthors.map((wa) => ({
     ...wa.work,
@@ -144,7 +135,6 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             posterUrl={posterUrl}
             posterCrop={posterCrop}
             workCount={works.length}
-            allAuthors={allAuthors}
           />
         </div>
       </div>

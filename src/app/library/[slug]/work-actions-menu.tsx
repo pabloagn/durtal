@@ -84,7 +84,6 @@ interface WorkActionsMenuProps {
   backgroundCount: number;
   galleryCount: number;
   taxonomyIds: TaxonomyIds;
-  availableAuthors: { id: string; name: string }[];
   availableSeries: { id: string; title: string }[];
   availableWorkTypes: { id: string; name: string }[];
   availableRecommenders: { id: string; name: string }[];
@@ -103,7 +102,6 @@ export function WorkActionsMenu({
   backgroundCount: _backgroundCount,
   galleryCount: _galleryCount,
   taxonomyIds,
-  availableAuthors,
   availableSeries,
   availableWorkTypes,
   availableRecommenders,
@@ -204,7 +202,6 @@ export function WorkActionsMenu({
       <WorkEditDialog
         work={work}
         authors={workAuthors}
-        availableAuthors={availableAuthors}
         availableSeries={availableSeries}
         availableWorkTypes={availableWorkTypes}
         availableRecommenders={availableRecommenders}
@@ -244,7 +241,6 @@ export function WorkActionsMenu({
       <EditionAddDialog
         workId={work.id}
         workTitle={work.title}
-        availableAuthors={availableAuthors}
         availableGenres={availableGenres}
         availableTags={availableTags}
         open={addEditionOpen}
