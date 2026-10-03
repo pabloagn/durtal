@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
+import { todayLocal } from "@/lib/utils/date";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
@@ -979,7 +980,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
     if (!valid.includes(targetStatus)) return;
 
     // Optimistic update — include date fields that the server auto-populates
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayLocal();
     const optimisticDates: Partial<OrderItem> = {};
     if (targetStatus === "shipped" || targetStatus === "in_transit") {
       optimisticDates.shippedDate = order.shippedDate ?? today;

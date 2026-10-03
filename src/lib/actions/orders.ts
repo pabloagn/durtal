@@ -15,6 +15,7 @@ import {
   instances,
   editions,
 } from "@/lib/db/schema";
+import { addDays, todayLocal } from "@/lib/utils/date";
 import {
   eq,
   and,
@@ -376,11 +377,8 @@ export async function getProvenanceStats(dateRange?: {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const today = new Date();
-  const sevenDaysFromNow = new Date();
-  sevenDaysFromNow.setDate(today.getDate() + 7);
-  const todayStr = today.toISOString().split("T")[0];
-  const sevenDaysStr = sevenDaysFromNow.toISOString().split("T")[0];
+  const todayStr = todayLocal();
+  const sevenDaysStr = addDays(todayStr, 7);
 
   const [
     totalStatsResult,
@@ -696,7 +694,7 @@ export async function updateOrderStatus(
   }
 
   const fromStatus = current.status;
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocal();
 
   // C6: only auto-set dates when the field is currently null
   const additionalFields: Record<string, unknown> = {};
