@@ -484,7 +484,7 @@ function PipelineColumn({
           </span>
         </div>
         <span
-          className={`font-mono text-micro ${isActive ? "text-fg-secondary" : "text-fg-muted/50"}`}
+          className={`font-mono text-micro ${isActive ? "text-fg-primary" : "text-fg-secondary"}`}
         >
           {count}
         </span>
@@ -501,7 +501,7 @@ function PipelineColumn({
         ))}
         {count === 0 && (
           <div className="flex flex-1 items-center justify-center py-6">
-            <span className="font-mono text-micro text-fg-muted/30">—</span>
+            <span className="font-mono text-micro text-fg-secondary">—</span>
           </div>
         )}
       </div>

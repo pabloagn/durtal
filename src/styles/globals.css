@@ -31,6 +31,8 @@
   /* Red for text: accent-red is 3.3–3.8:1 on the backgrounds, this is 4.7–5.3:1 */
   --color-accent-red-text: #cf5f5e;
   --color-accent-blue: #648493;
+  /* Blue for text: accent-blue is 4.4:1 on its own badge tint, this is 4.9-5.4:1 */
+  --color-accent-blue-text: #7293a2;
   --color-accent-slate: #586e75;
 
   /* ── Gothic underlay ─────────────────────────────────────────────────── */

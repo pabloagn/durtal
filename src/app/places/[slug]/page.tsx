@@ -107,7 +107,7 @@ async function PlaceContent({ slug }: { slug: string }) {
             className="flex h-40 w-56 flex-shrink-0 items-center justify-center rounded-sm border border-glass-border bg-bg-secondary"
             style={venue.color ? { backgroundColor: venue.color } : undefined}
           >
-            <span className="font-serif text-4xl text-fg-muted/20">
+            <span aria-hidden="true" className="font-serif text-4xl text-fg-secondary">
               {venue.name[0]}
             </span>
           </div>
