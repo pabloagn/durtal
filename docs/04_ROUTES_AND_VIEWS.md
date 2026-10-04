@@ -32,7 +32,9 @@
 /films/new                  Add a film
 /films/[slug]               Film detail (slug format: {title}-by-{director});
                             ?add=version opens "Add version"
-/paintings                  Home of the painting collection; 404 until it opens
+/paintings                  Paintings: the painting collection's gallery; 404 until it opens
+/paintings/new              Add a painting
+/paintings/[slug]           Painting detail (slug format: {title}-{id})
 ```
 
 A collection opens when `WORK_DOMAINS[kind].enabled` is true
@@ -282,13 +284,65 @@ copies, cannot be deleted; the dialog says what to do first.
 
 ### Paintings (`/paintings`)
 
-Reachable once the collection opens (see Route Map). `DomainHome`
-(`src/components/domains/domain-home.tsx`) shows the title, "Add painting", the
-collection switch, search, the collection's sorts, grid and list views (saved:
-`durtal-paintings-view-mode`), paging, and empty, no-results, loading and error
-states. Records use `DomainTileCard` and `DomainTileRow`: the image contained,
-never cropped, or the title's first letter, the credited people and the years.
-Detail and domain-specific cards belong to SLN-368.
+Built in SLN-368; reachable once the collection opens (see Route Map).
+`src/app/paintings/page.tsx` shows the title, "Add painting", the collection
+switch, search, the sorts (title, date, added, rating), grid and list views
+(saved: `durtal-paintings-view-mode`, `durtal-paintings-grid-columns`), paging,
+and the empty, no-results, loading and error states. An empty catalogue shows
+"No paintings yet" with "Add painting".
+
+Filters (`PaintingFilters`, `src/components/paintings/painting-filters.tsx`) live
+in the URL, with the same rules as the other homes (`paintingQueryFromParams`,
+`src/lib/catalogue/painting-params.ts`):
+
+| Parameter | Matches |
+|-----------|---------|
+| `painter` | Person ids; any one listed, as painter of the work or attributed hand of an object |
+| `movement` | Art movement ids; any one listed |
+| `genre`, `technique`, `medium`, `support` | Painting family item ids; all listed, on the work or an object, a broader item takes in its narrower ones |
+| `institution` | Organization ids; any object owned by one listed |
+| `venue` | Venue ids; any object whose confirmed current location is one listed |
+| `holding` | `owned` or `not_owned`: objects you own that are not disposed (both: no filter) |
+| `favourite` | `1`: favourites only |
+| `from`, `to` | Years the creation period overlaps; reversed years swap; an unknown date never matches |
+
+A card (`PaintingCard`) shows the whole picture in a fixed 4:5 frame, contained
+and never cropped, over its own tone (or a title card, `TitleCard`), so every
+card of a grid has one height; then the title on two fixed lines, the painters,
+and "1889 · Museum of Modern Art". Chips mark a favourite and the objects you own.
+
+### Painting detail (`/paintings/[slug]`)
+
+The header puts the picture beside the identity (stacked on a phone). The
+picture takes its own proportions (the image's, else the original's size),
+about half the page wide and never taller than 78% of the window, contained,
+never cropped. Beside it: the title with the favourite toggle and the action
+menu (Edit, Images, Delete) on its cap-height center, painted by (with the
+attribution, links to `/paintings?painter=`), date, movements (links), the
+original's owner, where the original is now (venue link, custody, display,
+since when, and how long ago it was checked; past a year: "check again"), what
+you own of it and the personal rating.
+
+`DetailColumns`: the reading column holds the description (`Prose`), the
+original and its versions, reproductions, Sources and Your notes. Each object
+lists its size, date and own attribution, its owner (institution with
+collection and accession number, a private collection, you, or unknown), what
+you hold, where it is now, and its location history (newest first; probable and
+uncertain claims with their certainty, and a claim that contradicts the current
+location is marked). The record column holds Details (date, size of the
+original, added), Classification (edited in place) and Media counts.
+
+`PaintingForm` creates and edits the identity: title, painters with their
+attribution ("Unknown" for an unnamed hand), date of any precision, movements,
+genres, techniques, media, supports and description. `ArtObjectDialog` adds and
+edits an original, a version or a reproduction (which may name the original it
+reproduces), with size, its own attribution, and the owner; an object you own
+adds status, storage, acquisition and disposal. `WhereaboutsDialog` records a
+move, a loan (an exhibition, on display), a return to the owning venue, a past
+or uncertain location, or edits a record; places are a venue, a private place,
+unknown, lost or destroyed. A move closes the current location on its date.
+"Checked today" stamps the record. A painting with objects you own cannot be
+deleted; the dialog says what to do first.
 
 ### Work Detail (`/library/[slug]`)
 

@@ -288,6 +288,7 @@ export async function loadPaintingCards(ids: string[]) {
       thumbnailS3Key: string | null;
       width: number | null;
       height: number | null;
+      tone: string | null;
     } | null;
   }>(
     await db.execute(sql`select w.id,w.slug,w.title,w.rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
@@ -299,7 +300,7 @@ export async function loadPaintingCards(ids: string[]) {
         from art_objects o left join publishing_houses p on p.id=o.owner_organization_id
         where o.work_id=w.id and o.kind<>'reproduction' order by o.kind='version',o.created_at,o.id limit 1) as "primaryObject",
       (select count(*)::int from art_objects o where o.work_id=w.id and o.ownership='personal' and o.holding_status<>'disposed') as "personalCount",
-      (select jsonb_build_object('s3Key',m.s3_key,'thumbnailS3Key',m.thumbnail_s3_key,'width',m.width,'height',m.height)
+      (select jsonb_build_object('s3Key',m.s3_key,'thumbnailS3Key',m.thumbnail_s3_key,'width',m.width,'height',m.height,'tone',m.color_palette->'dominant'->>'hex')
         from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.created_at desc,m.id limit 1) as poster
       from works w join painting_details d on d.work_id=w.id left join catalogue_dates cd on cd.id=d.creation_date_id
       where w.kind='painting' and w.id in (${uuids(ids)})`),

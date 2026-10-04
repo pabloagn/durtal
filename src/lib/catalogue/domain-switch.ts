@@ -4,6 +4,7 @@ import { FILM_SORTS } from "@/lib/validations/films";
 import { PAINTING_SORTS } from "@/lib/validations/paintings";
 import { PERFUME_SORTS } from "@/lib/validations/perfumes";
 import { FILM_FILTER_KEYS } from "./film-params";
+import { PAINTING_FILTER_KEYS } from "./painting-params";
 import { PERFUME_FILTER_KEYS } from "./perfume-params";
 
 /** The sorts of the book list (`/library?sort=`). */
@@ -27,7 +28,7 @@ const HOME_QUERY: Record<
   },
   perfume: { sorts: PERFUME_SORTS, filters: PERFUME_FILTER_KEYS },
   film: { sorts: FILM_SORTS, filters: FILM_FILTER_KEYS },
-  painting: { sorts: PAINTING_SORTS, filters: [] },
+  painting: { sorts: PAINTING_SORTS, filters: PAINTING_FILTER_KEYS },
 };
 
 /**
