@@ -1,102 +1,242 @@
 "use server";
 
-import { and, asc, desc, or, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { authors, works } from "@/lib/db/schema";
-import {
-  authorSearchCondition,
-  authorSearchRank,
-} from "@/lib/actions/utils/author-search";
-import {
-  textSearchCondition,
-  textSearchRank,
-} from "@/lib/actions/utils/text-search";
+import { resultRows } from "@/lib/harmonization/store";
+import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
+import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
+import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
 
+export interface QuickSearchWork {
+  id: string;
+  kind: WorkKind;
+  /** The work's page in its own collection: /library/…, /films/…, /perfumes/… */
+  href: string;
+  title: string;
+  year: number | null;
+  /** Its makers as the collection names them: authors, directors, the house, painters */
+  creators: string[];
+  /** The cover or poster thumbnail: the active poster, else (books) an edition's */
+  cover: string | null;
+}
 export interface QuickSearchResult {
-  works: {
-    id: string;
-    slug: string;
-    title: string;
-    year: number | null;
-    authors: string[];
-    /** The book's cover thumbnail: its active poster, else an edition's */
-    cover: string | null;
-  }[];
-  /** `photo`: the portrait thumbnail (monochrome, like every author image) */
-  authors: { id: string; slug: string; name: string; photo: string | null }[];
+  /** The best matches of each open collection, best first within each */
+  works: QuickSearchWork[];
+  /** `photo`: the portrait thumbnail; `roles`: what they are in the catalogue */
+  people: { id: string; name: string; href: string; photo: string | null; roles: string }[];
+  organizations: { id: string; name: string; href: string; roles: string }[];
+  venues: { id: string; name: string; href: string; type: string }[];
 }
 
-// Relational-query extras render columns without their table, and inside a
-// subquery a bare "id" would name the subquery's own row: the outer row is
-// named explicitly here.
+/** Matches per collection, and per group of people, organizations, venues */
+const PER_KIND = 5;
 
-/** A work's cover thumbnail key: the active poster, else the newest edition with a cover */
-const workCover = sql<string | null>`coalesce(
-  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active order by m.created_at limit 1),
-  (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = "works"."id" and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last limit 1))`;
-
-/** An author's portrait thumbnail key: the active poster, else the legacy photo */
-const authorPhoto = sql<string | null>`coalesce(
-  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.author_id = "authors"."id" and m.type = 'poster' and m.is_active order by m.created_at limit 1),
-  "authors"."photo_s3_key")`;
-
-/** Title, series and author names of a work, as one search text */
-const workHaystack = sql`search_normalize(${works.title} || ' ' || coalesce(${works.seriesName}, '') || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${works.id}), '') || ' ' || coalesce((select s.title from series s where s.id = ${works.seriesId}), ''))`;
+const EMPTY: QuickSearchResult = { works: [], people: [], organizations: [], venues: [] };
 
 /**
- * Search for the command palette: books by title, series, author or ISBN
- * ("brothers dostoevsky", "9780099518471"), and authors by any name form.
- * Accent-insensitive and typo-tolerant, best matches first.
+ * A work's search text: its title, series and the names its collection
+ * credits it to (book authors; directors and writers; perfumers and houses;
+ * painters). Credited-as names count, so "Leonardo" finds a painting credited
+ * that way.
+ */
+const workHaystack = sql`search_normalize(w.title
+  || ' ' || coalesce(w.series_name, '')
+  || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')
+  || ' ' || coalesce((select string_agg(coalesce(c.credited_as, a.name, ''), ' ') from work_credits c left join authors a on a.id = c.person_id
+       where c.work_id = w.id and c.role_id in ('film.director', 'film.screenwriter', 'perfume.perfumer', 'painting.painter')), '')
+  || ' ' || coalesce((select string_agg(o.name, ' ') from perfume_organizations po join publishing_houses o on o.id = po.organization_id where po.work_id = w.id), ''))`;
+
+/** The makers shown beside a result, in the collection's own terms */
+const workCreators = sql`case w.kind
+  when 'book' then (select array_agg(a.name order by wa.sort_order, a.id) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id)
+  when 'perfume' then (select array_agg(o.name order by po.sort_order, o.id) from perfume_organizations po join publishing_houses o on o.id = po.organization_id
+    where po.work_id = w.id and po.role in ('perfume_house', 'brand'))
+  else (select array_agg(coalesce(c.credited_as, a.name) order by c.sort_order, c.id) from work_credits c left join authors a on a.id = c.person_id
+    where c.work_id = w.id and c.role_id in ('film.director', 'painting.painter') and coalesce(c.credited_as, a.name) is not null)
+  end`;
+
+const workCover = sql`coalesce(
+  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1),
+  case when w.kind = 'book' then (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id
+    and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last, e.id limit 1) end)`;
+
+/** A work's address in its collection; a book needs its slug, the others accept the id */
+function workHref(kind: WorkKind, id: string, slug: string | null) {
+  return `${WORK_DOMAINS[kind].basePath}/${slug ?? id}`;
+}
+
+async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWork[]> {
+  const isbn = q.replace(/[-\s]/g, "");
+  const isbnMatch = /^\d{9}[\dX]$|^\d{13}$/i.test(isbn)
+    ? sql`exists (select 1 from editions e where e.work_id = w.id and (e.isbn_13 = ${isbn} or e.isbn_10 = ${isbn}))`
+    : null;
+  const textMatch = textSearchCondition(workHaystack, q);
+  const match =
+    isbnMatch && textMatch ? sql`(${isbnMatch} or ${textMatch})` : (isbnMatch ?? textMatch ?? null);
+  if (!match || !kinds.length) return [];
+  const list = sql.join(
+    kinds.map((k) => sql`${k}`),
+    sql`, `,
+  );
+  const rows = resultRows<{
+    id: string;
+    kind: WorkKind;
+    slug: string | null;
+    title: string;
+    year: number | null;
+    creators: string[] | null;
+    cover: string | null;
+  }>(
+    await db.execute(sql`select id, kind, slug, title, year, creators, cover from (
+        select w.id, w.kind, w.slug, w.title, w.original_year as year,
+          ${workCreators} as creators, ${workCover} as cover,
+          row_number() over (partition by w.kind
+            order by ${textSearchRank(workHaystack, sql`w.title`, q)} desc, lower(w.title), w.id) as n
+        from works w
+        where w.kind::text in (${list})
+          and (w.kind <> 'book' or w.slug is not null)
+          and ${match}
+      ) found where n <= ${PER_KIND}
+      order by array_position(array[${list}]::text[], kind::text), n`),
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    href: workHref(row.kind, row.id, row.slug),
+    title: row.title,
+    year: row.year,
+    creators: row.creators ?? [],
+    cover: row.cover,
+  }));
+}
+
+/** What a person is in the open collections, by the roles they hold */
+const PERSON_ROLES: { kind: WorkKind; role: string; label: string; filter?: string }[] = [
+  { kind: "book", role: "author", label: "Writer" },
+  { kind: "film", role: "film.director", label: "Director", filter: "/films?director=" },
+  { kind: "film", role: "film.cast", label: "Cast", filter: "/films?cast=" },
+  { kind: "perfume", role: "perfume.perfumer", label: "Perfumer", filter: "/perfumes?perfumer=" },
+  { kind: "painting", role: "painting.painter", label: "Painter", filter: "/paintings?painter=" },
+];
+
+async function searchPeople(q: string, kinds: WorkKind[]) {
+  const match = textSearchCondition(sql`a.search_text`, q);
+  const alias = textSearchCondition(sql`pa.search_text`, q);
+  if (!match || !alias) return [];
+  const rows = resultRows<{
+    id: string;
+    slug: string | null;
+    name: string;
+    photo: string | null;
+    isBook: boolean;
+    roles: string[] | null;
+  }>(
+    await db.execute(sql`select a.id, a.slug, a.name,
+        coalesce((select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.author_id = a.id and m.type = 'poster' and m.is_active
+          order by m.created_at, m.id limit 1), a.photo_s3_key) as photo,
+        exists (select 1 from person_domains pd where pd.person_id = a.id and pd.kind = 'book') as "isBook",
+        array_remove(array[
+          case when exists (select 1 from work_authors wa where wa.author_id = a.id) then 'author' end,
+          case when exists (select 1 from work_credits c where c.person_id = a.id and c.role_id = 'film.director') then 'film.director' end,
+          case when exists (select 1 from work_credits c where c.person_id = a.id and c.role_id = 'film.cast') then 'film.cast' end,
+          case when exists (select 1 from work_credits c where c.person_id = a.id and c.role_id = 'perfume.perfumer')
+            or exists (select 1 from perfume_variant_perfumers p where p.person_id = a.id) then 'perfume.perfumer' end,
+          case when exists (select 1 from work_credits c where c.person_id = a.id and c.role_id = 'painting.painter') then 'painting.painter' end
+        ], null) as roles
+      from authors a
+      where (${match} or exists (select 1 from person_aliases pa where pa.person_id = a.id and ${alias}))
+      order by ${textSearchRank(sql`a.search_text`, sql`a.name`, q)} desc, lower(a.name), a.id
+      limit ${PER_KIND * 3}`),
+  );
+  const open = new Set<WorkKind>(kinds);
+  return rows
+    .flatMap((row) => {
+      const held = PERSON_ROLES.filter((r) => open.has(r.kind) && row.roles?.includes(r.role));
+      // A book person has their author page; anyone else, their collection's list
+      const href =
+        row.isBook && row.slug && open.has("book")
+          ? `/authors/${row.slug}`
+          : held.find((r) => r.filter)?.filter?.concat(row.id);
+      if (!href) return [];
+      return [{ id: row.id, name: row.name, href, photo: row.photo, roles: held.map((r) => r.label).join(" · ") }];
+    })
+    .slice(0, PER_KIND);
+}
+
+/** The roles an organization can hold outside publishing, and the list each leads */
+const ORGANIZATION_ROLES: { role: string; label: string; kind?: WorkKind; href?: (id: string) => string }[] = [
+  { role: "perfume_house", label: "Perfume house", kind: "perfume", href: (id) => `/perfumes?house=${id}` },
+  { role: "brand", label: "Brand", kind: "perfume", href: (id) => `/perfumes?house=${id}` },
+  { role: "museum", label: "Museum", kind: "painting", href: (id) => `/paintings?institution=${id}` },
+  { role: "gallery", label: "Gallery", kind: "painting", href: (id) => `/paintings?institution=${id}` },
+  { role: "manufacturer", label: "Manufacturer" },
+  { role: "retailer", label: "Retailer" },
+  { role: "production_company", label: "Production company" },
+  { role: "distribution_company", label: "Distributor" },
+];
+const PUBLISHING_LABELS: Record<string, string> = {
+  group: "Publishing group",
+  publisher: "Publisher",
+  imprint: "Imprint",
+};
+
+async function searchOrganizations(q: string, kinds: WorkKind[]) {
+  const match = textSearchCondition(sql`o.search_text`, q);
+  const alias = textSearchCondition(sql`pa.search_text`, q);
+  if (!match || !alias) return [];
+  const rows = resultRows<{ id: string; slug: string; name: string; kind: string | null; roles: string[] }>(
+    await db.execute(sql`select o.id, o.slug, o.name, o.kind,
+        coalesce((select array_agg(r.role order by r.role) from organization_roles r where r.organization_id = o.id), '{}') as roles
+      from publishing_houses o
+      where (${match} or exists (select 1 from publisher_aliases pa where pa.publisher_id = o.id and ${alias}))
+      order by ${textSearchRank(sql`o.search_text`, sql`o.name`, q)} desc, lower(o.name), o.id
+      limit ${PER_KIND * 3}`),
+  );
+  const open = new Set<WorkKind>(kinds);
+  return rows
+    .flatMap((row) => {
+      const roles = ORGANIZATION_ROLES.filter((r) => row.roles.includes(r.role));
+      // Its publisher page, else the list of the collection it leads
+      const href =
+        row.kind && open.has("book")
+          ? `/publishers/${row.slug}`
+          : roles.find((r) => r.href && r.kind && open.has(r.kind))?.href?.(row.id);
+      if (!href) return [];
+      const labels = [...(row.kind ? [PUBLISHING_LABELS[row.kind]] : []), ...roles.map((r) => r.label)];
+      return [{ id: row.id, name: row.name, href, roles: labels.join(" · ") }];
+    })
+    .slice(0, PER_KIND);
+}
+
+async function searchVenues(q: string) {
+  const match = textSearchCondition(sql`v.search_text`, q);
+  if (!match) return [];
+  const rows = resultRows<{ id: string; slug: string; name: string; type: VenueType }>(
+    await db.execute(sql`select v.id, v.slug, v.name, v.type from venues v
+      where v.archived_at is null and v.slug is not null and ${match}
+      order by ${textSearchRank(sql`v.search_text`, sql`v.name`, q)} desc, lower(v.name), v.id
+      limit ${PER_KIND}`),
+  );
+  return rows.map((v) => ({ id: v.id, name: v.name, href: `/places/${v.slug}`, type: VENUE_TYPE_LABELS[v.type] }));
+}
+
+/**
+ * Search for the command palette: works of every open collection by title,
+ * series, makers or ISBN, each linking to its own collection; people by any
+ * name or other name, with what they are; organizations; venues. Accent-
+ * insensitive and typo-tolerant, best matches first. The search text is
+ * normalized to letters and digits, so "%" and "_" match nothing special.
  */
 export async function quickSearch(query: string): Promise<QuickSearchResult> {
   const q = query.trim().slice(0, 200);
-  if (q.length < 2) return { works: [], authors: [] };
-
-  const isbn = q.replace(/[-\s]/g, "");
-  const isbnMatch = /^\d{9}[\dX]$|^\d{13}$/i.test(isbn)
-    ? sql`exists (select 1 from editions e where e.work_id = ${works.id} and (e.isbn_13 = ${isbn} or e.isbn_10 = ${isbn}))`
-    : undefined;
-  const textMatch = textSearchCondition(workHaystack, q);
-  const where = isbnMatch && textMatch ? or(isbnMatch, textMatch) : (isbnMatch ?? textMatch);
-  const authorWhere = authorSearchCondition(q);
-
-  const [workRows, authorRows] = await Promise.all([
-    where
-      ? db.query.works.findMany({
-          where: and(where, sql`${works.slug} is not null`),
-          columns: { id: true, slug: true, title: true, originalYear: true },
-          extras: { cover: workCover.as("cover") },
-          orderBy: [desc(textSearchRank(workHaystack, sql`${works.title}`, q)), asc(works.title)],
-          limit: 8,
-          with: {
-            workAuthors: {
-              columns: {},
-              orderBy: (wa) => asc(wa.sortOrder),
-              with: { author: { columns: { name: true } } },
-            },
-          },
-        })
-      : [],
-    authorWhere
-      ? db.query.authors.findMany({
-          where: and(authorWhere, sql`${authors.slug} is not null`),
-          columns: { id: true, slug: true, name: true },
-          extras: { photo: authorPhoto.as("photo") },
-          orderBy: [desc(authorSearchRank(q)), asc(authors.name)],
-          limit: 5,
-        })
-      : [],
+  if (q.length < 2) return EMPTY;
+  const kinds = getEnabledWorkKinds();
+  const [works, people, organizations, venues] = await Promise.all([
+    searchWorks(q, kinds),
+    searchPeople(q, kinds),
+    searchOrganizations(q, kinds),
+    searchVenues(q),
   ]);
-
-  return {
-    works: workRows.map((w) => ({
-      id: w.id,
-      slug: w.slug!,
-      title: w.title,
-      year: w.originalYear,
-      authors: w.workAuthors.map((wa) => wa.author.name),
-      cover: w.cover,
-    })),
-    authors: authorRows.map((a) => ({ id: a.id, slug: a.slug!, name: a.name, photo: a.photo })),
-  };
+  return { works, people, organizations, venues };
 }
