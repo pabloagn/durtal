@@ -28,6 +28,8 @@ next-env.d.ts
 
 # Not part of the web app
 scripts
+# Test config: it imports a reporter from scripts/, which the image leaves out
+vitest.config.ts
 data
 .venv
 __pycache__
