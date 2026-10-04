@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FileQuestion, SearchX } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 
 interface NoResultsProps {
   /** Plural noun for the listed items, e.g. "authors" */
@@ -35,10 +35,8 @@ export function NoResults({ noun, search, hasFilters, clearHref }: NoResultsProp
       title={`No ${noun} found`}
       description={description}
       action={
-        <Link href={clearHref}>
-          <Button variant="ghost" size="sm">
-            {clearLabel}
-          </Button>
+        <Link href={clearHref} className={buttonClass("ghost", "sm")}>
+          {clearLabel}
         </Link>
       }
     />
@@ -58,10 +56,8 @@ export function PageOutOfRange({ firstPageHref }: PageOutOfRangeProps) {
       title="Nothing on this page"
       description="This page is past the end of the results."
       action={
-        <Link href={firstPageHref}>
-          <Button variant="ghost" size="sm">
-            Go to first page
-          </Button>
+        <Link href={firstPageHref} className={buttonClass("ghost", "sm")}>
+          Go to first page
         </Link>
       }
     />
