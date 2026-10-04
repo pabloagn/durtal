@@ -16,6 +16,8 @@ import {
   FORMAT_EXT,
   type ExportFormat,
 } from "@/lib/utils/export";
+import { slugify } from "@/lib/utils/slugify";
+import { stripHtmlToText } from "@/lib/utils/sanitize";
 
 const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet"];
 const VALID_ENTITIES = ["works", "authors"] as const;
@@ -126,7 +128,7 @@ async function fetchAuthorsForExport(ids: string[] | null) {
     death_year: a.deathYear ?? "",
     death_month: a.deathMonth ?? "",
     death_day: a.deathDay ?? "",
-    bio: a.bio ?? "",
+    bio: a.bio ? stripHtmlToText(a.bio) : "",
     website: a.website ?? "",
     works_count: a.workAuthors.length,
   }));
@@ -190,41 +192,22 @@ export async function POST(req: NextRequest) {
     const timestamp = todayLocal();
 
     // For single-entity exports, use a descriptive filename
-    let filename: string;
+    let slug = "";
     if (all === true) {
-      filename = `durtal-${entityType === "works" ? "books" : "authors"}-all-${timestamp}${FORMAT_EXT[fmt]}`;
+      slug = `${entityType === "works" ? "books" : "authors"}-all`;
     } else if (rows.length === 1 && entityType === "authors") {
       const row = rows[0] as {
         first_name?: string;
         last_name?: string;
         name?: string;
       };
-      const first = (row.first_name ?? "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "");
-      const last = (row.last_name ?? "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "");
-      if (first && last) {
-        filename = `durtal-${first}-${last}-${timestamp}${FORMAT_EXT[fmt]}`;
-      } else {
-        // Fallback to full name slugified
-        const slug = (row.name ?? "author")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
-        filename = `durtal-${slug}-${timestamp}${FORMAT_EXT[fmt]}`;
-      }
+      const first = slugify(row.first_name ?? "");
+      const last = slugify(row.last_name ?? "");
+      slug = first && last ? `${first}-${last}` : slugify(row.name ?? "");
     } else if (rows.length === 1 && entityType === "works") {
-      const row = rows[0] as { title?: string };
-      const slug = (row.title ?? "work")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-      filename = `durtal-${slug}-${timestamp}${FORMAT_EXT[fmt]}`;
-    } else {
-      filename = `durtal-${entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
+      slug = slugify((rows[0] as { title?: string }).title ?? "");
     }
+    const filename = `durtal-${slug || entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
 
     if (fmt === "csv" || fmt === "tsv") {
       const text = fmt === "csv" ? toCSV(rows) : toTSV(rows);
