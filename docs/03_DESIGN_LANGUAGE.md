@@ -50,15 +50,15 @@ Information density is high, ornamentation is absent, and every pixel earns its 
 
 ### Over images
 
-Controls and text that sit on a cover, portrait or banner use the page's near-black, never pure black or white:
+Small controls and marks that sit on a cover, poster or portrait are glass on the image (`glass-chip`, see Glass): the selection box, the copy button, the card actions menu, the image adjustment button and the cover chips (`cover-chip.ts`, on book, film, perfume, painting and reader cards). Larger layers over an image use the page's near-black, never pure black or white:
 
 | Token | Value | Usage |
 |---|---|---|
-| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the card actions menu, the cover chips (`cover-chip.ts`, also the reader's format chips), the media manager's hover actions (`bg-overlay`) |
+| `--color-overlay` | `bg-primary` at 85% | The media manager's hover actions over a whole thumbnail (`bg-overlay`) |
 | `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection, publisher and film pages) |
 | `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image; its buttons keep 16px icons in `fg-secondary` |
 
-Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black`, `text-white` or blur on these: blur belongs to the glass (navigation, palette and floating panels).
+Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black` or `text-white`, and no blur of their own: blur belongs to the glass.
 
 ### Gothic Underlay
 
@@ -184,6 +184,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
 | A bar fixed to a screen edge: the navigation bar on a phone, the sidebar (a drawer over the page on a phone), the reader's toolbar and progress bar | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
+| A small control or mark on an image: cover chips, a card's copy, actions and selection controls, the image adjustment button | `glass-chip`: a 72% tint over the image blurred 10px (3px on a 16px cover mark, where a wide radius keeps the image's edges), saturated 180% and dimmed to 60%, a hairline edge lit from above (`border` on the element). The dimming is in the tint, so Chrome, Safari and Firefox draw it alike. The image shows through as smoked glass; an icon keeps 3:1 and a label 4.5:1 even over a white cover. Labels are `fg-primary`, a tone colors only the icon. `glass-chip-lift` brightens it on hover; controls that show on hover fade their glass (`hover-reveal-glass`), not a wrapper, so the blur is there all through the fade |
 | What lies behind the phone drawer | `glass-veil` |
 
 `glass-veil` is the layer behind a modal surface: the page at 62% black, blurred 6px, so it stays in view but steps back.
@@ -192,7 +193,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 
 **A glass surface never scrolls.** The `::before` layer would scroll away with the first screenful and leave the rest of a long list on the bare page. The glass element takes `overflow-hidden`; an element inside it scrolls (`max-h-56 overflow-y-auto` on a select's list). A dialog's body scrolls, not the dialog, so its header stays in view. `src/__tests__/glass-surfaces.test.ts` checks it.
 
-**Never** on page content: cards, panels, sections, tables and the record column stay opaque (`bg-secondary`). Controls on top of an image use an opaque backdrop instead (cover chips, `src/components/books/cover-chip.ts`).
+**Never** on page content: cards, panels, sections, tables and the record column stay opaque (`bg-secondary`). The controls and marks on a card's image are `glass-chip`.
 
 ---
 
