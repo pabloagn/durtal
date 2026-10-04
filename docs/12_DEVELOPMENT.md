@@ -217,7 +217,8 @@ Opens a browser-based database browser connected to Neon. Allows direct inspecti
 
 ### ESLint
 
-- Next.js ESLint config (`eslint-config-next`)
+- `typescript-eslint` recommended, `eslint-plugin-react-hooks` and `@next/eslint-plugin-next` (recommended and Core Web Vitals rules), in `eslint.config.mjs`
+- The React Compiler rules of `eslint-plugin-react-hooks` warn for now; `rules-of-hooks` and the Next rules fail the run
 - Run via `pnpm lint` or `task lint`
 
 ### Prettier
