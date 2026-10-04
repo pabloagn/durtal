@@ -28,7 +28,7 @@ Real mouse input (Chrome DevTools `Input` events, so pointer capture behaves as 
 | Click at 90% of the minimap | jumps from 1800 to 2011 | jumps from 414 BC to 1802 |
 | Enter on a focused marker / bar | opens it | opens it |
 
-- Before, on the same build, a click on a marker or bar did nothing (the issue's evidence); the new test fails 3 of 4 on the code before the fix.
+- Before: a click on a marker or bar did nothing (the issue's evidence, a dev server on `main`). The new test fails 3 of 4 on the code before the fix.
 - `scripts/qa/alignment-audit.js`: 0 rows over 0.5px on both timelines at both widths (31 and 27 rows checked at 1440px). `scripts/qa/design-audit.js`: 0 low-contrast texts, 0 nested controls. No console errors.
 - `pnpm typecheck`, `pnpm lint` (0 errors) and `python3 scripts/qa/test-local.py` (1,615 tests) pass.
 - `scripts/qa/page-weight.js`: 9 of 10 routes pass; `/library` is 313 KB against its 300 KB budget. It is the same on `main` (321 KB on the live app); this task changes no server HTML.
