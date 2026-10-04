@@ -30,6 +30,7 @@
 - **ALWAYS** use Drizzle migrations for schema changes (never raw SQL in production)
 - **ALWAYS** ask the user if uncertain rather than guessing
 - **ALWAYS** check every front-end change for pixel-perfect alignment in the browser before calling it done: run `scripts/qa/alignment-audit.js` on each page it touches and fix every deviation over 0.5px. Measure; never judge alignment from a screenshot
+- **ALWAYS** run `node scripts/qa/page-weight.js` before calling a front-end change done. It fails when a main route is over its HTML size or server time budget in `scripts/qa/page-weight.json`
 
 ---
 
