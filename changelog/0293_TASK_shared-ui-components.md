@@ -24,6 +24,7 @@ Every existing file and export stays, so no page that imports them changes: the 
 
 ## Completion Notes
 
+- After #84 (People) landed, its wording moved into the shared parts: the author form's submit reads "Add person" and its biography placeholder "Biography"; the create and edit wrappers say "Add person", "Edit person", `"<name>" added`, "Person updated" and link to `/people/<slug>`; the error page goes back to `/people`. The flows below were rerun on that merge (suite 1,791 of 1,791).
 - Every changed dialog in **Chrome, Firefox and Safari**, on a disposable copy of the live data, on this branch merged with main d6d0981: create an author; edit one (filled in, saved, still there after a reload); Edit Work on a book page (the same); the list's quick edit (filled in, saved); add and edit an edition; add and edit a copy; the provenance page and the first step of a new order. 9 of 9 pass in each browser. The same flows passed on main's code before the change (Chrome). Safari needed main's dialog fix (SLN-443) first: before it, every dialog in Safari showed only its header.
 - Alignment and contrast audit on `/provenance`, `/authors` and a book page at 1440, 768 and 390px: nothing new. Two findings were there before and are on main too: the "Add to collection" icon 8.69px off the title of a book with no ISBN, and two author cards whose link has no name.
 - Page weight: `/provenance` 261 KB, the same as main; `/library` is over its budget on main too (SLN-381).
