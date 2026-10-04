@@ -54,9 +54,11 @@ describe("painting names and lines", () => {
       "On loan for an exhibition · On display",
     );
     expect(custodyText({ custody: "unknown", displayStatus: "unknown", placeKind: "unknown" })).toBe("");
-    expect(checkedText(0)).toBe("Checked today");
-    expect(checkedText(3)).toBe("Checked 3 days ago");
-    expect(checkedText(800)).toBe("Checked 2 years ago");
+    const recordedAt = new Date("2026-10-01T09:00:00Z");
+    expect(checkedText({ verifiedAt: new Date("2026-10-04T23:30:00Z"), recordedAt })).toBe(
+      "Checked Oct 4, 2026",
+    );
+    expect(checkedText({ verifiedAt: null, recordedAt })).toBe("Recorded Oct 1, 2026, not checked");
   });
 
   it("keeps a frame between 1:3 and 3:1, from the picture first", () => {

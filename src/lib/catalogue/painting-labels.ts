@@ -167,13 +167,16 @@ export function custodyText(record: { custody: string; displayStatus: string; pl
   return parts.join(" · ");
 }
 
-/** "Checked 3 days ago", "Checked 2 years ago": how old the last check is */
-export function checkedText(ageDays: number) {
-  if (ageDays < 1) return "Checked today";
-  if (ageDays < 2) return "Checked yesterday";
-  if (ageDays < 60) return `Checked ${ageDays} days ago`;
-  if (ageDays < 730) return `Checked ${Math.round(ageDays / 30)} months ago`;
-  return `Checked ${Math.round(ageDays / 365)} years ago`;
+/**
+ * "Checked Oct 4, 2026" when the record was checked against a source, else
+ * "Recorded Oct 4, 2026, not checked": the date a location is known from.
+ */
+export function checkedText(record: { verifiedAt: Date | null; recordedAt: Date }) {
+  const date = (at: Date) =>
+    at.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+  return record.verifiedAt
+    ? `Checked ${date(record.verifiedAt)}`
+    : `Recorded ${date(record.recordedAt)}, not checked`;
 }
 
 /** A painter as the forms hold it; `id` keeps a stored credit across edits */
