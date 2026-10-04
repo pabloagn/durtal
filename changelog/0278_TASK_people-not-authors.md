@@ -35,14 +35,14 @@ People: every person of every collection, under `/people`.
   roles (`getPersonWorkCredits`). A person with no books has no book sections.
 - Deleting a person with no books goes through the shared deletion
   (`deletePerson`), which refuses while they still have credits.
-- Links: the activity log links people to `/people/…`.
+- Links: the activity log and the search box link every person to their page (`/people/…`); a director with no book used to open the films list.
 - Docs: `docs/04_ROUTES_AND_VIEWS.md`.
 
 ## Completion Notes
 
-- Tests: `people-credits.test.ts`: the list covers every collection; the
+- Tests: `people-credits.test.ts` (the list covers every collection; the
   collection and role filters; the filter counts; a director's page and
-  credits; deleting a person with no books.
+  credits; deleting a person with no books) and `domain-search.test.ts`.
 - Browser: Chrome, Safari and Firefox 157, at 1440, 768 and 390 px, on a
   preview with a director, an actor, a perfumer and a painter. `/authors`
   lands on `/people`; no "Author" or "Authors" on the page; "Search people...",
