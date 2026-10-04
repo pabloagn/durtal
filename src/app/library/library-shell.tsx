@@ -13,8 +13,10 @@ import { BulkActionToolbar } from "@/components/books/bulk-action-toolbar";
 import { CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CoverCrop } from "@/components/books/book-card";
-import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
+import { getWorksForTimeline } from "@/lib/actions/work-timeline";
+import { useViewData } from "@/lib/hooks/use-view-data";
 import { LIST_PREFERENCES } from "@/lib/preferences";
+import { ViewStatus } from "@/components/shared/view-status";
 
 // Dynamic import — timeline pulls in canvas + WebGL-adjacent code; skip SSR
 const WorkTimeline = dynamic(
@@ -24,11 +26,7 @@ const WorkTimeline = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-[400px] items-center justify-center font-mono text-sm text-fg-secondary">
-        Loading timeline...
-      </div>
-    ),
+    loading: () => <ViewStatus label="Loading timeline..." className="h-[400px]" />,
   },
 );
 
@@ -58,13 +56,14 @@ interface BookItem {
 
 interface LibraryShellProps {
   books: BookItem[];
-  timelineWorks?: WorkTimelineItem[];
+  /** Search and filters for the timeline, which loads only when shown */
+  timelineQuery: Parameters<typeof getWorksForTimeline>[0];
   pagination: PaginationData;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryShellProps) {
+export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellProps) {
   const [viewMode] = useViewModePreference(
     LIST_PREFERENCES.library.view.key,
     LIBRARY_VIEW_MODES,
@@ -81,6 +80,7 @@ export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryS
   const titleMap = new Map(books.map((b) => [b.workId, b.title]));
 
   const isTimeline = viewMode === "timeline";
+  const timelineWorks = useViewData(isTimeline, timelineQuery, getWorksForTimeline);
 
   return (
     <>
@@ -105,7 +105,17 @@ export function LibraryShell({ books, timelineWorks = [], pagination }: LibraryS
       {/* Timeline view */}
       {isTimeline && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
-          <WorkTimeline works={timelineWorks} />
+          {timelineWorks.status === "ready" ? (
+            <WorkTimeline works={timelineWorks.data} />
+          ) : timelineWorks.status === "error" ? (
+            <ViewStatus
+              label="Could not load the timeline."
+              onRetry={timelineWorks.retry}
+              className="h-[400px]"
+            />
+          ) : (
+            <ViewStatus label="Loading timeline..." className="h-[400px]" />
+          )}
         </div>
       )}
 

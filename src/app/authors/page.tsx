@@ -12,8 +12,6 @@ import {
   getAuthorBirthYearRange,
   getAuthorDeathYearRange,
 } from "@/lib/actions/authors";
-import { getAuthorsForMap } from "@/lib/actions/author-map";
-import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
 import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
 import {
   formatNationalityParam,
@@ -111,11 +109,9 @@ async function AuthorsContent({
     alive: aliveParam,
   };
 
-  const [rawAuthors, total, mapAuthors, timelineAuthors] = await Promise.all([
+  const [rawAuthors, total] = await Promise.all([
     getAuthors({ search, sort, order, limit, offset, filters }),
     getAuthorCount({ search, filters }),
-    getAuthorsForMap({ search, filters }),
-    getAuthorsForTimeline({ search, filters: timelineFilters }),
   ]);
 
   if (page > lastPage(total, limit)) redirect(pageHref("/authors", searchParams, lastPage(total, limit)));
@@ -184,8 +180,8 @@ async function AuthorsContent({
     <>
       <AuthorsShell
         authors={authors}
-        mapAuthors={mapAuthors}
-        timelineAuthors={timelineAuthors}
+        mapQuery={{ search, filters }}
+        timelineQuery={{ search, filters: timelineFilters }}
         pagination={{
           page,
           perPage: limit,
