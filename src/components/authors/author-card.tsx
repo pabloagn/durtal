@@ -121,7 +121,7 @@ export function AuthorCard({
             className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
               isSelected
                 ? "border-accent-rose bg-accent-rose text-fg-primary"
-                : "border-glass-border bg-overlay text-transparent"
+                : "glass-chip text-transparent"
             }`}
           >
             {isSelected && (

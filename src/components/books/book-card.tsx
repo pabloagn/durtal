@@ -191,7 +191,7 @@ export function BookCard({
 
         {/* Copy button — hidden until hover, like the three-dot menu; stays visible with keyboard focus */}
         {!isSelecting && <div className="absolute bottom-1 right-8 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 @[220px]:bottom-2 @[220px]:right-10">
-          <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} className="border border-white/10 bg-overlay" />
+          <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
         </div>}
 
         {/* Three-dot menu — lives outside overflow-hidden, opens upward into poster */}
@@ -212,7 +212,7 @@ export function BookCard({
             className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
               isSelected
                 ? "border-accent-rose bg-accent-rose text-fg-primary"
-                : "border-glass-border bg-overlay text-transparent"
+                : "glass-chip text-transparent"
             }`}
           >
             {isSelected && (
