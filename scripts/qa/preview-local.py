@@ -16,7 +16,19 @@ backup must come from pg_dump 16, which the container's pg_restore can read:
 
     docker run --rm -e PGURL postgres:16 sh -c 'pg_dump --format=custom "$PGURL"' > FILE
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE]
+With --start, the production build in `.next` is served instead of `next dev`
+(run `pnpm build` first), as the Docker image serves it: the standalone
+`server.js` with its static files. This checks a release or recovery build
+against the same disposable database.
+
+With --seed-large N, scripts/qa/seed-large.sql adds N perfumes, films and
+paintings with many credits, formulations and location records, for timing
+checks. With --log-sql FILE, the bridge appends each query the app sends, with
+its time in ms, its row count and its parameters, to FILE as one JSON line.
+After --from-dump the log holds real catalogue data: keep it out of the
+repository (.gitignore ignores *.jsonl).
+
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE]
 """
 
 import argparse
@@ -65,6 +77,9 @@ const encode = (value, type) =>
   : value instanceof Date ? value.toISOString()
   : typeof value === "object" ? JSON.stringify(value)
   : typeof value === "boolean" ? (value ? "t" : "f") : String(value);
+// With DURTAL_PREVIEW_SQL_LOG, one JSON line per query: its time, rows and text
+import { appendFileSync } from "node:fs";
+const sqlLog = process.env.DURTAL_PREVIEW_SQL_LOG;
 const upstream = globalThis.fetch;
 globalThis.fetch = async (input, options) => {
   const endpoint = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
@@ -74,7 +89,10 @@ globalThis.fetch = async (input, options) => {
     const results = await client.begin(async (tx) => {
       const output = [];
       for (const query of body.queries || [body]) {
+        const started = performance.now();
         const rows = await tx.unsafe(query.query, query.params).values();
+        // The log never breaks a query: a write that fails is skipped
+        if (sqlLog) try { appendFileSync(sqlLog, JSON.stringify({ at: Date.now(), ms: +(performance.now() - started).toFixed(2), rows: rows.count, sql: query.query, params: query.params }) + "\n"); } catch {}
         output.push({
           command: rows.command, rowCount: rows.count,
           fields: (rows.columns ?? []).map((c) => ({ name: c.name, dataTypeID: c.type })),
@@ -176,6 +194,12 @@ def main():
     parser.add_argument("--port", type=int, default=3410)
     parser.add_argument("--from-dump", type=Path, metavar="FILE",
                         help="rehearse the pending migrations on this pg_dump backup")
+    parser.add_argument("--start", action="store_true",
+                        help="serve the production build in .next (next start) instead of next dev")
+    parser.add_argument("--seed-large", type=int, metavar="N",
+                        help="add N perfumes, N films and N paintings (scripts/qa/seed-large.sql)")
+    parser.add_argument("--log-sql", type=Path, metavar="FILE",
+                        help="append every query the app sends, with its time, to FILE (JSON lines)")
     args = parser.parse_args()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
@@ -237,18 +261,38 @@ def main():
         else:
             run("node", "--input-type=module", "-e", MIGRATE, cwd=ROOT, env=env)
             psql(SEED)
+        if args.seed_large:
+            seed = (Path(__file__).parent / "seed-large.sql").read_text()
+            print(psql(f"\\set n {args.seed_large}\n{seed}"), flush=True)
+        if args.log_sql:
+            args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
+            env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
         bridge = workdir / "neon-bridge.mjs"
         bridge.write_text(BRIDGE % {
             "postgres": repr(str(ROOT / "node_modules/postgres/src/index.js")),
             "database": DATABASE,
         })
         env["NODE_OPTIONS"] = f"--import {bridge}"
-        # The dev data cache (unstable_cache) survives restarts: without this, a
+        # The data cache (unstable_cache) survives restarts: without this, a
         # preview could show records cached by an earlier run on another database.
         shutil.rmtree(ROOT / ".next/dev/cache/fetch-cache", ignore_errors=True)
-        server = subprocess.Popen(
-            ["pnpm", "exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1", "--port", str(args.port)],
-            cwd=ROOT, env=env, start_new_session=True)
+        shutil.rmtree(ROOT / ".next/cache/fetch-cache", ignore_errors=True)
+        if args.start:
+            standalone = ROOT / ".next/standalone"
+            if not (standalone / "server.js").exists():
+                raise RuntimeError("No standalone build in .next: run pnpm build first")
+            # As the Dockerfile lays it out: static files and public beside server.js
+            shutil.copytree(ROOT / ".next/static", standalone / ".next/static", dirs_exist_ok=True)
+            shutil.copytree(ROOT / "public", standalone / "public", dirs_exist_ok=True)
+            shutil.rmtree(standalone / ".next/cache/fetch-cache", ignore_errors=True)
+            env.update(PORT=str(args.port), HOSTNAME="127.0.0.1")
+            server = subprocess.Popen(
+                ["node", "server.js"], cwd=standalone, env=env, start_new_session=True)
+        else:
+            server = subprocess.Popen(
+                ["pnpm", "exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1",
+                 "--port", str(args.port)],
+                cwd=ROOT, env=env, start_new_session=True)
         address = f"http://127.0.0.1:{args.port}"
         for _ in range(240):
             try:

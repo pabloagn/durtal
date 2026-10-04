@@ -21,3 +21,82 @@ export const NON_PUBLISHING_ROLES = [
   "museum",
   "gallery",
 ] as const;
+
+/**
+ * The roles the shared directory lists: a publishing group (a book profile
+ * level, kept on the publisher record) and every organization role.
+ */
+export const DIRECTORY_ROLES = ["group", ...ORGANIZATION_ROLES] as const;
+export type DirectoryRole = (typeof DIRECTORY_ROLES)[number];
+/** The book profile levels, kept on the publisher record itself */
+export const PUBLISHING_LEVELS = ["group", "publisher", "imprint"] as const;
+
+/**
+ * How each role reads in the shared directory and on an organization's page:
+ * the words of its collection ("Perfume house", "Museum"), not "publisher".
+ */
+export const ORGANIZATION_ROLE_LABELS: Record<
+  DirectoryRole,
+  { one: string; many: string }
+> = {
+  group: { one: "Publishing group", many: "Publishing groups" },
+  publisher: { one: "Publisher", many: "Publishers" },
+  imprint: { one: "Imprint", many: "Imprints" },
+  perfume_house: { one: "Perfume house", many: "Perfume houses" },
+  brand: { one: "Brand", many: "Brands" },
+  manufacturer: { one: "Manufacturer", many: "Manufacturers" },
+  retailer: { one: "Retailer", many: "Retailers" },
+  production_company: { one: "Production company", many: "Production companies" },
+  distribution_company: { one: "Distributor", many: "Distributors" },
+  museum: { one: "Museum", many: "Museums" },
+  gallery: { one: "Gallery", many: "Galleries" },
+};
+
+/** "Perfume house · Retailer": an organization's roles, in the directory's order */
+export function organizationRoleText(roles: readonly string[]) {
+  return DIRECTORY_ROLES.filter((role) => roles.includes(role))
+    .map((role) => ORGANIZATION_ROLE_LABELS[role].one)
+    .join(" · ");
+}
+
+/** Counts on a directory row stop here: a row shows "999+" past it */
+export const COUNT_CAP = 999;
+
+/** A count on a directory row: exact up to the cap, then "999+" */
+export function boundedCount(n: number) {
+  return n > COUNT_CAP ? `${COUNT_CAP}+` : String(n);
+}
+
+/** What an organization takes part in, as a directory row counts it */
+export interface ContributionCounts {
+  editions: number;
+  /** Houses under it: a group's publishers, a publisher's imprints */
+  houses: number;
+  /** Books wanted from it (acquisition targets) */
+  wanted: number;
+  perfumes: number;
+  films: number;
+  paintings: number;
+  venues: number;
+  /** Bottles and film copies it supplied */
+  supplied: number;
+}
+
+const NOUNS: Record<keyof ContributionCounts, [string, string]> = {
+  editions: ["edition", "editions"],
+  houses: ["house under it", "houses under it"],
+  wanted: ["book wanted", "books wanted"],
+  perfumes: ["perfume", "perfumes"],
+  films: ["film", "films"],
+  paintings: ["painting", "paintings"],
+  venues: ["venue", "venues"],
+  supplied: ["copy supplied", "copies supplied"],
+};
+
+/** "124 editions · 3 films": what an organization takes part in, bounded */
+export function contributionText(counts: ContributionCounts) {
+  return (Object.keys(NOUNS) as (keyof ContributionCounts)[])
+    .filter((key) => counts[key] > 0)
+    .map((key) => `${boundedCount(counts[key])} ${NOUNS[key][counts[key] === 1 ? 0 : 1]}`)
+    .join(" · ");
+}

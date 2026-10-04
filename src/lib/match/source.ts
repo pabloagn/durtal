@@ -9,6 +9,7 @@ import { normalizeBinding } from "@/lib/utils/binding";
 import { stripControlChars, stripHtmlToText } from "@/lib/utils/sanitize";
 import type { IsbndbBook } from "@/lib/api/isbndb";
 import { extractIsbn, getBestCover } from "@/lib/api/google-books";
+import { googleBooksFetch } from "@/lib/api/google-books-quota";
 import {
   isbn10To13,
   isbn13To10,
@@ -105,9 +106,11 @@ const timeout = () => ({ signal: AbortSignal.timeout(10000) });
 
 async function fromGoogleBooks(id: string): Promise<SourceRecord> {
   const key = serverEnv().GOOGLE_BOOKS_API_KEY;
-  const res = await fetch(
+  // Over the quota, this throws GoogleBooksQuotaError, whose message says so
+  const res = await googleBooksFetch(
     `https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}${key ? `?key=${key}` : ""}`,
-    timeout(),
+    {},
+    10000,
   );
   if (!res.ok) throw new Error("Could not fetch from Google Books");
   const info = ((await res.json()).volumeInfo ?? {}) as Record<string, unknown>;

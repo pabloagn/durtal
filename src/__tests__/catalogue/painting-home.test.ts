@@ -54,9 +54,26 @@ describe("painting names and lines", () => {
       "On loan for an exhibition · On display",
     );
     expect(custodyText({ custody: "unknown", displayStatus: "unknown", placeKind: "unknown" })).toBe("");
-    expect(checkedText(0)).toBe("Checked today");
-    expect(checkedText(3)).toBe("Checked 3 days ago");
-    expect(checkedText(800)).toBe("Checked 2 years ago");
+    const recordedAt = new Date("2026-10-01T09:00:00Z");
+    // The date is the owner's calendar day (APP_TIMEZONE), set here so the
+    // runner's own setting cannot change the result
+    const original = process.env.APP_TIMEZONE;
+    try {
+      process.env.APP_TIMEZONE = "Europe/Amsterdam";
+      // 23:30 UTC is 01:30 the next day in Amsterdam
+      expect(checkedText({ verifiedAt: new Date("2026-10-04T23:30:00Z"), recordedAt })).toBe(
+        "Checked Oct 5, 2026",
+      );
+      expect(checkedText({ verifiedAt: null, recordedAt })).toBe("Recorded Oct 1, 2026, not checked");
+      process.env.APP_TIMEZONE = "America/Mexico_City";
+      // ...and still Oct 4 in Mexico City
+      expect(checkedText({ verifiedAt: new Date("2026-10-04T23:30:00Z"), recordedAt })).toBe(
+        "Checked Oct 4, 2026",
+      );
+    } finally {
+      if (original === undefined) delete process.env.APP_TIMEZONE;
+      else process.env.APP_TIMEZONE = original;
+    }
   });
 
   it("keeps a frame between 1:3 and 3:1, from the picture first", () => {

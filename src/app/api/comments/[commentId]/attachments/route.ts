@@ -5,12 +5,24 @@ import { eq } from "drizzle-orm";
 import { uploadToS3 } from "@/lib/s3";
 import { goldCommentAttachmentKey } from "@/lib/s3/keys";
 import { randomUUID } from "crypto";
+import { ATTACHMENT_EXTENSIONS, attachmentType } from "@/lib/s3/attachment-types";
+import { isUuid } from "@/lib/utils/uuid";
+
+/** The name shown for a file: no folders, no control characters, at most 255 characters */
+function displayName(name: string) {
+  const base = name.split(/[\\/]/).pop() ?? "";
+  const printable = [...base].filter((c) => c.charCodeAt(0) > 31 && c.charCodeAt(0) !== 127);
+  return printable.join("").trim().slice(0, 255);
+}
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ commentId: string }> },
 ) {
   const { commentId } = await params;
+  if (!isUuid(commentId)) {
+    return NextResponse.json({ error: "Invalid comment id" }, { status: 400 });
+  }
 
   // Verify comment exists
   const comment = await db.query.comments.findFirst({
@@ -41,8 +53,20 @@ export async function POST(
     return NextResponse.json({ error: "File too large (25MB max)" }, { status: 400 });
   }
 
+  // The type comes from the checked extension, not from the browser
+  const fileName = displayName(file.name);
+  const type = attachmentType(fileName);
+  if (!type) {
+    return NextResponse.json(
+      {
+        error: `This kind of file cannot be attached. Accepted: ${ATTACHMENT_EXTENSIONS.join(", ")}.`,
+      },
+      { status: 400 },
+    );
+  }
+  const { ext, mimeType } = type;
+
   const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = file.name.split(".").pop() ?? "bin";
   const fileId = randomUUID();
   const s3Key = goldCommentAttachmentKey(
     comment.entityType,
@@ -52,17 +76,17 @@ export async function POST(
     ext,
   );
 
-  await uploadToS3(s3Key, buffer, file.type);
+  await uploadToS3(s3Key, buffer, mimeType);
 
-  const isImage = file.type.startsWith("image/");
+  const isImage = mimeType.startsWith("image/");
 
   const [attachment] = await db
     .insert(commentAttachments)
     .values({
       commentId,
-      fileName: file.name,
+      fileName,
       fileSize: file.size,
-      mimeType: file.type,
+      mimeType,
       s3Key,
       isImage,
     })

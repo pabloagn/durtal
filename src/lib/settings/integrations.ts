@@ -1,4 +1,10 @@
 import { HeadBucketCommand } from "@aws-sdk/client-s3";
+import {
+  GoogleBooksQuotaError,
+  googleBooksFetch,
+  googleBooksOverQuota,
+  lastGoogleBooksCall,
+} from "@/lib/api/google-books-quota";
 import { count, eq, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { calibreBooks, sourceRecords } from "@/lib/db/schema";
@@ -126,7 +132,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       purpose: "Second source for book search and Match. Without a key it uses the shared quota.",
       env: [{ name: "GOOGLE_BOOKS_API_KEY", set: isSet("GOOGLE_BOOKS_API_KEY"), optional: true }],
       checkFrom: "server",
-      facts: [],
+      facts: [{ label: "Last search call", value: lastGoogleBooksCallText() }],
     },
     {
       id: "openLibrary",
@@ -208,7 +214,10 @@ async function httpCheck(
   try {
     res = await request();
   } catch (error) {
-    const timedOut = error instanceof ExternalFetchError && error.timedOut;
+    // A plain fetch's time limit aborts with a TimeoutError
+    const timedOut =
+      (error instanceof ExternalFetchError && error.timedOut) ||
+      (error instanceof Error && error.name === "TimeoutError");
     return failure(
       timedOut
         ? `${name} did not answer within ${EXTERNAL_TIMEOUT_MS / 1000} s`
@@ -287,6 +296,19 @@ async function checkStorage(): Promise<CheckResult> {
   }
 }
 
+/** The last Google Books call from search or Match, since the app started */
+function lastGoogleBooksCallText() {
+  const call = lastGoogleBooksCall();
+  if (!call) return "None since the app started";
+  const at = `${call.at.toISOString().slice(11, 16)} UTC`;
+  if (call.outcome === "ok") return `Worked at ${at}`;
+  if (call.outcome === "quota")
+    return googleBooksOverQuota()
+      ? `Over the quota at ${at}; paused before the next try`
+      : `Over the quota at ${at}`;
+  return call.status ? `Failed at ${at} (HTTP ${call.status})` : `Failed at ${at}`;
+}
+
 function checkIsbndb(): Promise<CheckResult> {
   const key = serverEnv().ISBNDB_API_KEY?.trim();
   if (!key) return Promise.resolve(off("ISBNDB_API_KEY is not set"));
@@ -312,10 +334,16 @@ async function checkGoogleBooks(): Promise<CheckResult> {
   if (key) params.set("key", key);
   const result = await httpCheck(
     "Google Books",
+    // Through the quota state: no call while it pauses, and the check counts
+    // as the last call. A refusal reads as the 429 it was.
     () =>
-      fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?${params}`, {
+      googleBooksFetch(`https://www.googleapis.com/books/v1/volumes?${params}`, {
         cache: "no-store",
-      }),
+      }).catch((error: unknown) =>
+        error instanceof GoogleBooksQuotaError
+          ? new Response(null, { status: 429 })
+          : Promise.reject(error),
+      ),
     {
       400: failure("Google Books refused the key"),
       403: warning("Over the quota, or the Books API is off for this key"),

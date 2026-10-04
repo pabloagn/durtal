@@ -27,6 +27,18 @@ import {
   Tag,
 } from "lucide-react";
 import { getVenueBySlug } from "@/lib/actions/venues";
+import {
+  getVenueArt,
+  getVenueInstitutions,
+  getVenueOrders,
+  getVenuePurchases,
+  getVenueReferences,
+  getVenueRetail,
+  type VenueReferences,
+} from "@/lib/actions/venue-pages";
+import { VenueActions } from "./venue-actions";
+import { VenueInstitutions } from "./venue-institutions";
+import { VenueArtParts, VenueOrdersPart, VenuePurchasesPart, VenueRetailPart } from "./venue-parts";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
@@ -35,12 +47,36 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+/** "3 orders": what keeps a venue from being deleted (its images do not) */
+function blockerLines(refs: VenueReferences) {
+  const line = (n: number, one: string, many: string) => (n ? [`${n} ${n === 1 ? one : many}`] : []);
+  return [
+    ...line(refs.orders, "order", "orders"),
+    ...line(refs.bottles, "perfume bottle bought here", "perfume bottles bought here"),
+    ...line(refs.filmCopies, "film copy bought here", "film copies bought here"),
+    ...line(refs.artBought, "art object bought here", "art objects bought here"),
+    ...line(refs.whereabouts, "painting location record", "painting location records"),
+    ...line(refs.listings, "retailer listing", "retailer listings"),
+    ...line(refs.institutions, "institution link", "institution links"),
+    ...line(refs.sources, "source", "sources"),
+    ...line(refs.identifiers, "identifier", "identifiers"),
+  ];
+}
+
 
 
 async function PlaceContent({ slug }: { slug: string }) {
   const venue = await loadVenue(slug);
 
   if (!venue) notFound();
+  const [institutions, art, retail, orders, purchases, references] = await Promise.all([
+    getVenueInstitutions(venue.id),
+    getVenueArt(venue.id),
+    getVenueRetail(venue.id),
+    getVenueOrders(venue.id),
+    getVenuePurchases(venue.id),
+    getVenueReferences(venue.id),
+  ]);
 
   const thumbnailUrl = venue.thumbnailS3Key
     ? `/api/s3/read?key=${encodeURIComponent(venue.thumbnailS3Key)}`
@@ -67,12 +103,6 @@ async function PlaceContent({ slug }: { slug: string }) {
   );
   const hasVisits = !!(venue.firstVisitDate || venue.lastVisitDate);
   const hasHours = venue.openingHours != null;
-  const hasReading = !!(
-    venue.description ||
-    venue.specialties ||
-    hasTags ||
-    venue.notes
-  );
 
   return (
     <>
@@ -118,18 +148,43 @@ async function PlaceContent({ slug }: { slug: string }) {
         <div className="min-w-0 flex-1">
           {/* The row carries the name's type: the star sits on the
               cap-height center of the name's first line */}
-          <div className="type-page-title mb-2 flex items-start gap-3">
-            <h1 className="type-page-title min-w-0 break-words">
-              {venue.name}
-            </h1>
-            <CapAligned height={32}>
-              <FavouriteToggle
-                favourite={venue.isFavorite}
-                target={{ entity: "venue", id: venue.id }}
-                name={venue.name}
-                shortcut
-              />
-            </CapAligned>
+          <div className="mb-2 flex items-start gap-3">
+            <div className="type-page-title flex min-w-0 flex-1 items-start gap-3">
+              <h1 className="type-page-title min-w-0 break-words">
+                {venue.name}
+              </h1>
+              <CapAligned height={32}>
+                <FavouriteToggle
+                  favourite={venue.isFavorite}
+                  target={{ entity: "venue", id: venue.id }}
+                  name={venue.name}
+                  shortcut
+                />
+              </CapAligned>
+            </div>
+            <VenueActions
+              venue={{
+                id: venue.id,
+                name: venue.name,
+                type: venue.type,
+                subtype: venue.subtype,
+                description: venue.description,
+                website: venue.website,
+                instagramHandle: venue.instagramHandle,
+                formattedAddress: venue.formattedAddress,
+                phone: venue.phone,
+                email: venue.email,
+                specialties: venue.specialties,
+                notes: venue.notes,
+                tags: venue.tags,
+                isFavorite: venue.isFavorite,
+                personalRating: venue.personalRating,
+                firstVisitDate: venue.firstVisitDate,
+                lastVisitDate: venue.lastVisitDate,
+              }}
+              archived={venue.archivedAt !== null}
+              blockers={blockerLines(references)}
+            />
           </div>
 
           <div className="mb-3 flex items-center gap-2">
@@ -248,48 +303,55 @@ async function PlaceContent({ slug }: { slug: string }) {
           ) : undefined
         }
       >
-        {hasReading ? (
-          <>
-            {venue.description && (
-              <section className="mb-8">
-                <SectionHeading title="About" />
-                <Prose className="whitespace-pre-wrap">{venue.description}</Prose>
-              </section>
-            )}
+        {venue.description && (
+          <section className="mb-8">
+            <SectionHeading title="About" />
+            <Prose className="whitespace-pre-wrap">{venue.description}</Prose>
+          </section>
+        )}
 
-            {/* Specialties and tags */}
-            {(venue.specialties || hasTags) && (
-              <section className="mb-8">
-                {venue.specialties && (
-                  <SectionHeading
-                    title="Specialties"
-                    description={venue.specialties}
-                  />
-                )}
-                {hasTags && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Tag className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
-                    {venue.tags!.map((tag) => (
-                      <Badge key={tag} variant="muted">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
+        <VenueInstitutions
+          venueId={venue.id}
+          venueName={venue.name}
+          venueType={venue.type}
+          institutions={institutions}
+        />
+        <VenueArtParts art={art} institutions={[...new Set(institutions.map((i) => i.name))]} />
+        <VenueRetailPart retail={retail} />
+        <VenueOrdersPart orders={orders} />
+        <VenuePurchasesPart purchases={purchases} />
 
-            {/* Personal notes */}
-            {venue.notes && (
-              <section className="mb-8">
-                <SectionHeading title="Notes" />
-                <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
-                  {venue.notes}
-                </p>
-              </section>
+        {/* Specialties and tags */}
+        {(venue.specialties || hasTags) && (
+          <section className="mb-8">
+            {venue.specialties && (
+              <SectionHeading
+                title="Specialties"
+                description={venue.specialties}
+              />
             )}
-          </>
-        ) : null}
+            {hasTags && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Tag className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+                {venue.tags!.map((tag) => (
+                  <Badge key={tag} variant="muted">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Personal notes */}
+        {venue.notes && (
+          <section className="mb-8">
+            <SectionHeading title="Notes" />
+            <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-fg-secondary">
+              {venue.notes}
+            </p>
+          </section>
+        )}
       </DetailColumns>
     </>
   );

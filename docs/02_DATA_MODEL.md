@@ -9,11 +9,11 @@ Migration `0037_work_kinds` adds `works.kind` using `work_kind_enum`:
 column default to `book`. This identity is independent of `work_type_id` and all
 taxonomies: a book about painting remains a book.
 
-Books, perfumes and films are enabled. The `works_kind_enabled_check`
-constraint (`kind IN ('book', 'perfume', 'film')`: perfumes since migration
-`0053_open_perfumes`, films since `0054_film_kind_enabled`) rejects painting
-writes until their screens, models and legacy-query isolation pass the rollout
-gates. `src/lib/catalogue/domains.ts` records the same
+All four kinds are enabled. The `works_kind_enabled_check` constraint
+(`kind IN ('book', 'perfume', 'film', 'painting')`: perfumes since migration
+`0053_open_perfumes`, films since `0054_film_kind_enabled`, paintings since
+`0055_open_paintings`) admitted each kind only once its screens, models and
+legacy-query isolation passed the rollout gates. `src/lib/catalogue/domains.ts` records the same
 application readiness plus domain labels, routes, primary creator vocabulary and
 image presentation defaults. The write services do not read that switch, so the
 constraint is the write guard: each domain widens it in the same change that
@@ -184,9 +184,8 @@ create one. A copy protects its film, version and release from deletion
 
 Migration `0047_painting_model` adds a painting profile and identifiable art
 objects. A curated painting needs no object, edition or owned copy. Its screens
-are SLN-368 (task 0223); task 0224 turns its switch on. The migration that adds
-`painting` to `works_kind_enabled_check` is generated once the perfume and film
-activations have merged, so it lists every open kind.
+are SLN-368 (task 0223); task 0224 turns its switch on, and migration
+`0055_open_paintings` adds `painting` to `works_kind_enabled_check`.
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |
@@ -251,6 +250,41 @@ Corrections may be backdated. Reads return the current record, the history,
 conflicting claims (probable or uncertain records that may overlap the current
 period at another place) and staleness (current location unchecked for 365
 days by default).
+
+## Links between works
+
+Migration `0058_work_relations` (SLN-363) adds `work_relations`: directed, typed
+links between two works, recorded by hand. Similarity never creates one.
+Migration `0057_work_kind_keys` adds `UNIQUE (id, kind)` on `works`, the target
+of the link's composite keys.
+
+| Column | Type | Rule |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `type` | TEXT | `adaptation`, `remake`, `flanker` or `inspiration` |
+| `from_work_id`, `from_kind` | UUID, `work_kind_enum` | FK (`work_relation_from_fk`) → `works (id, kind)`, CASCADE: the adaptation, remake, flanker or the inspired work |
+| `to_work_id`, `to_kind` | UUID, `work_kind_enum` | FK (`work_relation_to_fk`) → `works (id, kind)`, CASCADE: the work it adapts, remakes, flanks or draws on |
+| `source_record_id` | UUID, nullable | FK → `source_records`; a source of the first work (the services check its owner). A cited source cannot be deleted |
+| `notes` | TEXT, nullable | 1–2000 characters |
+| `created_at` | TIMESTAMPTZ | |
+
+Checks: no link from a work to itself (`work_relation_self_check`); the kinds a
+type joins (`work_relation_pair_check`: an adaptation joins a film to a book or
+a book to a film, a remake a film to a film, a flanker a perfume to a perfume,
+an inspiration any two works); an inspiration cites a source
+(`work_relation_source_check`). `work_relation_pair_unique` on
+`(least(from, to), greatest(from, to), type)` allows one link of a type per
+pair of works, whichever way it points. Each end's kind travels in the
+composite key, and a work's kind never changes, so the pair check stays true.
+
+Each link reads from both ends (`WORK_RELATION_LABELS`,
+`src/lib/catalogue/work-relations.ts`): "Adapted from" and "Adapted as",
+"Remake of" and "Remade as", "Flanker of" and "Flankers", "Inspired by" and
+"Inspired". Deleting a work deletes its links; removing a link keeps its
+source. A book merge moves the merged book's links to the kept book, drops a
+link between the two and a link the kept book already has
+(`src/lib/harmonization/work-relation-merge.ts`); merges accept a key on
+`works (id, kind)` as a reference to the id.
 
 ## Personal curation and holdings contracts
 
@@ -2143,14 +2177,14 @@ Tracks reading position, bookmarks, and per-book reader settings. One record per
 
 ### `activity_events`
 
-Audit log tracking every mutation to Works and Authors. Polymorphic via `entity_type` + `entity_id`.
+Audit log of changes to works of every collection, people, organizations and venues. Polymorphic via `entity_type` + `entity_id`; the types are `ACTIVITY_ENTITY_TYPES` in `src/lib/activity/entities.ts`, and `resolveEntity` (`src/lib/activity/owners.ts`) gives a row's record as it is now: its name and page, following merge redirects, or null once deleted. Film, perfume and painting edits record readable differences (`src/lib/activity/work-changes.ts`): title, each credit, organization and classification item added or removed, containers added, changed or removed, and painting moves (from, to, custody and certainty). Pages read it newest first on `(created_at, id)`, so entries with one timestamp page without repeats or gaps.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
-| `entity_type` | TEXT | NOT NULL | `"work"` or `"author"` |
-| `entity_id` | UUID | NOT NULL | References `works.id` or `authors.id` (no FK) |
-| `event_key` | TEXT | NOT NULL | e.g. `"work.title_changed"`, `"author.poster_uploaded"` |
+| `entity_type` | TEXT | NOT NULL | `"work"`, `"author"`, `"organization"` or `"venue"` |
+| `entity_id` | UUID | NOT NULL | References `works`, `authors`, `publishing_houses` or `venues` (no FK) |
+| `event_key` | TEXT | NOT NULL | e.g. `"work.title_changed"`, `"work.credit_added"`, `"author.poster_uploaded"` |
 | `metadata` | JSONB | nullable | Structured: `{ oldValue, newValue, targetName, targetId, taxonomyType, editionIsbn, locationName, collectionName, commentId, extra }` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
@@ -2158,13 +2192,13 @@ Audit log tracking every mutation to Works and Authors. Polymorphic via `entity_
 
 ### `comments`
 
-Rich-text comments attached to Works or Authors. Content stored as both rendered HTML and Tiptap JSON for re-editing.
+Rich-text comments attached to works, people, organizations or venues. Content stored as both rendered HTML and Tiptap JSON for re-editing. `POST /api/comments` refuses a record that does not exist (404). Deleting an organization or a venue removes its comments, history and gallery layout in the same transaction, then its comment files.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
-| `entity_type` | TEXT | NOT NULL | `"work"` or `"author"` |
-| `entity_id` | UUID | NOT NULL | References `works.id` or `authors.id` (no FK) |
+| `entity_type` | TEXT | NOT NULL | `"work"`, `"author"`, `"organization"` or `"venue"` |
+| `entity_id` | UUID | NOT NULL | References the record of that type (no FK) |
 | `content_html` | TEXT | NOT NULL | Server-sanitized HTML for display |
 | `content_json` | JSONB | nullable | Tiptap JSON document for re-editing |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
@@ -2201,7 +2235,7 @@ File attachments on comments, stored in S3.
 | `harmonization_operations` | `id UUID PK DEFAULT gen_random_uuid()`, `action TEXT`, `entity TEXT`, `source_id UUID`, `target_id UUID NULL`, `label TEXT`, `before JSONB`, `after JSONB NULL`, `created_at TIMESTAMPTZ DEFAULT now()` | Atomic resolution audit. All fields except `target_id` and `after` are required; completed operations include the resulting snapshot. Indexed on `created_at`. IDs deliberately have no FK so history survives deletion. |
 | `harmonization_redirects` | `source_id UUID PK`, `entity TEXT NOT NULL`, `source_slug TEXT NULL`, `target_id UUID NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` | Old IDs/slugs follow surviving records. Indexed on `(entity, source_slug)`. Repeated merges flatten redirect chains. |
 
-Merges discover inbound foreign keys from the Drizzle schema and explicitly include polymorphic comments, activity and gallery layouts. Composite-key membership links are unioned; editions, copies, acquisitions, media, annotations and other linked records are transferred. Derived gallery layouts are invalidated. All affected rows are retained in the original audit snapshot. Any previously unknown database foreign key blocks the merge pending an explicit strategy. Existing active collecting targets with colliding identities block a merge, preserving orders and fulfilment provenance.
+Merges discover inbound foreign keys from the Drizzle schema and explicitly include polymorphic comments, activity and gallery layouts (for works, authors, collections, publishers as `organization` and venues as `venue`). Composite-key membership links are unioned; editions, copies, acquisitions, media, annotations and other linked records are transferred. Derived gallery layouts are invalidated. All affected rows are retained in the original audit snapshot. Any previously unknown database foreign key blocks the merge pending an explicit strategy. Existing active collecting targets with colliding identities block a merge, preserving orders and fulfilment provenance.
 
 The transaction takes ordered table locks, verifies the preview fingerprint, records its audit, transfers references, removes the source, reconciles survivor fields, validates acquisition compatibility and saves the resulting snapshot. `harmonization_allows_move` recognizes only the exact audited identity move in the current transaction. Existing edition, target, publisher and order guard functions retain their checks outside that path, including cancelled acquisition history. Lock and statement timeouts bound contention. Merges have no automatic undo; before/after records can be inspected and downloaded.
 

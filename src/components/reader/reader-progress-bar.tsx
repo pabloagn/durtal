@@ -21,7 +21,7 @@ export function ReaderProgressBar({
           : "translate-y-full opacity-0 pointer-events-none"
       }`}
     >
-      <div className="flex items-center gap-3 bg-bg-primary/90 px-4 py-2 backdrop-blur-sm border-t border-glass-border">
+      <div className="glass-bar relative flex items-center gap-3 border-t border-glass-border px-4 py-2">
         {/* Progress bar */}
         <div className="flex-1 h-0.5 bg-bg-tertiary rounded-full overflow-hidden">
           <div

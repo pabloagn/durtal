@@ -8,6 +8,7 @@ import type { ListSearchParams } from "@/lib/utils/pagination";
  */
 export const PERFUME_FILTER_KEYS = [
   "house",
+  "houseRole",
   "perfumer",
   "family",
   "accord",
@@ -20,6 +21,9 @@ export const PERFUME_FILTER_KEYS = [
   "to",
 ] as const;
 export type PerfumeFilterKey = (typeof PERFUME_FILTER_KEYS)[number];
+
+/** The roles `houseRole` may narrow a house filter to */
+const HOUSE_ROLES = ["perfume_house", "brand", "manufacturer"] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -79,6 +83,9 @@ export function perfumeQueryFromParams(
   return {
     ...(search ? { search } : {}),
     ...(ids("house").length ? { houseIds: ids("house").slice(0, 50) } : {}),
+    ...(ids("house").length && HOUSE_ROLES.includes(first(params, "houseRole") as never)
+      ? { houseRole: first(params, "houseRole") as (typeof HOUSE_ROLES)[number] }
+      : {}),
     ...(ids("perfumer").length
       ? { perfumerIds: ids("perfumer").slice(0, 50) }
       : {}),
@@ -99,5 +106,8 @@ export function perfumeQueryFromParams(
 
 /** Whether any filter of the perfume home is set (the search and sort are not filters). */
 export function hasPerfumeFilters(params: ListSearchParams) {
-  return PERFUME_FILTER_KEYS.some((key) => !!first(params, key));
+  // A house role alone filters nothing: it only narrows a house
+  return PERFUME_FILTER_KEYS.some(
+    (key) => !!first(params, key) && (key !== "houseRole" || !!first(params, "house")),
+  );
 }
