@@ -68,6 +68,7 @@ Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmd
 Groups:
 - **Books** and **Authors**: matches for the typed text
 - **Search**: one "Search books for …" entry per open collection
+- **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
 
@@ -82,7 +83,7 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G L`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G L`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 
 ---
@@ -265,6 +266,8 @@ The detail page for a single work. Displays the work and all its editions and in
 - Quick actions: move, update condition, mark as lent, remove
 
 **Actions**: Edit work metadata, add edition, add instance, re-fetch metadata, manage collections, delete work.
+
+**Edit menu** (`E`): `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy. The actions menu shows these keys. Plain `E` and `T` open no dialog.
 
 **External links**: Open Library, Google Books, Calibre-Web (if digital instance with calibre_url exists).
 
