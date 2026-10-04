@@ -73,6 +73,8 @@ export function MatchAgainDialog({
   const [query, setQuery] = useState(`${currentTitle} ${currentAuthor}`.trim());
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("isbndb");
   const [results, setResults] = useState<MatchResult[]>([]);
+  /** What the server says about the sources: "Google Books is over its quota…" */
+  const [notices, setNotices] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -120,9 +122,11 @@ export function MatchAgainDialog({
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setResults(data.results ?? []);
+      setNotices(data.notices ?? []);
     } catch {
       toast.error("Search failed");
       setResults([]);
+      setNotices([]);
     } finally {
       setLoading(false);
     }
@@ -324,6 +328,12 @@ export function MatchAgainDialog({
             </div>
           )}
 
+          {!loading &&
+            notices.map((notice) => (
+              <p key={notice} role="status" className="text-xs text-fg-secondary">
+                {notice}
+              </p>
+            ))}
           {!loading && searched && results.length === 0 && (
             <p className="py-6 text-center text-sm text-fg-secondary">
               No results found. Try a different search query.

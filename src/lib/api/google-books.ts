@@ -1,6 +1,7 @@
 import { parseYear } from "@/lib/utils/years";
 import type { SearchResult } from "./types";
 import { reportSearchFailure } from "./search-diagnostics";
+import { GoogleBooksQuotaError, googleBooksFetch } from "./google-books-quota";
 import { serverEnv } from "@/lib/env";
 
 interface GoogleBooksVolume {
@@ -88,10 +89,18 @@ export async function searchGoogleBooks(
     ...(apiKey ? { key: apiKey } : {}),
   });
 
-  const res = await fetch(`${BASE_URL}?${params}`, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    next: { revalidate: 3600 },
-  });
+  let res: Response;
+  try {
+    res = await googleBooksFetch(`${BASE_URL}?${params}`, () => ({
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      next: { revalidate: 3600 },
+    }));
+  } catch (error) {
+    // Over the quota: no results from this source; the search says why
+    // (`googleBooksOverQuota`)
+    if (error instanceof GoogleBooksQuotaError) return [];
+    throw error;
+  }
   if (!res.ok) {
     reportSearchFailure("google_books", res.status);
     return [];

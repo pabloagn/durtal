@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchBooks } from "@/lib/api/search-engine";
+import { searchBooks, searchNotices } from "@/lib/api/search-engine";
 
 const VALID_SOURCES = ["all", "isbndb", "google_books", "open_library"] as const;
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       language: r.language,
     }));
 
-    return NextResponse.json({ results: normalized });
+    return NextResponse.json({ results: normalized, notices: searchNotices() });
   } catch {
     return NextResponse.json(
       { error: "Match search failed" },

@@ -1,4 +1,5 @@
 import { HeadBucketCommand } from "@aws-sdk/client-s3";
+import { googleBooksOverQuota, lastGoogleBooksCall } from "@/lib/api/google-books-quota";
 import { count, eq, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { calibreBooks, sourceRecords } from "@/lib/db/schema";
@@ -126,7 +127,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       purpose: "Second source for book search and Match. Without a key it uses the shared quota.",
       env: [{ name: "GOOGLE_BOOKS_API_KEY", set: isSet("GOOGLE_BOOKS_API_KEY"), optional: true }],
       checkFrom: "server",
-      facts: [],
+      facts: [{ label: "Last search call", value: lastGoogleBooksCallText() }],
     },
     {
       id: "openLibrary",
@@ -285,6 +286,19 @@ async function checkStorage(): Promise<CheckResult> {
     }
     return failure("S3 could not be reached");
   }
+}
+
+/** The last Google Books call from search or Match, since the app started */
+function lastGoogleBooksCallText() {
+  const call = lastGoogleBooksCall();
+  if (!call) return "None since the app started";
+  const at = `${call.at.toISOString().slice(11, 16)} UTC`;
+  if (call.outcome === "ok") return `Worked at ${at}`;
+  if (call.outcome === "quota")
+    return googleBooksOverQuota()
+      ? `Over the quota at ${at}; paused before the next try`
+      : `Over the quota at ${at}`;
+  return call.status ? `Failed at ${at} (HTTP ${call.status})` : `Failed at ${at}`;
 }
 
 function checkIsbndb(): Promise<CheckResult> {

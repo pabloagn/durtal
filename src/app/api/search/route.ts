@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchBooks } from "@/lib/api/search-engine";
+import { searchBooks, searchNotices } from "@/lib/api/search-engine";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   try {
     const searchQuery = isbn ? isbn : query!;
     const results = await searchBooks(searchQuery);
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, notices: searchNotices() });
   } catch {
     return NextResponse.json(
       { error: "Search failed" },
