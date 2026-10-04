@@ -9,7 +9,7 @@
 - **Docs**: `docs/` directory (14 numbered documents, start with `00_README.md` and `01_ARCHITECTURE.md`)
 - **Data model**: `docs/02_DATA_MODEL.md` (three-tier model, all tables, relationships)
 - **Changelog**: `changelog/NNNN_TASK_description.md` (task-by-task implementation log)
-- **Stack**: Next.js 15, TypeScript, Tailwind CSS 4, shadcn/ui, Drizzle ORM, Neon Postgres, AWS S3
+- **Stack**: Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, Drizzle ORM, Neon Postgres, AWS S3
 - **Ingestion scripts**: Python 3.12 under `scripts/ingest/` (not part of the Next.js app)
 
 ---
@@ -61,7 +61,7 @@ changelog/              Task-by-task implementation log
 
 Authors link to **works** (as writer/co-author via `work_authors`) and to **editions** (as translator/editor/illustrator/etc. via `edition_contributors`).
 
-Ownership is **derived**: a work with `catalogue_status='catalogued'` and at least one instance is "owned". No redundant status field.
+Ownership is **derived**: a work with `catalogue_status='accessioned'` and at least one active instance is "owned". No redundant status field.
 
 ---
 

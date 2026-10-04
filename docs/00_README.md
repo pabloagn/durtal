@@ -38,7 +38,7 @@ This structure correctly handles: the same ISBN existing in multiple locations, 
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript (strict) |
 | UI | React 19, Tailwind CSS 4, shadcn/ui |
 | ORM | Drizzle ORM |
