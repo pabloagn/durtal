@@ -41,6 +41,8 @@ import {
   fieldLabel,
   isReady as precise,
 } from "@/lib/harmonization/registry";
+import { DOMAIN_DUPLICATE_KINDS } from "@/lib/harmonization/domain-duplicates";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type {
   Category,
   Finding,
@@ -166,7 +168,12 @@ export function HarmonizeWorkspace({
   const total = scan?.total || 0;
   const active = visible.find((f) => f.key === selected) || visible[0];
   const visibleReady = scan?.ready || [];
-  const entities = [...new Set(ENTITIES.map((e) => e.label))].sort();
+  const entities = [
+    ...new Set([
+      ...ENTITIES.map((e) => e.label),
+      ...DOMAIN_DUPLICATE_KINDS.map((kind) => WORK_DOMAINS[kind].pluralLabel),
+    ]),
+  ].sort();
 
   /** Rescans with the current filters. Only the latest request updates the page. */
   async function load(): Promise<Awaited<ReturnType<typeof scanLibrary>>> {

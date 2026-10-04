@@ -422,6 +422,12 @@ edition and counts once. Every open collection can be added, removed and
 reordered, with previews, counts, library selection and delete cleanup.
 Migration 0059.
 
+Domain harmonization (SLN-373, task 0276): the scan flags two films, perfumes
+or paintings of one title by one maker, never a remake or a linked work, and a
+merge joins two works of one kind with their profiles, versions, copies,
+formulations, listings and objects. Colliding identities block it with what to
+fix first. Migration 0060.
+
 Reading tracker data model (SLN-444, task 0302): reading is book-only
 consumption state, gated by the `reading` capability. A reading is one
 read-through with its own dates, edition, copy, sessions and rating; it never
