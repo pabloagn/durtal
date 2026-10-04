@@ -246,6 +246,33 @@ export async function getAuthorCount(opts?: {
   return result.count;
 }
 
+/**
+ * How many works each person is credited on, in every collection, in one
+ * grouped query: books written or contributed to, films, perfumes and
+ * paintings. Each work counts once.
+ */
+export async function getPersonWorkCounts(personIds: string[]): Promise<Record<string, number>> {
+  const ids = [...new Set(personIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return {};
+  const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = resultRows<{ personId: string; works: number }>(
+    await db.execute(sql`
+      select person_id as "personId", count(distinct work_id)::int as works from (
+        select wa.author_id as person_id, wa.work_id from work_authors wa where wa.author_id in (${list})
+        union all
+        select ec.author_id, e.work_id from edition_contributors ec join editions e on e.id = ec.edition_id
+          where ec.author_id in (${list})
+        union all
+        select wc.person_id, wc.work_id from work_credits wc where wc.person_id in (${list})
+        union all
+        select p.person_id, v.work_id from perfume_variant_perfumers p join perfume_variants v on v.id = p.variant_id
+          where p.person_id in (${list})
+      ) credits group by person_id
+    `),
+  );
+  return Object.fromEntries(rows.map((r) => [r.personId, r.works]));
+}
+
 /** One work a person is credited on, with one of their roles on it */
 export interface PersonWorkCredit {
   kind: WorkKind;

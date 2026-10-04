@@ -68,7 +68,10 @@ export interface AuthorItem {
   coverPreviews: string[];
   website: string | null;
   bio: string | null;
+  /** Works credited in every collection: the table's Works column */
   worksCount: number;
+  /** Books written: the cards' "N books" */
+  booksCount: number;
   createdAt: string;
 }
 
@@ -299,7 +302,7 @@ export function AuthorsShell({
                 posterCrop={a.posterCrop}
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
-                worksCount={a.worksCount}
+                worksCount={a.booksCount}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -324,7 +327,7 @@ export function AuthorsShell({
               deathYear={a.deathYear}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
-              worksCount={a.worksCount}
+              worksCount={a.booksCount}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}

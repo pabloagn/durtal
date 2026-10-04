@@ -12,6 +12,7 @@ import {
   getAuthorBirthYearRange,
   getAuthorDeathYearRange,
   getPeopleFilterOptions,
+  getPersonWorkCounts,
 } from "@/lib/actions/authors";
 import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
 import {
@@ -178,16 +179,24 @@ async function AuthorsContent({
       // Bios are stored as HTML; the list shows a one-line text preview
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
+      booksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
     };
   });
 
   // Authors with no portrait show some of their book covers instead
-  const previews = await getAuthorCoverPreviews(
-    authors.filter((a) => !a.photoUrl && a.worksCount > 0).map((a) => a.id),
-  );
-  for (const a of authors) a.coverPreviews = previews[a.id] ?? [];
+  const [previews, workCounts] = await Promise.all([
+    getAuthorCoverPreviews(
+      authors.filter((a) => !a.photoUrl && a.booksCount > 0).map((a) => a.id),
+    ),
+    // The Works column counts every collection's works, not only books
+    getPersonWorkCounts(authors.map((a) => a.id)),
+  ]);
+  for (const a of authors) {
+    a.coverPreviews = previews[a.id] ?? [];
+    a.worksCount = workCounts[a.id] ?? 0;
+  }
 
 
   return (
