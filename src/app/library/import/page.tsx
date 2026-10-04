@@ -41,7 +41,7 @@ export default function ImportPage() {
             {/* The row carries the heading's type: the icon tile sits on the
                 cap-height center of the heading */}
             <div className="type-item-title flex items-start gap-4">
-              <CapAligned height={32}>
+              <CapAligned height={34}>
                 <span className="block rounded-sm border border-glass-border bg-bg-primary p-2">
                   <FileText
                     className="block h-4 w-4 text-fg-secondary"
@@ -76,7 +76,7 @@ export default function ImportPage() {
             {/* The row carries the heading's type: the icon tile sits on the
                 cap-height center of the heading */}
             <div className="type-item-title flex items-start gap-4">
-              <CapAligned height={32}>
+              <CapAligned height={34}>
                 <span className="block rounded-sm border border-glass-border bg-bg-primary p-2">
                   <Database
                     className="block h-4 w-4 text-fg-secondary"
