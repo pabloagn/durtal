@@ -100,7 +100,7 @@ export function CollectionCard({
 
         {/* Like the other cards' controls: shown on hover and keyboard focus */}
         {poster && (
-          <div className="absolute right-2 top-2 z-20 hover-reveal">
+          <div className="absolute right-2 top-2 z-20 hover-reveal-glass">
             <ImageAdjustButton
               source={imageUrl(poster.s3Key)}
               label="Adjust collection poster"

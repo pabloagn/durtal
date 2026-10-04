@@ -11,7 +11,7 @@
  * status and rating sit in the card's info row (`CardStatus`).
  */
 export const COVER_CHIP =
-  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[2px] border glass-chip @[220px]:h-5 @[220px]:min-w-5";
+  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[2px] border glass-chip [--glass-chip-blur:3px] @[220px]:h-5 @[220px]:min-w-5 @[220px]:[--glass-chip-blur:4px]";
 
 /** Text chips (status, rating): side padding and small type */
 export const COVER_CHIP_TEXT =

@@ -106,7 +106,7 @@ export function AuthorCard({
         {/* Three-dot menu — outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (
           <div
-            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
+            className="absolute bottom-1 right-1 z-20 hover-reveal-glass @[180px]:bottom-2 @[180px]:right-2"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
