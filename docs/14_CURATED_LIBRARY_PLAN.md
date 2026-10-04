@@ -343,6 +343,10 @@ Perfumes open (task 0222): the switch is on and migration `0053_open_perfumes`
 widens `works_kind_enabled_check` to books and perfumes. Films and paintings
 each widen it in the change that turns their switch on.
 
+Paintings open (task 0224): the switch is on, and migration
+`0055_open_paintings` widens `works_kind_enabled_check` to books, perfumes,
+films and paintings, the four kinds the collection switches open.
+
 The book experience on the shared substrate (SLN-365, task 0197): book saves
 (`createWork`, `updateWork`, Fast Track) write personal curation through the
 shared `curationQueries` (`src/lib/catalogue/curation-store.ts`), the same path
@@ -378,8 +382,8 @@ remake (a new film) from a cut (a version). Films get readable slugs
 (`{title}-by-{director}`), and company, distributor and supplier links add the
 role they need. The record parts shared with perfumes moved to
 `src/components/catalogue/`. Films open with this task: migration
-`0053_film_kind_enabled` widens `works_kind_enabled_check` to `book` and `film`,
-in step with `WORK_DOMAINS.film.enabled`.
+`0054_film_kind_enabled` widens `works_kind_enabled_check` to `book`,
+`perfume` and `film`, in step with `WORK_DOMAINS.film.enabled`.
 
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

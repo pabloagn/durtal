@@ -386,6 +386,13 @@
       "when": 1791106338306,
       "tag": "0054_film_kind_enabled",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791106361779,
+      "tag": "0055_open_paintings",
+      "breakpoints": true
     }
   ]
 }

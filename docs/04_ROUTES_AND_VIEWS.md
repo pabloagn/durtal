@@ -32,7 +32,7 @@
 /films/new                  Add a film
 /films/[slug]               Film detail (slug format: {title}-by-{director});
                             ?add=version opens "Add version"
-/paintings                  Paintings: the painting collection's gallery; 404 until it opens
+/paintings                  Paintings: the painting collection's gallery (open)
 /paintings/new              Add a painting
 /paintings/[slug]           Painting detail (slug format: {title}-{id})
 ```

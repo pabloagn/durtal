@@ -77,7 +77,7 @@ export const works = pgTable("works", {
   // when their complete domain adapters and compatibility tests are ready, in
   // step with getEnabledWorkKinds() (src/lib/catalogue/domains.ts): this is the
   // only write guard.
-  check("works_kind_enabled_check", sql`${t.kind} IN ('book', 'perfume', 'film')`),
+  check("works_kind_enabled_check", sql`${t.kind} IN ('book', 'perfume', 'film', 'painting')`),
   check("works_book_series_check", sql`${t.kind} = 'book' OR (${t.seriesId} IS NULL AND ${t.seriesName} IS NULL AND ${t.seriesPosition} IS NULL)`),
   check("works_nonbook_lifecycle_check", sql`${t.kind} = 'book' OR (${t.catalogueStatus} = 'tracked' AND ${t.acquisitionPriority} = 'none' AND NOT ${t.isRare} AND ${t.huntAssessedOn} IS NULL)`),
   check("works_language_domain_check", sql`(${t.kind}='book' and ${t.originalLanguage} is not null) or (${t.kind}<>'book' and ${t.originalLanguage} is null)`),

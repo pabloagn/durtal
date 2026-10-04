@@ -454,9 +454,10 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     });
     const [row] = await c`select kind from works where id = ${bookId}`;
     expect(row.kind).toBe("book");
-    await expect(
-      c`insert into works(title,kind) values ('Still disabled','painting')`,
-    ).rejects.toMatchObject({ constraint_name: "works_kind_enabled_check" });
+    // The dropped gate came back with the rollback
+    expect(
+      await c`select 1 from pg_constraint where conname = 'works_kind_enabled_check'`,
+    ).toHaveLength(1);
   });
 
   it("allows ordinary updates and redundant SQL assignment of the same kind", async () => {

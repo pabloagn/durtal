@@ -183,8 +183,10 @@ create one. A copy protects its film, version and release from deletion
 ## Painting domain model
 
 Migration `0047_painting_model` adds a painting profile and identifiable art
-objects. A curated painting needs no object, edition or owned copy. The domain
-stays disabled until its screens and release gates pass.
+objects. A curated painting needs no object, edition or owned copy. Its screens
+are SLN-368 (task 0223); task 0224 turns its switch on. The migration that adds
+`painting` to `works_kind_enabled_check` is generated once the perfume and film
+activations have merged, so it lists every open kind.
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |

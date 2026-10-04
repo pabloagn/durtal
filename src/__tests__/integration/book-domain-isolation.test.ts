@@ -266,12 +266,12 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
       ).toEqual([books[0]]);
     }
     // A family's card counts the records of every open collection (the book,
-    // the perfume and the film); its items above count books only.
+    // the perfume, the film and the painting); its items above count books only.
     expect(
       (await getTaxonomyFamilies())
         .filter((f) => ["subjects", "mood"].includes(f.slug))
         .map((f) => f.entityCount),
-    ).toEqual([3, 3]);
+    ).toEqual([4, 4]);
     expect(await c`select * from work_subjects`).toHaveLength(4);
   });
   it("exports selected books without serializing other media as publications", async () => {

@@ -13,6 +13,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import { DOMAIN_TAXONOMIES } from "@/lib/catalogue/taxonomies";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 const url = process.env.DURTAL_TAXONOMY_TEST_DATABASE_URL;
 if (url) {
   const parsed = new URL(url);
@@ -110,10 +111,10 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
         .map((r) => r.family.slug)
         .sort(),
     ).toEqual(["genres", "tags"]);
-    // Films are open; paintings are not yet
+    // Every collection is open, so each one's own families are listed
     const listed = (await getTaxonomyFamilies()).map((f) => f.slug);
     expect(listed).toContain("film-genres");
-    expect(listed).not.toContain("painting-genres");
+    expect(listed).toContain("painting-genres");
     await expect(
       getApplicableTaxonomyFamilies("book", "film_version"),
     ).rejects.toThrow();
@@ -393,7 +394,12 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
       name: "Shared",
       scopes: [{ kind: "book", level: "work" }, { kind: "painting", level: "work" }],
     });
-    const listed = await getTaxonomyFamilies();
+    // Every collection is open: close paintings for this one read
+    const painting = WORK_DOMAINS.painting as unknown as { enabled: boolean };
+    painting.enabled = false;
+    const listed = await getTaxonomyFamilies().finally(() => {
+      painting.enabled = true;
+    });
     expect(listed.some((f) => f.id === paintingOnly.id)).toBe(false);
     expect(listed.find((f) => f.id === shared.id)?.scopes).toEqual(
       expect.arrayContaining([{ kind: "book", level: "work" }, { kind: "painting", level: "work" }]),

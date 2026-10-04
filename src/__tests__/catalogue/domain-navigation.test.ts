@@ -21,7 +21,6 @@ import PerfumesLayout from "@/app/perfumes/layout";
 import FilmsLayout from "@/app/films/layout";
 import PaintingsLayout from "@/app/paintings/layout";
 
-const UNREADY = ["/paintings"];
 
 describe("collection navigation", () => {
   it("lists only the open collections, named after them", () => {
@@ -29,16 +28,14 @@ describe("collection navigation", () => {
       { href: "/library", label: "Books" },
       { href: "/perfumes", label: "Perfumes" },
       { href: "/films", label: "Films" },
+      { href: "/paintings", label: "Paintings" },
     ]);
-    for (const list of [NAV_SECTIONS, GO_TO])
-      expect(list.map((entry) => entry.href)).not.toEqual(
-        expect.arrayContaining([expect.stringMatching(/^\/paintings/)]),
-      );
-    expect(NAV_SECTIONS.slice(0, 4).map((s) => s.label)).toEqual([
+    expect(NAV_SECTIONS.slice(0, 5).map((s) => s.label)).toEqual([
       "Dashboard",
       "Books",
       "Perfumes",
       "Films",
+      "Paintings",
     ]);
     expect(GO_TO.find((g) => g.href === "/perfumes")).toEqual({
       key: "e",
@@ -73,7 +70,17 @@ describe("collection navigation", () => {
       section: "/films",
       href: "/films/new",
     });
-    expect(ADD.some((a) => UNREADY.includes(a.section))).toBe(false);
+    expect(GO_TO.find((g) => g.href === "/paintings")).toEqual({
+      key: "i",
+      label: "Paintings",
+      href: "/paintings",
+    });
+    expect(ADD.find((a) => a.section === "/paintings")).toEqual({
+      key: "i",
+      label: "Painting",
+      section: "/paintings",
+      href: "/paintings/new",
+    });
   });
 
   it("lists every collection once, in the order of the plan", () => {
@@ -138,28 +145,28 @@ describe("collection switch", () => {
 });
 
 describe("collection readiness gate", () => {
-  it.each(["book", "perfume", "film"] as const)("lets the open %s collection through", (kind) => {
+  it.each(["book", "perfume", "film", "painting"] as const)("lets the open %s collection through", (kind) => {
     expect(() => requireEnabledDomain(kind)).not.toThrow();
   });
 
   it.each([
     ["perfumes", PerfumesLayout],
     ["films", FilmsLayout],
+    ["paintings", PaintingsLayout],
   ])("lets the /%s layout through", (_, Layout) => {
     expect(() => Layout({ children: null })).not.toThrow();
   });
 
-  it.each(["painting"] as const)(
-    "answers 404 for every %s page while the collection is unready",
-    (kind) => {
-      expect(() => requireEnabledDomain(kind)).toThrow("NEXT_NOT_FOUND");
-    },
-  );
-
-  it.each([
-    ["paintings", PaintingsLayout],
-  ])("gates the /%s layout", (_, Layout) => {
-    expect(() => Layout({ children: null })).toThrow("NEXT_NOT_FOUND");
+  it("answers 404 for every page of a collection that is closed", () => {
+    // Every collection is open: close one for the length of this test
+    const painting = WORK_DOMAINS.painting as unknown as { enabled: boolean };
+    painting.enabled = false;
+    try {
+      expect(() => requireEnabledDomain("painting")).toThrow("NEXT_NOT_FOUND");
+      expect(() => PaintingsLayout({ children: null })).toThrow("NEXT_NOT_FOUND");
+    } finally {
+      painting.enabled = true;
+    }
   });
 });
 
