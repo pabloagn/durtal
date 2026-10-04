@@ -16,9 +16,9 @@
  *   the database refuses a write before anything runs. The first quota or
  *   rate-limit refusal stops the run; the report says where.
  * - `--apply --backup FILE`: writes the plan in one transaction. The values
- *   it wrote go to the undo file right after the commit, before anything
- *   else; the file is named after the run, and an existing one is never
- *   overwritten. Refuses to run without a pg_dump custom-format backup
+ *   it wrote go to the undo file, which is created before the write (a
+ *   missing folder or an existing file stops the run first) and filled right
+ *   after the commit; it is named after the run. Refuses to run without a pg_dump custom-format backup
  *   (starts with PGDMP) written in the last hour. Check the ISBNdb plan's
  *   quota first.
  * - `--undo FILE`: clears what that run wrote, where it still holds the run's
@@ -55,6 +55,7 @@ import {
   type EnrichmentUndo,
   type Written,
 } from "@/lib/books/enrichment-store";
+import { completeUndoFile, releaseUndoFile, reserveUndoFile } from "@/lib/books/undo-file";
 
 const { values } = parseArgs({
   options: {
@@ -209,8 +210,6 @@ async function records(isbn: string) {
 const runId = randomUUID();
 // Named after the run: an undo file of another run is never overwritten
 const undoFile = values["undo-file"] ?? `book-enrichment-undo-${runId}.json`;
-if (values.apply && existsSync(undoFile))
-  throw new Error(`${undoFile} exists: it may be another run's undo file`);
 const retrievedAt = new Date();
 const plans: { row: EditionRow; plan: EditionPlan }[] = [];
 const written: Written[] = [];
@@ -254,21 +253,29 @@ for (const row of rows) {
 // An apply never writes a partial plan
 if (values.apply && stopped) throw new Error(`Nothing written: ${stopped}`);
 
-if (values.apply)
-  await sql.begin("read write", async (tx) => {
-    for (const { row, plan } of plans)
-      if (!plan.skipped && (plan.fills.length || plan.workFills.length))
-        written.push(
-          ...(await applyEditionPlan(tx as unknown as postgres.Sql, plan, {
-            runId,
-            retrievedAt,
-            isbn: row.isbn13 ?? row.isbn10!,
-          })),
-        );
-  });
+if (values.apply) {
+  // The undo file exists before the write: a bad path stops the run here
+  reserveUndoFile(undoFile, runId);
+  try {
+    await sql.begin("read write", async (tx) => {
+      for (const { row, plan } of plans)
+        if (!plan.skipped && (plan.fills.length || plan.workFills.length))
+          written.push(
+            ...(await applyEditionPlan(tx as unknown as postgres.Sql, plan, {
+              runId,
+              retrievedAt,
+              isbn: row.isbn13 ?? row.isbn10!,
+            })),
+          );
+    });
+  } catch (error) {
+    releaseUndoFile(undoFile);
+    throw error;
+  }
+}
 // The run is committed: its undo file comes first, before the report
 if (values.apply) {
-  writeFileSync(undoFile, JSON.stringify({ runId, written } satisfies EnrichmentUndo, null, 2), { flag: "wx" });
+  completeUndoFile(undoFile, { runId, written });
   console.log(`Applied run ${runId}: ${written.length} values; undo file ${undoFile}`);
 }
 

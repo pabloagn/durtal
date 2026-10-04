@@ -38,8 +38,9 @@ the code. The live plan run and any write wait for the owner.
 - `scripts/books/enrich.ts`: `--assess` (read-only), plan (default; paced,
   cached source calls, read-only transaction, markdown report),
   `--apply --backup FILE` (refuses without a pg_dump custom-format backup
-  written in the last hour; writes the undo file, named after the run, right
-  after the commit and never over an existing one) and `--undo FILE`.
+  written in the last hour; creates the undo file, named after the run,
+  before the write, so a missing folder or an existing file stops the run
+  first, and fills it right after the commit) and `--undo FILE`.
 - No migration: the run uses the existing `source_records` table and an undo
   file, as the publisher and author enrichment do. The publisher identity
   trigger never fires, since publisher, imprint and ISBN are never written.
