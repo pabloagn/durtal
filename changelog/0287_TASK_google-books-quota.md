@@ -66,3 +66,7 @@ older than this task), 0 unnamed and 0 nested controls.
 - Tests: the 250 and 500 ms delays, exactly 7 requests for 5 calls at once,
   one refusal for calls that give up together, one signal across tries, the
   Match quota path, the route notices and the settings line.
+- Calls already in flight no longer retry on their own: a refused call that
+  finds another call's retry or pause running gives up without counting a
+  refusal. Four queries in flight make 6 requests, not 12 (tested with a
+  fetch that answers after 100 ms).

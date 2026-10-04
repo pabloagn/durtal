@@ -108,6 +108,26 @@ describe("Google Books quota back-off", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("lets only one of the calls in flight retry", async () => {
+    // Google answers after 100 ms: four queries of one search are in flight
+    // when the first refusal comes back
+    fetchMock.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(response({}, 429)), 100)),
+    );
+    const outcomes = await Promise.all(
+      [1, 2, 3, 4].map(() => settle(googleBooksFetch(URL_, init))),
+    );
+    expect(outcomes.every((o) => "error" in o)).toBe(true);
+    // Four first calls, then the two retries of one of them
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    // One refusal counted: the first cool-down, 30 s
+    expect(googleBooksOverQuota()).toBe(true);
+    vi.advanceTimersByTime(29_000);
+    expect(googleBooksOverQuota()).toBe(true);
+    vi.advanceTimersByTime(2_000);
+    expect(googleBooksOverQuota()).toBe(false);
+  });
+
   it("counts one refusal for calls that give up together", async () => {
     // One search sends four Google queries at once
     fetchMock.mockImplementation(async () => response({}, 429));

@@ -6,8 +6,9 @@ import { reportSearchFailure } from "./search-diagnostics";
  * call goes through `googleBooksFetch`, which:
  *
  * - retries a refused call twice, after 250 ms and 500 ms (or the server's
- *   Retry-After when that is shorter than 2 s), and only one call at a time
- *   retries: the others give up at once;
+ *   Retry-After when that is shorter than 2 s); the first refused call
+ *   retries, and every other call gives up when it starts or when its own
+ *   refusal comes back, so calls already in flight do not retry too;
  * - after that, stops calling Google Books for a cool-down that doubles on
  *   each refusal in a row (30 s, 1 min, 2 min … 15 min), so a busy search
  *   never hammers the API; a call that works ends the cool-down;
@@ -144,6 +145,9 @@ export async function googleBooksFetch(
     state.last = { at: new Date(), outcome: "quota", status: res.status };
     // A refused answer is not read: free its connection
     await res.body?.cancel().catch(() => undefined);
+    // Another call is already retrying or pausing: this one gives up, and its
+    // refusal is not counted again. Calls in flight learn it here.
+    if (googleBooksOverQuota()) throw new GoogleBooksQuotaError();
     const hinted = retryAfterMs(res);
     const delay = GOOGLE_BOOKS_RETRY_DELAYS_MS[attempt];
     if (delay !== undefined && (hinted === null || hinted <= RETRY_AFTER_MAX_MS)) {
@@ -156,8 +160,6 @@ export async function googleBooksFetch(
       if (state.until === gate) state.until = 0;
       continue;
     }
-    // Another call's pause is already running: it counted this refusal
-    if (googleBooksOverQuota()) throw new GoogleBooksQuotaError();
     state.refusals += 1;
     const cooldown = Math.min(
       COOLDOWN_MAX_MS,
