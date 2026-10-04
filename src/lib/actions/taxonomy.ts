@@ -8,7 +8,13 @@ import {
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { assertSql } from "@/lib/harmonization/store";
-import { workTaxonomyQueries } from "@/lib/catalogue/work-taxonomy";
+import {
+  WORK_TAXONOMY_FIELDS,
+  workTaxonomyQueries,
+  type WorkTaxonomyInput,
+} from "@/lib/catalogue/work-taxonomy";
+import { getSystemRegistry } from "@/lib/db/taxonomy-resolver";
+import { idArray } from "@/lib/collections/members";
 import {
   subjects,
   genres,
@@ -261,6 +267,8 @@ export async function updateWorkTaxonomy(
   parseId(workId);
   const input = updateWorkTaxonomySchema.parse(rawInput);
   await requireBookWork(workId);
+  // Snapshot current links so the activity log can record each change
+  const before = await readWorkTaxonomyIds(workId, input);
   await atomic((d) => [
     d.execute(sql`select id from works where id=${workId}::uuid for update`),
     d.execute(
@@ -273,10 +281,83 @@ export async function updateWorkTaxonomy(
     d.update(works).set({ updatedAt: new Date() }).where(eq(works.id, workId)),
   ]);
 
-  recordActivity("work", workId, "work.taxonomy_added", {
-    extra: { updated: true },
-  });
+  await recordWorkTaxonomyChanges(workId, input, before);
 
   invalidate(CACHE_TAGS.works);
   return { workId };
+}
+
+type WorkTaxonomyField = keyof typeof WORK_TAXONOMY_FIELDS;
+
+/** The family name an activity event shows, by input field. */
+const TAXONOMY_EVENT_LABELS: Record<WorkTaxonomyField, string> = {
+  subjectIds: "subject",
+  categoryIds: "category",
+  themeIds: "theme",
+  literaryMovementIds: "literary movement",
+  artTypeIds: "art type",
+  artMovementIds: "art movement",
+  keywordIds: "keyword",
+  attributeIds: "attribute",
+};
+
+function resultRows<T>(result: unknown): T[] {
+  return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
+}
+
+function taxonomyFields(input: WorkTaxonomyInput) {
+  return (Object.keys(WORK_TAXONOMY_FIELDS) as WorkTaxonomyField[]).filter(
+    (field) => input[field] !== undefined,
+  );
+}
+
+async function readWorkTaxonomyIds(workId: string, input: WorkTaxonomyInput) {
+  const before = new Map<WorkTaxonomyField, string[]>();
+  for (const field of taxonomyFields(input)) {
+    const reg = getSystemRegistry(WORK_TAXONOMY_FIELDS[field]);
+    const result = await db.execute(
+      sql`select ${reg.junctionItemCol} as id from ${reg.junction} where ${reg.junctionEntityCol}=${workId}::uuid`,
+    );
+    before.set(field, resultRows<{ id: string }>(result).map((r) => r.id));
+  }
+  return before;
+}
+
+/** Record one taxonomy_added / taxonomy_removed event per item that changed. */
+async function recordWorkTaxonomyChanges(
+  workId: string,
+  input: WorkTaxonomyInput,
+  before: Map<WorkTaxonomyField, string[]>,
+) {
+  for (const field of taxonomyFields(input)) {
+    const next = [...new Set(input[field])];
+    const prev = before.get(field) ?? [];
+    const added = next.filter((id) => !prev.includes(id));
+    const removed = prev.filter((id) => !next.includes(id));
+    if (added.length === 0 && removed.length === 0) continue;
+
+    const reg = getSystemRegistry(WORK_TAXONOMY_FIELDS[field]);
+    const result = await db.execute(
+      sql`select id, name from ${reg.table} where id = any(${idArray([...added, ...removed])})`,
+    );
+    const names = new Map(
+      resultRows<{ id: string; name: string }>(result).map((r) => [r.id, r.name]),
+    );
+    const taxonomyType = TAXONOMY_EVENT_LABELS[field];
+
+    for (const id of added) {
+      recordActivity("work", workId, "work.taxonomy_added", {
+        taxonomyType,
+        targetId: id,
+        targetName: names.get(id) ?? "",
+      });
+    }
+    for (const id of removed) {
+      recordActivity("work", workId, "work.taxonomy_removed", {
+        taxonomyType,
+        targetId: id,
+        targetName: names.get(id) ?? "",
+      });
+    }
+  }
 }

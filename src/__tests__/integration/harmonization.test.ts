@@ -186,7 +186,13 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
     ).toMatchObject([{ s3_key: "target.webp" }]);
     expect(snapshot.data.references.comments).toHaveLength(1);
     expect(await count("comment_attachments")).toBe(1);
-    expect(snapshot.data.references.activity_events).toHaveLength(1);
+    // The moved event, plus the one merge event the merge records.
+    expect(
+      snapshot.data.references.activity_events
+        .map((e) => e.event_key)
+        .filter((key) => key === "author.merged"),
+    ).toHaveLength(1);
+    expect(snapshot.data.references.activity_events).toHaveLength(2);
     expect(await count("gallery_layouts")).toBe(0);
     const operation = (
       await client!`select * from harmonization_operations where id = ${result.operationId}`

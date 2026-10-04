@@ -428,6 +428,12 @@ export async function executeMerge(input: {
     queries.push(
       sql`update venues set total_orders = (select count(*) from orders where venue_id = ${target.id}::uuid), last_order_date = (select max(order_date) from orders where venue_id = ${target.id}::uuid), total_spent = case when (select count(distinct currency) from orders where venue_id = ${target.id}::uuid) <= 1 then coalesce((select sum(total_cost) from orders where venue_id = ${target.id}::uuid), 0) else 0 end where id = ${target.id}::uuid`,
     );
+  // One activity event per author merge, in the same transaction, for every
+  // merge path (author page and Harmonize).
+  if (input.entity === "authors")
+    queries.push(
+      sql`insert into activity_events (entity_type, entity_id, event_key, metadata) values ('author', ${target.id}::uuid, 'author.merged', ${JSON.stringify({ targetId: source.id, targetName: String(source.name ?? "") })}::jsonb)`,
+    );
   queries.push(
     sql`select harmonization_validate_merge(${operationId}::uuid)`,
     sql`update harmonization_operations set after = (select data from (${snapshotQuery(entity.table, [target.id])}) s) where id = ${operationId}::uuid`,
