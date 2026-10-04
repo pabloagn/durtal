@@ -199,8 +199,8 @@ list; unknown or malformed values are dropped (`perfumeQueryFromParams`,
 
 | Parameter | Matches |
 |-----------|---------|
-| `house`, `perfumer` | Organization or person ids; any one listed |
-| `houseRole` | With `house`: only that role (`perfume_house`, `brand` or `manufacturer`); without it a house matches as house or brand |
+| `house`, `perfumer` | Organization or person ids; any one listed. The House list holds every perfume house, brand and manufacturer |
+| `houseRole` | With `house`: only that role (`perfume_house`, `brand` or `manufacturer`), shown as the "House role" group in the filters and removed whenever the houses change; without it a house matches in any of the three roles. Alone it filters nothing |
 | `family`, `accord`, `note` | Taxonomy item ids; all listed, a broader item takes in its narrower ones |
 | `concentration` | Concentrations made (`eau_de_parfum`, `extrait`, ...); any one listed |
 | `holding` | `owned` or `not_owned` (both: no filter) |

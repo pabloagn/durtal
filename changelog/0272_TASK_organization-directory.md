@@ -128,3 +128,8 @@ film homes.
 - Tests: a group's and a supplier's rows, search within one role, the
   country id on edit, the painting owner guard, the role-narrowed house
   filter.
+- Second review: the house role no longer hides in the address. The perfume
+  filters show it as a "House role" group (one choice) while a house is
+  chosen, and drop it whenever the houses change; alone it is not a filter.
+  The House list and the default house match now take manufacturers too, so
+  a manufacturer chosen from its organization page shows ticked.

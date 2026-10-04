@@ -37,7 +37,8 @@ function itemLabel(item: { name: string; parentName: string | null }) {
 /**
  * Search, sort, view and filters of the perfume home. Houses, perfumers and
  * concentrations match any one chosen; families, accords and notes must all
- * match. Every choice is in the URL, so a filtered home can be linked.
+ * match. A house matches as perfume house, brand or manufacturer, unless a
+ * house role narrows it. Every choice is in the URL, so a filtered home can be linked.
  */
 export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
   const router = useRouter();
@@ -64,6 +65,9 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
       if (key === "container" && next.length) {
         if (params.get("holding") === "not_owned") params.delete("holding");
       }
+      // A house role narrows the houses chosen with it: one at a time, gone when they change
+      if (key === "houseRole") next = values.filter((v) => v !== params.get("houseRole")).slice(-1);
+      if (key === "house") params.delete("houseRole");
       if (next.length) params.set(key, next.join(","));
       else params.delete(key);
       push(params);
@@ -86,6 +90,20 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
       label: "House",
       options: options.houses.map((h) => ({ value: h.id, label: h.name })),
     },
+    // Shown with a house: what the houses must be to the perfume
+    ...(list("house").length
+      ? [
+          {
+            key: "houseRole",
+            label: "House role",
+            options: [
+              { value: "perfume_house", label: "As perfume house" },
+              { value: "brand", label: "As brand" },
+              { value: "manufacturer", label: "As manufacturer" },
+            ],
+          },
+        ]
+      : []),
     {
       key: "perfumer",
       label: "Perfumer",
@@ -177,7 +195,7 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
       <FilterDropdown
         groups={groups}
         activeFilters={Object.fromEntries(
-          ["house", "perfumer", "family", "accord", "note", "concentration", "holding", "container", "favourite"].map(
+          ["house", "houseRole", "perfumer", "family", "accord", "note", "concentration", "holding", "container", "favourite"].map(
             (key) => [key, list(key)],
           ),
         )}

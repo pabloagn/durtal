@@ -40,8 +40,8 @@ import {
   removeOrganization,
   updateOrganizationProfile,
 } from "@/lib/actions/organization-directory";
-import { getPerfumes } from "@/lib/actions/perfumes";
-import { perfumeQueryFromParams } from "@/lib/catalogue/perfume-params";
+import { getPerfumeFilterOptions, getPerfumes } from "@/lib/actions/perfumes";
+import { hasPerfumeFilters, perfumeQueryFromParams } from "@/lib/catalogue/perfume-params";
 import { getOrganization, linkOrganizationVenue, saveOrganization } from "@/lib/actions/organizations";
 import { createAcquisitionTarget, savePublisher } from "@/lib/actions/publishers";
 import { createPerfume } from "@/lib/actions/perfumes";
@@ -323,5 +323,18 @@ describe.skipIf(!url)("shared organization directory", () => {
     expect(await ids({ house: guerlain.id, houseRole: "brand" })).toEqual([branded.id]);
     // An unknown role is ignored
     expect((await ids({ house: guerlain.id, houseRole: "owner" })).length).toBe(2);
+    // A manufacturer is a house too, and shows ticked in the House list
+    const interparfums = (await saveOrganization({ name: "Interparfums", roles: ["manufacturer"] }))!;
+    const made = await createPerfume({
+      title: "Made Here",
+      organizations: [{ organizationId: interparfums.id, role: "manufacturer" }],
+    });
+    expect(await ids({ house: interparfums.id })).toEqual([made.id]);
+    expect(await ids({ house: interparfums.id, houseRole: "manufacturer" })).toEqual([made.id]);
+    expect((await getPerfumeFilterOptions()).houses.map((h) => h.name)).toEqual(["Guerlain", "Interparfums"]);
+    // A role left on its own filters nothing and is not a filter
+    expect(perfumeQueryFromParams({ houseRole: "brand" })).not.toHaveProperty("houseRole");
+    expect(hasPerfumeFilters({ houseRole: "brand" })).toBe(false);
+    expect(hasPerfumeFilters({ house: guerlain.id, houseRole: "brand" })).toBe(true);
   });
 });

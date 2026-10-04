@@ -154,7 +154,7 @@ export function perfumeWhere(q: PerfumeQuery): SQL | undefined {
     );
   if (q.houseIds?.length)
     conditions.push(
-      sql`exists(select 1 from perfume_organizations o where o.work_id=${works.id} and ${q.houseRole ? sql`o.role=${q.houseRole}` : sql`o.role in ('perfume_house','brand')`} and o.organization_id in (${uuids(q.houseIds)}))`,
+      sql`exists(select 1 from perfume_organizations o where o.work_id=${works.id} and ${q.houseRole ? sql`o.role=${q.houseRole}` : sql`o.role in ('perfume_house','brand','manufacturer')`} and o.organization_id in (${uuids(q.houseIds)}))`,
     );
   if (q.perfumerIds?.length)
     conditions.push(

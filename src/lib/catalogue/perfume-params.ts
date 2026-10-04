@@ -106,5 +106,8 @@ export function perfumeQueryFromParams(
 
 /** Whether any filter of the perfume home is set (the search and sort are not filters). */
 export function hasPerfumeFilters(params: ListSearchParams) {
-  return PERFUME_FILTER_KEYS.some((key) => !!first(params, key));
+  // A house role alone filters nothing: it only narrows a house
+  return PERFUME_FILTER_KEYS.some(
+    (key) => !!first(params, key) && (key !== "houseRole" || !!first(params, "house")),
+  );
 }
