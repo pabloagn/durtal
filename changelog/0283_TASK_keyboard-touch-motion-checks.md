@@ -15,7 +15,8 @@ SLN-380, the checks task 0267 left open: keyboard paths, dialog focus return, re
 
 - `scripts/qa/interaction-audit.mjs` (headless Chrome over the DevTools protocol, no dependency). For each route:
   - **Keyboard:** Tab walks the page; every stop must be visible and look different with focus than without (measured with transitions off). No positive `tabindex`. Each menu opens with Enter, takes focus, moves with ArrowDown and closes with Escape, focus back on its button.
-  - **Dialogs:** every button and menu item that opens a dialog (it skips the ones that delete, save, submit or toggle): focus moves in, 25 Tabs stay inside, Escape closes it, focus goes back to the opener (the menu's button for a menu item). A keyboard tooltip on the focused control may take the first Escape, as the tooltip rule says.
+  - **Dialogs:** every button and menu item whose label says it opens something (Edit, Add, Images, Note ...) and never one that writes (delete, save, archive, move, checked, favourite ...): focus moves in, 25 Tabs stay inside, Escape closes it unsaved, focus goes back to the opener (the menu's button for a menu item). A keyboard tooltip on the focused control may take the first Escape, as the tooltip rule says.
+  - **Guard:** it refuses to start without `--disposable`, on another host or on port 3100 (the live app), like `journeys.mjs`.
   - **Motion:** with `prefers-reduced-motion: reduce`, no element on the page, in an open menu or in an open dialog has an animation or transition that moves (transform, scale, translate, rotate) or loops.
   - **Touch:** at 390px with touch emulation (coarse pointer, no hover): no control is hidden until hover; every control is at least 24px or spaced as WCAG 2.5.8 allows (a 24px circle on its center touches no other control); links in running text are exempt. Controls under the design's 44px are counted, not failed.
 - Fixes:

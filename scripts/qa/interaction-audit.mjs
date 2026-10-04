@@ -17,12 +17,16 @@
  *             and every control is at least 24px or spaced as WCAG 2.5.8
  *             allows; the ones under the design's 44px are counted.
  *
- *   node scripts/qa/interaction-audit.mjs [--base http://127.0.0.1:3410] [route...]
+ *   node scripts/qa/interaction-audit.mjs --disposable [--base http://127.0.0.1:3410] [route...]
  *
- * Point it at a disposable app (scripts/qa/preview-local.py): it presses
- * buttons. It skips the ones that delete, remove, save, submit or toggle.
- * Chrome comes from $CHROME, else Playwright's chrome-headless-shell cache.
- * Exits 1 on any failure.
+ * It presses buttons and menu items, so it runs against a disposable database
+ * only (scripts/qa/preview-local.py): it refuses to start without
+ * --disposable, on any host but this computer, and on port 3100 (the live
+ * app). Even there it presses only controls whose label says they open
+ * something (Edit, Add, Images, Note ...; `OPENER`) and never one that
+ * writes (`WRITES`: delete, save, archive, move, checked, favourite ...);
+ * dialogs it opens close with Escape, unsaved. Chrome comes from $CHROME,
+ * else Playwright's chrome-headless-shell cache. Exits 1 on any failure.
  */
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -30,11 +34,30 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const args = process.argv.slice(2);
+const disposable = args.includes("--disposable");
+if (disposable) args.splice(args.indexOf("--disposable"), 1);
 const baseAt = args.indexOf("--base");
 const base = (baseAt >= 0 ? args.splice(baseAt, 2)[1] : "http://127.0.0.1:3410").replace(/\/$/, "");
+const target = URL.parse(base);
+const refusal = !target
+  ? `${base} is not a URL`
+  : !disposable
+    ? "it presses buttons and menu items: pass --disposable to confirm the server runs on a disposable database (scripts/qa/preview-local.py)"
+    : !["127.0.0.1", "localhost", "[::1]"].includes(target.hostname)
+      ? `${target.hostname} is not this computer`
+      : target.port === "3100"
+        ? "port 3100 is the live app"
+        : null;
+if (refusal) {
+  console.error(`Refused: ${refusal}`);
+  process.exit(2);
+}
 const routes = args.length ? args : ["/perfumes", "/films", "/paintings", "/perfumes/new", "/films/new", "/paintings/new", "@details"];
-/** Buttons the audit never presses: they change data or state */
-const UNSAFE = /delete|remove|save|submit|add to favourites|remove from favourites|sign out|clear|reset|refresh|apply|undo|confirm|download|export|upload|merge|accept|reject|dismiss/i;
+/** Controls the audit presses: their label says they open a dialog, a panel or a form */
+const OPENER = /^(edit|add|new|note|write|rename|change|choose|manage|images|details|adjust|link|attach|view|open)\b/i;
+/** Controls it never presses, whatever else the label says: they change data or state */
+const WRITES = /delete|remove|save|submit|favourite|archive|unarchive|move|checked|mark|restore|duplicate|set as|make |primary|verify|sync|import|refresh|clear|reset|apply|undo|confirm|download|export|upload|merge|accept|reject|dismiss|sign out|rate |copy/i;
+const pressable = (label) => OPENER.test(label) && !WRITES.test(label);
 
 function findChrome() {
   if (process.env.CHROME) return process.env.CHROME;
@@ -252,8 +275,10 @@ async function dialogs(route) {
   // Buttons on the page
   const buttons = await evaluate(`[...document.querySelectorAll('main button, main [role=button]')]
     .map((b, i) => ({ i, name: __ia.name(b), skip: (b.type === 'submit' && !!b.form) || b.hasAttribute('aria-pressed') || b.getAttribute('aria-haspopup') === 'menu' || b.getAttribute('aria-haspopup') === 'listbox' || b.disabled || __ia.hidden(b) }))
-    .filter((b) => !b.skip && !${UNSAFE}.test(b.name))`);
+    .filter((b) => !b.skip)`);
   for (const b of buttons) {
+    // b.name is 'button "Label"': the label decides
+    if (!pressable(b.name.replace(/^\S+ "|"$/g, ""))) continue;
     await go(route);
     await evaluate(HELPERS);
     const name = await evaluate(`(() => { const b = document.querySelectorAll('main button, main [role=button]')[${b.i}]; if (!b) return null; b.focus({ focusVisible: true }); return __ia.name(b); })()`);
@@ -272,8 +297,8 @@ async function dialogs(route) {
     if (!trigger) continue;
     await press("Enter");
     if (!(await waitFor("__ia.menu()", 2000))) continue;
-    const items = await evaluate(`[...__ia.menu().querySelectorAll('[role=menuitem]')].map((m) => m.innerText.trim()).filter((n) => n && !${UNSAFE}.test(n))`);
-    for (const item of items) {
+    const items = await evaluate(`[...__ia.menu().querySelectorAll('[role=menuitem]')].map((m) => m.innerText.trim()).filter(Boolean)`);
+    for (const item of items.filter(pressable)) {
       await go(route);
       await evaluate(HELPERS);
       await evaluate(`document.querySelectorAll('[aria-haspopup=menu]')[${t}].focus({ focusVisible: true })`);
