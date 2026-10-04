@@ -159,18 +159,24 @@ const ROLE_HINTS: Record<OrganizationRole, string> = {
 };
 
 /**
- * An organization search that offers only organizations with one of `roles`
- * (a perfume's house never suggests a publisher), with "Create" making one
- * with `role`.
+ * An organization search, with "Create" making one with `role`. With
+ * `roles`, it offers only organizations with one of them (a perfume's house
+ * never suggests a publisher); without, it searches every organization.
  */
 export function useOrganizationSearch(
   role: OrganizationRole,
-  roles: readonly OrganizationRole[] = [role],
+  roles?: readonly OrganizationRole[],
 ) {
-  const key = roles.join(",");
+  const key = roles?.join(",") ?? "";
   const search = useCallback(
     async (query: string): Promise<PickerChoice[]> =>
-      (await getOrganizations({ query, roles: key.split(",") as OrganizationRole[], limit: 8 })).rows.map((o) => ({
+      (
+        await getOrganizations({
+          query,
+          roles: key ? (key.split(",") as OrganizationRole[]) : undefined,
+          limit: 8,
+        })
+      ).rows.map((o) => ({
         id: o.id,
         label: o.name,
         hint: o.roles.flatMap((r) => (ROLE_HINTS[r] ? [ROLE_HINTS[r]] : [])).join(", ") || null,
