@@ -27,6 +27,7 @@
 - **ALWAYS** read relevant docs under `docs/` before making architectural decisions
 - **ALWAYS** use the three-tier data model: Work → Edition → Instance
 - **ALWAYS** run `pnpm typecheck` before considering TypeScript changes complete
+- **ALWAYS** run `pnpm test:local` before landing a change: `pnpm test` skips the database suites
 - **ALWAYS** use Drizzle migrations for schema changes (never raw SQL in production)
 - **ALWAYS** ask the user if uncertain rather than guessing
 - **ALWAYS** check every front-end change for pixel-perfect alignment in the browser before calling it done: run `scripts/qa/alignment-audit.js` on each page it touches and fix every deviation over 0.5px. Measure; never judge alignment from a screenshot
@@ -74,6 +75,8 @@ pnpm dev                    # Start dev server (http://localhost:3000)
 pnpm build                  # Production build
 pnpm typecheck              # TypeScript type checking
 pnpm lint                   # ESLint
+pnpm test                   # Vitest without the database suites (names each one it skips)
+pnpm test:local             # Every suite, against a disposable PostgreSQL 16 (Docker)
 pnpm db:generate            # Generate Drizzle migration from schema changes
 pnpm db:migrate             # Apply pending migrations to Neon
 pnpm db:studio              # Open Drizzle Studio (database browser)

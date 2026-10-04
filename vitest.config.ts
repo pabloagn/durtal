@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
+import SkippedDatabaseReporter from "./scripts/qa/skipped-database-reporter";
 
 export default defineConfig({
   test: {
@@ -12,6 +13,7 @@ export default defineConfig({
       AWS_ACCESS_KEY_ID: "test",
       AWS_SECRET_ACCESS_KEY: "test",
     },
+    reporters: ["default", new SkippedDatabaseReporter()],
   },
   resolve: {
     alias: {
