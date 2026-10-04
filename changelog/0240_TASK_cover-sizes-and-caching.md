@@ -22,6 +22,13 @@ resizes them on request, and lets the browser keep versioned covers.
   - With `?v=`: `Cache-Control: public, max-age=31536000, immutable`.
   - Without `?v=`: `private, no-cache` plus the S3 ETag (one per width). The
     browser revalidates, and an unchanged image returns 304 with no body.
+  - Every response, the 304 too, sends `X-Content-Type-Options: nosniff` and
+    `Content-Security-Policy: sandbox` (`src/lib/s3/read-headers.ts`). Only
+    raster images (JPEG, PNG, WebP, GIF, AVIF) are `inline`. HTML, SVG and any
+    other or missing type are `attachment`. The route sends stored bytes from
+    the app's origin, so a stored HTML or SVG file opened directly could
+    otherwise run its script there. An `<img>` ignores the disposition, so
+    every picture still shows.
 - `src/lib/s3/media-url.ts`: `mediaUrl(key, { version, width })`,
   `withMediaWidth(url, w)` and the allowed widths. Client-safe.
 - `src/app/library/page.tsx`: grid cover URLs carry a version. An edition
@@ -61,6 +68,20 @@ scrolled to the end so every cover loads.
   `design-audit.js`: 0 low-contrast text, 0 unnamed controls.
 - Typecheck, lint and `python3 scripts/qa/test-local.py` (109 files, 1497
   tests) pass.
+
+Security headers, added after a pre-merge review (same day):
+- `src/__tests__/s3/read-route.test.ts`: a WebP is inline; HTML, SVG and a
+  missing type are attachments; every case and the 304 carry nosniff and the
+  sandbox.
+- Browser check on dev: `/library` 48 of 48 images load, `/authors/a-a-milne`
+  1 of 1, `/library/2666-by-roberto-bolano` 30 of 30. Every route response is
+  `inline` WebP with nosniff and the sandbox. The grid is still 1,347 KB on the
+  first load and 0 KB on a reload.
+- Alignment audit: 0 issues on all three pages. Design audit: 0 low-contrast
+  text and 0 unnamed controls. It reports one nested control on the book and
+  author pages, the Export button, which this task does not touch.
+- Typecheck, lint, `pnpm test` (1112 passed, 391 database tests skipped) and
+  `python3 scripts/qa/test-local.py` (110 files, 1503 tests) pass.
 
 A new cover shows at once because every cover write sets `editions.updatedAt`
 (`src/lib/actions/editions.ts`, `src/lib/match/save.ts`, new editions through

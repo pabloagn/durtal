@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import { isMediaWidth } from "@/lib/s3/media-url";
+import { contentHeaders, READ_SAFETY_HEADERS } from "@/lib/s3/read-headers";
 
 /** Prevent Next.js from caching this route handler's response. */
 export const dynamic = "force-dynamic";
@@ -31,7 +32,8 @@ function s3EtagFrom(ifNoneMatch: string | null, width: number | null) {
  * GET /api/s3/read?key=...[&w=400][&v=...]
  *
  * Streams the S3 object. With `w`, resizes it to that width (allowed
- * widths only). With `v`, marks the response immutable.
+ * widths only). With `v`, marks the response immutable. Only raster images
+ * show inline; see `contentHeaders`.
  */
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     const headers: Record<string, string> = {
       "Cache-Control": cacheControl,
-      "Content-Disposition": "inline",
+      ...contentHeaders(obj.ContentType),
     };
     if (obj.ETag) headers.ETag = variantEtag(obj.ETag, width);
 
@@ -70,7 +72,6 @@ export async function GET(req: NextRequest) {
       const { width: sourceWidth = 0 } = await sharp(input).metadata();
       // Already that narrow: send the stored bytes, not a second compression
       if (sourceWidth <= width) {
-        if (obj.ContentType) headers["Content-Type"] = obj.ContentType;
         return new NextResponse(new Uint8Array(input), { headers });
       }
       const output = await sharp(input)
@@ -78,11 +79,10 @@ export async function GET(req: NextRequest) {
         .webp({ quality: 75 })
         .toBuffer();
       return new NextResponse(new Uint8Array(output), {
-        headers: { ...headers, "Content-Type": "image/webp" },
+        headers: { ...headers, ...contentHeaders("image/webp") },
       });
     }
 
-    if (obj.ContentType) headers["Content-Type"] = obj.ContentType;
     if (obj.ContentLength != null) headers["Content-Length"] = String(obj.ContentLength);
     return new NextResponse(obj.Body!.transformToWebStream(), { headers });
   } catch (err) {
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     if (status === 304 && ifNoneMatch) {
       return new NextResponse(null, {
         status: 304,
-        headers: { "Cache-Control": cacheControl, ETag: ifNoneMatch },
+        headers: { ...READ_SAFETY_HEADERS, "Cache-Control": cacheControl, ETag: ifNoneMatch },
       });
     }
     if (status === 404 || (err as { name?: string }).name === "NoSuchKey") {
