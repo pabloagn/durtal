@@ -29,6 +29,8 @@ interface AuthorListItemProps {
   roles?: PersonRole[];
   /** On a collection's list, that collection's roles come first */
   preferKind?: WorkKind | null;
+  /** Roles the list is filtered by: they lead the role line */
+  preferRoles?: string[] | null;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -48,6 +50,7 @@ export function AuthorListItem({
   worksCount,
   roles,
   preferKind,
+  preferRoles,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -117,7 +120,7 @@ export function AuthorListItem({
             </span>
           </div>
           {/* What the person is: one line, reserved when empty */}
-          <PersonRoles roles={roles} preferKind={preferKind} />
+          <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} />
         </div>
       </Link>
 

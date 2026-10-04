@@ -33,6 +33,8 @@ interface AuthorCardProps {
   roles?: PersonRole[];
   /** On a collection's list, that collection's roles come first */
   preferKind?: WorkKind | null;
+  /** Roles the list is filtered by: they lead the role line */
+  preferRoles?: string[] | null;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -54,6 +56,7 @@ export function AuthorCard({
   worksCount,
   roles,
   preferKind,
+  preferRoles,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -161,7 +164,7 @@ export function AuthorCard({
               card has the same height. The portrait shows no overlay. */}
           <CardHeading title={name} subtitle={nationality} />
           {/* What the person is: one line, reserved when empty */}
-          <PersonRoles roles={roles} preferKind={preferKind} className="mt-1" />
+          <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} className="mt-1" />
           <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
             {years && <span>{years}</span>}
             {worksCount > 0 && (

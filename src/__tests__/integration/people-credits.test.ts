@@ -191,9 +191,11 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     ]);
     // Every card's roles in one query, with their credit counts (SLN-420)
     const roles = await getPersonRoles([director.id, perfumer.id, translator.id, (await person("No credits", ["film"])).id]);
-    expect(roles[director.id]).toEqual([{ kind: "film", label: "Director", count: 1 }]);
-    expect(roles[perfumer.id]).toEqual([{ kind: "perfume", label: "Perfumer", count: 1 }]);
-    expect(roles[translator.id]).toEqual([{ kind: "book", label: "Translator", count: 1 }]);
+    expect(roles[director.id]).toEqual([{ roleId: "film.director", kind: "film", label: "Director", count: 1 }]);
+    expect(roles[perfumer.id]).toEqual([{ roleId: "perfume.perfumer", kind: "perfume", label: "Perfumer", count: 1 }]);
+    expect(roles[translator.id]).toEqual([
+      { roleId: "book.edition.translator", kind: "book", label: "Translator", count: 1 },
+    ]);
     expect(Object.keys(roles)).toHaveLength(3);
     expect(await getPersonRoles([])).toEqual({});
     // The Works column counts every collection's works, each once

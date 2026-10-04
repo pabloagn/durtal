@@ -217,6 +217,7 @@ async function AuthorsContent({
       <AuthorsShell
         authors={authors}
         preferKind={preferKind}
+        preferRoles={roles?.length ? roles : null}
         mapQuery={{ search, filters }}
         timelineQuery={{ search, filters: timelineFilters }}
         pagination={{

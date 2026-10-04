@@ -257,9 +257,9 @@ export async function getPersonRoles(
   const ids = [...new Set(personIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   if (!ids.length) return {};
   const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
-  const rows = resultRows<{ personId: string; kind: WorkKind; label: string; count: number }>(
+  const rows = resultRows<{ personId: string; roleId: string; kind: WorkKind; label: string; count: number }>(
     await db.execute(sql`
-      select c.person_id as "personId", r.kind::text as kind, r.label, count(*)::int as count
+      select c.person_id as "personId", r.id as "roleId", r.kind::text as kind, r.label, count(*)::int as count
       from (
         select wa.author_id as person_id, r.id as role_id from work_authors wa
           join credit_roles r on r.kind = 'book' and r.level = 'work' and r.legacy_role = wa.role
@@ -274,7 +274,7 @@ export async function getPersonRoles(
         select p.person_id, 'perfume.perfumer' from perfume_variant_perfumers p where p.person_id in (${list})
       ) c
       join credit_roles r on r.id = c.role_id
-      group by c.person_id, r.kind, r.label
+      group by c.person_id, r.id, r.kind, r.label
     `),
   );
   const roles: Record<string, PersonRole[]> = {};

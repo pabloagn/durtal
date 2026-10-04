@@ -99,7 +99,7 @@ const DEFAULT_COLUMN_CONFIG = ALL_AUTHOR_COLUMNS.map((c) => ({
   order: c.defaultOrder,
 }));
 
-function renderAuthorCell(author: AuthorItem, key: string) {
+function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string[] | null) {
   switch (key) {
     case "name": {
       return (
@@ -136,7 +136,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
     case "worksCount":
       return author.worksCount;
     case "roles":
-      return formatPersonRoles(author.roles)?.full ?? "—";
+      return formatPersonRoles(author.roles, null, filteredRoles)?.full ?? "—";
     case "gender":
       return author.gender ? enumLabel(author.gender) : "—";
     case "birthYear":
@@ -178,6 +178,8 @@ interface AuthorsShellProps {
   pagination: PaginationData;
   /** The collection the list is filtered to: its roles come first on cards */
   preferKind?: WorkKind | null;
+  /** The roles the list is filtered by: they lead the cards' role lines */
+  preferRoles?: string[] | null;
 }
 
 /** URL params (besides the search term) that filter the author list */
@@ -196,6 +198,7 @@ export function AuthorsShell({
   authors,
   mapQuery,
   preferKind = null,
+  preferRoles = null,
   timelineQuery,
   pagination,
 }: AuthorsShellProps) {
@@ -315,6 +318,7 @@ export function AuthorsShell({
                 worksCount={a.booksCount}
                 roles={a.roles}
                 preferKind={preferKind}
+                preferRoles={preferRoles}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -342,6 +346,7 @@ export function AuthorsShell({
               worksCount={a.booksCount}
               roles={a.roles}
               preferKind={preferKind}
+              preferRoles={preferRoles}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}
@@ -357,7 +362,7 @@ export function AuthorsShell({
           allColumns={ALL_AUTHOR_COLUMNS}
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
-          renderCell={renderAuthorCell}
+          renderCell={(author, key) => renderAuthorCell(author, key, preferRoles)}
           isSelecting={selection.isSelecting}
           selectedIds={selection.selectedIds}
           onSelect={selection.toggleSelection}

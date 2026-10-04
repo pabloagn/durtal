@@ -30,6 +30,19 @@ describe("a person card's role line (SLN-420)", () => {
     expect(formatPersonRoles(roles, "film")?.text).toBe("Screenwriter · Author");
   });
 
+  it("puts a filtered role first, so the line shows why the person is listed", () => {
+    const cocteau = [
+      { roleId: "book.author", kind: "book" as const, label: "Author", count: 20 },
+      { roleId: "film.cast", kind: "film" as const, label: "Cast", count: 6 },
+      { roleId: "film.screenwriter", kind: "film" as const, label: "Screenwriter", count: 4 },
+      { roleId: "film.director", kind: "film" as const, label: "Director", count: 3 },
+    ];
+    expect(formatPersonRoles(cocteau)?.text).toBe("Author · Cast +2");
+    expect(formatPersonRoles(cocteau, null, ["film.director"])?.text).toBe("Director · Author +2");
+    // Before the open collection's roles too
+    expect(formatPersonRoles(cocteau, "film", ["film.director"])?.text).toBe("Director · Cast +2");
+  });
+
   it("names one label once across collections", () => {
     expect(
       formatPersonRoles([
