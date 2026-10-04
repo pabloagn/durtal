@@ -734,7 +734,7 @@ person so that a filmmaker who writes a book is reused.
 | `goodreads_id` | TEXT | nullable | |
 | `metadata_source` | TEXT | nullable | |
 | `metadata_source_id` | TEXT | nullable | |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false` | Starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false` | Starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `search_text` | TEXT | GENERATED ALWAYS (stored) | `search_normalize(name, real_name, sort_name, first_name, last_name)`: accent-free, lower-case, punctuation as spaces. Used by author search only; never written by the app |
@@ -1150,7 +1150,7 @@ Normalized book series (replaces the text `series_name` field on works).
 | `description` | TEXT | nullable |
 | `total_volumes` | SMALLINT | nullable |
 | `is_complete` | BOOLEAN | default `false` |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
@@ -1165,7 +1165,7 @@ People or channels who recommended a work. Many-to-many with works via `work_rec
 | `id` | UUID | PK |
 | `name` | TEXT | UNIQUE, NOT NULL |
 | `url` | TEXT | nullable |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
@@ -1700,7 +1700,7 @@ User-curated groups of editions. Poster and background images are rows in `media
 | `description` | TEXT | nullable |
 | `icon` | TEXT | nullable; a Lucide icon name (PascalCase key of `lucide-react` `icons`, e.g. `BookOpen`), checked by the app on write. Shown beside the collection name. |
 | `sort_order` | INTEGER | NOT NULL, default `0` |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 

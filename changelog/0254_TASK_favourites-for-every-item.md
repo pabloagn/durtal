@@ -14,7 +14,7 @@ parameter serve books, films, perfumes, paintings, people, collections,
 series, recommenders, places, publishers and organizations.
 
 ## Implementation Details
-- Data: migration `0057_favourites` adds `is_favourite BOOLEAN NOT NULL
+- Data: migration `0061_favourites` adds `is_favourite BOOLEAN NOT NULL
   DEFAULT false` to `authors`, `collections`, `series` and `recommenders`. It is
   additive: no existing row changes. `works.is_favourite`,
   `publishing_houses.is_favourite` and `venues.is_favorite` (US spelling kept,
@@ -83,7 +83,7 @@ already over its budget on `main` (321 of 300 KB); its 48 stars add about
 
 Not done here: the library's Detailed (table) view has no star column.
 
-Migration 0057 is not applied to the live database by this task: it needs the
+Migration 0061 is not applied to the live database by this task: it needs the
 backup and rehearsal the issue asks for before it goes live.
 
 Not in scope, as the issue says: orders, copies, editions, taxonomy terms and

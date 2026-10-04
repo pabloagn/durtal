@@ -73,7 +73,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         delete work.is_favourite;
       }
     }
-    // Migration 0057 stars nothing: every new favourite starts off
+    // Migration 0061 stars nothing: every new favourite starts off
     for (const table of ["authors", "collections", "series", "recommenders"])
       for (const row of projected[table] ?? []) {
         if ("is_favourite" in row) {
