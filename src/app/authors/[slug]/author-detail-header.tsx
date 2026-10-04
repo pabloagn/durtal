@@ -27,9 +27,10 @@ interface AuthorDetailHeaderProps {
   lastName?: string | null;
   realName?: string | null;
   countryName?: string | null;
+  /** Official name from the countries table, shown as the tooltip */
+  countryOfficialName?: string | null;
   countryCode?: string | null;
   lifeDates?: string | null;
-  gender?: string | null;
   posterUrl?: string | null;
   posterCrop?: PosterCrop | null;
   workCount: number;
@@ -42,9 +43,9 @@ export function AuthorDetailHeader({
   lastName,
   realName,
   countryName,
+  countryOfficialName,
   countryCode,
   lifeDates,
-  gender,
   posterUrl,
   posterCrop,
   workCount,
@@ -175,6 +176,11 @@ export function AuthorDetailHeader({
               (countryCode ? (
                 <Link
                   href={nationalityFilterHref(countryCode)}
+                  data-tooltip={
+                    countryOfficialName !== countryName
+                      ? countryOfficialName ?? undefined
+                      : undefined
+                  }
                   className="text-fg-primary font-medium transition-colors hover:text-accent-rose-text"
                 >
                   {countryName}
@@ -185,11 +191,6 @@ export function AuthorDetailHeader({
             {lifeDates && (
               <span className="font-mono text-xs text-fg-secondary">
                 {lifeDates}
-              </span>
-            )}
-            {gender && (
-              <span className="text-sm text-fg-secondary capitalize">
-                {gender}
               </span>
             )}
           </div>

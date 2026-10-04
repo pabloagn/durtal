@@ -4,6 +4,7 @@ import { InstanceEditDialog } from "./instance-edit-dialog";
 import { InstanceDeleteButton } from "./instance-delete-button";
 import { InstanceStatusButton } from "./instance-status-button";
 import type { Instance, Location, SubLocation } from "@/lib/types/index";
+import { enumLabel } from "@/lib/utils/labels";
 
 type InstanceWithLocation = Instance & {
   location: Location;
@@ -81,10 +82,10 @@ export function InstanceDetail({
             )}
           </span>
           {instance.format && (
-            <Badge variant="muted">{instance.format}</Badge>
+            <Badge variant="muted">{enumLabel(instance.format)}</Badge>
           )}
           {instance.condition && (
-            <Badge variant="sage">{instance.condition}</Badge>
+            <Badge variant="sage">{enumLabel(instance.condition)}</Badge>
           )}
           {hasActions ? (
             <InstanceStatusButton
@@ -105,7 +106,7 @@ export function InstanceDetail({
                         : "muted"
                 }
               >
-                {instance.status}
+                {enumLabel(instance.status)}
               </Badge>
             )
           )}
@@ -195,7 +196,7 @@ export function InstanceDetail({
             {instance.acquisitionType && (
               <>
                 <dt className="text-fg-secondary">Type</dt>
-                <dd className="text-fg-secondary">{instance.acquisitionType}</dd>
+                <dd className="text-fg-secondary">{enumLabel(instance.acquisitionType)}</dd>
               </>
             )}
             {instance.acquisitionDate && (

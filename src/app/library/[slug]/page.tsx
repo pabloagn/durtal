@@ -65,6 +65,8 @@ import { formatBookClipboardText } from "@/lib/utils/copy-book";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { DetailColumns } from "@/components/shared/detail-layout";
+import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
+import { languageName } from "@/lib/utils/language";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -480,15 +482,15 @@ export default async function WorkDetailPage({ params }: PageProps) {
 
               {/* Status badges */}
               <div className="mt-3 flex flex-wrap gap-1.5">
-                <Badge variant="muted">{work.originalLanguage}</Badge>
+                <Badge variant="muted">{languageName(work.originalLanguage)}</Badge>
                 {work.isAnthology && <Badge variant="blue">Anthology</Badge>}
                 <Badge variant={catalogueStatusVariant(work.catalogueStatus)}>
-                  {work.catalogueStatus}
+                  {catalogueStatusLabel(work.catalogueStatus)}
                 </Badge>
                 {work.acquisitionPriority &&
                   work.acquisitionPriority !== "none" && (
                     <Badge variant={priorityVariant(work.acquisitionPriority)}>
-                      {work.acquisitionPriority} priority
+                      {priorityLabel(work.acquisitionPriority)} priority
                     </Badge>
                   )}
               </div>

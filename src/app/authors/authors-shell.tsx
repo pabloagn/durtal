@@ -22,6 +22,7 @@ import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { LIST_PREFERENCES } from "@/lib/preferences";
+import { enumLabel } from "@/lib/utils/labels";
 
 
 const AuthorsMap = dynamic(
@@ -134,7 +135,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
     case "worksCount":
       return author.worksCount;
     case "gender":
-      return author.gender ?? "—";
+      return author.gender ? enumLabel(author.gender) : "—";
     case "birthYear":
       return author.birthYear ?? "—";
     case "deathYear":

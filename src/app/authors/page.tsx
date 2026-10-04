@@ -28,6 +28,7 @@ import { AuthorCreateDialog } from "./author-create-dialog";
 import { hasListQuery } from "@/lib/utils/list-params";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
+import { countryDisplayName } from "@/lib/utils/labels";
 
 interface PageProps {
   searchParams: Promise<{
@@ -153,7 +154,7 @@ async function AuthorsContent({
       firstName: a.firstName ?? null,
       lastName: a.lastName ?? null,
       sortName: a.sortName,
-      nationality: a.country?.name ?? null,
+      nationality: countryDisplayName(a.country),
       birthYear: a.birthYear,
       deathYear: a.deathYear,
       gender: a.gender,

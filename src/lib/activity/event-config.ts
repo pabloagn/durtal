@@ -1,5 +1,7 @@
 import type { ActivityMetadata } from "./types";
 import { MARKS } from "@/lib/constants/marks";
+import { languageName } from "@/lib/utils/language";
+import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
 
 export interface EventDisplayConfig {
   icon: string;
@@ -95,17 +97,20 @@ function label(value: string): DescriptionSegment {
 function fieldChanged(
   fieldName: string,
   m?: ActivityMetadata | null,
+  format: (value: string) => string = (value) => value,
 ): DescriptionSegment[] {
   if (m?.oldValue) {
     return [
       text(`Changed ${fieldName} from `),
-      label(String(m.oldValue)),
+      label(format(String(m.oldValue))),
       text(" to "),
-      label(String(m.newValue)),
+      label(format(String(m.newValue))),
     ];
   }
-  return [text(`Set ${fieldName} to `), label(String(m?.newValue))];
+  return [text(`Set ${fieldName} to `), label(format(String(m?.newValue)))];
 }
+
+const languageLabel = (code: string) => languageName(code) ?? code;
 
 const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.hunt_assessment_changed": (m) => m?.newValue
@@ -118,9 +123,9 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.deleted":                    () => [text("Deleted this work")],
   "work.title_changed":             (m) => fieldChanged("title", m),
   "work.year_changed":              (m) => fieldChanged("original year", m),
-  "work.language_changed":          (m) => fieldChanged("original language", m),
-  "work.catalogue_status_changed":  (m) => fieldChanged("catalogue status", m),
-  "work.acquisition_priority_changed": (m) => fieldChanged("acquisition priority", m),
+  "work.language_changed":          (m) => fieldChanged("original language", m, languageLabel),
+  "work.catalogue_status_changed":  (m) => fieldChanged("catalogue status", m, catalogueStatusLabel),
+  "work.acquisition_priority_changed": (m) => fieldChanged("acquisition priority", m, priorityLabel),
   "work.rating_changed":            (m) => fieldChanged("rating", m),
   "work.series_changed":            (m) => m?.newValue
     ? [text("Added to series "), label(String(m.newValue))]
@@ -174,7 +179,7 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "author.name_changed":            (m) => fieldChanged("name", m),
   "author.birth_year_changed":      (m) => fieldChanged("birth year", m),
   "author.death_year_changed":      (m) => fieldChanged("death year", m),
-  "author.gender_changed":          (m) => fieldChanged("gender", m),
+  "author.gender_changed":          (m) => fieldChanged("gender", m, enumLabel),
   "author.nationality_changed":     (m) => fieldChanged("nationality", m),
   "author.biography_changed":       () => [text("Updated biography")],
   "author.birthplace_changed":      (m) => m?.newValue

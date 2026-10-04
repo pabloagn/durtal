@@ -112,7 +112,7 @@ export async function getAuthors(opts?: {
     const results = await db.query.authors.findMany({
       where: inArray(authors.id, ids),
       with: {
-        country: { columns: { name: true } },
+        country: { columns: { name: true, alpha2: true } },
         workAuthors: { columns: { workId: true } },
         media: {
           columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
@@ -150,7 +150,7 @@ export async function getAuthors(opts?: {
     limit,
     offset,
     with: {
-      country: { columns: { name: true } },
+      country: { columns: { name: true, alpha2: true } },
       workAuthors: {
         columns: { workId: true },
       },
@@ -303,7 +303,7 @@ export async function getAuthor(id: string) {
   const author = await db.query.authors.findFirst({
     where: and(bookPersonCondition, eq(authors.id, id)),
     with: {
-      country: { columns: { name: true } },
+      country: { columns: { name: true, alpha2: true } },
       workAuthors: {
         with: {
           work: {

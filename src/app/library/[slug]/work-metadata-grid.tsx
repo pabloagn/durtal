@@ -5,6 +5,8 @@ import {
   RecordFields,
   RecordGroup,
 } from "@/components/shared/detail-layout";
+import { languageName } from "@/lib/utils/language";
+import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
 
 interface WorkDetailsProps {
   work: WorkWithRelations;
@@ -24,7 +26,7 @@ export function WorkDetails({ work }: WorkDetailsProps) {
       <RecordFields>
         {work.originalLanguage && (
           <RecordField label="Original language">
-            {work.originalLanguage}
+            {languageName(work.originalLanguage)}
           </RecordField>
         )}
         {work.originalYear && (
@@ -35,10 +37,12 @@ export function WorkDetails({ work }: WorkDetailsProps) {
         {work.workType && (
           <RecordField label="Work type">{work.workType.name}</RecordField>
         )}
-        <RecordField label="Catalogue status">{work.catalogueStatus}</RecordField>
+        <RecordField label="Catalogue status">
+          {catalogueStatusLabel(work.catalogueStatus)}
+        </RecordField>
         {work.acquisitionPriority && work.acquisitionPriority !== "none" && (
           <RecordField label="Acquisition priority">
-            {work.acquisitionPriority}
+            {priorityLabel(work.acquisitionPriority)}
           </RecordField>
         )}
         {work.isAnthology && <RecordField label="Anthology">Yes</RecordField>}
