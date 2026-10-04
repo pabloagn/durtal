@@ -19,6 +19,8 @@ export const createAuthorSchema = z.object({
   deathYearIsApproximate: z.boolean().optional(),
   deathYearGregorian: z.number().int().min(-3000).max(2100).nullable().optional(),
   nationalityId: z.string().uuid().nullable().optional(),
+  birthPlaceId: z.string().uuid().nullable().optional(),
+  deathPlaceId: z.string().uuid().nullable().optional(),
   bio: z.string().max(10000).nullable().optional(),
   website: z.string().url().nullable().optional(),
   openLibraryKey: z.string().max(50).nullable().optional(),
