@@ -307,9 +307,18 @@ dialog::backdrop {
    the last one down; a row is never under 150px tall. */
 @utility mosaic {
   --mosaic-gap: 4px;
-  --mosaic-row: max(
-    150px,
-    calc(((100cqw - (var(--mosaic-per-row) - 1) * var(--mosaic-gap)) / var(--mosaic-per-row) - 1px) / var(--mosaic-aspect))
+  /* Pictures of the reference proportions per full row: --mosaic-per-row, or
+     fewer where they would be under 150px tall. tan(atan2(a, b)) is a / b as
+     a number: how many 150px-tall pictures fit the width */
+  --mosaic-count: min(
+    var(--mosaic-per-row),
+    max(1, round(down, tan(atan2(100cqw + var(--mosaic-gap), 150px * var(--mosaic-aspect) + var(--mosaic-gap))), 1))
+  );
+  /* The height at which that many fill the row exactly, so a full row hardly
+     grows and the last row has its height. 0.1px a picture spare keeps
+     rounding from wrapping a row early */
+  --mosaic-row: calc(
+    ((100cqw - (var(--mosaic-count) - 1) * var(--mosaic-gap)) / var(--mosaic-count) - 0.1px) / var(--mosaic-aspect)
   );
   display: flex;
   flex-wrap: wrap;

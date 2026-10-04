@@ -101,5 +101,6 @@ export const LIST_PREFERENCES = {
     label: "Collections",
     path: "/collections",
     view: { key: "durtal-collections-view-mode", modes: ["grid", "mosaic"], fallback: "grid" },
+    grid: { key: "durtal-collections-grid-columns", fallback: 5 },
   },
 } satisfies Record<string, ListPreference>;

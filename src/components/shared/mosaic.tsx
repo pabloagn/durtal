@@ -34,8 +34,9 @@ export function mosaicPerRow(sliderValue: number) {
  * proportions (a painting is not cropped to a poster), and every row but the
  * last fills the width, in reading order. `perRow` pictures of the reference
  * proportions (`aspect`) fit a full row; a narrow screen holds fewer, as a
- * row is never under 150px tall. Hovering a picture lifts it and shows its
- * title on glass while the others dim.
+ * picture of those proportions is never under 150px tall. The last row has
+ * the height of a full row. Hovering a picture lifts it and shows its title
+ * on glass while the others dim. A right-click opens the link's menu.
  */
 export function Mosaic({
   items,
@@ -74,9 +75,10 @@ export function Mosaic({
                 e.preventDefault();
                 onSelect(item.key);
               }}
-              onContextMenu={(e) => e.preventDefault()}
             >
               <span className="mosaic-media">{item.media}</span>
+              {/* Takes a right-click, so it opens the link's menu, not the picture's */}
+              <span className="absolute inset-0" aria-hidden />
               <span className="mosaic-caption glass" aria-hidden>
                 <span className="block truncate text-xs text-fg-primary">{item.title}</span>
                 {item.subtitle && (

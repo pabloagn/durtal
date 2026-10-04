@@ -1,14 +1,17 @@
 "use client";
 
-import { useViewModePreference } from "@/lib/hooks/use-preference";
+import { usePreference, useViewModePreference } from "@/lib/hooks/use-preference";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { ViewModeSwitcher } from "@/components/books/view-mode-switcher";
-import { Mosaic, MosaicImage } from "@/components/shared/mosaic";
+import { GridSizeSlider } from "@/components/books/grid-size-slider";
+import { COL_CLASSES } from "@/components/shared/grid-columns";
+import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
 import { CoverFan, TitleCard } from "@/components/shared/no-photo";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { CollectionCard, collectionPoster, type CollectionCardData } from "./collection-card";
 
 const VIEW = LIST_PREFERENCES.collections.view;
+const GRID = LIST_PREFERENCES.collections.grid;
 
 function imageUrl(key: string) {
   return `/api/s3/read?key=${encodeURIComponent(key)}`;
@@ -18,18 +21,26 @@ function useCollectionsView() {
   return useViewModePreference(VIEW.key, VIEW.modes, VIEW.fallback);
 }
 
-/** The view switch of the collections list: grid or mosaic */
+function useCollectionsSize() {
+  return usePreference(GRID.key, GRID.fallback);
+}
+
+/** The view switch of the collections list (grid or mosaic) and its size slider */
 export function CollectionsViewSwitcher() {
   const [view, setView] = useCollectionsView();
+  const [size, setSize] = useCollectionsSize();
   return (
-    <ViewModeSwitcher
-      value={view}
-      onChange={(mode) => {
-        const next = VIEW.modes.find((m) => m === mode);
-        if (next) setView(next);
-      }}
-      availableModes={VIEW.modes}
-    />
+    <div className="flex shrink-0 items-center gap-3">
+      <ViewModeSwitcher
+        value={view}
+        onChange={(mode) => {
+          const next = VIEW.modes.find((m) => m === mode);
+          if (next) setView(next);
+        }}
+        availableModes={VIEW.modes}
+      />
+      <GridSizeSlider value={size} onChange={setSize} />
+    </div>
   );
 }
 
@@ -40,11 +51,12 @@ export function CollectionsView({
   collections: { collection: CollectionCardData; covers: string[] }[];
 }) {
   const [view] = useCollectionsView();
+  const [size] = useCollectionsSize();
   if (view === "mosaic")
     return (
       <Mosaic
         aspect={2 / 3}
-        perRow={7}
+        perRow={mosaicPerRow(size)}
         items={collections.map(({ collection, covers }) => {
           const poster = collectionPoster(collection.media);
           return {
@@ -67,10 +79,12 @@ export function CollectionsView({
       />
     );
   return (
-    <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {collections.map(({ collection, covers }) => (
-        <CollectionCard key={collection.id} collection={collection} covers={covers} />
-      ))}
+    <div className="@container">
+      <div className={`grid gap-5 ${COL_CLASSES[size] ?? COL_CLASSES[GRID.fallback]}`}>
+        {collections.map(({ collection, covers }) => (
+          <CollectionCard key={collection.id} collection={collection} covers={covers} />
+        ))}
+      </div>
     </div>
   );
 }
