@@ -19,9 +19,22 @@ export interface QuickSearchResult {
     title: string;
     year: number | null;
     authors: string[];
+    /** The book's cover thumbnail: its active poster, else an edition's */
+    cover: string | null;
   }[];
-  authors: { id: string; slug: string; name: string }[];
+  /** `photo`: the portrait thumbnail (monochrome, like every author image) */
+  authors: { id: string; slug: string; name: string; photo: string | null }[];
 }
+
+/** A work's cover thumbnail key: the active poster, else the newest edition with a cover */
+const workCover = sql<string | null>`coalesce(
+  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = ${works.id} and m.type = 'poster' and m.is_active order by m.created_at limit 1),
+  (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = ${works.id} and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last limit 1))`;
+
+/** An author's portrait thumbnail key: the active poster, else the legacy photo */
+const authorPhoto = sql<string | null>`coalesce(
+  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.author_id = ${authors.id} and m.type = 'poster' and m.is_active order by m.created_at limit 1),
+  ${authors.photoS3Key})`;
 
 /** Title, series and author names of a work, as one search text */
 const workHaystack = sql`search_normalize(${works.title} || ' ' || coalesce(${works.seriesName}, '') || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${works.id}), '') || ' ' || coalesce((select s.title from series s where s.id = ${works.seriesId}), ''))`;
@@ -48,6 +61,7 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
       ? db.query.works.findMany({
           where: and(where, sql`${works.slug} is not null`),
           columns: { id: true, slug: true, title: true, originalYear: true },
+          extras: { cover: workCover.as("cover") },
           orderBy: [desc(textSearchRank(workHaystack, sql`${works.title}`, q)), asc(works.title)],
           limit: 8,
           with: {
@@ -63,6 +77,7 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
       ? db.query.authors.findMany({
           where: and(authorWhere, sql`${authors.slug} is not null`),
           columns: { id: true, slug: true, name: true },
+          extras: { photo: authorPhoto.as("photo") },
           orderBy: [desc(authorSearchRank(q)), asc(authors.name)],
           limit: 5,
         })
@@ -76,7 +91,8 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
       title: w.title,
       year: w.originalYear,
       authors: w.workAuthors.map((wa) => wa.author.name),
+      cover: w.cover,
     })),
-    authors: authorRows.map((a) => ({ id: a.id, slug: a.slug!, name: a.name })),
+    authors: authorRows.map((a) => ({ id: a.id, slug: a.slug!, name: a.name, photo: a.photo })),
   };
 }

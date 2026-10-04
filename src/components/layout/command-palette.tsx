@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
   Library,
-  User,
-  Book,
   Search,
   Keyboard,
   Loader2,
@@ -69,6 +67,35 @@ const ACTION_ITEMS: PaletteItem[] = [
 ];
 
 const NO_RESULTS: QuickSearchResult = { works: [], authors: [] };
+
+const imageUrl = (key: string) => `/api/s3/read?key=${encodeURIComponent(key)}`;
+
+/**
+ * A result's picture: the book's cover or the author's portrait, 24x36 like
+ * a small card. The box is fixed, so the list never moves while it loads;
+ * with no picture, the box shows the initials.
+ */
+function ResultThumb({ src, name }: { src: string | null; name: string }) {
+  const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
+  const initials = words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}` : (words[0]?.[0] ?? "?");
+  return (
+    <span className="relative flex h-9 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-bg-tertiary ring-1 ring-white/[0.06]">
+      {src ? (
+        <img
+          src={imageUrl(src)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="protected-image absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <span aria-hidden="true" className="font-serif text-micro text-fg-secondary">
+          {initials.toUpperCase()}
+        </span>
+      )}
+    </span>
+  );
+}
 
 const GROUP_CLASS =
   "text-xs font-medium text-fg-secondary [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
@@ -207,7 +234,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     onSelect={() => navigate(`/library/${work.slug}`)}
                     className={ITEM_CLASS}
                   >
-                    <Book className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <ResultThumb src={work.cover} name={work.title} />
                     <span className="min-w-0 flex-1 truncate">
                       {work.title}
                       {work.authors.length > 0 && (
@@ -236,7 +263,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     onSelect={() => navigate(`/authors/${author.slug}`)}
                     className={ITEM_CLASS}
                   >
-                    <User className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <ResultThumb src={author.photo} name={author.name} />
                     <span className="min-w-0 flex-1 truncate">{author.name}</span>
                   </Command.Item>
                 ))}
