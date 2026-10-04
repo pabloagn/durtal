@@ -60,4 +60,13 @@ describe("glass surfaces", () => {
     expect(dialogs.length).toBeGreaterThan(0);
     for (const { classes } of dialogs) expect(classes).toContain("overflow-hidden");
   });
+
+  it("are the only blur: nothing else blurs what lies behind it", () => {
+    const blurred = sourceFiles(SRC).flatMap((file) =>
+      classNames(readFileSync(file, "utf8"))
+        .filter(({ classes }) => classes.some((c) => /(^|:)backdrop-blur/.test(c)))
+        .map(({ tag }) => `${path.relative(SRC, file)} <${tag}>`),
+    );
+    expect(blurred).toEqual([]);
+  });
 });

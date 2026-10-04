@@ -197,3 +197,4 @@ export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects
 export * from "./retailers";
 export * from "./films";
 export * from "./paintings";
+export { workRelations } from "./work-relations";

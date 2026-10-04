@@ -49,7 +49,7 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 z-50 m-0 h-screen w-screen max-h-none max-w-none bg-bg-primary/95 p-0 backdrop:bg-transparent"
+      className="fixed inset-0 z-50 m-0 h-screen w-screen max-h-none max-w-none bg-scrim-deep p-0 backdrop:bg-transparent"
       onClose={(event) => { if (event.target === dialogRef.current) onClose(); }}
     >
       <div className="flex h-full w-full items-center justify-center">
@@ -59,9 +59,9 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
           onClick={onClose}
           aria-label="Close image"
           data-tooltip="Close image"
-          className="absolute right-4 top-4 z-10 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
+          className="absolute right-4 top-4 z-10 rounded-sm p-1.5 text-fg-secondary transition-colors hover:text-fg-primary"
         >
-          <X className="h-5 w-5" strokeWidth={1.5} />
+          <X className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
         {/* Nav prev */}
@@ -70,9 +70,9 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
             aria-label="Previous image"
             data-tooltip="Previous image"
             onClick={goPrev}
-            className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
+            className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-sm p-2 text-fg-secondary transition-colors hover:text-fg-primary"
           >
-            <ChevronLeft className="h-6 w-6" strokeWidth={1.5} />
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
           </button>
         )}
 
@@ -100,9 +100,9 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
             aria-label="Next image"
             data-tooltip="Next image"
             onClick={goNext}
-            className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-sm p-2 text-fg-muted transition-colors hover:text-fg-primary"
+            className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-sm p-2 text-fg-secondary transition-colors hover:text-fg-primary"
           >
-            <ChevronRight className="h-6 w-6" strokeWidth={1.5} />
+            <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
           </button>
         )}
 

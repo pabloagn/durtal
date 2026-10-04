@@ -385,11 +385,17 @@ role they need. The record parts shared with perfumes moved to
 `0054_film_kind_enabled` widens `works_kind_enabled_check` to `book`,
 `perfume` and `film`, in step with `WORK_DOMAINS.film.enabled`.
 
+Links between works (SLN-363, task 0268): adaptations, remakes, flankers and
+sourced inspirations are directed rows in `work_relations` with kind-tied keys,
+a pair check, one link per pair and type, and a source check for inspirations.
+Every detail page lists them apart from its suggestions, and book merges carry
+them. Migrations 0057 and 0058.
+
 Mixed collections (SLN-362, task 0269): `collection_works` holds whole works
 beside edition members, in one order; a book held both ways shows through its
 edition and counts once. Every open collection can be added, removed and
 reordered, with previews, counts, library selection and delete cleanup.
-Migration 0057.
+Migration 0059.
 
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

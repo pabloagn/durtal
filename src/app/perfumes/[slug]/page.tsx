@@ -22,6 +22,8 @@ import {
 } from "@/components/perfumes/formulations-section";
 import { BottlesSection, type BottleView } from "@/components/perfumes/bottles-section";
 import { RetailersSection } from "@/components/perfumes/retailers-section";
+import { LinkedWorksSection } from "@/components/catalogue/work-relations";
+import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { RelatedPerfumes } from "@/components/perfumes/related-perfumes";
@@ -96,7 +98,7 @@ export default async function PerfumePage({
   const perfume = await loadPerfume(slug);
   if (!perfume) notFound();
   const owner = { kind: "perfume" as const, id: perfume.id };
-  const [media, curation, provenance, related, families, notesFamily, allLocations] =
+  const [media, curation, provenance, related, families, notesFamily, allLocations, links] =
     await Promise.all([
       getMediaForWork(perfume.id),
       getWorkCuration(owner),
@@ -105,6 +107,7 @@ export default async function PerfumePage({
       getTaxonomyAssignments({ kind: "perfume", level: "work", ownerId: perfume.id }),
       getTaxonomyFamily("perfume-notes"),
       getLocations(),
+      getWorkRelations(perfume.id),
     ]);
 
   const base = `/perfumes/${perfume.slug ?? perfume.id}`;
@@ -170,6 +173,8 @@ export default async function PerfumePage({
         ...v.classification.map((c) => c.sourceRecordId),
       ]),
       ...perfume.retailers.flatMap((r) => [r.link.sourceRecordId, r.observation?.sourceRecordId]),
+      // A link starting here cites a source of this perfume
+      ...links.filter((l) => l.direction === "outgoing").map((l) => l.source?.id),
     ].filter((id): id is string => !!id),
   );
   const sources = sourceViews(provenance, cited);
@@ -591,6 +596,11 @@ export default async function PerfumePage({
         perfumeTitle={perfume.title}
         listings={perfume.retailers}
         formulations={formulationChoices}
+      />
+
+      <LinkedWorksSection
+        work={{ id: perfume.id, kind: "perfume", title: perfume.title }}
+        relations={links}
       />
 
       <GallerySection entityType="work" entityId={perfume.id} />

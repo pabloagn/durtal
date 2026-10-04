@@ -1,6 +1,6 @@
 {
-  "id": "a1f8612e-9835-4204-be5e-82ddfc224848",
-  "prevId": "1847066e-e10f-40f7-ba57-f98ca7e8422b",
+  "id": "e91f3158-4d94-4da9-b8b9-ebb9ae0ce8f1",
+  "prevId": "a1f8612e-9835-4204-be5e-82ddfc224848",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -8494,6 +8494,211 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.work_relations": {
+      "name": "work_relations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_work_id": {
+          "name": "from_work_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_kind": {
+          "name": "from_kind",
+          "type": "work_kind_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_work_id": {
+          "name": "to_work_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_kind": {
+          "name": "to_kind",
+          "type": "work_kind_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_record_id": {
+          "name": "source_record_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "work_relation_pair_unique": {
+          "name": "work_relation_pair_unique",
+          "columns": [
+            {
+              "expression": "least(\"from_work_id\", \"to_work_id\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "greatest(\"from_work_id\", \"to_work_id\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "work_relation_from_idx": {
+          "name": "work_relation_from_idx",
+          "columns": [
+            {
+              "expression": "from_work_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "work_relation_to_idx": {
+          "name": "work_relation_to_idx",
+          "columns": [
+            {
+              "expression": "to_work_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "work_relation_source_idx": {
+          "name": "work_relation_source_idx",
+          "columns": [
+            {
+              "expression": "source_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "work_relations_source_record_id_source_records_id_fk": {
+          "name": "work_relations_source_record_id_source_records_id_fk",
+          "tableFrom": "work_relations",
+          "tableTo": "source_records",
+          "columnsFrom": [
+            "source_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_relation_from_fk": {
+          "name": "work_relation_from_fk",
+          "tableFrom": "work_relations",
+          "tableTo": "works",
+          "columnsFrom": [
+            "from_work_id",
+            "from_kind"
+          ],
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "work_relation_to_fk": {
+          "name": "work_relation_to_fk",
+          "tableFrom": "work_relations",
+          "tableTo": "works",
+          "columnsFrom": [
+            "to_work_id",
+            "to_kind"
+          ],
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "work_relation_self_check": {
+          "name": "work_relation_self_check",
+          "value": "\"work_relations\".\"from_work_id\" <> \"work_relations\".\"to_work_id\""
+        },
+        "work_relation_pair_check": {
+          "name": "work_relation_pair_check",
+          "value": "(\"work_relations\".\"type\" = 'adaptation' and ((\"work_relations\".\"from_kind\" = 'film' and \"work_relations\".\"to_kind\" = 'book') or (\"work_relations\".\"from_kind\" = 'book' and \"work_relations\".\"to_kind\" = 'film')))\n        or (\"work_relations\".\"type\" = 'remake' and \"work_relations\".\"from_kind\" = 'film' and \"work_relations\".\"to_kind\" = 'film')\n        or (\"work_relations\".\"type\" = 'flanker' and \"work_relations\".\"from_kind\" = 'perfume' and \"work_relations\".\"to_kind\" = 'perfume')\n        or \"work_relations\".\"type\" = 'inspiration'"
+        },
+        "work_relation_source_check": {
+          "name": "work_relation_source_check",
+          "value": "\"work_relations\".\"type\" <> 'inspiration' or \"work_relations\".\"source_record_id\" is not null"
+        },
+        "work_relation_notes_check": {
+          "name": "work_relation_notes_check",
+          "value": "\"work_relations\".\"notes\" is null or length(trim(\"work_relations\".\"notes\")) between 1 and 2000"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.work_status_history": {

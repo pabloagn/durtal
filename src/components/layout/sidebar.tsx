@@ -105,7 +105,7 @@ export function Sidebar({
       aria-label="Main navigation"
       // The drawer shows at once when it opens (so it can take focus) and
       // hides after it slides out
-      className={`fixed left-0 top-0 z-50 flex h-dvh w-64 max-w-[85vw] flex-col border-r border-glass-border bg-bg-secondary/80 backdrop-blur-xl md:visible md:z-40 md:w-(--sidebar-w) md:max-w-none md:translate-x-0 ${
+      className={`glass-bar fixed left-0 top-0 z-50 flex h-dvh w-64 max-w-[85vw] flex-col border-r border-glass-border md:visible md:z-40 md:w-(--sidebar-w) md:max-w-none md:translate-x-0 ${
         drawerOpen
           ? "visible translate-x-0 transition-[width,translate]"
           : "invisible -translate-x-full transition-[width,translate,visibility]"
