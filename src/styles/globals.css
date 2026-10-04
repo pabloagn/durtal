@@ -265,17 +265,6 @@ dialog::backdrop {
   -webkit-backdrop-filter: blur(6px) saturate(1.2);
 }
 
-@utility glass-subtle {
-  background: linear-gradient(
-    135deg,
-    rgba(193, 198, 196, 0.03) 0%,
-    rgba(193, 198, 196, 0.01) 100%
-  );
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--color-glass-border);
-}
-
 @utility glass-input-focus {
   box-shadow:
     0 0 0 1px var(--color-accent-rose),

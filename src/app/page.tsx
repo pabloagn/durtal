@@ -54,7 +54,7 @@ function StatCard({
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   return (
-    <Card glass>
+    <Card>
       <CardContent className="flex items-center gap-4 py-5">
         {/* Decoration only: on a phone the count and its label need the room */}
         <div className="hidden rounded-sm border border-glass-border bg-bg-primary/50 p-2.5 sm:block">

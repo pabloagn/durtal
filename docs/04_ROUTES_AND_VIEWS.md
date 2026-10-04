@@ -88,7 +88,7 @@ Active route is highlighted with `bg-accent-plum`.
 Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmdk` library.
 
 Groups:
-- **Books** and **Authors**: matches for the typed text, each with its picture: the book's cover (its active poster, else an edition's) or the author's portrait, 24x36 like a small card, or the initials when there is none. The pictures load lazily in a fixed box, so the list never moves
+- **Books** and **Authors**: matches for the typed text, each with its picture: the book's cover (its active poster, else an edition's), 24x36 like a small card, or the author's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. The pictures load lazily in a fixed box, so the list never moves
 - **Search**: one "Search books for …" entry per open collection
 - **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts

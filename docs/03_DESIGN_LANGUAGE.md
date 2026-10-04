@@ -54,9 +54,9 @@ Controls and text that sit on a cover, portrait or banner use the page's near-bl
 
 | Token | Value | Usage |
 |---|---|---|
-| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the media manager's hover actions (`bg-overlay`) |
-| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection pages) |
-| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image |
+| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the card actions menu, the cover chips (`cover-chip.ts`, also the reader's format chips), the media manager's hover actions (`bg-overlay`) |
+| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection, publisher and film pages) |
+| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image; its buttons keep 16px icons in `fg-secondary` |
 
 Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black`, `text-white` or blur on these: blur belongs to the glass (navigation, palette and floating panels).
 
