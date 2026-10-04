@@ -18,6 +18,7 @@ import {
 } from "@/lib/actions/media";
 import { ImageAdjustmentEditor, ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import {
   DEFAULT_MONOCHROME_PARAMS,
   parseProcessingParams,
@@ -90,6 +91,10 @@ export function AuthorMediaManagerDialog({
   const [deleting, setDeleting] = useState(false);
   const [settingActive, setSettingActive] = useState<string | null>(null);
   const [deletingSingle, setDeletingSingle] = useState<string | null>(null);
+  // A delete waits for the confirm dialog: one image, or the selection
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: "single"; id: string; name: string } | { kind: "bulk"; count: number } | null
+  >(null);
   const [tuningId, setTuningId] = useState<string | null>(null);
 
   // URL paste state
@@ -200,6 +205,13 @@ export function AuthorMediaManagerDialog({
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    if (pendingDelete.kind === "single") await handleDeleteSingle(pendingDelete.id);
+    else await handleBulkDelete();
+    setPendingDelete(null);
+  }
+
   function toggleSelection(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -272,7 +284,7 @@ export function AuthorMediaManagerDialog({
   const activeItem = !isGallery ? filteredItems.find((i) => i.isActive) : null;
   const tuningItem = tuningId ? filteredItems.find((i) => i.id === tuningId) : null;
 
-  return (
+  const manager = (
     <Dialog
       open={open}
       onClose={handleClose}
@@ -396,7 +408,11 @@ export function AuthorMediaManagerDialog({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteSingle(item.id);
+                            setPendingDelete({
+                              kind: "single",
+                              id: item.id,
+                              name: item.caption || item.originalFilename || "Image",
+                            });
                           }}
                           disabled={isDeletingThis}
                           className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100"
@@ -538,7 +554,9 @@ export function AuthorMediaManagerDialog({
                 <Button
                   variant="danger"
                   size="sm"
-                  onClick={handleBulkDelete}
+                  onClick={() =>
+                    setPendingDelete({ kind: "bulk", count: selected.size })
+                  }
                   disabled={deleting}
                 >
                   {deleting ? (
@@ -557,5 +575,31 @@ export function AuthorMediaManagerDialog({
         )}
       </div>
     </Dialog>
+  );
+
+  const manyPending = pendingDelete?.kind === "bulk" && pendingDelete.count > 1;
+
+  // The confirm is a sibling, not a child: React passes a child dialog's
+  // cancel (Escape) up to the parent, which would close both.
+  return (
+    <>
+      {manager}
+      <DeleteConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title={manyPending ? "Delete images" : "Delete image"}
+        description={
+          manyPending
+            ? "The images and their files are deleted. This cannot be undone."
+            : "The image and its files are deleted. This cannot be undone."
+        }
+        itemName={
+          pendingDelete?.kind === "bulk"
+            ? `${pendingDelete.count} image${pendingDelete.count === 1 ? "" : "s"}`
+            : (pendingDelete?.name ?? "")
+        }
+      />
+    </>
   );
 }
