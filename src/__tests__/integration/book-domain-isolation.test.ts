@@ -248,11 +248,13 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
         })
       )?.id,
     ).toBe(books[0]);
-    expect(
-      (
-        await getCollectionSelection([...books, ...others.map((r) => r.id)], [])
-      ).withoutEditions.map((r) => r.id),
-    ).toEqual([books[1]]);
+    // Other kinds and a book with no edition join as whole works; only
+    // books contribute editions
+    const selection = await getCollectionSelection([...books, ...others.map((r) => r.id)], []);
+    expect(selection.editions.every((e) => books.includes(e.workId))).toBe(true);
+    expect(selection.works.map((r) => r.id).sort()).toEqual(
+      [books[1], ...others.map((r) => r.id)].sort(),
+    );
   });
   it("keeps shared recommendation and taxonomy links but counts and lists only open collections", async () => {
     expect((await getRecommenderList()).rows[0].bookCount).toBe(1);

@@ -385,5 +385,11 @@ role they need. The record parts shared with perfumes moved to
 `0054_film_kind_enabled` widens `works_kind_enabled_check` to `book`,
 `perfume` and `film`, in step with `WORK_DOMAINS.film.enabled`.
 
+Mixed collections (SLN-362, task 0269): `collection_works` holds whole works
+beside edition members, in one order; a book held both ways shows through its
+edition and counts once. Every open collection can be added, removed and
+reordered, with previews, counts, library selection and delete cleanup.
+Migration 0057.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.
