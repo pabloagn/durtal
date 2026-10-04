@@ -55,8 +55,9 @@ describe("painting names and lines", () => {
     );
     expect(custodyText({ custody: "unknown", displayStatus: "unknown", placeKind: "unknown" })).toBe("");
     const recordedAt = new Date("2026-10-01T09:00:00Z");
+    // 23:30 UTC is 01:30 the next day in Amsterdam, the owner's time zone
     expect(checkedText({ verifiedAt: new Date("2026-10-04T23:30:00Z"), recordedAt })).toBe(
-      "Checked Oct 4, 2026",
+      "Checked Oct 5, 2026",
     );
     expect(checkedText({ verifiedAt: null, recordedAt })).toBe("Recorded Oct 1, 2026, not checked");
   });

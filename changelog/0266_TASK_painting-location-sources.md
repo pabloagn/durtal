@@ -14,7 +14,7 @@ SLN-368 follow-up. The ticket check of 2026-10-04 found one acceptance criterion
 ## Implementation Details
 
 - **Source of each location.** `src/app/paintings/[slug]/page.tsx` maps each whereabouts record's `sourceRecordId` to the painting's source (`sourceChoices`) and passes it as `source` to the current location ("Now") and each history entry. The header, the object line and the history show "Source: …". A source that a location cites counts as cited in Sources ("Cited here").
-- **Check date.** `checkedText` (`src/lib/catalogue/painting-labels.ts`) now writes the date: "Checked Oct 4, 2026" for a record checked against a source, "Recorded Oct 4, 2026, not checked" for one never checked. A location unchecked for a year still adds ", check again".
+- **Check date.** `checkedText` (`src/lib/catalogue/painting-labels.ts`) now writes the date: "Checked Oct 4, 2026" for a record checked against a source, "Recorded Oct 4, 2026, not checked" for one never checked. The date is the owner's calendar day (`appTimeZone()`, `src/lib/utils/date.ts`), not UTC's: a check at 00:30 in Amsterdam shows today. A location unchecked for a year still adds ", check again".
 - **Out-of-range page.** The painting results moved to `src/app/paintings/painting-results.tsx`, like `src/app/perfumes/perfume-results.tsx`: count first, send a page past the end to the last page, and read only an offset inside the list. Page 30,000 of 48 was an offset past the list's 1,000,000 cap.
 - **Docs.** `docs/02_DATA_MODEL.md` says all four kinds are enabled, with `0055_open_paintings` for paintings.
 - **Tests.** `painting-results.test.ts` (redirect before any read; no read when nothing matches; the page read) and `painting-home.test.ts` (both check-date texts).

@@ -9,6 +9,7 @@ import {
   type WHEREABOUTS_PLACES,
 } from "./paintings";
 import type { Attribution } from "./credits";
+import { appTimeZone } from "@/lib/utils/date";
 
 export type ArtObjectKind = (typeof ART_OBJECT_KINDS)[number];
 export type ArtOwnership = (typeof ART_OWNERSHIPS)[number];
@@ -173,7 +174,13 @@ export function custodyText(record: { custody: string; displayStatus: string; pl
  */
 export function checkedText(record: { verifiedAt: Date | null; recordedAt: Date }) {
   const date = (at: Date) =>
-    at.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+    at.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      // The owner's calendar day, not UTC's: a check at 00:30 in Amsterdam is today
+      timeZone: appTimeZone(),
+    });
   return record.verifiedAt
     ? `Checked ${date(record.verifiedAt)}`
     : `Recorded ${date(record.recordedAt)}, not checked`;
