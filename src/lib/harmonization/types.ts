@@ -35,8 +35,28 @@ export interface Finding {
   fingerprint: string;
   dismissed?: boolean;
 }
+export interface FindingQuery {
+  view: "inbox" | "dismissed";
+  category: Category | "all";
+  entity: string;
+  readyOnly: boolean;
+  search: string;
+  limit: number;
+}
 export interface Scan {
+  /** The first `limit` findings that match the query. */
   findings: Finding[];
+  /** All findings that match the query. */
+  total: number;
+  /** The first fixes that are ready among the matches, for a batch. */
+  ready: Finding[];
+  readyTotal: number;
+  counts: {
+    inbox: number;
+    dismissed: number;
+    ready: number;
+    categories: Record<Category, number>;
+  };
   scannedAt: string;
   recordCount: number;
   entityCount: number;

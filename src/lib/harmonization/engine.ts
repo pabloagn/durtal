@@ -59,12 +59,30 @@ export const RULES = [
   "empty-collection",
 ] as const;
 
+const INDEXES = new WeakMap<Dataset, Map<string, Map<unknown, Row[]>>>();
+/** The rows of a table grouped by one column, in table order. Built once per dataset. */
+function rowsBy(data: Dataset, table: string, column: string) {
+  let tables = INDEXES.get(data);
+  if (!tables) INDEXES.set(data, (tables = new Map()));
+  let index = tables.get(`${table}.${column}`);
+  if (!index) {
+    index = new Map();
+    for (const row of data[table] || []) {
+      const list = index.get(row[column]);
+      if (list) list.push(row);
+      else index.set(row[column], [row]);
+    }
+    tables.set(`${table}.${column}`, index);
+  }
+  return (value: unknown) => index.get(value) || [];
+}
+
 export function recordRef(
   entity: EntityDefinition,
   row: Row,
   data: Dataset,
 ): RecordRef {
-  const workFor = (id: unknown) => data.works?.find((w) => w.id === id);
+  const workFor = (id: unknown) => rowsBy(data, "works", "id")(id)[0];
   let name = String(row[entity.name] || "Untitled record");
   let href = entity.route;
   let context = entity.label;
@@ -87,7 +105,7 @@ export function recordRef(
   ) {
     const edition =
       entity.key === "instances"
-        ? data.editions?.find((e) => e.id === row.edition_id)
+        ? rowsBy(data, "editions", "id")(row.edition_id)[0]
         : undefined;
     const work = workFor(edition?.work_id || row.work_id);
     if (entity.key !== "editions") name = String(work?.title || name);
@@ -111,8 +129,7 @@ export function recordRef(
     context = String(family?.name || "Custom taxonomy");
   }
   if (entity.key === "authors") {
-    const titles = (data.work_authors || [])
-      .filter((a) => a.author_id === row.id)
+    const titles = rowsBy(data, "work_authors", "author_id")(row.id)
       .map((a) => workFor(a.work_id)?.title)
       .filter(Boolean);
     context = titles.length
@@ -139,10 +156,14 @@ export function preferredRecord(entity: EntityDefinition, rows: Row[]) {
     // Preserve diacritics when choosing a suggestion, then favor fuller metadata.
     const accents = (r: Row) =>
       (String(r[entity.name]).normalize("NFD").match(/\p{M}/gu) || []).length;
+    // A scanned row carries only some columns, so the store counts all of them.
+    const filled = (r: Row) =>
+      typeof r._filled === "number"
+        ? r._filled
+        : Object.values(r).filter((v) => !isBlank(v)).length;
     return (
       accents(b) - accents(a) ||
-      Object.values(b).filter((v) => !isBlank(v)).length -
-        Object.values(a).filter((v) => !isBlank(v)).length ||
+      filled(b) - filled(a) ||
       a.id.localeCompare(b.id)
     );
   })[0];
@@ -151,6 +172,9 @@ export function preferredRecord(entity: EntityDefinition, rows: Row[]) {
 export function scanDataset(data: Dataset): Finding[] {
   const findings: Finding[] = [];
   const seen = new Set<string>();
+  // Records that already appear in a duplicate finding.
+  const duplicateIds = new Set<string>();
+  const editionsOf = rowsBy(data, "editions", "work_id");
   const authors = new Map((data.authors || []).map((a) => [a.id, a]));
   const workAuthorNames = new Map<string, string[]>();
   for (const link of data.work_authors || []) {
@@ -189,6 +213,8 @@ export function scanDataset(data: Dataset): Finding[] {
     const fingerprint = createHash("sha256")
       .update(stableStringify({ rule, evidence, records, resolution }))
       .digest("hex");
+    if (category === "duplicates")
+      for (const r of records) duplicateIds.add(r.id);
     findings.push({
       key,
       rule,
@@ -472,11 +498,7 @@ export function scanDataset(data: Dataset): Finding[] {
       if (
         entity.person &&
         displayName(name) !== name &&
-        !findings.some(
-          (f) =>
-            f.category === "duplicates" &&
-            f.records.some((r) => r.id === row.id),
-        )
+        !duplicateIds.has(row.id)
       )
         add(
           entity,
@@ -531,9 +553,9 @@ export function scanDataset(data: Dataset): Finding[] {
       }
       if (entity.mediaOwner)
         for (const type of entity.artwork || []) {
-          const assets = (data.media || []).filter(
+          const media = rowsBy(data, "media", entity.mediaOwner)(row.id);
+          const assets = media.filter(
             (m) =>
-              m[entity.mediaOwner!] === row.id &&
               m.type === type &&
               m.is_active &&
               !isBlank(m.s3_key),
@@ -553,8 +575,8 @@ export function scanDataset(data: Dataset): Finding[] {
               type,
             );
           if (!assets.length) {
-            const editions = (data.editions || []).filter(
-              (e) => e.work_id === row.id && !isBlank(e.cover_s3_key),
+            const editions = editionsOf(row.id).filter(
+              (e) => !isBlank(e.cover_s3_key),
             );
             const reusable =
               type === "poster"
@@ -565,9 +587,8 @@ export function scanDataset(data: Dataset): Finding[] {
                         s3_key: editions[0].cover_s3_key,
                         thumbnail_s3_key: editions[0].thumbnail_s3_key,
                       }
-                    : (data.media || []).find(
+                    : media.find(
                         (m) =>
-                          m[entity.mediaOwner!] === row.id &&
                           m.type === type &&
                           !isBlank(m.s3_key),
                       )
@@ -693,7 +714,7 @@ export function scanDataset(data: Dataset): Finding[] {
             "high",
             55,
           );
-        if (!(data.editions || []).some((e) => e.work_id === row.id))
+        if (!editionsOf(row.id).length)
           add(
             entity,
             [row],
@@ -752,7 +773,7 @@ export function scanDataset(data: Dataset): Finding[] {
           );
       }
       if (entity.key === "editions") {
-        const work = (data.works || []).find((w) => w.id === row.work_id);
+        const work = rowsBy(data, "works", "id")(row.work_id)[0];
         if (!row.cover_s3_key)
           add(
             entity,
