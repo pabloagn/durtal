@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/db";
 import { works, editions } from "@/lib/db/schema";
 import { and, eq, asc, ilike, inArray, isNotNull } from "drizzle-orm";
+import { containsPattern } from "@/lib/utils/like";
 import type { SQL } from "drizzle-orm";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 import { marksCondition } from "@/lib/actions/utils/work-marks";
@@ -50,7 +51,7 @@ export async function getWorksForTimeline(opts?: {
   const conditions: SQL[] = [bookCondition, isNotNull(works.originalYear)];
 
   if (search) {
-    conditions.push(ilike(works.title, `%${search}%`));
+    conditions.push(ilike(works.title, containsPattern(search)));
   }
 
   if (filters?.publisherIds?.length)

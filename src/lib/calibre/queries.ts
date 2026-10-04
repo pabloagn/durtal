@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { calibreBooks } from "@/lib/db/schema/calibre-books";
 import { readingProgress } from "@/lib/db/schema/reading-progress";
 import { eq, ilike, or, desc, asc, count, inArray, and } from "drizzle-orm";
+import { containsPattern } from "@/lib/utils/like";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,8 +41,8 @@ export async function getCalibreBooks(opts: {
 
   const conditions = query
     ? or(
-        ilike(calibreBooks.title, `%${query}%`),
-        ilike(calibreBooks.authorSort, `%${query}%`),
+        ilike(calibreBooks.title, containsPattern(query)),
+        ilike(calibreBooks.authorSort, containsPattern(query)),
       )
     : undefined;
 

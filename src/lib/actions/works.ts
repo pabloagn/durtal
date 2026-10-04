@@ -47,6 +47,7 @@ import {
   notInArray,
   ne,
 } from "drizzle-orm";
+import { containsPattern } from "@/lib/utils/like";
 import { z } from "zod";
 import {
   createWorkSchema,
@@ -94,8 +95,8 @@ async function buildSearchCondition(search: string) {
         or(
           eq(editions.isbn13, target),
           eq(editions.isbn10, target),
-          ilike(editions.isbn13, `%${target}%`),
-          ilike(editions.isbn10, `%${target}%`),
+          ilike(editions.isbn13, containsPattern(target)),
+          ilike(editions.isbn10, containsPattern(target)),
         ),
       );
     for (const r of isbnEditions) relatedWorkIds.add(r.workId);
@@ -124,7 +125,7 @@ async function buildSearchCondition(search: string) {
   const publisherMatches = await db
     .select({ workId: editions.workId })
     .from(editions)
-    .where(ilike(editions.publisher, `%${search}%`));
+    .where(ilike(editions.publisher, containsPattern(search)));
   for (const r of publisherMatches) relatedWorkIds.add(r.workId);
   const identityMatches = await db
     .selectDistinct({ workId: editions.workId })
@@ -141,9 +142,9 @@ async function buildSearchCondition(search: string) {
 
   // Build OR condition: title match OR series name match OR related-table matches
   const orConditions = [
-    ilike(works.title, `%${search}%`),
-    ilike(works.seriesName, `%${search}%`),
-    sql`exists (select 1 from series where series.id = ${works.seriesId} and series.title ilike ${`%${search}%`})`,
+    ilike(works.title, containsPattern(search)),
+    ilike(works.seriesName, containsPattern(search)),
+    sql`exists (select 1 from series where series.id = ${works.seriesId} and series.title ilike ${containsPattern(search)})`,
   ];
   if (relatedWorkIds.size > 0) {
     orConditions.push(inArray(works.id, [...relatedWorkIds]));

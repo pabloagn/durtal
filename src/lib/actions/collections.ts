@@ -15,6 +15,7 @@ import {
   media,
 } from "@/lib/db/schema";
 import { eq, asc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
+import { containsPattern } from "@/lib/utils/like";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import {
   collectionDetailsSchema,
@@ -49,7 +50,7 @@ export async function getCollections(pagination?: {
   const search = (pagination?.query ?? "").trim().slice(0, 160);
   return db.query.collections.findMany({
     where: search
-      ? ilike(collections.name, `%${search.replace(/[\\%_]/g, "\\$&")}%`)
+      ? ilike(collections.name, containsPattern(search))
       : undefined,
     orderBy: [
       asc(collections.sortOrder),
@@ -71,7 +72,7 @@ export async function getCollectionCount(query = "") {
     .from(collections)
     .where(
       value
-        ? ilike(collections.name, `%${value.replace(/[\\%_]/g, "\\$&")}%`)
+        ? ilike(collections.name, containsPattern(value))
         : undefined,
     );
   return result.count;
@@ -278,7 +279,7 @@ export async function searchEditionsForPicker(search: string, limit = 30) {
   const size = z.number().int().min(1).max(100).parse(limit);
   const authorCondition =
     authorSearchCondition(value, { fuzzy: false }) ?? sql`false`;
-  const term = `%${value.replace(/[\\%_]/g, "\\$&")}%`;
+  const term = containsPattern(value);
   return db
     .select({
       editionId: editions.id,
