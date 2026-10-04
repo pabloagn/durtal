@@ -372,20 +372,20 @@ Fetch a single author with works and edition contributions.
 
 ### `POST /api/export`
 
-Download books or authors as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
+Download books, authors, perfumes, films or paintings as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
 
 **Body**:
 
 | Field | Type | Description |
 |---|---|---|
-| `entity` | `"works"` \| `"authors"` | Books, or authors of books |
+| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` | Books, authors of books, or the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes) |
 | `ids` | string[] | 1–500 ids to export. Not needed with `all` |
-| `all` | boolean | `true`: every book, or every author of a book, instead of `ids` |
+| `all` | boolean | `true`: every record of the entity instead of `ids` |
 | `format` | `"csv"` \| `"tsv"` \| `"parquet"` | File format |
 
-**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…` or `durtal-authors-all-…` with `all`, a slug of the name for a single record).
+**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
-**Response** `400`: a bad entity, format or id list. `404`: no record matched. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format or id list. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
 
 ---
 

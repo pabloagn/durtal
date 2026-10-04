@@ -17,11 +17,19 @@ import {
   type ExportFormat,
 } from "@/lib/utils/export";
 import { slugify } from "@/lib/utils/slugify";
+import {
+  COLLECTION_EXPORTS,
+  collectionExportRows,
+  type CollectionExport,
+} from "@/lib/export/collections";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 
 const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet"];
-const VALID_ENTITIES = ["works", "authors"] as const;
+const VALID_ENTITIES = ["works", "authors", "perfumes", "films", "paintings"] as const;
 type EntityType = (typeof VALID_ENTITIES)[number];
+const isCollection = (entity: EntityType): entity is CollectionExport =>
+  entity in COLLECTION_EXPORTS;
 
 /** The books with these ids, or every book (null) */
 async function fetchWorksForExport(ids: string[] | null) {
@@ -147,9 +155,16 @@ export async function POST(req: NextRequest) {
 
     if (!entity || !VALID_ENTITIES.includes(entity as EntityType)) {
       return NextResponse.json(
-        { error: "Invalid entity type. Must be 'works' or 'authors'." },
+        { error: `Invalid entity type. Must be one of: ${VALID_ENTITIES.join(", ")}.` },
         { status: 400 },
       );
+    }
+    // A collection that is not open has nothing to export yet
+    if (
+      isCollection(entity as EntityType) &&
+      !WORK_DOMAINS[COLLECTION_EXPORTS[entity as CollectionExport]].enabled
+    ) {
+      return NextResponse.json({ error: "This collection is not open." }, { status: 404 });
     }
 
     if (all !== true && (!ids || !Array.isArray(ids) || ids.length === 0)) {
@@ -177,8 +192,9 @@ export async function POST(req: NextRequest) {
     const entityType = entity as EntityType;
 
     const selection = all === true ? null : ids!;
-    const rows =
-      entityType === "works"
+    const rows = isCollection(entityType)
+      ? await collectionExportRows(entityType, selection)
+      : entityType === "works"
         ? await fetchWorksForExport(selection)
         : await fetchAuthorsForExport(selection);
 
@@ -194,7 +210,7 @@ export async function POST(req: NextRequest) {
     // For single-entity exports, use a descriptive filename
     let slug = "";
     if (all === true) {
-      slug = `${entityType === "works" ? "books" : "authors"}-all`;
+      slug = `${entityType === "works" ? "books" : entityType}-all`;
     } else if (rows.length === 1 && entityType === "authors") {
       const row = rows[0] as {
         first_name?: string;
@@ -204,7 +220,7 @@ export async function POST(req: NextRequest) {
       const first = slugify(row.first_name ?? "");
       const last = slugify(row.last_name ?? "");
       slug = first && last ? `${first}-${last}` : slugify(row.name ?? "");
-    } else if (rows.length === 1 && entityType === "works") {
+    } else if (rows.length === 1 && entityType !== "authors") {
       slug = slugify((rows[0] as { title?: string }).title ?? "");
     }
     const filename = `durtal-${slug || entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
