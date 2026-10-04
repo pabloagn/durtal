@@ -1,4 +1,6 @@
 import { cache } from "react";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -606,6 +608,8 @@ export default async function PaintingPage({
         </DetailColumns>
 
         <GallerySection entityType="work" entityId={painting.id} />
+
+        <ActivityTimeline entityType="work" entityId={painting.id} refreshKey={renderStamp()} />
       </div>
     </CurationProvider>
   );

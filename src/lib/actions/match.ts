@@ -15,7 +15,9 @@ import {
   MATCH_SOURCE_LABEL,
   fetchSourceRecord,
   type MatchSource,
+  type SourceRecord,
 } from "@/lib/match/source";
+import { GoogleBooksQuotaError } from "@/lib/api/google-books-quota";
 import { loadMatchEdition, planRecord, saveMatch } from "@/lib/match/save";
 
 export interface MatchHouse {
@@ -87,6 +89,25 @@ async function houses(editionId: string, values: HouseFields) {
   } satisfies MatchHouses;
 }
 
+/**
+ * A source that refused to answer, such as Google Books over its quota. The
+ * reason comes back as a value: production hides a thrown action's message.
+ */
+export type SourceRefused = { ok: false; error: string };
+
+async function readSource(
+  source: MatchSource,
+  sourceId: string,
+): Promise<SourceRecord | SourceRefused> {
+  try {
+    return await fetchSourceRecord(source, sourceId);
+  } catch (error) {
+    if (error instanceof GoogleBooksQuotaError)
+      return { ok: false, error: error.message };
+    throw error;
+  }
+}
+
 /** The houses the edition links to with these values, for the preview */
 export async function previewMatchHouses(
   editionId: string,
@@ -100,7 +121,7 @@ export async function previewMatch(
   editionId: string,
   source: MatchSource,
   sourceId: string,
-): Promise<MatchPreview> {
+): Promise<MatchPreview | SourceRefused> {
   const edition = await loadMatchEdition(editionId);
   const current: HouseFields = {
     publisher: edition.publisher,
@@ -126,10 +147,9 @@ export async function previewMatch(
       warnings: [],
       houses: await houses(editionId, current),
     };
-  const result = await planRecord(
-    edition,
-    await fetchSourceRecord(source, sourceId),
-  );
+  const record = await readSource(source, sourceId);
+  if ("error" in record) return record;
+  const result = await planRecord(edition, record);
   // The house with every ticked value
   const ticked = (field: keyof HouseFields) => {
     const row = result.rows.find((r) => r.field === field && r.checked);
@@ -158,13 +178,14 @@ export async function applyMatch(
   sourceId: string,
   accepted: { field: MatchField; value: MatchValue }[],
   relink = false,
-) {
+): Promise<{ changed: number } | SourceRefused> {
   const edition = await loadMatchEdition(editionId);
   if (edition.metadataLocked)
     throw new Error("Unlock this edition before you match it again");
   if (!accepted.length && !(relink && edition.publisherLinksConfirmed))
     return { changed: 0 };
-  const record = await fetchSourceRecord(source, sourceId);
+  const record = await readSource(source, sourceId);
+  if ("error" in record) return record;
   const { rows } = await planRecord(edition, record);
   const saved = await saveMatch(edition, {
     source,

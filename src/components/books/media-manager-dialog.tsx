@@ -408,7 +408,7 @@ export function MediaManagerDialog({
                           className={`absolute left-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-sm border transition-all ${
                             isSelected
                               ? "border-accent-rose bg-accent-rose"
-                              : "border-glass-border bg-bg-primary/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                              : "border-glass-border bg-bg-primary/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
                           }`}
                         >
                           {isSelected && (
@@ -430,7 +430,7 @@ export function MediaManagerDialog({
                             });
                           }}
                           disabled={isDeletingThis}
-                          className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100"
+                          className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
                         >
                           {isDeletingThis ? (
                             <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />

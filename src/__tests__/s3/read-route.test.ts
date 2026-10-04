@@ -38,7 +38,7 @@ describe("GET /api/s3/read headers", () => {
 
   it("downloads stored HTML as an attachment, never inline", async () => {
     stored("text/html");
-    const res = await read("key=gold/evil.html");
+    const res = await read("key=gold/comments/work/a/c/evil.html");
     expect(res.headers.get("content-disposition")).toBe("attachment");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("content-security-policy")).toBe("sandbox");
@@ -46,14 +46,14 @@ describe("GET /api/s3/read headers", () => {
 
   it("downloads stored SVG as an attachment", async () => {
     stored("image/svg+xml", "<svg onload=alert(1)></svg>");
-    const res = await read("key=gold/evil.svg");
+    const res = await read("key=gold/comments/work/a/c/evil.svg");
     expect(res.headers.get("content-disposition")).toBe("attachment");
     expect(res.headers.get("content-security-policy")).toBe("sandbox");
   });
 
   it("treats a missing type as a download", async () => {
     stored(undefined);
-    const res = await read("key=gold/unknown");
+    const res = await read("key=gold/comments/work/a/c/unknown");
     expect(res.headers.get("content-type")).toBe("application/octet-stream");
     expect(res.headers.get("content-disposition")).toBe("attachment");
   });

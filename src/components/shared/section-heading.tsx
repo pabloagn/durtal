@@ -9,7 +9,14 @@ import { CapAligned } from "@/components/shared/cap-aligned";
  *
  * An icon-only action must sit on the title's cap-height center: wrap it in
  * `<CapAligned height={…} className="type-section-title">`.
+ *
+ * As an h3 it titles a block inside a titled section, in the item title role
+ * (`headingRole("h3")`); the same rules apply with that class.
  */
+export function headingRole(tag: "h2" | "h3" = "h2") {
+  return tag === "h3" ? "type-item-title" : "type-section-title";
+}
+
 export function SectionHeading({
   title,
   count,
@@ -32,7 +39,7 @@ export function SectionHeading({
   id?: string;
 }) {
   const heading = (
-    <Tag id={id} className="type-section-title">
+    <Tag id={id} className={headingRole(Tag)}>
       {title}
       {count !== undefined && (
         <span className="text-fg-secondary"> ({count})</span>
@@ -45,7 +52,7 @@ export function SectionHeading({
         {Icon ? (
           // The row carries the title's type: the icon sits on its
           // cap-height center
-          <div className="type-section-title flex items-start gap-2">
+          <div className={`${headingRole(Tag)} flex items-start gap-2`}>
             <CapAligned height={16}>
               <Icon
                 className="block h-4 w-4 text-fg-muted"

@@ -144,13 +144,23 @@ export default async function PublisherPage({
           </RecordFields>
         </RecordGroup>
       )}
-      {website && (
-        <RecordGroup title="Links">
-          <a href={website} target="_blank" rel="noopener noreferrer" className={`text-sm ${LINK}`}>
-            Website
-          </a>
-        </RecordGroup>
-      )}
+      <RecordGroup title="Links">
+        <ul className="space-y-1 text-sm">
+          {/* Every role of this house, in every collection */}
+          <li>
+            <Link href={`/organizations/${p.slug}`} className={LINK}>
+              Organization page
+            </Link>
+          </li>
+          {website && (
+            <li>
+              <a href={website} target="_blank" rel="noopener noreferrer" className={LINK}>
+                Website
+              </a>
+            </li>
+          )}
+        </ul>
+      </RecordGroup>
     </RecordPanel>
   );
 
