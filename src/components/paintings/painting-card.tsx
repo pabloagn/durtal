@@ -84,8 +84,7 @@ export function PaintingCard({
           size={objectSize(painting)}
         />
         {owned > 0 && (
-          {/* Above the card's link, so its tooltip opens */}
-          <div className={`${COVER_CORNER.topRight} z-20`}>
+          <div className={`${COVER_CORNER.topRight} z-20` /* above the card's link, so its tooltip opens */}>
             <span
               role="img"
               aria-label={`In the collection: ${ownedText(owned)}`}
