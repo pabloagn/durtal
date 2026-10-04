@@ -4,6 +4,7 @@ import { comments, activityEvents } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { createCommentSchema } from "@/lib/validations/comments";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
+import { isUuid } from "@/lib/utils/uuid";
 
 export async function POST(req: NextRequest) {
   let parsed;
@@ -52,6 +53,9 @@ export async function GET(req: NextRequest) {
 
   if (!entityType || !entityId) {
     return NextResponse.json({ error: "Missing entityType or entityId" }, { status: 400 });
+  }
+  if (!["work", "author"].includes(entityType) || !isUuid(entityId)) {
+    return NextResponse.json({ error: "Invalid entityType or entityId" }, { status: 400 });
   }
 
   const rows = await db.query.comments.findMany({

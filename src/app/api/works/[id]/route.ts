@@ -23,7 +23,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     return NextResponse.json(work);
-  } catch {
+  } catch (err) {
+    console.error("[api/works/:id] Failed to fetch work:", err);
     return NextResponse.json({ error: "Failed to fetch work" }, { status: 500 });
   }
 }

@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
     const searchQuery = isbn ? isbn : query!;
     const results = await searchBooks(searchQuery);
     return NextResponse.json({ results });
-  } catch {
+  } catch (err) {
+    console.error("[api/search] Search failed:", err);
     return NextResponse.json(
       { error: "Search failed" },
       { status: 500 },
