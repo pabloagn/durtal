@@ -13,6 +13,7 @@ import {
 import { SearchPicker } from "@/components/catalogue/search-picker";
 import { TaxonomyItemSearch } from "@/components/taxonomy/taxonomy-assignments";
 import type { Attribution } from "@/lib/catalogue/credits";
+import { PERFUME_ORGANIZATION_ROLES } from "@/lib/catalogue/perfumes";
 import {
   NOTE_POSITION_LABELS,
   type NotePosition,
@@ -46,7 +47,7 @@ export function OrganizationRolesField({
   onChange: (value: OrganizationEntry[]) => void;
 }) {
   const add = useAddButton();
-  const { search, create } = useOrganizationSearch("perfume_house");
+  const { search, create } = useOrganizationSearch("perfume_house", PERFUME_ORGANIZATION_ROLES);
   const taken = (organizationId: string, role: string, except: number) =>
     value.some((o, i) => i !== except && o.organizationId === organizationId && o.role === role);
   return (
