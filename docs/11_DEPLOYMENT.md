@@ -80,6 +80,22 @@ services:
     restart: unless-stopped
 ```
 
+### Admin Token
+
+Three media maintenance routes rewrite S3 files and media rows in bulk: `POST /api/media/reprocess`, `POST /api/media/apply-crops` and `POST /api/media/backfill-palettes`. They run only with the `x-admin-token` header set to `ADMIN_TOKEN`.
+
+| `ADMIN_TOKEN` | Answer |
+|---|---|
+| Not set | 503, the routes are disabled |
+| Set, header missing or wrong | 401 |
+| Set, header matches | The route runs |
+
+Make a token with `openssl rand -hex 32` and put it in `.env.local` (never commit it). Restart the server so it reads the new value. Settings, Integrations shows whether it is set. Call a route like this:
+
+```bash
+curl -X POST -H "x-admin-token: $ADMIN_TOKEN" http://localhost:3100/api/media/backfill-palettes
+```
+
 ---
 
 ## CI/CD Pipeline

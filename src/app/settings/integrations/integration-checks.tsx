@@ -213,11 +213,11 @@ export function IntegrationChecks({ overview }: { overview: IntegrationsOverview
             </p>
           </div>
           <StatusCell
-            label={access.adminToken ? "Protected" : "Open"}
+            label={access.adminToken ? "Protected" : "Off"}
             result={
               access.adminToken
                 ? { status: "ok", message: "They ask for ADMIN_TOKEN" }
-                : { status: "error", message: "Anyone who can reach the app can run them. Set ADMIN_TOKEN." }
+                : { status: "off", message: "Refused: ADMIN_TOKEN is not set" }
             }
           />
         </div>
