@@ -181,6 +181,7 @@ function writeScopes(
   ];
 }
 const FAMILY_NAME_TAKEN = "A taxonomy family with this name already exists";
+const ITEM_NAME_TAKEN = "This family already has an item with this name";
 
 /** A custom family and the scopes it applies to, in one transaction. */
 export async function createTaxonomyFamily(input: CreateTaxonomyFamilyInput) {
@@ -476,7 +477,7 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
           sql`,`,
         )})`,
       ),
-    { unique: "This family already has an item with this name" },
+    { unique: ITEM_NAME_TAKEN },
   );
   changed();
   return { id, ...parsed, slug: values.slug as string };
@@ -508,12 +509,17 @@ export async function updateTaxonomyItem(
   }
   const fields = Object.entries(values);
   if (!fields.length) throw new Error("No editable fields supplied");
+  // A rename to a name another item has is refused with the create's message
   const rows = resultRows<{ id: string }>(
-    await db.execute(
-      sql`update ${sql.identifier(storage.table)} i set ${sql.join(
-        fields.map(([key, value]) => sql`${sql.identifier(key)}=${value}`),
-        sql`,`,
-      )} where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`,
+    await withReadableErrors(
+      () =>
+        db.execute(
+          sql`update ${sql.identifier(storage.table)} i set ${sql.join(
+            fields.map(([key, value]) => sql`${sql.identifier(key)}=${value}`),
+            sql`,`,
+          )} where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`,
+        ),
+      { unique: ITEM_NAME_TAKEN },
     ),
   );
   if (!rows.length)
