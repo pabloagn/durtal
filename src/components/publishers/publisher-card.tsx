@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PublisherFavourite } from "./favourite-button";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { Monogram } from "@/components/shared/no-photo";
 
 export interface PublisherItem {
   id: string;
@@ -20,10 +21,13 @@ export interface PublisherItem {
   createdAt: string;
 }
 
-/** The house's logo, whole on a dark tile, or the first letter of its name */
-function PublisherLogo({ name, url, className }: { name: string; url?: string | null; className: string }) {
+/**
+ * The house's logo, whole on a dark tile; with no logo, its initials on a
+ * faint tint, like an author with no portrait (`Monogram`)
+ */
+export function PublisherLogo({ name, url, className }: { name: string; url?: string | null; className: string }) {
   return (
-    <div className={`flex items-center justify-center overflow-hidden bg-bg-tertiary ${className}`}>
+    <div className={`relative flex items-center justify-center overflow-hidden bg-bg-tertiary ${className}`}>
       {url ? (
         <img
           src={url}
@@ -32,9 +36,7 @@ function PublisherLogo({ name, url, className }: { name: string; url?: string | 
           className="protected-image max-h-[80%] max-w-[80%] object-contain"
         />
       ) : (
-        <span aria-hidden="true" className="font-serif text-3xl text-fg-muted">
-          {name[0]}
-        </span>
+        <Monogram name={name} />
       )}
     </div>
   );
@@ -120,7 +122,7 @@ export function PublisherListItem({
         href={`/publishers/${p.slug}`}
         className="flex min-w-0 flex-1 items-center gap-3"
       >
-        <PublisherLogo name={p.name} url={p.logoUrl} className="h-10 w-10 flex-shrink-0 rounded-sm [&>span]:text-sm" />
+        <PublisherLogo name={p.name} url={p.logoUrl} className="h-10 w-10 flex-shrink-0 rounded-sm [&_span]:text-xs" />
         <div className="min-w-0 flex-1">
           <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
             {p.name}

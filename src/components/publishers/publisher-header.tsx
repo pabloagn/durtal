@@ -7,6 +7,7 @@ import { Check, Copy, ImageIcon, Library, Pencil } from "lucide-react";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { Monogram } from "@/components/shared/no-photo";
 import { PublisherFavourite } from "./favourite-button";
 
 /**
@@ -53,7 +54,7 @@ export function PublisherHeader({
     <>
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:gap-8">
         {/* A logo is never cut: it sits whole, centered, on its tile */}
-        <div className="flex size-40 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary">
+        <div className="relative flex size-40 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary">
           {logoUrl ? (
             <img
               src={logoUrl}
@@ -61,9 +62,7 @@ export function PublisherHeader({
               className="protected-image max-h-[85%] max-w-[85%] object-contain"
             />
           ) : (
-            <span aria-hidden="true" className="font-serif text-4xl text-fg-muted">
-              {name[0]}
-            </span>
+            <Monogram name={name} />
           )}
         </div>
 

@@ -152,7 +152,7 @@ export function PublisherBooksFilters({
       <EntityFilters
         basePath={basePath}
         sortOptions={SORT_OPTIONS}
-        searchPlaceholder="Search this publisher's books..."
+        searchPlaceholder="Search books..."
         defaultSort="title"
         defaultSortOrders={DEFAULT_SORT_ORDERS}
         viewMode={viewMode}

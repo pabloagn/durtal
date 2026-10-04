@@ -505,6 +505,7 @@ export function MediaManagerDialog({
                 entityType={entityType}
                 entityId={entityId}
                 mediaType={activeTab}
+                noun={noun}
                 multiple={isGallery}
                 onUploadComplete={handleUploadComplete}
               />
