@@ -7,7 +7,13 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { CACHE_TAGS, invalidate } from "@/lib/cache";
-import { ENTITIES, entityDefinition } from "@/lib/harmonization/registry";
+import {
+  CATEGORY_LABELS,
+  DEFAULT_QUERY,
+  ENTITIES,
+  entityDefinition,
+  isReady,
+} from "@/lib/harmonization/registry";
 import { RULES, scanDataset } from "@/lib/harmonization/engine";
 import {
   executeMerge,
@@ -21,10 +27,11 @@ import {
   lockSql,
   persistenceAvailable,
   resultRows,
+  scannedRowsSql,
   snapshotQuery,
 } from "@/lib/harmonization/store";
 import { stableStringify } from "@/lib/harmonization/normalize";
-import type { Scan } from "@/lib/harmonization/types";
+import type { Category, Scan } from "@/lib/harmonization/types";
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 async function attempt<T>(fn: () => Promise<T>): Promise<Result<T>> {
@@ -94,40 +101,92 @@ const mergeInput = z.object({
   targetId: z.uuid(),
 });
 
-export async function scanLibrary(): Promise<Result<Scan>> {
+const CATEGORIES = Object.keys(CATEGORY_LABELS) as Category[];
+const findingQuery = z.object({
+  view: z.enum(["inbox", "dismissed"]).default(DEFAULT_QUERY.view),
+  category: z
+    .enum(["all", ...CATEGORIES] as [string, ...string[]])
+    .default(DEFAULT_QUERY.category),
+  entity: z.string().max(100).default(DEFAULT_QUERY.entity),
+  readyOnly: z.boolean().default(DEFAULT_QUERY.readyOnly),
+  search: z.string().max(200).default(DEFAULT_QUERY.search),
+  limit: z.number().int().min(1).max(10000).default(DEFAULT_QUERY.limit),
+});
+
+/** Scans the library and returns the counts and the first page of the findings that match the query. */
+export async function scanLibrary(input: unknown = {}): Promise<Result<Scan>> {
   return attempt(async () => {
-    const [data, ready] = await Promise.all([
+    const query = findingQuery.parse(input);
+    const [data, [ready, decisions, historyRows]] = await Promise.all([
       loadDataset(),
-      persistenceAvailable(),
+      persistenceAvailable().then(async (ready) =>
+        ready
+          ? ([
+              ready,
+              ...(await Promise.all([
+                db
+                  .execute(
+                    sql`select finding_key, fingerprint from harmonization_decisions`,
+                  )
+                  .then((r) =>
+                    resultRows<{ finding_key: string; fingerprint: string }>(r),
+                  ),
+                db
+                  .execute(
+                    sql`select id, action, label, created_at::text as "createdAt" from harmonization_operations order by created_at desc limit 50`,
+                  )
+                  .then((r) =>
+                    resultRows<{
+                      id: string;
+                      action: string;
+                      label: string;
+                      createdAt: string;
+                    }>(r),
+                  ),
+              ])),
+            ] as const)
+          : ([ready, [], []] as const),
+      ),
     ]);
-    const findings = scanDataset(data);
-    const decisions = ready
-      ? resultRows<{ finding_key: string; fingerprint: string }>(
-          await db.execute(
-            sql`select finding_key, fingerprint from harmonization_decisions`,
-          ),
-        )
-      : [];
+    const history = [...historyRows];
     const ignored = new Map(
       decisions.map((d) => [d.finding_key, d.fingerprint]),
     );
-    const history = ready
-      ? resultRows<{
-          id: string;
-          action: string;
-          label: string;
-          createdAt: string;
-        }>(
-          await db.execute(
-            sql`select id, action, label, created_at::text as "createdAt" from harmonization_operations order by created_at desc limit 50`,
-          ),
-        )
-      : [];
+    const findings = scanDataset(data).map((f) => ({
+      ...f,
+      dismissed: ignored.get(f.key) === f.fingerprint,
+    }));
+    const inbox = findings.filter((f) => !f.dismissed);
+    const search = query.search.trim().toLowerCase();
+    const matches = findings.filter(
+      (f) =>
+        (query.view === "dismissed" ? f.dismissed : !f.dismissed) &&
+        (query.category === "all" || f.category === query.category) &&
+        (query.entity === "all" || f.entityLabel === query.entity) &&
+        (!query.readyOnly || isReady(f)) &&
+        (!search ||
+          [f.title, f.entityLabel, ...f.records.map((r) => r.name)]
+            .join(" ")
+            .toLowerCase()
+            .includes(search)),
+    );
+    const readyMatches = matches.filter(isReady);
     return {
-      findings: findings.map((f) => ({
-        ...f,
-        dismissed: ignored.get(f.key) === f.fingerprint,
-      })),
+      findings: matches.slice(0, query.limit),
+      total: matches.length,
+      ready: readyMatches.slice(0, 20),
+      readyTotal: readyMatches.length,
+      counts: {
+        inbox: inbox.length,
+        dismissed: findings.length - inbox.length,
+        ready: inbox.filter(isReady).length,
+        categories: Object.fromEntries(
+          CATEGORIES.map((c) => [
+            c,
+            inbox.filter((f) => f.category === c).length,
+          ]),
+        ) as Record<Category, number>,
+      },
       scannedAt: new Date().toISOString(),
       recordCount: ENTITIES.reduce(
         (n, e) => n + (data[e.table]?.length || 0),
@@ -202,9 +261,14 @@ async function applyOne(input: z.infer<typeof findingInput>) {
   const id = finding.records[0].id;
   const { data: before, fingerprint } = await loadSnapshot(entity.table, [id]);
   // Ensure the rule was derived from the same root record we will update.
+  // The scan loads only the columns its rules read, so compare those.
+  const scanned = data[entity.table].find((r) => r.id === id);
+  const columns = Object.keys(scanned || {}).filter((k) => k !== "_filled");
   if (
-    stableStringify(before.records[0]) !==
-    stableStringify(data[entity.table].find((r) => r.id === id))
+    !scanned ||
+    !before.records[0] ||
+    stableStringify(columns.map((k) => before.records[0][k])) !==
+      stableStringify(columns.map((k) => scanned[k]))
   ) {
     throw new Error(
       "This record changed during the scan. Please refresh and retry.",
@@ -219,7 +283,7 @@ async function applyOne(input: z.infer<typeof findingInput>) {
       ? [
           d.execute(
             assertSql(
-              sql`(select coalesce(jsonb_agg(to_jsonb(s) order by to_jsonb(s)::text), '[]'::jsonb) from series s) = ${JSON.stringify(data.series || [])}::jsonb`,
+              sql`${scannedRowsSql("series")} = ${JSON.stringify(data.series || [])}::jsonb`,
               "The series catalogue changed. Review the suggestion again.",
             ),
           ),

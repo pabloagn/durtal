@@ -606,11 +606,16 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
     if (!first.ok) throw new Error(first.error);
     const f = first.value.findings.find((f) => f.rule === "name-whitespace")!;
     expect((await dismissFinding(f)).ok).toBe(true);
-    const second = await scanLibrary();
+    // The inbox lists open findings; a dismissed one moves to its own view.
+    const second = await scanLibrary({ view: "dismissed" });
     if (!second.ok) throw new Error(second.error);
     expect(
       second.value.findings.find((item) => item.key === f.key)?.dismissed,
     ).toBe(true);
+    expect(second.value.counts.dismissed).toBe(1);
+    const inbox = await scanLibrary();
+    if (!inbox.ok) throw new Error(inbox.error);
+    expect(inbox.value.findings.some((item) => item.key === f.key)).toBe(false);
     await restoreFinding(f);
     const third = await scanLibrary();
     if (!third.ok) throw new Error(third.error);

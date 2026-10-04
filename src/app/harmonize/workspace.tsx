@@ -36,12 +36,15 @@ import {
 } from "@/lib/actions/harmonization";
 import {
   CATEGORY_LABELS,
+  DEFAULT_QUERY,
   ENTITIES,
   fieldLabel,
+  isReady as precise,
 } from "@/lib/harmonization/registry";
 import type {
   Category,
   Finding,
+  FindingQuery,
   MergePreview,
   Scan,
 } from "@/lib/harmonization/types";
@@ -59,8 +62,6 @@ const NOTES: Record<Category, string> = {
   integrity: "Keep relationships consistent",
 };
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as Category[];
-const precise = (f: Finding) =>
-  f.resolution.kind === "update" || f.resolution.kind === "poster";
 const token = (f: Finding) => ({ key: f.key, fingerprint: f.fingerprint });
 function IconLabel({
   icon: Icon,
@@ -146,30 +147,53 @@ export function HarmonizeWorkspace({
   const selectedFixes = batch?.filter((f) => !excludedFixes.has(f.key)) || [];
   const [audit, setAudit] = useState<Record<string, unknown> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const findings = scan?.findings || [];
-  const inbox = findings.filter((f) => !f.dismissed);
-  const dismissed = findings.filter((f) => f.dismissed);
-  const ready = inbox.filter(precise);
-  const filtered = useMemo(
-    () =>
-      (scan?.findings || []).filter(
-        (f) =>
-          (view === "dismissed" ? f.dismissed : !f.dismissed) &&
-          (category === "all" || f.category === category) &&
-          (entity === "all" || f.entityLabel === entity) &&
-          (!readyOnly || precise(f)) &&
-          (!search ||
-            [f.title, f.entityLabel, ...f.records.map((r) => r.name)]
-              .join(" ")
-              .toLowerCase()
-              .includes(search)),
-      ),
-    [scan, view, category, entity, readyOnly, search],
+  // The server filters the findings and sends one page with the counts.
+  const findingQuery = useMemo<FindingQuery>(
+    () => ({
+      view: view === "dismissed" ? "dismissed" : "inbox",
+      category,
+      entity,
+      readyOnly,
+      search,
+      limit,
+    }),
+    [view, category, entity, readyOnly, search, limit],
   );
-  const visible = filtered.slice(0, limit);
-  const active = filtered.find((f) => f.key === selected) || filtered[0];
-  const visibleReady = filtered.filter(precise).slice(0, 20);
+  const queryKey = JSON.stringify(findingQuery);
+  const loadedKey = useRef(JSON.stringify(DEFAULT_QUERY));
+  const request = useRef(0);
+  const visible = scan?.findings || [];
+  const total = scan?.total || 0;
+  const active = visible.find((f) => f.key === selected) || visible[0];
+  const visibleReady = scan?.ready || [];
   const entities = [...new Set(ENTITIES.map((e) => e.label))].sort();
+
+  /** Rescans with the current filters. Only the latest request updates the page. */
+  async function load(): Promise<Awaited<ReturnType<typeof scanLibrary>>> {
+    const id = ++request.current;
+    const result = await scanLibrary(findingQuery);
+    if (id === request.current) {
+      loadedKey.current = queryKey;
+      if (result.ok) setScan(result.value);
+    }
+    return result;
+  }
+  useEffect(() => {
+    if (view === "history" || queryKey === loadedKey.current) return;
+    const timer = setTimeout(
+      () =>
+        load()
+          .then((result) => {
+            if (!result.ok) setError(result.error);
+          })
+          .catch(() =>
+            setError("The scan could not reach the server. Please try again."),
+          ),
+      150,
+    );
+    return () => clearTimeout(timer);
+    // load reads the query that queryKey stands for.
+  }, [queryKey, view]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -216,11 +240,9 @@ export function HarmonizeWorkspace({
     setBusy(true);
     setError(null);
     try {
-      const result = await scanLibrary();
-      if (result.ok) {
-        setScan(result.value);
-        router.refresh();
-      } else setError(result.error);
+      const result = await load();
+      if (result.ok) router.refresh();
+      else setError(result.error);
     } catch {
       setError("The scan could not reach the server. Please try again.");
     } finally {
@@ -242,8 +264,7 @@ export function HarmonizeWorkspace({
           `${applied.length} ${applied.length === 1 ? "finding resolved" : "findings resolved"}`,
         );
       setBatch(null);
-      const updated = await scanLibrary();
-      if (updated.ok) setScan(updated.value);
+      const updated = await load();
       if (failed.length)
         setError(
           `${failed.length} ${failed.length === 1 ? "finding still needs" : "findings still need"} attention. ${failed[0].error}`,
@@ -278,18 +299,11 @@ export function HarmonizeWorkspace({
         setError(result.error);
         return;
       }
-      setScan((current) =>
-        current
-          ? {
-              ...current,
-              findings: current.findings.map((f) =>
-                f.key === finding.key
-                  ? { ...f, dismissed: !finding.dismissed }
-                  : f,
-              ),
-            }
-          : current,
-      );
+      const updated = await load();
+      if (!updated.ok)
+        setError(
+          `The decision was saved, but the queue could not refresh: ${updated.error}`,
+        );
       toast.success(
         finding.dismissed
           ? "Returned to the inbox"
@@ -389,11 +403,7 @@ export function HarmonizeWorkspace({
               <span className="h-stat-index">0{index + 1}</span>
             </div>
             <div className="h-stat-number">
-              {scan
-                ? inbox
-                    .filter((f) => f.category === key)
-                    .length.toLocaleString()
-                : "—"}
+              {scan ? scan.counts.categories[key].toLocaleString() : "—"}
             </div>
             <p>{NOTES[key]}</p>
           </button>
@@ -403,8 +413,8 @@ export function HarmonizeWorkspace({
         <div className="h-tabs" aria-label="Finding state">
           {(
             [
-              ["inbox", "To resolve", inbox.length],
-              ["dismissed", "Dismissed", dismissed.length],
+              ["inbox", "To resolve", scan?.counts.inbox || 0],
+              ["dismissed", "Dismissed", scan?.counts.dismissed || 0],
               ["history", "Activity", scan?.history.length || 0],
             ] as const
           ).map(([key, label, count]) => (
@@ -496,7 +506,9 @@ export function HarmonizeWorkspace({
             >
               <IconLabel icon={Sparkles}>
                 Ready to fix{" "}
-                <span className="h-filter-count">{ready.length}</span>
+                <span className="h-filter-count">
+                  {scan?.counts.ready || 0}
+                </span>
               </IconLabel>
             </button>
             {category !== "all" && (
@@ -512,8 +524,8 @@ export function HarmonizeWorkspace({
             <section className="h-queue" aria-label="Findings">
               <div className="h-queue-heading">
                 <span>
-                  {filtered.length.toLocaleString()}{" "}
-                  {filtered.length === 1 ? "finding" : "findings"}
+                  {total.toLocaleString()}{" "}
+                  {total === 1 ? "finding" : "findings"}
                 </span>
                 <span>Highest impact first</span>
               </div>
@@ -553,27 +565,27 @@ export function HarmonizeWorkspace({
                     </div>
                   </button>
                 ))}
-                {filtered.length > limit && (
+                {total > visible.length && (
                   <button
                     className="h-load-more"
-                    onClick={() => setLimit(limit + 60)}
+                    onClick={() => setLimit(visible.length + 60)}
                   >
-                    Show 60 more · {filtered.length - limit} remaining
+                    Show 60 more · {total - visible.length} remaining
                   </button>
                 )}
-                {!filtered.length && (
+                {!total && (
                   <Empty
                     title={
                       !scan
                         ? "Scan unavailable"
-                        : inbox.length
+                        : scan.counts.inbox
                           ? "Nothing in this view"
                           : "All in order"
                     }
                     description={
                       !scan
                         ? "Retry the scan to check your catalogue."
-                        : inbox.length
+                        : scan.counts.inbox
                           ? "Try another filter or search."
                           : "No findings need your attention right now."
                     }
@@ -626,7 +638,7 @@ export function HarmonizeWorkspace({
             <div className="h-batch-bar">
               <div>
                 <strong>
-                  {filtered.filter(precise).length} fixes ready for review
+                  {scan?.readyTotal} fixes ready for review
                 </strong>
                 <p>
                   Only precise changes and reuse of existing images. Every merge

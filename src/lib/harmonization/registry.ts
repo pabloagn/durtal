@@ -1,3 +1,16 @@
+import type { Finding, FindingQuery } from "./types";
+
+/** A precise change or an image reuse, which can be applied in a batch. */
+export const isReady = (f: Finding) =>
+  f.resolution.kind === "update" || f.resolution.kind === "poster";
+export const DEFAULT_QUERY: FindingQuery = {
+  view: "inbox",
+  category: "all",
+  entity: "all",
+  readyOnly: false,
+  search: "",
+  limit: 60,
+};
 /** Domain capabilities, shared by scan and review UI. No names or IDs are special-cased. */
 export interface EntityDefinition {
   key: string;
@@ -185,6 +198,95 @@ export const ENTITIES: EntityDefinition[] = [
   },
   { ...taxonomy("work-types", "work_types"), merge: false },
   { ...taxonomy("contribution-types", "contribution_types"), merge: false },
+];
+/**
+ * Columns the scan reads (rules, recordRef and fingerprints), plus the
+ * scope, name, artwork owner and identifier keys above. A scanned table
+ * loads only the ones it has; long text such as bios never leaves the database.
+ */
+export const SCAN_COLUMNS = [
+  ...new Set([
+    ...ENTITIES.flatMap((e) => [e.name, ...(e.scope || [])]),
+    ...ENTITIES.flatMap((e) => (e.mediaOwner ? [e.mediaOwner] : [])),
+    "id",
+    "slug",
+    "name",
+    "title",
+    "kind",
+    "type",
+    "status",
+    "format",
+    "parent_id",
+    "family_id",
+    "work_id",
+    "author_id",
+    "edition_id",
+    "instance_id",
+    "collection_id",
+    "location_id",
+    "sub_location_id",
+    "destination_location_id",
+    "destination_sub_location_id",
+    "series_id",
+    "series_name",
+    "series_position",
+    "sort_name",
+    "real_name",
+    "first_name",
+    "last_name",
+    "birth_year",
+    "death_year",
+    "original_year",
+    "publication_year",
+    "is_anthology",
+    "catalogue_status",
+    "metadata_locked",
+    "metadata_source",
+    "metadata_source_id",
+    "open_library_key",
+    "goodreads_id",
+    "google_place_id",
+    "geoname_id",
+    "wikidata_id",
+    "google_books_id",
+    "asin",
+    "website",
+    "url",
+    "goodreads_url",
+    "storygraph_url",
+    "order_url",
+    "tracking_url",
+    "is_active",
+    "s3_key",
+    "thumbnail_s3_key",
+    "photo_s3_key",
+    "poster_s3_key",
+    "cover_s3_key",
+    "cover_source_url",
+    "isbn_10",
+    "isbn_13",
+    "page_count",
+    "height_mm",
+    "width_mm",
+    "depth_mm",
+    "weight_grams",
+    "limited_edition_count",
+    "publisher",
+    "publisher_links_confirmed",
+    "name_key",
+    "latitude",
+    "longitude",
+    "lent_to",
+    "lent_date",
+    "disposition_type",
+    "order_date",
+    "shipped_date",
+    "actual_delivery_date",
+    "price",
+    "shipping_cost",
+    "total_cost",
+    "currency",
+  ]),
 ];
 export function entityDefinition(key: string) {
   const entity = ENTITIES.find((item) => item.key === key);

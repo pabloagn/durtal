@@ -2,7 +2,7 @@ import { is, sql, type SQL } from "drizzle-orm";
 import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { ENTITIES } from "./registry";
+import { ENTITIES, SCAN_COLUMNS } from "./registry";
 import type { Dataset, Row } from "./types";
 
 export const TABLES = new Map(
@@ -31,20 +31,93 @@ const SCAN_TABLES = [
     "taxonomy_families",
   ]),
 ];
+const FILLED_TABLES = new Set(
+  ENTITIES.filter((e) => e.duplicate).map((e) => e.table),
+);
+/**
+ * The scan columns of one table. `_filled` counts the row's non-blank columns
+ * (all of them) for `preferredRecord`.
+ */
+function scanFields(name: string) {
+  const all = config(name).columns;
+  const columns = all.map((c) => c.name);
+  const keys = columns.filter((c) => SCAN_COLUMNS.includes(c));
+  const values = keys.map((c) => sql`r.${ident(c)}`);
+  if (FILLED_TABLES.has(name)) {
+    // Same test as isBlank: null, or a string of only whitespace.
+    const filled = all.map((c) => {
+      const col = sql`r.${ident(c.name)}`;
+      if (c.columnType === "PgText" || c.columnType === "PgVarchar")
+        return sql`(${col} !~ '^\\s*$')`;
+      if (c.columnType === "PgJsonb")
+        return sql`(${col} is not null and not (jsonb_typeof(${col}) = 'string' and ${col} #>> '{}' ~ '^\\s*$'))`;
+      return sql`(${col} is not null)`;
+    });
+    keys.push("_filled");
+    values.push(
+      sql`(${sql.join(
+        filled.map((f) => sql`coalesce(${f}, false)::int`),
+        sql` + `,
+      )})`,
+    );
+  }
+  return { keys, values, hasId: columns.includes("id") };
+}
+/**
+ * One scanned table as a JSON array of rows. Rows keep the order of
+ * `to_jsonb(r)::text`: with "id" as the shortest key and a C collation, that
+ * is the id order. As arrays, rows do not repeat their column names.
+ */
+function scanTableSql(name: string, shape: "arrays" | "objects"): SQL {
+  const { keys, values, hasId } = scanFields(name);
+  const order = hasId ? sql`r.id` : sql`to_jsonb(r)::text`;
+  const where =
+    name === "works"
+      ? sql`where r.kind = 'book'`
+      : name === "authors"
+        ? sql`where exists (select 1 from person_domains pd where pd.person_id = r.id and pd.kind = 'book')`
+        : name === "publishing_houses"
+          ? sql`where r.kind is not null`
+          : sql``;
+  // jsonb_build_array and jsonb_build_object take at most 100 arguments.
+  const parts: SQL[] = [];
+  for (let i = 0; i < keys.length; i += 50)
+    parts.push(
+      shape === "arrays"
+        ? sql`jsonb_build_array(${sql.join(values.slice(i, i + 50), sql`, `)})`
+        : sql`jsonb_build_object(${sql.join(
+            keys
+              .slice(i, i + 50)
+              .flatMap((k, j) => [sql`${k}::text`, values[i + j]]),
+            sql`, `,
+          )})`,
+    );
+  return sql`coalesce((select jsonb_agg(${sql.join(parts, sql` || `)} order by ${order}) from ${ident(name)} r ${where}), '[]'::jsonb)`;
+}
+/** The rows of one table exactly as `loadDataset` returns them, for assertions. */
+export const scannedRowsSql = (name: string) => scanTableSql(name, "objects");
 export async function loadDataset(): Promise<Dataset> {
-  const pairs = SCAN_TABLES.flatMap((name) => {
-    config(name);
-    return [
-      sql`${name}::text`,
-      sql`coalesce((select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from ${ident(name)} r ${name === "works" ? sql`where r.kind = 'book'` : name === "authors" ? sql`where exists (select 1 from person_domains pd where pd.person_id = r.id and pd.kind = 'book')` : name === "publishing_houses" ? sql`where r.kind is not null` : sql``}), '[]'::jsonb)`,
-    ];
-  });
-  const rows = resultRows<{ data: Dataset }>(
+  const pairs = SCAN_TABLES.flatMap((name) => [
+    sql`${name}::text`,
+    scanTableSql(name, "arrays"),
+  ]);
+  const rows = resultRows<{ data: Record<string, unknown[][]> }>(
     await db.execute(
       sql`select jsonb_build_object(${sql.join(pairs, sql`, `)}) as data`,
     ),
   );
-  return rows[0].data;
+  return Object.fromEntries(
+    SCAN_TABLES.map((name) => {
+      const { keys } = scanFields(name);
+      return [
+        name,
+        rows[0].data[name].map(
+          (values) =>
+            Object.fromEntries(keys.map((k, i) => [k, values[i]])) as Row,
+        ),
+      ];
+    }),
+  );
 }
 export interface Reference {
   table: string;
