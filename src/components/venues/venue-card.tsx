@@ -24,6 +24,8 @@ export interface VenueCardProps {
   website?: string | null;
   thumbnailUrl?: string | null;
   color?: string | null;
+  /** Archived venues show only when the list asks for them */
+  archived?: boolean;
 }
 
 export function VenueCard({
@@ -37,6 +39,7 @@ export function VenueCard({
   website,
   thumbnailUrl,
   color,
+  archived = false,
 }: VenueCardProps) {
   const href = `/places/${slug}`;
   const location = formattedAddress ?? placeName ?? null;
@@ -94,8 +97,9 @@ export function VenueCard({
             </h3>
             {/* A narrow card gives the row to the name */}
             <span className="hidden @[220px]:contents">
-              <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
+              <Badge variant={archived ? "muted" : badgeVariant} className="mt-0.5 shrink-0">
                 {VENUE_TYPE_LABELS[type]}
+                {archived && " · Archived"}
               </Badge>
             </span>
           </div>

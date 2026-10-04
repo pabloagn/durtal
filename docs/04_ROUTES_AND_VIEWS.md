@@ -584,19 +584,26 @@ In-app e-book reader for one Calibre book. It opens the EPUB format first, then 
 
 ### Places (`/places`)
 
-Paginated index of venues (`venues` table): bookshops, online stores, fairs, auction houses and other places books come from.
+Paginated index of venues (`venues` table): bookshops, online stores, museums, galleries, perfumeries, cinemas, fairs, auction houses and other places.
 
-**Filters**: Search (`q`), venue type (`type`, comma-separated), favorites (`favorite=true`). Sort by name, recent or rating.
+**Filters**: Search (`q`), venue type (`type`, comma-separated), country (`country`, comma-separated ids: a venue is in a country when its place, or a place above it, is; a venue with no place or a bare map point has none), favorites (`favorite=true`), archived (`archived=include` or `only`; archived venues are hidden by default and marked "Archived" when shown). Sort by name, recent or rating.
 
-**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`).
+**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`); every field can be typed by hand, and an online shop needs no address.
 
 ---
 
 ### Place Detail (`/places/[slug]`)
 
-Single venue view: contact details, opening hours, visits, description, specialties and notes.
+A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 
----
+- Header: image, name, type, address and rating, with an actions menu on the name's cap-height center: Edit (the create form with rating, favorite and visit dates; a Google place chosen while editing replaces the venue's point, otherwise the address stays), Archive or Restore, Delete. Delete lists what still refers to the venue (orders, copies bought there, painting location records, retailer listings, institution links, sources, identifiers, its image) and stays off; archiving keeps the history.
+- About, then **Institution**: who runs or owns the venue, each with its other venues (branches), and "Link an institution" (search an organization or create one with the role the venue's type implies: museum, gallery, else retailer). A retailer whose listings name the branch keeps running it.
+- **Here now**: every open location record at this venue (`art_object_whereabouts` with no end), with the object, its owner, custody (permanent collection, loan in, private, unknown), the occasion, start date, display state, certainty and source exactly as recorded. A holding is never read as on view.
+- **Its collection elsewhere**: objects owned by the venue's institutions whose current place is another venue, a private or unknown place, or not recorded.
+- **Perfumes sold here**: listings for this branch, then the online listings of the retailer that runs it, each with its formulation, the last offer seen and when ("Checked 3 days ago, may have changed").
+- **Orders**: orders placed at this venue, newest first, with a link to all orders.
+- Specialties and tags, notes, and the record column (contact, opening hours, visits).
+- Each part lists up to 100 rows (orders 50) and says when there are more.
 
 ### Provenance (`/provenance`)
 
