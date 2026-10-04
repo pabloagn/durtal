@@ -20,4 +20,8 @@ The address of a deleted or mistyped film, perfume, painting, organization or pu
 
 ## Completion Notes
 
-- CHECKS
+- Statuses with curl on a disposable copy of the live data (one film and one painting added): 404 for a missing film, perfume, painting, organization and publisher, and for a film id that does not exist; 200 for the five lists and for an existing film, perfume, painting, organization and publisher page. Before the change every missing record answered 200.
+- In Chrome, Firefox and Safari: each missing address shows its collection's "not found" page ("Film not found"…); each existing page shows its record. The lists hydrate at 1440 and 390px with no error text or sideways scroll.
+- Alignment and contrast audit on a missing and an existing film page at 1440, 768 and 390px: 0 issues.
+- `pnpm typecheck` clean; `pnpm lint` 0 errors; the full suite 1,786 of 1,786, with `src/__tests__/integration/record-exists.test.ts` (kind, profile row, id or slug, encoded and overlong addresses, publisher profile).
+- Page weight: sizes as before; `/library` is over its budget on main too (SLN-381). Server times on the dev preview varied between runs (another thread's preview ran at the same time); the change adds one indexed lookup per detail request.
