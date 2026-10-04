@@ -5,6 +5,7 @@ import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { NextRequest, NextResponse } from "next/server";
 import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
 import { db } from "@/lib/db";
+import { todayLocal } from "@/lib/utils/date";
 import { works, workAuthors, authors } from "@/lib/db/schema";
 import { inArray, asc, and } from "drizzle-orm";
 import {
@@ -186,7 +187,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const timestamp = new Date().toISOString().slice(0, 10);
+    const timestamp = todayLocal();
 
     // For single-entity exports, use a descriptive filename
     let filename: string;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { updateInstance } from "@/lib/actions/instances";
+import { todayLocal } from "@/lib/utils/date";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { INSTANCE_STATUSES } from "@/lib/types/index";
 
@@ -68,7 +69,7 @@ export function InstanceStatusButton({
     e.preventDefault();
     void applyStatus("lent_out", {
       lentTo: lentTo || null,
-      lentDate: new Date().toISOString().slice(0, 10),
+      lentDate: todayLocal(),
     });
   }
 
