@@ -196,12 +196,12 @@ function ReaderBookCard({
         {/* Format badges: cover chips, like the marks on a book card */}
         <div className={COVER_CORNER.topRight}>
           {hasEpub && (
-            <span className={`${COVER_CHIP} ${COVER_CHIP_TEXT} uppercase text-fg-secondary`}>
+            <span className={`${COVER_CHIP} ${COVER_CHIP_TEXT} uppercase text-fg-primary`}>
               epub
             </span>
           )}
           {hasPdf && (
-            <span className={`${COVER_CHIP} ${COVER_CHIP_TEXT} uppercase text-fg-secondary`}>
+            <span className={`${COVER_CHIP} ${COVER_CHIP_TEXT} uppercase text-fg-primary`}>
               pdf
             </span>
           )}

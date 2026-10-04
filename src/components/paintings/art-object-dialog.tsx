@@ -182,6 +182,7 @@ function ArtObjectForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Any organization can own a painting: the owner search is not filtered
   const institutions = useOrganizationSearch("museum");
   const searchShops = useCallback(
     async (query: string): Promise<PickerChoice[]> =>

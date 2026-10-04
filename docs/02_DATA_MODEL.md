@@ -39,8 +39,10 @@ The `works_book_series_check` constraint reserves the legacy series fields
 for books. Shared media, recommendation and work-taxonomy links remain capable
 of referencing any kind. Book adapters filter those links and root work queries
 before counting or pagination, and reject non-book mutation targets before
-changing related records. Slug uniqueness remains global. Book harmonization
-scans exclude other kinds, and executable book merges require two books.
+changing related records. Slug uniqueness remains global. Harmonization runs
+its book rules on books only, checks films, perfumes and paintings for
+duplicates by title and maker, and merges two works of one kind only
+(see Harmonization).
 
 ---
 
@@ -732,7 +734,7 @@ person so that a filmmaker who writes a book is reused.
 | `goodreads_id` | TEXT | nullable | |
 | `metadata_source` | TEXT | nullable | |
 | `metadata_source_id` | TEXT | nullable | |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false` | Starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false` | Starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `search_text` | TEXT | GENERATED ALWAYS (stored) | `search_normalize(name, real_name, sort_name, first_name, last_name)`: accent-free, lower-case, punctuation as spaces. Used by author search only; never written by the app |
@@ -1148,7 +1150,7 @@ Normalized book series (replaces the text `series_name` field on works).
 | `description` | TEXT | nullable |
 | `total_volumes` | SMALLINT | nullable |
 | `is_complete` | BOOLEAN | default `false` |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
@@ -1163,7 +1165,7 @@ People or channels who recommended a work. Many-to-many with works via `work_rec
 | `id` | UUID | PK |
 | `name` | TEXT | UNIQUE, NOT NULL |
 | `url` | TEXT | nullable |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
@@ -1700,7 +1702,7 @@ User-curated groups of editions. Poster and background images are rows in `media
 | `description` | TEXT | nullable |
 | `icon` | TEXT | nullable; a Lucide icon name (PascalCase key of `lucide-react` `icons`, e.g. `BookOpen`), checked by the app on write. Shown beside the collection name. |
 | `sort_order` | INTEGER | NOT NULL, default `0` |
-| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0057_favourites`) |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false`; starred by the owner (migration `0061_favourites`) |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
@@ -2265,5 +2267,33 @@ File attachments on comments, stored in S3.
 Merges discover inbound foreign keys from the Drizzle schema and explicitly include polymorphic comments, activity and gallery layouts (for works, authors, collections, publishers as `organization` and venues as `venue`). Composite-key membership links are unioned; editions, copies, acquisitions, media, annotations and other linked records are transferred. Derived gallery layouts are invalidated. All affected rows are retained in the original audit snapshot. Any previously unknown database foreign key blocks the merge pending an explicit strategy. Existing active collecting targets with colliding identities block a merge, preserving orders and fulfilment provenance.
 
 The transaction takes ordered table locks, verifies the preview fingerprint, records its audit, transfers references, removes the source, reconciles survivor fields, validates acquisition compatibility and saves the resulting snapshot. `harmonization_allows_move` recognizes only the exact audited identity move in the current transaction. Existing edition, target, publisher and order guard functions retain their checks outside that path, including cancelled acquisition history. Lock and statement timeouts bound contention. Merges have no automatic undo; before/after records can be inspected and downloaded.
+
+Films, perfumes and paintings (SLN-373, migration `0060_domain_work_merges`).
+A merge joins two works of one
+kind; a film and a book are never merged. Each of these works has one profile
+row (`film_details`, `perfume_details`, `painting_details`) that its other rows
+hang from. The merge keeps the kept work's profile (or gives it a copy of the
+merged one's when it has none), applies the profile values chosen in the
+preview (`detail.*` choices, with dates shown as text), and moves every row
+under the merged profile: film companies, countries, languages, versions and
+copies; perfume notes, houses, formulations and retailer listings; painting
+objects. Releases, containers, reproductions and object locations stay on their
+version, formulation or object, so they move with it. Sources and identifiers
+move first, so every moved row still cites a source of its own work. Credits the
+kept work already has (same role and person, credited name or attribution)
+collapse to one. A profile date no record points at afterwards is removed.
+Identities that would collide block the merge with what to fix first: two film
+versions with one label, two formulations with one concentration and labels,
+two retailer listings of one page, two originals or versions of a painting
+with one label. The migration replaces `guard_catalogue_source_owner`,
+`guard_film_record`, `guard_film_holding`, `guard_perfume_record`,
+`guard_perfume_retailer_link` and `guard_painting_record` so that only this
+audited merge may change a row's work; every other change is refused with the
+same messages. A merged work's old address opens the kept work on its own
+collection's page. The scan's `duplicate-work` rule pairs two works of one kind
+with the same title and a shared maker (a film's director, a perfume's house
+or brand, a painting's painter); a different maker, release or creation years
+more than one apart, or a recorded link between the two (a remake) keeps a pair
+out, and a pair with no maker on one side is a low-confidence finding.
 
 Work merges preserve the **Work → Edition → Instance** separation. Edition/copy/order duplicates require individual review; the generic merger never collapses distinct printings, ownership or provenance into a work.
