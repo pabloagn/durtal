@@ -121,6 +121,26 @@ const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
   label: l.label,
 }));
 
+/**
+ * Whether the page before this one is a page of this app: the wizard was
+ * reached by an in-app link (the document was loaded at another address), or
+ * the document was loaded from one of our pages.
+ */
+function cameFromApp(): boolean {
+  const [loaded] = performance.getEntriesByType(
+    "navigation",
+  ) as PerformanceNavigationTiming[];
+  if (loaded && new URL(loaded.name).pathname !== location.pathname) return true;
+  try {
+    return (
+      !!document.referrer &&
+      new URL(document.referrer).origin === location.origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ── Wizard ───────────────────────────────────────────────────────────────────
 
 export function AddBookWizard() {
@@ -567,14 +587,21 @@ export function AddBookWizard() {
   // ── Cancel ───────────────────────────────────────────────────────────────
 
   // Nothing is saved before Fast Track or "Add to catalogue", so leaving is
-  // enough: back to the page the user came from, else the library
+  // enough: back to the app page the user came from, else the library. Never
+  // back to another site (a bookmark or a new tab has no page of ours before).
   function cancel() {
-    if (window.history.length > 1) router.back();
+    if (cameFromApp()) router.back();
     else router.push("/library");
   }
 
-  const cancelButton = (
-    <Button variant="ghost" disabled={fastTrackSaving || isPending} onClick={cancel}>
+  // In a footer, `mr-auto` keeps Cancel beside Back when the row wraps
+  const cancelButton = (className?: string) => (
+    <Button
+      variant="ghost"
+      className={className}
+      disabled={fastTrackSaving || isPending}
+      onClick={cancel}
+    >
       Cancel
     </Button>
   );
@@ -782,7 +809,7 @@ export function AddBookWizard() {
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Enter details manually
             </button>
-            {cancelButton}
+            {cancelButton()}
           </div>
         </div>
       )}
@@ -826,7 +853,7 @@ export function AddBookWizard() {
             </CardContent>
           </Card>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               variant="primary"
               onClick={() => {
@@ -845,7 +872,7 @@ export function AddBookWizard() {
             >
               Create as new work
             </Button>
-            {cancelButton}
+            {cancelButton()}
           </div>
         </div>
       )}
@@ -1018,7 +1045,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            {cancelButton}
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               {!existingWorkId && (
                 <Button
@@ -1126,7 +1153,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            {cancelButton}
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               {isWishlistStatus && (
                 <Button
@@ -1203,7 +1230,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            {cancelButton}
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button
                 variant="ghost"
@@ -1277,7 +1304,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            {cancelButton}
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => setStep("confirm")}>
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1583,7 +1610,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
-            {cancelButton}
+            {cancelButton("mr-auto")}
             <Button
               variant="primary"
               className="ml-auto"
