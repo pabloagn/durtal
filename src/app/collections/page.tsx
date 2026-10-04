@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { CreateCollectionDialog } from "./create-collection-dialog";
-import { CollectionCard } from "@/components/collections/collection-card";
+import { CollectionsView, CollectionsViewSwitcher } from "@/components/collections/collections-view";
 
 export const metadata = { title: "Collections" };
 
@@ -56,20 +56,17 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
 
   return (
     <PaginatedSection {...paging} noun="collections">
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {collections.map((collection) => (
-          <CollectionCard
-            key={collection.id}
-            collection={{
-              ...collection,
-              editionCount: collection.collectionEditions?.length ?? 0,
-            }}
-            covers={previews
-              .filter((p) => p.collectionId === collection.id)
-              .map((p) => p.s3Key)}
-          />
-        ))}
-      </div>
+      <CollectionsView
+        collections={collections.map((collection) => ({
+          collection: {
+            ...collection,
+            editionCount: collection.collectionEditions?.length ?? 0,
+          },
+          covers: previews
+            .filter((p) => p.collectionId === collection.id)
+            .map((p) => p.s3Key),
+        }))}
+      />
     </PaginatedSection>
   );
 }
@@ -87,21 +84,24 @@ export default async function CollectionsPage({
         description="Curated groups of books"
         actions={<CreateCollectionDialog />}
       />
-      <form className="mb-5 flex max-w-md gap-2" action="/collections">
-        <input
-          name="q"
-          defaultValue={typeof params.q === "string" ? params.q : ""}
-          aria-label="Find collections"
-          placeholder="Find collections…"
-          className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm"
-        />
-        <button
-          type="submit"
-          className="rounded-sm border border-glass-border px-3 text-sm"
-        >
-          Search
-        </button>
-      </form>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <form className="flex min-w-0 max-w-md flex-1 gap-2" action="/collections">
+          <input
+            name="q"
+            defaultValue={typeof params.q === "string" ? params.q : ""}
+            aria-label="Find collections"
+            placeholder="Find collections…"
+            className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-sm border border-glass-border px-3 text-sm"
+          >
+            Search
+          </button>
+        </form>
+        <CollectionsViewSwitcher />
+      </div>
       <Suspense
         key={JSON.stringify(params)}
         fallback={

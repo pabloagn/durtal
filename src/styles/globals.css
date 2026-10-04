@@ -298,6 +298,97 @@ dialog::backdrop {
   -webkit-backdrop-filter: blur(6px) saturate(1.2);
 }
 
+/* Mosaic (`<Mosaic>`, src/components/shared/mosaic.tsx): pictures only, in
+   justified rows. Each tile grows from a basis set by its own proportions
+   (`--tile-aspect`), so every tile of a row has one height and the row fills
+   the width; `mosaic-fill` takes the last row's free space, so it keeps its
+   height. `--mosaic-per-row` pictures of the list's usual proportions
+   (`--mosaic-aspect`) make a full row, 1px under so rounding never pushes
+   the last one down; a row is never under 150px tall. */
+@utility mosaic {
+  --mosaic-gap: 4px;
+  --mosaic-row: max(
+    150px,
+    calc(((100cqw - (var(--mosaic-per-row) - 1) * var(--mosaic-gap)) / var(--mosaic-per-row) - 1px) / var(--mosaic-aspect))
+  );
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--mosaic-gap);
+  /* Hovering one picture dims the others */
+  @media (hover: hover) {
+    &:has(.mosaic-tile:hover) .mosaic-tile:not(:hover) {
+      opacity: 0.62;
+    }
+  }
+}
+
+@utility mosaic-tile {
+  position: relative;
+  display: block;
+  flex: var(--tile-aspect) 1 calc(var(--tile-aspect) * var(--mosaic-row));
+  aspect-ratio: var(--tile-aspect);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-glass-border);
+  transition: opacity 240ms ease, box-shadow 160ms ease;
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-accent-rose);
+  }
+  & .mosaic-media {
+    position: absolute;
+    inset: 0;
+    display: block;
+    transition: transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  & .mosaic-media > * {
+    width: 100%;
+    height: 100%;
+  }
+  & .mosaic-caption {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    padding: 5px 8px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+  @media (hover: hover) {
+    &:hover .mosaic-media {
+      transform: scale(1.04);
+    }
+    &:hover .mosaic-caption {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  &:focus-visible .mosaic-caption {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    & .mosaic-media,
+    & .mosaic-caption {
+      transition: none;
+    }
+  }
+}
+
+@utility mosaic-tile-selected {
+  box-shadow: 0 0 0 2px var(--color-accent-rose);
+}
+
+@utility mosaic-fill {
+  flex: 1000000 1 0;
+  height: 0;
+}
+
 @utility glass-input-focus {
   box-shadow:
     0 0 0 1px var(--color-accent-rose),

@@ -10,6 +10,8 @@ import { DataTable } from "@/components/shared/data-table";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { AuthorCard } from "@/components/authors/author-card";
+import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
+import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { AuthorListItem } from "@/components/authors/author-list-item";
 import { AuthorBulkActionToolbar } from "@/components/authors/author-bulk-action-toolbar";
 import { Button } from "@/components/ui/button";
@@ -307,6 +309,31 @@ export function AuthorsShell({
             ))}
           </div>
         </div>
+      )}
+
+      {viewMode === "mosaic" && (
+        <Mosaic
+          aspect={2 / 3}
+          perRow={mosaicPerRow(gridColumns)}
+          isSelecting={selection.isSelecting}
+          selectedIds={new Set(authors.filter((a) => selection.isSelected(a.id)).map((a) => a.id))}
+          onSelect={selection.toggleSelection}
+          items={authors.map((a) => ({
+            key: a.id,
+            href: `/authors/${a.slug}`,
+            title: a.name,
+            subtitle: a.nationality,
+            aspect: 2 / 3,
+            media: (
+              <MosaicImage
+                src={a.photoUrl}
+                crop={a.posterCrop}
+                tone={a.photoTone}
+                fallback={a.coverPreviews.length ? <CoverFan covers={a.coverPreviews} /> : <Monogram name={a.name} />}
+              />
+            ),
+          }))}
+        />
       )}
 
       {viewMode === "list" && (
