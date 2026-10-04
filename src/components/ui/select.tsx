@@ -147,6 +147,9 @@ export function Select({
         }
         break;
       case "Escape":
+        // An open list closes first; a closed one lets Escape reach the
+        // dialog around it
+        if (!isOpen) break;
         e.preventDefault();
         setIsOpen(false);
         setActiveHint(null);
