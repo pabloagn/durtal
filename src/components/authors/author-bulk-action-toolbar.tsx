@@ -69,8 +69,9 @@ export function AuthorBulkActionToolbar({
   return (
     <>
       <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/95 px-4 py-2.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] backdrop-blur-md">
-        {/* Selection info */}
-        <span className="text-sm text-fg-secondary">
+        {/* Selection info. Nothing in the bar wraps: every item keeps one
+            line, so the row's center is each label's center */}
+        <span className="whitespace-nowrap text-sm text-fg-secondary">
           <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}
           selected
         </span>
@@ -79,13 +80,13 @@ export function AuthorBulkActionToolbar({
 
         <button
           onClick={() => onSelectAll(allIds)}
-          className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
         >
           Select all
         </button>
         <button
           onClick={onDeselectAll}
-          className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
         >
           Deselect
         </button>
@@ -111,11 +112,11 @@ export function AuthorBulkActionToolbar({
         {/* Close */}
         <button
           onClick={onExitSelection}
-          className="ml-1 rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
           aria-label="Exit selection"
           data-tooltip="Exit selection"
         >
-          <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <X className="block h-3.5 w-3.5" strokeWidth={1.5} />
         </button>
       </div>
 
