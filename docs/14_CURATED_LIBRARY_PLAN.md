@@ -385,6 +385,12 @@ role they need. The record parts shared with perfumes moved to
 `0054_film_kind_enabled` widens `works_kind_enabled_check` to `book`,
 `perfume` and `film`, in step with `WORK_DOMAINS.film.enabled`.
 
+Links between works (SLN-363, task 0268): adaptations, remakes, flankers and
+sourced inspirations are directed rows in `work_relations` with kind-tied keys,
+a pair check, one link per pair and type, and a source check for inspirations.
+Every detail page lists them apart from its suggestions, and book merges carry
+them. Migrations 0057 and 0058.
+
 Domain-aware search (SLN-371, task 0274): the command palette groups works by
 collection and opens each in its own collection, so a film no longer opens
 under `/library`. People, organizations and places get their own groups with

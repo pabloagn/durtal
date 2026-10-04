@@ -92,7 +92,7 @@ Groups:
 - **People**: matches by any name or other name, with what they are (Writer, Translator or another edition role, Director, Cast, Perfumer, Painter). A person with books opens their author page; anyone else opens their collection's list filtered to them (`/films?director=`, `/perfumes?perfumer=`, `/paintings?painter=`). A person with no credit has no page yet and is left out
 - **Organizations**: a publishing profile opens the publisher page; a perfume house or brand opens `/perfumes?house=`; a museum or gallery opens `/paintings?institution=`. An organization with none of these is left out until organizations have pages
 - **Places**: venues by name or address, archived ones left out
-- The pictures load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
+- Pictures: a work's cover or poster, 24x36 like a small card, or a person's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. They load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
 - **Search**: one "Search books for …" entry per open collection
 - **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
@@ -286,8 +286,8 @@ personal rating.
 
 `DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
 order, characters, credited names; the first twelve until "Show all"), Crew by
-role, Versions (each cut with its runtime and releases: territory, format,
-date, distributor), Copies, Sources and Your notes. The record column holds
+role, Linked works, Versions (each cut with its runtime and releases: territory,
+format, date, distributor), Copies, Sources and Your notes. The record column holds
 Details (original title, first release, countries, languages, production,
 added), Genres (edited in place) and Media counts. Then the gallery and related
 films ("More by {director}", "Shared cast", "Shared genres").
@@ -364,6 +364,24 @@ or uncertain location, or edits a record; places are a venue, a private place,
 unknown, lost or destroyed. A move closes the current location on its date.
 "Checked today" stamps the record. A painting with objects you own cannot be
 deleted; the dialog says what to do first.
+
+### Linked works (every detail page)
+
+`LinkedWorksSection` (`src/components/catalogue/work-relations.tsx`) lists the
+links someone recorded between the work and others, grouped by how they read
+from this work ("Adapted from", "Remade as", "Flankers", "Inspired by"): the
+other work's title (a link to its page), its collection and creators, the cited
+source and notes, and Remove (the source stays). It sits on film pages after
+Crew, perfume pages before the gallery and painting pages before Sources, with
+"Link a work"; a book page shows it after Editions only when a link exists,
+and its actions menu holds "Link a Work". These are facts with sources; the
+related rows at the foot of a page only suggest, and stay apart.
+
+The dialog (`WorkRelationDialog`) offers the links this work can take, both
+ways ("Adapted from a book", "Adapted as a film", "Inspired by another work"),
+a title search in the kinds that fit, and a source of the work the link starts
+from: one it already has, or a new name and address recorded with the link. An
+inspiration must cite one.
 
 ### Work Detail (`/library/[slug]`)
 

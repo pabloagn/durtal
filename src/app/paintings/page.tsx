@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
@@ -10,43 +9,14 @@ import {
   domainDescription,
 } from "@/components/domains/domain-add-link";
 import { PaintingFilters } from "@/components/paintings/painting-filters";
-import { PaintingGrid } from "@/components/paintings/painting-grid";
 import {
   getPaintingCount,
   getPaintingFilterOptions,
-  getPaintings,
 } from "@/lib/actions/paintings";
-import {
-  hasPaintingFilters,
-  paintingQueryFromParams,
-} from "@/lib/catalogue/painting-params";
-import {
-  lastPage,
-  pageHref,
-  parsePagination,
-  type ListSearchParams,
-} from "@/lib/utils/pagination";
+import type { ListSearchParams } from "@/lib/utils/pagination";
+import { PaintingResults } from "./painting-results";
 
 export const metadata = { title: "Paintings" };
-
-/** One page of the paintings the URL asks for: its search, filters, sort and page. */
-async function PaintingResults({ params }: { params: ListSearchParams }) {
-  const query = paintingQueryFromParams(params);
-  const { page, perPage, offset } = parsePagination(params);
-  const [paintings, total] = await Promise.all([
-    getPaintings({ ...query, limit: perPage, offset }),
-    getPaintingCount(query),
-  ]);
-  if (total > 0 && page > lastPage(total, perPage))
-    redirect(pageHref("/paintings", params, lastPage(total, perPage)));
-  return (
-    <PaintingGrid
-      paintings={paintings}
-      pagination={{ page, perPage, total }}
-      hasFilters={hasPaintingFilters(params)}
-    />
-  );
-}
 
 /**
  * The painting home: a gallery of every painting in the catalogue, whole and

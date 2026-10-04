@@ -23,6 +23,7 @@ import { filterBySearch } from "@/lib/utils/search-text";
 import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
+import { monogramTint } from "@/components/shared/no-photo";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -77,28 +78,36 @@ const RESULT_KINDS = getEnabledWorkKinds();
 const imageUrl = (key: string) => `/api/s3/read?key=${encodeURIComponent(key)}`;
 
 /**
- * A result's picture: the work's cover or poster, or the person's portrait,
- * 24x36 like a small card. The box is fixed, so the list never moves while it loads;
- * with no picture, the box shows the initials.
+ * A result's picture: the work's cover or poster, 24x36 like a small card, or
+ * the person's portrait, 28px square. Both sit on a 36px row, so every row keeps
+ * one height. The box is fixed, so the list never moves while it loads; with
+ * no picture, the box shows the initials on the tint taken from the name, as
+ * on the cards.
  */
-function ResultThumb({ src, name }: { src: string | null; name: string }) {
+function ResultThumb({ src, name, kind }: { src: string | null; name: string; kind: "book" | "author" }) {
   const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
   const initials = words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}` : (words[0]?.[0] ?? "?");
+  const frame = kind === "book" ? "h-9 w-6" : "size-7";
   return (
-    <span className="relative flex h-9 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-bg-tertiary ring-1 ring-white/[0.06]">
-      {src ? (
-        <img
-          src={imageUrl(src)}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="protected-image absolute inset-0 h-full w-full object-cover"
-        />
-      ) : (
-        <span aria-hidden="true" className="font-serif text-micro text-fg-secondary">
-          {initials.toUpperCase()}
-        </span>
-      )}
+    <span className="flex h-9 shrink-0 items-center">
+      <span
+        className={`relative flex ${frame} items-center justify-center overflow-hidden rounded-[2px] bg-bg-tertiary ring-1 ring-glass-border`}
+        style={src ? undefined : monogramTint(name)}
+      >
+        {src ? (
+          <img
+            src={imageUrl(src)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className={`protected-image absolute inset-0 h-full w-full object-cover ${kind === "author" ? "object-[50%_25%]" : ""}`}
+          />
+        ) : (
+          <span aria-hidden="true" className="font-serif text-micro text-fg-primary">
+            {initials.toUpperCase()}
+          </span>
+        )}
+      </span>
     </span>
   );
 }
@@ -251,7 +260,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                       onSelect={() => navigate(work.href)}
                       className={ITEM_CLASS}
                     >
-                      <ResultThumb src={work.cover} name={work.title} />
+                      <ResultThumb src={work.cover} name={work.title} kind="book" />
                       <span className="min-w-0 flex-1 truncate">
                         {work.title}
                         {work.creators.length > 0 && (
@@ -281,7 +290,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     onSelect={() => navigate(person.href)}
                     className={ITEM_CLASS}
                   >
-                    <ResultThumb src={person.photo} name={person.name} />
+                    <ResultThumb src={person.photo} name={person.name} kind="author" />
                     <span className="min-w-0 flex-1 truncate">
                       {person.name}
                       {person.roles && (

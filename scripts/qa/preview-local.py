@@ -16,7 +16,12 @@ backup must come from pg_dump 16, which the container's pg_restore can read:
 
     docker run --rm -e PGURL postgres:16 sh -c 'pg_dump --format=custom "$PGURL"' > FILE
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE]
+With --start, the production build in `.next` is served instead of `next dev`
+(run `pnpm build` first), as the Docker image serves it: the standalone
+`server.js` with its static files. This checks a release or recovery build
+against the same disposable database.
+
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start]
 """
 
 import argparse
@@ -176,6 +181,8 @@ def main():
     parser.add_argument("--port", type=int, default=3410)
     parser.add_argument("--from-dump", type=Path, metavar="FILE",
                         help="rehearse the pending migrations on this pg_dump backup")
+    parser.add_argument("--start", action="store_true",
+                        help="serve the production build in .next (next start) instead of next dev")
     args = parser.parse_args()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
@@ -243,12 +250,26 @@ def main():
             "database": DATABASE,
         })
         env["NODE_OPTIONS"] = f"--import {bridge}"
-        # The dev data cache (unstable_cache) survives restarts: without this, a
+        # The data cache (unstable_cache) survives restarts: without this, a
         # preview could show records cached by an earlier run on another database.
         shutil.rmtree(ROOT / ".next/dev/cache/fetch-cache", ignore_errors=True)
-        server = subprocess.Popen(
-            ["pnpm", "exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1", "--port", str(args.port)],
-            cwd=ROOT, env=env, start_new_session=True)
+        shutil.rmtree(ROOT / ".next/cache/fetch-cache", ignore_errors=True)
+        if args.start:
+            standalone = ROOT / ".next/standalone"
+            if not (standalone / "server.js").exists():
+                raise RuntimeError("No standalone build in .next: run pnpm build first")
+            # As the Dockerfile lays it out: static files and public beside server.js
+            shutil.copytree(ROOT / ".next/static", standalone / ".next/static", dirs_exist_ok=True)
+            shutil.copytree(ROOT / "public", standalone / "public", dirs_exist_ok=True)
+            shutil.rmtree(standalone / ".next/cache/fetch-cache", ignore_errors=True)
+            env.update(PORT=str(args.port), HOSTNAME="127.0.0.1")
+            server = subprocess.Popen(
+                ["node", "server.js"], cwd=standalone, env=env, start_new_session=True)
+        else:
+            server = subprocess.Popen(
+                ["pnpm", "exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1",
+                 "--port", str(args.port)],
+                cwd=ROOT, env=env, start_new_session=True)
         address = f"http://127.0.0.1:{args.port}"
         for _ in range(240):
             try:
