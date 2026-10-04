@@ -375,6 +375,16 @@ describe.skipIf(!url)("acquisition targets for films, perfumes and paintings", (
     expect(await value<number>(`select count(*)::int from perfume_variants where id = $1`, [p.edt])).toBe(1);
   });
 
+  it("names the order, not the list, for a wish that was received", async () => {
+    const id = await painting();
+    const study = await value(`insert into art_objects(work_id, kind, label, ownership) values ($1, 'version', 'Study', 'private') returning id`, [id]);
+    const buy = await createTypedTarget({ kind: "painting", workId: id, objectId: study, reproduction: false });
+    const order = await orderTypedTarget({ targetId: buy.id, acquisitionMethod: "auction", status: "won", orderDate: "2026-10-03" });
+    for (const status of ["shipped", "delivered"] as const) await updateOrderStatus(order.id, status);
+    expect((await getTypedTargets(id))[0].state).toBe("received");
+    await expect(deleteArtObject(study)).rejects.toThrow("An order on your Wanted list names this object. Delete the order first, or keep the object");
+  });
+
   it("deletes a film, perfume or painting that has wishes and orders", async () => {
     const f = await film();
     const wanted = await createTypedTarget({ kind: "film", workId: f.id, versionId: f.version, releaseId: f.release, medium: "digital" });

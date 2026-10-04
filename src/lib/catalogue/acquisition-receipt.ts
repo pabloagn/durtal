@@ -40,17 +40,18 @@ export function typedKind(target: Pick<Target, "perfumeVariantId" | "filmVersion
  */
 export function wantedTargetQueries(d: Db, names: SQL, noun: string) {
   const ordered = sql`exists(select 1 from orders o where o.acquisition_target_id = t.id)`;
+  // The order first: a wish with an order cannot be removed while the order stands
   return [
-    d.execute(
-      assertSql(
-        sql`not exists(select 1 from acquisition_targets t where (${names}) and not t.is_cancelled)`,
-        `This ${noun} is on your Wanted list. Remove it from the list first`,
-      ),
-    ),
     d.execute(
       assertSql(
         sql`not exists(select 1 from acquisition_targets t where (${names}) and ${ordered})`,
         `An order on your Wanted list names this ${noun}. Delete the order first, or keep the ${noun}`,
+      ),
+    ),
+    d.execute(
+      assertSql(
+        sql`not exists(select 1 from acquisition_targets t where (${names}) and not t.is_cancelled)`,
+        `This ${noun} is on your Wanted list. Remove it from the list first`,
       ),
     ),
     d.execute(sql`delete from acquisition_targets t where (${names}) and t.is_cancelled and not ${ordered}`),

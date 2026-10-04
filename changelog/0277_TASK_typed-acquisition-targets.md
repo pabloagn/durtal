@@ -102,7 +102,8 @@ edit dialog keeps a typed order's target.
   wanted version moves with its open order to the kept film. Deleting a
   formulation, version, release or object deletes the targets removed from the
   Wanted list that have no order; a target still on the list, or one an order
-  names, refuses with a message that names the Wanted list. Five new cases in
+  names, refuses with a message that names the Wanted list (the order first,
+  since a wish with an order cannot be removed). Six new cases in
   `typed-acquisitions.test.ts`, including deleting a film, perfume or painting
   that has wishes and orders.
 - Browser, preview from the 2026-10-04 22:26 backup (`wanted-seed.sql`, one
