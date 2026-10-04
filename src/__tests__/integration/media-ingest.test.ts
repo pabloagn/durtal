@@ -11,7 +11,7 @@ import postgres from "postgres";
 import sharp from "sharp";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command, DeleteObjectsCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
 
@@ -27,12 +27,14 @@ const testDb = client ? drizzle(client, { schema }) : null;
 // An in-memory bucket: uploads land here, cleanup lists and deletes here.
 const bucket = vi.hoisted(() => ({
   objects: new Set<string>(),
+  bodies: new Map<string, Buffer>(),
   failPut: new Set<string>(),
 }));
 vi.mock("@/lib/s3/covers", () => ({
-  uploadToS3: vi.fn(async (key: string) => {
+  uploadToS3: vi.fn(async (key: string, body: Buffer) => {
     if ([...bucket.failPut].some((part) => key.includes(part))) throw new Error("Storage refused the upload");
     bucket.objects.add(key);
+    bucket.bodies.set(key, body);
   }),
 }));
 vi.mock("@/lib/s3/client", () => ({
@@ -46,6 +48,11 @@ vi.mock("@/lib/s3/client", () => ({
       if (command instanceof DeleteObjectsCommand) {
         for (const { Key } of command.input.Delete?.Objects ?? []) bucket.objects.delete(Key!);
         return {};
+      }
+      if (command instanceof GetObjectCommand) {
+        const body = bucket.objects.has(command.input.Key!) ? bucket.bodies.get(command.input.Key!) : undefined;
+        if (!body) throw new Error("NoSuchKey");
+        return { Body: { transformToByteArray: async () => new Uint8Array(body) } };
       }
       throw new Error("Unexpected S3 command");
     }),
@@ -72,10 +79,21 @@ import { saveOrganization, deleteOrganization } from "@/lib/actions/organization
 import { createPerfume, createPerfumeVariant, deletePerfumeVariant } from "@/lib/actions/perfumes";
 import { createArtObject, createPainting, deleteArtObject, deletePainting } from "@/lib/actions/paintings";
 import { recordSourceObservation } from "@/lib/actions/catalogue-provenance";
+import {
+  importLegacyAuthorPhoto,
+  isMonochromeImage,
+  removeImportedAuthorPhoto,
+  renderAuthorMediaMonochrome,
+  restoreAuthorMediaColour,
+  scanAuthorMedia,
+  scanLegacyAuthorPhotos,
+} from "@/lib/media/author-monochrome";
 
 async function picture(width: number, height: number) {
   return sharp({ create: { width, height, channels: 3, background: { r: 90, g: 60, b: 30 } } }).jpeg().toBuffer();
 }
+
+const isMonochrome = (key: string) => isMonochromeImage(bucket.bodies.get(key)!);
 async function failure(promise: Promise<unknown>) {
   const error = await promise.then(
     () => {
@@ -98,6 +116,7 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
   });
   beforeEach(async () => {
     bucket.objects.clear();
+    bucket.bodies.clear();
     bucket.failPut.clear();
     await c`truncate works, authors, publishing_houses, media, catalogue_dates, image_adjustments, harmonization_operations, harmonization_redirects cascade`;
     [{ id: bookId }] = await c`insert into works(title) values ('A book') returning id`;
@@ -189,6 +208,82 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
     expect(portrait.originalS3Key).toMatch(/_original\.webp$/);
     expect(portrait.processingParams).toBeTruthy();
     expect(bucket.objects.has(portrait.originalS3Key!)).toBe(true);
+  });
+
+  it("serves every author image in monochrome: portrait, background and gallery", async () => {
+    const person = await createPerson({ name: "David Peace", domains: ["book"] });
+    for (const mediaType of ["poster", "background", "gallery"] as const) {
+      const row = await ingestMedia({ owner: { type: "author", id: person.id }, mediaType, buffer: await picture(1600, 900) });
+      expect(await isMonochrome(row.s3Key), `${mediaType} full size`).toBe(true);
+      expect(await isMonochrome(row.thumbnailS3Key!), `${mediaType} thumbnail`).toBe(true);
+      // The colour copy is kept for re-tuning, never served
+      expect(row.originalS3Key).toMatch(/_original\.webp$/);
+      expect(await isMonochrome(row.originalS3Key!), `${mediaType} original`).toBe(false);
+      expect(row.processingParams).toBeTruthy();
+    }
+    // A background keeps its landscape size
+    const background = await ingestMedia({ owner: { type: "author", id: person.id }, mediaType: "background", buffer: await picture(4000, 2000) });
+    expect(await sharp(bucket.bodies.get(background.s3Key)!).metadata()).toMatchObject({ width: 2560, height: 1280 });
+  });
+
+  it("re-renders an older colour author image in monochrome, keeps its crop, and undoes it", async () => {
+    const person = await createPerson({ name: "Rachilde", domains: ["book"] });
+    // An author background stored in colour before the rule, with no original
+    const colour = await sharp({ create: { width: 1600, height: 900, channels: 3, background: { r: 140, g: 40, b: 30 } } }).webp().toBuffer();
+    bucket.objects.add("legacy/background.webp");
+    bucket.bodies.set("legacy/background.webp", colour);
+    const [legacy] = await c`insert into media(author_id, type, s3_key, thumbnail_s3_key, width, height, is_active, crop_x, crop_y, crop_zoom)
+      values (${person.id}, 'background', 'legacy/background.webp', 'legacy/background.webp', 1600, 900, true, 30, 60, 100) returning id`;
+    let scan = await scanAuthorMedia();
+    expect(scan.map((s) => [s.row.id, s.colour])).toEqual([[legacy.id, true]]);
+
+    const change = await renderAuthorMediaMonochrome(scan[0].row);
+    expect(change).toMatchObject({ id: legacy.id, before: { s3Key: "legacy/background.webp", originalS3Key: null, processingParams: null } });
+    const [mono] = await c`select * from media where id = ${legacy.id}`;
+    expect(mono).toMatchObject({ crop_x: 30, crop_y: 60, original_s3_key: change!.after.originalS3Key });
+    expect(await isMonochrome(mono.s3_key)).toBe(true);
+    expect(await isMonochrome(mono.thumbnail_s3_key)).toBe(true);
+    // The colour copy is kept as the original, outside what views show
+    expect(await isMonochrome(mono.original_s3_key)).toBe(false);
+    scan = await scanAuthorMedia();
+    expect(scan.filter((s) => s.colour)).toEqual([]);
+
+    // Undo: colour display files again, and the row's original as before
+    const restored = await restoreAuthorMediaColour(scan[0].row, change!);
+    expect(restored).toMatchObject({ originalS3Key: null, processingParams: null, cropX: 30, cropY: 60 });
+    expect(await isMonochrome(restored!.s3Key)).toBe(false);
+    expect(bucket.objects.has(change!.after.originalS3Key)).toBe(false);
+  });
+
+  it("turns a legacy colour portrait into a monochrome poster image, and back", async () => {
+    const person = await createPerson({ name: "Jean Lorrain", domains: ["book"] });
+    bucket.objects.add("legacy/portrait.jpg");
+    bucket.bodies.set("legacy/portrait.jpg", await picture(600, 900));
+    await c`update authors set photo_s3_key = 'legacy/portrait.jpg' where id = ${person.id}`;
+    expect(await scanLegacyAuthorPhotos()).toEqual([{ authorId: person.id, photoS3Key: "legacy/portrait.jpg", colour: true }]);
+    const id = await importLegacyAuthorPhoto(person.id, "legacy/portrait.jpg");
+    const [poster] = await c`select * from media where id = ${id}`;
+    expect(poster).toMatchObject({ author_id: person.id, type: "poster", is_active: true });
+    expect(await isMonochrome(poster.s3_key)).toBe(true);
+    // An author with a poster image no longer falls back to the legacy photo
+    expect(await scanLegacyAuthorPhotos()).toEqual([]);
+    await removeImportedAuthorPhoto(id);
+    expect(await c`select id from media where id = ${id}`).toHaveLength(0);
+    expect(bucket.objects.has(poster.s3_key)).toBe(false);
+    expect(bucket.objects.has("legacy/portrait.jpg")).toBe(true);
+  });
+
+  it("re-tunes only a person's image from its original", async () => {
+    const row = await ingestMedia({ owner: { type: "art_object", id: objectId }, mediaType: "poster", buffer: await picture(800, 600) });
+    expect(row.originalS3Key).toBeTruthy();
+    await expect(renderAuthorMediaMonochrome(row)).rejects.toThrow("Only a person's images");
+  });
+
+  it("keeps the colours of every image that is not a person's", async () => {
+    const row = await ingestMedia({ owner: { type: "organization", id: orgId }, mediaType: "poster", buffer: await picture(500, 500) });
+    expect(await isMonochrome(row.s3Key)).toBe(false);
+    const cover = await ingestMedia({ owner: { type: "work", id: bookId }, mediaType: "background", buffer: await picture(1600, 900) });
+    expect(await isMonochrome(cover.s3Key)).toBe(false);
   });
 
   it("removes the files of a deleted object, formulation, organization or painting", async () => {

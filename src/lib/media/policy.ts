@@ -20,7 +20,8 @@ export interface ImagePolicy {
   thumbHeight: number;
   /** Keep a full-resolution, metadata-free copy beside the display sizes. */
   keepOriginal: boolean;
-  /** Author portraits: stored in colour, shown in monochrome. */
+  /** Every author image (portrait, background, gallery): the shown sizes are
+   *  monochrome; a colour copy is kept only for re-tuning. */
   monochrome: boolean;
 }
 
@@ -82,9 +83,19 @@ function workPoster(kind: WorkKind): ImagePolicy {
 /**
  * The processing and presentation policy for one image. A work's domain
  * decides its poster: books and films portrait, perfumes square and
- * contained, paintings large and native.
+ * contained, paintings large and native. Every image of a person (an
+ * author row: writers, translators, directors, perfumers, painters) is
+ * monochrome, whatever its type; the slot and sizes follow the type.
  */
 export function imagePolicy(
+  owner: { type: MediaEntityType; kind?: WorkKind | null },
+  mediaType: MediaType,
+): ImagePolicy {
+  const policy = shapePolicy(owner, mediaType);
+  return owner.type === "author" ? { ...policy, monochrome: true } : policy;
+}
+
+function shapePolicy(
   owner: { type: MediaEntityType; kind?: WorkKind | null },
   mediaType: MediaType,
 ): ImagePolicy {
@@ -97,7 +108,7 @@ export function imagePolicy(
     case "work":
       return workPoster(owner.kind ?? "book");
     case "author":
-      return { ...PORTRAIT, monochrome: true };
+      return PORTRAIT;
     case "collection":
       return PORTRAIT;
     case "organization":

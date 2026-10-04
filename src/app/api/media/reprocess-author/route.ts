@@ -46,9 +46,10 @@ export async function POST(req: NextRequest) {
       where: eq(media.id, mediaId),
     });
 
-    if (!record || !record.originalS3Key) {
+    // Paintings keep originals too: only a person's image is made monochrome
+    if (!record || !record.authorId || !record.originalS3Key) {
       return NextResponse.json(
-        { error: "Media item not found or has no original to reprocess" },
+        { error: "Author image not found or has no original to reprocess" },
         { status: 404 },
       );
     }

@@ -238,6 +238,10 @@ A book, author or place page has three parts (`src/components/shared/detail-layo
 
 A section or group with nothing to show is left out; its "Add" action lives in the page's actions menu.
 
+### Images of people
+
+Every image of a person is monochrome: the portrait, the background banner and its backdrop, gallery images, and every thumbnail that cards, lists, carousels, timelines, hover cards and the command palette show. No exceptions, for every role (writers, translators, directors, actors, perfumers, painters). The server stores the shown files in monochrome; image adjustments cannot bring colour back (saturation, grayscale and sepia are locked). Book covers, film posters, perfume and painting images, publisher logos and collection posters keep their colours.
+
 ### Cards without a photo
 
 A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:
