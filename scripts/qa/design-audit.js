@@ -35,12 +35,64 @@
   const INTERACTIVE =
     "a[href], button, [role=button], input:not([type=hidden]), select, textarea";
 
+  /**
+   * A computed color as sRGB 0-255 plus alpha. Browsers give rgb()/rgba(),
+   * but a color mixed with transparency (Tailwind's `bg-x/60`, which compiles
+   * to color-mix() in oklab) computes to oklab(); oklch() and color(srgb ...)
+   * are read too. Null for anything else.
+   */
   function parse(color) {
-    const m = color.match(
-      /rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[, /]+([\d.]+))?/,
-    );
+    const m = color.match(/^(rgba?|oklab|oklch|color)\((.*)\)$/);
     if (!m) return null;
-    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
+    let [, fn, args] = m;
+    if (fn === "color") {
+      if (!args.startsWith("srgb ")) return null;
+      args = args.slice(5);
+    }
+    const [channels, alpha] = args.split("/");
+    const num = (v, percentOf = 1) =>
+      v === "none" ? 0 : v.endsWith("%") ? (parseFloat(v) / 100) * percentOf : parseFloat(v);
+    const parts = channels.trim().split(/[\s,]+/);
+    let a = 1;
+    if (alpha !== undefined) a = num(alpha.trim());
+    else if (fn === "rgba" || (fn === "rgb" && parts.length === 4)) a = num(parts[3]);
+    if (parts.length < 3 || parts.slice(0, 3).some((v) => Number.isNaN(num(v))))
+      return null;
+    if (fn === "rgb" || fn === "rgba") {
+      const [r, g, b] = parts.map((v) => num(v, 255));
+      return { r, g, b, a };
+    }
+    if (fn === "color") {
+      const [r, g, b] = parts.map((v) => num(v) * 255);
+      return clamp({ r, g, b, a });
+    }
+    let L = num(parts[0]);
+    let A, B;
+    if (fn === "oklab") {
+      A = num(parts[1], 0.4);
+      B = num(parts[2], 0.4);
+    } else {
+      const C = num(parts[1], 0.4);
+      const h = (num(parts[2]) * Math.PI) / 180;
+      A = C * Math.cos(h);
+      B = C * Math.sin(h);
+    }
+    if (parts[0].endsWith("%")) L = parseFloat(parts[0]) / 100;
+    const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3;
+    const mm = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3;
+    const s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3;
+    const encode = (v) =>
+      255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.sign(v) * Math.abs(v) ** (1 / 2.4) - 0.055);
+    return clamp({
+      r: encode(4.0767416621 * l - 3.3077115913 * mm + 0.2309699292 * s),
+      g: encode(-1.2684380046 * l + 2.6097574011 * mm - 0.3413193965 * s),
+      b: encode(-0.0041960863 * l - 0.7034186147 * mm + 1.707614701 * s),
+      a,
+    });
+  }
+  function clamp({ r, g, b, a }) {
+    const c = (v) => Math.min(255, Math.max(0, v));
+    return { r: c(r), g: c(g), b: c(b), a };
   }
   function hex({ r, g, b }) {
     return [r, g, b]
