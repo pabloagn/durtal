@@ -26,15 +26,19 @@ export interface QuickSearchResult {
   authors: { id: string; slug: string; name: string; photo: string | null }[];
 }
 
+// Relational-query extras render columns without their table, and inside a
+// subquery a bare "id" would name the subquery's own row: the outer row is
+// named explicitly here.
+
 /** A work's cover thumbnail key: the active poster, else the newest edition with a cover */
 const workCover = sql<string | null>`coalesce(
-  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = ${works.id} and m.type = 'poster' and m.is_active order by m.created_at limit 1),
-  (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = ${works.id} and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last limit 1))`;
+  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active order by m.created_at limit 1),
+  (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = "works"."id" and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last limit 1))`;
 
 /** An author's portrait thumbnail key: the active poster, else the legacy photo */
 const authorPhoto = sql<string | null>`coalesce(
-  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.author_id = ${authors.id} and m.type = 'poster' and m.is_active order by m.created_at limit 1),
-  ${authors.photoS3Key})`;
+  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.author_id = "authors"."id" and m.type = 'poster' and m.is_active order by m.created_at limit 1),
+  "authors"."photo_s3_key")`;
 
 /** Title, series and author names of a work, as one search text */
 const workHaystack = sql`search_normalize(${works.title} || ' ' || coalesce(${works.seriesName}, '') || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${works.id}), '') || ' ' || coalesce((select s.title from series s where s.id = ${works.seriesId}), ''))`;

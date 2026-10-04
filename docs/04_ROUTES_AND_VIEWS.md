@@ -66,7 +66,7 @@ Active route is highlighted with `bg-accent-plum`.
 Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmdk` library.
 
 Groups:
-- **Books** and **Authors**: matches for the typed text
+- **Books** and **Authors**: matches for the typed text, each with its picture: the book's cover (its active poster, else an edition's) or the author's portrait, 24x36 like a small card, or the initials when there is none. The pictures load lazily in a fixed box, so the list never moves
 - **Search**: one "Search books for …" entry per open collection
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
@@ -75,7 +75,7 @@ Features:
 - Real-time fuzzy filtering
 - Auto-focus on input
 - `Escape` to close
-- Glassmorphic backdrop with blur
+- Glass panel over the veil (`glass`, `glass-veil`; `docs/03_DESIGN_LANGUAGE.md`, Glass)
 
 ### Shell
 
