@@ -68,12 +68,13 @@ const LIST_NAMES: Record<string, string> = Object.fromEntries(
 
 /**
  * English name of a stored code ("en" → "English"); the code when unknown.
- * From fixed tables, never the runtime's Intl, so the server and the browser
- * name a language the same way.
+ * Fixed tables first, so the server and the browser name the usual and the
+ * historical languages the same way (Chrome's Intl knows no "grc"). A rare
+ * code the tables lack falls back to the runtime's Intl name, then the code.
  */
 export function languageName(code: string | null | undefined): string | null {
   if (!code) return null;
-  return LIST_NAMES[code] ?? LANGUAGE_NAMES[code] ?? code;
+  return LIST_NAMES[code] ?? LANGUAGE_NAMES[code] ?? nameOf(code) ?? code;
 }
 
 /** Options for a language select: the app's list, plus `current` when missing. */

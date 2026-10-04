@@ -38,3 +38,4 @@ SLN-400 merged this morning (#35). A scan of main found no snake_case key or raw
   - each book page shows "Ancient Greek", "Ottoman Turkish" and "Norwegian Bokmål" after hydration, and no page shows a bare code;
   - the library grid at 3 and 4 columns, at 1440, 1024, 768 and 390px: the status ("Accessioned", "Wanted") is never cut and no card row overflows; the language name shows whole on a 327px card and cuts off on narrower ones; at 6 columns (the default) and at 390px the card is too narrow for the badge, as before.
 - `pnpm typecheck` clean, `pnpm lint` 0 errors, `pnpm test` and the full suite pass. Page weight: `/library` 313 of 300 KB, as on main (SLN-381).
+- Second review: about 700 rare codes are in neither table, so they showed bare. A code the tables lack now falls back to the runtime's `Intl` name, then the code ("chr" → "Cherokee"); a test covers both steps.

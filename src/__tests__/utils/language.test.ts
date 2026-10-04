@@ -56,6 +56,20 @@ describe("language codes", () => {
     }
   });
 
+  it("names a rare code the tables lack through Intl, then keeps the code", () => {
+    // Not in LANGUAGES or LANGUAGE_NAMES: Intl's name, so it never shows bare
+    expect(languageName("chr")).toBe("Cherokee");
+    expect(languageName("mus")).toBe("Muscogee");
+    const of = vi
+      .spyOn(Intl.DisplayNames.prototype, "of")
+      .mockReturnValue(undefined);
+    try {
+      expect(languageName("chr")).toBe("chr");
+    } finally {
+      of.mockRestore();
+    }
+  });
+
   it("adds a stored code that the list does not have", () => {
     expect(languageOptions("en").filter((o) => o.value === "en")).toHaveLength(1);
     expect(languageOptions("is").at(-1)).toEqual({ value: "is", label: "Icelandic" });
