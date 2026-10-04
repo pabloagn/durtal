@@ -157,6 +157,12 @@ export function TooltipLayer() {
     };
     const onFocusOut = (e: FocusEvent) => {
       if (shown.current?.byKeyboard && shown.current.anchor === e.target) hide();
+      // Focus left before the tooltip showed (a dialog moves it from its
+      // first button to its first field): the tooltip must not show at all
+      else if (pending === e.target) {
+        window.clearTimeout(timer);
+        pending = null;
+      }
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(shown.current || pending)) return;

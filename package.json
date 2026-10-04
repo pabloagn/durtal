@@ -75,6 +75,7 @@
     "eslint-config-next": "^16.2.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "knip": "^6.39.0",
+    "happy-dom": "^20.14.5",
     "postgres": "^3.4.8",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
