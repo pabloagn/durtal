@@ -416,5 +416,11 @@ the page each has today. The collection lists already filtered and sorted in
 SQL before paging, with the work id as the last tie breaker and counts on the
 same predicate; tests now pin that for every film sort.
 
+Mixed collections (SLN-362, task 0269): `collection_works` holds whole works
+beside edition members, in one order; a book held both ways shows through its
+edition and counts once. Every open collection can be added, removed and
+reordered, with previews, counts, library selection and delete cleanup.
+Migration 0059.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

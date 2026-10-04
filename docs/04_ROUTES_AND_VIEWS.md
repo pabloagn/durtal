@@ -112,7 +112,7 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G L`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 
 ---
@@ -466,6 +466,10 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 - Summary of everything about to be created
 - Single "Add to catalogue" action
 
+**Fast Track and leaving** (SLN-320, SLN-437, SLN-438):
+- The Details step (title, author, status) has Fast Track: it saves the work and one edition at once, without copies or categorization. Enter in a one-line field runs it, and the title takes the focus when the step opens, so a search result picked with Enter is one more Enter from saved. Enter still adds a line in the description and picks in open lists. When Fast Track is not shown (an edition for an existing work), Enter goes to the next step.
+- Every step, the duplicate prompt included, has a Cancel. It goes back to the page before, or to `/library` when the wizard was opened directly, and saves nothing (nothing is written before Fast Track or "Add to catalogue").
+
 ---
 
 ### Bulk Import (`/library/import`)
@@ -613,11 +617,26 @@ Management interface for physical and digital storage locations.
 
 ### Collections (`/collections`)
 
-Grid of curated edition collections.
+Grid of curated collections. A collection holds book editions and whole works
+of every open collection: books with no edition chosen, films, perfumes and
+paintings (SLN-362).
 
-**Per collection card**: Name, description, edition count, cover image.
+**Per collection card**: Name, description, count ("12 editions" when it holds
+only editions, else "5 items", a book held both ways counted once), cover
+image or the first four members' images.
 
-**Management**: Create, edit, delete collections. Add/remove editions. Reorder editions within a collection.
+**Collection page** (`/collections/[id]`): one ordered list of member cards
+(`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
+as the book" when the whole book is in too), a whole book ("The book, no
+edition chosen"), a film (poster or title card, directors, year and runtime),
+a perfume (bottle, house, concentrations) or a painting (picture, painters,
+date). Each card moves earlier or later in the one order and can be removed;
+the header counts books, editions, films, perfumes and paintings.
+
+**Management**: Create, edit, delete collections. "Add" opens a dialog with
+Editions, Books, Films, Perfumes and Paintings (the open collections). The
+library's selection dialog adds a book with no edition as a whole book; film,
+perfume and painting pages have "Collections" in their actions menu.
 
 ---
 

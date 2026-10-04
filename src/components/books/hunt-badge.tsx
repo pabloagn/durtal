@@ -1,7 +1,7 @@
 import { Gem } from "lucide-react";
 import type { HuntAssessment } from "@/lib/constants/hunting";
 import { MARKS } from "@/lib/constants/marks";
-import { COVER_CHIP, COVER_CHIP_ICON, COVER_CHIP_STROKE } from "./cover-chip";
+import { COVER_CHIP, COVER_CHIP_ICON, COVER_CHIP_STROKE, COVER_CHIP_TONE } from "./cover-chip";
 
 export function HuntBadge({
   isRare,
@@ -14,7 +14,7 @@ export function HuntBadge({
     : MARKS.rare.label;
   return (
     <span
-      className={`text-accent-gold ${cover ? COVER_CHIP : "inline-flex shrink-0 items-center justify-center"}`}
+      className={cover ? `${COVER_CHIP_TONE.gold} ${COVER_CHIP}` : "inline-flex shrink-0 items-center justify-center text-accent-gold"}
       data-tooltip={label}
       role="img"
       aria-label={label}

@@ -2,7 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ImageIcon, Pencil, Trash2 } from "lucide-react";
+import { FolderPlus, ImageIcon, Pencil, Trash2 } from "lucide-react";
+import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
@@ -36,7 +37,7 @@ export function PerfumeActions({
   children?: ReactNode;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState<"edit" | "images" | "delete" | null>(null);
+  const [open, setOpen] = useState<"edit" | "images" | "collections" | "delete" | null>(null);
   const close = () => setOpen(null);
   const blockers = [
     ...(containers
@@ -59,6 +60,7 @@ export function PerfumeActions({
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit") },
             { label: "Images", icon: ImageIcon, onClick: () => setOpen("images") },
+            { label: "Collections", icon: FolderPlus, onClick: () => setOpen("collections") },
             {
               label: "Delete",
               icon: Trash2,
@@ -89,6 +91,12 @@ export function PerfumeActions({
           />
         )}
       </Dialog>
+      <AddToCollectionDialog
+        open={open === "collections"}
+        onClose={close}
+        workIds={[perfume.id]}
+        title={perfume.title}
+      />
       <MediaManagerDialog
         open={open === "images"}
         onClose={close}

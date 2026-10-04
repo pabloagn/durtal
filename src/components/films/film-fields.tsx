@@ -119,7 +119,7 @@ export function CompaniesField({
   onChange: (value: CompanyEntry[]) => void;
 }) {
   const add = useAddButton();
-  const { search, create } = useOrganizationSearch("production_company");
+  const { search, create } = useOrganizationSearch("production_company", ["production_company"]);
   return (
     <FieldRow label="Production">
       {value.map((entry) => (
