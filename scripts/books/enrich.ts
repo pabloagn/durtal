@@ -37,6 +37,7 @@ import postgres from "postgres";
 import type { MatchCandidate } from "@/lib/match/plan";
 import { cleanRecord, isbndbRecord } from "@/lib/match/source";
 import type { IsbndbBook } from "@/lib/api/isbndb";
+import { serverEnv } from "@/lib/env";
 import {
   BOOK_SOURCES,
   BOOK_SOURCE_LABEL,
@@ -145,7 +146,8 @@ async function paced<T>(fn: () => Promise<T>): Promise<T> {
 class QuotaStop extends Error {}
 
 async function fromIsbndb(isbn: string): Promise<MatchCandidate | null> {
-  const key = process.env.ISBNDB_API_KEY?.trim();
+  // serverEnv also reads the old ISBNDN_API_KEY spelling
+  const key = serverEnv().ISBNDB_API_KEY?.trim();
   if (!key) throw new QuotaStop("ISBNDB_API_KEY is not set");
   const res = await paced(() =>
     fetch(`https://api2.isbndb.com/book/${encodeURIComponent(isbn)}`, {
