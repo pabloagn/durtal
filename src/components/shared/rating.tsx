@@ -97,9 +97,12 @@ export function RatingInput({
   }
 
   const fine = (e: PointerEvent) => e.pointerType === "mouse";
+  const positionless = (e: PointerEvent) => e.clientX === 0 && e.clientY === 0;
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
-    if (disabled || e.button > 0) return;
+    // An assistive activation (a VoiceOver double tap) may come with no
+    // position: it never sets a rating, the slider's keys and swipes do
+    if (disabled || e.button > 0 || positionless(e)) return;
     if (fine(e)) {
       const next = valueAt(e.clientX, true);
       commit(next === value ? null : next);
@@ -124,6 +127,7 @@ export function RatingInput({
   function onPointerUp(e: PointerEvent<HTMLDivElement>) {
     const g = gesture.current;
     if (fine(e) || !g || g.pointerId !== e.pointerId) return;
+    if (positionless(e)) return onCancel();
     gesture.current = null;
     setPreview(null);
     if (g.moved) return commit(valueAt(e.clientX, true));
@@ -151,7 +155,7 @@ export function RatingInput({
     commit(next);
   }
 
-  const text = value === null ? "Not rated" : `${formatRating(value)} stars`;
+  const text = value === null ? "Not rated" : `${formatRating(value)} ${value === 1 ? "star" : "stars"}`;
   // The Clear button wraps under the stars where the row is too narrow for both
   return (
     <div className="flex flex-wrap items-start gap-y-6">

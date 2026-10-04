@@ -165,6 +165,28 @@ describe("RatingInput", () => {
     expect(slider().getAttribute("aria-valuetext")).toBe("4.5 stars");
   });
 
+  it("ignores an activation with no pointer position, as a VoiceOver double tap may send", () => {
+    mount(2);
+    act(() => {
+      slider().dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+    for (const pointerType of ["touch", "mouse"])
+      act(() => {
+        slider().dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, pointerType, button: 0 }));
+        slider().dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 1, pointerType, button: 0 }));
+      });
+    expect(changes).toEqual([]);
+    expect(slider().getAttribute("aria-valuetext")).toBe("2 stars");
+  });
+
+  it("says star for one", () => {
+    mount(null);
+    key("1");
+    expect(slider().getAttribute("aria-valuetext")).toBe("1 star");
+    key("ArrowLeft");
+    expect(slider().getAttribute("aria-valuetext")).toBe("0.5 stars");
+  });
+
   it("outlines empty stars in fg-secondary, never fg-muted", () => {
     mount(2.5);
     const html = host.innerHTML;
