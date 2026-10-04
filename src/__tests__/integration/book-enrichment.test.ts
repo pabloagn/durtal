@@ -46,7 +46,11 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
   const db = sql!;
   const ids: Record<string, string> = {};
   beforeAll(async () => {
-    await migrate(drizzle(db, { schema }), { migrationsFolder: "src/lib/db/migrations" });
+    // drizzle swaps its client's json serializers, so it migrates on its own
+    // client: the suite then writes through a bare one, as the script does
+    const migrator = postgres(url!, { max: 1, onnotice: () => {} });
+    await migrate(drizzle(migrator, { schema }), { migrationsFolder: "src/lib/db/migrations" });
+    await migrator.end();
   });
   afterAll(async () => {
     await sql?.end();
@@ -105,11 +109,17 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
     expect(await db`select * from edition_publishers where edition_id = ${ids.edition}`).toEqual(links);
     const [work] = await db`select description from works where id = ${ids.work}`;
     expect(work.description).toBe(DESCRIPTION);
-    const sources = await db`select provider, entity_kind, edition_id, review_status, payload, payload_hash
+    const sources = await db`select provider, entity_kind, edition_id, review_status, payload, payload_hash,
+        jsonb_typeof(payload) as payload_type
       from source_records order by provider`;
     expect(sources.map((s) => s.provider)).toEqual(["isbndb", "open_library"]);
     for (const s of sources) {
-      expect(s).toMatchObject({ entity_kind: "edition", edition_id: ids.edition, review_status: "accepted" });
+      expect(s).toMatchObject({
+        entity_kind: "edition",
+        edition_id: ids.edition,
+        review_status: "accepted",
+        payload_type: "object",
+      });
       expect(typeof s.payload).toBe("object");
       expect(s.payload_hash).toBe(sourcePayloadHash(s.payload));
       expect(s.payload.runId).toBe("run-1");

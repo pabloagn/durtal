@@ -10,8 +10,10 @@
 ## Overview
 
 SLN-414. A guarded, reviewable run that fills empty book metadata from ISBNdb
-and Open Library: edition description, page count, publication year, language
-and binding, and a work's description when it has none. Values that differ
+and Open Library: edition description, page count, publication year and
+binding, and a work's description when it has none. `editions.language` is
+NOT NULL with the default 'en', so it is never empty: a run only reports a
+language that differs, and never changes it. Values that differ
 from what the catalogue holds are reported, never changed. This task builds
 the code. The live plan run and any write wait for the owner.
 
@@ -35,8 +37,9 @@ the code. The live plan run and any write wait for the owner.
   then removes the run's provenance) and `assessBookMetadata` (read-only).
 - `scripts/books/enrich.ts`: `--assess` (read-only), plan (default; paced,
   cached source calls, read-only transaction, markdown report),
-  `--apply --backup FILE` (refuses without an existing backup; writes an undo
-  file) and `--undo FILE`.
+  `--apply --backup FILE` (refuses without a pg_dump custom-format backup
+  written in the last hour; writes the undo file, named after the run, right
+  after the commit and never over an existing one) and `--undo FILE`.
 - No migration: the run uses the existing `source_records` table and an undo
   file, as the publisher and author enrichment do. The publisher identity
   trigger never fires, since publisher, imprint and ISBN are never written.

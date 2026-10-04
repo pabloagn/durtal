@@ -1,8 +1,9 @@
 /**
  * Book metadata enrichment (SLN-414). Reads each edition's ISBN record from
  * ISBNdb and Open Library and fills only empty fields: description, page
- * count, publication year, language and binding, and a work's description
- * when it has none. Values that differ are reported, never changed. ISBNs,
+ * count, publication year and binding, and a work's description when it has
+ * none. Language is never empty (it defaults to 'en'), so a run only reports
+ * a language that differs. Values that differ are reported, never changed. ISBNs,
  * publishers, imprints and every image are never written (the rules:
  * `src/lib/books/enrichment.ts`).
  *
@@ -11,10 +12,15 @@
  *   edition year. Read-only; no source is called.
  * - default (plan): calls the sources (paced, every answer cached in --cache,
  *   so a second plan and the apply read the same data), writes the plan to
- *   --report, writes nothing (a read-only transaction).
- * - `--apply --backup FILE`: writes the plan in one transaction, with the
- *   values it wrote in --undo-file. Refuses to run without an existing
- *   backup file. Check the ISBNdb plan's quota first.
+ *   --report, writes nothing: the session is read-only, and a probe proves
+ *   the database refuses a write before anything runs. The first quota or
+ *   rate-limit refusal stops the run; the report says where.
+ * - `--apply --backup FILE`: writes the plan in one transaction. The values
+ *   it wrote go to the undo file right after the commit, before anything
+ *   else; the file is named after the run, and an existing one is never
+ *   overwritten. Refuses to run without a pg_dump custom-format backup
+ *   (starts with PGDMP) written in the last hour. Check the ISBNdb plan's
+ *   quota first.
  * - `--undo FILE`: clears what that run wrote, where it still holds the run's
  *   value, and removes its provenance.
  *
@@ -25,11 +31,12 @@
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import dotenv from "dotenv";
 import postgres from "postgres";
 import type { MatchCandidate } from "@/lib/match/plan";
 import { cleanRecord, isbndbRecord } from "@/lib/match/source";
+import type { IsbndbBook } from "@/lib/api/isbndb";
 import {
   BOOK_SOURCES,
   BOOK_SOURCE_LABEL,
@@ -58,7 +65,7 @@ const { values } = parseArgs({
     only: { type: "string" },
     report: { type: "string", default: "book-enrichment.md" },
     cache: { type: "string", default: "book-sources.json" },
-    "undo-file": { type: "string", default: "book-enrichment-undo.json" },
+    "undo-file": { type: "string" },
     pace: { type: "string", default: "1100" },
     "env-dir": { type: "string", default: process.cwd() },
   },
@@ -69,7 +76,12 @@ dotenv.config({
 });
 const url = process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
-const sql = postgres(url, { max: 1, onnotice: () => {} });
+// Outside --apply and --undo, the session itself refuses writes
+const sql = postgres(url, {
+  max: 1,
+  onnotice: () => {},
+  connection: values.apply || values.undo ? {} : { default_transaction_read_only: true },
+});
 
 if (values.undo) {
   const undo: EnrichmentUndo = JSON.parse(readFileSync(values.undo, "utf8"));
@@ -102,8 +114,20 @@ if (values.assess) {
   process.exit(0);
 }
 
-if (values.apply && !(values.backup && existsSync(values.backup)))
-  throw new Error("--apply needs --backup FILE: a backup taken before this run");
+/** A pg_dump custom-format file (it starts with PGDMP) written in the last hour */
+function recentBackup(file: string | undefined) {
+  if (!file || !existsSync(file)) return false;
+  const head = Buffer.alloc(5);
+  const fd = openSync(file, "r");
+  try {
+    readSync(fd, head, 0, 5, 0);
+  } finally {
+    closeSync(fd);
+  }
+  return head.toString("latin1") === "PGDMP" && Date.now() - statSync(file).mtimeMs < 60 * 60_000;
+}
+if (values.apply && !recentBackup(values.backup))
+  throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
 
 // ── Sources, paced and cached ───────────────────────────────────────────────
 type Cache = Record<string, Partial<Record<BookSource, MatchCandidate | null>>>;
@@ -117,9 +141,24 @@ async function paced<T>(fn: () => Promise<T>): Promise<T> {
   return fn();
 }
 
+/** A source's quota or rate limit refused a call: the run stops there */
+class QuotaStop extends Error {}
+
 async function fromIsbndb(isbn: string): Promise<MatchCandidate | null> {
-  const { getIsbndbBook } = await import("@/lib/api/isbndb");
-  const book = await paced(() => getIsbndbBook(isbn));
+  const key = process.env.ISBNDB_API_KEY?.trim();
+  if (!key) throw new QuotaStop("ISBNDB_API_KEY is not set");
+  const res = await paced(() =>
+    fetch(`https://api2.isbndb.com/book/${encodeURIComponent(isbn)}`, {
+      headers: { Authorization: key },
+      signal: AbortSignal.timeout(10_000),
+    }),
+  );
+  if (res.status === 404) return null;
+  // Read before the cache: a refusal is never stored as "no record"
+  if (res.status === 429 || res.status === 403)
+    throw new QuotaStop(`ISBNdb refused a call (HTTP ${res.status}): over the plan's rate or daily limit`);
+  if (!res.ok) throw new Error(`ISBNdb: HTTP ${res.status}`);
+  const book = ((await res.json()) as { book?: IsbndbBook }).book;
   return book ? isbndbRecord(book) : null;
 }
 
@@ -131,6 +170,7 @@ async function fromOpenLibrary(isbn: string): Promise<MatchCandidate | null> {
     }),
   );
   if (res.status === 404) return null;
+  if (res.status === 429) throw new QuotaStop("Open Library refused a call (HTTP 429): over its rate limit");
   if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
   const d = await res.json();
   return cleanRecord({
@@ -154,6 +194,7 @@ async function records(isbn: string) {
     try {
       cached[source] = source === "isbndb" ? await fromIsbndb(isbn) : await fromOpenLibrary(isbn);
     } catch (error) {
+      if (error instanceof QuotaStop) throw error;
       // Not cached: the next run asks again
       console.warn(`${BOOK_SOURCE_LABEL[source]} ${isbn}: ${error instanceof Error ? error.message : "failed"}`);
     }
@@ -163,29 +204,70 @@ async function records(isbn: string) {
 }
 
 // ── Plan, and apply when asked ──────────────────────────────────────────────
-class Rollback extends Error {}
 const runId = randomUUID();
+// Named after the run: an undo file of another run is never overwritten
+const undoFile = values["undo-file"] ?? `book-enrichment-undo-${runId}.json`;
+if (values.apply && existsSync(undoFile))
+  throw new Error(`${undoFile} exists: it may be another run's undo file`);
 const retrievedAt = new Date();
 const plans: { row: EditionRow; plan: EditionPlan }[] = [];
 const written: Written[] = [];
 
-try {
-  await sql.begin(values.apply ? "read write" : "read only", async (tx) => {
-    const rows = await loadEnrichableEditions(tx as unknown as postgres.Sql, {
-      limit: values.limit ? Number(values.limit) : undefined,
-      ids: values.only?.split(",").filter(Boolean),
-    });
-    for (const row of rows) {
-      const isbn = row.isbn13 ?? row.isbn10!;
-      const plan = planEdition(row, await records(isbn));
-      plans.push({ row, plan });
-      if (values.apply && !plan.skipped && (plan.fills.length || plan.workFills.length))
-        written.push(...(await applyEditionPlan(tx as unknown as postgres.Sql, plan, { runId, retrievedAt, isbn })));
-    }
-    if (!values.apply) throw new Rollback();
+/**
+ * The guard: a write in this read-only transaction must fail with
+ * "read-only transaction" (25006). A probe that changes no row checks it.
+ */
+async function assertReadOnly(tx: postgres.TransactionSql) {
+  const refused = await tx
+    .savepoint((sp) => sp`update works set updated_at = updated_at where false`)
+    .then(
+      () => false,
+      (error: { code?: string }) => error.code === "25006",
+    );
+  if (!refused) throw new Error("The database accepted a write in a read-only transaction; nothing ran");
+}
+
+// The editions, read in a short read-only transaction
+const rows = await sql.begin("read only", async (tx) => {
+  await assertReadOnly(tx);
+  return loadEnrichableEditions(tx as unknown as postgres.Sql, {
+    limit: values.limit ? Number(values.limit) : undefined,
+    ids: values.only?.split(",").filter(Boolean),
   });
-} catch (error) {
-  if (!(error instanceof Rollback)) throw error;
+});
+
+// The sources, outside any transaction; a quota refusal stops the run
+let stopped: string | null = null;
+for (const row of rows) {
+  const isbn = row.isbn13 ?? row.isbn10!;
+  try {
+    plans.push({ row, plan: planEdition(row, await records(isbn)) });
+  } catch (error) {
+    if (!(error instanceof QuotaStop)) throw error;
+    stopped = error.message;
+    console.warn(`Stopped after ${plans.length} of ${rows.length} editions: ${stopped}`);
+    break;
+  }
+}
+// An apply never writes a partial plan
+if (values.apply && stopped) throw new Error(`Nothing written: ${stopped}`);
+
+if (values.apply)
+  await sql.begin("read write", async (tx) => {
+    for (const { row, plan } of plans)
+      if (!plan.skipped && (plan.fills.length || plan.workFills.length))
+        written.push(
+          ...(await applyEditionPlan(tx as unknown as postgres.Sql, plan, {
+            runId,
+            retrievedAt,
+            isbn: row.isbn13 ?? row.isbn10!,
+          })),
+        );
+  });
+// The run is committed: its undo file comes first, before the report
+if (values.apply) {
+  writeFileSync(undoFile, JSON.stringify({ runId, written } satisfies EnrichmentUndo, null, 2), { flag: "wx" });
+  console.log(`Applied run ${runId}: ${written.length} values; undo file ${undoFile}`);
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────
@@ -197,6 +279,7 @@ const filled = plans.filter((p) => p.plan.fills.length || p.plan.workFills.lengt
 const lines = [
   `# Book metadata: ${values.apply ? `applied (run ${runId})` : "plan (nothing written)"}`,
   "",
+  ...(stopped ? [`**Stopped after ${plans.length} of ${rows.length} editions:** ${stopped}`, ""] : []),
   `${plans.length} editions read; ${filled.length} with fills; ${plans.filter((p) => p.plan.differs.length).length} with differences; ${plans.filter((p) => p.plan.held.length).length} with held fields.`,
   "",
 ];
@@ -214,8 +297,5 @@ for (const { row, plan } of plans) {
   lines.push("");
 }
 writeFileSync(values.report!, lines.join("\n"));
-if (values.apply) {
-  writeFileSync(values["undo-file"]!, JSON.stringify({ runId, written } satisfies EnrichmentUndo, null, 2));
-  console.log(`Applied run ${runId}: ${written.length} values; undo file ${values["undo-file"]}`);
-} else console.log(`Plan written to ${values.report}; nothing was written to the database`);
+if (!values.apply) console.log(`Plan written to ${values.report}; nothing was written to the database`);
 await sql.end();

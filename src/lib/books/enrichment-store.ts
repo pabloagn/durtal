@@ -141,11 +141,13 @@ export async function applyEditionPlan(
     }
   for (const [source, fields] of bySource) {
     const payload = { runId, isbn, fields };
+    // Sent as text and cast once: postgres.js would encode a jsonb value again,
+    // and source_records takes only a JSON object
     await tx`insert into source_records (entity_kind, edition_id, provider, url, attribution,
         retrieved_at, verified_at, payload, payload_hash, review_status)
       values ('edition', ${plan.editionId}, ${source}, ${SOURCE_URL[source](isbn)},
         ${BOOK_SOURCE_LABEL[source]}, ${retrievedAt.toISOString()}, ${retrievedAt.toISOString()},
-        ${JSON.stringify(payload)}::jsonb, ${sourcePayloadHash(payload)}, 'accepted')`;
+        ${JSON.stringify(payload)}::text::jsonb, ${sourcePayloadHash(payload)}, 'accepted')`;
   }
   return written;
 }
