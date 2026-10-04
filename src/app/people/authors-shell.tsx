@@ -96,7 +96,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
     case "name": {
       return (
         <Link
-          href={`/authors/${author.slug}`}
+          href={`/people/${author.slug}`}
           className="flex items-center gap-2 hover:text-accent-rose-text"
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
@@ -221,14 +221,14 @@ export function AuthorsShell({
         noun="authors"
         search={search}
         hasFilters={hasFilters}
-        clearHref={clearedListHref("/authors", searchParams)}
+        clearHref={clearedListHref("/people", searchParams)}
       />
     );
   }
 
   // Page number past the last page
   if (authors.length === 0) {
-    return <PageOutOfRange firstPageHref={firstPageHref("/authors", searchParams)} />;
+    return <PageOutOfRange firstPageHref={firstPageHref("/people", searchParams)} />;
   }
 
   return (

@@ -40,7 +40,7 @@ export function AuthorCardActionsMenu({
   }
 
   function handleEdit() {
-    router.push(`/authors/${slug}`);
+    router.push(`/people/${slug}`);
   }
 
   async function handleDelete() {

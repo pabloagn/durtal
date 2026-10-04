@@ -156,7 +156,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
         {/* Content on top of the backdrop */}
         <div className={bgMedia ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           <Link
-            href="/authors"
+            href="/people"
             className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />

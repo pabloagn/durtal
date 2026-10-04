@@ -274,7 +274,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   <Command.Item
                     key={author.id}
                     value={`author:${author.id}`}
-                    onSelect={() => navigate(`/authors/${author.slug}`)}
+                    onSelect={() => navigate(`/people/${author.slug}`)}
                     className={ITEM_CLASS}
                   >
                     <ResultThumb src={author.photo} name={author.name} kind="author" />

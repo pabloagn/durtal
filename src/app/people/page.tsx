@@ -117,7 +117,7 @@ async function AuthorsContent({
     getAuthorCount({ search, filters }),
   ]);
 
-  if (page > lastPage(total, limit)) redirect(pageHref("/authors", searchParams, lastPage(total, limit)));
+  if (page > lastPage(total, limit)) redirect(pageHref("/people", searchParams, lastPage(total, limit)));
 
   // Full-page empty state only when the catalogue has no authors at all.
   // A search or filter with no match is handled by the shell, below the
@@ -235,7 +235,7 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
     } else {
       next.delete("nationality");
     }
-    redirect(`/authors?${next.toString()}`);
+    redirect(`/people?${next.toString()}`);
   }
 
   return (

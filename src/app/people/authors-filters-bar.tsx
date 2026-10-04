@@ -161,7 +161,7 @@ export function AuthorsFiltersBar({
               } else {
                 params.delete("birthYearMax");
               }
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
             },
           } satisfies AnyFilterGroup,
         ]
@@ -187,7 +187,7 @@ export function AuthorsFiltersBar({
               } else {
                 params.delete("deathYearMax");
               }
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
             },
           } satisfies AnyFilterGroup,
         ]
@@ -209,7 +209,7 @@ export function AuthorsFiltersBar({
     } else {
       params.delete(key);
     }
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
   }
 
   function handleClearAll() {
@@ -222,12 +222,12 @@ export function AuthorsFiltersBar({
     params.delete("birthYearMax");
     params.delete("deathYearMin");
     params.delete("deathYearMax");
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
   }
 
   return (
     <EntityFilters
-      basePath="/authors"
+      basePath="/people"
       sortOptions={isSearching ? [RELEVANCE_SORT, ...SORT_OPTIONS] : SORT_OPTIONS}
       searchPlaceholder="Search authors..."
       defaultSort={isSearching ? "relevance" : "name"}

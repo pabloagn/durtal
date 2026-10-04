@@ -18,7 +18,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { href: "/", label: "Dashboard" },
   ...DOMAIN_SECTIONS,
   { href: "/reader", label: "Reader" },
-  { href: "/authors", label: "Authors" },
+  { href: "/people", label: "Authors" },
   { href: "/publishers", label: "Publishers" },
   { href: "/organizations", label: "Organizations" },
   { href: "/recommenders", label: "Recommenders" },

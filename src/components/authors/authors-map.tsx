@@ -493,7 +493,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                 )}
                 <div className="min-w-0 flex-1 pr-3">
                   <Link
-                    href={`/authors/${selection.author.slug}`}
+                    href={`/people/${selection.author.slug}`}
                     className="block truncate font-serif text-sm font-medium text-fg-primary hover:text-accent-rose-text"
                   >
                     {selection.author.name}
@@ -557,7 +557,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                 {selection.group.authors.slice(0, POPUP_AUTHOR_LIMIT).map((a) => (
                   <li key={a.id}>
                     <Link
-                      href={`/authors/${a.slug}`}
+                      href={`/people/${a.slug}`}
                       className="flex items-baseline justify-between gap-2 py-0.5 text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
                     >
                       <span className="truncate">{a.name}</span>

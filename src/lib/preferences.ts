@@ -61,7 +61,7 @@ export const LIST_PREFERENCES = {
   reader: { label: "Reader", path: "/reader" },
   authors: {
     label: "Authors",
-    path: "/authors",
+    path: "/people",
     view: {
       key: "durtal-authors-view-mode",
       modes: ["grid", "list", "detailed", "map", "timeline"],

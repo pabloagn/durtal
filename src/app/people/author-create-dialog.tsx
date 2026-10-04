@@ -149,7 +149,7 @@ export function AuthorCreateDialog({
           action: author.slug
             ? {
                 label: "Open",
-                onClick: () => router.push(`/authors/${author.slug}`),
+                onClick: () => router.push(`/people/${author.slug}`),
               }
             : undefined,
         });

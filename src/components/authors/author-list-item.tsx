@@ -62,7 +62,7 @@ export function AuthorListItem({
       onClick={handleRowClick}
     >
       <Link
-        href={`/authors/${slug}`}
+        href={`/people/${slug}`}
         className={`flex min-w-0 flex-1 items-center gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
         tabIndex={isSelecting ? -1 : undefined}
       >

@@ -73,7 +73,7 @@ export function AuthorDetailHeader({
     try {
       await deleteAuthor(authorId);
       toast.success("Author deleted");
-      router.push("/authors");
+      router.push("/people");
     } catch {
       toast.error("Failed to delete author");
     }
