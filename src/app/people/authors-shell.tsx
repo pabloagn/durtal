@@ -25,6 +25,8 @@ import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { enumLabel } from "@/lib/utils/labels";
+import { formatPersonRoles, type PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 const AuthorsMap = dynamic(
   () =>
@@ -70,6 +72,8 @@ export interface AuthorItem {
   bio: string | null;
   /** Works credited in every collection: the table's Works column */
   worksCount: number;
+  /** Roles with credit counts: the card's role line (SLN-420) */
+  roles: PersonRole[];
   /** Books written: the cards' "N books" */
   booksCount: number;
   createdAt: string;
@@ -78,6 +82,7 @@ export interface AuthorItem {
 const ALL_AUTHOR_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", defaultVisible: true, defaultOrder: 0 },
   { key: "nationality", label: "Nationality", defaultVisible: true, defaultOrder: 1 },
+  { key: "roles", label: "Roles", defaultVisible: true, defaultOrder: 10 },
   { key: "years", label: "Years", defaultVisible: true, defaultOrder: 2 },
   { key: "gender", label: "Gender", defaultVisible: false, defaultOrder: 3 },
   { key: "worksCount", label: "Works", defaultVisible: true, defaultOrder: 4 },
@@ -94,7 +99,7 @@ const DEFAULT_COLUMN_CONFIG = ALL_AUTHOR_COLUMNS.map((c) => ({
   order: c.defaultOrder,
 }));
 
-function renderAuthorCell(author: AuthorItem, key: string) {
+function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string[] | null) {
   switch (key) {
     case "name": {
       return (
@@ -130,6 +135,8 @@ function renderAuthorCell(author: AuthorItem, key: string) {
         : "—";
     case "worksCount":
       return author.worksCount;
+    case "roles":
+      return formatPersonRoles(author.roles, null, filteredRoles)?.full ?? "—";
     case "gender":
       return author.gender ? enumLabel(author.gender) : "—";
     case "birthYear":
@@ -169,6 +176,10 @@ interface AuthorsShellProps {
   mapQuery: Parameters<typeof getAuthorsForMap>[0];
   timelineQuery: Parameters<typeof getAuthorsForTimeline>[0];
   pagination: PaginationData;
+  /** The collection the list is filtered to: its roles come first on cards */
+  preferKind?: WorkKind | null;
+  /** The roles the list is filtered by: they lead the cards' role lines */
+  preferRoles?: string[] | null;
 }
 
 /** URL params (besides the search term) that filter the author list */
@@ -186,6 +197,8 @@ const AUTHOR_FILTER_PARAMS = [
 export function AuthorsShell({
   authors,
   mapQuery,
+  preferKind = null,
+  preferRoles = null,
   timelineQuery,
   pagination,
 }: AuthorsShellProps) {
@@ -303,6 +316,9 @@ export function AuthorsShell({
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
                 worksCount={a.booksCount}
+                roles={a.roles}
+                preferKind={preferKind}
+                preferRoles={preferRoles}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -328,6 +344,9 @@ export function AuthorsShell({
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
               worksCount={a.booksCount}
+              roles={a.roles}
+              preferKind={preferKind}
+              preferRoles={preferRoles}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}
@@ -343,7 +362,7 @@ export function AuthorsShell({
           allColumns={ALL_AUTHOR_COLUMNS}
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
-          renderCell={renderAuthorCell}
+          renderCell={(author, key) => renderAuthorCell(author, key, preferRoles)}
           isSelecting={selection.isSelecting}
           selectedIds={selection.selectedIds}
           onSelect={selection.toggleSelection}

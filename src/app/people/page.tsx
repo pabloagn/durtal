@@ -12,8 +12,11 @@ import {
   getAuthorBirthYearRange,
   getAuthorDeathYearRange,
   getPeopleFilterOptions,
+  getPersonRoles,
   getPersonWorkCounts,
 } from "@/lib/actions/authors";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
 import {
   formatNationalityParam,
@@ -179,6 +182,7 @@ async function AuthorsContent({
       // Bios are stored as HTML; the list shows a one-line text preview
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
+      roles: [] as PersonRole[],
       booksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
@@ -186,23 +190,34 @@ async function AuthorsContent({
   });
 
   // Authors with no portrait show some of their book covers instead
-  const [previews, workCounts] = await Promise.all([
+  // Cover previews, every card's roles and the Works column's counts: one
+  // query each, never one per card
+  const [previews, rolesById, workCounts] = await Promise.all([
     getAuthorCoverPreviews(
       authors.filter((a) => !a.photoUrl && a.booksCount > 0).map((a) => a.id),
     ),
+    getPersonRoles(authors.map((a) => a.id)),
     // The Works column counts every collection's works, not only books
     getPersonWorkCounts(authors.map((a) => a.id)),
   ]);
   for (const a of authors) {
     a.coverPreviews = previews[a.id] ?? [];
+    a.roles = rolesById[a.id] ?? [];
     a.worksCount = workCounts[a.id] ?? 0;
   }
+  // Filtered to one collection: its roles come first on the cards
+  const preferKind =
+    collections?.length === 1 && (WORK_KINDS as readonly string[]).includes(collections[0])
+      ? (collections[0] as WorkKind)
+      : null;
 
 
   return (
     <>
       <AuthorsShell
         authors={authors}
+        preferKind={preferKind}
+        preferRoles={roles?.length ? roles : null}
         mapQuery={{ search, filters }}
         timelineQuery={{ search, filters: timelineFilters }}
         pagination={{

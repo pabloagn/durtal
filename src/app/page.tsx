@@ -38,7 +38,8 @@ import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { coverToneStyle, mediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
-import { getAuthorCoverPreviews } from "@/lib/actions/authors";
+import { getAuthorCoverPreviews, getPersonRoles } from "@/lib/actions/authors";
+import { PersonRoles } from "@/components/people/person-roles";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { displayYear } from "@/lib/utils/years";
 
@@ -198,12 +199,14 @@ async function DashboardContent() {
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
   ]);
-  const [covers, authorCovers] = await Promise.all([
+  const [covers, authorCovers, personRoles] = await Promise.all([
     getCollectionCoverPreviews(collections.map((collection) => collection.id)),
     // Recent authors with no portrait show some of their book covers
     getAuthorCoverPreviews(
       stats.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id),
     ),
+    // Every card's roles, in one query
+    getPersonRoles(stats.recentAuthors.map((a) => a.id)),
   ]);
   // Newest first across the open collections
   const recent = [
@@ -366,6 +369,7 @@ async function DashboardContent() {
                   {/* The author card's layout: two name lines, one
                       nationality line, then years and the book count */}
                   <CardHeading title={author.name} subtitle={author.nationality} />
+                  <PersonRoles roles={personRoles[author.id]} className="mt-1" />
                   <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
                     {author.birthYear && (
                       <span>

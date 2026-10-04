@@ -67,6 +67,7 @@ import {
   mergeAuthors,
   getPeopleFilterOptions,
   getPersonWorkCredits,
+  getPersonRoles,
   getPersonWorkCounts,
 } from "@/lib/actions/authors";
 import { updateWork, getLibraryStats } from "@/lib/actions/works";
@@ -188,6 +189,15 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     expect((await getPersonWorkCredits(translator.id)).map((c) => [c.kind, c.role, c.title])).toEqual([
       ["book", "Translator", "A book"],
     ]);
+    // Every card's roles in one query, with their credit counts (SLN-420)
+    const roles = await getPersonRoles([director.id, perfumer.id, translator.id, (await person("No credits", ["film"])).id]);
+    expect(roles[director.id]).toEqual([{ roleId: "film.director", kind: "film", label: "Director", count: 1 }]);
+    expect(roles[perfumer.id]).toEqual([{ roleId: "perfume.perfumer", kind: "perfume", label: "Perfumer", count: 1 }]);
+    expect(roles[translator.id]).toEqual([
+      { roleId: "book.edition.translator", kind: "book", label: "Translator", count: 1 },
+    ]);
+    expect(Object.keys(roles)).toHaveLength(3);
+    expect(await getPersonRoles([])).toEqual({});
     // The Works column counts every collection's works, each once
     const counts = await getPersonWorkCounts([director.id, perfumer.id, translator.id]);
     expect(counts).toEqual({ [director.id]: 1, [perfumer.id]: 1, [translator.id]: 1 });
