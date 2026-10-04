@@ -471,6 +471,10 @@ After the client uploads the raw file to S3, trigger server-side processing (res
 }
 ```
 
+### `POST /api/media/logo-card`
+
+An organization's logo card (SLN-441): one 1200×800 black card with the logo in one light ink. Multipart fields: `organizationId` (uuid), `options` (JSON: `invert`, `keepColours`, `emblemOnly`, `badge`, `size` of -1, 0 or 1), and either `file` (SVG, PNG, JPEG or WebP) or `mediaId` (a saved card, whose kept original runs again). With `preview=1` the answer is the card as `image/png` and nothing is stored; otherwise the card becomes the active logo and the answer is `{ "media" }`. `400` for a bad id, file, JSON or an image with no logo; `404` for an unknown organization or a card with no original.
+
 ### `POST /api/media/upload`
 
 Multipart upload. The server processes the image and writes it to S3. This avoids CORS problems with pre-signed URLs.
