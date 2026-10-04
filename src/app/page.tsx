@@ -40,6 +40,7 @@ import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { getAuthorCoverPreviews } from "@/lib/actions/authors";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { displayYear } from "@/lib/utils/years";
+import { languageName } from "@/lib/utils/language";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -410,7 +411,7 @@ async function DashboardContent() {
                       priority={work.acquisitionPriority}
                     />
                     {edition?.language && edition.language !== "en" && (
-                      <Badge variant="blue">{edition.language}</Badge>
+                      <Badge variant="blue">{languageName(edition.language)}</Badge>
                     )}
                     {edition?.publicationYear && (
                       <span className="ml-auto shrink-0 font-mono text-micro text-fg-secondary">
