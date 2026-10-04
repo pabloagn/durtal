@@ -544,7 +544,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `work_type_id` | UUID | FK → `work_types.id`, nullable | Classification of the work form |
 | `is_anthology` | BOOLEAN | NOT NULL, default `false` | Whether the work is an anthology |
 | `notes` | TEXT | nullable | Personal notes |
-| `rating` | NUMERIC(2,1) | nullable, 0.5–5.0 in half steps (`works_rating_check`) | The book's rating: the owner's current verdict (SLN-444; was SMALLINT 1–5). Raw SQL casts it with `::float8`, since it returns numeric as a string |
+| `rating` | NUMERIC(2,1) | nullable, 0.5–5.0 in half steps (`works_rating_check`) | The work's rating: the owner's current verdict (SLN-444; was SMALLINT 1–5). Written "4" or "4.5" (`formatRating`), edited in half steps everywhere (SLN-446). Raw SQL casts it with `::float8`, since it returns numeric as a string |
 | `catalogue_status` | `catalogue_status_enum` | NOT NULL, default `'tracked'` | Work-level acquisition/ownership status |
 | `acquisition_priority` | `acquisition_priority_enum` | NOT NULL, default `'none'` | Urgency of acquisition intent |
 | `is_rare` | BOOLEAN | NOT NULL, default `false` | Simple personal rare-book flag; independent of lifecycle/priority and instance collector flags |

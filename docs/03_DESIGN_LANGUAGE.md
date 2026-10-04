@@ -234,6 +234,14 @@ Three sizes: `sm`, `md` (default), `lg`. All squared (2px radius). Focus ring us
 - No rounded corners (2px radius)
 - Optional label displayed above
 
+### Ratings
+
+A work's rating is 0.5 to 5 in half steps, the same for books, films, perfumes and paintings (venue ratings are another scale). One component shows and edits it (`src/components/shared/rating.tsx`); the number is written by `formatRating` (`src/lib/utils/rating.ts`): "4" or "4.5", never "4.0".
+
+- `RatingStars`: five Lucide stars at 1.5 stroke, 12px in rows, 14px in a header, 16px at most. Filled parts are `accent-gold`; a half star fills its left half (a clipped second icon). Empty stars and halves are outlined in `fg-secondary`, never `fg-muted`. Read as "Rated 4.5 out of 5" or "Not rated".
+- `RatingInput`: a slider ("4.5 stars", or "Not rated" at 0). With a mouse each star is a 24px target split in two: the left half sets n - 0.5, the right half n, hover previews, and choosing the current value clears it. On touch (by the event's pointer type) the stars are 44px whole-star targets: a tap sets n, a second tap on the same star n - 0.5, a third n again; a drag previews half steps and sets on release, and the row lets the page scroll vertically. A "Clear" button follows the stars on coarse pointers when a value is set; its space is kept so the row does not shift. Keys: Left and Down step down to 0.5, Right and Up step up (from Not rated to 0.5), Home 0.5, End 5, Backspace and Delete clear, 1 to 5 set whole stars. It sits on the cap-height center of the text beside it (`CapAligned` with `coarseHeight`).
+- Beside stars, a short number ("4.5"); a badge keeps "4.5/5".
+
 ### Tables
 
 - Clean rows with alternating subtle backgrounds
@@ -369,6 +377,6 @@ A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-a
 ### Keyboard, touch and motion
 
 - Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
-- On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating stars are 24px wide there (`pointer-coarse:w-6`).
+- On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating input has 44px whole-star targets there (see Ratings).
 - With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.
 - Check it with `node scripts/qa/interaction-audit.mjs --disposable --base <app url> [route...]` on a disposable preview (`scripts/qa/preview-local.py`). It opens menus and dialogs, pressing only controls that open something, never one that writes; it refuses to start without `--disposable`, on another host or on port 3100.

@@ -171,6 +171,7 @@ the page offers it; any other value shows the grid.
 - Tags: Multi-select
 - Format: Hardcover, Paperback, Digital
 - Language: Multi-select
+- Min Rating (`rating`): 5, 4.5+, 4+, 3.5+, 3+; any other value is ignored
 
 **Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status).
 
@@ -398,7 +399,7 @@ The detail page for a single work. Displays the work and all its editions and in
 - Canonical title (serif, large)
 - Primary author(s) with role labels
 - Original year and language
-- Rating (1-5)
+- Rating (0.5 to 5 in half steps: the stars and the number)
 - Catalogue status badge
 - Series name and position (if applicable)
 
