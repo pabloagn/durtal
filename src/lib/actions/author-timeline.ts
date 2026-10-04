@@ -36,6 +36,7 @@ export async function getAuthorsForTimeline(opts?: {
     alive?: string;
     collections?: string[];
     roles?: string[];
+    favourites?: boolean;
   };
 }): Promise<AuthorTimelineItem[]> {
   const { search, filters } = opts ?? {};

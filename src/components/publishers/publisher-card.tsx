@@ -2,7 +2,7 @@ import { parentPhrase } from "@/lib/publishers/kinds";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { PublisherFavourite } from "./favourite-button";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { Monogram } from "@/components/shared/no-photo";
 
@@ -63,7 +63,11 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
           {p.name}
         </h3>
         <CapAligned height={32} className="relative z-20 -mr-2">
-          <PublisherFavourite id={p.id} favourite={p.isFavourite} />
+          <FavouriteToggle
+            favourite={p.isFavourite}
+            target={{ entity: "publisher", id: p.id }}
+            name={p.name}
+          />
         </CapAligned>
       </div>
       {/* Fixed rows: every publisher card has the same height */}
@@ -141,7 +145,11 @@ export function PublisherListItem({
           </span>
         </div>
       </Link>
-      <PublisherFavourite id={p.id} favourite={p.isFavourite} />
+      <FavouriteToggle
+        favourite={p.isFavourite}
+        target={{ entity: "publisher", id: p.id }}
+        name={p.name}
+      />
     </div>
   );
 }

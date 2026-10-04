@@ -388,16 +388,6 @@ export async function savePublisher(input: PublisherInput, id?: string) {
   return (await db.select().from(houses).where(eq(houses.id, publisherId)))[0];
 }
 
-export async function setPublisherFavourite(id: string, favourite: boolean) {
-  const [row] = await db
-    .update(houses)
-    .set({ isFavourite: z.boolean().parse(favourite) })
-    .where(and(publisherCondition, eq(houses.id, z.uuid().parse(id))))
-    .returning({ id: houses.id });
-  if (!row) throw new Error("Publisher not found");
-  changed();
-}
-
 export async function getEditionPublisherLinks(editionId: string) {
   return db
     .select({ publisher: houses })

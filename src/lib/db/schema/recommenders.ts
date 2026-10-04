@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, boolean, timestamp, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
 
@@ -6,6 +6,7 @@ export const recommenders = pgTable("recommenders", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull().unique(),
   url: text("url"),
+  isFavourite: boolean("is_favourite").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

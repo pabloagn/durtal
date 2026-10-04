@@ -9,6 +9,7 @@ import { PersonRoles } from "@/components/people/person-roles";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RowCheckbox } from "@/components/books/book-list";
 
 type PosterCrop = MediaCrop;
@@ -31,6 +32,8 @@ interface AuthorListItemProps {
   preferKind?: WorkKind | null;
   /** Roles the list is filtered by: they lead the role line */
   preferRoles?: string[] | null;
+  /** The favourite star shows when this is given */
+  isFavourite?: boolean;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -51,6 +54,7 @@ export function AuthorListItem({
   roles,
   preferKind,
   preferRoles,
+  isFavourite,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -123,6 +127,17 @@ export function AuthorListItem({
           <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} />
         </div>
       </Link>
+
+      {/* On the name's cap-height center, like the actions menu */}
+      {isFavourite !== undefined && (
+        <CapAlignedControls height={32} className="type-item-title">
+          <FavouriteToggle
+            favourite={isFavourite}
+            target={{ entity: "author", id }}
+            name={name}
+          />
+        </CapAlignedControls>
+      )}
 
       {/* Actions menu, on the name's cap-height center; visible on hover */}
       {!isSelecting && (

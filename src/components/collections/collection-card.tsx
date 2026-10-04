@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { collectionCountLabel } from "@/lib/collections/counts";
 import { FolderOpen } from "lucide-react";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
@@ -25,6 +26,7 @@ export interface CollectionCardData {
   icon?: string | null;
   description?: string | null;
   editionCount: number;
+  isFavourite?: boolean;
   /** Whole works shown (films, perfumes, paintings, books with no edition chosen) */
   workCount?: number;
   media?: ArtworkRow[];
@@ -127,6 +129,15 @@ export function CollectionCard({
           }
           subtitle={collection.description}
           subtitleLines={2}
+          action={
+            collection.isFavourite === undefined ? undefined : (
+              <FavouriteToggle
+                favourite={collection.isFavourite}
+                target={{ entity: "collection", id: collection.id }}
+                name={collection.name}
+              />
+            )
+          }
         />
         <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
           {footer && <span className="min-w-0 truncate">{footer}</span>}

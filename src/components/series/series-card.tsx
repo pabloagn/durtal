@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
 import { ShelfSpines } from "@/components/shared/no-photo";
@@ -12,6 +13,7 @@ export interface SeriesItem {
   ownedCount: number;
   totalVolumes: number | null;
   isComplete: boolean;
+  isFavourite: boolean;
   covers: string[];
 }
 
@@ -62,6 +64,13 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
           titleClassName="group-hover:text-accent-rose-text"
           subtitle={s.originalTitle !== s.title ? s.originalTitle : null}
           subtitleClassName="text-xs italic text-fg-secondary"
+          action={
+            <FavouriteToggle
+              favourite={s.isFavourite}
+              target={{ entity: "series", id: s.id }}
+              name={s.title}
+            />
+          }
         />
         <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
           <span className="min-w-0 truncate">{countsLabel(s)}</span>
@@ -110,6 +119,12 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
       <span className="w-40 flex-shrink-0 text-right font-mono text-micro text-fg-secondary">
         {countsLabel(s)}
       </span>
+      <FavouriteToggle
+        favourite={s.isFavourite}
+        target={{ entity: "series", id: s.id }}
+        name={s.title}
+        className="relative z-20"
+      />
     </div>
   );
 }

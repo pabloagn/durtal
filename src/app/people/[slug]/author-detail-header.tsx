@@ -1,5 +1,6 @@
 "use client";
 
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,6 +36,7 @@ interface AuthorDetailHeaderProps {
   posterUrl?: string | null;
   posterCrop?: PosterCrop | null;
   workCount: number;
+  isFavourite: boolean;
 }
 
 export function AuthorDetailHeader({
@@ -50,6 +52,7 @@ export function AuthorDetailHeader({
   posterUrl,
   posterCrop,
   workCount,
+  isFavourite,
 }: AuthorDetailHeaderProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -162,6 +165,12 @@ export function AuthorDetailHeader({
             </div>
             {/* On the cap-height center of the name's first line */}
             <CapAlignedControls height={32} className="type-page-title">
+              <FavouriteToggle
+                favourite={isFavourite}
+                target={{ entity: "author", id: authorId }}
+                name={name}
+                shortcut
+              />
               <ExportMenu
                 entity="authors"
                 ids={[authorId]}

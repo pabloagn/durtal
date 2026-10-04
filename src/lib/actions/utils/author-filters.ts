@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { authors, countries } from "@/lib/db/schema";
-import { gte, lte, isNull, isNotNull, inArray, sql } from "drizzle-orm";
+import { eq, gte, lte, isNull, isNotNull, inArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { resolveLegacyNationalityNames } from "@/lib/utils/nationality-param";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
@@ -44,6 +44,7 @@ export async function buildAuthorFilterConditions(filters?: {
   collections?: string[];
   /** Credit role ids, any of them */
   roles?: string[];
+  favourites?: boolean;
 }): Promise<SQL[] | null> {
   const conditions: SQL[] = [];
 
@@ -118,6 +119,11 @@ export async function buildAuthorFilterConditions(filters?: {
     conditions.push(isNull(authors.deathYear));
   } else if (alive === false || alive === "false") {
     conditions.push(isNotNull(authors.deathYear));
+  }
+
+  // Favourites only
+  if (filters?.favourites) {
+    conditions.push(eq(authors.isFavourite, true));
   }
 
   return conditions;

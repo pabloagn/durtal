@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -105,6 +106,12 @@ export default async function SeriesDetailPage({
         </div>
         {/* On the cap-height center of the title's first line */}
         <CapAlignedControls height={32} className="type-page-title">
+        <FavouriteToggle
+          favourite={s.isFavourite}
+          target={{ entity: "series", id: s.id }}
+          name={s.title}
+          shortcut
+        />
         <SeriesActions
           series={{
             id: s.id,

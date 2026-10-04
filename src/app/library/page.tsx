@@ -206,6 +206,7 @@ async function LibraryContent({
       isRare: work.isRare,
       huntAssessedOn: work.huntAssessedOn,
       isPoison: work.isPoison,
+      isFavourite: work.isFavourite,
       primaryEditionId: firstEdition?.id ?? null,
       hasDigitalEdition: digitalWorkIds.has(work.id),
     };
