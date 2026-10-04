@@ -46,8 +46,15 @@ client.options.serializers[16] = (v) => (typeof v === "boolean" ? (v ? "t" : "f"
 // JSON arrives already encoded as text; encoding it again would store a JSON
 // string instead of the object (jsonb_typeof 'string').
 client.options.serializers[114] = client.options.serializers[3802] = (v) => (typeof v === "string" ? v : JSON.stringify(v));
+// Dates and timestamps stay PostgreSQL text both ways, as with Neon. As JS
+// Dates they would keep milliseconds only: a microsecond keyset cursor
+// ("2026-09-25 12:19:29.217531+00") would lose its last digits and skip rows.
+for (const type of [1082, 1114, 1184]) {
+  client.options.serializers[type] = (v) => (v instanceof Date ? v.toISOString() : String(v));
+  client.options.parsers[type] = (v) => v;
+}
 // Each value back in PostgreSQL's text form, as Neon sends it: JSON columns as
-// JSON (a JSON string too), arrays as {...} literals, dates in ISO.
+// JSON (a JSON string too), arrays as {...} literals, dates as text.
 const element = (value) =>
   value === null ? "NULL" : Array.isArray(value) ? `{${value.map(element).join(",")}}`
   : `"${String(value instanceof Date ? value.toISOString() : value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
