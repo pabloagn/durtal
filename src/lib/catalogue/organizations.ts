@@ -67,21 +67,30 @@ export function boundedCount(n: number) {
   return n > COUNT_CAP ? `${COUNT_CAP}+` : String(n);
 }
 
-/** What an organization takes part in, per collection, as a directory row counts it */
+/** What an organization takes part in, as a directory row counts it */
 export interface ContributionCounts {
   editions: number;
+  /** Houses under it: a group's publishers, a publisher's imprints */
+  houses: number;
+  /** Books wanted from it (acquisition targets) */
+  wanted: number;
   perfumes: number;
   films: number;
   paintings: number;
   venues: number;
+  /** Bottles and film copies it supplied */
+  supplied: number;
 }
 
 const NOUNS: Record<keyof ContributionCounts, [string, string]> = {
   editions: ["edition", "editions"],
+  houses: ["house under it", "houses under it"],
+  wanted: ["book wanted", "books wanted"],
   perfumes: ["perfume", "perfumes"],
   films: ["film", "films"],
   paintings: ["painting", "paintings"],
   venues: ["venue", "venues"],
+  supplied: ["copy supplied", "copies supplied"],
 };
 
 /** "124 editions · 3 films": what an organization takes part in, bounded */

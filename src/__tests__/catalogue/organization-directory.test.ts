@@ -24,11 +24,13 @@ describe("organization directory words", () => {
     expect(boundedCount(0)).toBe("0");
     expect(boundedCount(999)).toBe("999");
     expect(boundedCount(1000)).toBe("999+");
-    expect(contributionText({ editions: 1000, perfumes: 1, films: 0, paintings: 2, venues: 0 })).toBe(
+    const none = { editions: 0, houses: 0, wanted: 0, perfumes: 0, films: 0, paintings: 0, venues: 0, supplied: 0 };
+    expect(contributionText({ ...none, editions: 1000, perfumes: 1, paintings: 2 })).toBe(
       "999+ editions · 1 perfume · 2 paintings",
     );
-    expect(contributionText({ editions: 0, perfumes: 0, films: 0, paintings: 0, venues: 1 })).toBe("1 venue");
-    expect(contributionText({ editions: 0, perfumes: 0, films: 0, paintings: 0, venues: 0 })).toBe("");
+    expect(contributionText({ ...none, houses: 3, wanted: 1 })).toBe("3 houses under it · 1 book wanted");
+    expect(contributionText({ ...none, venues: 1, supplied: 2 })).toBe("1 venue · 2 copies supplied");
+    expect(contributionText(none)).toBe("");
   });
 
   it("lists the directory in the sidebar after Publishers, with its icon", () => {

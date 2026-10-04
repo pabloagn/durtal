@@ -31,8 +31,16 @@ import { VENUE_TYPE_LABELS } from "@/lib/catalogue/venues";
 
 const LINK = "text-accent-rose-text transition-colors hover:text-fg-primary";
 
-/** One read per request for the page and its title */
-const loadOrganization = cache((slug: string) => getOrganization(decodeURIComponent(slug)));
+/** One read per request for the page and its title; a malformed or overlong address finds nothing */
+const loadOrganization = cache(async (slug: string) => {
+  let key: string;
+  try {
+    key = decodeURIComponent(slug);
+  } catch {
+    return undefined;
+  }
+  return key && key.length <= 500 ? getOrganization(key) : undefined;
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const organization = await loadOrganization((await params).slug);
@@ -42,6 +50,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 /** "3 bottles", "1 copy" */
 function count(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
+ * What a publishing profile holds: "Publisher of 82 editions of 82 books.",
+ * "Publishing group with 3 houses under it: 120 editions of 98 books in all."
+ */
+function bookSentence(
+  label: string,
+  p: { editions: number; books: number; children: unknown[]; familyEditions: number; familyBooks: number },
+) {
+  if (p.children.length)
+    return p.familyEditions
+      ? `${label} with ${count(p.children.length, "house", "houses")} under it: ${count(p.familyEditions, "edition", "editions")} of ${count(p.familyBooks, "book", "books")} in all.`
+      : `${label} with ${count(p.children.length, "house", "houses")} under it, with no edition in the catalogue yet.`;
+  return p.editions
+    ? `${label} of ${count(p.editions, "edition", "editions")} of ${count(p.books, "book", "books")}.`
+    : `${label}, with no edition in the catalogue yet.`;
 }
 
 /** A collection's part of the page: its heading, then its rows */
@@ -116,10 +141,13 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
   const hasPaintings =
     open.has("painting") && (paintings.owned.objects > 0 || paintings.shown.total > 0);
   const venues = organization.venues;
+  // A venue it both runs and owns is one venue
+  const venueCount = new Set(venues.map((v) => v.venueId)).size;
   const linked = [
     publishing.editions && count(publishing.editions, "edition", "editions"),
     publishing.children.length &&
       count(publishing.children.length, "house under it", "houses under it"),
+    publishing.wanted && count(publishing.wanted, "book wanted from it", "books wanted from it"),
     perfumes.roles.reduce((n, r) => n + r.total, 0) &&
       count(perfumes.roles.reduce((n, r) => n + r.total, 0), "perfume credit", "perfume credits"),
     perfumes.listings && count(perfumes.listings, "retailer listing", "retailer listings"),
@@ -128,12 +156,13 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
     films.distributed.total && count(films.distributed.total, "film distributed", "films distributed"),
     films.copies && count(films.copies, "film copy supplied", "film copies supplied"),
     paintings.owned.objects && count(paintings.owned.objects, "object owned", "objects owned"),
-    venues.length && count(venues.length, "venue", "venues"),
+    venueCount && count(venueCount, "venue", "venues"),
   ].filter((line): line is string => typeof line === "string");
 
   const website =
     organization.website && /^https?:\/\//i.test(organization.website) ? organization.website : null;
-  const country = organization.countryRef?.name ?? organization.country;
+  // The country as written, like the publisher page and the directory
+  const country = organization.country ?? organization.countryRef?.name ?? null;
   const roleText = organizationRoleText(organization.roles);
 
   const record = (
@@ -217,9 +246,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
             icon={DOMAIN_ICONS.book}
             description={
               <>
-                {publishing.editions > 0
-                  ? `${ORGANIZATION_ROLE_LABELS[kind].one} of ${count(publishing.editions, "edition", "editions")} of ${count(publishing.books, "book", "books")}.`
-                  : `${ORGANIZATION_ROLE_LABELS[kind].one}, with no edition in the catalogue yet.`}{" "}
+                {bookSentence(ORGANIZATION_ROLE_LABELS[kind].one, publishing)}{" "}
                 <Link
                   href={`/publishers/${organization.slug}`}
                   className="text-fg-primary underline decoration-glass-border underline-offset-4 hover:text-accent-rose-text"
@@ -285,7 +312,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
               <Row
                 key={r.role}
                 title={`As ${ORGANIZATION_ROLE_LABELS[r.role].one.toLowerCase()}`}
-                href={r.role === "manufacturer" ? undefined : `/perfumes?house=${id}`}
+                href={`/perfumes?house=${id}&houseRole=${r.role}`}
                 total={r.total}
                 width="w-[168px]"
               >

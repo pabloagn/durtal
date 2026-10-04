@@ -197,6 +197,8 @@ export const perfumeQuerySchema = z
     search: z.string().trim().max(200).optional(),
     /** Any of these as perfume house or brand. */
     houseIds: z.array(z.uuid()).max(50).optional(),
+    /** With `houseIds`: only in this role (an organization page's "As brand" row). */
+    houseRole: z.enum(["perfume_house", "brand", "manufacturer"]).optional(),
     /** Any of these as perfumer of the fragrance or of one formulation. */
     perfumerIds: z.array(z.uuid()).max(50).optional(),
     /**

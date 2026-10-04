@@ -9,8 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { saveOrganization } from "@/lib/actions/organizations";
-import { updateOrganizationProfile } from "@/lib/actions/organization-directory";
+import { addOrganization, updateOrganizationProfile } from "@/lib/actions/organization-directory";
 import {
   ORGANIZATION_ROLE_LABELS,
   type DirectoryRole,
@@ -129,7 +128,7 @@ function OrganizationForm({
         onClose();
         router.refresh();
       } else {
-        const created = await saveOrganization(fields);
+        const created = await addOrganization(fields);
         toast.success(`${name} added`);
         onClose();
         if (created) router.push(`/organizations/${created.slug}`);

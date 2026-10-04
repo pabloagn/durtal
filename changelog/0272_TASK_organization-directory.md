@@ -107,3 +107,24 @@ film homes.
 - `page-weight.js` on that preview: `/organizations` 132 KB in 78 ms,
   `/organizations/*` 54 KB in 76 ms; Penguin's page 75 KB. Every other route
   is within budget except `/library` (313 KB), which this task does not change.
+
+### Review fixes (PR #61)
+- Country: editing (and adding) resolves the country id from the text, as the
+  publisher form does, and clears it with the text; the page shows the
+  country as written, like the publisher page and the directory.
+- Row counts add the houses under an organization, the books wanted from it
+  (acquisition targets) and the bottles and film copies it supplied, so a
+  group or a supplier no longer reads "Nothing linked yet". A group's Books
+  part counts its houses' editions ("Publishing group with 3 houses under
+  it: 120 editions of 98 books in all").
+- An organization that owns paintings cannot drop both the museum and the
+  gallery role (`updateOrganizationProfile` checks it in the same
+  transaction).
+- A malformed or overlong address answers not found instead of an error.
+- Each perfume role row links to its own list: the perfume home's `house`
+  filter takes `houseRole` (`perfume_house`, `brand`, `manufacturer`).
+- The Delete dialog lists books wanted from the organization and counts a
+  venue it both runs and owns once.
+- Tests: a group's and a supplier's rows, search within one role, the
+  country id on edit, the painting owner guard, the role-narrowed house
+  filter.

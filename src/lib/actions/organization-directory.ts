@@ -5,10 +5,12 @@ import { eq, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
+  countries,
   publishingHouses as identities,
   publisherAliases as aliases,
   organizationRoles,
 } from "@/lib/db/schema";
+import { countryLookup, resolveCountry } from "@/lib/utils/countries";
 import { resultRows, assertSql } from "@/lib/harmonization/store";
 import { withReadableErrors } from "@/lib/db/errors";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
@@ -25,7 +27,7 @@ import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { textSearchCondition, textSearchRank } from "./utils/text-search";
-import { deleteOrganization } from "./organizations";
+import { deleteOrganization, saveOrganization } from "./organizations";
 
 /** Works shown per group on an organization's page; each count is complete */
 const SHOWN = 24;
@@ -104,7 +106,11 @@ export async function getOrganizationDirectory(input: z.input<typeof directorySc
         ${bounded(sql`select fo.work_id from film_organizations fo where fo.organization_id = o.id
           union select v.work_id from film_releases fr join film_versions v on v.id = fr.version_id where fr.distributor_id = o.id`)} as films,
         ${bounded(sql`select distinct ob.work_id from art_objects ob where ob.owner_organization_id = o.id`)} as paintings,
-        ${bounded(sql`select distinct ov.venue_id from organization_venues ov where ov.organization_id = o.id`)} as venues
+        ${bounded(sql`select distinct ov.venue_id from organization_venues ov where ov.organization_id = o.id`)} as venues,
+        ${bounded(sql`select 1 from publishing_houses c where c.parent_id = o.id`)} as houses,
+        ${bounded(sql`select 1 from acquisition_targets t where t.publisher_id = o.id`)} as wanted,
+        ${bounded(sql`select 1 from perfume_bottles b where b.supplier_id = o.id
+          union all select 1 from film_holdings h where h.supplier_id = o.id`)} as supplied
       from publishing_houses o where ${where}
       order by ${order} limit ${options.limit} offset ${options.offset}`)
       .then((r) =>
@@ -125,11 +131,13 @@ export async function getOrganizationDirectory(input: z.input<typeof directorySc
   ]);
   return {
     total: totals[0]?.count ?? 0,
-    rows: rows.map(({ kind, roles, editions, perfumes, films, paintings, venues, ...row }) => ({
-      ...row,
-      roles: [...(kind ? [kind] : []), ...roles],
-      counts: { editions, perfumes, films, paintings, venues },
-    })),
+    rows: rows.map(
+      ({ kind, roles, editions, houses, wanted, perfumes, films, paintings, venues, supplied, ...row }) => ({
+        ...row,
+        roles: [...(kind ? [kind] : []), ...roles],
+        counts: { editions, houses, wanted, perfumes, films, paintings, venues, supplied },
+      }),
+    ),
   };
 }
 export type DirectoryOrganization = Awaited<
@@ -162,9 +170,16 @@ export async function getOrganizationContributions(id: string) {
   const [publishing, perfumeRoles, listedPerfumes, produced, distributed, owned, shown, counts] =
     await Promise.all([
       db
-        .execute(sql`select
+        .execute(sql`with recursive family as (
+            select id, 0 as depth from publishing_houses where id = ${at}
+            union all select c.id, f.depth + 1 from publishing_houses c join family f on c.parent_id = f.id where f.depth < 3
+          ) select
           (select count(*)::int from edition_publishers ep where ep.publisher_id = ${at}) as editions,
           (select count(distinct e.work_id)::int from edition_publishers ep join editions e on e.id = ep.edition_id where ep.publisher_id = ${at}) as books,
+          (select count(*)::int from edition_publishers ep where ep.publisher_id in (select id from family)) as "familyEditions",
+          (select count(distinct e.work_id)::int from edition_publishers ep join editions e on e.id = ep.edition_id
+            where ep.publisher_id in (select id from family)) as "familyBooks",
+          (select count(*)::int from acquisition_targets t where t.publisher_id = ${at}) as wanted,
           coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'kind', c.kind) order by c.name, c.id)
             from publishing_houses c where c.parent_id = ${at}), '[]') as children,
           (select jsonb_build_object('id', p.id, 'name', p.name, 'slug', p.slug, 'kind', p.kind)
@@ -174,6 +189,10 @@ export async function getOrganizationContributions(id: string) {
             resultRows<{
               editions: number;
               books: number;
+              /** With the houses under it */
+              familyEditions: number;
+              familyBooks: number;
+              wanted: number;
               children: { id: string; name: string; slug: string; kind: DirectoryRole | null }[];
               parent: { id: string; name: string; slug: string; kind: DirectoryRole | null } | null;
             }>(r)[0],
@@ -268,20 +287,40 @@ export type OrganizationProfileInput = z.input<typeof profileSchema>;
 export async function updateOrganizationProfile(id: string, input: OrganizationProfileInput) {
   z.uuid().parse(id);
   const { roles, aliases: names, ...fields } = profileSchema.parse(input);
-  const current = await db.query.publishingHouses.findFirst({
-    where: eq(identities.id, id),
-    columns: { kind: true },
-  });
+  const [current, held, countryId] = await Promise.all([
+    db.query.publishingHouses.findFirst({ where: eq(identities.id, id), columns: { kind: true } }),
+    db
+      .select({ role: organizationRoles.role })
+      .from(organizationRoles)
+      .where(eq(organizationRoles.organizationId, id)),
+    countryIdFor(fields.country),
+  ]);
   if (!current) throw new Error("Organization not found");
   if (!current.kind && roles.length === 0)
     throw new Error("Choose at least one role for this organization");
+  // The paintings it owns keep it a museum or gallery once it is one
+  const institution = (list: readonly string[]) => list.includes("museum") || list.includes("gallery");
+  const keepsInstitution = !institution(held.map((r) => r.role)) || institution(roles);
   await withReadableErrors(() =>
     atomic((d) => [
       d.execute(sql`select id from publishing_houses where id = ${id}::uuid for update`),
       d.execute(
         assertSql(sql`exists (select 1 from publishing_houses where id = ${id}::uuid)`, "Organization not found"),
       ),
-      d.update(identities).set(fields).where(eq(identities.id, id)),
+      ...(keepsInstitution
+        ? []
+        : [
+            d.execute(
+              assertSql(
+                sql`not exists (select 1 from art_objects where owner_organization_id = ${id}::uuid)`,
+                "This organization owns paintings; keep it a museum or a gallery",
+              ),
+            ),
+          ]),
+      d
+        .update(identities)
+        .set({ ...fields, countryId })
+        .where(eq(identities.id, id)),
       d.delete(organizationRoles).where(eq(organizationRoles.organizationId, id)),
       ...(roles.length
         ? [
@@ -298,6 +337,26 @@ export async function updateOrganizationProfile(id: string, input: OrganizationP
   );
   invalidate(CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.orders, CACHE_TAGS.venues);
   return { id };
+}
+
+/** The country a text names, matched as the publisher form matches it; none for a blank text */
+async function countryIdFor(text: string | null | undefined) {
+  if (!text?.trim()) return null;
+  const rows = await db
+    .select({ id: countries.id, name: countries.name, alpha2: countries.alpha2 })
+    .from(countries);
+  return resolveCountry(text, countryLookup(rows));
+}
+
+/**
+ * Adds an organization from the directory, with roles outside publishing and
+ * its country resolved from the text like a publisher's.
+ */
+export async function addOrganization(input: OrganizationProfileInput) {
+  const { roles, aliases: names, ...fields } = profileSchema.parse(input);
+  if (roles.length === 0) throw new Error("Choose at least one role for this organization");
+  const countryId = await countryIdFor(fields.country);
+  return saveOrganization({ ...fields, countryId, roles, aliases: names });
 }
 
 /**

@@ -33,14 +33,17 @@ vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
   deleteUnusedObjects: vi.fn(async () => false),
 }));
 import {
+  addOrganization,
   getOrganizationContributions,
   getOrganizationDirectory,
   getOrganizationRoleCounts,
   removeOrganization,
   updateOrganizationProfile,
 } from "@/lib/actions/organization-directory";
+import { getPerfumes } from "@/lib/actions/perfumes";
+import { perfumeQueryFromParams } from "@/lib/catalogue/perfume-params";
 import { getOrganization, linkOrganizationVenue, saveOrganization } from "@/lib/actions/organizations";
-import { savePublisher } from "@/lib/actions/publishers";
+import { createAcquisitionTarget, savePublisher } from "@/lib/actions/publishers";
 import { createPerfume } from "@/lib/actions/perfumes";
 import { createFilm, createFilmVersion } from "@/lib/actions/films";
 import { createArtObject, createPainting } from "@/lib/actions/paintings";
@@ -131,14 +134,17 @@ describe.skipIf(!url)("shared organization directory", () => {
     expect(organizationRoleText(row.roles)).toBe(
       "Publisher · Perfume house · Production company · Distributor · Museum",
     );
-    expect(row.counts).toEqual({ editions: 2, perfumes: 1, films: 2, paintings: 1, venues: 1 });
-    expect(rows.find((r) => r.name === "Galerie Nord")!.counts).toEqual({
-      editions: 0,
-      perfumes: 0,
-      films: 0,
-      paintings: 0,
-      venues: 0,
+    expect(row.counts).toEqual({
+      editions: 2,
+      houses: 0,
+      wanted: 0,
+      perfumes: 1,
+      films: 2,
+      paintings: 1,
+      venues: 1,
+      supplied: 0,
     });
+    expect(Object.values(rows.find((r) => r.name === "Galerie Nord")!.counts).every((n) => n === 0)).toBe(true);
 
     const contributions = await getOrganizationContributions(org.id);
     expect(contributions.publishing).toMatchObject({ editions: 2, books: 1, children: [], parent: null });
@@ -239,5 +245,83 @@ describe.skipIf(!url)("shared organization directory", () => {
     );
     await removeOrganization(museum.id);
     expect(await getOrganization(museum.id)).toBeUndefined();
+  });
+
+  it("counts a group's houses, a supplier's copies and the books wanted, so no linked row reads empty", async () => {
+    const group = await savePublisher({ name: "Groupe Hachette", kind: "group" });
+    const publisher = await savePublisher({ name: "Hachette Livre", kind: "publisher", parentId: group.id });
+    const book = await editions(publisher.id, 3, "Les Misérables");
+    await createAcquisitionTarget({ workId: book, publisherId: publisher.id });
+    const supplier = (await saveOrganization({ name: "Bottle Shop", roles: ["retailer"] }))!;
+    const [work] = await c`insert into works(title,kind,original_language) values ('Fragrance','perfume',null) returning id`;
+    await c`insert into perfume_details(work_id) values (${work.id})`;
+    const [variant] = await c`insert into perfume_variants(work_id) values (${work.id}) returning id`;
+    await c`insert into perfume_bottles(variant_id, container, capacity_value, volume_unit, supplier_id)
+      values (${variant.id}, 'bottle', 100, 'ml', ${supplier.id})`;
+
+    const { rows } = await getOrganizationDirectory();
+    const counts = (name: string) => rows.find((r) => r.name === name)!.counts;
+    expect(counts("Groupe Hachette")).toMatchObject({ editions: 0, houses: 1 });
+    expect(counts("Hachette Livre")).toMatchObject({ editions: 3, wanted: 1 });
+    expect(counts("Bottle Shop")).toMatchObject({ supplied: 1, perfumes: 0 });
+    // The group's page counts its houses' books
+    expect((await getOrganizationContributions(group.id)).publishing).toMatchObject({
+      editions: 0,
+      familyEditions: 3,
+      familyBooks: 1,
+      children: [expect.objectContaining({ id: publisher.id })],
+    });
+    expect((await getOrganizationContributions(publisher.id)).publishing).toMatchObject({ wanted: 1 });
+  });
+
+  it("searches within one role", async () => {
+    await saveOrganization({ name: "Galerie Nord", roles: ["gallery"] });
+    await saveOrganization({ name: "Galerie Sud", roles: ["retailer"] });
+    await saveOrganization({ name: "Musée Nord", roles: ["museum"] });
+    expect((await getOrganizationDirectory({ query: "galerie", role: "retailer" })).rows.map((r) => r.name)).toEqual([
+      "Galerie Sud",
+    ]);
+    expect((await getOrganizationDirectory({ query: "nord", role: "gallery" })).total).toBe(1);
+    expect((await getOrganizationDirectory({ query: "nord", role: "imprint" })).total).toBe(0);
+  });
+
+  it("keeps the country id in step with the country an edit names", async () => {
+    await c`insert into countries(name, alpha_2, alpha_3) values ('Testonia', 'TX', 'TXA'), ('Otherland', 'OX', 'OXA')
+      on conflict do nothing`;
+    const [testonia] = await c`select id from countries where alpha_2 = 'TX'`;
+    const [otherland] = await c`select id from countries where alpha_2 = 'OX'`;
+    const shop = (await addOrganization({ name: "Shop", roles: ["retailer"], country: "Testonia" }))!;
+    expect(await getOrganization(shop.id)).toMatchObject({ country: "Testonia", countryId: testonia.id });
+    await updateOrganizationProfile(shop.id, { name: "Shop", roles: ["retailer"], country: "Otherland" });
+    expect(await getOrganization(shop.id)).toMatchObject({
+      country: "Otherland",
+      countryId: otherland.id,
+      countryRef: expect.objectContaining({ name: "Otherland" }),
+    });
+    await updateOrganizationProfile(shop.id, { name: "Shop", roles: ["retailer"], country: null });
+    expect(await getOrganization(shop.id)).toMatchObject({ country: null, countryId: null });
+  });
+
+  it("keeps an owner of paintings a museum or a gallery", async () => {
+    const { org } = await lumiere();
+    const roles = ["perfume_house", "production_company", "distribution_company"] as const;
+    expect(await failure(updateOrganizationProfile(org.id, { name: org.name, roles: [...roles] }))).toBe(
+      "This organization owns paintings; keep it a museum or a gallery",
+    );
+    // A gallery in place of the museum keeps it an institution
+    await updateOrganizationProfile(org.id, { name: org.name, roles: [...roles, "gallery"] });
+    expect((await getOrganization(org.id))!.roles).toContain("gallery");
+  });
+
+  it("narrows a house filter to one role, for an organization's role rows", async () => {
+    const guerlain = (await saveOrganization({ name: "Guerlain", roles: ["perfume_house", "brand"] }))!;
+    const own = await createPerfume({ title: "Shalimar", organizations: [{ organizationId: guerlain.id, role: "perfume_house" }] });
+    const branded = await createPerfume({ title: "Aqua", organizations: [{ organizationId: guerlain.id, role: "brand" }] });
+    const ids = async (params: Record<string, string>) => (await getPerfumes(perfumeQueryFromParams(params))).map((p) => p.id);
+    expect((await ids({ house: guerlain.id })).sort()).toEqual([own.id, branded.id].sort());
+    expect(await ids({ house: guerlain.id, houseRole: "perfume_house" })).toEqual([own.id]);
+    expect(await ids({ house: guerlain.id, houseRole: "brand" })).toEqual([branded.id]);
+    // An unknown role is ignored
+    expect((await ids({ house: guerlain.id, houseRole: "owner" })).length).toBe(2);
   });
 });
