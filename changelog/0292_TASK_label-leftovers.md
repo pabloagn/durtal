@@ -29,3 +29,12 @@ SLN-400 merged this morning (#35). A scan of main found no snake_case key or raw
 - `node scripts/qa/page-weight.js`: `/` 290 KB, `/library` 313 of 300 KB as on main.
 - `pnpm typecheck`, `pnpm lint` (0 errors), `python3 scripts/qa/test-local.py` (1,611 tests in 130 files, 0 skipped): pass.
 - SLN-402 (empty lists) needs nothing more: on main, `/reader` with no books shows only its empty state, and an empty search on `/library`, `/authors`, `/publishers`, `/places`, `/perfumes`, `/films`, `/paintings` and `/series` shows "No results" with Clear and no pagination.
+
+### Review fixes
+
+- Language names come from fixed tables, never from the runtime's `Intl`: the language list's labels, then `LANGUAGE_NAMES` (`src/lib/constants/language-names.ts`, 228 English names generated once from Node's `Intl`), then the code. Chrome's `Intl` has no name for `grc` or `ota`, Node's has, so the server rendered "Ancient Greek" and the browser hydrated to "grc". A test runs `languageName` with `Intl.DisplayNames` giving no names and expects the same results.
+- On a book card the language badge shrinks first and cuts off its name (`min-w-0 shrink-[999]`, the name in a `truncate` span); the status never does. "Norwegian Bokmål" had cut "Wanted" to "Wa…".
+- Browser check in Chrome, Firefox 157 and Safari, on a disposable copy where the first three books of the title-sorted list were given `grc`, `ota` and `nb` (the `nb` one Wanted):
+  - each book page shows "Ancient Greek", "Ottoman Turkish" and "Norwegian Bokmål" after hydration, and no page shows a bare code;
+  - the library grid at 3 and 4 columns, at 1440, 1024, 768 and 390px: the status ("Accessioned", "Wanted") is never cut and no card row overflows; the language name shows whole on a 327px card and cuts off on narrower ones; at 6 columns (the default) and at 390px the card is too narrow for the badge, as before.
+- `pnpm typecheck` clean, `pnpm lint` 0 errors, `pnpm test` and the full suite pass. Page weight: `/library` 313 of 300 KB, as on main (SLN-381).
