@@ -1,0 +1,73 @@
+# Durtal CI: lint, typecheck, the full test suite and a Docker image build.
+# The image is built to prove the Dockerfile works; it is not pushed anywhere,
+# because Durtal has no registry or remote host (docs/11_DEPLOYMENT.md).
+# No secrets are needed: tests use a disposable PostgreSQL container and the
+# production build reads no database credentials.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  test:
+    name: Tests (with database suites)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pnpm install --frozen-lockfile
+      # scripts/qa/test-local.py never pulls images itself.
+      - run: docker pull postgres:16
+      - run: pnpm test:local --report-dir "$RUNNER_TEMP/durtal-tests"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: ${{ runner.temp }}/durtal-tests
+          if-no-files-found: ignore
+
+  docker:
+    name: Docker image build
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: durtal:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -84,32 +84,19 @@ services:
 
 ## CI/CD Pipeline
 
+`.github/workflows/ci.yml` runs on every pull request, every push to `main` and every `v*` tag:
+
 ```
-GitHub (push to main)
+GitHub (pull request, push to main, v* tag)
   |
-  +---> GitHub Actions workflow:
-  |       1. Checkout code
-  |       2. Run linter (ESLint) + type check (tsc)
-  |       3. Run tests (Vitest)
-  |       4. Build Docker image
-  |       5. Tag with: latest, git SHA, semver (if tagged)
-  |       6. Push to self-hosted registry (registry.{DOMAIN})
-  |
-  +---> osmium.rh pulls new image (Watchtower or manual)
-          1. docker compose pull durtal
-          2. docker compose up -d durtal
-          3. Traefik auto-discovers new container
+  +---> lint     ESLint + type check (tsc)
+  +---> test     python3 scripts/qa/test-local.py: the Python book import tests
+  |              and every Vitest suite, including the database suites, against
+  |              a disposable postgres:16 container
+  +---> docker   Build the Docker image (after lint and test pass). Not pushed.
 ```
 
-### Registry Access from GitHub Actions
-
-The self-hosted Docker registry is behind Tailscale. Three options for CI access:
-
-| Option | Approach | Recommendation |
-|---|---|---|
-| **A** (recommended) | Tailscale GitHub Action — join the mesh during CI, push to internal registry directly | Keeps everything on the mesh. No public exposure. |
-| **B** | Expose registry on a separate Cloudflare tunnel with token-based auth for CI only | More complex, introduces a public endpoint. |
-| **C** | Push to GHCR (GitHub Container Registry) as intermediary; osmium.rh pulls from GHCR | Adds a third-party dependency but simplest to set up. |
+The workflow needs no secrets. Durtal runs only on the owner's Mac, so there is no registry to push to and no host to deploy. Add a push step (for example to GHCR) only when a remote host exists.
 
 ---
 
