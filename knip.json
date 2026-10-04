@@ -1,8 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/**/*.{ts,js,mjs}", "src/lib/db/backfill-slugs.ts"],
+  "entry": ["scripts/**/*.{ts,js,mjs}"],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,js,mjs}"],
-  "ignore": ["src/components/media/media-gallery.tsx", "src/lib/actions/places.ts"],
   "ignoreDependencies": [
     "@eslint/eslintrc",
     "eslint-config-next",

@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
@@ -35,7 +35,8 @@ import {
   updateTaxonomyItemSchema,
   mergeTaxonomyItemsSchema,
 } from "@/lib/validations/taxonomy-management";
-import { makeUnique, slugify } from "@/lib/utils/slugify";
+import { slugify } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { withReadableErrors } from "@/lib/db/errors";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { assertSql, resultRows, lockSql } from "@/lib/harmonization/store";
@@ -185,15 +186,7 @@ const FAMILY_NAME_TAKEN = "A taxonomy family with this name already exists";
 /** A custom family and the scopes it applies to, in one transaction. */
 export async function createTaxonomyFamily(input: CreateTaxonomyFamilyInput) {
   const { scopes, ...fields } = createTaxonomyFamilySchema.parse(input);
-  const base = slugify(fields.name) || "family";
-  const taken = await db
-    .select({ slug: taxonomyFamilies.slug })
-    .from(taxonomyFamilies)
-    .where(like(taxonomyFamilies.slug, `${base}%`));
-  const slug = makeUnique(
-    base,
-    taken.map((row) => row.slug),
-  );
+  const slug = await uniqueSlug(taxonomyFamilies, slugify(fields.name) || "family");
   const id = randomUUID();
   // The legacy level column follows the first book scope; scopes are the rule.
   const entityLevel =
