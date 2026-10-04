@@ -83,6 +83,9 @@ import {
 import { z } from "zod";
 import type { CreatePerfumeInput, PerfumeQuery } from "@/lib/validations/perfumes";
 import { STALE_RECORD } from "@/lib/catalogue/work-store";
+import { collectionExportRows } from "@/lib/export/collections";
+import { POST as exportCatalogue } from "@/app/api/export/route";
+import { NextRequest } from "next/server";
 
 /**
  * The message a caller sees. Database errors must arrive as their written
@@ -536,5 +539,38 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     expect(rows.map((r) => [r.table_name, r.column_name])).toEqual(
       [...CATALOGUE_DATE_REFERENCES].map(([t, col]) => [t, col]).sort((a, b) => a.join().localeCompare(b.join())),
     );
+  });
+
+  it("exports perfumes one row each, and leaves other kinds out", async () => {
+    const perfume = await fullPerfume();
+    const variant = await createPerfumeVariant({ workId: perfume.id, concentration: "eau_de_parfum" });
+    await addPerfumeBottle({ variantId: variant.id, container: "bottle", capacityValue: 100, volumeUnit: "ml" });
+    await c`insert into works(title) values ('A book about perfume')`;
+    const [row, ...more] = await collectionExportRows("perfumes", null);
+    expect(more).toHaveLength(0);
+    expect(row).toMatchObject({
+      title: "No 5",
+      houses: "Chanel",
+      manufacturers: "Chanel",
+      released: "1921",
+      concentrations: "Eau de Parfum",
+      top_notes: "bergamot",
+      heart_notes: "rose",
+      base_notes: "vanilla",
+      bottles: 1,
+      samples: 0,
+      favourite: "no",
+      description: "Aldehydic floral",
+    });
+    // The route names the file after the collection and refuses a closed one
+    const response = await exportCatalogue(
+      new NextRequest("http://localhost/api/export", {
+        method: "POST",
+        body: JSON.stringify({ entity: "perfumes", all: true, format: "csv" }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toMatch(/durtal-perfumes-all-/);
+    expect(await response.text()).toContain("No 5");
   });
 });
