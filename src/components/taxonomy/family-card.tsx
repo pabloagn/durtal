@@ -91,13 +91,13 @@ export function FamilyCard({ family }: FamilyCardProps) {
         <span className="font-mono text-micro text-fg-secondary">
           {family.itemCount} item{family.itemCount === 1 ? "" : "s"}
         </span>
-        <span className="text-fg-muted/30">|</span>
+        <span aria-hidden="true" className="h-3 w-px shrink-0 bg-glass-border" />
         <span className="font-mono text-micro text-fg-secondary">
           {family.entityCount} classified
         </span>
         {family.hierarchical && (
           <>
-            <span className="text-fg-muted/30">|</span>
+            <span aria-hidden="true" className="h-3 w-px shrink-0 bg-glass-border" />
             <span className="font-mono text-micro text-fg-secondary">
               hierarchical
             </span>
