@@ -242,9 +242,9 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "organization.comment_added":     () => [text("Left a comment")],
   "venue.comment_added":            () => [text("Left a comment")],
 
-  "author.created":                 () => [text("Created this author")],
-  "author.deleted":                 () => [text("Deleted this author")],
-  "author.merged":                  (m) => [text("Merged author "), label(m?.targetName ?? "")],
+  "author.created":                 () => [text("Added this person")],
+  "author.deleted":                 () => [text("Deleted this person")],
+  "author.merged":                  (m) => [text("Merged "), label(m?.targetName ?? "")],
   "author.name_changed":            (m) => fieldChanged("name", m),
   "author.birth_year_changed":      (m) => fieldChanged("birth year", m),
   "author.death_year_changed":      (m) => fieldChanged("death year", m),

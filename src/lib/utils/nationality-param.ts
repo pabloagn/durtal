@@ -1,5 +1,5 @@
 /**
- * Helpers for the `/authors?nationality=` URL param.
+ * Helpers for the `/people?nationality=` URL param.
  *
  * The param holds ISO 3166-1 alpha-2 codes joined by commas ("HU,FR").
  * Country display names cannot be used: most of them contain a comma
@@ -41,7 +41,7 @@ export function formatNationalityParam(codes: string[]): string {
 /** Build the authors list URL filtered to one or more nationalities. */
 export function nationalityFilterHref(codes: string | string[]): string {
   const list = Array.isArray(codes) ? codes : [codes];
-  return `/authors?nationality=${encodeURIComponent(formatNationalityParam(list))}`;
+  return `/people?nationality=${encodeURIComponent(formatNationalityParam(list))}`;
 }
 
 /**
@@ -55,7 +55,7 @@ export function withNationalityFilter(
   const next = new URLSearchParams(params.toString());
   next.set("nationality", code.toUpperCase());
   next.delete("page");
-  return `/authors?${next.toString()}`;
+  return `/people?${next.toString()}`;
 }
 
 /** Short display form of an official country name: "Hungary, Republic of" -> "Hungary". */

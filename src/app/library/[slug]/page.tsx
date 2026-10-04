@@ -438,7 +438,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                       {i > 0 && <span className="mr-1 text-fg-secondary">,</span>}
                       {author.slug ? (
                         <Link
-                          href={`/authors/${author.slug}`}
+                          href={`/people/${author.slug}`}
                           className="transition-colors hover:text-accent-rose-text"
                         >
                           {author.name}
@@ -665,7 +665,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
           <WorkCarousel
             title={`More by ${primaryAuthor.name}`}
             titleHref={
-              primaryAuthor.slug ? `/authors/${primaryAuthor.slug}` : undefined
+              primaryAuthor.slug ? `/people/${primaryAuthor.slug}` : undefined
             }
             works={relatedWorks}
           />

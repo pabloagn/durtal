@@ -63,8 +63,8 @@ describe.skipIf(!url)("search and lists across the collections", () => {
 
   it("keeps a book and a film of the same title apart, each at its own address", async () => {
     const novel = await book("Solaris", "Stanisław Lem");
-    const tarkovsky = (await createPerson({ name: "Andrei Tarkovsky", domains: ["film"], aliases: ["Андрей Тарковский"] })).id;
-    const film = await createFilm({ title: "Solaris", credits: [{ personId: tarkovsky, roleId: "film.director" }] });
+    const tarkovsky = await createPerson({ name: "Andrei Tarkovsky", domains: ["film"], aliases: ["Андрей Тарковский"] });
+    const film = await createFilm({ title: "Solaris", credits: [{ personId: tarkovsky.id, roleId: "film.director" }] });
 
     const { works, people } = await quickSearch("solaris");
     expect(works.map((w) => [w.kind, w.title, w.href, w.creators])).toEqual([
@@ -74,9 +74,9 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     // The director's name finds the film, not the novel
     expect((await quickSearch("tarkovsky")).works.map((w) => w.kind)).toEqual(["film"]);
     expect(people).toEqual([]);
-    // A director with no book opens the films list filtered to him
+    // A director with no book opens his person page (SLN-419)
     expect((await quickSearch("tarkovsky")).people).toEqual([
-      expect.objectContaining({ name: "Andrei Tarkovsky", href: `/films?director=${tarkovsky}`, roles: "Director" }),
+      expect.objectContaining({ name: "Andrei Tarkovsky", href: `/people/${tarkovsky.slug}`, roles: "Director" }),
     ]);
   });
 
@@ -162,7 +162,7 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     const [edition] = await c`insert into editions(work_id, title) values (${novel.id}, 'The Name of the Rose') returning id`;
     await c`insert into edition_contributors(edition_id, author_id, role, sort_order) values (${edition.id}, ${weaver.id}, 'translator', 0)`;
     expect((await quickSearch("weaver")).people).toEqual([
-      expect.objectContaining({ name: "William Weaver", href: "/authors/william-weaver", roles: "Translator" }),
+      expect.objectContaining({ name: "William Weaver", href: "/people/william-weaver", roles: "Translator" }),
     ]);
     expect((await quickSearch("umberto eco")).people).toEqual([
       expect.objectContaining({ name: "Umberto Eco", roles: "Writer" }),

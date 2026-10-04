@@ -6,6 +6,7 @@ import {
   ColumnConfigDialog,
   type ColumnDef,
 } from "@/components/books/column-config-dialog";
+import { withNewColumns } from "@/lib/utils/column-config";
 
 export interface ColumnConfig {
   key: string;
@@ -54,14 +55,16 @@ export function DataTable<T>({
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
   const [showConfig, setShowConfig] = useState(false);
 
+  // A saved choice picks up the columns added since it was saved
+  const allChosen = useMemo(() => withNewColumns(columns, allColumns), [columns, allColumns]);
   const visibleColumns = useMemo(
     () =>
-      columns
+      allChosen
         .filter((c) => c.visible)
         .sort((a, b) => a.order - b.order)
         .map((c) => allColumns.find((ac) => ac.key === c.key)!)
         .filter(Boolean),
-    [columns, allColumns],
+    [allChosen, allColumns],
   );
 
   const sortedItems = useMemo(() => {
@@ -175,7 +178,7 @@ export function DataTable<T>({
 
       {showConfig && (
         <ColumnConfigDialog
-          columns={columns}
+          columns={allChosen}
           allColumns={allColumns}
           onChange={onColumnsChange}
           onClose={() => setShowConfig(false)}

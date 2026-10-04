@@ -69,7 +69,7 @@ export function AuthorMergeDialog({
         triggerActivityRefresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to merge authors",
+          err instanceof Error ? err.message : "Could not merge the people",
         );
       }
     });
@@ -79,8 +79,8 @@ export function AuthorMergeDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Merge Authors"
-      description={`Select duplicate authors to merge into "${targetAuthorName}". Their books and contributions will be transferred here, and the duplicates will be deleted.`}
+      title="Merge people"
+      description={`Select duplicates to merge into "${targetAuthorName}". Their books and contributions will be transferred here, and the duplicates will be deleted.`}
     >
       <div className="space-y-4">
         {/* Selected sources → Target visual */}
@@ -135,7 +135,7 @@ export function AuthorMergeDialog({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search for duplicate authors..."
+          placeholder="Search for duplicates..."
           className="h-9 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
         />
 
@@ -158,7 +158,7 @@ export function AuthorMergeDialog({
                 ? "Type a name to search"
                 : isSearching
                   ? "Searching..."
-                  : "No authors found"}
+                  : "No people found"}
             </p>
           )}
         </div>
@@ -169,7 +169,7 @@ export function AuthorMergeDialog({
             This will transfer all books and edition contributions from{" "}
             {selectedSources.length === 1
               ? `"${selectedSources[0].name}"`
-              : `${selectedSources.length} authors`}{" "}
+              : `${selectedSources.length} people`}{" "}
             into &ldquo;{targetAuthorName}&rdquo;, then permanently delete the{" "}
             {selectedSources.length === 1 ? "duplicate" : "duplicates"}.
             This cannot be undone.
@@ -198,7 +198,7 @@ export function AuthorMergeDialog({
                 Merging
               </>
             ) : (
-              `Merge ${sourceIds.length > 0 ? sourceIds.length : ""} ${sourceIds.length === 1 ? "Author" : sourceIds.length > 1 ? "Authors" : ""}`.trim()
+              `Merge ${sourceIds.length > 0 ? sourceIds.length : ""} ${sourceIds.length === 1 ? "person" : sourceIds.length > 1 ? "people" : ""}`.trim()
             )}
           </Button>
         </div>

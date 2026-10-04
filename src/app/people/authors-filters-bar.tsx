@@ -13,6 +13,8 @@ import {
   type NationalityOption,
 } from "@/lib/utils/nationality-param";
 import { LIST_PREFERENCES } from "@/lib/preferences";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 /** Offered only while a search is active; it is then the default sort */
 const RELEVANCE_SORT = { value: "relevance", label: "Best match" };
@@ -28,6 +30,10 @@ const SORT_OPTIONS = [
 const AUTHOR_VIEW_MODES: ViewMode[] = LIST_PREFERENCES.authors.view.modes;
 
 interface AuthorsFiltersBarProps {
+  /** Collections people belong to, with how many people each */
+  collections: { kind: WorkKind; count: number }[];
+  /** Roles someone is credited with, with how many people each */
+  roles: { roleId: string; kind: WorkKind; label: string; count: number }[];
   nationalities: NationalityOption[];
   genders: string[];
   zodiacSigns: string[];
@@ -36,11 +42,13 @@ interface AuthorsFiltersBarProps {
 }
 
 /**
- * Search, sort, filter and view controls for /authors.
+ * Search, sort, filter and view controls for /people.
  * Rendered outside the results' Suspense boundary so it stays mounted (and
  * keeps focus) while results reload, and stays visible when nothing matches.
  */
 export function AuthorsFiltersBar({
+  collections,
+  roles,
   nationalities,
   genders,
   zodiacSigns,
@@ -62,6 +70,8 @@ export function AuthorsFiltersBar({
 
   // --- Active filter values from URL ---
   const activeFilters: Record<string, string[]> = {
+    collection: searchParams.get("collection")?.split(",").filter(Boolean) ?? [],
+    role: searchParams.get("role")?.split(",").filter(Boolean) ?? [],
     nationality: parseNationalityCodes(searchParams.get("nationality")) ?? [],
     gender: searchParams.get("gender")?.split(",").filter(Boolean) ?? [],
     zodiac: searchParams.get("zodiac")?.split(",").filter(Boolean) ?? [],
@@ -105,7 +115,33 @@ export function AuthorsFiltersBar({
     (o) => o.value === "__none__" || presentSigns.has(o.value),
   );
 
+  const count = (n: number) => n.toLocaleString("en-US");
   const filterGroups: AnyFilterGroup[] = [
+    ...(collections.length > 1
+      ? [
+          {
+            key: "collection",
+            label: "Collection",
+            options: collections.map((c) => ({
+              value: c.kind,
+              label: `${WORK_DOMAINS[c.kind].pluralLabel} · ${count(c.count)}`,
+            })),
+          } satisfies AnyFilterGroup,
+        ]
+      : []),
+    ...(roles.length > 0
+      ? [
+          {
+            key: "role",
+            label: "Role",
+            // "Films: Director · 12": a role's name alone can repeat across collections
+            options: roles.map((r) => ({
+              value: r.roleId,
+              label: `${WORK_DOMAINS[r.kind].pluralLabel}: ${r.label} · ${count(r.count)}`,
+            })),
+          } satisfies AnyFilterGroup,
+        ]
+      : []),
     {
       key: "nationality",
       label: "Nationality",
@@ -161,7 +197,7 @@ export function AuthorsFiltersBar({
               } else {
                 params.delete("birthYearMax");
               }
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
             },
           } satisfies AnyFilterGroup,
         ]
@@ -187,7 +223,7 @@ export function AuthorsFiltersBar({
               } else {
                 params.delete("deathYearMax");
               }
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
             },
           } satisfies AnyFilterGroup,
         ]
@@ -209,11 +245,13 @@ export function AuthorsFiltersBar({
     } else {
       params.delete(key);
     }
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
   }
 
   function handleClearAll() {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("collection");
+    params.delete("role");
     params.delete("nationality");
     params.delete("gender");
     params.delete("zodiac");
@@ -222,14 +260,14 @@ export function AuthorsFiltersBar({
     params.delete("birthYearMax");
     params.delete("deathYearMin");
     params.delete("deathYearMax");
-      router.push(firstPageHref("/authors", params));
+      router.push(firstPageHref("/people", params));
   }
 
   return (
     <EntityFilters
-      basePath="/authors"
+      basePath="/people"
       sortOptions={isSearching ? [RELEVANCE_SORT, ...SORT_OPTIONS] : SORT_OPTIONS}
-      searchPlaceholder="Search authors..."
+      searchPlaceholder="Search people..."
       defaultSort={isSearching ? "relevance" : "name"}
       defaultSortOrders={{ relevance: "desc", name: "asc", lastName: "asc", recent: "desc", birth: "asc", works: "desc" }}
       viewMode={viewMode}

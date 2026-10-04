@@ -273,7 +273,7 @@ export function AuthorTimeline({
 
   const handleClickAuthor = useCallback(
     (slug: string) => {
-      router.push(`/authors/${slug}`);
+      router.push(`/people/${slug}`);
     },
     [router],
   );
