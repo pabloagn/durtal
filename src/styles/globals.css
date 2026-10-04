@@ -44,10 +44,10 @@
      dimmed view of what lies behind, a hairline edge and a light from above.
      The tint and the dimming keep fg-secondary text at 4.5:1 or more, also
      over a white cover. */
-  --color-glass-tint: rgba(10, 13, 16, 0.84);
+  --color-glass-tint: rgba(10, 13, 16, 0.88);
   --color-glass-edge: rgba(193, 198, 196, 0.1);
   --color-glass-edge-lit: rgba(222, 226, 224, 0.07);
-  --color-glass-sheen: rgba(222, 226, 224, 0.03);
+  --color-glass-sheen: rgba(222, 226, 224, 0.02);
   /* What lies behind a dialog or the command palette */
   --color-glass-veil: rgba(3, 5, 7, 0.62);
 
@@ -209,8 +209,8 @@ dialog::backdrop {
     background:
       linear-gradient(180deg, var(--color-glass-sheen), transparent 56px),
       var(--color-glass-tint);
-    backdrop-filter: blur(24px) saturate(1.5) brightness(0.45);
-    -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.45);
+    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
     box-shadow:
       inset 0 0 0 1px var(--color-glass-edge),
       inset 0 1px 0 0 var(--color-glass-edge-lit);
@@ -229,8 +229,8 @@ dialog::backdrop {
     z-index: -1;
     pointer-events: none;
     background: var(--color-glass-tint);
-    backdrop-filter: blur(24px) saturate(1.5) brightness(0.45);
-    -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.45);
+    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
   }
 }
 

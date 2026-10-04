@@ -154,14 +154,14 @@ One glass material, for surfaces that float above the page. Subtle and controlle
 
 | Layer | Value |
 |---|---|
-| Tint | `--color-glass-tint`: `bg-secondary` at 84% |
-| What lies behind | blurred 24px, saturation 150%, brightness 45% |
-| Light from above | `--color-glass-sheen`: a 3% white wash over the top 56px |
+| Tint | `--color-glass-tint`: `bg-secondary` at 88% |
+| What lies behind | blurred 24px, saturation 150%, brightness 30% |
+| Light from above | `--color-glass-sheen`: a 2% white wash over the top 56px |
 | Edge | a 1px hairline (`--color-glass-edge`, 10%), its top line lit (`--color-glass-edge-lit`) |
 | Corners | 4px (`--radius-md`) |
 | Depth | three soft shadows: 1px contact, 32px float, 64px ambient |
 
-The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over any image, a white cover included.
+The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over any image: 4.64:1 at the lit top edge over pure white, measured on the screen. `design-audit.js` cannot see through glass, so check text on a glass surface by its pixels.
 
 **Where it goes:**
 

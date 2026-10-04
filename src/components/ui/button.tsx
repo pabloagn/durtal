@@ -12,7 +12,7 @@ const variantStyles: Record<Variant, string> = {
   primary:
     "bg-accent-rose/90 text-fg-primary border border-accent-rose/40 shadow-[inset_0_1px_0_rgba(193,198,196,0.08),0_1px_3px_rgba(0,0,0,0.3)] hover:bg-accent-rose hover:shadow-[inset_0_1px_0_rgba(193,198,196,0.12),0_2px_8px_rgba(125,61,82,0.25)] active:bg-accent-rose/80 active:shadow-none",
   secondary:
-    "border border-glass-border bg-glass-highlight text-fg-primary backdrop-blur-sm hover:bg-bg-tertiary/60 hover:border-fg-muted/10 active:bg-bg-tertiary/80",
+    "border border-glass-border bg-glass-highlight text-fg-primary hover:bg-bg-tertiary/60 hover:border-fg-muted/10 active:bg-bg-tertiary/80",
   ghost:
     "text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary active:bg-bg-tertiary/80",
   danger:
