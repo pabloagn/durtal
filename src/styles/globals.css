@@ -371,20 +371,29 @@ dialog::backdrop {
    height. `--mosaic-per-row` pictures of the list's usual proportions
    (`--mosaic-aspect`) make a full row, 1px under so rounding never pushes
    the last one down; a row is never under 150px tall. */
+/* The mosaic's width as a length. Safari reads a container unit inside
+   tan() and atan2() as 0; a registered property turns 100cqw into px first */
+@property --mosaic-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 @utility mosaic {
   --mosaic-gap: 4px;
+  --mosaic-width: 100cqw;
   /* Pictures of the reference proportions per full row: --mosaic-per-row, or
      fewer where they would be under 150px tall. tan(atan2(a, b)) is a / b as
      a number: how many 150px-tall pictures fit the width */
   --mosaic-count: min(
     var(--mosaic-per-row),
-    max(1, round(down, tan(atan2(100cqw + var(--mosaic-gap), 150px * var(--mosaic-aspect) + var(--mosaic-gap))), 1))
+    max(1, round(down, tan(atan2(var(--mosaic-width) + var(--mosaic-gap), 150px * var(--mosaic-aspect) + var(--mosaic-gap))), 1))
   );
   /* The height at which that many fill the row exactly, so a full row hardly
      grows and the last row has its height. 0.1px a picture spare keeps
      rounding from wrapping a row early */
   --mosaic-row: calc(
-    ((100cqw - (var(--mosaic-count) - 1) * var(--mosaic-gap)) / var(--mosaic-count) - 0.1px) / var(--mosaic-aspect)
+    ((var(--mosaic-width) - (var(--mosaic-count) - 1) * var(--mosaic-gap)) / var(--mosaic-count) - 0.1px) / var(--mosaic-aspect)
   );
   display: flex;
   flex-wrap: wrap;
