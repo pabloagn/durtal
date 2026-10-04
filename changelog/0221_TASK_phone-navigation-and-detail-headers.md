@@ -16,8 +16,9 @@ This finishes the WIP commit 4824b44 (2026-09-28) from Controller's handover, re
 
 ## Implementation Details
 - `src/components/layout/mobile-nav-bar.tsx` (new): a fixed 48px glass bar below `md` with the menu button, the name and search (opens the command palette). Both buttons are 44px, with `aria-label` and a tooltip, on the name's cap-height center (`CapAligned`).
-- `src/components/layout/shell.tsx`: `main` has no left margin below `md` (`md:ml-(--sidebar-w)`), 48px top padding for the bar, and a 16px gutter (24px from `md`). The drawer state lives here. While the drawer is open, `main` and the bar are `inert`, the page does not scroll, Escape and the backdrop close it, and focus goes back to the menu button. A route change or a screen wider than `md` closes it. The 800px compact rail is unchanged.
+- `src/components/layout/shell.tsx`: `main` has no left margin below `md` (`md:ml-(--sidebar-w)`), 48px top padding for the bar, and a 16px gutter (24px from `md`). The drawer state lives here. While the drawer is open, `main` and the bar are `inert`, the page does not scroll (see the scroll lock below), Escape and the backdrop close it, and focus goes back to the menu button. A route change or a screen wider than `md` closes it. The 800px compact rail is unchanged.
 - `src/components/layout/sidebar.tsx`: one sidebar for both. Below `md` it is a 256px drawer (at most 85vw) that slides in from the left, with labels, a close button and 46px rows. It shows at once when it opens, so it can take focus, and hides after it slides out. From `md` up the classes are the old ones behind `md:` variants, so the server renders the right layout before the screen width is known. Rail names and tooltips apply only to the rail, not the drawer. The resize handle exists from `md` up. The section list scrolls (`overflow-y-auto`, `overscroll-contain`): with Books, Films, Perfumes and Paintings all on it holds 17 sections.
+- `src/lib/utils/scroll-lock.ts` (new): `lockPageScroll(root)` sets `overflow: hidden` and `scrollbar-gutter: stable` on `html` and returns a function that puts the earlier inline styles back. The lock must be on `html`: globals.css keeps `overflow-y: scroll` there, so `html` scrolls the page and a lock on `body` does nothing. The scroll position stays. Tested in `src/__tests__/utils/scroll-lock.test.ts`.
 - Detail headers: work (`src/app/library/[slug]/page.tsx`) and author (`author-detail-header.tsx`) put the poster above the text below `sm`. On the work page the actions wrap below a long title below `sm`; the title gets `min-w-0 break-words`, as on the place page.
 - `src/styles/globals.css`: below `md`, `html` has `scroll-padding-top: 3rem`, so anchors and `scrollIntoView` (pagination, edition links) stop below the bar instead of under it.
 - Backdrops that bleed to the edges of `main` (work, author, collection pages) use `-mx-4 md:-mx-6` and `px-4 md:px-6`, to match the new gutter.
@@ -38,10 +39,23 @@ After: `scripts/qa/preview-local.py` (throwaway database, synthetic catalogue pl
 
 - Pages: `/`, `/library`, two work pages, `/library/new`, `/authors`, two author pages, `/publishers`, `/recommenders`, `/series`, `/places`, a place, `/provenance`, `/locations`, `/collections`, a collection, `/taxonomy`, `/harmonize`, `/settings`, `/reader`.
 - Desktop: at 1440px `main` starts at 224px with a 24px gutter and the sidebar is 224px; at 768px both are 56px, as before.
-- Drawer at 375x667: 256px wide, focus on Close, `main` and the bar inert, page scroll locked, labels on every row, no rail tooltips, 0 alignment issues (24 rows) and 0px overflow while open. Escape closes it and focus returns to the menu button. A link closes it and navigates. With all four collections switched on (a local edit, not committed) the list holds 17 sections, scrolls (830px of content in 514px) and the last one, Settings, is reachable; 0 alignment issues (27 rows).
+- Drawer at 375x667: 256px wide, focus on Close, `main` and the bar inert, labels on every row, no rail tooltips, 0 alignment issues (24 rows) and 0px overflow while open. Escape closes it and focus returns to the menu button. A link closes it and navigates. With all four collections switched on (a local edit, not committed) the list holds 17 sections, scrolls (830px of content in 514px) and the last one, Settings, is reachable; 0 alignment issues (27 rows).
 - Phone dialogs at 375x667: the command palette is 16-359px wide with the input focused; the work action menu is in the screen (32-212px); the Edit Work dialog is 375px wide, scrolls, and Cancel and Save Changes are on screen.
 - `node scripts/qa/phone-audit.mjs --base http://127.0.0.1:3421`: 14 routes x 2 widths, all 0px; exit 0.
 - Left as they were: the design audit counts 1 nested control on work and author pages ("Export" inside "Export", the export menu trigger; PR #4, SLN-391, makes menu triggers real buttons) and 3-7 low-contrast decorative glyphs on `/harmonize` (fg-muted "/", "01"). Neither is in a file this task changes.
 - The action menu opens downward in the page flow; near the bottom of a short screen the page scrolls to it.
 - Anchors: at 375px a heading scrolled into view stops at 48px, the bottom of the bar (`scroll-padding-top` 48px); at 1440px it is `auto` and the heading stops at the top, as before.
-- `pnpm typecheck` and `pnpm lint` pass (0 warnings). `python3 scripts/qa/test-local.py`: 108 files, 1488 tests pass.
+- Scroll lock (found by the pre-merge review of PR #11): the first version set `overflow: hidden` on `body`, and the page still scrolled behind the drawer. Headless Chrome at 375x667 on a work page scrolled to 400px, wheel and finger swipe over the backdrop, then over the section list, then Escape:
+
+| Step | Before (lock on `body`) | After (lock on `html`) |
+|---|---|---|
+| Drawer opened | 400 | 400 |
+| Wheel over the backdrop | 1000 | 400 |
+| Swipe over the backdrop | 1156.5 (end of the page) | 400 |
+| Wheel and swipe over the section list | 1156.5; list at 172 | 400; list at 172 |
+| Escape | 1156.5 | 400; `html` inline styles empty again |
+| Wheel after closing | — | 700 (the page scrolls again) |
+
+- At 1440px there is no drawer: `html` has no inline style and a wheel scrolls the page (0 to 300px), as before.
+- After the fix, 8 pages (`/`, `/library`, a work, `/authors`, an author, a place, `/collections`, `/settings`) at 375, 390, 700, 768 and 1440px: 0px overflow, 0 alignment issues (0-28 rows), 0 low contrast, 0 unnamed controls. The drawer, the palette, the action menu and the Edit Work dialog checks give the same results as above.
+- `pnpm typecheck` and `pnpm lint` pass (0 warnings). `pnpm test`: 1100 pass, 391 database tests skipped. `python3 scripts/qa/test-local.py`: 109 files, 1491 tests pass (3 new for the scroll lock).
