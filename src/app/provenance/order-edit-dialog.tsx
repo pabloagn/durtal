@@ -26,6 +26,8 @@ import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 interface OrderData {
   id: string;
   workId: string;
+  /** A film, perfume or painting order keeps the target it was placed for */
+  work?: { kind?: string | null };
   editionId?: string | null;
   acquisitionTargetId?: string | null;
   acquisitionMethod: AcquisitionMethod;
@@ -76,6 +78,7 @@ export function OrderEditDialog({
     acquisitionTargetId: order.acquisitionTargetId ?? "",
     editionId: order.editionId ?? "",
   });
+  const isBook = !order.work?.kind || order.work.kind === "book";
   const [method, setMethod] = useState(order.acquisitionMethod);
   const [orderDate, setOrderDate] = useState(order.orderDate);
   const [orderConfirmation, setOrderConfirmation] = useState(
@@ -132,8 +135,12 @@ export function OrderEditDialog({
       try {
         await updateOrder(order.id, {
           acquisitionMethod: method,
-          acquisitionTargetId: targetValue.acquisitionTargetId || null,
-          editionId: targetValue.editionId || null,
+          ...(isBook
+            ? {
+                acquisitionTargetId: targetValue.acquisitionTargetId || null,
+                editionId: targetValue.editionId || null,
+              }
+            : {}),
           orderDate,
           orderConfirmation: showShipping ? orderConfirmation || null : null,
           orderUrl: showShipping ? orderUrl || null : null,
@@ -168,11 +175,13 @@ export function OrderEditDialog({
       className="max-w-2xl"
     >
       <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-        <OrderTargetFields
-          workId={order.workId}
-          value={targetValue}
-          onChange={setTargetValue}
-        />
+        {isBook && (
+          <OrderTargetFields
+            workId={order.workId}
+            value={targetValue}
+            onChange={setTargetValue}
+          />
+        )}
         <Select
           label="Acquisition Method"
           options={ACQUISITION_METHOD_OPTIONS}

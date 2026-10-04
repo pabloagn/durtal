@@ -24,6 +24,8 @@ import {
 } from "@/components/perfumes/formulations-section";
 import { BottlesSection, type BottleView } from "@/components/perfumes/bottles-section";
 import { RetailersSection } from "@/components/perfumes/retailers-section";
+import { WantedSection } from "@/components/catalogue/wanted-section";
+import { getTypedTargets } from "@/lib/actions/acquisitions";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
@@ -100,7 +102,7 @@ export default async function PerfumePage({
   const perfume = await loadPerfume(slug);
   if (!perfume) notFound();
   const owner = { kind: "perfume" as const, id: perfume.id };
-  const [media, curation, provenance, related, families, notesFamily, allLocations, links] =
+  const [media, curation, provenance, related, families, notesFamily, allLocations, links, wanted] =
     await Promise.all([
       getMediaForWork(perfume.id),
       getWorkCuration(owner),
@@ -110,6 +112,7 @@ export default async function PerfumePage({
       getTaxonomyFamily("perfume-notes"),
       getLocations(),
       getWorkRelations(perfume.id),
+      getTypedTargets(perfume.id),
     ]);
 
   const base = `/perfumes/${perfume.slug ?? perfume.id}`;
@@ -591,6 +594,14 @@ export default async function PerfumePage({
         summary={heldSummary}
         formulations={formulationChoices}
         locations={locations}
+      />
+
+      <WantedSection
+        workId={perfume.id}
+        title={perfume.title}
+        targets={wanted}
+        choices={{ kind: "perfume", formulations: formulationChoices }}
+        locations={{ physical: locations, digital: [] }}
       />
 
       <RetailersSection

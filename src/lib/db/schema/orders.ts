@@ -6,7 +6,10 @@ import {
   date,
   timestamp,
   index,
+  uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { acquisitionTargets } from "./publisher-links";
 import { works } from "./works";
@@ -17,6 +20,9 @@ import { places } from "./places";
 import { locations, subLocations } from "./locations";
 import { orderStatusEnum, acquisitionMethodEnum } from "./enums";
 import { orderStatusHistory } from "./order-status-history";
+import { filmHoldings } from "./films";
+import { perfumeBottles } from "./perfumes";
+import { artObjects } from "./paintings";
 
 export const orders = pgTable(
   "orders",
@@ -33,6 +39,18 @@ export const orders = pgTable(
       onDelete: "set null",
     }),
     instanceId: uuid("instance_id").references(() => instances.id, {
+      onDelete: "set null",
+    }),
+    // What a received film, perfume or painting order became (SLN-374): set
+    // once, at receipt, in the same write as the status
+    filmHoldingId: uuid("film_holding_id").references(() => filmHoldings.id, {
+      onDelete: "set null",
+    }),
+    perfumeBottleId: uuid("perfume_bottle_id").references(
+      () => perfumeBottles.id,
+      { onDelete: "set null" },
+    ),
+    artObjectId: uuid("art_object_id").references(() => artObjects.id, {
       onDelete: "set null",
     }),
     venueId: uuid("venue_id").references(() => venues.id, {
@@ -84,6 +102,14 @@ export const orders = pgTable(
     index("orders_work_id_idx").on(t.workId),
     index("orders_status_idx").on(t.status),
     index("orders_created_at_idx").on(t.createdAt),
+    // A holding comes from one order at most
+    uniqueIndex("orders_film_holding_unique").on(t.filmHoldingId),
+    uniqueIndex("orders_perfume_bottle_unique").on(t.perfumeBottleId),
+    uniqueIndex("orders_art_object_unique").on(t.artObjectId),
+    check(
+      "orders_received_item_check",
+      sql`num_nonnulls(${t.instanceId}, ${t.filmHoldingId}, ${t.perfumeBottleId}, ${t.artObjectId}) <= 1`,
+    ),
   ],
 );
 

@@ -123,6 +123,19 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     for (const row of projected.venues) {
       if ("archived_at" in row) { expect(row.archived_at).toBeNull(); delete row.archived_at; }
     }
+    // 0059 (SLN-374): typed target columns and received-item links start empty
+    for (const row of projected.acquisition_targets ?? [])
+      for (const column of ["perfume_variant_id", "perfume_container", "perfume_capacity_value", "perfume_volume_unit", "film_version_id", "film_release_id", "film_medium", "film_format_label", "art_object_id", "art_reproduces_object_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
+    for (const row of projected.orders ?? [])
+      for (const column of ["film_holding_id", "perfume_bottle_id", "art_object_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
     // 0052 adds the one settings row with today's defaults. This catalogue has
     // no Amsterdam or Mexico City, so new copies get no default location.
     if (projected.app_settings)

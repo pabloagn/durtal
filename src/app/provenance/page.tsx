@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { workHref } from "@/lib/catalogue/work-href";
 import { redirect } from "next/navigation";
 import { parsePagination, lastPage, pageHref, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
@@ -90,7 +91,7 @@ async function OrderHistory({ params }: { params: ListSearchParams }) {
   return <section className="mt-10">
     <SectionHeading title="Acquisition history" />
     <PaginatedSection page={page} perPage={perPage} total={total} noun="orders">
-      <div className="space-y-2">{orders.map((order) => <Link key={order.id} href={`/library/${order.work.slug}`} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-glass-border p-3 hover:bg-bg-secondary">
+      <div className="space-y-2">{orders.map((order) => <Link key={order.id} href={workHref(order.work)} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-glass-border p-3 hover:bg-bg-secondary">
         <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-secondary">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>
         <span className="font-mono text-xs text-fg-secondary">{order.orderDate} · {order.status.replace(/_/g, " ")}{order.venue ? ` · ${order.venue.name}` : ""}</span>
       </Link>)}</div>

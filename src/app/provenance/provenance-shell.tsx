@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { workHref } from "@/lib/catalogue/work-href";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -68,6 +69,7 @@ interface OrderWork {
   id: string;
   title: string;
   slug: string;
+  kind?: string | null;
   workAuthors: Array<{ author: { id: string; name: string } }>;
   media: MediaItem[];
 }
@@ -664,7 +666,7 @@ function OrderDetailPanel({
             </div>
             <div className="min-w-0">
               <Link
-                href={`/library/${order.work.slug}`}
+                href={workHref(order.work)}
                 className="type-item-title transition-colors hover:text-accent-gold"
               >
                 {order.work.title}
@@ -830,7 +832,7 @@ function OrderDetailPanel({
               </a>
             )}
             <Link
-              href={`/library/${order.work.slug}`}
+              href={workHref(order.work)}
               className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
             >
               <BookOpen className="h-3 w-3" strokeWidth={1.5} />
