@@ -416,5 +416,12 @@ the page each has today. The collection lists already filtered and sorted in
 SQL before paging, with the work id as the last tie breaker and counts on the
 same predicate; tests now pin that for every film sort.
 
+Domain harmonization (SLN-373, task 0276): the scan flags two films, perfumes
+or paintings of one title by one maker, never a remake or a linked work, and a
+merge joins two works of one kind with their profiles, versions, copies,
+formulations, listings and objects. Colliding identities block it with what to
+fix first. Migration 0059 for now; it regenerates after the open migrations
+land.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

@@ -35,7 +35,7 @@
 /taxonomy                   Taxonomy family index
 /taxonomy/[familySlug]      Items in one taxonomy family
 /taxonomy/[familySlug]/[itemSlug]  Works and editions linked to one item
-/harmonize                  Library-wide data harmonization
+/harmonize                  Library-wide data harmonization; duplicate films, perfumes and paintings merge within their kind
 /settings                   Settings: General (defaults for new records)
 /settings/display           Settings: lists, sidebar (this browser)
 /settings/reader            Settings: reader typography (this browser)
