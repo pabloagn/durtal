@@ -302,8 +302,10 @@ dialog::backdrop {
     background:
       linear-gradient(180deg, var(--color-glass-sheen), transparent 56px),
       var(--color-glass-tint);
-    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
+    /* The prefixed line first: after the standard one, Lightning CSS reads it
+       as an override and drops the standard line, and Chrome has no blur */
     -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
+    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
     box-shadow:
       inset 0 0 0 1px var(--color-glass-edge),
       inset 0 1px 0 0 var(--color-glass-edge-lit);
@@ -322,8 +324,8 @@ dialog::backdrop {
     z-index: -1;
     pointer-events: none;
     background: var(--color-glass-tint);
-    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
     -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
+    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
   }
 }
 
@@ -344,8 +346,8 @@ dialog::backdrop {
   background:
     linear-gradient(180deg, var(--glass-chip-sheen, var(--color-glass-chip-sheen)), transparent 35%),
     var(--color-glass-chip-tint);
-  backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
   -webkit-backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
+  backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
   box-shadow:
     inset 0 1px 0 0 var(--color-glass-chip-lit),
     0 1px 3px rgba(3, 5, 7, 0.45);
@@ -360,8 +362,8 @@ dialog::backdrop {
    on an overlay element. */
 @utility glass-veil {
   background: var(--color-glass-veil);
-  backdrop-filter: blur(6px) saturate(1.2);
   -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  backdrop-filter: blur(6px) saturate(1.2);
 }
 
 /* Mosaic (`<Mosaic>`, src/components/shared/mosaic.tsx): pictures only, in
