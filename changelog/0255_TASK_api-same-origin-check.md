@@ -25,6 +25,14 @@ call them: upload, delete or export through his session on :3100.
 - Every API route gets the check, the token routes too. The tokens still
   apply on top, so no legitimate caller sees a change.
 - `docs/05_API_REFERENCE.md` has a Same-origin check section.
+- Upload size. When the proxy runs on a route, Next.js passes the route only
+  the first 10 MB of the body by default, so uploads over 10 MB failed ("The
+  image did not arrive intact"; a comment attachment answered 500).
+  `next.config.ts` sets `experimental.proxyClientMaxBodySize` to `"55mb"`: the
+  largest upload is a 50 MB image (`MAX_MEDIA_SIZE_BYTES`), attachments allow
+  25 MB. `scripts/qa/upload-size-check.mjs` sends 9, 12 and 49 MB uploads to
+  `/api/media/upload` without an owner: the route reads the whole body and
+  refuses it, so nothing is stored.
 - `src/__tests__/api/same-origin.test.ts` covers the helper and the proxy.
 
 ## Completion Notes
