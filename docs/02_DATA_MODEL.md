@@ -2196,9 +2196,11 @@ Tracks reading position, bookmarks, and per-book reader settings. One record per
 
 **Relations**: `calibreBook` (N:1 -> `calibre_books`)
 
-`reading_progress` stays the e-book reader's file position. A read-through,
-with its dates, sessions and rating, is a `readings` row (below); sub-issue 10
-of the reading tracker feeds reader sessions into it.
+`reading_progress` stays the e-book reader's own position, owned by the reader
+epic: the reader keeps where it is in a file. Readings alone hold read status,
+dates and ratings: a read-through, with its dates, sessions and rating, is a
+`readings` row (below); sub-issue 10 of the reading tracker feeds reader
+sessions into it.
 
 ## Reading tracker (SLN-444)
 
