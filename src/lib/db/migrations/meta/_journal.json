@@ -372,6 +372,13 @@
       "when": 1791058969457,
       "tag": "0052_app_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1791068080974,
+      "tag": "0053_open_perfumes",
+      "breakpoints": true
     }
   ]
 }

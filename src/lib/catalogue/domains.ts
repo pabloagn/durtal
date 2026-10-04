@@ -31,9 +31,10 @@ interface WorkDomain {
 }
 
 /**
- * New domains stay disabled until their data model, book isolation and complete
- * workflows pass their release gates (SLN-347, SLN-382). Keep the database
- * works_kind_enabled_check in sync through a reviewed activation migration.
+ * A domain opens once its data model, book isolation and complete workflows
+ * pass their release gates (SLN-347, SLN-382). Perfumes are open; films and
+ * paintings are not yet. Keep the database works_kind_enabled_check in sync
+ * through a reviewed activation migration.
  */
 export const WORK_DOMAINS = {
   book: {
@@ -81,7 +82,7 @@ export const WORK_DOMAINS = {
     pluralLabel: "Perfumes",
     basePath: "/perfumes",
     keys: { go: "e", add: "e" },
-    enabled: false,
+    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,
