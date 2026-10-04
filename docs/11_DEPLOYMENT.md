@@ -227,7 +227,7 @@ DURTAL_GOOGLE_BOOKS_API_KEY=xxx
 
 **Database.** Before every live migration, `pg_dump --format=custom` with pg_dump 16 into `~/personal/durtal-backups/live-before-<what>-<timestamp>.dump`. A backup counts as verified once it restores strictly: `python3 scripts/qa/preview-local.py --from-dump FILE` restores it with `pg_restore --exit-on-error` into a disposable PostgreSQL, applies the pending migrations and prints the tables whose rows changed.
 
-**Files (S3).** Checked 2026-10-04 (task 0267): every key the newest backup names (3,274) exists in the bucket (3,374 objects, 468 MB). No copy of the bucket exists, and the app's IAM user cannot read its versioning, replication or lifecycle settings, so whether deleted or overwritten files can be recovered is unknown.
+**Files (S3).** Checked 2026-10-04 (task 0267): every key the newest backup names (3,274) exists in the bucket (3,374 objects, 468 MB). The app's IAM user cannot read the bucket's versioning, replication or lifecycle settings, so the bucket itself may not keep deleted or overwritten files. A read-only copy of the whole bucket is in `~/personal/durtal-backups/s3-20261004/`, with `MANIFEST.json` (every key, size and ETag); every file matched its size and MD5 when copied. Refresh it the same way before a destructive change.
 
 **Checking a build against a backup.** `pnpm build`, then `python3 scripts/qa/preview-local.py --start --from-dump FILE` serves the standalone build as the Docker image does (`server.js` with its static files) against a disposable restore of the backup.
 
