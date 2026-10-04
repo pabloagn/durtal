@@ -196,7 +196,8 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
         groups={groups}
         activeFilters={Object.fromEntries(
           ["house", "houseRole", "perfumer", "family", "accord", "note", "concentration", "holding", "container", "favourite"].map(
-            (key) => [key, list(key)],
+            // A house role counts only with a house: alone it filters nothing
+            (key) => [key, key === "houseRole" && !list("house").length ? [] : list(key)],
           ),
         )}
         onFilterChange={handleFilterChange}
