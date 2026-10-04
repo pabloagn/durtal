@@ -195,7 +195,7 @@ function ListingForm({
   onDone: () => void;
 }) {
   const router = useRouter();
-  const retailers = useOrganizationSearch("retailer");
+  const retailers = useOrganizationSearch("retailer", ["retailer"]);
   const [retailer, setRetailer] = useState<{ id: string; label: string } | null>(null);
   const [variantId, setVariantId] = useState("");
   const [url, setUrl] = useState("");

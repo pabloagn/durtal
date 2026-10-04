@@ -8,6 +8,7 @@ import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
 import { CoverFan, TitleCard } from "@/components/shared/no-photo";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { collectionCountLabel } from "@/lib/collections/counts";
 import { CollectionCard, collectionPoster, type CollectionCardData } from "./collection-card";
 
 const VIEW = LIST_PREFERENCES.collections.view;
@@ -63,7 +64,7 @@ export function CollectionsView({
             key: collection.id,
             href: `/collections/${collection.id}`,
             title: collection.name,
-            subtitle: collection.editionCount === 1 ? "1 book" : `${collection.editionCount} books`,
+            subtitle: collectionCountLabel(collection),
             aspect: 2 / 3,
             media: (
               <MosaicImage

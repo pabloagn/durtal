@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { collectionCounts } from "@/lib/collections/counts";
 import {
   parsePagination,
   lastPage,
@@ -60,7 +61,7 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
         collections={collections.map((collection) => ({
           collection: {
             ...collection,
-            editionCount: collection.collectionEditions?.length ?? 0,
+            ...collectionCounts(collection),
           },
           covers: previews
             .filter((p) => p.collectionId === collection.id)

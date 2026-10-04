@@ -908,6 +908,29 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 
 **PK**: `(collection_id, edition_id)`
 
+### `collection_works`
+
+Whole works in a collection (SLN-362, migration `0059_collection_works`): a
+film, perfume or painting, or a book collected with no edition chosen. No
+placeholder edition is ever made.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `collection_id` | UUID | FK → `collections.id`, CASCADE |
+| `work_id` | UUID | FK → `works.id`, CASCADE |
+| `sort_order` | INTEGER | NOT NULL, default `0` |
+| `added_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+**PK**: `(collection_id, work_id)`. Index on `work_id`.
+
+A collection has one order across both member tables: `sort_order` runs over
+editions and whole works together, and ties go by `added_at`
+(`shownMembers`, `src/lib/collections/members.ts`). A book can be in a
+collection as a whole book and through editions; the page then shows its
+editions (the edition choice stays) and counts the book once
+(`collectionCounts`, `src/lib/collections/counts.ts`). Removing the last such
+edition shows the whole book again. Existing edition members are unchanged.
+
 ### `work_categories`
 
 | Column | Type |
@@ -1920,6 +1943,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `tags` | `edition_tags` | CASCADE |
 | `collections` | `collection_editions` | CASCADE |
 | `editions` | `collection_editions` | CASCADE |
+| `collections` | `collection_works` | CASCADE |
+| `works` | `collection_works` | CASCADE |
 | `works` | `media` | CASCADE |
 | `authors` | `media` | CASCADE |
 | `locations` | `sub_locations` | CASCADE |

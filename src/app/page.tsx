@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { collectionCounts } from "@/lib/collections/counts";
 import Link from "next/link";
 import {
   BookOpen,
@@ -300,7 +301,7 @@ async function DashboardContent() {
                 key={collection.id}
                 collection={{
                   ...collection,
-                  editionCount: collection.collectionEditions?.length ?? 0,
+                  ...collectionCounts(collection),
                 }}
                 covers={covers
                   .filter((preview) => preview.collectionId === collection.id)

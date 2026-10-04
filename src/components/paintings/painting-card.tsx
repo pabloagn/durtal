@@ -96,10 +96,10 @@ export function PaintingCard({
             <span
               role="img"
               aria-label={`In the collection: ${ownedText(owned)}`}
-              className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE.sage} gap-0.5`}
+              className={`${COVER_CHIP} ${COVER_CHIP_TEXT} gap-0.5 text-fg-primary`}
               data-tooltip={`In the collection: ${ownedText(owned)}`}
             >
-              <Frame className={COVER_CHIP_ICON} strokeWidth={1.5} />
+              <Frame className={`${COVER_CHIP_ICON} ${COVER_CHIP_TONE.sage}`} strokeWidth={1.5} />
               {owned}
             </span>
           </div>
