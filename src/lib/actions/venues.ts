@@ -24,6 +24,15 @@ function venueWhere({ search, filters }: z.output<typeof venueSearchSchema>) {
     filters?.types?.length ? inArray(venues.type, filters.types) : undefined,
     filters?.favorite !== undefined ? eq(venues.isFavorite, filters.favorite) : undefined,
     filters?.organizationId ? sql`exists(select 1 from organization_venues ov where ov.venue_id=${venues.id} and ov.organization_id=${filters.organizationId}::uuid)` : undefined,
+    // A venue is in a country when its place, or a place above it, is
+    filters?.countryIds?.length
+      ? sql`exists(with recursive up as (
+          select p.parent_id, p.country_id, 0 as depth from places p where p.id = ${venues.placeId}
+          union all
+          select p.parent_id, p.country_id, up.depth + 1 from up join places p on p.id = up.parent_id
+          where up.country_id is null and up.depth < 10
+        ) select 1 from up where up.country_id in (${sql.join(filters.countryIds.map((id) => sql`${id}::uuid`), sql`, `)}))`
+      : undefined,
   ];
   if (filters?.tags?.length) conditions.push(sql`${venues.tags} && ARRAY[${sql.join(filters.tags.map(t => sql`${t}`), sql`, `)}]::text[]`);
   return and(...conditions);

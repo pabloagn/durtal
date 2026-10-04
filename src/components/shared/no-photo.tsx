@@ -135,7 +135,7 @@ export function PlacePlate({
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center"
-      style={tone ? tint(PLATE_TONES[tone] ?? PLATE_TONES.muted, 12) : undefined}
+      style={tone ? tint(PLATE_TONES[tone] ?? PLATE_TONES.muted, 10) : undefined}
       aria-hidden
     >
       <span className="type-caption">{city ? `${kind} · ${city}` : kind}</span>
