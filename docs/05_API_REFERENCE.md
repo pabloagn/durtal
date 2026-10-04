@@ -14,6 +14,12 @@ The media, S3, comments, export, reader and venues routes do not check this toke
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
+### Same-origin check
+
+Every `/api/*` route refuses a call that a web page on another origin makes through the browser. `src/proxy.ts` runs the check before the route, and it answers `403` with `{ "error": "Refused: the request comes from another site" }`. The app's own pages pass. So does opening a URL directly in the address bar.
+
+The browser says where a call comes from. The check reads `Sec-Fetch-Site` (`same-origin` and `none` pass) and, when an older browser does not send it, compares `Origin` with `Host`. A call with neither header does not come from a web page (curl, the TUI, a script) and passes. This check does not replace the write token. It does not stop another device on the network either: binding the dev server to `127.0.0.1` does that.
+
 ---
 
 ## Health
