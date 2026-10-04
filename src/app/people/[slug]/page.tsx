@@ -42,7 +42,7 @@ const loadAuthor = cache(getAuthorBySlug);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const author = await loadAuthor((await params).slug);
-  return { title: author?.name ?? "Author not found" };
+  return { title: author?.name ?? "Person not found" };
 }
 
 export default async function AuthorDetailPage({ params, searchParams }: PageProps) {

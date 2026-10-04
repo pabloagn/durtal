@@ -229,7 +229,7 @@ export function AuthorsFiltersBar({
     <EntityFilters
       basePath="/people"
       sortOptions={isSearching ? [RELEVANCE_SORT, ...SORT_OPTIONS] : SORT_OPTIONS}
-      searchPlaceholder="Search authors..."
+      searchPlaceholder="Search people..."
       defaultSort={isSearching ? "relevance" : "name"}
       defaultSortOrders={{ relevance: "desc", name: "asc", lastName: "asc", recent: "desc", birth: "asc", works: "desc" }}
       viewMode={viewMode}

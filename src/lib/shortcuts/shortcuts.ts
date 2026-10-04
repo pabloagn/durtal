@@ -20,7 +20,7 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
     label: WORK_DOMAINS[kind].pluralLabel,
     href: WORK_DOMAINS[kind].basePath,
   })),
-  { key: "a", label: "Authors", href: "/people" },
+  { key: "a", label: "People", href: "/people" },
   { key: "p", label: "Publishers", href: "/publishers" },
   { key: "s", label: "Series", href: "/series" },
   { key: "c", label: "Collections", href: "/collections" },
@@ -46,7 +46,7 @@ export const ADD: ({ key: string; label: string; section: string } & (
     section: WORK_DOMAINS[kind].basePath,
     href: `${WORK_DOMAINS[kind].basePath}/new`,
   })),
-  { key: "a", label: "Author", section: "/people", dialog: "author" },
+  { key: "a", label: "Person", section: "/people", dialog: "author" },
   { key: "p", label: "Publisher", section: "/publishers", href: "/publishers/new" },
   { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
   { key: "s", label: "Series", section: "/series", dialog: "series" },
@@ -103,11 +103,11 @@ export const SHORTCUT_GROUPS: {
   {
     title: "Menus",
     items: [
-      { keys: SHORTCUTS.addMenu, label: "Add: book, author, publisher..." },
+      { keys: SHORTCUTS.addMenu, label: "Add: book, person, publisher..." },
       { keys: SHORTCUTS.goMenu, label: "Go to a section" },
       { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
       { keys: SHORTCUTS.editMenu, label: "Edit this page" },
-      { keys: SHORTCUTS.palette, label: "Search books, authors, commands" },
+      { keys: SHORTCUTS.palette, label: "Search books, people, commands" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
     ],
@@ -337,7 +337,7 @@ export function shortcutButton(
   return null;
 }
 
-/** The list search box on this page ("Search authors...") */
+/** The list search box on this page ("Search people...") */
 export function pageSearchField(): HTMLInputElement | null {
   return (
     [...document.querySelectorAll<HTMLInputElement>("[data-shortcut-search]")]

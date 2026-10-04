@@ -226,7 +226,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <Command.Input
               value={query}
               onValueChange={setQuery}
-              placeholder="Search books and authors, or type a command..."
+              placeholder="Search books and people, or type a command..."
               className="h-11 w-full bg-transparent text-sm text-fg-primary outline-none placeholder:text-fg-muted"
               autoFocus
             />
@@ -269,7 +269,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             )}
 
             {results.authors.length > 0 && (
-              <Command.Group heading="Authors" className={GROUP_CLASS}>
+              <Command.Group heading="People" className={GROUP_CLASS}>
                 {results.authors.map((author) => (
                   <Command.Item
                     key={author.id}

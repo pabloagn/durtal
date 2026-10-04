@@ -72,10 +72,10 @@ export function AuthorDetailHeader({
   async function handleDelete() {
     try {
       await deleteAuthor(authorId);
-      toast.success("Author deleted");
+      toast.success("Person deleted");
       router.push("/people");
     } catch {
-      toast.error("Failed to delete author");
+      toast.error("Could not delete the person");
     }
   }
 
@@ -223,12 +223,12 @@ export function AuthorDetailHeader({
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete author"
-        description="Are you sure you want to delete this author? This action cannot be undone."
+        title="Delete person"
+        description="Are you sure you want to delete this person? This action cannot be undone."
         itemName={name}
         cascade={
           workCount > 0
-            ? "This will NOT delete the author's books, but will remove authorship links."
+            ? "This will NOT delete the person's books, films, perfumes or paintings, but will remove their credits."
             : undefined
         }
       />

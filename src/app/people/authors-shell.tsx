@@ -218,7 +218,7 @@ export function AuthorsShell({
   if (pagination.total === 0) {
     return (
       <NoResults
-        noun="authors"
+        noun="people"
         search={search}
         hasFilters={hasFilters}
         clearHref={clearedListHref("/people", searchParams)}
@@ -279,7 +279,7 @@ export function AuthorsShell({
         </div>
       )}
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" compact />}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" compact />}
 
       {viewMode === "grid" && (
         <div className="@container">
@@ -357,7 +357,7 @@ export function AuthorsShell({
         onExitSelection={selection.exitSelectionMode}
       />
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" />}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" />}
     </>
   );
 }

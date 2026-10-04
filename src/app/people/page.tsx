@@ -28,7 +28,7 @@ import { mediaCrop } from "@/lib/utils/media-style";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { countryDisplayName } from "@/lib/utils/labels";
 
-export const metadata = { title: "Authors" };
+export const metadata = { title: "People" };
 
 interface PageProps {
   searchParams: Promise<{
@@ -131,8 +131,8 @@ async function AuthorsContent({
     return (
       <EmptyState
         icon={Users}
-        title="No authors yet"
-        description="Authors are created when you add books"
+        title="No people yet"
+        description="People are added with books, films, perfumes and paintings"
       />
     );
   }
@@ -241,8 +241,8 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
   return (
     <>
       <PageHeader
-        title="Authors"
-        description="Browse all authors in your catalogue"
+        title="People"
+        description="Writers, translators, directors, actors, perfumers, painters and everyone else in your catalogue"
         actions={<AuthorCreateDialog />}
       />
 

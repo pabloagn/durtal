@@ -544,7 +544,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
               <p className="truncate pr-4 font-serif text-sm font-medium text-fg-primary">
                 {selection.group.nationalities.length === 1
                   ? selection.group.nationalities[0].name
-                  : selection.group.locationName || "Authors here"}
+                  : selection.group.locationName || "People here"}
               </p>
               <p className="mt-0.5 font-mono text-xs text-fg-secondary">
                 {selection.group.authors.length} authors
@@ -582,7 +582,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                       onClick={() => showNationality(n.code)}
                       className="block w-full rounded-sm bg-accent-plum/60 px-2 py-1.5 text-left text-xs leading-snug text-fg-primary transition-colors hover:bg-accent-plum"
                     >
-                      {`Show all ${n.count} ${n.count === 1 ? "author" : "authors"} from ${shortCountryName(n.name)} \u2192`}
+                      {`Show all ${n.count} ${n.count === 1 ? "person" : "people"} from ${shortCountryName(n.name)} \u2192`}
                     </button>
                   ))}
                 </div>

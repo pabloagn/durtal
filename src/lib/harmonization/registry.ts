@@ -52,7 +52,7 @@ export const ENTITIES: EntityDefinition[] = [
   {
     key: "authors",
     table: "authors",
-    label: "Authors",
+    label: "People",
     name: "name",
     route: "/people",
     duplicate: true,

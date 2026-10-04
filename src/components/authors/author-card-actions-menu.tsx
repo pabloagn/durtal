@@ -46,10 +46,10 @@ export function AuthorCardActionsMenu({
   async function handleDelete() {
     try {
       await deleteAuthor(authorId);
-      toast.success("Author deleted");
+      toast.success("Person deleted");
       router.refresh();
     } catch {
-      toast.error("Failed to delete author");
+      toast.error("Could not delete the person");
     }
     setDeleteOpen(false);
   }
@@ -92,10 +92,10 @@ export function AuthorCardActionsMenu({
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete author"
-        description="Are you sure you want to delete this author? This action cannot be undone."
+        title="Delete person"
+        description="Are you sure you want to delete this person? This action cannot be undone."
         itemName={name}
-        cascade="This will permanently remove the author from all associated books and editions."
+        cascade="This will permanently remove the person from every book, edition, film, perfume and painting they are credited on."
       />
     </>
   );
