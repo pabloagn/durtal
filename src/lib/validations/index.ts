@@ -24,9 +24,7 @@ export {
 } from "./authors";
 export {
   createMediaSchema,
-  updateMediaSchema,
   type CreateMediaInput,
-  type UpdateMediaInput,
 } from "./media";
 export {
   createLocationSchema,

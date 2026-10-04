@@ -8,7 +8,7 @@ import type { CollageLayoutData } from "@/lib/utils/collage-layout";
 
 // ── Queries ──────────────────────────────────────────────────────────────────
 
-export async function getGalleryLayout(
+async function getGalleryLayout(
   entityType: "work" | "author",
   entityId: string,
 ) {
@@ -96,20 +96,6 @@ export async function randomizeLayout(
 }
 
 // ── Invalidate ────────────────────────────────────────────────────────────────
-
-export async function invalidateLayout(
-  entityType: "work" | "author",
-  entityId: string,
-) {
-  await db
-    .delete(galleryLayouts)
-    .where(
-      and(
-        eq(galleryLayouts.entityType, entityType),
-        eq(galleryLayouts.entityId, entityId),
-      ),
-    );
-}
 
 // ── Fetch gallery media + layout (combined) ───────────────────────────────────
 

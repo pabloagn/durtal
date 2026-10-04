@@ -33,10 +33,11 @@ tasks:
   # Code Quality
   # ===========================================================================
   lint:
-    desc: Run ESLint + TypeScript type check
+    desc: Run ESLint, TypeScript type check and the dead-code check
     cmds:
       - pnpm lint
       - pnpm typecheck
+      - pnpm deadcode
 
   format:
     desc: Format code with Prettier

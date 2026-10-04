@@ -17,8 +17,6 @@ import {
   updateTaxonomyFamilySchema,
   updateTaxonomyItemSchema,
   updateWorkTaxonomySchema,
-  updateGenreSchema,
-  updateTagSchema,
 } from "@/lib/validations/taxonomy-management";
 
 const UPDATE_SCHEMAS: Record<string, z.ZodType> = {
@@ -34,8 +32,6 @@ const UPDATE_SCHEMAS: Record<string, z.ZodType> = {
   updateTaxonomyFamilySchema,
   updateTaxonomyItemSchema,
   updateWorkTaxonomySchema,
-  updateGenreSchema,
-  updateTagSchema,
 };
 
 const UUID = "3f8e0b2a-5c1d-4e6f-9a7b-1c2d3e4f5a6b";

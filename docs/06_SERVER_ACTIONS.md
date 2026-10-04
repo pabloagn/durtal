@@ -111,14 +111,6 @@ Dashboard statistics. Returns counts for all major entities and the 8 most recen
 
 ## Editions (`src/lib/actions/editions.ts`)
 
-### `getEdition(id)`
-
-```typescript
-getEdition(id: string): Promise<EditionWithRelations | null>
-```
-
-Fetches edition with: `work`, `instances` (with locations), `contributors` (with authors), `editionGenres`, `editionTags`.
-
 ### `createEdition(input)`
 
 ```typescript
@@ -331,12 +323,6 @@ getLocations(): Promise<(Location & {
 
 Returns all locations with sub-locations and instance counts. Ordered by `sortOrder`.
 
-### `getLocation(id)`
-
-```typescript
-getLocation(id: string): Promise<LocationWithSubLocations | null>
-```
-
 ### `createLocation(input)`
 
 ```typescript
@@ -414,18 +400,6 @@ Returns collection with all editions fully loaded (including work data and insta
 
 Standard CRUD for collections.
 
-### `addEditionToCollection(collectionId, editionId, sortOrder?)`
-
-```typescript
-addEditionToCollection(
-  collectionId: string,
-  editionId: string,
-  sortOrder?: number
-): Promise<void>
-```
-
-Uses `onConflictDoNothing` to prevent duplicates.
-
 ### `removeEditionFromCollection(collectionId, editionId)`
 
 ```typescript
@@ -466,21 +440,18 @@ Each status change writes the order and its history row in one transaction. It i
 
 ## Taxonomy (`src/lib/actions/taxonomy.ts`)
 
+Reads only. Subjects, genres, tags and every other family are created, renamed, merged and deleted through the family registry in `src/lib/actions/taxonomy-families.ts` (`createTaxonomyItem`, `updateTaxonomyItem`, `deleteTaxonomyItem` and the rest).
+
 ### Subjects
 
 ```typescript
 getSubjects(): Promise<Subject[]>
-createSubject(input: { name: string; slug: string }): Promise<Subject>
-deleteSubject(id: string): Promise<void>
 ```
 
 ### Genres
 
 ```typescript
 getGenres(): Promise<Genre[]>
-createGenre(input: { name: string; slug: string; parentId?: string; sortOrder?: number }): Promise<Genre>
-updateGenre(id: string, input: Partial<...>): Promise<Genre>
-deleteGenre(id: string): Promise<void>
 ```
 
 Genres support hierarchy via `parentId`. Deleting a parent sets children's `parentId` to null (SET NULL).
@@ -489,9 +460,6 @@ Genres support hierarchy via `parentId`. Deleting a parent sets children's `pare
 
 ```typescript
 getTags(): Promise<Tag[]>
-createTag(input: { name: string; color?: string }): Promise<Tag>
-updateTag(id: string, input: Partial<...>): Promise<Tag>
-deleteTag(id: string): Promise<void>
 ```
 
 ---
@@ -507,15 +475,6 @@ getMediaForAuthor(authorId: string): Promise<Media[]>
 
 Returns all media ordered by `sortOrder`.
 
-### `getPoster(entityType, entityId)` / `getBackground(entityType, entityId)`
-
-```typescript
-getPoster(entityType: "work" | "author", entityId: string): Promise<Media | null>
-getBackground(entityType: "work" | "author", entityId: string): Promise<Media | null>
-```
-
-Returns the first media record of the specified type.
-
 ### `createMedia(input)`
 
 ```typescript
@@ -524,18 +483,6 @@ createMedia(input: CreateMediaInput): Promise<Media>
 
 Validates that exactly one of `workId` or `authorId` is set (XOR). Validated against `createMediaSchema`.
 
-### `updateMedia(id, input)`
-
-Updates `sortOrder` and `caption`.
-
 ### `deleteMedia(id)` / `bulkDeleteMedia(ids)`
 
 Deletes the media records first, then their S3 objects (full image, thumbnail and original). A file that another row still stores is kept. `deleteMedia` makes the next image of the same type active when it deletes the active one.
-
-### `reorderMedia(ids)`
-
-```typescript
-reorderMedia(ids: string[]): Promise<void>
-```
-
-Batch update: sets `sortOrder` to the array index position for each media ID.

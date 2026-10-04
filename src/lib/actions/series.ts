@@ -138,14 +138,6 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
   };
 }
 
-export async function getSeriesCount(search?: string) {
-  const [result] = await db
-    .select({ count: count() })
-    .from(series)
-    .where(textSearchCondition(haystack, search ?? ""));
-  return result.count;
-}
-
 /** One series with its works in reading order (numeric positions, then title). */
 export async function getSeriesDetail(id: string) {
   if (!z.uuid().safeParse(id).success) return undefined;

@@ -34,11 +34,6 @@ import { eq, asc, sql, and } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import {
-  createSubjectSchema,
-  createGenreSchema,
-  updateGenreSchema,
-  createTagSchema,
-  updateTagSchema,
   updateWorkTaxonomySchema,
   type UpdateWorkTaxonomyInput,
 } from "@/lib/validations/taxonomy-management";
@@ -59,21 +54,6 @@ export const getSubjects = cached(
   ["subjects"],
   [CACHE_TAGS.subjects],
 );
-
-export async function createSubject(input: { name: string; slug: string }) {
-  const [subject] = await db
-    .insert(subjects)
-    .values(createSubjectSchema.parse(input))
-    .returning();
-  invalidate(CACHE_TAGS.subjects);
-  return subject;
-}
-
-export async function deleteSubject(id: string) {
-  await db.delete(subjects).where(eq(subjects.id, id));
-  invalidate(CACHE_TAGS.subjects);
-  return { id };
-}
 
 export const getSubjectsWithWorkCounts = cached(
   async () => {
@@ -113,44 +93,6 @@ export const getGenres = cached(
   [CACHE_TAGS.genres],
 );
 
-export async function createGenre(input: {
-  name: string;
-  slug: string;
-  parentId?: string | null;
-  sortOrder?: number;
-}) {
-  const [genre] = await db
-    .insert(genres)
-    .values(createGenreSchema.parse(input))
-    .returning();
-  invalidate(CACHE_TAGS.genres);
-  return genre;
-}
-
-export async function updateGenre(
-  id: string,
-  input: Partial<{
-    name: string;
-    slug: string;
-    parentId: string | null;
-    sortOrder: number;
-  }>,
-) {
-  parseId(id);
-  await db
-    .update(genres)
-    .set(updateGenreSchema.parse(input))
-    .where(eq(genres.id, id));
-  invalidate(CACHE_TAGS.genres);
-  return { id };
-}
-
-export async function deleteGenre(id: string) {
-  await db.delete(genres).where(eq(genres.id, id));
-  invalidate(CACHE_TAGS.genres);
-  return { id };
-}
-
 // ── Tags ──────────────────────────────────────────────────────────────────────
 
 export const getTags = cached(
@@ -158,37 +100,6 @@ export const getTags = cached(
   ["tags"],
   [CACHE_TAGS.tags],
 );
-
-export async function createTag(input: {
-  name: string;
-  color?: string | null;
-}) {
-  const [tag] = await db
-    .insert(tags)
-    .values(createTagSchema.parse(input))
-    .returning();
-  invalidate(CACHE_TAGS.tags);
-  return tag;
-}
-
-export async function updateTag(
-  id: string,
-  input: Partial<{ name: string; color: string | null }>,
-) {
-  parseId(id);
-  await db
-    .update(tags)
-    .set(updateTagSchema.parse(input))
-    .where(eq(tags.id, id));
-  invalidate(CACHE_TAGS.tags);
-  return { id };
-}
-
-export async function deleteTag(id: string) {
-  await db.delete(tags).where(eq(tags.id, id));
-  invalidate(CACHE_TAGS.tags);
-  return { id };
-}
 
 // ── Categories ────────────────────────────────────────────────────────────────
 

@@ -12,11 +12,10 @@ import {
 import { db } from "@/lib/db";
 import {
   editions,
-  editionContributors,
   editionGenres,
   editionTags,
 } from "@/lib/db/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   createEditionSchema,
   updateEditionSchema,
@@ -28,32 +27,6 @@ import { processAndUploadCover } from "@/lib/s3/covers";
 import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
-
-export async function getEdition(id: string) {
-  return db.query.editions.findFirst({
-    where: eq(editions.id, id),
-    with: {
-      work: true,
-      publisherLinks: { with: { publisher: true } },
-      instances: {
-        with: {
-          location: true,
-          subLocation: true,
-        },
-      },
-      contributors: {
-        with: { author: true },
-        orderBy: asc(editionContributors.sortOrder),
-      },
-      editionGenres: {
-        with: { genre: true },
-      },
-      editionTags: {
-        with: { tag: true },
-      },
-    },
-  });
-}
 
 export async function createEdition(input: CreateEditionInput) {
   const parsed = createEditionSchema.parse(input);

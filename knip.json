@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["scripts/**/*.{ts,js,mjs}", "src/lib/db/backfill-slugs.ts"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,js,mjs}"],
+  "ignore": ["src/components/media/media-gallery.tsx", "src/lib/actions/places.ts"],
+  "ignoreDependencies": [
+    "@eslint/eslintrc",
+    "eslint-config-next",
+    "postcss-load-config",
+    "@types/mapbox-gl",
+    "tailwindcss",
+    "tsx"
+  ]
+}

@@ -89,38 +89,6 @@ export const updateWorkTaxonomySchema = z
   })
   .strict();
 
-// ── Legacy per-table CRUD (src/lib/actions/taxonomy.ts) ──────────────────────
-
-const slug = z
-  .string()
-  .min(1)
-  .max(200)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-
-export const createSubjectSchema = z
-  .object({ name: z.string().min(1).max(500), slug })
-  .strict();
-
-export const createGenreSchema = z
-  .object({
-    name: z.string().min(1).max(500),
-    slug,
-    parentId: z.string().uuid().nullable().optional(),
-    sortOrder: z.number().int().optional(),
-  })
-  .strict();
-
-export const updateGenreSchema = toUpdateSchema(createGenreSchema);
-
-export const createTagSchema = z
-  .object({
-    name: z.string().min(1).max(500),
-    color: z.string().max(7).nullable().optional(),
-  })
-  .strict();
-
-export const updateTagSchema = toUpdateSchema(createTagSchema);
-
 export type UpdateWorkTaxonomyInput = z.input<typeof updateWorkTaxonomySchema>;
 export type CreateTaxonomyItemInput = z.input<typeof createTaxonomyItemSchema>;
 export type UpdateTaxonomyItemInput = z.input<typeof updateTaxonomyItemSchema>;

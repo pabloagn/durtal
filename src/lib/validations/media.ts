@@ -83,12 +83,6 @@ export const createMediaSchema = z
     message: "Collections have poster and background images only",
   });
 
-export const updateMediaSchema = z.object({
-  sortOrder: z.number().int().optional(),
-  caption: z.string().optional(),
-  processingParams: monochromeParamsSchema.optional(),
-});
-
 export const updateMediaCropSchema = z.object({
   cropX: z.number().min(0).max(100),
   cropY: z.number().min(0).max(100),
@@ -99,5 +93,3 @@ export const updateMediaCropSchema = z.object({
 });
 
 export type CreateMediaInput = z.input<typeof createMediaSchema>;
-export type UpdateMediaInput = z.input<typeof updateMediaSchema>;
-export type UpdateMediaCropInput = z.input<typeof updateMediaCropSchema>;
