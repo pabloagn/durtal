@@ -21,6 +21,7 @@ export interface OrderWork {
   id: string;
   title: string;
   slug: string;
+  kind?: string | null;
   workAuthors: Array<{ author: { id: string; name: string } }>;
   media: MediaItem[];
 }

@@ -21,6 +21,8 @@ export const targetState = sql<
   "wanted" | "on_order" | "received" | "cancelled"
 >`case
  when "acquisition_targets"."is_cancelled" then 'cancelled'
+ when num_nonnulls("acquisition_targets"."perfume_variant_id", "acquisition_targets"."film_version_id", "acquisition_targets"."art_object_id", "acquisition_targets"."art_reproduces_object_id") > 0
+  and exists (select 1 from orders o where o.acquisition_target_id = "acquisition_targets"."id" and o.status in ('delivered', 'purchased', 'received')) then 'received'
  when exists (select 1 from acquisition_target_copies c join instances i on i.id = c.instance_id where c.target_id = "acquisition_targets"."id" and i.status <> 'deaccessioned' and target_accepts_edition("acquisition_targets"."id",i.edition_id)) then 'received'
  when exists (select 1 from orders o where o.acquisition_target_id = "acquisition_targets"."id"
   and o.status in ('delivered', 'purchased', 'received') and target_accepts_edition("acquisition_targets"."id", o.edition_id)) then 'received'

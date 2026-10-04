@@ -9,12 +9,18 @@ import {
   uniqueIndex,
   text,
   integer,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { sql, relations } from "drizzle-orm";
 import { publishingHouses } from "./publishing-houses";
 import { editions } from "./editions";
 import { instances } from "./instances";
 import { works } from "./works";
+import { perfumeVariants } from "./perfumes";
+import { filmReleases, filmVersions } from "./films";
+import { artObjects } from "./paintings";
+import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";
+import { FILM_HOLDING_MEDIA } from "@/lib/catalogue/films";
 
 export const editionPublishers = pgTable(
   "edition_publishers",
@@ -45,6 +51,35 @@ export const acquisitionTargets = pgTable(
     publisherId: uuid("publisher_id").references(() => publishingHouses.id, {
       onDelete: "restrict",
     }),
+    // A perfume target: one formulation, in one container size (SLN-374)
+    perfumeVariantId: uuid("perfume_variant_id").references(
+      () => perfumeVariants.id,
+      { onDelete: "restrict" },
+    ),
+    perfumeContainer: text("perfume_container", { enum: PERFUME_CONTAINERS }),
+    perfumeCapacityValue: numeric("perfume_capacity_value", {
+      precision: 15,
+      scale: 6,
+      mode: "number",
+    }),
+    perfumeVolumeUnit: text("perfume_volume_unit", { enum: ["ml", "l"] }),
+    // A film target: one version, optionally one release, on one medium
+    filmVersionId: uuid("film_version_id").references(() => filmVersions.id, {
+      onDelete: "restrict",
+    }),
+    filmReleaseId: uuid("film_release_id").references(() => filmReleases.id, {
+      onDelete: "restrict",
+    }),
+    filmMedium: text("film_medium", { enum: FILM_HOLDING_MEDIA }),
+    filmFormatLabel: text("film_format_label"),
+    // A painting target: an object for sale, or a reproduction of an object
+    artObjectId: uuid("art_object_id").references(() => artObjects.id, {
+      onDelete: "restrict",
+    }),
+    artReproducesObjectId: uuid("art_reproduces_object_id").references(
+      () => artObjects.id,
+      { onDelete: "restrict" },
+    ),
     isCancelled: boolean("is_cancelled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -55,13 +90,45 @@ export const acquisitionTargets = pgTable(
       "acquisition_target_kind_check",
       sql`${t.editionId} IS NULL OR ${t.publisherId} IS NULL`,
     ),
+    // One kind of target per row; each kind complete or absent
+    check(
+      "acquisition_target_typed_check",
+      sql`num_nonnulls(coalesce(${t.editionId}, ${t.publisherId}), ${t.perfumeVariantId}, ${t.filmVersionId}, coalesce(${t.artObjectId}, ${t.artReproducesObjectId})) <= 1
+        and (${t.perfumeVariantId} is null) = (${t.perfumeContainer} is null)
+        and (${t.perfumeVariantId} is null) = (${t.perfumeCapacityValue} is null)
+        and (${t.perfumeVariantId} is null) = (${t.perfumeVolumeUnit} is null)
+        and (${t.perfumeCapacityValue} is null or (${t.perfumeCapacityValue} > 0 and ${t.perfumeCapacityValue} <= 1000000))
+        and (${t.perfumeContainer} is null or ${t.perfumeContainer} in ('bottle','sample','decant'))
+        and (${t.perfumeVolumeUnit} is null or ${t.perfumeVolumeUnit} in ('ml','l'))
+        and (${t.filmVersionId} is null) = (${t.filmMedium} is null)
+        and (${t.filmVersionId} is not null or (${t.filmReleaseId} is null and ${t.filmFormatLabel} is null))
+        and (${t.filmMedium} is null or ${t.filmMedium} in ('physical','digital'))
+        and (${t.filmFormatLabel} is null or length(trim(${t.filmFormatLabel})) between 1 and 200)
+        and (${t.artObjectId} is null or ${t.artReproducesObjectId} is null)`,
+    ),
+    index("acquisition_targets_perfume_variant_idx").on(t.perfumeVariantId),
+    index("acquisition_targets_film_version_idx").on(t.filmVersionId),
+    index("acquisition_targets_film_release_idx").on(t.filmReleaseId),
+    index("acquisition_targets_art_object_idx").on(t.artObjectId),
+    index("acquisition_targets_art_reproduces_idx").on(t.artReproducesObjectId),
     index("acquisition_targets_work_idx").on(t.workId),
     index("acquisition_targets_publisher_idx").on(t.publisherId),
+    // One active target per identity. A book's is its edition or publisher
+    // (both empty: any edition); a perfume's its formulation and container
+    // size, a film's its version, release and medium, a painting's its object
     uniqueIndex("acquisition_targets_active_unique")
       .on(
         t.workId,
         sql`coalesce(${t.editionId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
         sql`coalesce(${t.publisherId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        sql`coalesce(${t.perfumeVariantId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        sql`coalesce(${t.perfumeContainer}, '')`,
+        sql`coalesce(${t.perfumeCapacityValue} * case ${t.perfumeVolumeUnit} when 'l' then 1000 else 1 end, 0)`,
+        sql`coalesce(${t.filmVersionId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        sql`coalesce(${t.filmReleaseId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        sql`coalesce(${t.filmMedium}, '')`,
+        sql`coalesce(${t.artObjectId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+        sql`coalesce(${t.artReproducesObjectId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
       )
       .where(sql`NOT ${t.isCancelled}`),
   ],

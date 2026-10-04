@@ -28,6 +28,8 @@ import { FilmPoster } from "@/components/films/film-poster";
 import { FilmActions } from "@/components/films/film-actions";
 import { CastSection, CrewSection, type CreditView } from "@/components/films/film-credits";
 import { VersionsSection, type VersionView } from "@/components/films/versions-section";
+import { WantedSection } from "@/components/catalogue/wanted-section";
+import { getTypedTargets } from "@/lib/actions/acquisitions";
 import { CopiesSection, type CopyView } from "@/components/films/copies-section";
 import type { CopyLocation, VersionChoice } from "@/components/films/copy-dialog";
 import { RelatedFilms } from "@/components/films/related-films";
@@ -125,7 +127,7 @@ export default async function FilmPage({
   const film = await loadFilm(slug);
   if (!film) notFound();
   const owner = { kind: "film" as const, id: film.id };
-  const [media, curation, provenance, related, genres, allLocations, choices, links] =
+  const [media, curation, provenance, related, genres, allLocations, choices, links, wanted] =
     await Promise.all([
       getMediaForWork(film.id),
       getWorkCuration(owner),
@@ -135,6 +137,7 @@ export default async function FilmPage({
       getLocations(),
       getFilmChoices(),
       getWorkRelations(film.id),
+      getTypedTargets(film.id),
     ]);
 
   // ── Images ────────────────────────────────────────────────────────────────
@@ -583,6 +586,20 @@ export default async function FilmPage({
             summary={heldSummary}
             versions={versionChoices}
             locations={locations}
+          />
+
+          <WantedSection
+            workId={film.id}
+            title={film.title}
+            targets={wanted}
+            choices={{
+              kind: "film",
+              versions: versionChoices.map((v) => ({ id: v.id, label: v.label, releases: v.releases })),
+            }}
+            locations={{
+              physical: locations.filter((l) => l.type === "physical"),
+              digital: locations.filter((l) => l.type === "digital"),
+            }}
           />
 
           <SourcesSection
