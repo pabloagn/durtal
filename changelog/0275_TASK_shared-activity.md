@@ -1,6 +1,6 @@
 # Task 0275: Activity, Comments and Cleanup for Every Kind of Record (SLN-372)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-04
 **Priority**: MEDIUM
 **Type**: Feature
@@ -61,3 +61,31 @@ cleanup leaves the delete done and reports `cleanupPending`.
 cached reads are reference lists (taxonomy, locations, recommenders,
 settings), which their own mutations invalidate. A reverse view (a film
 showing a renamed director) reads the change at once; a test pins it.
+
+## Completion Notes
+- Tests: `integration/shared-activity.test.ts` (database: each kind of record
+  resolves to its page, a merged book resolves to the kept one with its
+  comment, a missing record resolves to null; a comment on a missing record
+  answers 404 and stores nothing, an unknown kind 400, organizations and
+  venues take comments; a film edit records the new title, an added producer
+  and an added genre, entries with one timestamp page without repeats or
+  gaps, and a renamed director shows on the film at once; a bottle added,
+  changed and removed and a painting moved from Paris to Tokyo read as
+  sentences; an organization merge moves its comment and its delete clears
+  comments, history and comment files, reporting a failed S3 cleanup as
+  pending; a venue delete clears its comments and history).
+  `venues-retailers.test.ts` now expects the venue's comment-file folder in
+  its cleanup.
+- Checks: `pnpm typecheck` clean; `pnpm lint` has no errors and no new
+  warnings; `python3 scripts/qa/test-local.py` passed 130 of 131 files, the
+  one failure being that venue expectation, then the affected suites pass
+  (39 tests).
+- Browser on `preview-local.py --from-dump` of the 2026-10-04 11:37 backup
+  with seeded films, perfumes and a painting: edited a film's title from its
+  menu; the Activity part showed "Changed title from ... to ..." as soon as
+  the dialog closed, at 1440 and 390px. The perfume and painting pages end
+  with Activity and the comment box. Alignment and design audits: no
+  finding.
+- Limits: an organization outside publishing resolves with no page until the
+  organization pages (SLN-369) land; organization and venue pages do not show
+  a history yet (their comments and history are stored, merged and cleaned).
