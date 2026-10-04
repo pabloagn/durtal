@@ -18,8 +18,13 @@ export function MultiSelectSection({
 }: MultiSelectSectionProps) {
   const [filter, setFilter] = useState("");
 
+  // Chosen items stay in the list while a filter narrows the others
   const filtered = filter
-    ? items.filter((i) => i.name.toLowerCase().includes(filter.toLowerCase()))
+    ? items.filter(
+        (i) =>
+          selectedIds.includes(i.id) ||
+          i.name.toLowerCase().includes(filter.toLowerCase()),
+      )
     : items;
 
   function toggle(id: string) {
@@ -41,6 +46,7 @@ export function MultiSelectSection({
       {items.length > 8 && (
         <input
           type="text"
+          aria-label={`Filter ${title.toLowerCase()}`}
           placeholder={`Filter ${title.toLowerCase()}...`}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
