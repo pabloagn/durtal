@@ -25,6 +25,11 @@ has a role line: "Director · Screenwriter", "Author · Translator +1".
 - `PersonRoles` (`src/components/people/person-roles.tsx`): one 12px line in
   `fg-secondary`, `lines-1`, with a `data-tooltip` when roles are hidden. The
   line is always there, so cards with and without roles keep one height.
+- A role the list is filtered by leads the line ("Director · Cast +2" under
+  a Director filter), then the open collection's roles.
+- A saved column choice picks up a column added since
+  (`src/lib/utils/column-config.ts`, used by every `DataTable`), so the new
+  Roles column shows for a choice saved before it.
 - Where: the People grid card and list row, a Roles column in the table view,
   and the dashboard's Recent people. Filtered to one collection, the People
   cards put that collection's roles first. Film and perfume pages list people
