@@ -73,7 +73,7 @@ export function AuthorEditDialog({
       ]);
 
       if (!author) {
-        toast.error("Author not found");
+        toast.error("Person not found");
         onClose();
         return;
       }
@@ -112,7 +112,7 @@ export function AuthorEditDialog({
 
       setLoaded(true);
     } catch {
-      toast.error("Failed to load author data");
+      toast.error("Could not load the person");
     } finally {
       setLoading(false);
     }
@@ -161,13 +161,13 @@ export function AuthorEditDialog({
           openLibraryKey: openLibraryKey.trim() || null,
           goodreadsId: goodreadsId.trim() || null,
         });
-        toast.success("Author updated");
+        toast.success("Person updated");
         onClose();
         router.refresh();
         triggerActivityRefresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update author",
+          err instanceof Error ? err.message : "Could not update the person",
         );
       }
     });
@@ -179,7 +179,7 @@ export function AuthorEditDialog({
       onClose={() => {
         if (!isPending) onClose();
       }}
-      title="Edit Author"
+      title="Edit person"
     >
       {loading || !loaded ? (
         <div className="flex items-center justify-center py-12">
@@ -364,7 +364,7 @@ export function AuthorEditDialog({
                   value={bio}
                   onChange={setBio}
                   rows={6}
-                  placeholder="Author biography"
+                  placeholder="Biography"
                   disabled={isPending}
                 />
               </section>

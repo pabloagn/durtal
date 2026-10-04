@@ -572,7 +572,7 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
     await expect(
       redirectMergedRecord("authors", "old-author"),
     ).rejects.toMatchObject({
-      digest: expect.stringContaining("/authors/survivor"),
+      digest: expect.stringContaining("/people/survivor"),
     });
     await author("New author", { slug: "old-author" });
     await expect(

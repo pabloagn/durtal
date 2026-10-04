@@ -22,7 +22,7 @@ const GENDER_OPTIONS = [
 
 /**
  * Add Author. With `open` and `onOpenChange` the caller controls it (the
- * global "A" shortcut); otherwise it shows its own "Add Author" button.
+ * global "A" shortcut); otherwise it shows its own "Add person" button.
  */
 export function AuthorCreateDialog({
   open: controlledOpen,
@@ -145,11 +145,11 @@ export function AuthorCreateDialog({
           openLibraryKey: openLibraryKey.trim() || null,
           goodreadsId: goodreadsId.trim() || null,
         });
-        toast.success(`Author "${author.name}" created`, {
+        toast.success(`"${author.name}" added`, {
           action: author.slug
             ? {
                 label: "Open",
-                onClick: () => router.push(`/authors/${author.slug}`),
+                onClick: () => router.push(`/people/${author.slug}`),
               }
             : undefined,
         });
@@ -158,7 +158,7 @@ export function AuthorCreateDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to create author",
+          err instanceof Error ? err.message : "Could not add the person",
         );
       }
     });
@@ -172,18 +172,18 @@ export function AuthorCreateDialog({
           size="sm"
           onClick={() => setOpen(true)}
           type="button"
-          data-tooltip="Add Author"
+          data-tooltip="Add person"
           data-tooltip-keys="a then a"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Add Author
+          Add Person
         </Button>
       )}
 
       <Dialog
         open={open}
         onClose={handleClose}
-        title="Add Author"
+        title="Add person"
       >
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -375,7 +375,7 @@ export function AuthorCreateDialog({
                     value={bio}
                     onChange={setBio}
                     rows={6}
-                    placeholder="Author biography"
+                    placeholder="Biography"
                     disabled={isPending}
                   />
                 </section>
@@ -436,7 +436,7 @@ export function AuthorCreateDialog({
                     Creating
                   </>
                 ) : (
-                  "Create Author"
+                  "Add person"
                 )}
               </Button>
             </div>

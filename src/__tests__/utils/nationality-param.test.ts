@@ -68,11 +68,11 @@ describe("formatNationalityParam", () => {
 
 describe("nationalityFilterHref", () => {
   it("builds a link for one code", () => {
-    expect(nationalityFilterHref("HU")).toBe("/authors?nationality=HU");
+    expect(nationalityFilterHref("HU")).toBe("/people?nationality=HU");
   });
 
   it("builds a link for several codes", () => {
-    expect(nationalityFilterHref(["HU", "FR"])).toBe("/authors?nationality=HU%2CFR");
+    expect(nationalityFilterHref(["HU", "FR"])).toBe("/people?nationality=HU%2CFR");
   });
 
   it("produces a link that parses back to the same codes", () => {
