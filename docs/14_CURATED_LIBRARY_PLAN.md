@@ -422,5 +422,11 @@ edition and counts once. Every open collection can be added, removed and
 reordered, with previews, counts, library selection and delete cleanup.
 Migration 0059.
 
+Reading tracker data model (SLN-444, task 0302): reading is book-only
+consumption state, gated by the `reading` capability. A reading is one
+read-through with its own dates, edition, copy, sessions and rating; it never
+reuses `catalogue_status`, which is about buying. The book's rating becomes
+half-step. Migrations 0064 and 0065.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

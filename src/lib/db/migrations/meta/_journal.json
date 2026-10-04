@@ -421,6 +421,20 @@
       "when": 1791132220105,
       "tag": "0059_collection_works",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1791145835189,
+      "tag": "0060_reading_rating_precheck",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1791145836256,
+      "tag": "0061_reading_data_model",
+      "breakpoints": true
     }
   ]
 }

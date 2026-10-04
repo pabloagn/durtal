@@ -321,9 +321,9 @@ Output:
 | `Edition` | `editions.edition_name` | Direct |
 | `Description_GenAI` | `works.description` | Direct. 561/3905 populated. |
 | `Notes` | `works.notes` | Direct |
-| `Priority` | `works.rating` | Map 1-5 directly. 314/3905 populated. |
-| `Rating` | `works.rating` | Prefer `Rating` over `Priority` if both exist. 54/3905 populated. |
-| `Read` | (not imported) | Reading tracking is a non-goal. |
+| `Priority` | `works.acquisition_priority`, `works.catalogue_status` | The acquisition priority and the catalogue status only. 314/3905 populated. |
+| `Rating` | `works.rating` | The only source of `works.rating`. Seeds before changelog 0302 also wrote `Priority` there when `Rating` was empty (SLN-444). 54/3905 populated. |
+| `Read` | `readings` | Imported by the reading seed step (`--step readings`, reading tracker sub-issue 6), through the shared reading writer with `seed:` source keys. |
 | `Book_Type` | `works.work_type_id` | Map to `work_types` lookup. Most values are literary types, not bindings. |
 | `Series` | `works.series_name` -> `works.series_id` | Lookup/create in `series` table. Cross-reference with `Book_Series` sheet. |
 | `Series_Number` | `works.series_position` | Parse to decimal. 18/3905 populated. |

@@ -438,6 +438,53 @@ Each status change writes the order and its history row in one transaction. It i
 
 ---
 
+## Reading (`src/lib/actions/reading.ts`, SLN-444)
+
+Every write parses its input (`src/lib/validations/reading.ts`), checks the book (`requireBookWork`), reads the reading and its fingerprint, then runs one atomic write that locks the reading and asserts the fingerprint; a stale one gives "This reading changed elsewhere; reload before saving". Each returns the reading with its new fingerprint, records its history entry after the write, and invalidates `works` and `reading`. Ratings are 0.5 to 5.0 in half steps. Times and default dates use the browser's `timeZone` when given, else `APP_TIMEZONE`, and the reading day (hours before 04:00 count for the evening before).
+
+### `startReading(input)`
+Starts a book: copy, edition, home, format (from the copy: e-book files are `ebook`, audiobooks `audio`), unit, totals (pages from the edition), start date (today's reading day, or unknown) and at most one start position. Refused while the book has an open reading ("This book is already being read", or "This book has a paused reading; resume it"). `work.reading_started`.
+
+### `logProgress(input)`
+A page, percent, minutes, pages or minutes on, or a chapter, in the reading's edition or another of the book's. A paused reading resumes first. A new session starts where the session order says and ends at the new place; going back follows `goingBack` (`fix_last_log` replaces the latest session's end, `went_back` writes a session that counts nothing; without it, a log on the latest session's day fixes it). Past the last page or the end is refused with the page or time. Returns `{ reading, session, reachedEnd, wentBack, undo }`. `work.reading_progress` at most once per reading per day.
+
+### `undoProgress({ readingId, fingerprint, undo })`
+Deletes the session a log wrote, or puts back the end it replaced, recomputes the position, and pauses the reading again when the log had resumed it.
+
+### `pauseReading(input)` / `resumeReading(input)`
+Status changes with a history row; `work.reading_paused`, `work.reading_resumed`.
+
+### `finishReading(input)`
+From reading or paused: the end (100%, last page and minutes), the date (default today, day precision), rating and review; with a rating it also sets the book's rating unless `setBookRating` is false (`work.rating_changed`). When the end is ahead and the reading has sessions, a closing session carries the last pages (on the finish day, or the latest session's day for an imprecise finish). Returns `{ reading, undo }` for the Undo toast.
+
+### `abandonReading(input)`
+From reading or paused: when, why (`ABANDON_REASONS`), a note and the page reached, with a closing session as for a finish. `work.reading_abandoned`.
+
+### `reopenReading(input)`
+Finished or abandoned back to reading or paused: clears the finish date and reason, restores the position and deletes the closing session when given (the Undo of finish and abandon), and puts the book's rating back only while it still has the value the finish set ("The book's rating was changed since; it was kept"). Refused while another reading of the book is open.
+
+### `addPastReading(input)`
+A finished or abandoned read from the past in one step, through `writeReadings` (`source: "manual"`, the book's rating set only if it has none). Returns written, already present ("You already logged this read: finished 14 Apr 2019"), or a possible duplicate, written only with `allowPossibleDuplicate`.
+
+### `updateReading(input)`
+Edition or copy (the start and current positions are mapped by share; with no page count, page null and unit percent; `work.reading_edition_changed`), format, unit, home (physical only), totals (never below the position: "You are on p. 212; the book cannot have 200 pages"), dates (the finish only on a finished or abandoned read, after the start), rating, review, reason and note.
+
+### `deleteReading(input)` / `restoreReading(snapshot)`
+Deletes a reading with its sessions and history and returns the snapshot; restore puts it back with the same ids, an edition, copy or place deleted meanwhile coming back empty, and is refused if it would make a second open reading. `work.reading_deleted`.
+
+### `updateSession(input)` / `deleteSession(input)`
+Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. With no session left, the position returns to the start.
+
+### `getReadingsForWork(workId)`, `getOpenReadings()`, `getReadingCounts(workId)`
+A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author and cover; the readings and sessions a book delete removes.
+
+### Internal service (`src/lib/reading/service.ts`, not a server action)
+- `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
+- `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again").
+- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome.
+
+---
+
 ## Taxonomy (`src/lib/actions/taxonomy.ts`)
 
 Reads only. Subjects, genres, tags and every other family are created, renamed, merged and deleted through the family registry in `src/lib/actions/taxonomy-families.ts` (`createTaxonomyItem`, `updateTaxonomyItem`, `deleteTaxonomyItem` and the rest).

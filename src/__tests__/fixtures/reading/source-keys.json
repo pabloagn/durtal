@@ -1,0 +1,417 @@
+{
+ "normalize": [
+  {
+   "input": "Écrits  sur l’art!",
+   "expected": "ecrits sur l art"
+  },
+  {
+   "input": "  À--rebours ",
+   "expected": "a rebours"
+  },
+  {
+   "input": "罪と罰",
+   "expected": "罪と罰"
+  },
+  {
+   "input": "Ｆｕｌｌｗｉｄｔｈ",
+   "expected": "fullwidth"
+  },
+  {
+   "input": "Ñandú Pérez",
+   "expected": "nandu perez"
+  }
+ ],
+ "keys": [
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "n": 1,
+   "expected": "goodreads:12345#1"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "n": 2,
+   "expected": "goodreads:12345#2"
+  },
+  {
+   "builder": "storygraphReadingKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "n": 1,
+   "expected": "storygraph:358ecd5e6b00759853948f31da6cc1961da398c0dce4fb5916ce72eac33c362e#1"
+  },
+  {
+   "builder": "seedReadingKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "expected": "seed:6abc64c8f1fc4311c34f6f4ca65af6e908e67890a740b47aa78b7a1ebb0ea9f7"
+  },
+  {
+   "builder": "goodreadsToReadKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "expected": "goodreads-to-read:12345"
+  },
+  {
+   "builder": "storygraphToReadKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "expected": "storygraph-to-read:358ecd5e6b00759853948f31da6cc1961da398c0dce4fb5916ce72eac33c362e"
+  },
+  {
+   "builder": "goodreadsNoteKey",
+   "input": {
+    "title": "Écrits sur l'art",
+    "firstAuthor": "Joris-Karl Huysmans",
+    "bookId": "12345",
+    "isbn13": "=\"9782070379798\""
+   },
+   "expected": "goodreads-note:12345"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "n": 1,
+   "expected": "goodreads:isbn13:9782070379781#1"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "n": 2,
+   "expected": "goodreads:isbn13:9782070379781#2"
+  },
+  {
+   "builder": "storygraphReadingKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "n": 1,
+   "expected": "storygraph:333a93ddc6fac66c5f656c29965d7946075369aa28284361432e5661d29503fc#1"
+  },
+  {
+   "builder": "seedReadingKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "expected": "seed:6f4ae203a11d9a3c08c43c4855f27ac86de4698d1b51bbef60907a86e32ebfc7"
+  },
+  {
+   "builder": "goodreadsToReadKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "expected": "goodreads-to-read:isbn13:9782070379781"
+  },
+  {
+   "builder": "storygraphToReadKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "expected": "storygraph-to-read:333a93ddc6fac66c5f656c29965d7946075369aa28284361432e5661d29503fc"
+  },
+  {
+   "builder": "goodreadsNoteKey",
+   "input": {
+    "title": "À rebours",
+    "firstAuthor": "J.-K.  Huysmans",
+    "bookId": "",
+    "isbn13": "=\"9782070379781\""
+   },
+   "expected": "goodreads-note:isbn13:9782070379781"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "n": 1,
+   "expected": "goodreads:title:d2daeaaac4d8fd86a8dda7d0ce2d0dcdfa550dc104b220382dffab5f197487d4#1"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "n": 2,
+   "expected": "goodreads:title:d2daeaaac4d8fd86a8dda7d0ce2d0dcdfa550dc104b220382dffab5f197487d4#2"
+  },
+  {
+   "builder": "storygraphReadingKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "n": 1,
+   "expected": "storygraph:90c4f711c5a55c6c0c0e2460a62f8ef6d7b4f75cbca1639cf424003106dcaef2#1"
+  },
+  {
+   "builder": "seedReadingKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "expected": "seed:d2daeaaac4d8fd86a8dda7d0ce2d0dcdfa550dc104b220382dffab5f197487d4"
+  },
+  {
+   "builder": "goodreadsToReadKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "expected": "goodreads-to-read:title:d2daeaaac4d8fd86a8dda7d0ce2d0dcdfa550dc104b220382dffab5f197487d4"
+  },
+  {
+   "builder": "storygraphToReadKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "expected": "storygraph-to-read:90c4f711c5a55c6c0c0e2460a62f8ef6d7b4f75cbca1639cf424003106dcaef2"
+  },
+  {
+   "builder": "goodreadsNoteKey",
+   "input": {
+    "title": "Là-bas!!   (Roman)",
+    "firstAuthor": "Huysmans, Joris-Karl",
+    "bookId": null,
+    "isbn13": ""
+   },
+   "expected": "goodreads-note:title:d2daeaaac4d8fd86a8dda7d0ce2d0dcdfa550dc104b220382dffab5f197487d4"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "n": 1,
+   "expected": "goodreads:title:7e7a7b45d33865b76477e94c90a888dfe95f7b7f07f30a87860e7993db36ec89#1"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "n": 2,
+   "expected": "goodreads:title:7e7a7b45d33865b76477e94c90a888dfe95f7b7f07f30a87860e7993db36ec89#2"
+  },
+  {
+   "builder": "storygraphReadingKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "n": 1,
+   "expected": "storygraph:ff94f7ad430bdeff962591e7649c837356219d4fc75dfbbf17098ce5fa80527d#1"
+  },
+  {
+   "builder": "seedReadingKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "expected": "seed:7e7a7b45d33865b76477e94c90a888dfe95f7b7f07f30a87860e7993db36ec89"
+  },
+  {
+   "builder": "goodreadsToReadKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "expected": "goodreads-to-read:title:7e7a7b45d33865b76477e94c90a888dfe95f7b7f07f30a87860e7993db36ec89"
+  },
+  {
+   "builder": "storygraphToReadKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "expected": "storygraph-to-read:ff94f7ad430bdeff962591e7649c837356219d4fc75dfbbf17098ce5fa80527d"
+  },
+  {
+   "builder": "goodreadsNoteKey",
+   "input": {
+    "title": "罪と罰",
+    "firstAuthor": "ドストエフスキー",
+    "bookId": null,
+    "isbn13": null
+   },
+   "expected": "goodreads-note:title:7e7a7b45d33865b76477e94c90a888dfe95f7b7f07f30a87860e7993db36ec89"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "n": 1,
+   "expected": "goodreads:987#1"
+  },
+  {
+   "builder": "goodreadsReadingKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "n": 2,
+   "expected": "goodreads:987#2"
+  },
+  {
+   "builder": "storygraphReadingKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "n": 1,
+   "expected": "storygraph:3fadd02efe70ed315ed5373a2413a389d319ac376973e482a30357ec9300e981#1"
+  },
+  {
+   "builder": "seedReadingKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "expected": "seed:742f9d5fc70976a6498ade6a58d65ab5b6a2d29927c963ed1623dd3ab520946c"
+  },
+  {
+   "builder": "goodreadsToReadKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "expected": "goodreads-to-read:987"
+  },
+  {
+   "builder": "storygraphToReadKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "expected": "storygraph-to-read:3fadd02efe70ed315ed5373a2413a389d319ac376973e482a30357ec9300e981"
+  },
+  {
+   "builder": "goodreadsNoteKey",
+   "input": {
+    "title": "Ｆｕｌｌｗｉｄｔｈ Title",
+    "firstAuthor": "Ñandú Pérez",
+    "bookId": "987",
+    "isbn13": null
+   },
+   "expected": "goodreads-note:987"
+  },
+  {
+   "builder": "durtalReadingKey",
+   "input": "3f2c8d4e-0000-4000-8000-000000000001",
+   "expected": "durtal:3f2c8d4e-0000-4000-8000-000000000001"
+  },
+  {
+   "builder": "durtalImportRowKey",
+   "input": [
+    "  Watt ",
+    "Samuel Beckett",
+    "finished",
+    "2019-04-14",
+    ""
+   ],
+   "expected": "durtal-import:9332453ded82c3a7a087a4c8bee8adac78f14b158bfaf279763f067bbe7f48bf"
+  },
+  {
+   "builder": "readerReadingKey",
+   "input": "7d1e0000-0000-4000-8000-000000000002",
+   "expected": "reader:7d1e0000-0000-4000-8000-000000000002"
+  },
+  {
+   "builder": "calibreReadingKey",
+   "input": 417,
+   "expected": "calibre:417"
+  }
+ ]
+}

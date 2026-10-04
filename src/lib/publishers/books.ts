@@ -228,7 +228,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
           from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1) as poster,
         e.publication_year as year, e.language,
         (select count(*)::int from instances i where i.edition_id = e.id and i.status <> 'deaccessioned') as copies,
-        w.rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.acquisition_priority
+        w.rating::float8 as rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.acquisition_priority
       from editions e join works w on w.id = e.work_id
       where e.id in (${ids})`),
   );

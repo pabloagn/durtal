@@ -366,6 +366,13 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           c`insert into calibre_books(calibre_id,title,path,work_id) values (99,'Invalid','path',${other.id})`,
         () =>
           c`insert into work_status_history(work_id,to_status) values (${other.id},'accessioned')`,
+        () =>
+          c`insert into readings(work_id,started_precision) values (${other.id},'unknown')`,
+        async () => {
+          const [read] =
+            await c`insert into readings(work_id,status,started_precision) values (${books[0]},'finished','unknown') returning id`;
+          return c`update readings set work_id = ${other.id} where id = ${read.id}`;
+        },
       ];
       for (const statement of statements)
         await expect(statement()).rejects.toMatchObject({

@@ -366,7 +366,9 @@ def seed_books(
         hardcover_url = clean(_col(row, "hardcover_url"))
 
         # --- WORK ---
-        rating = rating_raw if rating_raw is not None else priority
+        # Only the Rating cell is a rating. Seeds before changelog 0302 also
+        # stored Priority here when Rating was empty (SLN-444)
+        rating = rating_raw
         catalogue_status = _derive_catalogue_status(row, priority)
         acq_priority = _derive_acquisition_priority(priority)
 

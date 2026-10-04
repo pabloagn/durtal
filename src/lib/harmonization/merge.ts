@@ -129,6 +129,18 @@ export function mergeBlockers(
     blockers.push(
       "A parent and its child cannot be merged. Reconcile the hierarchy first.",
     );
+  // One open reading per book: two would collide in the kept book
+  const openReadings = (snapshot.references.readings || []).filter(
+    (r) => r.status === "reading" || r.status === "paused",
+  );
+  if (
+    entityKey === "works" &&
+    openReadings.some((r) => r.work_id === source.id) &&
+    openReadings.some((r) => r.work_id === target.id)
+  )
+    blockers.push(
+      "Both books have an open reading. Finish, abandon or delete one before merging.",
+    );
   const targets = snapshot.references.acquisition_targets || [];
   const transformed: Row[] = targets
     .filter((r) => !r.is_cancelled)

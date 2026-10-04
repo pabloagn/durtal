@@ -1,5 +1,6 @@
 import type { ActivityMetadata } from "./types";
 import { MARKS } from "@/lib/constants/marks";
+import { ABANDON_REASON_LABELS } from "@/lib/reading/constants";
 import { languageName } from "@/lib/utils/language";
 import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
 
@@ -65,6 +66,15 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.bottle_updated":            { icon: "Package",      color: MUTED,     category: "update" },
   "work.bottle_removed":            { icon: "Package",      color: RED,       category: "delete" },
   "work.location_recorded":         { icon: "MapPin",       color: MUTED,     category: "update" },
+  // ── Reading (SLN-444) ────────────────────────────────────────────────────
+  "work.reading_started":           { icon: "BookPlus",     color: SAGE,      category: "create" },
+  "work.reading_progress":          { icon: "Bookmark",     color: MUTED,     category: "update" },
+  "work.reading_paused":            { icon: "Pause",        color: MUTED,     category: "update" },
+  "work.reading_resumed":           { icon: "Play",         color: MUTED,     category: "update" },
+  "work.reading_finished":          { icon: "BookCheck",    color: SAGE,      category: "update" },
+  "work.reading_abandoned":         { icon: "BookX",        color: MUTED,     category: "update" },
+  "work.reading_edition_changed":   { icon: "ArrowLeftRight", color: MUTED,   category: "update" },
+  "work.reading_deleted":           { icon: "Trash2",       color: RED,       category: "delete" },
   "organization.comment_added":     { icon: "MessageSquare",color: SECONDARY, category: "comment" },
   "venue.comment_added":            { icon: "MessageSquare",color: SECONDARY, category: "comment" },
 
@@ -106,6 +116,11 @@ function label(value: string): DescriptionSegment {
 }
 
 /** Build a "Changed X from A to B" description with styled labels */
+/** "Lost interest", for a stored abandon reason */
+function abandonWords(reason: string) {
+  return ABANDON_REASON_LABELS[reason as keyof typeof ABANDON_REASON_LABELS] ?? reason;
+}
+
 function fieldChanged(
   fieldName: string,
   m?: ActivityMetadata | null,
@@ -201,6 +216,20 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
       ...(Array.isArray(changes) && changes.length ? [text(`: ${changes.join("; ")}`)] : [])];
   },
   "work.bottle_removed":            (m) => [text("Removed "), label(m?.targetName ?? "a container")],
+  "work.reading_started":           (m) => [text("Started reading"), ...(m?.extra?.editionTitle ? [text(" "), label(String(m.extra.editionTitle))] : [])],
+  "work.reading_progress":          (m) => {
+    const pages = Number(m?.extra?.pages ?? 0), percent = m?.extra?.percent;
+    return [text(pages > 0 ? `Read ${pages} ${pages === 1 ? "page" : "pages"}` : "Logged progress"),
+      ...(percent != null ? [text(`, now ${Math.round(Number(percent))}%`)] : [])];
+  },
+  "work.reading_paused":            () => [text("Paused reading")],
+  "work.reading_resumed":           () => [text("Resumed reading")],
+  "work.reading_finished":          (m) => [text(m?.extra?.past ? "Logged a past read" : "Finished reading"),
+    ...(m?.extra?.rating != null ? [text(", rated "), label(String(m.extra.rating))] : [])],
+  "work.reading_abandoned":         (m) => [text("Stopped reading"),
+    ...(m?.extra?.reason ? [text(": "), label(abandonWords(String(m.extra.reason)))] : [])],
+  "work.reading_edition_changed":   (m) => [text("Switched the reading to "), label(String(m?.extra?.editionTitle ?? "another edition"))],
+  "work.reading_deleted":           () => [text("Deleted a reading")],
   "work.location_recorded":         (m) => {
     const custody = m?.extra?.custody, certainty = m?.extra?.certainty;
     const how = [custody, certainty].filter(Boolean).join(", ").toLowerCase();
