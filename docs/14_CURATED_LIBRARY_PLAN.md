@@ -433,7 +433,7 @@ has its own wishes (a formulation and size, a version and medium, an object or a
 reproduction of one) and orders for them. Receiving an order creates its bottle,
 copy or object once, in the order's write; a return disposes of it. Book
 targets and totals are unchanged; museum custody never enters the purchase
-flow. Migration 0063 once main ends at 0062; 0061 on this branch until then.
+flow. Migration 0063.
 
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

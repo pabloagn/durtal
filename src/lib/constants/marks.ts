@@ -5,9 +5,9 @@
  * one entry here plus its column, badge and action.
  */
 export interface WorkMark {
-  key: "rare" | "poison";
+  key: "rare" | "poison" | "favourite";
   /** The work field that holds the mark */
-  field: "isRare" | "isPoison";
+  field: "isRare" | "isPoison" | "isFavourite";
   /** Name on badges, filters and menus: "Rare" */
   label: string;
   /** One marked book: "a Rarity" */
@@ -42,6 +42,17 @@ export const WORK_MARKS = [
     markAction: "Mark as anathema",
     unmarkAction: "Unmark anathema",
     hint: "Explicit or transgressive: dangerous to recommend",
+  },
+  {
+    // The same star as every other favourite (`FavouriteToggle`)
+    key: "favourite",
+    field: "isFavourite",
+    label: "Favourite",
+    noun: "Favourite",
+    plural: "Favourites",
+    markAction: "Mark as favourite",
+    unmarkAction: "Remove favourite",
+    hint: "One of your favourites",
   },
 ] as const satisfies readonly WorkMark[];
 

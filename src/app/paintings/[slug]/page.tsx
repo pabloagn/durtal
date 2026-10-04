@@ -17,7 +17,7 @@ import {
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 import {
   CurationProvider,
-  FavouriteToggle,
+  CurationFavourite,
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
@@ -445,7 +445,7 @@ export default async function PaintingPage({
                 sources={citable}
                 owned={owned.length}
               >
-                <FavouriteToggle isFavourite={curation?.isFavourite ?? false} />
+                <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
               </PaintingActions>
             </div>
 

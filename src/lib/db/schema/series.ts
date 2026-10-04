@@ -10,6 +10,7 @@ export const series = pgTable("series", {
   description: text("description"),
   totalVolumes: smallint("total_volumes"),
   isComplete: boolean("is_complete").notNull().default(false),
+  isFavourite: boolean("is_favourite").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

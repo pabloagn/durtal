@@ -9,8 +9,8 @@
 /library/new                Add new book (wizard)
 /library/import             Bulk import interface
 /library/identify           Identify placeholder editions (one at a time)
-/authors                    Author index
-/authors/[slug]             Author detail (slug format: {author-name})
+/people                     People index (every collection; /authors redirects here, 308)
+/people/[slug]              Person detail (slug format: {name}; /authors/[slug] redirects here)
 /publishers                 Publisher index
 /publishers/new             Add a publisher
 /publishers/review          Review publisher names on editions
@@ -509,34 +509,25 @@ The old import created one edition per book with no ISBN, publisher or cover (me
 
 ---
 
-### Authors (`/authors`)
+### People (`/people`)
 
-Table view of all authors in the database.
+Everyone in the catalogue, in every collection: writers, translators, directors, actors, perfumers, painters (SLN-419). Every old `/authors` and `/authors/[slug]` URL redirects permanently (308) to the matching `/people` URL; slugs did not change. The REST API keeps `/api/authors`.
 
-**Columns**: Name, Nationality, Birth-Death years, Works count.
+**Views**: grid, list, map and timeline (the map and timeline show book people, who carry places and dates).
 
-**Features**:
-- Search by name
-- Alphabetical ordering by sort name
-- Click row to navigate to author detail
+**Filters**: Collection (the collections a person belongs to, `person_domains`) and Role (any credited role, such as "Films: Director" or "Books: Translator"; each choice shows how many people hold it), plus nationality, gender, zodiac sign, status and birth and death years. Search, sort and pagination as before.
 
 ---
 
-### Author Detail (`/authors/[slug]`)
+### Person Detail (`/people/[slug]`)
 
-Full author profile page.
+**Header**: optional portrait, name, nationality, birth and death years.
 
-**Author header**:
-- Optional poster image (from media)
-- Name, nationality
-- Birth and death years
-- Bio text
+**Record**: a Credits group sums up each collection's roles ("Books: Author 12, Translator 3", "Films: Director 2"), then details and links.
 
-**Media section**: Upload and gallery for author images.
+**Books**: works written, as book cards, and edition contributions (translator, editor, illustrator…). A person with no books has neither section.
 
-**Works authored**: List of works with role badges (author, co-author).
-
-**Edition contributions**: List of editions where this author is a contributor (translator, editor, illustrator, etc.).
+**Films, Perfumes, Paintings**: each collection the person is credited in lists its works, linked, with the person's roles.
 
 **External links**: Website, Open Library, Goodreads.
 
@@ -548,10 +539,10 @@ Full author profile page.
 
 ### Publisher Detail (`/publishers/[slug]`)
 
-- Header like the author page: the house's background banner and backdrop, its logo (shown whole, never cropped), the name, what it is (imprint of, group) and where, the favourite star, Edit and an actions menu (Copy name, Edit, Manage media, View in library). Manage media opens the shared media manager with a Logo and a Background tab (owner `organization`).
-- Reading column: About (`<Prose>`), notes, then the books as a catalogue: one card per book with this house's edition cover (owned edition first, then one with a cover, then the earliest), in grid or list view. The house's imprints count as the house.
-- Search, filters (status: owned, wanted, on order; marks; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
-- Record column: the counts (books, editions, owned, wanted, on order), details (country, group, imprints, other names, specialties, ISBN prefixes) and the website.
+- Header like the author page: the house's background banner and backdrop, its logo (shown whole, never cropped), the name, what it is (imprint of, group) and where, when and where it was founded ("Founded 1936 in New York"), the favourite star, Edit and an actions menu (Copy name, Edit, Manage media, View in library). Manage media opens the shared media manager with a Logo and a Background tab (owner `organization`).
+- Reading column: About (`<Prose>`), notes, then the books as a catalogue: one card per book with this house's edition cover (owned edition first, then one with a cover, then the earliest), in grid or list view. The view is in the URL (`?view=grid` or `?view=list`), so a shared link opens the same view; without it, the last view chosen on this device. The house's imprints count as the house.
+- Search, filters (status: owned, wanted, on order; marks: Rare, Anathema, Favourite; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
+- Record column: the counts (books, editions, owned, wanted, on order), details (country, founded, founded in, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
 - The record's Links group opens the house's organization page, where its roles in the other collections show.
 

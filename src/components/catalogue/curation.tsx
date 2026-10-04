@@ -2,11 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Pencil, Star } from "lucide-react";
+import { Pencil, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { updateWorkCuration } from "@/lib/actions/curation";
@@ -82,28 +83,26 @@ function useCurationSave() {
   return { save, saving };
 }
 
-/** The favourite toggle beside the title */
-export function FavouriteToggle({ isFavourite }: { isFavourite: boolean }) {
-  const { save, saving } = useCurationSave();
-  const [on, setOn] = useState(isFavourite);
-  const label = on ? "Remove from favourites" : "Add to favourites";
+/**
+ * The work's favourite star beside the title: the shared `FavouriteToggle`,
+ * saved with the rest of the work's curation. F toggles it.
+ */
+export function CurationFavourite({
+  isFavourite,
+  name,
+}: {
+  isFavourite: boolean;
+  name?: string;
+}) {
+  const { save } = useCurationSave();
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={label}
-      data-tooltip={label}
-      disabled={saving}
-      onClick={async () => {
-        setOn(!on);
-        if (!(await save({ isFavourite: !on }))) setOn(on);
-      }}
-      className={`flex h-8 w-8 items-center justify-center rounded-[2px] border border-glass-border bg-bg-tertiary/50 transition-colors hover:bg-bg-tertiary ${
-        on ? "text-accent-rose-text" : "text-fg-muted hover:text-fg-primary"
-      }`}
-    >
-      <Heart className="h-4 w-4" strokeWidth={1.5} fill={on ? "currentColor" : "none"} />
-    </button>
+    <FavouriteToggle
+      favourite={isFavourite}
+      onToggle={(next) => save({ isFavourite: next })}
+      name={name}
+      variant="boxed"
+      shortcut
+    />
   );
 }
 

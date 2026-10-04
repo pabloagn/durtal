@@ -56,10 +56,10 @@ import {
   getPublisher,
   getPublisherOptions,
   getPublisherCountries,
-  setPublisherFavourite,
   setEditionPublisherLinks,
   createAcquisitionTarget,
 } from "@/lib/actions/publishers";
+import { setFavourite } from "@/lib/actions/favourites";
 import { loadDataset } from "@/lib/harmonization/store";
 
 describe.skipIf(!url)(
@@ -164,7 +164,7 @@ describe.skipIf(!url)(
       expect(await getPublisherCountries()).toEqual([]);
       expect(await getPublisher(org.slug)).toBeNull();
       expect((await loadDataset()).publishing_houses).toEqual([]);
-      await expect(setPublisherFavourite(org.id, true)).rejects.toThrow(
+      await expect(setFavourite("publisher", org.id, true)).rejects.toThrow(
         "Publisher not found",
       );
       await expect(

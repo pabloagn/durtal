@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
@@ -25,6 +26,8 @@ import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { enumLabel } from "@/lib/utils/labels";
+import { formatPersonRoles, type PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 const AuthorsMap = dynamic(
   () =>
@@ -68,13 +71,20 @@ export interface AuthorItem {
   coverPreviews: string[];
   website: string | null;
   bio: string | null;
+  /** Works credited in every collection: the table's Works column */
   worksCount: number;
+  /** Roles with credit counts: the card's role line (SLN-420) */
+  roles: PersonRole[];
+  /** Books written: the cards' "N books" */
+  booksCount: number;
+  isFavourite: boolean;
   createdAt: string;
 }
 
 const ALL_AUTHOR_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", defaultVisible: true, defaultOrder: 0 },
   { key: "nationality", label: "Nationality", defaultVisible: true, defaultOrder: 1 },
+  { key: "roles", label: "Roles", defaultVisible: true, defaultOrder: 10 },
   { key: "years", label: "Years", defaultVisible: true, defaultOrder: 2 },
   { key: "gender", label: "Gender", defaultVisible: false, defaultOrder: 3 },
   { key: "worksCount", label: "Works", defaultVisible: true, defaultOrder: 4 },
@@ -91,12 +101,12 @@ const DEFAULT_COLUMN_CONFIG = ALL_AUTHOR_COLUMNS.map((c) => ({
   order: c.defaultOrder,
 }));
 
-function renderAuthorCell(author: AuthorItem, key: string) {
+function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string[] | null) {
   switch (key) {
     case "name": {
       return (
         <Link
-          href={`/authors/${author.slug}`}
+          href={`/people/${author.slug}`}
           className="flex items-center gap-2 hover:text-accent-rose-text"
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
@@ -127,6 +137,8 @@ function renderAuthorCell(author: AuthorItem, key: string) {
         : "—";
     case "worksCount":
       return author.worksCount;
+    case "roles":
+      return formatPersonRoles(author.roles, null, filteredRoles)?.full ?? "—";
     case "gender":
       return author.gender ? enumLabel(author.gender) : "—";
     case "birthYear":
@@ -166,6 +178,10 @@ interface AuthorsShellProps {
   mapQuery: Parameters<typeof getAuthorsForMap>[0];
   timelineQuery: Parameters<typeof getAuthorsForTimeline>[0];
   pagination: PaginationData;
+  /** The collection the list is filtered to: its roles come first on cards */
+  preferKind?: WorkKind | null;
+  /** The roles the list is filtered by: they lead the cards' role lines */
+  preferRoles?: string[] | null;
 }
 
 /** URL params (besides the search term) that filter the author list */
@@ -174,6 +190,7 @@ const AUTHOR_FILTER_PARAMS = [
   "gender",
   "zodiac",
   "alive",
+  FAVOURITES_PARAM,
   "birthYearMin",
   "birthYearMax",
   "deathYearMin",
@@ -183,6 +200,8 @@ const AUTHOR_FILTER_PARAMS = [
 export function AuthorsShell({
   authors,
   mapQuery,
+  preferKind = null,
+  preferRoles = null,
   timelineQuery,
   pagination,
 }: AuthorsShellProps) {
@@ -218,17 +237,17 @@ export function AuthorsShell({
   if (pagination.total === 0) {
     return (
       <NoResults
-        noun="authors"
+        noun="people"
         search={search}
         hasFilters={hasFilters}
-        clearHref={clearedListHref("/authors", searchParams)}
+        clearHref={clearedListHref("/people", searchParams)}
       />
     );
   }
 
   // Page number past the last page
   if (authors.length === 0) {
-    return <PageOutOfRange firstPageHref={firstPageHref("/authors", searchParams)} />;
+    return <PageOutOfRange firstPageHref={firstPageHref("/people", searchParams)} />;
   }
 
   return (
@@ -279,7 +298,7 @@ export function AuthorsShell({
         </div>
       )}
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" compact />}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" compact />}
 
       {viewMode === "grid" && (
         <div className="@container">
@@ -299,7 +318,11 @@ export function AuthorsShell({
                 posterCrop={a.posterCrop}
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
-                worksCount={a.worksCount}
+                worksCount={a.booksCount}
+                roles={a.roles}
+                preferKind={preferKind}
+                preferRoles={preferRoles}
+                isFavourite={a.isFavourite}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -324,7 +347,11 @@ export function AuthorsShell({
               deathYear={a.deathYear}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
-              worksCount={a.worksCount}
+              worksCount={a.booksCount}
+              roles={a.roles}
+              preferKind={preferKind}
+              preferRoles={preferRoles}
+              isFavourite={a.isFavourite}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}
@@ -340,7 +367,7 @@ export function AuthorsShell({
           allColumns={ALL_AUTHOR_COLUMNS}
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
-          renderCell={renderAuthorCell}
+          renderCell={(author, key) => renderAuthorCell(author, key, preferRoles)}
           isSelecting={selection.isSelecting}
           selectedIds={selection.selectedIds}
           onSelect={selection.toggleSelection}
@@ -357,7 +384,7 @@ export function AuthorsShell({
         onExitSelection={selection.exitSelectionMode}
       />
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" />}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" />}
     </>
   );
 }

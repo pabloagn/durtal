@@ -13,7 +13,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { Copy, Link2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
-import { AuthorCreateDialog } from "@/app/authors/author-create-dialog";
+import { AuthorCreateDialog } from "@/app/people/author-create-dialog";
 import { VenueCreateDialog } from "@/app/places/venue-create-dialog";
 import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";

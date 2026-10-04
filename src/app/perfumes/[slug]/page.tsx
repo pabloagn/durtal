@@ -13,7 +13,7 @@ import { PerfumeImage } from "@/components/perfumes/perfume-image";
 import { PerfumeActions } from "@/components/perfumes/perfume-actions";
 import {
   CurationProvider,
-  FavouriteToggle,
+  CurationFavourite,
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
@@ -420,7 +420,7 @@ export default async function PerfumePage({
               containers={perfume.bottles.length}
               listings={perfume.retailers.length}
             >
-              <FavouriteToggle isFavourite={curation?.isFavourite ?? false} />
+              <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
             </PerfumeActions>
           </div>
 

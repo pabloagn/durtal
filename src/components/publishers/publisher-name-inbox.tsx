@@ -119,6 +119,7 @@ function NameRow({
           <Link
             key={e.id}
             href={`/library/${e.workSlug}#edition-${e.id}`}
+            aria-label={e.workTitle}
             data-tooltip={e.workTitle}
           >
             <EditionImageBox image={e.image} title={e.workTitle} size="sm" />
@@ -321,8 +322,10 @@ export function PublisherNameInbox({
                 {d.undone ? (
                   <span className="text-xs text-fg-secondary">Undone</span>
                 ) : (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     disabled={pending}
                     onClick={() =>
                       run(async () => {
@@ -330,10 +333,9 @@ export function PublisherNameInbox({
                         return "Undone";
                       })
                     }
-                    className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                   >
                     Undo
-                  </button>
+                  </Button>
                 )}
               </li>
             ))}
@@ -350,18 +352,19 @@ export function PublisherNameInbox({
             {ignored.map((n) => (
               <li key={n.key} className="flex flex-wrap items-baseline gap-3 text-sm text-fg-secondary">
                 <span>{n.name}</span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   disabled={pending}
                   onClick={() =>
                     run(async () => {
                       await restorePublisherName(n.key);
                     })
                   }
-                  className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                 >
                   Restore
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

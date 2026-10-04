@@ -6,6 +6,7 @@ import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { ExportMenu } from "@/components/shared/export-menu";
+import { FavouriteBulkMenu } from "@/components/shared/favourite-bulk-menu";
 import { deleteAuthor } from "@/lib/actions/authors";
 import { toast } from "sonner";
 
@@ -52,13 +53,13 @@ export function AuthorBulkActionToolbar({
         deleted++;
       }
       toast.success(
-        `${deleted} ${deleted === 1 ? "author" : "authors"} deleted`,
+        `${deleted} ${deleted === 1 ? "person" : "people"} deleted`,
       );
       onExitSelection();
       router.refresh();
     } catch {
       toast.error(
-        `Deleted ${deleted} of ${ids.length} authors before error`,
+        `Deleted ${deleted} of ${ids.length} people before error`,
       );
     } finally {
       setIsDeleting(false);
@@ -94,6 +95,12 @@ export function AuthorBulkActionToolbar({
 
         <div className="h-4 w-px bg-glass-border" />
 
+        <FavouriteBulkMenu
+          entity="author"
+          ids={selectedIds}
+          noun={["person", "people"]}
+        />
+
         {/* Export */}
         <ExportMenu entity="authors" ids={selectedIds} />
 
@@ -125,10 +132,10 @@ export function AuthorBulkActionToolbar({
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleBulkDelete}
-        title={`Delete ${selectedCount} ${selectedCount === 1 ? "author" : "authors"}`}
-        description="Are you sure you want to delete the selected authors? This action cannot be undone."
+        title={`Delete ${selectedCount} ${selectedCount === 1 ? "person" : "people"}`}
+        description="Are you sure you want to delete the selected people? This action cannot be undone."
         itemName={displayName}
-        cascade="This will NOT delete the authors' books, but will remove authorship links."
+        cascade="This will NOT delete their books, films, perfumes or paintings, but will remove their credits."
       />
     </>
   );

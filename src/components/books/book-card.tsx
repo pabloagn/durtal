@@ -10,6 +10,7 @@ import { COVER_CORNER } from "./cover-chip";
 import { CardRating, CardStatus } from "./card-status";
 import { Badge } from "@/components/ui/badge";
 import { CardHeading } from "@/components/shared/card-heading";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
 import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
@@ -36,6 +37,8 @@ interface BookCardProps {
   isRare?: boolean;
   huntAssessedOn?: string | null;
   isPoison?: boolean;
+  /** The favourite star shows when this is given */
+  isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   /** Whether a digital edition exists in Calibre for this work */
@@ -123,6 +126,7 @@ export function BookCard({
   isRare,
   huntAssessedOn,
   isPoison,
+  isFavourite,
   primaryEditionId,
   hasDigitalEdition = false,
   isSelecting = false,
@@ -232,16 +236,31 @@ export function BookCard({
         </div>
       )}
 
-      {/* Meta — navigates when not selecting */}
-      <Link
-        href={href}
-        className={`block ${isSelecting ? "pointer-events-none" : ""}`}
-        tabIndex={isSelecting ? -1 : undefined}
-      >
+      {/* Meta — navigates when not selecting. The link covers the text, so
+          the favourite star can sit above it */}
+      <div className="relative">
+        <Link
+          href={href}
+          aria-label={title}
+          className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
+          tabIndex={-1}
+        />
         <div className="p-3.5">
           {/* Two title lines and one author line, always: every book card
               has the same height, and the author sits under the title */}
-          <CardHeading title={title} subtitle={authorName} />
+          <CardHeading
+            title={title}
+            subtitle={authorName}
+            action={
+              isFavourite === undefined ? undefined : (
+                <FavouriteToggle
+                  favourite={isFavourite}
+                  target={{ entity: "work", id: workId }}
+                  name={title}
+                />
+              )
+            }
+          />
           <div className="mt-2.5 flex h-5 items-center gap-2">
             <CardStatus
               status={catalogueStatus}
@@ -270,7 +289,7 @@ export function BookCard({
             </span>
           </div>
         </div>
-      </Link>
+      </div>
     </div>
   );
 }

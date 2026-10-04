@@ -1,5 +1,6 @@
 "use client";
 
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,6 +36,7 @@ interface AuthorDetailHeaderProps {
   posterUrl?: string | null;
   posterCrop?: PosterCrop | null;
   workCount: number;
+  isFavourite: boolean;
 }
 
 export function AuthorDetailHeader({
@@ -50,6 +52,7 @@ export function AuthorDetailHeader({
   posterUrl,
   posterCrop,
   workCount,
+  isFavourite,
 }: AuthorDetailHeaderProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -72,10 +75,10 @@ export function AuthorDetailHeader({
   async function handleDelete() {
     try {
       await deleteAuthor(authorId);
-      toast.success("Author deleted");
-      router.push("/authors");
+      toast.success("Person deleted");
+      router.push("/people");
     } catch {
-      toast.error("Failed to delete author");
+      toast.error("Could not delete the person");
     }
   }
 
@@ -162,6 +165,12 @@ export function AuthorDetailHeader({
             </div>
             {/* On the cap-height center of the name's first line */}
             <CapAlignedControls height={32} className="type-page-title">
+              <FavouriteToggle
+                favourite={isFavourite}
+                target={{ entity: "author", id: authorId }}
+                name={name}
+                shortcut
+              />
               <ExportMenu
                 entity="authors"
                 ids={[authorId]}
@@ -223,12 +232,12 @@ export function AuthorDetailHeader({
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete author"
-        description="Are you sure you want to delete this author? This action cannot be undone."
+        title="Delete person"
+        description="Are you sure you want to delete this person? This action cannot be undone."
         itemName={name}
         cascade={
           workCount > 0
-            ? "This will NOT delete the author's books, but will remove authorship links."
+            ? "This will NOT delete the person's books, films, perfumes or paintings, but will remove their credits."
             : undefined
         }
       />

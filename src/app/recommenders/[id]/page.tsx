@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -79,6 +80,12 @@ export default async function RecommenderPage({
         </div>
         {/* On the cap-height center of the name's first line */}
         <CapAlignedControls height={32} className="type-page-title">
+          <FavouriteToggle
+            favourite={recommender.isFavourite}
+            target={{ entity: "recommender", id: recommender.id }}
+            name={recommender.name}
+            shortcut
+          />
           <RecommenderActions
             recommender={{
               id: recommender.id,
@@ -133,6 +140,7 @@ export default async function RecommenderPage({
                     isRare={work.isRare}
                     huntAssessedOn={work.huntAssessedOn}
                     isPoison={work.isPoison}
+                    isFavourite={work.isFavourite}
                     primaryEditionId={work.editions[0]?.id}
                   />
                 );
