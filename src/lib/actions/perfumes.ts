@@ -188,7 +188,7 @@ export async function getPerfumeFilterOptions() {
       await db.execute(sql`select p.id,p.name,count(distinct o.work_id)::int as count
         from perfume_organizations o join publishing_houses p on p.id=o.organization_id
         join works w on w.id=o.work_id and w.kind='perfume'
-        where o.role in ('perfume_house','brand')
+        where o.role in ('perfume_house','brand','manufacturer')
         group by p.id,p.name order by lower(p.name),p.id`),
     ),
     resultRows<{ id: string; name: string; count: number }>(
