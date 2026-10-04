@@ -3,7 +3,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { galleryLayouts, media } from "@/lib/db/schema";
-import { computeCollageLayout } from "@/lib/utils/collage-layout";
+import { computeCollageLayout, layoutMatchesMedia } from "@/lib/utils/collage-layout";
 import type { CollageLayoutData } from "@/lib/utils/collage-layout";
 
 // ── Queries ──────────────────────────────────────────────────────────────────
@@ -121,8 +121,14 @@ export async function getGalleryWithLayout(
 
   let layout = await getGalleryLayout(entityType, entityId);
 
-  // Recompute if missing or stale
-  if (!layout || layout.imageCount !== items.length) {
+  // Recompute if missing or stale: the layout must place exactly the current images
+  if (
+    !layout ||
+    !layoutMatchesMedia(
+      layout.layoutData as unknown as CollageLayoutData,
+      items.map((m) => m.id),
+    )
+  ) {
     const existingSeed = layout?.seed;
     layout = await computeAndStoreLayout(
       entityType,

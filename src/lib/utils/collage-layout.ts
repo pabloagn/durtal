@@ -404,3 +404,17 @@ export function computeCollageLayout(
 
   return { blocks };
 }
+
+/**
+ * True when the layout places exactly the given media ids, each once.
+ * A layout that names a removed image, or misses a new one, is stale.
+ */
+export function layoutMatchesMedia(
+  layout: CollageLayoutData | null | undefined,
+  mediaIds: string[],
+): boolean {
+  const placed = (layout?.blocks ?? []).flatMap((b) => b.cells.map((c) => c.mediaId));
+  if (placed.length !== mediaIds.length) return false;
+  const current = new Set(mediaIds);
+  return new Set(placed).size === placed.length && placed.every((id) => current.has(id));
+}
