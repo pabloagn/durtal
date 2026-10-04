@@ -27,6 +27,8 @@ import {
   type ListSearchParams,
 } from "@/lib/utils/pagination";
 
+export const metadata = { title: "Perfumes" };
+
 /** One page of the perfumes the URL asks for: its search, filters, sort and page. */
 async function PerfumeResults({ params }: { params: ListSearchParams }) {
   const query = perfumeQueryFromParams(params);

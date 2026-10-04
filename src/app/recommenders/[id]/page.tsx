@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
@@ -17,12 +19,20 @@ interface PageProps {
   searchParams: Promise<ListSearchParams>;
 }
 
+/** One read per request for the page and its title */
+const loadRecommender = cache(getRecommender);
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const recommender = await loadRecommender((await params).id);
+  return { title: recommender?.name ?? "Recommender not found" };
+}
+
 export default async function RecommenderPage({
   params,
   searchParams,
 }: PageProps) {
   const { id } = await params;
-  const recommender = await getRecommender(id);
+  const recommender = await loadRecommender(id);
   if (!recommender) notFound();
   const books = recommender.books;
   const paging = paginateItems(books, await searchParams);

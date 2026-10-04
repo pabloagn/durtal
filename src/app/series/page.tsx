@@ -13,6 +13,8 @@ import { SeriesFormDialog } from "@/components/series/series-form-dialog";
 import { SeriesFiltersBar } from "./series-filters-bar";
 import { SeriesShell } from "./series-shell";
 
+export const metadata = { title: "Series" };
+
 interface SearchParams {
   q?: string;
   sort?: string;

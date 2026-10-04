@@ -41,6 +41,8 @@ import { getAuthorCoverPreviews } from "@/lib/actions/authors";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { displayYear } from "@/lib/utils/years";
 
+export const metadata = { title: "Dashboard" };
+
 function StatCard({
   label,
   value,

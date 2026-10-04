@@ -19,6 +19,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { CreateCollectionDialog } from "./create-collection-dialog";
 import { CollectionCard } from "@/components/collections/collection-card";
 
+export const metadata = { title: "Collections" };
+
 async function CollectionsContent({ params }: { params: ListSearchParams }) {
   const { page, perPage, offset } = parsePagination(params);
   const [collections, total] = await Promise.all([

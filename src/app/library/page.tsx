@@ -22,6 +22,8 @@ import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { parseMarks } from "@/lib/constants/marks";
 
+export const metadata = { title: "Library" };
+
 interface PageProps {
   searchParams: Promise<{
     q?: string;

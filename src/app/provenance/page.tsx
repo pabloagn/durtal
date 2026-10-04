@@ -12,6 +12,8 @@ import { OrderCreateDialog } from "./order-create-dialog";
 import type { OrderItem, ProvenanceStats } from "./provenance-shell";
 import { SectionHeading } from "@/components/shared/section-heading";
 
+export const metadata = { title: "Provenance" };
+
 async function ProvenanceContent() {
   const [rawOrders, stats] = await Promise.all([
     getActiveOrders(),

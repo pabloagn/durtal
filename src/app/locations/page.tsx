@@ -7,6 +7,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { LocationActions } from "./actions";
 import { LocationCard } from "./location-card";
 
+export const metadata = { title: "Locations" };
+
 async function LocationsContent() {
   const locations = await getLocations();
 

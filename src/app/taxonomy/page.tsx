@@ -7,6 +7,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { FamilyCard } from "@/components/taxonomy/family-card";
 import { TaxonomyActions } from "./taxonomy-actions";
 
+export const metadata = { title: "Taxonomy" };
+
 async function TaxonomyContent({
   families,
 }: {

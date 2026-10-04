@@ -11,6 +11,8 @@ import { RecommenderFormDialog } from "@/components/recommenders/recommender-for
 import { RecommendersFiltersBar } from "./recommenders-filters-bar";
 import { RecommendersShell } from "./recommenders-shell";
 
+export const metadata = { title: "Recommenders" };
+
 interface SearchParams {
   q?: string;
   sort?: string;

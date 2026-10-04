@@ -17,6 +17,8 @@ import type { PublisherItem } from "@/components/publishers/publisher-card";
 import { PublishersFiltersBar } from "./publishers-filters-bar";
 import { PublishersShell } from "./publishers-shell";
 
+export const metadata = { title: "Publishers" };
+
 type Params = Record<string, string | string[] | undefined>;
 
 function one(value: string | string[] | undefined) {

@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { parsePagination, pageHref, lastPage, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import Link from "next/link";
@@ -12,6 +14,18 @@ import { languageName } from "@/lib/utils/language";
 import { HOUSE_KIND_LABEL } from "@/lib/publishers/kinds";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
+/** One read per request for the page and its title */
+const loadPublisher = cache(getPublisher);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const publisher = await loadPublisher((await params).slug);
+  return { title: publisher?.name ?? "Publisher not found" };
+}
+
 export default async function PublisherPage({
   params,
   searchParams,
@@ -21,7 +35,7 @@ export default async function PublisherPage({
 }) {
   const { slug } = await params;
   const query = await searchParams;
-  const p = await getPublisher(slug);
+  const p = await loadPublisher(slug);
   if (!p) notFound();
   const filterValue = toSearchParams(query).get("filter");
   const filter = ["all", "owned", "wanted", "on_order"].includes(
