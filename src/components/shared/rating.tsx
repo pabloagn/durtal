@@ -41,7 +41,7 @@ export function RatingStars({ value, size = 12 }: { value: number | null | undef
     <span
       role="img"
       aria-label={rating === null ? "Not rated" : `Rated ${formatRating(rating)} out of 5`}
-      className="inline-flex gap-0.5"
+      className="flex w-fit gap-0.5"
     >
       {[1, 2, 3, 4, 5].map((n) => (
         <StarGlyph key={n} fill={fillOf(rating, n)} size={size} />
@@ -152,8 +152,9 @@ export function RatingInput({
   }
 
   const text = value === null ? "Not rated" : `${formatRating(value)} stars`;
+  // The Clear button wraps under the stars where the row is too narrow for both
   return (
-    <div className="flex items-start">
+    <div className="flex flex-wrap items-start gap-y-6">
       <CapAligned height={24} coarseHeight={44}>
         <div
           ref={row}

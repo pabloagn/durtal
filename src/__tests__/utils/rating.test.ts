@@ -4,6 +4,7 @@ import { RATING_SCHEMA } from "@/lib/validations/helpers";
 import { updateWorkSchema } from "@/lib/validations/works";
 import { curationPatchSchema } from "@/lib/catalogue/curation";
 import { createVenueSchema } from "@/lib/validations/venues";
+import { workFormValues, workPayload } from "@/components/books/work-form";
 
 describe("formatRating", () => {
   it("writes whole and half stars without a trailing zero", () => {
@@ -37,5 +38,19 @@ describe("work rating validation", () => {
   it("keeps venue ratings whole", () => {
     expect(createVenueSchema.safeParse({ name: "Shop", type: "bookshop", personalRating: 4 }).error?.issues.find((i) => i.path[0] === "personalRating")).toBeUndefined();
     expect(createVenueSchema.safeParse({ name: "Shop", type: "bookshop", personalRating: 4.5 }).error?.issues.find((i) => i.path[0] === "personalRating")).toBeDefined();
+  });
+});
+
+describe("the Edit Work form", () => {
+  it("keeps a half-star rating through an unrelated save", () => {
+    const work = {
+      title: "Watt", originalLanguage: "en", originalYear: null, workTypeId: null, isAnthology: false,
+      catalogueStatus: "accessioned", acquisitionPriority: "none", rating: 3.5, description: null, notes: null,
+      seriesName: null, seriesId: null, seriesPosition: null,
+    };
+    const values = workFormValues(work, [], [{ id: "00000000-0000-4000-8000-000000000001", name: "Samuel Beckett", role: "author" }]);
+    const payload = workPayload({ ...values, notes: "Reread" });
+    expect(payload.ok && payload.input.rating).toBe(3.5);
+    expect(payload.ok && updateWorkSchema.shape.rating.safeParse(payload.input.rating).success).toBe(true);
   });
 });

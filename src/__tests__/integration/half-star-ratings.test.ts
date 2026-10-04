@@ -38,6 +38,7 @@ import { getPaintings } from "@/lib/actions/paintings";
 import { updateWorkCuration, getWorkCuration } from "@/lib/actions/curation";
 import { getPublisherBooks, parsePublisherBookQuery } from "@/lib/publishers/books";
 import { savePublisher } from "@/lib/actions/publishers";
+import { workFormValues, workPayload } from "@/components/books/work-form";
 
 describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
   const db = testDb!;
@@ -53,7 +54,7 @@ describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, publishing_houses cascade`);
+    await q(`truncate works, authors, publishing_houses cascade`);
   });
 
   let serial = 0;
@@ -86,6 +87,18 @@ describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
     expect((await getWorks({ sort: "rating", order: "desc" })).map((w) => w.title)).toEqual(["FourHalf", "Three", "None"]);
     expect((await getWorks({ sort: "rating", order: "asc" })).map((w) => w.title)).toEqual(["Three", "FourHalf", "None"]);
     expect((await getWorks({ sort: "rating" }))[0].rating).toBe(4.5);
+  });
+
+  it("keeps 3.5 through an unrelated Edit Work save", async () => {
+    const id = await book("Watt", 3.5);
+    const author = await value(`insert into authors(name, slug) values ('Samuel Beckett', $1) returning id`, [`samuel-beckett-${++serial}`]);
+    await q(`insert into work_authors(work_id, author_id, role) values ($1, $2, 'author')`, [id, author]);
+    const work = (await db.query.works.findFirst({ where: (w, { eq }) => eq(w.id, id) }))!;
+    const values = workFormValues(work as never, [], [{ id: author, name: "Samuel Beckett", role: "author" }]);
+    const payload = workPayload({ ...values, notes: "Reread" });
+    if (!payload.ok) throw new Error(payload.error);
+    await updateWork(id, payload.input);
+    expect(await q(`select rating::float8 as rating, notes from works where id = $1`, [id])).toEqual([{ rating: 3.5, notes: "Reread" }]);
   });
 
   it("saves a half star on a book and on a film", async () => {

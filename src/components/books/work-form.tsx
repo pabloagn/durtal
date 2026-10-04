@@ -359,7 +359,7 @@ export function WorkForm({
             <h3 className="type-group-title mb-3">
               Status
             </h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Select
                 id={id("catalogue-status")}
                 label="Catalogue Status"
@@ -374,17 +374,18 @@ export function WorkForm({
                 value={values.acquisitionPriority}
                 onChange={(e) => set("acquisitionPriority", e.target.value)}
               />
-              <div className="space-y-1.5">
-                <span id={id("rating")} className="type-label block">
-                  Rating
-                </span>
-                <div className="flex h-8 items-center text-sm">
-                  <RatingInput
-                    label="Rating"
-                    value={values.rating ? Number(values.rating) : null}
-                    onChange={(next) => set("rating", next === null ? "" : String(next))}
-                  />
-                </div>
+            </div>
+            {/* Its own row: on touch the five stars are 44px each */}
+            <div className="mt-3 space-y-1.5">
+              <span id={id("rating")} className="type-label block">
+                Rating
+              </span>
+              <div className="text-sm">
+                <RatingInput
+                  label="Rating"
+                  value={values.rating ? Number(values.rating) : null}
+                  onChange={(next) => set("rating", next === null ? "" : String(next))}
+                />
               </div>
             </div>
           </section>

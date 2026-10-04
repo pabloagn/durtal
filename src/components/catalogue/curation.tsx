@@ -111,14 +111,15 @@ export function CurationFavourite({
  * The row carries the text's type, so the stars sit on its cap-height center.
  */
 export function RatingControl({ rating }: { rating: number | null }) {
-  const { save, saving } = useCurationSave();
+  // Not disabled while saving: the saves queue, so a quick second tap (the
+  // half star) is kept
+  const { save } = useCurationSave();
   const [value, setValue] = useState(rating);
   return (
     <RatingInput
       value={value}
       label="Your rating"
       size={12}
-      disabled={saving}
       onChange={async (next) => {
         const previous = value;
         setValue(next);
