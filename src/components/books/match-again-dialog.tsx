@@ -138,7 +138,13 @@ export function MatchAgainDialog({
     try {
       const edId = await resolveEditionId();
       if (!edId) return setSelected(null);
-      setPreview(await previewMatch(edId, result.source, result.sourceId));
+      const read = await previewMatch(edId, result.source, result.sourceId);
+      // A source that refused (Google Books over its quota) says why
+      if ("error" in read) {
+        toast.error(read.error);
+        return setSelected(null);
+      }
+      setPreview(read);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Could not read the source",
@@ -154,13 +160,18 @@ export function MatchAgainDialog({
     if (!selected || !resolvedEditionId) return;
     setConfirming(true);
     try {
-      const { changed } = await applyMatch(
+      const saved = await applyMatch(
         resolvedEditionId,
         selected.source,
         selected.sourceId,
         accepted,
         relink,
       );
+      if ("error" in saved) {
+        toast.error(saved.error);
+        return;
+      }
+      const { changed } = saved;
       toast.success(
         changed
           ? `${changed} ${changed === 1 ? "field" : "fields"} updated from ${SOURCE_LABELS[selected.source] ?? selected.source}`
@@ -187,6 +198,7 @@ export function MatchAgainDialog({
     setSelected(null);
     setPreview(null);
     setResults([]);
+    setNotices([]);
     setSearched(false);
     setLoading(false);
     setConfirming(false);

@@ -109,7 +109,8 @@ async function fromGoogleBooks(id: string): Promise<SourceRecord> {
   // Over the quota, this throws GoogleBooksQuotaError, whose message says so
   const res = await googleBooksFetch(
     `https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}${key ? `?key=${key}` : ""}`,
-    timeout,
+    {},
+    10000,
   );
   if (!res.ok) throw new Error("Could not fetch from Google Books");
   const info = ((await res.json()).volumeInfo ?? {}) as Record<string, unknown>;

@@ -11,6 +11,7 @@ import { reportSearchFailure } from "./search-diagnostics";
  * - after that, stops calling Google Books for a cool-down that doubles on
  *   each refusal in a row (30 s, 1 min, 2 min … 15 min), so a busy search
  *   never hammers the API; a call that works ends the cool-down;
+ * - has one time limit for the whole call, retries included;
  * - keeps the last call's outcome for the settings integrations page.
  */
 
@@ -19,6 +20,8 @@ export const GOOGLE_BOOKS_RETRY_DELAYS_MS = [250, 500] as const;
 const RETRY_AFTER_MAX_MS = 2000;
 const COOLDOWN_BASE_MS = 30_000;
 const COOLDOWN_MAX_MS = 15 * 60_000;
+/** The time limit of a whole call, retries included, unless the caller gives another */
+export const GOOGLE_BOOKS_TIMEOUT_MS = 8000;
 const QUOTA_REASONS = new Set([
   "rateLimitExceeded",
   "userRateLimitExceeded",
@@ -100,9 +103,11 @@ async function isQuotaRefusal(res: Response) {
   }
 }
 
-/** Retry-After in ms, when it is a number of seconds */
+/** Retry-After in ms, when it is a number of seconds; null when it is missing */
 function retryAfterMs(res: Response) {
-  const seconds = Number(res.headers.get("retry-after"));
+  const header = res.headers.get("retry-after")?.trim();
+  if (!header) return null;
+  const seconds = Number(header);
   return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
 }
 
@@ -111,17 +116,21 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * `fetch` for Google Books. Returns the response of any call that is not a
  * quota refusal (the caller checks `ok`); throws `GoogleBooksQuotaError`
- * when Google Books keeps refusing or is cooling down.
+ * when Google Books keeps refusing or is cooling down. `timeoutMs` is the
+ * time limit of the whole call: the retries share it.
  */
 export async function googleBooksFetch(
   url: string,
-  init: () => RequestInit,
+  init: RequestInit = {},
+  timeoutMs = GOOGLE_BOOKS_TIMEOUT_MS,
 ): Promise<Response> {
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal ? AbortSignal.any([init.signal, deadline]) : deadline;
   for (let attempt = 0; ; attempt++) {
     if (googleBooksOverQuota()) throw new GoogleBooksQuotaError();
     let res: Response;
     try {
-      res = await fetch(url, init());
+      res = await fetch(url, { ...init, signal });
     } catch (error) {
       state.last = { at: new Date(), outcome: "error" };
       throw error;
@@ -133,6 +142,8 @@ export async function googleBooksFetch(
       return res;
     }
     state.last = { at: new Date(), outcome: "quota", status: res.status };
+    // A refused answer is not read: free its connection
+    await res.body?.cancel().catch(() => undefined);
     const hinted = retryAfterMs(res);
     const delay = GOOGLE_BOOKS_RETRY_DELAYS_MS[attempt];
     if (delay !== undefined && (hinted === null || hinted <= RETRY_AFTER_MAX_MS)) {
@@ -145,6 +156,8 @@ export async function googleBooksFetch(
       if (state.until === gate) state.until = 0;
       continue;
     }
+    // Another call's pause is already running: it counted this refusal
+    if (googleBooksOverQuota()) throw new GoogleBooksQuotaError();
     state.refusals += 1;
     const cooldown = Math.min(
       COOLDOWN_MAX_MS,

@@ -91,10 +91,11 @@ export async function searchGoogleBooks(
 
   let res: Response;
   try {
-    res = await googleBooksFetch(`${BASE_URL}?${params}`, () => ({
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      next: { revalidate: 3600 },
-    }));
+    res = await googleBooksFetch(
+      `${BASE_URL}?${params}`,
+      { next: { revalidate: 3600 } },
+      FETCH_TIMEOUT_MS,
+    );
   } catch (error) {
     // Over the quota: no results from this source; the search says why
     // (`googleBooksOverQuota`)

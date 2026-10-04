@@ -49,3 +49,20 @@ cool-down made no Google call and still showed it; the integrations page read
 design audits on `/library/new` and `/settings/integrations` at 1440px: the
 notice adds no deviation (the result rows' arrow icons, 3.69px off, are
 older than this task), 0 unnamed and 0 nested controls.
+
+### Review fixes
+
+- A missing or blank Retry-After now means "no hint": the retries wait 250 ms
+  and 500 ms. Before, `Number(null)` gave 0 and the three tries went out at once.
+- Calls that give up while a pause already runs do not count another refusal,
+  so one search with four Google queries pauses 30 s, not 240 s.
+- `previewMatch` and `applyMatch` return `{ ok: false, error }` when Google
+  Books is over its quota (production hides a thrown action's message); the
+  Match dialog shows it. Closing the dialog clears the old notices.
+- The settings check goes through the quota state: no call while it pauses,
+  and the check counts as the last call.
+- One time limit for the whole call, retries included; refused bodies are
+  cancelled.
+- Tests: the 250 and 500 ms delays, exactly 7 requests for 5 calls at once,
+  one refusal for calls that give up together, one signal across tries, the
+  Match quota path, the route notices and the settings line.

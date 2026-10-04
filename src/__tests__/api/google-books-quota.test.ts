@@ -15,7 +15,7 @@ const response = (body: unknown, status = 200, headers: Record<string, string> =
 const quota403 = () =>
   response({ error: { errors: [{ reason: "dailyLimitExceeded" }] } }, 403);
 const URL_ = "https://www.googleapis.com/books/v1/volumes?q=x";
-const init = () => ({});
+const init = {};
 
 /** Runs a call while the fake clock moves past every retry delay */
 async function settle<T>(promise: Promise<T>) {
@@ -70,17 +70,73 @@ describe("Google Books quota back-off", () => {
     expect(googleBooksOverQuota()).toBe(false);
   });
 
+  it("waits 250 ms, then 500 ms, when Google sends no Retry-After", async () => {
+    fetchMock.mockImplementation(async () => response({}, 429));
+    const outcome = googleBooksFetch(URL_, init).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(249);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(499);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(await outcome).toBeInstanceOf(GoogleBooksQuotaError);
+  });
+
+  it("treats a blank Retry-After as missing", async () => {
+    fetchMock.mockImplementation(async () => response({}, 429, { "retry-after": " " }));
+    const outcome = googleBooksFetch(URL_, init).catch(() => undefined);
+    await vi.advanceTimersByTimeAsync(249);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
+    await outcome;
+  });
+
   it("lets one call retry while the others give up at once", async () => {
     fetchMock.mockImplementation(async () => response({}, 429));
     const calls = [1, 2, 3, 4, 5].map(() => settle(googleBooksFetch(URL_, init)));
     const outcomes = await Promise.all(calls);
     expect(outcomes.every((o) => "error" in o)).toBe(true);
-    // Five first calls, then at most the retries of the calls that refused first
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(5 + 2 * 5);
+    // Five first calls, then the two retries of one of them
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     fetchMock.mockClear();
     // Cooling down now: nothing goes out
     await expect(googleBooksFetch(URL_, init)).rejects.toBeInstanceOf(GoogleBooksQuotaError);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("counts one refusal for calls that give up together", async () => {
+    // One search sends four Google queries at once
+    fetchMock.mockImplementation(async () => response({}, 429));
+    await Promise.all([1, 2, 3, 4].map(() => settle(googleBooksFetch(URL_, init))));
+    // The first cool-down, 30 s, not one doubled for each query
+    vi.advanceTimersByTime(29_000);
+    expect(googleBooksOverQuota()).toBe(true);
+    vi.advanceTimersByTime(2_000);
+    expect(googleBooksOverQuota()).toBe(false);
+  });
+
+  it("keeps one time limit for the whole call, retries included", async () => {
+    fetchMock.mockImplementation(async () => response({}, 429));
+    await settle(googleBooksFetch(URL_, init));
+    const signals = fetchMock.mock.calls.map(([, options]) => options?.signal);
+    expect(signals).toHaveLength(3);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(new Set(signals).size).toBe(1);
+  });
+
+  it("frees the body of a refused answer", async () => {
+    const cancel = vi.fn(async () => {});
+    fetchMock.mockImplementation(async () => {
+      const res = response({}, 429, { "retry-after": "120" });
+      Object.defineProperty(res, "body", { value: { cancel } });
+      return res;
+    });
+    await settle(googleBooksFetch(URL_, init));
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 
   it("ends the cool-down when a call works", async () => {
