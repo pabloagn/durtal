@@ -12,6 +12,7 @@ import {
   readJson,
   requireApiToken,
 } from "@/lib/api/rest";
+import { RATING_SCHEMA } from "@/lib/validations/helpers";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,7 +43,7 @@ const patchWorkSchema = z
     title: z.string().trim().min(1).optional(),
     catalogueStatus: createWorkSchema.shape.catalogueStatus.unwrap().optional(),
     addRecommenderIds: z.array(z.uuid()).optional(),
-    rating: z.number().int().min(1).max(5).nullable().optional(),
+    rating: RATING_SCHEMA,
   })
   .strict();
 

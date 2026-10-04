@@ -168,7 +168,7 @@ Change a work's title, catalogue status or rating (as the Edit dialog does, with
 | `title` | string | New title |
 | `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
 | `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
-| `rating` | integer or null | 1 to 5; `null` clears the rating |
+| `rating` | number or null | 0.5 to 5 in half steps; `null` clears the rating |
 
 **Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "rating", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug. An unknown recommender id returns `404` (`"Recommender not found"`), and nothing in the request is written.
 

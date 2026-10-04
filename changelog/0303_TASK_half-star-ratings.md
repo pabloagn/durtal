@@ -37,8 +37,10 @@ do not change. No migration.
   the table cell, the timeline stars, activity sentences (`formatRating`), the
   CSV export.
 - Validation: `RATING_SCHEMA` in `src/lib/validations/helpers.ts` (0.5 to 5,
-  multiple of 0.5) for `createWorkSchema`, `updateWorkSchema` and
-  `curationPatchSchema`. Venue ratings keep their whole numbers.
+  multiple of 0.5) for `createWorkSchema`, `updateWorkSchema`,
+  `curationPatchSchema` and `PATCH /api/works/[id]` (its `rating` came with
+  PR #92 as whole numbers; docs/05 updated). Venue ratings keep their whole
+  numbers.
 - Library: "Min Rating" offers 5, 4.5+, 4+, 3.5+, 3+, parsed as a half step;
   the rating sort puts unrated works last in both directions, and so does the
   dashboard's "Highest rated".

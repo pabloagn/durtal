@@ -275,7 +275,7 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
       expect([...res.body.recommenderIds].sort()).toEqual([a.id, b.id].sort());
     });
 
-    it("sets and clears the rating, and refuses one out of range", async () => {
+    it("sets a half star, clears the rating, and refuses one out of range or between half steps", async () => {
       let res = await answer(await patchWork(request("PATCH", "/x", { rating: 4 }), params(workId)));
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ rating: 4, catalogueStatus: "wanted" });
@@ -283,8 +283,11 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
       expect(res.body).toMatchObject({ rating: null });
       expect((await workRow()).rating).toBeNull();
       expect((await patchWork(request("PATCH", "/x", { rating: 6 }), params(workId))).status).toBe(400);
-      expect((await patchWork(request("PATCH", "/x", { rating: 2.5 }), params(workId))).status).toBe(400);
+      expect((await patchWork(request("PATCH", "/x", { rating: 4.3 }), params(workId))).status).toBe(400);
+      expect((await patchWork(request("PATCH", "/x", { rating: 0 }), params(workId))).status).toBe(400);
       expect((await workRow()).rating).toBeNull();
+      res = await answer(await patchWork(request("PATCH", "/x", { rating: 2.5 }), params(workId)));
+      expect(res.body).toMatchObject({ rating: 2.5 });
     });
 
     it("refuses unknown fields, an unknown work and an invalid id", async () => {
