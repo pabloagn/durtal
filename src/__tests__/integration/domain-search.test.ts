@@ -155,4 +155,17 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     expect(await getFilmCount()).toBe(7);
     expect((await getFilmFilterOptions()).directors.map((d) => d.name)).toEqual(["John Carpenter"]);
   });
+
+  it("names what a book person is: writer, translator or editor", async () => {
+    const novel = await book("The Name of the Rose", "Umberto Eco");
+    const [weaver] = await c`insert into authors(name, slug) values ('William Weaver', 'william-weaver') returning id`;
+    const [edition] = await c`insert into editions(work_id, title) values (${novel.id}, 'The Name of the Rose') returning id`;
+    await c`insert into edition_contributors(edition_id, author_id, role, sort_order) values (${edition.id}, ${weaver.id}, 'translator', 0)`;
+    expect((await quickSearch("weaver")).people).toEqual([
+      expect.objectContaining({ name: "William Weaver", href: "/authors/william-weaver", roles: "Translator" }),
+    ]);
+    expect((await quickSearch("umberto eco")).people).toEqual([
+      expect.objectContaining({ name: "Umberto Eco", roles: "Writer" }),
+    ]);
+  });
 });

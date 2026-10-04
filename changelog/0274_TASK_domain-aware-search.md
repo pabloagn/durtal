@@ -25,7 +25,9 @@ adds people, organizations and places with the page each has today.
   still finds a book. Each result carries its collection, address
   (`WORK_DOMAINS[kind].basePath`), makers in the collection's terms and its
   picture (the active poster, else a book edition's cover).
-- People: by name or other name (`person_aliases`), with their roles. A person
+- People: by name or other name (`person_aliases`), with their roles (an
+  edition contributor shows their most frequent edition role, such as
+  "Translator"). A person
   with books opens `/authors/[slug]`; anyone else opens their collection's
   list filtered to them. A person with no credit is left out: no page shows
   them yet.

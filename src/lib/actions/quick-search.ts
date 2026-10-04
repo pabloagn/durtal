@@ -131,6 +131,7 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
     photo: string | null;
     isBook: boolean;
     roles: string[] | null;
+    editionRole: string | null;
   }>(
     await db.execute(sql`select a.id, a.slug, a.name,
         coalesce((select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.author_id = a.id and m.type = 'poster' and m.is_active
@@ -143,7 +144,9 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
           case when exists (select 1 from work_credits c where c.person_id = a.id and c.role_id = 'perfume.perfumer')
             or exists (select 1 from perfume_variant_perfumers p where p.person_id = a.id) then 'perfume.perfumer' end,
           case when exists (select 1 from work_credits c where c.person_id = a.id and c.role_id = 'painting.painter') then 'painting.painter' end
-        ], null) as roles
+        ], null) as roles,
+        (select ec.role from edition_contributors ec where ec.author_id = a.id
+          group by ec.role order by count(*) desc, ec.role limit 1) as "editionRole"
       from authors a
       where (${match} or exists (select 1 from person_aliases pa where pa.person_id = a.id and ${alias}))
       order by ${textSearchRank(sql`a.search_text`, sql`a.name`, q)} desc, lower(a.name), a.id
@@ -159,7 +162,13 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
           ? `/authors/${row.slug}`
           : held.find((r) => r.filter)?.filter?.concat(row.id);
       if (!href) return [];
-      return [{ id: row.id, name: row.name, href, photo: row.photo, roles: held.map((r) => r.label).join(" · ") }];
+      // A translator or editor of an edition: their most frequent edition role
+      const labels = held.map((r) => r.label);
+      if (row.editionRole && open.has("book")) {
+        const role = row.editionRole.replace(/_/g, " ");
+        labels.splice(row.roles?.includes("author") ? 1 : 0, 0, role.charAt(0).toUpperCase() + role.slice(1));
+      }
+      return [{ id: row.id, name: row.name, href, photo: row.photo, roles: labels.join(" · ") }];
     })
     .slice(0, PER_KIND);
 }
