@@ -6,7 +6,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
-import { getAuthorBySlug } from "@/lib/actions/authors";
+import { getAuthorBySlug, getPersonWorkCredits } from "@/lib/actions/authors";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { AuthorDetailHeader } from "./author-detail-header";
@@ -50,6 +52,37 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   const author = await loadAuthor(slug);
 
   if (!author) notFound();
+
+  // Every collection's credits: the summary in the record, and a section for
+  // each collection other than books (books keep their cards below)
+  const credits = await getPersonWorkCredits(author.id);
+  const byKind = new Map<WorkKind, typeof credits>();
+  for (const c of credits) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c]);
+  const creditSummary = DOMAIN_ORDER.filter((kind) => byKind.has(kind)).map((kind) => {
+    const roles = new Map<string, Set<string>>();
+    for (const c of byKind.get(kind)!)
+      roles.set(c.role, (roles.get(c.role) ?? new Set()).add(c.workId));
+    return {
+      kind,
+      label: WORK_DOMAINS[kind].pluralLabel,
+      roles: [...roles].map(([role, ids]) => `${role} ${ids.size}`).join(", "),
+    };
+  });
+  const otherCollections = DOMAIN_ORDER.filter((kind) => kind !== "book" && byKind.has(kind)).map(
+    (kind) => {
+      const works = new Map<string, { title: string; href: string | null; roles: string[] }>();
+      for (const c of byKind.get(kind)!) {
+        const work = works.get(c.workId) ?? {
+          title: c.title,
+          href: c.slug ? `${WORK_DOMAINS[kind].basePath}/${c.slug}` : null,
+          roles: [],
+        };
+        work.roles.push(c.role);
+        works.set(c.workId, work);
+      }
+      return { kind, label: WORK_DOMAINS[kind].pluralLabel, works: [...works.values()] };
+    },
+  );
 
   const works = author.workAuthors.map((wa) => ({
     ...wa.work,
@@ -122,9 +155,13 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       href: `https://www.goodreads.com/author/show/${author.goodreadsId}`,
     },
   ].filter((link): link is { label: string; href: string } => !!link);
-  const hasRecord = metadataFields.length > 0 || links.length > 0;
+  const hasRecord =
+    metadataFields.length > 0 || links.length > 0 || creditSummary.length > 0;
   const hasReading =
-    !!author.bio || works.length > 0 || contributions.length > 0;
+    !!author.bio ||
+    works.length > 0 ||
+    contributions.length > 0 ||
+    otherCollections.length > 0;
 
   return (
     <>
@@ -160,7 +197,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-            Back to authors
+            Back to people
           </Link>
 
           {/* Header with poster, name, edit/delete */}
@@ -186,6 +223,17 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
         record={
           hasRecord ? (
             <RecordPanel>
+              {creditSummary.length > 0 && (
+                <RecordGroup title="Credits">
+                  <RecordFields>
+                    {creditSummary.map((group) => (
+                      <RecordField key={group.kind} label={group.label}>
+                        {group.roles}
+                      </RecordField>
+                    ))}
+                  </RecordFields>
+                </RecordGroup>
+              )}
               {metadataFields.length > 0 && (
                 <RecordGroup title="Details">
                   <RecordFields>
@@ -288,6 +336,41 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                 </PaginatedSection>
               </section>
             )}
+
+            {/* Films, perfumes and paintings */}
+            {otherCollections.map((group) => (
+              <section key={group.kind} className="mb-8">
+                <SectionHeading title={group.label} count={group.works.length} />
+                <ul className="space-y-2">
+                  {group.works.map((work) => (
+                    <li
+                      key={`${work.href ?? work.title}`}
+                      className="flex items-start gap-4 rounded-sm border border-glass-border bg-bg-secondary px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        {work.href ? (
+                          <Link
+                            href={work.href}
+                            className="type-item-title transition-colors hover:text-accent-rose-text"
+                          >
+                            {work.title}
+                          </Link>
+                        ) : (
+                          <span className="type-item-title">{work.title}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {work.roles.map((role) => (
+                          <Badge key={role} variant="blue">
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
 
             {/* Edition contributions */}
             {contributions.length > 0 && (

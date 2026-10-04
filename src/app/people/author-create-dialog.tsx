@@ -176,7 +176,7 @@ export function AuthorCreateDialog({
           data-tooltip-keys="a then a"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Add Author
+          Add Person
         </Button>
       )}
 

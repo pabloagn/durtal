@@ -34,7 +34,7 @@ export default function AuthorsError({
           href="/people"
           className="inline-flex items-center rounded-sm border border-glass-border bg-bg-secondary px-4 py-1.5 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
         >
-          Back to authors
+          Back to people
         </Link>
       </div>
     </div>

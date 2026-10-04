@@ -432,7 +432,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="font-mono text-sm text-fg-secondary">
-          No authors with location data match the current filters.
+          No people with location data match the current filters.
         </p>
       </div>
     );

@@ -58,7 +58,7 @@ export function AuthorBulkActionToolbar({
       router.refresh();
     } catch {
       toast.error(
-        `Deleted ${deleted} of ${ids.length} authors before error`,
+        `Deleted ${deleted} of ${ids.length} people before error`,
       );
     } finally {
       setIsDeleting(false);

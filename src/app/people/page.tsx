@@ -11,6 +11,7 @@ import {
   getDistinctZodiacSigns,
   getAuthorBirthYearRange,
   getAuthorDeathYearRange,
+  getPeopleFilterOptions,
 } from "@/lib/actions/authors";
 import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
 import {
@@ -45,6 +46,8 @@ interface PageProps {
     deathYearMin?: string;
     deathYearMax?: string;
     alive?: string;
+    collection?: string;
+    role?: string;
   }>;
 }
 
@@ -65,6 +68,8 @@ async function AuthorsContent({
     deathYearMin?: string;
     deathYearMax?: string;
     alive?: string;
+    collection?: string;
+    role?: string;
   };
 }) {
   const search = searchParams.q;
@@ -89,7 +94,11 @@ async function AuthorsContent({
 
   const { page, perPage: limit, offset } = parsePagination(searchParams);
 
+  const collections = searchParams.collection?.split(",").filter(Boolean);
+  const roles = searchParams.role?.split(",").filter(Boolean);
   const filters = {
+    collections: collections?.length ? collections : undefined,
+    roles: roles?.length ? roles : undefined,
     nationalities: nationalityFilter.length ? nationalityFilter : undefined,
     genders: genderFilter?.length ? genderFilter : undefined,
     zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
@@ -102,6 +111,8 @@ async function AuthorsContent({
 
   // getAuthorsForTimeline uses alive as a string ("true"|"false"), not boolean
   const timelineFilters = {
+    collections: filters.collections,
+    roles: filters.roles,
     nationalities: nationalityFilter.length ? nationalityFilter : undefined,
     genders: genderFilter?.length ? genderFilter : undefined,
     zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
@@ -200,8 +211,9 @@ async function AuthorsContent({
  * so the toolbar stays mounted (and keeps focus) while results reload.
  */
 async function AuthorsToolbar() {
-  const [nationalities, genders, zodiacSigns, birthYearRange, deathYearRange] =
+  const [people, nationalities, genders, zodiacSigns, birthYearRange, deathYearRange] =
     await Promise.all([
+      getPeopleFilterOptions(),
       getDistinctNationalities(),
       getDistinctGenders(),
       getDistinctZodiacSigns(),
@@ -211,6 +223,8 @@ async function AuthorsToolbar() {
 
   return (
     <AuthorsFiltersBar
+      collections={people.collections}
+      roles={people.roles}
       nationalities={nationalities}
       genders={genders}
       zodiacSigns={zodiacSigns}
