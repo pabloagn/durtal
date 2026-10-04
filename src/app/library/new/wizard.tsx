@@ -588,9 +588,10 @@ export function AddBookWizard() {
 
   // Nothing is saved before Fast Track or "Add to catalogue", so leaving is
   // enough: back to the app page the user came from, else the library. Never
-  // back to another site (a bookmark or a new tab has no page of ours before).
+  // back to another site (a bookmark has no page of ours before), and never a
+  // back with no page at all (a tab opened with Cmd+click on "Add book").
   function cancel() {
-    if (cameFromApp()) router.back();
+    if (window.history.length > 1 && cameFromApp()) router.back();
     else router.push("/library");
   }
 
