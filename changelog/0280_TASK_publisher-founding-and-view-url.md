@@ -1,0 +1,37 @@
+# Task 0280: Publisher Founding Year, City and View in the URL (SLN-427 leftovers)
+
+**Status**: Completed
+**Created**: 2026-10-04
+**Priority**: MEDIUM
+**Type**: Enhancement
+**Depends On**: 0231 (SLN-427 publisher pages), 0254 (SLN-426 favourites)
+**Blocks**: None
+
+## Overview
+SLN-427 shipped without three things its issue asked for: the house's
+founding year and city, a Favourite filter on its books, and every view
+choice in the URL. This task adds the first and the last; the Favourite
+filter comes with SLN-426 (task 0254), which this branch builds on.
+
+## Implementation Details
+- Migration `0058_publisher_founding` (drizzle-kit, after 0254's `0057`):
+  `publishing_houses.founded_year` (SMALLINT, 1000 to 2100, check
+  `publisher_founded_year_check`) and `founded_place_id` (FK to `places`,
+  ON DELETE SET NULL). Additive: no existing row changes.
+- `publisherSchema` validates both; `savePublisher` writes them;
+  `getPublisher` returns `foundedPlace` (id, name, full name).
+- Edit and add forms (`publisher-editor.tsx`): a year field and the shared
+  `PlacePicker` for the city, as in the author dialogs.
+- Publisher page: the header facts read "Founded 1936 in New York"; the
+  record column shows Founded and Founded in.
+- The books' grid or list view is kept in the URL (`?view=`): a shared link
+  opens the same view; without it, the last view chosen on the device. A
+  choice updates both.
+- Docs: `02_DATA_MODEL.md` (columns), `04_ROUTES_AND_VIEWS.md` (publisher
+  page).
+- Test: `publishers.test.ts` saves, reads and clears both fields and rejects
+  a bad year and a bad place id.
+
+## Completion Notes
+Migration 0058 is not applied to the live database here. Its number follows
+0254's 0057; both are regenerated in order when their turn to merge comes.

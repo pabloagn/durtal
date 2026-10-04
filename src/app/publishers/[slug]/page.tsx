@@ -47,6 +47,18 @@ export async function generateMetadata({
   return { title: publisher?.name ?? "Publisher not found" };
 }
 
+/** "Founded 1963 in New York", "Founded 1963", "Founded in New York" */
+function founded(p: { foundedYear: number | null; foundedPlace: { name: string } | null }) {
+  if (p.foundedYear == null && !p.foundedPlace) return null;
+  return [
+    "Founded",
+    p.foundedYear,
+    p.foundedPlace && `in ${p.foundedPlace.name}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default async function PublisherPage({
   params,
   searchParams,
@@ -84,6 +96,7 @@ export default async function PublisherPage({
       </span>
     ),
     p.country,
+    founded(p),
     `${counts.books} ${counts.books === 1 ? "book" : "books"}`,
   ].filter(Boolean) as React.ReactNode[];
 
@@ -91,6 +104,8 @@ export default async function PublisherPage({
   const urlParams = toSearchParams(raw);
   const hasDetails =
     !!p.country ||
+    p.foundedYear != null ||
+    !!p.foundedPlace ||
     !!p.group ||
     p.children.length > 0 ||
     p.aliases.length > 0 ||
@@ -112,6 +127,14 @@ export default async function PublisherPage({
         <RecordGroup title="Details">
           <RecordFields>
             {p.country && <RecordField label="Country">{p.country}</RecordField>}
+            {p.foundedYear != null && (
+              <RecordField label="Founded">{p.foundedYear}</RecordField>
+            )}
+            {p.foundedPlace && (
+              <RecordField label="Founded in">
+                {p.foundedPlace.fullName ?? p.foundedPlace.name}
+              </RecordField>
+            )}
             {p.group && (
               <RecordField label="Group">
                 <Link href={`/publishers/${p.group.slug}`} className={LINK}>

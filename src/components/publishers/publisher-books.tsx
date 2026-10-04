@@ -31,6 +31,29 @@ const DEFAULT_SORT_ORDERS: Record<string, "asc" | "desc"> = {
   recent: "desc",
 };
 
+/**
+ * The grid or list view: the URL's `view` wins, so a shared link shows the
+ * same view; without it, the last view chosen on this device. A choice goes
+ * to both.
+ */
+function usePublisherView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [stored, setStored] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
+  const fromUrl = searchParams.get("view") as ViewMode | null;
+  const view = fromUrl && VIEW_MODES.includes(fromUrl) ? fromUrl : stored;
+  const setView = useCallback(
+    (next: ViewMode) => {
+      setStored(next);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("view", next);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams, setStored],
+  );
+  return [view, setView] as const;
+}
+
 /** URL parameters the filters set; "Clear" removes them all */
 const FILTER_KEYS = ["state", "mark", "language", "binding", "yearMin", "yearMax", "author", "imprint", "filter"];
 
@@ -44,7 +67,7 @@ export function PublisherBooksFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
+  const [viewMode, setViewMode] = usePublisherView();
   const [gridColumns, setGridColumns] = usePreference(GRID_KEY, 5);
 
   const values = (key: string) => searchParams.get(key)?.split(",").filter(Boolean) ?? [];
@@ -182,7 +205,7 @@ export function PublisherBooksView({
   books: PublisherBook[];
   pagination: PaginationData;
 }) {
-  const [viewMode] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
+  const [viewMode] = usePublisherView();
   const [gridColumns] = usePreference(GRID_KEY, 5);
   return (
     <>

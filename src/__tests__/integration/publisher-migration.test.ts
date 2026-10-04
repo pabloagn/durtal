@@ -94,6 +94,9 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
         is_favourite: false,
         notes: null,
         search_text: "nyrb",
+        // Migration 0058: no founding year or city yet
+        founded_year: null,
+        founded_place_id: null,
       });
       expect([...(await c`select * from edition_publishers`)]).toEqual([
         { edition_id: e.id, publisher_id: p.id },
