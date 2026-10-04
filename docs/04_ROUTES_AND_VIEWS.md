@@ -16,6 +16,9 @@
 /publishers/review          Review publisher names on editions
 /publishers/[slug]          Publisher detail
 /publishers/[slug]/edit     Edit a publisher
+/organizations              Organization directory: every collection's houses,
+                            studios, museums and shops
+/organizations/[slug]       Organization detail (same slug as its publisher page)
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
 /reader                     Calibre e-book library
@@ -75,7 +78,7 @@ Structure from top to bottom:
 3. **Navigation links**: `NAV_SECTIONS` in `src/lib/navigation.ts`, the one
    list the sidebar and the command palette read. Dashboard, then one entry per
    open collection in the order Books, Perfumes, Films, Paintings
-   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Recommenders, Series,
+   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Organizations, Recommenders, Series,
    Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
    Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
    (`src/components/shortcuts/section-icons.ts`).
@@ -521,6 +524,32 @@ Full author profile page.
 - Search, filters (status: owned, wanted, on order; marks; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
 - Record column: the counts (books, editions, owned, wanted, on order), details (country, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
+- The record's Links group opens the house's organization page, where its roles in the other collections show.
+
+### Organizations (`/organizations`)
+
+One directory for the organizations of every collection: publishing groups, publishers and imprints, perfume houses, brands and manufacturers, retailers, production companies and distributors, museums and galleries. A publisher and its organization are one record (`publishing_houses`); the directory adds no table.
+
+- Search by name or other name (accent-insensitive, typo-tolerant, ranked), in the URL as `q`.
+- Role filter: one role at a time (`role`), each chip with the number of organizations that hold it among those the search finds; roles nobody holds are left out. Publishing levels come from the publisher record, the other roles from `organization_roles`.
+- Each row: the name, its roles in the collections' own words ("Perfume house", "Distributor", "Museum") and country, and what it takes part in ("124 editions · 3 films"). Row counts stop at 999+ (`COUNT_CAP`), so a page reads a bounded number of rows per organization.
+- Pagination like the other lists. "Add organization" opens a dialog for any role outside publishing; publishers are still added under Publishers.
+- Services: `getOrganizationDirectory` and `getOrganizationRoleCounts` in `src/lib/actions/organization-directory.ts`.
+
+### Organization Detail (`/organizations/[slug]`)
+
+- Header: the name, its roles, and an actions menu (Edit, Delete) on the name's cap-height center.
+- One part per collection it takes part in, each left out when empty:
+  - **Books**: its publisher profile (level, editions and books counted, the house above it and the houses under it) and a link to the publisher page, which keeps the books.
+  - **Perfumes**: a row of cards per role (as perfume house, as brand, as manufacturer), the perfumes it sells (retailer listings), and how many of your bottles it supplied.
+  - **Films**: films it produced and films it distributed, and how many of your copies it supplied.
+  - **Paintings**: paintings it owns (as a museum or gallery) and paintings at its venues now.
+  - **Venues**: the venues it runs or owns, each linking to its place page.
+- Each row shows the first 24 works with the full count; titles link to the collection's filtered home where one exists (`/perfumes?house=`, `/paintings?institution=`, `/paintings?venue=`).
+- Record column: roles, country, other names, the publisher page and the website.
+- Edit changes the name, other names, country, website, description and the roles outside publishing (`updateOrganizationProfile`); the book profile and the house above it stay as the publisher page sets them. A role that records still use cannot be removed: the dialog shows the database's reason.
+- Delete lists what still links to the organization and stays off until nothing does (`removeOrganization`).
+- An organization nothing links to shows one line saying how it gets linked. Loading skeleton and a not-found page.
 
 ### Series (`/series`)
 

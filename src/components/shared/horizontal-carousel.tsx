@@ -8,12 +8,18 @@ import { SectionHeading } from "./section-heading";
 interface HorizontalCarouselProps {
   title: string;
   titleHref?: string;
+  /** Shown after the title, such as the full count when the row holds fewer */
+  count?: number;
+  /** h3 for a row inside a titled section */
+  as?: "h2" | "h3";
   children: React.ReactNode;
 }
 
 export function HorizontalCarousel({
   title,
   titleHref,
+  count,
+  as,
   children,
 }: HorizontalCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,6 +59,8 @@ export function HorizontalCarousel({
   return (
     <div>
       <SectionHeading
+        as={as}
+        count={count}
         title={
           titleHref ? (
             <a
