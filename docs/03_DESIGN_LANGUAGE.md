@@ -48,6 +48,18 @@ Information density is high, ornamentation is absent, and every pixel earns its 
 | `--color-accent-red-text` | `#cf5f5e` | Red text: destructive actions, errors (4.7–5.3:1) |
 | `--color-accent-blue` | `#648493` | Links, informational badges |
 
+### Over images
+
+Controls and text that sit on a cover, portrait or banner use the page's near-black, never pure black or white:
+
+| Token | Value | Usage |
+|---|---|---|
+| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the media manager's hover actions (`bg-overlay`) |
+| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection pages) |
+| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image |
+
+Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black`, `text-white` or blur on these: blur belongs to the glass (navigation, palette and floating panels).
+
 ### Gothic Underlay
 
 | Token | Hex | Usage |
@@ -68,7 +80,7 @@ Four font families serve distinct roles:
 | **Serif (display)** | PP Cirka | 300 (Light); 700 available | Georgia, serif | Headings, titles, stat numbers: sharp, literary, never bold |
 | **Serif (text)** | EB Garamond | 400, with true italic | Georgia, serif | Long reading text only (`type-prose`): old-style figures, made for paragraphs |
 | **Sans** | Inter | 400 | Work Sans, system-ui, sans-serif | Clean, readable, modern |
-| **Mono** | JetBrains Mono | 400 | IBM Plex Mono, SF Mono, monospace | Technical, ISBNs, codes |
+| **Mono** | JetBrains Mono | 400 | IBM Plex Mono, SF Mono, monospace | Metadata a reader scans or compares: years, counts, dates, prices, ISBNs, codes, key hints, and the `type-caption` labels |
 | **UI Chrome** | Inter | 500 | system-ui, sans-serif | Buttons, navigation |
 
 Headings are deliberately normal weight — understated. Boldness is used sparingly for emphasis, never as default.
@@ -268,13 +280,13 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 | Stroke width | 1.5px (thinner than Lucide default) |
 | Navigation size | 16px |
 | Inline size | 14px |
-| Maximum size | 16px |
+| Maximum size | 16px for interface icons |
 
 Rules:
-- Icons **supplement** text; they never replace it
+- Icons **supplement** text. An icon-only control (a menu trigger, a copy button) has an `aria-label` and a tooltip (`data-tooltip`, see Tooltips)
+- An image placeholder (an empty cover, an empty collection, a card with no photo) may use a larger, decorative icon at low contrast, 20-40px; it is not an interface icon
 - No emoji anywhere in the interface
-- No colored icons — all icons inherit text color
-- Icon-only controls have an `aria-label` and a tooltip (`data-tooltip`, see Tooltips)
+- Icons inherit text color. A mark or status icon takes its accent: rare in gold, poison in red
 
 ---
 
