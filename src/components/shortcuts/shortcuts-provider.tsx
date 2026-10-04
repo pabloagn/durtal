@@ -59,6 +59,7 @@ interface ShortcutsContextValue {
   register: (shortcut: PageShortcut) => () => void;
   registerCopy: (items: CopyItem[]) => () => void;
   registerEdit: (items: EditItem[]) => () => void;
+  registerReading: (items: EditItem[]) => () => void;
   openHelp: () => void;
   /** Runs an "Add" entry by its key ("b" adds a book) */
   add: (key: string) => void;
@@ -67,6 +68,8 @@ interface ShortcutsContextValue {
   copy: (item: CopyItem) => void;
   /** What E edits on this page; empty where the page has no edit actions */
   editItems: () => EditItem[];
+  /** What R does on this page (a book: Start, Log progress, Finish); empty elsewhere */
+  readingItems: () => EditItem[];
 }
 
 const ShortcutsContext = createContext<ShortcutsContextValue | null>(null);
@@ -129,10 +132,32 @@ export function useEditActions(items: EditItem[]) {
   }, [context, signature]);
 }
 
+/**
+ * The reading actions of a book page, for the R menu and the palette (SLN-447):
+ * the same contract as `useEditActions`.
+ */
+export function useReadingActions(items: EditItem[]) {
+  const context = useContext(ShortcutsContext);
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  });
+  const signature = items.map((i) => `${i.key}:${i.label}`).join("|");
+  useEffect(() => {
+    if (!context) return;
+    return context.registerReading(
+      itemsRef.current.map((item, i) => ({
+        ...item,
+        run: () => itemsRef.current[i]?.run(),
+      })),
+    );
+  }, [context, signature]);
+}
+
 /** Reader view (/reader/{id}) keeps single keys for its own controls */
 const READER_VIEW_RE = /^\/reader\/\d+/;
 
-type MenuName = "add" | "go" | "copy" | "edit";
+type MenuName = "add" | "go" | "copy" | "edit" | "reading";
 
 const STATIC_MENUS = {
   add: ADD.map((a) => ({ key: a.key, label: a.label, icon: SECTION_ICONS[a.section] })),
@@ -143,6 +168,7 @@ const MENU_TITLES: Record<MenuName, string> = {
   go: "Go to",
   copy: "Copy",
   edit: "Edit",
+  reading: "Reading",
 };
 
 /**
@@ -203,6 +229,7 @@ export function ShortcutsProvider({
   // context stays the same object (a new one would make pages register again)
   const pageCopyItems = useRef<CopyItem[]>([]);
   const pageEditItems = useRef<EditItem[]>([]);
+  const pageReadingItems = useRef<EditItem[]>([]);
 
   const register = useCallback((shortcut: PageShortcut) => {
     setPageShortcuts((list) => [...list, shortcut]);
@@ -224,6 +251,15 @@ export function ShortcutsProvider({
   }, []);
 
   const editItems = useCallback(() => pageEditItems.current, []);
+
+  const registerReading = useCallback((items: EditItem[]) => {
+    pageReadingItems.current = items;
+    return () => {
+      if (pageReadingItems.current === items) pageReadingItems.current = [];
+    };
+  }, []);
+
+  const readingItems = useCallback(() => pageReadingItems.current, []);
 
   const copyItems = useCallback(
     (): CopyItem[] => [
@@ -262,13 +298,15 @@ export function ShortcutsProvider({
       register,
       registerCopy,
       registerEdit,
+      registerReading,
       openHelp: () => setHelpOpen(true),
       add,
       copyItems,
       copy,
       editItems,
+      readingItems,
     }),
-    [register, registerCopy, registerEdit, add, copyItems, copy, editItems],
+    [register, registerCopy, registerEdit, registerReading, add, copyItems, copy, editItems, readingItems],
   );
 
   const openMenu = (name: MenuName) => {
@@ -287,8 +325,10 @@ export function ShortcutsProvider({
       }));
     if (menu === "edit")
       return editItems().map(({ key, label, icon }) => ({ key, label, icon }));
+    if (menu === "reading")
+      return readingItems().map(({ key, label, icon }) => ({ key, label, icon }));
     return [];
-  }, [menu, copyItems, editItems]);
+  }, [menu, copyItems, editItems, readingItems]);
 
   const pickMenuItem = useCallback(
     (name: MenuName, index: number) => {
@@ -296,9 +336,10 @@ export function ShortcutsProvider({
       if (name === "add") add(ADD[index].key);
       else if (name === "go") router.push(GO_TO[index].href);
       else if (name === "edit") editItems()[index]?.run();
+      else if (name === "reading") readingItems()[index]?.run();
       else void copy(copyItems()[index]);
     },
-    [add, router, copy, copyItems, editItems],
+    [add, router, copy, copyItems, editItems, readingItems],
   );
 
   // An open menu takes every key first (capture phase)
@@ -445,9 +486,10 @@ export function ShortcutsProvider({
         pageShortcut.run();
         return;
       }
-      const menuKeys: Record<string, MenuName> = { a: "add", g: "go", y: "copy", e: "edit" };
-      // E opens only where the page has edit actions
+      const menuKeys: Record<string, MenuName> = { a: "add", g: "go", y: "copy", e: "edit", r: "reading" };
+      // E and R open only where the page has edit or reading actions
       if (menuKeys[key] === "edit" && editItems().length === 0) return;
+      if (menuKeys[key] === "reading" && readingItems().length === 0) return;
       if (menuKeys[key]) {
         event.preventDefault();
         openMenu(menuKeys[key]);
@@ -457,7 +499,7 @@ export function ShortcutsProvider({
     // Window, bubble phase: page handlers run first and can take a key
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts, editItems]);
+  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts, editItems, readingItems]);
 
   const closeAddDialog = () => setAddDialog(null);
 

@@ -2,27 +2,19 @@
 
 import type { ActivityEntityType } from "@/lib/activity/entities";
 import { useState, useCallback, useEffect } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
+import type { Editor } from "@tiptap/react";
 import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import Placeholder from "@tiptap/extension-placeholder";
 import { common, createLowlight } from "lowlight";
 import {
   Paperclip,
   ArrowUp,
-  Bold,
-  Italic,
   Underline as UnderlineIcon,
   Strikethrough,
   Code,
   Braces,
-  List,
-  ListOrdered,
-  Quote,
-  Link as LinkIcon,
 } from "lucide-react";
+import { TiptapEditor, ToolbarButton, ToolbarDivider } from "@/components/shared/tiptap-editor";
 
 const lowlight = createLowlight(common);
 
@@ -42,34 +34,6 @@ interface CommentEditorProps {
   onSaved?: () => void;
 }
 
-function ToolbarButton({
-  onClick,
-  label,
-  active = false,
-  children,
-}: {
-  onClick: () => void;
-  label: string;
-  active?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      data-tooltip={label}
-      className={`flex items-center justify-center p-1.5 rounded-sm transition-colors ${
-        active
-          ? "bg-bg-tertiary text-fg-primary"
-          : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function CommentEditor({
   entityType,
   entityId,
@@ -84,29 +48,12 @@ export function CommentEditor({
   const [submitting, setSubmitting] = useState(false);
   const [editorEmpty, setEditorEmpty] = useState(true);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({ heading: false, codeBlock: false }),
-      Underline,
-      Link.configure({ openOnClick: false }),
-      CodeBlockLowlight.configure({ lowlight }),
-      Placeholder.configure({ placeholder: "Leave a comment..." }),
-    ],
-    content: (initialContent as Parameters<typeof useEditor>[0] extends { content?: infer C } ? C : never) ?? "",
-    onUpdate: ({ editor: e }) => {
-      setEditorEmpty(e.isEmpty);
-    },
-    onCreate: ({ editor: e }) => {
-      setEditorEmpty(e.isEmpty);
-    },
-    editorProps: {
-      attributes: {
-        class:
-          "tiptap-content outline-none min-h-[60px] text-xs text-fg-primary px-3 py-2",
-      },
-    },
-  });
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const extensions = useState(() => [Underline, CodeBlockLowlight.configure({ lowlight })])[0];
+  const onReady = useCallback((e: Editor) => {
+    setEditor(e);
+    setEditorEmpty(e.isEmpty);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!editor || editorEmpty || submitting) return;
@@ -195,27 +142,6 @@ export function CommentEditor({
     };
   }, [editor, handleSubmit, editorEmpty, isEditing, onCancelEdit]);
 
-  const handleLinkInsert = useCallback(() => {
-    if (!editor) return;
-
-    const previousUrl = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("URL", previousUrl ?? "https://");
-
-    if (url === null) return;
-
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: url })
-      .run();
-  }, [editor]);
-
   // Collapsed state: clean inline input like Linear
   if (!expanded && !isEditing) {
     return (
@@ -223,7 +149,6 @@ export function CommentEditor({
         type="button"
         onClick={() => {
           setExpanded(true);
-          setTimeout(() => editor?.commands.focus(), 0);
         }}
         className="flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary/30 px-3 py-2 text-left transition-colors hover:border-fg-muted/20 hover:bg-bg-secondary/50"
       >
@@ -244,105 +169,38 @@ export function CommentEditor({
     );
   }
 
-  // Expanded state: editor with toolbar
+  // Expanded state: the shared editor with the comment's extra tools and actions
   return (
-    <div className="rounded-sm border border-glass-border bg-bg-secondary/30 focus-within:border-accent-rose">
-      {/* Editor content */}
-      <EditorContent editor={editor} />
-
-      {/* Footer: toolbar + actions */}
-      <div className="flex items-center justify-between border-t border-glass-border px-1.5 py-1">
-        {/* Formatting toolbar */}
-        <div className="flex items-center gap-0.5">
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-            label="Bold"
-            active={editor?.isActive("bold") ?? false}
-          >
-            <Bold className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </ToolbarButton>
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-            label="Italic"
-            active={editor?.isActive("italic") ?? false}
-          >
-            <Italic className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </ToolbarButton>
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleUnderline().run()}
-            label="Underline"
-            active={editor?.isActive("underline") ?? false}
-          >
+    <TiptapEditor
+      value={initialContent ? { html: "", json: initialContent } : null}
+      label="Comment"
+      hideLabel
+      placeholder="Leave a comment..."
+      kit={{ code: {}, strike: {} }}
+      extensions={extensions}
+      autoFocus
+      onReady={onReady}
+      onChange={() => editor && setEditorEmpty(editor.isEmpty)}
+      contentClassName="min-h-[60px] text-xs"
+      extraTools={(e) => (
+        <>
+          <ToolbarButton onClick={() => e.chain().focus().toggleUnderline().run()} label="Underline" active={e.isActive("underline")}>
             <UnderlineIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleStrike().run()}
-            label="Strikethrough"
-            active={editor?.isActive("strike") ?? false}
-          >
+          <ToolbarButton onClick={() => e.chain().focus().toggleStrike().run()} label="Strikethrough" active={e.isActive("strike")}>
             <Strikethrough className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
-
-          <div className="mx-0.5 h-4 w-px bg-glass-border" />
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleCode().run()}
-            label="Code"
-            active={editor?.isActive("code") ?? false}
-          >
+          <ToolbarDivider />
+          <ToolbarButton onClick={() => e.chain().focus().toggleCode().run()} label="Code" active={e.isActive("code")}>
             <Code className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-            label="Code Block"
-            active={editor?.isActive("codeBlock") ?? false}
-          >
+          <ToolbarButton onClick={() => e.chain().focus().toggleCodeBlock().run()} label="Code Block" active={e.isActive("codeBlock")}>
             <Braces className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
-
-          <div className="mx-0.5 h-4 w-px bg-glass-border" />
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleBulletList().run()}
-            label="Bullet List"
-            active={editor?.isActive("bulletList") ?? false}
-          >
-            <List className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </ToolbarButton>
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-            label="Numbered List"
-            active={editor?.isActive("orderedList") ?? false}
-          >
-            <ListOrdered className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </ToolbarButton>
-
-          <div className="mx-0.5 h-4 w-px bg-glass-border" />
-
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-            label="Blockquote"
-            active={editor?.isActive("blockquote") ?? false}
-          >
-            <Quote className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </ToolbarButton>
-
-          <ToolbarButton
-            onClick={handleLinkInsert}
-            label="Link"
-            active={editor?.isActive("link") ?? false}
-          >
-            <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </ToolbarButton>
-        </div>
-
-        {/* Right side: attachment + submit */}
-        <div className="flex items-center gap-1.5">
+        </>
+      )}
+      actions={
+        <>
           <button
             type="button"
             aria-label="Attach file"
@@ -372,8 +230,8 @@ export function CommentEditor({
           >
             <ArrowUp className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
