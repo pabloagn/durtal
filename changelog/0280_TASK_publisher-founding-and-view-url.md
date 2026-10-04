@@ -14,7 +14,7 @@ choice in the URL. This task adds the first and the last; the Favourite
 filter comes with SLN-426 (task 0254), which this branch builds on.
 
 ## Implementation Details
-- Migration `0058_publisher_founding` (drizzle-kit, after 0254's `0057`):
+- Migration `0062_publisher_founding` (drizzle-kit, after 0254's `0061`):
   `publishing_houses.founded_year` (SMALLINT, 1000 to 2100, check
   `publisher_founded_year_check`) and `founded_place_id` (FK to `places`,
   ON DELETE SET NULL). Additive: no existing row changes.
@@ -45,5 +45,5 @@ Alignment and design audits on the publisher page and the edit form at 1440,
 sideways scroll (the only low-contrast texts are the cover placeholders'
 letters, unchanged).
 
-Migration 0058 is not applied to the live database here. Its number follows
-0254's 0057; both are regenerated in order when their turn to merge comes.
+Migration 0062 is not applied to the live database here. Its number follows
+0254's 0061; both were regenerated on main after 0060.

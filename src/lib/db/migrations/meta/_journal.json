@@ -435,6 +435,13 @@
       "when": 1791145778560,
       "tag": "0061_favourites",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1791145813066,
+      "tag": "0062_publisher_founding",
+      "breakpoints": true
     }
   ]
 }
