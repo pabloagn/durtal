@@ -412,7 +412,9 @@ dialog::backdrop {
 @utility mosaic-tile {
   position: relative;
   display: block;
-  flex: var(--tile-aspect) 1 calc(var(--tile-aspect) * var(--mosaic-row));
+  /* Growth in proportion to the width, scaled up: a line whose growth
+     factors add up to under 1 does not fill (a lone portrait on a phone) */
+  flex: calc(var(--tile-aspect) * 100) 1 calc(var(--tile-aspect) * var(--mosaic-row));
   aspect-ratio: var(--tile-aspect);
   overflow: hidden;
   border-radius: var(--radius-sm);
@@ -471,7 +473,7 @@ dialog::backdrop {
 }
 
 @utility mosaic-fill {
-  flex: 1000000 1 0;
+  flex: 100000000 1 0;
   height: 0;
 }
 
