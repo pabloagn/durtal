@@ -75,8 +75,8 @@ describe.skipIf(!url)("command palette search pictures", () => {
     await author("Juan Carlos Onetti", "onetti-legacy.webp");
     await author("Juan Rulfo");
     await db.insert(schema.media).values({ authorId: borges.id, type: "poster", s3Key: "borges.webp", thumbnailS3Key: "borges-thumb.webp", isActive: true });
-    const found = Object.fromEntries((await quickSearch("juan")).authors.map((a) => [a.name, a.photo]));
+    const found = Object.fromEntries((await quickSearch("juan")).people.map((a) => [a.name, a.photo]));
     expect(found).toEqual({ "Juan Carlos Onetti": "onetti-legacy.webp", "Juan Rulfo": null });
-    expect((await quickSearch("borges")).authors).toMatchObject([{ name: "Jorge Luis Borges", photo: "borges-thumb.webp" }]);
+    expect((await quickSearch("borges")).people).toMatchObject([{ name: "Jorge Luis Borges", photo: "borges-thumb.webp" }]);
   });
 });
