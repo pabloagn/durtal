@@ -339,7 +339,7 @@ export function AuthorsShell({
           onSelect={selection.toggleSelection}
           items={authors.map((a) => ({
             key: a.id,
-            href: `/authors/${a.slug}`,
+            href: `/people/${a.slug}`,
             title: a.name,
             subtitle: a.nationality,
             aspect: 2 / 3,
