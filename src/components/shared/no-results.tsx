@@ -35,6 +35,7 @@ export function NoResults({ noun, search, hasFilters, clearHref }: NoResultsProp
       title={`No ${noun} found`}
       description={description}
       action={
+        // A link styled as a button: a button inside a link is two controls
         <Link href={clearHref} className={buttonClass("ghost", "sm")}>
           {clearLabel}
         </Link>
