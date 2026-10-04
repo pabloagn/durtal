@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getReadingCounts } from "@/lib/actions/reading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { RatingStars } from "@/components/shared/rating";
+import { formatRating } from "@/lib/utils/rating";
 import { cache } from "react";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
@@ -14,7 +16,7 @@ import { HuntAssessmentControl } from "@/components/books/hunt-assessment-contro
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import { ArrowLeft, Star, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
   getWorksByAuthorId,
@@ -465,16 +467,14 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 {work.originalYear && (
                   <span className="text-fg-secondary">{work.originalYear}</span>
                 )}
-                {work.rating && (
-                  <div className="flex items-start gap-1">
-                    <CapAligned height={12}>
-                      <Star
-                        className="block h-3 w-3 text-accent-gold"
-                        strokeWidth={1.5}
-                        fill="currentColor"
-                      />
+                {work.rating != null && (
+                  <div className="flex items-start gap-1.5">
+                    <CapAligned height={14}>
+                      <RatingStars value={work.rating} size={14} />
                     </CapAligned>
-                    <span className="text-accent-gold">{work.rating}/5</span>
+                    <span className="text-accent-gold" aria-hidden="true">
+                      {formatRating(work.rating)}
+                    </span>
                   </div>
                 )}
                 {/* Marks: one group; the negative margin cancels the

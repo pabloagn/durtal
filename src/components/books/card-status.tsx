@@ -2,6 +2,7 @@ import { Star } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { PRIORITY_CONFIG, STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { AcquisitionPriority, CatalogueStatus } from "@/lib/types";
+import { formatRating } from "@/lib/utils/rating";
 
 /** The dot color per status variant (fills, so the lighter rose and red) */
 const STATUS_DOT = {
@@ -61,8 +62,8 @@ export function CardRating({ rating }: { rating?: number | null }) {
     <span
       className="relative z-20 flex shrink-0 gap-1 font-mono text-micro text-accent-gold"
       role="img"
-      aria-label={`Rated ${rating} out of 5`}
-      data-tooltip={`Rated ${rating}/5`}
+      aria-label={`Rated ${formatRating(rating)} out of 5`}
+      data-tooltip={`Rated ${formatRating(rating)}/5`}
     >
       <CapAligned height={12}>
         <Star
@@ -73,7 +74,7 @@ export function CardRating({ rating }: { rating?: number | null }) {
           aria-hidden="true"
         />
       </CapAligned>
-      <span>{rating}</span>
+      <span>{formatRating(rating)}</span>
     </span>
   );
 }

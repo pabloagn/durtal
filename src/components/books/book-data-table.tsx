@@ -13,6 +13,7 @@ import type { ColumnDef } from "@/components/books/column-config-dialog";
 import type { CatalogueStatus } from "@/lib/types";
 import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
+import { formatRating } from "@/lib/utils/rating";
 
 export interface DetailedBookItem {
   workId: string;
@@ -96,7 +97,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
       return statusInfo ? <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge> : null;
     }
     case "rating":
-      return val ? <Badge variant="gold">{val}/5</Badge> : null;
+      return val != null && val !== "" ? <Badge variant="gold">{formatRating(val as number)}/5</Badge> : null;
     case "language":
       return val && val !== "en" ? <Badge variant="blue">{val}</Badge> : val;
     case "binding":

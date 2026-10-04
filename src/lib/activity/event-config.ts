@@ -3,6 +3,7 @@ import { MARKS } from "@/lib/constants/marks";
 import { ABANDON_REASON_LABELS } from "@/lib/reading/constants";
 import { languageName } from "@/lib/utils/language";
 import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
+import { formatRating } from "@/lib/utils/rating";
 
 export interface EventDisplayConfig {
   icon: string;
@@ -165,7 +166,7 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.language_changed":          (m) => fieldChanged("original language", m, languageLabel),
   "work.catalogue_status_changed":  (m) => fieldChanged("catalogue status", m, catalogueStatusLabel),
   "work.acquisition_priority_changed": (m) => fieldChanged("acquisition priority", m, priorityLabel),
-  "work.rating_changed":            (m) => fieldChanged("rating", m),
+  "work.rating_changed":            (m) => fieldChanged("rating", m, formatRating),
   "work.series_changed":            (m) => m?.newValue
     ? [text("Added to series "), label(String(m.newValue))]
     : [text("Removed from series")],
@@ -233,7 +234,7 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.reading_paused":            () => [text("Paused reading")],
   "work.reading_resumed":           () => [text("Resumed reading")],
   "work.reading_finished":          (m) => [text(m?.extra?.past ? "Logged a past read" : "Finished reading"),
-    ...(m?.extra?.rating != null ? [text(", rated "), label(String(m.extra.rating))] : [])],
+    ...(m?.extra?.rating != null ? [text(", rated "), label(formatRating(Number(m.extra.rating)))] : [])],
   "work.reading_abandoned":         (m) => [text("Stopped reading"),
     ...(m?.extra?.reason ? [text(": "), label(abandonWords(String(m.extra.reason)))] : [])],
   "work.reading_edition_changed":   (m) => [text("Switched the reading to "), label(String(m?.extra?.editionTitle ?? "another edition"))],

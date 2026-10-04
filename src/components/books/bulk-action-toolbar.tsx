@@ -26,6 +26,7 @@ import {
   PRIORITY_CONFIG,
 } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
+import { formatRating, HALF_STEPS } from "@/lib/utils/rating";
 
 interface BulkActionToolbarProps {
   selectedCount: number;
@@ -144,7 +145,6 @@ export function BulkActionToolbar({
     (typeof PRIORITY_CONFIG)[AcquisitionPriority],
   ][];
 
-  const ratings = [1, 2, 3, 4, 5] as const;
 
   return (
     <>
@@ -257,15 +257,18 @@ export function BulkActionToolbar({
           }
         >
           <DropdownMenuLabel>Set rating</DropdownMenuLabel>
-          {ratings.map((value) => (
-            <DropdownMenuItem
-              key={value}
-              onClick={() => bulkUpdate("rating", value)}
-              disabled={isUpdating}
-            >
-              {value} {value === 1 ? "star" : "stars"}
-            </DropdownMenuItem>
-          ))}
+          {/* Two columns keep the ten half steps short on a phone */}
+          <div className="grid grid-cols-2">
+            {HALF_STEPS.map((value) => (
+              <DropdownMenuItem
+                key={value}
+                onClick={() => bulkUpdate("rating", value)}
+                disabled={isUpdating}
+              >
+                {formatRating(value)} {value === 1 ? "star" : "stars"}
+              </DropdownMenuItem>
+            ))}
+          </div>
           <DropdownMenuItem
             onClick={() => bulkUpdate("rating", null)}
             disabled={isUpdating}
