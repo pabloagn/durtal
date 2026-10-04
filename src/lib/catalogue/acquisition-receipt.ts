@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   acquisitionTargets,
@@ -30,6 +30,31 @@ export function typedKind(target: Pick<Target, "perfumeVariantId" | "filmVersion
   if (target.filmVersionId) return "film";
   if (target.artObjectId || target.artReproducesObjectId) return "painting";
   return null;
+}
+
+/**
+ * Before a formulation, version, release or object is deleted: the targets
+ * removed from the Wanted list that name it go with it, unless an order names
+ * them. A target still on the list, or one with an order, stops the delete with
+ * what to do. `names` is a condition on `acquisition_targets t`.
+ */
+export function wantedTargetQueries(d: Db, names: SQL, noun: string) {
+  const ordered = sql`exists(select 1 from orders o where o.acquisition_target_id = t.id)`;
+  return [
+    d.execute(
+      assertSql(
+        sql`not exists(select 1 from acquisition_targets t where (${names}) and not t.is_cancelled)`,
+        `This ${noun} is on your Wanted list. Remove it from the list first`,
+      ),
+    ),
+    d.execute(
+      assertSql(
+        sql`not exists(select 1 from acquisition_targets t where (${names}) and ${ordered})`,
+        `An order on your Wanted list names this ${noun}. Delete the order first, or keep the ${noun}`,
+      ),
+    ),
+    d.execute(sql`delete from acquisition_targets t where (${names}) and t.is_cancelled and not ${ordered}`),
+  ];
 }
 
 /** The order column that holds what a received typed order brought in */

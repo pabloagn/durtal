@@ -31,6 +31,10 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: vi.fn(async () => false),
+}));
 import { createOrder, getProvenanceStats, updateOrderStatus } from "@/lib/actions/orders";
 import {
   createTypedTarget,
@@ -38,6 +42,10 @@ import {
   orderTypedTarget,
   removeTypedTarget,
 } from "@/lib/actions/acquisitions";
+import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
+import { deleteFilm, deleteFilmVersion } from "@/lib/actions/films";
+import { deletePerfume, deletePerfumeVariant } from "@/lib/actions/perfumes";
+import { deleteArtObject, deletePainting } from "@/lib/actions/paintings";
 
 describe.skipIf(!url)("acquisition targets for films, perfumes and paintings", () => {
   const db = testDb!;
@@ -265,5 +273,122 @@ describe.skipIf(!url)("acquisition targets for films, perfumes and paintings", (
       { currency: "GBP", total: "150.00" },
     ]);
     expect((await getProvenanceStats({ kind: "perfume" })).spentByCurrency).toEqual([{ currency: "GBP", total: "150.00" }]);
+  });
+  const DUPLICATE = "Both records have the same active acquisition target";
+  async function merge(sourceId: string, targetId: string) {
+    const p = await previewMerge("works", sourceId, targetId);
+    return executeMerge({
+      entity: "works",
+      sourceId,
+      targetId,
+      fingerprint: p.fingerprint,
+      choices: Object.fromEntries(p.fields.filter((f) => f.conflict).map((f) => [f.key, "target"])),
+    });
+  }
+  async function filmWith(title: string, ...labels: string[]) {
+    const id = await work("film", title);
+    await q(`insert into film_details(work_id) values ($1)`, [id]);
+    const versions: string[] = [];
+    for (const [i, label] of labels.entries())
+      versions.push(await value(`insert into film_versions(work_id, label, sort_order) values ($1, $2, $3) returning id`, [id, label, i]));
+    return { id, versions };
+  }
+  const wantFilm = (workId: string, versionId: string) => createTypedTarget({ kind: "film", workId, versionId, medium: "digital" });
+
+  it("merges films and perfumes that want their own versions and formulations", async () => {
+    const blockers = async (a: string, b: string) => (await previewMerge("works", a, b)).blockers.filter((m) => m.startsWith(DUPLICATE));
+    // Two films that each want their own version
+    const a = await filmWith("Nosferatu", "Restored");
+    const b = await filmWith("Nosferatu", "Theatrical");
+    await wantFilm(a.id, a.versions[0]);
+    await wantFilm(b.id, b.versions[0]);
+    expect(await blockers(a.id, b.id)).toEqual([]);
+    // A film that wants two of its versions, merged into another film
+    const c = await filmWith("Faust", "Silent", "Scored");
+    const d = await filmWith("Faust", "Tinted");
+    for (const v of c.versions) await wantFilm(c.id, v);
+    expect(await blockers(c.id, d.id)).toEqual([]);
+    expect(await blockers(d.id, c.id)).toEqual([]);
+    // Two perfumes that each want their own formulation and size
+    const p = await perfume();
+    const r = await perfume();
+    await createTypedTarget({ kind: "perfume", workId: p.id, variantId: p.edp, container: "bottle", capacityValue: 50, volumeUnit: "ml" });
+    await createTypedTarget({ kind: "perfume", workId: p.id, variantId: p.edp, container: "bottle", capacityValue: 100, volumeUnit: "ml" });
+    await createTypedTarget({ kind: "perfume", workId: r.id, variantId: r.edt, container: "decant", capacityValue: 10, volumeUnit: "ml" });
+    expect(await blockers(p.id, r.id)).toEqual([]);
+  });
+
+  it("moves a wanted version with its open order to the kept film", async () => {
+    const a = await filmWith("Vampyr", "Restored");
+    const b = await filmWith("Vampyr", "Theatrical");
+    const target = await wantFilm(a.id, a.versions[0]);
+    await wantFilm(b.id, b.versions[0]);
+    const order = await orderTypedTarget({ targetId: target.id, acquisitionMethod: "online_order", status: "placed", orderDate: "2026-10-01" });
+    await merge(a.id, b.id);
+    expect(await q(`select work_id, film_version_id from acquisition_targets where id = $1`, [target.id])).toEqual([
+      { work_id: b.id, film_version_id: a.versions[0] },
+    ]);
+    expect(await value(`select work_id from film_versions where id = $1`, [a.versions[0]])).toBe(b.id);
+    expect(await q(`select work_id, acquisition_target_id, status from orders where id = $1`, [order.id])).toEqual([
+      { work_id: b.id, acquisition_target_id: target.id, status: "placed" },
+    ]);
+    expect((await getTypedTargets(b.id)).map((t) => [t.title, t.state])).toEqual([
+      ["Restored · Digital", "on_order"],
+      ["Theatrical · Digital", "wanted"],
+    ]);
+  });
+
+  it("deletes a formulation, version or object that was removed from the Wanted list", async () => {
+    const p = await perfume();
+    const bottle = await createTypedTarget({ kind: "perfume", workId: p.id, variantId: p.edp, container: "bottle", capacityValue: 50, volumeUnit: "ml" });
+    await expect(deletePerfumeVariant(p.edp)).rejects.toThrow("This formulation is on your Wanted list. Remove it from the list first");
+    await removeTypedTarget(bottle.id);
+    await deletePerfumeVariant(p.edp);
+    expect(await value<number>(`select count(*)::int from acquisition_targets where id = $1`, [bottle.id])).toBe(0);
+
+    const f = await film();
+    const copy = await createTypedTarget({ kind: "film", workId: f.id, versionId: f.version, releaseId: f.release, medium: "digital" });
+    await removeTypedTarget(copy.id);
+    await deleteFilmVersion(f.version);
+    expect(await value<number>(`select count(*)::int from film_versions`)).toBe(0);
+
+    const id = await painting();
+    const original = await value(`insert into art_objects(work_id, kind, ownership) values ($1, 'original', 'private') returning id`, [id]);
+    const buy = await createTypedTarget({ kind: "painting", workId: id, objectId: original, reproduction: false });
+    const print = await createTypedTarget({ kind: "painting", workId: id, objectId: original, reproduction: true });
+    await removeTypedTarget(buy.id);
+    await expect(deleteArtObject(original)).rejects.toThrow("This object is on your Wanted list");
+    await removeTypedTarget(print.id);
+    await deleteArtObject(original);
+    expect(await value<number>(`select count(*)::int from acquisition_targets`)).toBe(0);
+  });
+
+  it("keeps a formulation an order names, and says so", async () => {
+    const p = await perfume();
+    const target = await createTypedTarget({ kind: "perfume", workId: p.id, variantId: p.edt, container: "sample", capacityValue: 2, volumeUnit: "ml" });
+    const order = await orderTypedTarget({ targetId: target.id, acquisitionMethod: "online_order", orderDate: "2026-09-01" });
+    await updateOrderStatus(order.id, "cancelled");
+    await removeTypedTarget(target.id);
+    await expect(deletePerfumeVariant(p.edt)).rejects.toThrow(
+      "An order on your Wanted list names this formulation. Delete the order first, or keep the formulation",
+    );
+    expect(await value<number>(`select count(*)::int from perfume_variants where id = $1`, [p.edt])).toBe(1);
+  });
+
+  it("deletes a film, perfume or painting that has wishes and orders", async () => {
+    const f = await film();
+    const wanted = await createTypedTarget({ kind: "film", workId: f.id, versionId: f.version, releaseId: f.release, medium: "digital" });
+    await orderTypedTarget({ targetId: wanted.id, acquisitionMethod: "online_order", orderDate: "2026-09-01" });
+    await deleteFilm(f.id);
+    const p = await perfume();
+    await createTypedTarget({ kind: "perfume", workId: p.id, variantId: p.edp, container: "bottle", capacityValue: 50, volumeUnit: "ml" });
+    await deletePerfume(p.id);
+    const id = await painting();
+    const original = await value(`insert into art_objects(work_id, kind, ownership) values ($1, 'original', 'private') returning id`, [id]);
+    await createTypedTarget({ kind: "painting", workId: id, objectId: original, reproduction: true });
+    await createTypedTarget({ kind: "painting", workId: id, objectId: original, reproduction: false });
+    await deletePainting(id);
+    expect(await value<number>(`select count(*)::int from acquisition_targets`)).toBe(0);
+    expect(await value<number>(`select count(*)::int from works`)).toBe(0);
   });
 });
