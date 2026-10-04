@@ -11,14 +11,17 @@
  * - Undo rebuilds colour display files from that original and puts the
  *   row's original and tuning back as they were.
  * - A legacy portrait (`authors.photo_s3_key`, shown when the author has no
- *   poster image) becomes a monochrome poster image; undo removes it again.
+ *   poster image) in colour is replaced by a monochrome copy, so nothing
+ *   falls back to colour when a poster image is removed later. An author
+ *   with no poster image also gets one, made from it. Undo puts the colour
+ *   key back and removes the poster image again.
  */
 import { randomUUID } from "node:crypto";
-import { and, eq, isNotNull, notExists } from "drizzle-orm";
+import { and, eq, exists, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { authors, media } from "@/lib/db/schema";
 import { uploadToS3 } from "@/lib/s3/covers";
-import { goldMediaOriginalKey } from "@/lib/s3/keys";
+import { goldMediaKey, goldMediaOriginalKey } from "@/lib/s3/keys";
 import { deleteUnusedObjects } from "@/lib/s3/cleanup";
 import { applyMonochromeProcessing } from "@/lib/s3/media";
 import {
@@ -133,30 +136,30 @@ export async function restoreAuthorMediaColour(
   return updated;
 }
 
-/** Authors whose only portrait is the legacy photo column, with whether it is in colour. */
+/** Authors with a legacy portrait, with whether it is in colour and whether a poster image covers it. */
 export async function scanLegacyAuthorPhotos(): Promise<
-  { authorId: string; photoS3Key: string; colour: boolean }[]
+  { authorId: string; photoS3Key: string; colour: boolean; hasPoster: boolean }[]
 > {
   const rows = await db
-    .select({ authorId: authors.id, photoS3Key: authors.photoS3Key })
+    .select({
+      authorId: authors.id,
+      photoS3Key: authors.photoS3Key,
+      hasPoster: sql<boolean>`${exists(
+        db
+          .select({ id: media.id })
+          .from(media)
+          .where(and(eq(media.authorId, authors.id), eq(media.type, "poster"))),
+      )}`,
+    })
     .from(authors)
-    .where(
-      and(
-        isNotNull(authors.photoS3Key),
-        notExists(
-          db
-            .select({ id: media.id })
-            .from(media)
-            .where(and(eq(media.authorId, authors.id), eq(media.type, "poster"))),
-        ),
-      ),
-    );
+    .where(isNotNull(authors.photoS3Key));
   const scanned = [];
-  for (const { authorId, photoS3Key } of rows)
+  for (const { authorId, photoS3Key, hasPoster } of rows)
     scanned.push({
       authorId,
       photoS3Key: photoS3Key!,
       colour: !(await isMonochromeImage(await readS3Object(photoS3Key!))),
+      hasPoster,
     });
   return scanned;
 }
@@ -169,6 +172,48 @@ export async function importLegacyAuthorPhoto(authorId: string, photoS3Key: stri
     buffer: await readS3Object(photoS3Key),
   });
   return row.id;
+}
+
+/**
+ * Point a legacy portrait at a monochrome copy of it. The colour file stays
+ * where it is, for undo. Returns the copy's key, or null when the column
+ * changed meanwhile.
+ */
+export async function replaceLegacyAuthorPhoto(
+  authorId: string,
+  photoS3Key: string,
+): Promise<string | null> {
+  const sharp = (await import("sharp")).default;
+  const monochrome = await applyMonochromeProcessing(
+    await readS3Object(photoS3Key),
+    DEFAULT_MONOCHROME_PARAMS,
+  );
+  const key = goldMediaKey("author", authorId, "photo", randomUUID());
+  await uploadToS3(key, await sharp(monochrome).webp({ quality: 90 }).toBuffer(), "image/webp");
+  const [updated] = await db
+    .update(authors)
+    .set({ photoS3Key: key })
+    .where(and(eq(authors.id, authorId), eq(authors.photoS3Key, photoS3Key)))
+    .returning({ id: authors.id });
+  if (updated) return key;
+  await deleteUnusedObjects({ keys: [key], prefixes: [] }, "unused author photo");
+  return null;
+}
+
+/** Undo a replacement: the colour key again, and the copy's file goes. */
+export async function restoreLegacyAuthorPhoto(
+  authorId: string,
+  photoS3Key: string,
+  monochromeS3Key: string,
+): Promise<boolean> {
+  const [updated] = await db
+    .update(authors)
+    .set({ photoS3Key })
+    .where(and(eq(authors.id, authorId), eq(authors.photoS3Key, monochromeS3Key)))
+    .returning({ id: authors.id });
+  if (!updated) return false;
+  await deleteUnusedObjects({ keys: [monochromeS3Key], prefixes: [] }, "restored author photo");
+  return true;
 }
 
 /** Undo an import: remove the poster image it made, and its files. */

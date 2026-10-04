@@ -84,7 +84,9 @@ import {
   isMonochromeImage,
   removeImportedAuthorPhoto,
   renderAuthorMediaMonochrome,
+  replaceLegacyAuthorPhoto,
   restoreAuthorMediaColour,
+  restoreLegacyAuthorPhoto,
   scanAuthorMedia,
   scanLegacyAuthorPhotos,
 } from "@/lib/media/author-monochrome";
@@ -255,22 +257,60 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
     expect(bucket.objects.has(change!.after.originalS3Key)).toBe(false);
   });
 
-  it("turns a legacy colour portrait into a monochrome poster image, and back", async () => {
+  it("turns a legacy colour portrait into a monochrome poster image and photo, and back", async () => {
     const person = await createPerson({ name: "Jean Lorrain", domains: ["book"] });
     bucket.objects.add("legacy/portrait.jpg");
     bucket.bodies.set("legacy/portrait.jpg", await picture(600, 900));
     await c`update authors set photo_s3_key = 'legacy/portrait.jpg' where id = ${person.id}`;
-    expect(await scanLegacyAuthorPhotos()).toEqual([{ authorId: person.id, photoS3Key: "legacy/portrait.jpg", colour: true }]);
+    expect(await scanLegacyAuthorPhotos()).toEqual([
+      { authorId: person.id, photoS3Key: "legacy/portrait.jpg", colour: true, hasPoster: false },
+    ]);
     const id = await importLegacyAuthorPhoto(person.id, "legacy/portrait.jpg");
     const [poster] = await c`select * from media where id = ${id}`;
     expect(poster).toMatchObject({ author_id: person.id, type: "poster", is_active: true });
     expect(await isMonochrome(poster.s3_key)).toBe(true);
-    // An author with a poster image no longer falls back to the legacy photo
-    expect(await scanLegacyAuthorPhotos()).toEqual([]);
+
+    // The photo column points at a monochrome copy; the colour file stays for undo
+    const copy = await replaceLegacyAuthorPhoto(person.id, "legacy/portrait.jpg");
+    expect(copy).toMatch(new RegExp(`^gold/media/author/${person.id}/photo/.+\\.webp$`));
+    expect(await isMonochrome(copy!)).toBe(true);
+    expect(bucket.objects.has("legacy/portrait.jpg")).toBe(true);
+    expect(await scanLegacyAuthorPhotos()).toEqual([
+      { authorId: person.id, photoS3Key: copy, colour: false, hasPoster: true },
+    ]);
+
+    // Should the poster image go later, views fall back to the photo column: monochrome now
+    const [{ photo_s3_key: fallback }] = await c`select photo_s3_key from authors where id = ${person.id}`;
+    expect(fallback).toBe(copy);
+
+    // Undo: the colour key first, then the poster image and the copy go
+    expect(await restoreLegacyAuthorPhoto(person.id, "legacy/portrait.jpg", copy!)).toBe(true);
     await removeImportedAuthorPhoto(id);
+    expect(await c`select photo_s3_key from authors where id = ${person.id}`).toEqual([{ photo_s3_key: "legacy/portrait.jpg" }]);
     expect(await c`select id from media where id = ${id}`).toHaveLength(0);
     expect(bucket.objects.has(poster.s3_key)).toBe(false);
+    expect(bucket.objects.has(copy!)).toBe(false);
     expect(bucket.objects.has("legacy/portrait.jpg")).toBe(true);
+  });
+
+  it("replaces a colour photo behind a poster image too, and leaves a changed one alone", async () => {
+    const person = await createPerson({ name: "Marcel Schwob", domains: ["book"] });
+    await ingestMedia({ owner: { type: "author", id: person.id }, mediaType: "poster", buffer: await picture(600, 900) });
+    bucket.objects.add("legacy/schwob.jpg");
+    bucket.bodies.set("legacy/schwob.jpg", await picture(600, 900));
+    await c`update authors set photo_s3_key = 'legacy/schwob.jpg' where id = ${person.id}`;
+    expect(await scanLegacyAuthorPhotos()).toEqual([
+      { authorId: person.id, photoS3Key: "legacy/schwob.jpg", colour: true, hasPoster: true },
+    ]);
+    const copy = await replaceLegacyAuthorPhoto(person.id, "legacy/schwob.jpg");
+    expect(await isMonochrome(copy!)).toBe(true);
+    expect((await scanLegacyAuthorPhotos()).filter((l) => l.colour)).toEqual([]);
+
+    // The column moved on since the scan: no change, and no file left behind
+    const before = new Set(bucket.objects);
+    expect(await replaceLegacyAuthorPhoto(person.id, "legacy/schwob.jpg")).toBeNull();
+    expect(bucket.objects).toEqual(before);
+    expect(await restoreLegacyAuthorPhoto(person.id, "legacy/schwob.jpg", "gold/media/author/x/photo/y.webp")).toBe(false);
   });
 
   it("re-tunes only a person's image from its original", async () => {

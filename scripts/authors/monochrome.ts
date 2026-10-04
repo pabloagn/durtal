@@ -3,16 +3,17 @@
  * are; this script brings the older ones in colour to the same state.
  *
  * It reads every author image row and every legacy portrait
- * (`authors.photo_s3_key` of an author with no poster image), checks the
- * files the app shows, and reports what is still in colour.
+ * (`authors.photo_s3_key`, shown when an author has no poster image),
+ * checks the files the app shows, and reports what is still in colour.
  *
  * Dry run by default: nothing is written, the report goes to --report.
  * `--apply` needs `--backup FILE`, a pg_dump of the database made just
  * before (`~/personal/durtal-backups/`). It re-renders each colour image in
  * monochrome from its colour original, keeping its crop and tuning (a colour
- * copy becomes the original when there was none), turns each legacy colour
- * portrait into a monochrome poster image, writes every change to
- * --undo-file, and checks again. `--undo FILE` puts the colour back.
+ * copy becomes the original when there was none), points each legacy colour
+ * portrait at a monochrome copy (and makes it a poster image when the author
+ * has none), writes every change to --undo-file, and checks again.
+ * `--undo FILE` puts the colour back.
  *
  *   pnpm exec tsx --tsconfig tsconfig.json scripts/authors/monochrome.ts \
  *     [--apply --backup FILE] [--undo FILE] [--report FILE] [--undo-file FILE]
@@ -50,7 +51,8 @@ interface UndoFile {
   appliedAt: string;
   backup: string;
   rerendered: import("@/lib/media/author-monochrome").AuthorMonochromeChange[];
-  imported: { authorId: string; photoS3Key: string; mediaId: string }[];
+  /** Legacy portraits: the colour key, its monochrome copy, and the poster image made from it */
+  imported: { authorId: string; photoS3Key: string; monochromeS3Key: string | null; mediaId: string | null }[];
 }
 
 async function counts() {
@@ -83,8 +85,17 @@ if (values.undo) {
     }
     if (await monochrome.restoreAuthorMediaColour(row, change)) restored++;
   }
-  for (const item of saved.imported) await monochrome.removeImportedAuthorPhoto(item.mediaId);
-  console.log(`Restored ${restored} of ${saved.rerendered.length} images; removed ${saved.imported.length} imported portraits.`);
+  let portraits = 0;
+  for (const item of saved.imported) {
+    if (item.monochromeS3Key) {
+      if (await monochrome.restoreLegacyAuthorPhoto(item.authorId, item.photoS3Key, item.monochromeS3Key)) portraits++;
+      else console.warn(`Skipped the legacy portrait of ${item.authorId}: it changed after the run`);
+    }
+    if (item.mediaId) await monochrome.removeImportedAuthorPhoto(item.mediaId);
+  }
+  console.log(
+    `Restored ${restored} of ${saved.rerendered.length} images and ${portraits} legacy portraits; removed ${saved.imported.filter((i) => i.mediaId).length} poster images made from them.`,
+  );
   process.exit(0);
 }
 
@@ -116,8 +127,16 @@ if (values.apply) {
   }
   for (const legacy of before.legacy) {
     if (!legacy.colour) continue;
+    const item: UndoFile["imported"][number] = { authorId: legacy.authorId, photoS3Key: legacy.photoS3Key, monochromeS3Key: null, mediaId: null };
+    undo.imported.push(item);
     try {
-      undo.imported.push({ ...legacy, mediaId: await monochrome.importLegacyAuthorPhoto(legacy.authorId, legacy.photoS3Key) });
+      if (!legacy.hasPoster) {
+        item.mediaId = await monochrome.importLegacyAuthorPhoto(legacy.authorId, legacy.photoS3Key);
+        save();
+      }
+      // Nothing falls back to the colour file, also when the poster image goes later
+      item.monochromeS3Key = await monochrome.replaceLegacyAuthorPhoto(legacy.authorId, legacy.photoS3Key);
+      if (!item.monochromeS3Key) failures.push(`${legacy.authorId} (legacy portrait): it changed during the run`);
     } catch (error) {
       failures.push(`${legacy.authorId} (legacy portrait): ${(error as Error).message}`);
     }
@@ -130,7 +149,7 @@ if (values.apply) {
     "",
     table(after),
     "",
-    `Re-rendered ${undo.rerendered.length} images and imported ${undo.imported.length} legacy portraits. Undo: \`--undo ${values["undo-file"]}\`.`,
+    `Re-rendered ${undo.rerendered.length} images and replaced ${undo.imported.filter((i) => i.monochromeS3Key).length} legacy portraits (${undo.imported.filter((i) => i.mediaId).length} became poster images). Undo: \`--undo ${values["undo-file"]}\`.`,
     ...(failures.length ? ["", "## Not changed", "", ...failures.map((f) => `- ${f}`)] : []),
   );
 } else {
@@ -139,7 +158,8 @@ if (values.apply) {
     if (colour)
       report.push(`- ${row.type} \`${row.id}\` of author \`${row.authorId}\`${row.originalS3Key ? "" : " (no original yet: a colour copy becomes it)"}`);
   for (const legacy of before.legacy)
-    if (legacy.colour) report.push(`- legacy portrait of author \`${legacy.authorId}\`: becomes a poster image`);
+    if (legacy.colour)
+      report.push(`- legacy portrait of author \`${legacy.authorId}\`: a monochrome copy replaces it${legacy.hasPoster ? "" : ", and becomes a poster image"}`);
 }
 
 writeFileSync(values.report!, report.join("\n") + "\n");
