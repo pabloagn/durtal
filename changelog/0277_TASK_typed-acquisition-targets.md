@@ -96,3 +96,19 @@ edit dialog keeps a typed order's target.
   that fix the dialogs are clean in Safari), Safari's title-row icons sit
   0.55 px off the 46 px heading, the related-films carousel arrows at 390 px,
   and Provenance's placeholder initial for an order without a picture.
+- Review fixes: the merge preview compares active targets on the unique
+  index's columns (typed columns included, the size in millilitres), so two
+  films or perfumes that want their own versions or formulations merge, and a
+  wanted version moves with its open order to the kept film. Deleting a
+  formulation, version, release or object deletes the targets removed from the
+  Wanted list that have no order; a target still on the list, or one an order
+  names, refuses with a message that names the Wanted list. Five new cases in
+  `typed-acquisitions.test.ts`, including deleting a film, perfume or painting
+  that has wishes and orders.
+- Browser, preview from the 2026-10-04 22:26 backup (`wanted-seed.sql`, one
+  perfume and one painting per browser): in Chrome, Firefox 157 and Safari 26,
+  a perfume wish bought in a shop made one 50 ml bottle at €120.00, and a
+  painting wish took an auction bid (checked in the database).
+  `alignment-audit.js` and `design-audit.js` at 1440 and 390 px find nothing
+  in the Wanted parts or dialogs. Known, on main: Safari's title-row icons
+  0.55 px off the 46 px heading, and Firefox's carousel arrows at 390 px.
