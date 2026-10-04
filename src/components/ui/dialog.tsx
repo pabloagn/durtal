@@ -77,14 +77,14 @@ export function Dialog({
         event.preventDefault();
         onClose();
       }}
-      className={`dialog-enter glass m-auto w-full border-0 bg-transparent p-0 outline-none text-fg-primary backdrop:glass-veil transition-[max-width] duration-200 ease-out ${sizeClass}`}
+      className={`dialog-enter glass m-auto w-full overflow-hidden border-0 bg-transparent p-0 outline-none open:flex open:flex-col text-fg-primary backdrop:glass-veil transition-[max-width] duration-200 ease-out ${sizeClass}`}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
     >
       {/* Header. The row carries the title's type: the buttons sit on the
           title's cap-height center, also when a description follows */}
-      <div className="type-section-title flex items-start justify-between border-b border-glass-border px-6 py-4">
+      <div className="type-section-title flex shrink-0 items-start justify-between border-b border-glass-border px-6 py-4">
         <div className="min-w-0 flex-1">
           <h2 className="type-section-title">{title}</h2>
           {description && (
@@ -122,8 +122,11 @@ export function Dialog({
         </CapAligned>
       </div>
 
-      {/* Body */}
-      <div className="px-6 pb-6 pt-5">{children}</div>
+      {/* Body. It scrolls, not the dialog: the glass stays behind every
+          line, and the header stays in view */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
+        {children}
+      </div>
     </dialog>
   );
 }
