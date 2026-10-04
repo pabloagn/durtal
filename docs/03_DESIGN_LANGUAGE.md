@@ -238,6 +238,8 @@ A book, author or place page has three parts (`src/components/shared/detail-layo
 
 A section or group with nothing to show is left out; its "Add" action lives in the page's actions menu.
 
+A publisher page follows the author page: the house's banner behind the header and its logo beside the name. A logo is never cropped: it sits whole on a dark tile (`object-contain`), on the page and on the publisher cards. Publisher images keep their colours (the monochrome rule is for people only). Its books are book cards with this house's edition covers, filtered, sorted and paged like the library.
+
 ### Cards without a photo
 
 A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:

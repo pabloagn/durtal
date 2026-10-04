@@ -82,7 +82,7 @@ async function PublishersContent({ params }: { params: Params }) {
   }
 
   const publishers: PublisherItem[] = rows.map(
-    ({ publisher: p, editionCount, parentName }) => ({
+    ({ publisher: p, editionCount, parentName, logoKey }) => ({
       id: p.id,
       slug: p.slug,
       name: p.name,
@@ -92,6 +92,7 @@ async function PublishersContent({ params }: { params: Params }) {
       website: p.website,
       isFavourite: p.isFavourite,
       editionCount,
+      logoUrl: logoKey ? `/api/s3/read?key=${encodeURIComponent(logoKey)}` : null,
       createdAt: new Date(p.createdAt).toLocaleDateString(),
     }),
   );
