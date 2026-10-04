@@ -94,3 +94,23 @@ a Google lookup, has no country, so the country filter cannot reach it.
   page 56 KB, the shop with orders 97 KB. Every other route is within budget
   except `/library` (313 KB), which this task does not change. A toast's icon
   sits 10px off its text, as on main.
+
+### Review fixes (PR #66)
+- A venue's image no longer blocks its delete (migration 0048 lets it go
+  with the venue).
+- "Here now" lists each object once, by its strongest open record here
+  (confirmed, probable, uncertain; latest of equals); "Its collection
+  elsewhere" leaves out any object with an open record here. Counts follow.
+- The venue dialog checks that the last visit is not before the first.
+- "Archived" shows in the card's bottom row on every card width.
+- "Link an institution" creates an organization with the role the venue's
+  type implies, or offers existing organizations only (cinema, library,
+  cafe, auction house, other).
+- The country filter offers only countries with an active venue.
+- Listings show the date of the last offer, not only its age.
+- "Bought here": bottles, film copies and art objects bought at the venue
+  (`getVenuePurchases`). A cinema shows what was bought there; Durtal records
+  no screenings, so a cinema has no other part yet.
+- Tests: a conflicting probable and uncertain record against a confirmed
+  loan, a venue with only an image deleted, purchases at a shop, a country
+  whose only venue is archived.

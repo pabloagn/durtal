@@ -140,6 +140,11 @@ export function VenueCreateDialog({
       return;
     }
 
+    if (firstVisit && lastVisit && lastVisit < firstVisit) {
+      toast.error("The last visit cannot come before the first");
+      return;
+    }
+
     const tags = tagsRaw
       .split(",")
       .map((t) => t.trim())

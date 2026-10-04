@@ -28,10 +28,21 @@ const RELATION_OPTIONS = [
   { value: "owner", label: "Owns this venue" },
 ];
 
-/** The role a new institution gets, from the kind of venue it runs */
-function roleFor(type: VenueType): OrganizationRole {
-  return type === "museum" ? "museum" : type === "gallery" ? "gallery" : "retailer";
-}
+/**
+ * The role a new institution gets, from the kind of venue it runs. Venues
+ * no organization role fits (a cinema, a library, a cafe, an auction house)
+ * link an existing organization only.
+ */
+const ROLE_FOR: Partial<Record<VenueType, OrganizationRole>> = {
+  museum: "museum",
+  gallery: "gallery",
+  bookshop: "retailer",
+  online_store: "retailer",
+  perfumery: "retailer",
+  market: "retailer",
+  fair: "retailer",
+  publisher: "publisher",
+};
 
 /**
  * Who runs or owns the venue: each institution with its relation and its
@@ -122,7 +133,7 @@ export function VenueInstitutions({
           <LinkInstitutionDialog
             venueId={venueId}
             venueName={venueName}
-            role={roleFor(venueType)}
+            role={ROLE_FOR[venueType] ?? null}
             onClose={() => setAdding(false)}
           />,
           document.body,
@@ -139,11 +150,12 @@ function LinkInstitutionDialog({
 }: {
   venueId: string;
   venueName: string;
-  role: OrganizationRole;
+  /** The role an organization created here gets; none: choose an existing one */
+  role: OrganizationRole | null;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { search, create } = useOrganizationSearch(role);
+  const { search, create } = useOrganizationSearch(role ?? "retailer");
   const [choice, setChoice] = useState<{ id: string; label: string } | null>(null);
   const [relation, setRelation] = useState<"operator" | "owner">("operator");
   const [saving, setSaving] = useState(false);
@@ -182,7 +194,7 @@ function LinkInstitutionDialog({
           value={choice}
           onChange={setChoice}
           search={search}
-          onCreate={create}
+          onCreate={role ? create : undefined}
           placeholder="Search organizations..."
         />
         <Select

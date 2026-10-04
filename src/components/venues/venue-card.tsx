@@ -97,9 +97,8 @@ export function VenueCard({
             </h3>
             {/* A narrow card gives the row to the name */}
             <span className="hidden @[220px]:contents">
-              <Badge variant={archived ? "muted" : badgeVariant} className="mt-0.5 shrink-0">
+              <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
                 {VENUE_TYPE_LABELS[type]}
-                {archived && " · Archived"}
               </Badge>
             </span>
           </div>
@@ -130,6 +129,9 @@ export function VenueCard({
                 ))}
               </div>
             )}
+
+            {/* On every card width, unlike the type badge */}
+            {archived && <span className="text-xs leading-4 text-fg-secondary">Archived</span>}
 
             {website && (
               <a

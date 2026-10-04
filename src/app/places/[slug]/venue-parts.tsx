@@ -2,6 +2,9 @@ import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { paintingHref } from "@/components/paintings/painting-card";
 import { perfumeHref } from "@/components/perfumes/perfume-card";
+import { filmHref } from "@/components/films/film-card";
+import { FILM_MEDIUM_LABELS } from "@/lib/catalogue/film-labels";
+import { HOLDING_STATUS_LABELS, type HoldingStatus } from "@/lib/catalogue/holdings";
 import {
   ART_OBJECT_KIND_LABELS,
   CERTAINTY_LABELS,
@@ -16,7 +19,7 @@ import {
   formulationName,
 } from "@/lib/catalogue/perfume-labels";
 import { AVAILABILITY_LABELS } from "@/lib/catalogue/retailers";
-import type { VenueArt, VenueRetail } from "@/lib/actions/venue-pages";
+import type { VenueArt, VenuePurchases, VenueRetail } from "@/lib/actions/venue-pages";
 import type { getVenueOrders } from "@/lib/actions/venue-pages";
 
 type ArtRow = VenueArt["here"]["rows"][number];
@@ -185,11 +188,17 @@ export function VenueArtParts({ art, institutions }: { art: VenueArt; institutio
   );
 }
 
-/** "Checked 3 days ago, may have changed" */
+/** "Checked 1 Oct 2026 (3 days ago)", with "may have changed" once it is stale */
 function checkedText(row: VenueRetail["rows"][number]) {
-  if (row.ageDays === null) return "No price recorded yet";
+  if (row.ageDays === null || !row.checkedAt) return "No price recorded yet";
+  const day = new Date(row.checkedAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   const age = row.ageDays === 0 ? "today" : row.ageDays === 1 ? "yesterday" : `${row.ageDays} days ago`;
-  return `Checked ${age}${row.isStale ? ", may have changed" : ""}`;
+  return `Checked ${day} (${age})${row.isStale ? ", may have changed" : ""}`;
 }
 
 /**
@@ -289,6 +298,54 @@ export function VenueOrdersPart({ orders }: { orders: Awaited<ReturnType<typeof 
         ))}
       </ul>
       <More shown={orders.rows.length} total={orders.total} />
+    </section>
+  );
+}
+
+/** "Bottle · 100 ml", "Physical · Blu-ray", "Original" */
+function purchaseItem(row: VenuePurchases["rows"][number]) {
+  const item =
+    row.kind === "perfume"
+      ? (CONTAINER_LABELS[row.item as keyof typeof CONTAINER_LABELS]?.one ?? row.item)
+      : row.kind === "film"
+        ? (FILM_MEDIUM_LABELS[row.item as keyof typeof FILM_MEDIUM_LABELS] ?? row.item)
+        : (ART_OBJECT_KIND_LABELS[row.item as keyof typeof ART_OBJECT_KIND_LABELS] ?? row.item);
+  return [item, row.detail].filter(Boolean).join(" · ");
+}
+
+const PURCHASE_HREF = {
+  perfume: perfumeHref,
+  film: filmHref,
+  painting: paintingHref,
+} as const;
+
+/**
+ * What you bought here besides book orders: bottles, film copies and art
+ * objects whose acquisition names this venue, newest first.
+ */
+export function VenuePurchasesPart({ purchases }: { purchases: VenuePurchases }) {
+  if (purchases.total === 0) return null;
+  return (
+    <section className="mb-10" aria-labelledby="venue-purchases">
+      <SectionHeading id="venue-purchases" title="Bought here" count={purchases.total} />
+      <ul className="divide-y divide-glass-border">
+        {purchases.rows.map((row) => (
+          <li key={`${row.kind}-${row.id}`} className="flex items-baseline justify-between gap-4 py-2">
+            <span className="min-w-0 truncate text-sm">
+              <Link href={PURCHASE_HREF[row.kind]({ id: row.workId, slug: row.slug })} className={LINK}>
+                {row.title}
+              </Link>
+              <span className="text-fg-secondary"> · {purchaseItem(row)}</span>
+            </span>
+            <span className="shrink-0 text-xs text-fg-secondary">
+              {[row.acquiredOn, HOLDING_STATUS_LABELS[row.status as HoldingStatus] ?? null]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <More shown={purchases.rows.length} total={purchases.total} />
     </section>
   );
 }

@@ -30,13 +30,14 @@ import {
   getVenueArt,
   getVenueInstitutions,
   getVenueOrders,
+  getVenuePurchases,
   getVenueReferences,
   getVenueRetail,
   type VenueReferences,
 } from "@/lib/actions/venue-pages";
 import { VenueActions } from "./venue-actions";
 import { VenueInstitutions } from "./venue-institutions";
-import { VenueArtParts, VenueOrdersPart, VenueRetailPart } from "./venue-parts";
+import { VenueArtParts, VenueOrdersPart, VenuePurchasesPart, VenueRetailPart } from "./venue-parts";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
@@ -45,8 +46,8 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-/** "3 orders": what keeps a venue from being deleted */
-function blockerLines(refs: VenueReferences, hasImage: boolean) {
+/** "3 orders": what keeps a venue from being deleted (its images do not) */
+function blockerLines(refs: VenueReferences) {
   const line = (n: number, one: string, many: string) => (n ? [`${n} ${n === 1 ? one : many}`] : []);
   return [
     ...line(refs.orders, "order", "orders"),
@@ -58,7 +59,6 @@ function blockerLines(refs: VenueReferences, hasImage: boolean) {
     ...line(refs.institutions, "institution link", "institution links"),
     ...line(refs.sources, "source", "sources"),
     ...line(refs.identifiers, "identifier", "identifiers"),
-    ...(hasImage ? ["its image"] : []),
   ];
 }
 
@@ -68,11 +68,12 @@ async function PlaceContent({ slug }: { slug: string }) {
   const venue = await loadVenue(slug);
 
   if (!venue) notFound();
-  const [institutions, art, retail, orders, references] = await Promise.all([
+  const [institutions, art, retail, orders, purchases, references] = await Promise.all([
     getVenueInstitutions(venue.id),
     getVenueArt(venue.id),
     getVenueRetail(venue.id),
     getVenueOrders(venue.id),
+    getVenuePurchases(venue.id),
     getVenueReferences(venue.id),
   ]);
 
@@ -174,7 +175,7 @@ async function PlaceContent({ slug }: { slug: string }) {
                 lastVisitDate: venue.lastVisitDate,
               }}
               archived={venue.archivedAt !== null}
-              blockers={blockerLines(references, !!(venue.posterS3Key || venue.thumbnailS3Key))}
+              blockers={blockerLines(references)}
             />
           </div>
 
@@ -310,6 +311,7 @@ async function PlaceContent({ slug }: { slug: string }) {
         <VenueArtParts art={art} institutions={[...new Set(institutions.map((i) => i.name))]} />
         <VenueRetailPart retail={retail} />
         <VenueOrdersPart orders={orders} />
+        <VenuePurchasesPart purchases={purchases} />
 
         {/* Specialties and tags */}
         {(venue.specialties || hasTags) && (

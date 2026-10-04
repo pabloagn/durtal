@@ -37,6 +37,7 @@ import {
   getVenueCountries,
   getVenueInstitutions,
   getVenueOrders,
+  getVenuePurchases,
   getVenueReferences,
   getVenueRetail,
   linkVenueInstitution,
@@ -235,5 +236,67 @@ describe.skipIf(!url)("venue pages", () => {
     await createVenue({ name: "Nowhere Store", type: "online_store" });
     expect(await getVenueCountries()).toEqual([{ id: country.id, name: "Testland", count: 1 }]);
     expect((await getVenues({ filters: { countryIds: [country.id] } })).map((v) => v.id)).toEqual([inside.id]);
+  });
+
+  it("lists a painting once: here if any open record is here, never also elsewhere", async () => {
+    const louvre = (await saveOrganization({ name: "Musée du Louvre", roles: ["museum"] }))!.id;
+    const paris = await createVenue({ name: "Louvre, Paris", type: "museum" });
+    const tokyo = await createVenue({ name: "Tokyo Gallery", type: "gallery" });
+    await linkVenueInstitution({ organizationId: louvre, venueId: paris.id, role: "operator" });
+    const mona = await createPainting({ title: "Mona Lisa" });
+    const object = await createArtObject({ workId: mona.id, kind: "original", ownership: "institutional", ownerOrganizationId: louvre });
+    const loan = await recordWhereabouts(
+      { objectId: object.id, placeKind: "venue", venueId: tokyo.id, custody: "temporary_loan", certainty: "confirmed" },
+      (await getWhereabouts(object.id))!.fingerprint,
+    );
+    // A conflicting, probable report that it is back in Paris
+    const report = await recordWhereabouts(
+      { objectId: object.id, placeKind: "venue", venueId: paris.id, custody: "permanent_collection", certainty: "probable" },
+      loan.fingerprint,
+    );
+    // And a second, uncertain one in Paris: still one row
+    await recordWhereabouts(
+      { objectId: object.id, placeKind: "venue", venueId: paris.id, custody: "unknown", certainty: "uncertain" },
+      report.fingerprint,
+    );
+    const art = await getVenueArt(paris.id);
+    expect(art.here).toEqual({ total: 1, rows: [expect.objectContaining({ title: "Mona Lisa", certainty: "probable" })] });
+    expect(art.away).toEqual({ total: 0, rows: [] });
+    expect((await getVenueArt(tokyo.id)).here.rows.map((r) => [r.title, r.certainty])).toEqual([["Mona Lisa", "confirmed"]]);
+  });
+
+  it("deletes a venue that has only an image, and lists what was bought at a venue", async () => {
+    const pictured = await createVenue({ name: "Pictured Shop", type: "bookshop", posterS3Key: "gold/venue/test.webp" });
+    expect(await getVenueReferences(pictured.id)).toMatchObject({ orders: 0, bottles: 0, whereabouts: 0 });
+    await removeVenue(pictured.id);
+    expect(await getVenueBySlug(pictured.slug!)).toBeUndefined();
+
+    const shop = await createVenue({ name: "Grand Magasin", type: "perfumery" });
+    const [perfume] = await c`insert into works(title,kind,original_language) values ('Mitsouko','perfume',null) returning id`;
+    await c`insert into perfume_details(work_id) values (${perfume.id})`;
+    const [variant] = await c`insert into perfume_variants(work_id) values (${perfume.id}) returning id`;
+    await c`insert into perfume_bottles(variant_id, container, capacity_value, volume_unit, venue_id)
+      values (${variant.id}, 'bottle', 75, 'ml', ${shop.id})`;
+    const [film] = await c`insert into works(title,kind,original_language) values ('Vertigo','film',null) returning id`;
+    await c`insert into film_details(work_id) values (${film.id})`;
+    await c`insert into film_holdings(work_id, medium, format_label, venue_id) values (${film.id}, 'physical', 'Blu-ray', ${shop.id})`;
+    const bought = await getVenuePurchases(shop.id);
+    expect(bought.total).toBe(2);
+    expect(bought.rows.map((r) => [r.kind, r.title, r.item, r.detail, r.status]).sort()).toEqual(
+      [
+        ["film", "Vertigo", "physical", "Blu-ray", "held"],
+        ["perfume", "Mitsouko", "bottle", "75 ml", "held"],
+      ].sort(),
+    );
+    expect(await getVenueReferences(shop.id)).toMatchObject({ bottles: 1, filmCopies: 1 });
+  });
+
+  it("offers no country whose only venues are archived", async () => {
+    const [country] = await c`insert into countries(name, alpha_2, alpha_3) values ('Archivia', 'AQ', 'AQA') returning id`;
+    const [city] = await c`insert into places(name, type, country_id) values ('Old City', 'city', ${country.id}) returning id`;
+    const venue = await createVenue({ name: "Closed Books", type: "bookshop", placeId: city.id });
+    expect((await getVenueCountries()).map((c) => c.name)).toEqual(["Archivia"]);
+    await setVenueArchived(venue.id, true);
+    expect(await getVenueCountries()).toEqual([]);
   });
 });

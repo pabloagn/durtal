@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod/v4";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { withReadableErrors } from "@/lib/db/errors";
@@ -50,6 +50,10 @@ export async function getVenueInstitutions(venueId: string) {
   );
 }
 
+/** Orders open records by how sure they are: confirmed, probable, uncertain */
+const strongest = (certainty: SQL) =>
+  sql`array_position(array['confirmed', 'probable', 'uncertain']::text[], ${certainty}::text)`;
+
 interface ArtRow {
   whereaboutsId: string | null;
   objectId: string;
@@ -86,46 +90,50 @@ const ART_COLUMNS = sql`ob.id as "objectId", ob.kind as "objectKind", ob.label a
   coalesce(sr.attribution, sr.provider) as "sourceLabel", sr.url as "sourceUrl"`;
 
 /**
- * The art at a venue, without assumptions: what is here now (every open
- * whereabouts record at this venue, with its custody, certainty, display
- * state, start date and source as recorded) apart from what its institutions
- * own that is elsewhere now or has no recorded place. A museum holding is
- * never read as on display.
+ * The art at a venue, without assumptions: what is here now (each object
+ * with an open whereabouts record at this venue, once, by its confirmed
+ * record else its latest, with custody, certainty, display state, start date
+ * and source as recorded) apart from what its institutions own with no open
+ * record here (elsewhere now, or no recorded place). An object is in one list
+ * only. A museum holding is never read as on display.
  */
 export async function getVenueArt(venueId: string) {
   z.uuid().parse(venueId);
   const at = sql`${venueId}::uuid`;
+  // One row per object here: its strongest open record at this venue (confirmed,
+  // then probable, then uncertain), the latest of equals
+  const hereRecords = sql`select distinct on (wh.object_id) wh.* from art_object_whereabouts wh
+    where wh.venue_id = ${at} and wh.ends_on_id is null
+    order by wh.object_id, ${strongest(sql`wh.certainty`)}, wh.recorded_at desc, wh.id`;
+  // What its institutions own with no open record here: elsewhere now, or unrecorded
+  const awayObjects = sql`select ob.id from art_objects ob
+    where ob.owner_organization_id in (select organization_id from organization_venues where venue_id = ${at})
+    and not exists (select 1 from art_object_whereabouts x where x.object_id = ob.id and x.venue_id = ${at} and x.ends_on_id is null)`;
   const [here, away, counts] = await Promise.all([
     db
       .execute(sql`select ${ART_COLUMNS}
-        from art_object_whereabouts wh join art_objects ob on ob.id = wh.object_id join works w on w.id = ob.work_id
+        from (${hereRecords}) wh join art_objects ob on ob.id = wh.object_id join works w on w.id = ob.work_id
         left join publishing_houses ow on ow.id = ob.owner_organization_id
         left join venues wv on wv.id = wh.venue_id
         left join source_records sr on sr.id = wh.source_record_id
-        where wh.venue_id = ${at} and wh.ends_on_id is null
         order by (wh.certainty = 'confirmed') desc, lower(w.title), ob.id limit ${LISTED}`)
       .then((r) => resultRows<ArtRow>(r)),
-    // The object's current place: the confirmed open record, else the latest open one
+    // The object's current place: its strongest open record, the latest of equals
     db
       .execute(sql`select ${ART_COLUMNS}
         from art_objects ob join works w on w.id = ob.work_id
         join publishing_houses ow on ow.id = ob.owner_organization_id
         left join lateral (select * from art_object_whereabouts x where x.object_id = ob.id and x.ends_on_id is null
-          order by (x.certainty = 'confirmed') desc, x.recorded_at desc, x.id limit 1) wh on true
+          order by ${strongest(sql`x.certainty`)}, x.recorded_at desc, x.id limit 1) wh on true
         left join venues wv on wv.id = wh.venue_id
         left join source_records sr on sr.id = wh.source_record_id
-        where ob.owner_organization_id in (select organization_id from organization_venues where venue_id = ${at})
-        and (wh.id is null or wh.venue_id is distinct from ${at})
+        where ob.id in (${awayObjects})
         order by lower(w.title), ob.id limit ${LISTED}`)
       .then((r) => resultRows<ArtRow>(r)),
     db
       .execute(sql`select
-        (select count(*)::int from art_object_whereabouts wh where wh.venue_id = ${at} and wh.ends_on_id is null) as here,
-        (select count(*)::int from art_objects ob
-          left join lateral (select x.venue_id, x.id from art_object_whereabouts x where x.object_id = ob.id and x.ends_on_id is null
-            order by (x.certainty = 'confirmed') desc, x.recorded_at desc, x.id limit 1) wh on true
-          where ob.owner_organization_id in (select organization_id from organization_venues where venue_id = ${at})
-          and (wh.id is null or wh.venue_id is distinct from ${at})) as away`)
+        (select count(*)::int from (${hereRecords}) h) as here,
+        (select count(*)::int from (${awayObjects}) a) as away`)
       .then((r) => resultRows<{ here: number; away: number }>(r)[0]),
   ]);
   const dates = await loadDates([...here, ...away].map((row) => row.startsOnId));
@@ -201,6 +209,53 @@ export async function getVenueRetail(venueId: string) {
 }
 export type VenueRetail = Awaited<ReturnType<typeof getVenueRetail>>;
 
+/**
+ * What you bought at this venue, besides book orders: perfume bottles, film
+ * copies and art objects whose acquisition names it, newest first, with the
+ * full count.
+ */
+export async function getVenuePurchases(venueId: string) {
+  z.uuid().parse(venueId);
+  const at = sql`${venueId}::uuid`;
+  const rows = resultRows<{
+    id: string;
+    kind: "perfume" | "film" | "painting";
+    item: string;
+    detail: string | null;
+    status: string;
+    workId: string;
+    title: string;
+    slug: string | null;
+    acquiredOnId: string | null;
+    total: number;
+  }>(
+    await db.execute(sql`select *, count(*) over ()::int as total from (
+        select b.id, 'perfume' as kind, b.container as item,
+          trim(to_char(b.capacity_value, 'FM999999990.###') || ' ' || b.volume_unit) as detail, b.status,
+          w.id as "workId", w.title, w.slug, b.acquisition_date_id as "acquiredOnId", b.created_at
+        from perfume_bottles b join perfume_variants pv on pv.id = b.variant_id join works w on w.id = pv.work_id
+        where b.venue_id = ${at}
+        union all
+        select h.id, 'film', h.medium, h.format_label, h.status,
+          w.id, w.title, w.slug, h.acquisition_date_id, h.created_at
+        from film_holdings h join works w on w.id = h.work_id where h.venue_id = ${at}
+        union all
+        select ob.id, 'painting', ob.kind, ob.label, coalesce(ob.holding_status, 'held'),
+          w.id, w.title, w.slug, ob.acquisition_date_id, ob.created_at
+        from art_objects ob join works w on w.id = ob.work_id where ob.venue_id = ${at}
+      ) bought order by created_at desc, id limit ${LISTED}`),
+  );
+  const dates = await loadDates(rows.map((row) => row.acquiredOnId));
+  return {
+    total: rows[0]?.total ?? 0,
+    rows: rows.map(({ total: _total, acquiredOnId, ...row }) => ({
+      ...row,
+      acquiredOn: acquiredOnId ? catalogueDateText(dates.get(acquiredOnId) ?? null) : null,
+    })),
+  };
+}
+export type VenuePurchases = Awaited<ReturnType<typeof getVenuePurchases>>;
+
 /** Orders placed at this venue, newest first, with the full count */
 export async function getVenueOrders(venueId: string) {
   z.uuid().parse(venueId);
@@ -267,15 +322,16 @@ export async function removeVenue(id: string) {
 }
 
 /**
- * The countries of the venues, for the places filter: a venue's country is
- * the first country found on its place or the places above it. A venue with
- * no place, or a bare map point, has none.
+ * The countries of the active venues, for the places filter: a venue's
+ * country is the first country found on its place or the places above it. A
+ * venue with no place, or a bare map point, has none; archived venues are
+ * left out, so no country leads to an empty list.
  */
 export async function getVenueCountries() {
   return resultRows<{ id: string; name: string; count: number }>(
     await db.execute(sql`with recursive up as (
         select v.id as venue_id, p.id as place_id, p.parent_id, p.country_id, 0 as depth
-        from venues v join places p on p.id = v.place_id
+        from venues v join places p on p.id = v.place_id where v.archived_at is null
         union all
         select up.venue_id, p.id, p.parent_id, p.country_id, up.depth + 1
         from up join places p on p.id = up.parent_id where up.country_id is null and up.depth < 10
