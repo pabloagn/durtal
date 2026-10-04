@@ -1,7 +1,9 @@
 "use client";
 
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
-import { firstPageHref } from "@/lib/utils/list-params";
+import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
+import { EmptyState } from "@/components/ui/empty-state";
+import { NoResults } from "@/components/shared/no-results";
 
 import { Pagination } from "@/components/shared/pagination";
 import { useState, useCallback } from "react";
@@ -52,13 +54,30 @@ export function ReaderLibrary({
     [searchValue, searchParams, router],
   );
 
+  const header = (
+    <PageHeader
+      title="Reader"
+      description={`${total} ${total === 1 ? "book" : "books"} in digital library`}
+    />
+  );
+
+  // No books and no search: the empty state alone
+  if (total === 0 && !query) {
+    return (
+      <div>
+        {header}
+        <EmptyState
+          icon={BookOpenText}
+          title="No books yet"
+          description="Run the Calibre sync to fill the digital library."
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
-      {/* Header */}
-      <PageHeader
-        title="Reader"
-        description={`${total} ${total === 1 ? "book" : "books"} in digital library`}
-      />
+      {header}
 
       {/* Search */}
       <form onSubmit={handleSearch} className="mb-6">
@@ -102,17 +121,12 @@ export function ReaderLibrary({
           </h2>
         )}
         {books.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BookOpenText
-              className="mb-4 h-12 w-12 text-fg-muted"
-              strokeWidth={1}
-            />
-            <p className="text-sm text-fg-secondary">
-              {query
-                ? "No books match your search."
-                : "No books in the digital library yet. Run the Calibre sync to populate."}
-            </p>
-          </div>
+          <NoResults
+            noun="books"
+            search={query}
+            hasFilters={false}
+            clearHref={clearedListHref("/reader", searchParams)}
+          />
         ) : (
           <>
             <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
