@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Layers } from "lucide-react";
 import { getSeriesDetail, getSeriesSuggestions } from "@/lib/actions/series";
 import { Badge } from "@/components/ui/badge";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { SeriesActions } from "@/components/series/series-actions";
 import { SeriesBooks, type SeriesBook } from "@/components/series/series-books";
 import { SeriesSuggestions } from "@/components/series/series-suggestions";
@@ -102,6 +103,8 @@ export default async function SeriesDetailPage({
             <Prose className="mt-4 whitespace-pre-wrap">{s.description}</Prose>
           )}
         </div>
+        {/* On the cap-height center of the title's first line */}
+        <CapAlignedControls height={32} className="type-page-title">
         <SeriesActions
           series={{
             id: s.id,
@@ -114,6 +117,7 @@ export default async function SeriesDetailPage({
           bookCount={count}
           initialAdd={query.add === "1"}
         />
+        </CapAlignedControls>
       </header>
 
       <section className="mb-8">

@@ -42,7 +42,7 @@
   color: var(--color-fg-secondary);
 }
 .h-eyebrow > span {
-  color: var(--color-fg-muted);
+  color: var(--color-fg-secondary);
   margin-inline: 10px;
 }
 .h-header h1 {
@@ -53,8 +53,9 @@
   letter-spacing: -0.025em;
   margin-top: 12px;
 }
+/* Rose for text: accent-rose is 2.6:1 here, under 3:1 even at 46px */
 .h-title-dot {
-  color: var(--color-accent-rose);
+  color: var(--color-accent-rose-text);
 }
 .h-intro {
   font-size: var(--text-xs);
@@ -130,7 +131,7 @@
 .h-stat-index {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--color-fg-muted);
+  color: var(--color-fg-secondary);
 }
 .h-stat-number {
   font-family: var(--font-serif);
@@ -433,7 +434,7 @@
 }
 .h-section-heading > span {
   font: var(--text-micro) var(--font-mono);
-  color: var(--color-fg-muted);
+  color: var(--color-fg-secondary);
 }
 .h-record-options {
   display: grid;

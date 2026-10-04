@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, FileText, Database } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 export const metadata = { title: "Import Books" };
 
@@ -37,14 +38,18 @@ export default function ImportPage() {
         {/* Python scripts */}
         <Card>
           <CardContent className="py-6">
-            <div className="flex items-start gap-4">
-              <div className="rounded-sm border border-glass-border bg-bg-primary p-2.5">
-                <FileText
-                  className="h-5 w-5 text-fg-muted"
-                  strokeWidth={1.5}
-                />
-              </div>
-              <div>
+            {/* The row carries the heading's type: the icon tile sits on the
+                cap-height center of the heading */}
+            <div className="type-item-title flex items-start gap-4">
+              <CapAligned height={34}>
+                <span className="block rounded-sm border border-glass-border bg-bg-primary p-2">
+                  <FileText
+                    className="block h-4 w-4 text-fg-secondary"
+                    strokeWidth={1.5}
+                  />
+                </span>
+              </CapAligned>
+              <div className="font-sans">
                 <h3 className="type-item-title">
                   Python ingestion scripts
                 </h3>
@@ -68,14 +73,18 @@ export default function ImportPage() {
         {/* Import history placeholder */}
         <Card>
           <CardContent className="py-6">
-            <div className="flex items-start gap-4">
-              <div className="rounded-sm border border-glass-border bg-bg-primary p-2.5">
-                <Database
-                  className="h-5 w-5 text-fg-muted"
-                  strokeWidth={1.5}
-                />
-              </div>
-              <div>
+            {/* The row carries the heading's type: the icon tile sits on the
+                cap-height center of the heading */}
+            <div className="type-item-title flex items-start gap-4">
+              <CapAligned height={34}>
+                <span className="block rounded-sm border border-glass-border bg-bg-primary p-2">
+                  <Database
+                    className="block h-4 w-4 text-fg-secondary"
+                    strokeWidth={1.5}
+                  />
+                </span>
+              </CapAligned>
+              <div className="font-sans">
                 <h3 className="type-item-title">
                   Import history
                 </h3>

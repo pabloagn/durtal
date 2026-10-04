@@ -199,17 +199,19 @@ export function Select({
             error ? "border-accent-red" : ""
           } ${isOpen ? "border-accent-rose" : ""} ${className}`}
         >
+          {/* One line: a narrow trigger cuts the label with an ellipsis (the
+              tooltip shows it whole) instead of wrapping out of its 32px */}
           <span
-            className={
+            className={`min-w-0 truncate ${
               value === "" || value === undefined
                 ? "text-fg-secondary"
                 : "text-fg-primary"
-            }
+            }`}
           >
             {displayLabel}
           </span>
           <ChevronDown
-            className={`h-3.5 w-3.5 text-fg-muted transition-transform duration-150 ${
+            className={`ml-2 h-3.5 w-3.5 shrink-0 text-fg-secondary transition-transform duration-150 ${
               isOpen ? "rotate-180" : ""
             }`}
             strokeWidth={1.5}
