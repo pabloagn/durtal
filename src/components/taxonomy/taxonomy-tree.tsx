@@ -325,6 +325,9 @@ export function TaxonomyTree({
   return (
     <PaginatedSection {...paging} noun="items">
     <DndContext
+      // A fixed id: dnd-kit's own counter gives the server and the browser
+      // different aria-describedby ids, a hydration mismatch on every row
+      id="taxonomy-tree"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}

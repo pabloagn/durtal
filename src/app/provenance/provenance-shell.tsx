@@ -1064,8 +1064,8 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
     <div className="flex gap-6">
       {/* Main content */}
       <div className="min-w-0 flex-1">
-        {/* KPI Stats */}
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* KPI Stats: one column on a phone, where a total in euros is wider than half the screen */}
+        <div className="mb-8 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
           <StatCard
             icon={Truck}
             label="In Transit"
