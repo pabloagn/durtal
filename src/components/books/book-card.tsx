@@ -254,7 +254,11 @@ export function BookCard({
                 beside a rating) */}
             {language && language !== "en" && (
               <span className="hidden @[200px]:contents">
-                <Badge variant="blue">{languageName(language)}</Badge>
+                {/* A long name ("Norwegian Bokmål") shrinks first and cuts
+                    off; the status never does */}
+                <Badge variant="blue" className="min-w-0 shrink-[999]">
+                  <span className="truncate">{languageName(language)}</span>
+                </Badge>
               </span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-2">

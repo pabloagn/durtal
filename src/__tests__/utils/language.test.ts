@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   languageName,
   languageOptions,
@@ -38,6 +38,22 @@ describe("language codes", () => {
     expect(languageName("grc")).toBe("Ancient Greek");
     expect(languageName("zz")).toBe("zz");
     expect(languageName(null)).toBeNull();
+  });
+
+  it("names codes the same way when Intl has no name, so server and browser agree", () => {
+    // Chrome's Intl knows no "grc" or "ota": a page must not depend on it
+    const of = vi
+      .spyOn(Intl.DisplayNames.prototype, "of")
+      .mockReturnValue(undefined);
+    try {
+      expect(languageName("grc")).toBe("Ancient Greek");
+      expect(languageName("ota")).toBe("Ottoman Turkish");
+      expect(languageName("nb")).toBe("Norwegian Bokmål");
+      expect(languageName("fr")).toBe("French");
+      expect(languageName("qqq")).toBe("qqq");
+    } finally {
+      of.mockRestore();
+    }
   });
 
   it("adds a stored code that the list does not have", () => {
