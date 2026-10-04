@@ -12,7 +12,10 @@ import {
   getAuthorBirthYearRange,
   getAuthorDeathYearRange,
   getPeopleFilterOptions,
+  getPersonRoles,
 } from "@/lib/actions/authors";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
 import {
   formatNationalityParam,
@@ -178,22 +181,36 @@ async function AuthorsContent({
       // Bios are stored as HTML; the list shows a one-line text preview
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
+      roles: [] as PersonRole[],
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
     };
   });
 
   // Authors with no portrait show some of their book covers instead
-  const previews = await getAuthorCoverPreviews(
-    authors.filter((a) => !a.photoUrl && a.worksCount > 0).map((a) => a.id),
-  );
-  for (const a of authors) a.coverPreviews = previews[a.id] ?? [];
+  // Cover previews and every card's roles: one query each, never one per card
+  const [previews, rolesById] = await Promise.all([
+    getAuthorCoverPreviews(
+      authors.filter((a) => !a.photoUrl && a.worksCount > 0).map((a) => a.id),
+    ),
+    getPersonRoles(authors.map((a) => a.id)),
+  ]);
+  for (const a of authors) {
+    a.coverPreviews = previews[a.id] ?? [];
+    a.roles = rolesById[a.id] ?? [];
+  }
+  // Filtered to one collection: its roles come first on the cards
+  const preferKind =
+    collections?.length === 1 && (WORK_KINDS as readonly string[]).includes(collections[0])
+      ? (collections[0] as WorkKind)
+      : null;
 
 
   return (
     <>
       <AuthorsShell
         authors={authors}
+        preferKind={preferKind}
         mapQuery={{ search, filters }}
         timelineQuery={{ search, filters: timelineFilters }}
         pagination={{

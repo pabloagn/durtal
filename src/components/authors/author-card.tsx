@@ -7,6 +7,9 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
 import { displayYear } from "@/lib/utils/years";
+import { PersonRoles } from "@/components/people/person-roles";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 type PosterCrop = MediaCrop;
 
@@ -26,6 +29,10 @@ interface AuthorCardProps {
   /** Book covers to show when there is no portrait */
   coverPreviews?: string[];
   worksCount: number;
+  /** Roles with credit counts; the line stays, empty, without them */
+  roles?: PersonRole[];
+  /** On a collection's list, that collection's roles come first */
+  preferKind?: WorkKind | null;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -45,6 +52,8 @@ export function AuthorCard({
   photoTone,
   coverPreviews = [],
   worksCount,
+  roles,
+  preferKind,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -151,6 +160,8 @@ export function AuthorCard({
           {/* Two name lines and one nationality line, always: every author
               card has the same height. The portrait shows no overlay. */}
           <CardHeading title={name} subtitle={nationality} />
+          {/* What the person is: one line, reserved when empty */}
+          <PersonRoles roles={roles} preferKind={preferKind} className="mt-1" />
           <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
             {years && <span>{years}</span>}
             {worksCount > 0 && (

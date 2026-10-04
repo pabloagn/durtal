@@ -25,6 +25,8 @@ import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { enumLabel } from "@/lib/utils/labels";
+import { formatPersonRoles, type PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 const AuthorsMap = dynamic(
   () =>
@@ -69,12 +71,15 @@ export interface AuthorItem {
   website: string | null;
   bio: string | null;
   worksCount: number;
+  /** Roles with credit counts: the card's role line (SLN-420) */
+  roles: PersonRole[];
   createdAt: string;
 }
 
 const ALL_AUTHOR_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", defaultVisible: true, defaultOrder: 0 },
   { key: "nationality", label: "Nationality", defaultVisible: true, defaultOrder: 1 },
+  { key: "roles", label: "Roles", defaultVisible: true, defaultOrder: 10 },
   { key: "years", label: "Years", defaultVisible: true, defaultOrder: 2 },
   { key: "gender", label: "Gender", defaultVisible: false, defaultOrder: 3 },
   { key: "worksCount", label: "Works", defaultVisible: true, defaultOrder: 4 },
@@ -127,6 +132,8 @@ function renderAuthorCell(author: AuthorItem, key: string) {
         : "—";
     case "worksCount":
       return author.worksCount;
+    case "roles":
+      return formatPersonRoles(author.roles)?.full ?? "—";
     case "gender":
       return author.gender ? enumLabel(author.gender) : "—";
     case "birthYear":
@@ -166,6 +173,8 @@ interface AuthorsShellProps {
   mapQuery: Parameters<typeof getAuthorsForMap>[0];
   timelineQuery: Parameters<typeof getAuthorsForTimeline>[0];
   pagination: PaginationData;
+  /** The collection the list is filtered to: its roles come first on cards */
+  preferKind?: WorkKind | null;
 }
 
 /** URL params (besides the search term) that filter the author list */
@@ -183,6 +192,7 @@ const AUTHOR_FILTER_PARAMS = [
 export function AuthorsShell({
   authors,
   mapQuery,
+  preferKind = null,
   timelineQuery,
   pagination,
 }: AuthorsShellProps) {
@@ -300,6 +310,8 @@ export function AuthorsShell({
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
                 worksCount={a.worksCount}
+                roles={a.roles}
+                preferKind={preferKind}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -325,6 +337,8 @@ export function AuthorsShell({
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
               worksCount={a.worksCount}
+              roles={a.roles}
+              preferKind={preferKind}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}

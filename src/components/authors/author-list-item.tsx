@@ -5,6 +5,9 @@ import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
+import { PersonRoles } from "@/components/people/person-roles";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { RowCheckbox } from "@/components/books/book-list";
 
@@ -22,6 +25,10 @@ interface AuthorListItemProps {
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
   worksCount: number;
+  /** Roles with credit counts; the line stays, empty, without them */
+  roles?: PersonRole[];
+  /** On a collection's list, that collection's roles come first */
+  preferKind?: WorkKind | null;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -39,6 +46,8 @@ export function AuthorListItem({
   photoUrl,
   posterCrop,
   worksCount,
+  roles,
+  preferKind,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -88,7 +97,7 @@ export function AuthorListItem({
           {isSelecting && <RowCheckbox checked={isSelected} />}
         </div>
 
-        {/* Two lines, like a book row: name and years, then nationality and the book count */}
+        {/* Name and years, nationality and the book count, then the roles */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-rose-text">
@@ -106,6 +115,8 @@ export function AuthorListItem({
               {worksCount} {worksCount === 1 ? "book" : "books"}
             </span>
           </div>
+          {/* What the person is: one line, reserved when empty */}
+          <PersonRoles roles={roles} preferKind={preferKind} />
         </div>
       </Link>
 

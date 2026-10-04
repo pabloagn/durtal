@@ -3,6 +3,7 @@
 import { PERSON_CREDITS, bookPersonCondition } from "@/lib/catalogue/person-boundary";
 import { resultRows } from "@/lib/publishers/resolution";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
 import { atomic } from "@/lib/db/atomic";
 import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { deletePerson, getPersonMergePreview, mergePeople } from "./people";
@@ -244,6 +245,41 @@ export async function getAuthorCount(opts?: {
     .from(authors)
     .where(where);
   return result.count;
+}
+
+/**
+ * The roles of many people, in one grouped query (a card never asks for its
+ * own): each person's roles with how many credits they hold in each.
+ */
+export async function getPersonRoles(
+  personIds: string[],
+): Promise<Record<string, PersonRole[]>> {
+  const ids = [...new Set(personIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return {};
+  const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = resultRows<{ personId: string; kind: WorkKind; label: string; count: number }>(
+    await db.execute(sql`
+      select c.person_id as "personId", r.kind::text as kind, r.label, count(*)::int as count
+      from (
+        select wa.author_id as person_id, r.id as role_id from work_authors wa
+          join credit_roles r on r.kind = 'book' and r.level = 'work' and r.legacy_role = wa.role
+          where wa.author_id in (${list})
+        union all
+        select ec.author_id, r.id from edition_contributors ec
+          join credit_roles r on r.kind = 'book' and r.level = 'edition' and r.legacy_role = ec.role
+          where ec.author_id in (${list})
+        union all
+        select wc.person_id, wc.role_id from work_credits wc where wc.person_id in (${list})
+        union all
+        select p.person_id, 'perfume.perfumer' from perfume_variant_perfumers p where p.person_id in (${list})
+      ) c
+      join credit_roles r on r.id = c.role_id
+      group by c.person_id, r.kind, r.label
+    `),
+  );
+  const roles: Record<string, PersonRole[]> = {};
+  for (const { personId, ...role } of rows) (roles[personId] ??= []).push(role);
+  return roles;
 }
 
 /** One work a person is credited on, with one of their roles on it */
