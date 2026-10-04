@@ -14,7 +14,8 @@ import {
   textSearchCondition,
   textSearchRank,
 } from "@/lib/actions/utils/text-search";
-import { makeUnique, slugify } from "@/lib/utils/slugify";
+import { slugify } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 import {
   positionValue,
   seriesInputSchema,
@@ -200,23 +201,6 @@ function invalid(error: z.ZodError): { ok: false; error: string } {
   };
 }
 
-async function uniqueSlug(title: string, exceptId?: string) {
-  const base = slugify(title) || "series";
-  const taken = await db
-    .select({ slug: series.slug })
-    .from(series)
-    .where(
-      and(
-        sql`${series.slug} like ${`${base}%`}`,
-        exceptId ? ne(series.id, exceptId) : undefined,
-      ),
-    );
-  return makeUnique(
-    base,
-    taken.map((r) => r.slug),
-  );
-}
-
 export async function createSeries(
   input: SeriesInput,
 ): Promise<Result<typeof series.$inferSelect>> {
@@ -227,7 +211,7 @@ export async function createSeries(
     .values({
       ...parsed.data,
       isComplete: parsed.data.isComplete ?? false,
-      slug: await uniqueSlug(parsed.data.title),
+      slug: await uniqueSlug(series, slugify(parsed.data.title) || "series"),
     })
     .returning();
   changed();

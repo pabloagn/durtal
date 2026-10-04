@@ -8,6 +8,7 @@ import { normalizeLanguage } from "@/lib/utils/language";
 import { normalizeBinding } from "@/lib/utils/binding";
 import { stripControlChars, stripHtmlToText } from "@/lib/utils/sanitize";
 import type { IsbndbBook } from "@/lib/api/isbndb";
+import { extractIsbn, getBestCover } from "@/lib/api/google-books";
 import {
   isbn10To13,
   isbn13To10,
@@ -110,28 +111,21 @@ async function fromGoogleBooks(id: string): Promise<SourceRecord> {
   );
   if (!res.ok) throw new Error("Could not fetch from Google Books");
   const info = ((await res.json()).volumeInfo ?? {}) as Record<string, unknown>;
-  const ids = (info.industryIdentifiers ?? []) as {
-    type: string;
-    identifier: string;
-  }[];
-  const images = (info.imageLinks ?? {}) as Record<string, string>;
+  const ids = info.industryIdentifiers as Parameters<typeof extractIsbn>[0];
   return {
     ...cleanRecord({
       title: info.title,
       subtitle: info.subtitle,
       publisher: info.publisher,
-      isbn13: ids.find((i) => i.type === "ISBN_13")?.identifier,
-      isbn10: ids.find((i) => i.type === "ISBN_10")?.identifier,
+      isbn13: extractIsbn(ids, "ISBN_13"),
+      isbn10: extractIsbn(ids, "ISBN_10"),
       year: info.publishedDate,
       pages: info.pageCount,
       language: info.language,
       description: info.description,
-      coverUrl:
-        images.large ??
-        images.medium ??
-        images.small ??
-        images.thumbnail ??
-        images.smallThumbnail,
+      coverUrl: getBestCover(
+        info.imageLinks as Parameters<typeof getBestCover>[0],
+      ),
     }),
     googleBooksId: id,
   };

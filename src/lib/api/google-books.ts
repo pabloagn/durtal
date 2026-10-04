@@ -1,3 +1,4 @@
+import { parseYear } from "@/lib/utils/years";
 import type { SearchResult } from "./types";
 import { reportSearchFailure } from "./search-diagnostics";
 import { serverEnv } from "@/lib/env";
@@ -34,20 +35,14 @@ interface GoogleBooksResponse {
 const BASE_URL = "https://www.googleapis.com/books/v1/volumes";
 const FETCH_TIMEOUT_MS = 8000;
 
-function parseYear(dateStr?: string): number | undefined {
-  if (!dateStr) return undefined;
-  const match = dateStr.match(/^(\d{4})/);
-  return match ? parseInt(match[1], 10) : undefined;
-}
-
-function extractIsbn(
+export function extractIsbn(
   identifiers?: { type: string; identifier: string }[],
   type: string = "ISBN_13",
 ): string | undefined {
   return identifiers?.find((id) => id.type === type)?.identifier;
 }
 
-function getBestCover(
+export function getBestCover(
   imageLinks?: GoogleBooksVolume["volumeInfo"]["imageLinks"],
 ): string | undefined {
   if (!imageLinks) return undefined;

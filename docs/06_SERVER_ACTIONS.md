@@ -29,13 +29,13 @@ Search matches against work title using `ilike`. Sort options:
 - `year`: `originalYear` descending (nulls last)
 - `rating`: `rating` descending (nulls last)
 
-### `getWorkCount(search?)`
+### `getWorkCount(search?, filters?)`
 
 ```typescript
-getWorkCount(search?: string): Promise<number>
+getWorkCount(search?: string, filters?: WorkFilters): Promise<number>
 ```
 
-Returns total count of works matching the search. Used for pagination.
+Returns total count of works matching the search and filters. Used for pagination. `getWorks` and `getWorkCount` build their where clause with the same `buildWorkConditions()`, so a new filter goes there once and the list and the count always agree. `getWork` and `getWorkBySlug` load the same `workDetailWith` relations.
 
 ### `getWork(id)`
 

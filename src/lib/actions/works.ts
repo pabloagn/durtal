@@ -69,6 +69,7 @@ import { posterTone, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
+import type { SQL } from "drizzle-orm";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -154,63 +155,26 @@ const buildSearchCondition = cache(async (search: string) => {
   return or(...orConditions)!;
 });
 
-export async function getWorks(opts?: {
-  search?: string;
-  limit?: number;
-  offset?: number;
-  sort?:
-    | "title"
-    | "recent"
-    | "year"
-    | "rating"
-    | "authorFirstName"
-    | "authorLastName";
-  order?: "asc" | "desc";
-  filters?: {
-    catalogueStatus?: string[];
-    isRare?: boolean;
-    isPoison?: boolean;
-    marks?: WorkMarkKey[];
-    publisherIds?: string[];
-    acquisitionPriority?: string[];
-    minRating?: number;
-    locationId?: string;
-    hasPoster?: boolean;
-  };
-}) {
-  const {
-    search,
-    limit = 50,
-    offset = 0,
-    sort = "title",
-    order,
-    filters,
-  } = opts ?? {};
+type WorkFilters = {
+  catalogueStatus?: string[];
+  isRare?: boolean;
+  isPoison?: boolean;
+  marks?: WorkMarkKey[];
+  publisherIds?: string[];
+  acquisitionPriority?: string[];
+  minRating?: number;
+  locationId?: string;
+  hasPoster?: boolean;
+};
 
-  // Default sort directions per sort type
-  const defaultOrders: Record<string, "asc" | "desc"> = {
-    title: "asc",
-    recent: "desc",
-    year: "desc",
-    rating: "desc",
-    authorFirstName: "asc",
-    authorLastName: "asc",
-  };
-  const resolvedOrder = order ?? defaultOrders[sort] ?? "asc";
-
-  const orderFn = resolvedOrder === "asc" ? asc : desc;
-
-  // Title and author order use lightweight IDs sorted before pagination.
-  const orderBy = {
-    title: orderFn(works.title),
-    recent: orderFn(works.createdAt),
-    year: orderFn(works.originalYear),
-    rating: orderFn(works.rating),
-    authorFirstName: orderFn(works.createdAt), // page membership is selected below
-    authorLastName: orderFn(works.createdAt), // page membership is selected below
-  }[sort];
-
-  // Build where clause combining search + filters
+/**
+ * The where clause of the library list and its count, so both apply the same
+ * search and filters. Null when a filter can match no book.
+ */
+async function buildWorkConditions(
+  search: string | undefined,
+  filters: WorkFilters | undefined,
+): Promise<SQL | undefined | null> {
   const conditions = [bookCondition];
   if (search) {
     conditions.push(await buildSearchCondition(search));
@@ -246,11 +210,8 @@ export async function getWorks(opts?: {
       .innerJoin(editions, eq(instances.editionId, editions.id))
       .where(eq(instances.locationId, filters.locationId));
     const workIds = [...new Set(matchingInstances.map((r) => r.workId))];
-    if (workIds.length > 0) {
-      conditions.push(inArray(works.id, workIds));
-    } else {
-      return [];
-    }
+    if (workIds.length === 0) return null;
+    conditions.push(inArray(works.id, workIds));
   }
   if (filters?.hasPoster !== undefined) {
     const posterRows = await db
@@ -266,20 +227,64 @@ export async function getWorks(opts?: {
     const posterWorkIds = [...new Set(posterRows.map((r) => r.workId!))];
     if (filters.hasPoster) {
       // Only works WITH a poster
-      if (posterWorkIds.length > 0) {
-        conditions.push(inArray(works.id, posterWorkIds));
-      } else {
-        return []; // no works have posters
-      }
-    } else {
-      // Only works WITHOUT a poster
-      if (posterWorkIds.length > 0) {
-        conditions.push(notInArray(works.id, posterWorkIds));
-      }
-      // else: no works have posters, so all works match — no filter needed
+      if (posterWorkIds.length === 0) return null;
+      conditions.push(inArray(works.id, posterWorkIds));
+    } else if (posterWorkIds.length > 0) {
+      // Only works WITHOUT a poster; when no work has one, all works match
+      conditions.push(notInArray(works.id, posterWorkIds));
     }
   }
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  return and(...conditions);
+}
+
+export async function getWorks(opts?: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sort?:
+    | "title"
+    | "recent"
+    | "year"
+    | "rating"
+    | "authorFirstName"
+    | "authorLastName";
+  order?: "asc" | "desc";
+  filters?: WorkFilters;
+}) {
+  const {
+    search,
+    limit = 50,
+    offset = 0,
+    sort = "title",
+    order,
+    filters,
+  } = opts ?? {};
+
+  // Default sort directions per sort type
+  const defaultOrders: Record<string, "asc" | "desc"> = {
+    title: "asc",
+    recent: "desc",
+    year: "desc",
+    rating: "desc",
+    authorFirstName: "asc",
+    authorLastName: "asc",
+  };
+  const resolvedOrder = order ?? defaultOrders[sort] ?? "asc";
+
+  const orderFn = resolvedOrder === "asc" ? asc : desc;
+
+  // Title and author order use lightweight IDs sorted before pagination.
+  const orderBy = {
+    title: orderFn(works.title),
+    recent: orderFn(works.createdAt),
+    year: orderFn(works.originalYear),
+    rating: orderFn(works.rating),
+    authorFirstName: orderFn(works.createdAt), // page membership is selected below
+    authorLastName: orderFn(works.createdAt), // page membership is selected below
+  }[sort];
+
+  const where = await buildWorkConditions(search, filters);
+  if (where === null) return [];
 
   const pageIds =
     sort === "title"
@@ -344,135 +349,61 @@ export async function getWorks(opts?: {
   return results;
 }
 
-export async function getWorkCount(
-  search?: string,
-  filters?: {
-    catalogueStatus?: string[];
-    isRare?: boolean;
-    isPoison?: boolean;
-    marks?: WorkMarkKey[];
-    publisherIds?: string[];
-    acquisitionPriority?: string[];
-    minRating?: number;
-    locationId?: string;
-    hasPoster?: boolean;
-  },
-) {
-  const conditions = [bookCondition];
-  if (search) {
-    conditions.push(await buildSearchCondition(search));
-  }
-  if (filters?.publisherIds?.length)
-    conditions.push(publisherWorkCondition(filters.publisherIds));
-  if (filters?.isRare !== undefined) {
-    conditions.push(eq(works.isRare, filters.isRare));
-  }
-  if (filters?.isPoison !== undefined) {
-    conditions.push(eq(works.isPoison, filters.isPoison));
-  }
-  const marks = marksCondition(filters?.marks ?? []);
-  if (marks) conditions.push(marks);
-  if (filters?.catalogueStatus?.length) {
-    conditions.push(catalogueStatusCondition(filters.catalogueStatus));
-  }
-  if (filters?.acquisitionPriority?.length) {
-    conditions.push(
-      inArray(
-        works.acquisitionPriority,
-        filters.acquisitionPriority as AcquisitionPriority[],
-      ),
-    );
-  }
-  if (filters?.minRating) {
-    conditions.push(gte(works.rating, filters.minRating));
-  }
-  if (filters?.locationId) {
-    const matchingInstances = await db
-      .select({ workId: editions.workId })
-      .from(instances)
-      .innerJoin(editions, eq(instances.editionId, editions.id))
-      .where(eq(instances.locationId, filters.locationId));
-    const workIds = [...new Set(matchingInstances.map((r) => r.workId))];
-    if (workIds.length > 0) {
-      conditions.push(inArray(works.id, workIds));
-    } else {
-      return 0;
-    }
-  }
-  if (filters?.hasPoster !== undefined) {
-    const posterRows = await db
-      .select({ workId: media.workId })
-      .from(media)
-      .where(
-        and(
-          eq(media.type, "poster"),
-          eq(media.isActive, true),
-          isNotNull(media.workId),
-        ),
-      );
-    const posterWorkIds = [...new Set(posterRows.map((r) => r.workId!))];
-    if (filters.hasPoster) {
-      if (posterWorkIds.length > 0) {
-        conditions.push(inArray(works.id, posterWorkIds));
-      } else {
-        return 0;
-      }
-    } else {
-      if (posterWorkIds.length > 0) {
-        conditions.push(notInArray(works.id, posterWorkIds));
-      }
-    }
-  }
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
+export async function getWorkCount(search?: string, filters?: WorkFilters) {
+  const where = await buildWorkConditions(search, filters);
+  if (where === null) return 0;
 
   const [result] = await db.select({ count: count() }).from(works).where(where);
   return result.count;
 }
 
+/** Relations of a book's detail page, loaded by id or by slug. */
+const workDetailWith = {
+  workAuthors: {
+    with: { author: true },
+    orderBy: asc(workAuthors.sortOrder),
+  },
+  workSubjects: {
+    with: { subject: true },
+  },
+  editions: {
+    orderBy: desc(editions.publicationYear),
+    with: {
+      publisherLinks: { with: { publisher: true } },
+      instances: {
+        with: {
+          location: true,
+          subLocation: true,
+        },
+      },
+      contributors: {
+        with: { author: true },
+      },
+      editionGenres: {
+        with: { genre: true },
+      },
+      editionTags: {
+        with: { tag: true },
+      },
+    },
+  },
+  media: true,
+  workType: true,
+  series: true,
+  workRecommenders: { with: { recommender: true } },
+  workCategories: { with: { category: true } },
+  workThemes: { with: { theme: true } },
+  workLiteraryMovements: { with: { literaryMovement: true } },
+  workArtTypes: { with: { artType: true } },
+  workArtMovements: { with: { artMovement: true } },
+  workKeywords: { with: { keyword: true } },
+  workAttributes: { with: { attribute: true } },
+} as const;
+
 export async function getWork(id: string) {
   const result = await db.query.works.findFirst({
     where: and(bookCondition, eq(works.id, id)),
-    with: {
-      workAuthors: {
-        with: { author: true },
-        orderBy: asc(workAuthors.sortOrder),
-      },
-      workSubjects: {
-        with: { subject: true },
-      },
-      editions: {
-        orderBy: desc(editions.publicationYear),
-        with: {
-          publisherLinks: { with: { publisher: true } },
-          instances: {
-            with: {
-              location: true,
-              subLocation: true,
-            },
-          },
-          contributors: {
-            with: { author: true },
-          },
-          editionGenres: {
-            with: { genre: true },
-          },
-          editionTags: {
-            with: { tag: true },
-          },
-        },
-      },
-      media: true,
-      workType: true,
-      series: true,
-      workRecommenders: { with: { recommender: true } },
-      workCategories: { with: { category: true } },
-      workThemes: { with: { theme: true } },
-      workLiteraryMovements: { with: { literaryMovement: true } },
-      workArtTypes: { with: { artType: true } },
-      workArtMovements: { with: { artMovement: true } },
-      workKeywords: { with: { keyword: true } },
-      workAttributes: { with: { attribute: true } },
-    },
+    with: workDetailWith,
   });
 
   return bookResult(result);
@@ -481,47 +412,7 @@ export async function getWork(id: string) {
 export async function getWorkBySlug(slug: string) {
   const result = await db.query.works.findFirst({
     where: and(bookCondition, eq(works.slug, slug)),
-    with: {
-      workAuthors: {
-        with: { author: true },
-        orderBy: asc(workAuthors.sortOrder),
-      },
-      workSubjects: {
-        with: { subject: true },
-      },
-      editions: {
-        orderBy: desc(editions.publicationYear),
-        with: {
-          publisherLinks: { with: { publisher: true } },
-          instances: {
-            with: {
-              location: true,
-              subLocation: true,
-            },
-          },
-          contributors: {
-            with: { author: true },
-          },
-          editionGenres: {
-            with: { genre: true },
-          },
-          editionTags: {
-            with: { tag: true },
-          },
-        },
-      },
-      media: true,
-      workType: true,
-      series: true,
-      workRecommenders: { with: { recommender: true } },
-      workCategories: { with: { category: true } },
-      workThemes: { with: { theme: true } },
-      workLiteraryMovements: { with: { literaryMovement: true } },
-      workArtTypes: { with: { artType: true } },
-      workArtMovements: { with: { artMovement: true } },
-      workKeywords: { with: { keyword: true } },
-      workAttributes: { with: { attribute: true } },
-    },
+    with: workDetailWith,
   });
 
   return bookResult(result);

@@ -21,7 +21,8 @@ import {
 } from "@/lib/validations/people";
 import { authorSearchCondition, authorSearchRank } from "./utils/author-search";
 import { textSearchCondition } from "./utils/text-search";
-import { generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
+import { generateAuthorSlug } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { defaultSortName } from "@/lib/utils/author-names";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { cleanBioForStorage } from "@/lib/utils/sanitize";
@@ -122,17 +123,8 @@ export async function createPerson(input: CreatePersonInput) {
   const id = randomUUID();
   const base = generateAuthorSlug(fields.name) || id;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const taken = await db
-      .select({ slug: authors.slug })
-      .from(authors)
-      .where(sql`${authors.slug} like ${`${base}%`}`);
     const slug =
-      attempt === 4
-        ? `${base}-${id}`
-        : makeUnique(
-            base,
-            taken.flatMap((row) => (row.slug ? [row.slug] : [])),
-          );
+      attempt === 4 ? `${base}-${id}` : await uniqueSlug(authors, base);
     try {
       await atomic((d) => [
         d.insert(authors).values({
