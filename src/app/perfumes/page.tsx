@@ -9,10 +9,7 @@ import {
   domainDescription,
 } from "@/components/domains/domain-add-link";
 import { PerfumeFilters } from "@/components/perfumes/perfume-filters";
-import {
-  getPerfumeCount,
-  getPerfumeFilterOptions,
-} from "@/lib/actions/perfumes";
+import { getPerfumeCount } from "@/lib/actions/perfumes";
 import type { ListSearchParams } from "@/lib/utils/pagination";
 import { PerfumeResults } from "./perfume-results";
 
@@ -29,10 +26,7 @@ export default async function PerfumesPage({
   searchParams: Promise<ListSearchParams>;
 }) {
   const params = await searchParams;
-  const [catalogued, options] = await Promise.all([
-    getPerfumeCount(),
-    getPerfumeFilterOptions(),
-  ]);
+  const catalogued = await getPerfumeCount();
 
   return (
     <>
@@ -51,7 +45,7 @@ export default async function PerfumesPage({
         />
       ) : (
         <>
-          <PerfumeFilters options={options} />
+          <PerfumeFilters />
           <Suspense
             key={JSON.stringify(params)}
             fallback={

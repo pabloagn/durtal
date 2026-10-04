@@ -52,6 +52,20 @@
   --color-glass-sheen: rgba(222, 226, 224, 0.02);
   /* What lies behind a dialog or the command palette */
   --color-glass-veil: rgba(3, 5, 7, 0.62);
+  /* Glass on an image (`glass-chip`): the marks and small controls on a
+     cover, poster or photo. A lighter tint than the panels, so the image
+     shows through, blurred and deepened */
+  --color-glass-chip-tint: rgba(10, 13, 16, 0.72);
+  --color-glass-chip-edge: rgba(222, 226, 224, 0.14);
+  --color-glass-chip-lit: rgba(222, 226, 224, 0.18);
+  --color-glass-chip-sheen: rgba(222, 226, 224, 0.06);
+  /* A mark's color on glass: its accent lit toward fg-primary, so it reads
+     as light through the smoked glass and keeps 3:1 over any image */
+  --color-chip-gold: color-mix(in oklab, var(--color-accent-gold) 45%, var(--color-fg-primary));
+  --color-chip-rose: color-mix(in oklab, var(--color-accent-rose-text) 45%, var(--color-fg-primary));
+  --color-chip-red: color-mix(in oklab, var(--color-accent-red-text) 45%, var(--color-fg-primary));
+  --color-chip-sage: color-mix(in oklab, var(--color-accent-sage) 45%, var(--color-fg-primary));
+  --color-chip-blue: color-mix(in oklab, var(--color-accent-blue-text) 45%, var(--color-fg-primary));
 
   /* ── Over images ─────────────────────────────────────────────────────── */
   /* The page's near-black, never pure black: a control on a cover or photo
@@ -159,6 +173,20 @@ dialog::backdrop {
   }
 }
 
+/* A reader who asks the system for less motion gets none: dialogs, menus,
+   the sidebar and chevrons arrive in their final state at once. The events
+   still fire, so nothing that waits for an animation's end hangs. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -196,6 +224,49 @@ dialog::backdrop {
       0 0 0 1px var(--color-glass-border),
       0 8px 24px -8px rgba(125, 61, 82, 0.08),
       0 2px 8px -2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* A control on a card's cover (copy, actions, poster adjustment): hidden
+   until the card (.group) is hovered or the control holds focus, and always
+   shown on a touch screen, which has no hover. */
+@utility hover-reveal {
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  &:focus-within {
+    opacity: 1;
+  }
+  @media (hover: hover) {
+    :where(.group):hover & {
+      opacity: 1;
+    }
+  }
+  @media (pointer: coarse) {
+    opacity: 1;
+  }
+}
+
+/* `hover-reveal` for controls of glass on an image: the wrapper stays
+   opaque and the glass itself fades, as a backdrop filter has nothing to
+   blur while an ancestor's opacity is under 1 (the blur would pop in at the
+   end of the fade). */
+@utility hover-reveal-glass {
+  & .glass-chip {
+    opacity: 0;
+    transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  &:focus-within .glass-chip {
+    opacity: 1;
+  }
+  @media (hover: hover) {
+    :where(.group):hover & .glass-chip {
+      opacity: 1;
+    }
+  }
+  @media (pointer: coarse) {
+    & .glass-chip {
+      opacity: 1;
+    }
   }
 }
 
@@ -256,6 +327,34 @@ dialog::backdrop {
   }
 }
 
+/* Glass on an image: the cover chips and the small controls on a cover,
+   poster or photo (copy, actions, selection, image adjustments). The image
+   behind shows through it blurred, deepened and dimmed, under a hairline
+   edge lit from above, like a drop of smoked glass on the print. Dim
+   enough that an icon keeps 3:1 and a label 4.5:1 over a white cover. The
+   dimming is in the tint, which every browser draws alike; the filter's
+   brightness stays mild, as browsers render a strong one differently (at
+   0.06 Safari drew the chips near black and Chrome a grey). The blur is
+   `--glass-chip-blur` (10px): a 16px mark takes 3px, as a wide radius on
+   so small a box keeps the image's edges. The element draws its own 1px
+   `border`; this colors it. `glass-chip-lift` brightens the sheen, for a
+   control's hover. */
+@utility glass-chip {
+  border-color: var(--color-glass-chip-edge);
+  background:
+    linear-gradient(180deg, var(--glass-chip-sheen, var(--color-glass-chip-sheen)), transparent 35%),
+    var(--color-glass-chip-tint);
+  backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
+  -webkit-backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
+  box-shadow:
+    inset 0 1px 0 0 var(--color-glass-chip-lit),
+    0 1px 3px rgba(3, 5, 7, 0.45);
+}
+
+@utility glass-chip-lift {
+  --glass-chip-sheen: rgba(222, 226, 224, 0.16);
+}
+
 /* The veil behind a dialog or the command palette: the page stays in view,
    dimmed and softly blurred. Use it on ::backdrop (`backdrop:glass-veil`) or
    on an overlay element. */
@@ -263,17 +362,6 @@ dialog::backdrop {
   background: var(--color-glass-veil);
   backdrop-filter: blur(6px) saturate(1.2);
   -webkit-backdrop-filter: blur(6px) saturate(1.2);
-}
-
-@utility glass-subtle {
-  background: linear-gradient(
-    135deg,
-    rgba(193, 198, 196, 0.03) 0%,
-    rgba(193, 198, 196, 0.01) 100%
-  );
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--color-glass-border);
 }
 
 @utility glass-input-focus {

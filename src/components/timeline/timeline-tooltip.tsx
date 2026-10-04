@@ -31,6 +31,8 @@ export function TimelineTooltip({ x, y, children, visible }: TimelineTooltipProp
     if (nx + rect.width > vw - 8) {
       nx = x - rect.width - OFFSET_X;
     }
+    // On a narrow screen neither side may have room: keep it inside
+    nx = Math.max(8, Math.min(nx, vw - rect.width - 8));
     if (ny + rect.height > vh - 8) {
       ny = y - rect.height - Math.abs(OFFSET_Y);
     }
@@ -45,6 +47,8 @@ export function TimelineTooltip({ x, y, children, visible }: TimelineTooltipProp
     <div
       ref={ref}
       role="tooltip"
+      // The glass material, like every tooltip and menu
+      className="glass max-w-[280px] px-2.5 py-1.5 text-xs leading-[1.4] text-fg-primary"
       style={{
         position: "fixed",
         left: adjusted.x,
@@ -53,16 +57,6 @@ export function TimelineTooltip({ x, y, children, visible }: TimelineTooltipProp
         pointerEvents: "none",
         opacity: visible ? 1 : 0,
         transition: "opacity 150ms ease",
-        borderRadius: "var(--radius-sm)",
-        border: "1px solid var(--color-glass-border)",
-        backgroundColor: "rgba(10, 13, 16, 0.95)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        padding: "6px 10px",
-        maxWidth: 280,
-        fontSize: "var(--text-xs)",
-        color: "var(--color-fg-primary)",
-        lineHeight: 1.4,
       }}
     >
       {children}

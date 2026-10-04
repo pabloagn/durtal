@@ -16,6 +16,9 @@
 /publishers/review          Review publisher names on editions
 /publishers/[slug]          Publisher detail
 /publishers/[slug]/edit     Edit a publisher
+/organizations              Organization directory: every collection's houses,
+                            studios, museums and shops
+/organizations/[slug]       Organization detail (same slug as its publisher page)
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
 /reader                     Calibre e-book library
@@ -75,7 +78,7 @@ Structure from top to bottom:
 3. **Navigation links**: `NAV_SECTIONS` in `src/lib/navigation.ts`, the one
    list the sidebar and the command palette read. Dashboard, then one entry per
    open collection in the order Books, Perfumes, Films, Paintings
-   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Recommenders, Series,
+   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Organizations, Recommenders, Series,
    Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
    Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
    (`src/components/shortcuts/section-icons.ts`).
@@ -88,7 +91,11 @@ Active route is highlighted with `bg-accent-plum`.
 Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmdk` library.
 
 Groups:
-- **Books** and **Authors**: matches for the typed text, each with its picture: the book's cover (its active poster, else an edition's) or the author's portrait, 24x36 like a small card, or the initials when there is none. The pictures load lazily in a fixed box, so the list never moves
+- One group per open collection (**Books**, **Perfumes**, **Films**, **Paintings**, in `DOMAIN_ORDER`): up to five matches each, by title, series, the names the work is credited to (authors; directors and writers; perfumers and houses; painters) or ISBN. Each opens the work in its own collection (`/library/…`, `/films/…`, `/perfumes/…`, `/paintings/…`) and shows its picture (the active poster, else, for a book, an edition's cover), its makers and year. A book and a film of the same title stay two results
+- **People**: matches by any name or other name, with what they are (Writer, Translator or another edition role, Director, Cast, Perfumer, Painter). A person with books opens their author page; anyone else opens their collection's list filtered to them (`/films?director=`, `/perfumes?perfumer=`, `/paintings?painter=`). A person with no credit has no page yet and is left out
+- **Organizations**: a publishing profile opens the publisher page; a perfume house or brand opens `/perfumes?house=`; a museum or gallery opens `/paintings?institution=`. An organization with none of these is left out until organizations have pages
+- **Places**: venues by name or address, archived ones left out
+- Pictures: a work's cover or poster, 24x36 like a small card, or a person's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. They load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
 - **Search**: one "Search books for …" entry per open collection
 - **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
@@ -105,7 +112,7 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G L`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps, `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 
 ---
@@ -196,7 +203,8 @@ list; unknown or malformed values are dropped (`perfumeQueryFromParams`,
 
 | Parameter | Matches |
 |-----------|---------|
-| `house`, `perfumer` | Organization or person ids; any one listed |
+| `house`, `perfumer` | Organization or person ids; any one listed. The House list holds every perfume house, brand and manufacturer |
+| `houseRole` | With `house`: only that role (`perfume_house`, `brand` or `manufacturer`), shown as the "House role" group in the filters and removed whenever the houses change; without it a house matches in any of the three roles. Alone it filters nothing |
 | `family`, `accord`, `note` | Taxonomy item ids; all listed, a broader item takes in its narrower ones |
 | `concentration` | Concentrations made (`eau_de_parfum`, `extrait`, ...); any one listed |
 | `holding` | `owned` or `not_owned` (both: no filter) |
@@ -236,7 +244,7 @@ people (perfumer, creative director, with "Unknown"), launch and
 discontinuation dates of any precision, description, and (on create) notes by
 position, families and accords. Dialogs add and edit formulations, bottles and
 samples, retailer listings and prices, and sources. A perfume with bottles,
-samples or listings cannot be deleted; the dialog says what to do first.
+samples or listings cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each bottle, sample or decant added, changed (status, amount left, condition, location) or removed.
 Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
 in the house, people and note pickers; Escape closes a dialog.
 
@@ -282,8 +290,8 @@ personal rating.
 
 `DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
 order, characters, credited names; the first twelve until "Show all"), Crew by
-role, Versions (each cut with its runtime and releases: territory, format,
-date, distributor), Copies, Sources and Your notes. The record column holds
+role, Linked works, Versions (each cut with its runtime and releases: territory,
+format, date, distributor), Copies, Sources and Your notes. The record column holds
 Details (original title, first release, countries, languages, production,
 added), Genres (edited in place) and Media counts. Then the gallery and related
 films ("More by {director}", "Shared cast", "Shared genres").
@@ -297,7 +305,7 @@ a remake is a new film, and a cut goes to that film as a version ("Add a version
 to it" opens `?add=version`). Dialogs add and edit versions with their
 releases, and copies (physical or digital, version and release, status,
 storage, acquisition, disposal). A version a copy names, and a film with
-copies, cannot be deleted; the dialog says what to do first.
+copies, cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed.
 
 ### Paintings (`/paintings`)
 
@@ -359,7 +367,25 @@ move, a loan (an exhibition, on display), a return to the owning venue, a past
 or uncertain location, or edits a record; places are a venue, a private place,
 unknown, lost or destroyed. A move closes the current location on its date.
 "Checked today" stamps the record. A painting with objects you own cannot be
-deleted; the dialog says what to do first.
+deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each location recorded ("Moved from Louvre, Paris to Tokyo Gallery (on loan for an exhibition, confirmed)").
+
+### Linked works (every detail page)
+
+`LinkedWorksSection` (`src/components/catalogue/work-relations.tsx`) lists the
+links someone recorded between the work and others, grouped by how they read
+from this work ("Adapted from", "Remade as", "Flankers", "Inspired by"): the
+other work's title (a link to its page), its collection and creators, the cited
+source and notes, and Remove (the source stays). It sits on film pages after
+Crew, perfume pages before the gallery and painting pages before Sources, with
+"Link a work"; a book page shows it after Editions only when a link exists,
+and its actions menu holds "Link a Work". These are facts with sources; the
+related rows at the foot of a page only suggest, and stay apart.
+
+The dialog (`WorkRelationDialog`) offers the links this work can take, both
+ways ("Adapted from a book", "Adapted as a film", "Inspired by another work"),
+a title search in the kinds that fit, and a source of the work the link starts
+from: one it already has, or a new name and address recorded with the link. An
+inspiration must cite one.
 
 ### Work Detail (`/library/[slug]`)
 
@@ -439,6 +465,10 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 **Step 6 — Confirm**:
 - Summary of everything about to be created
 - Single "Add to catalogue" action
+
+**Fast Track and leaving** (SLN-320, SLN-437, SLN-438):
+- The Details step (title, author, status) has Fast Track: it saves the work and one edition at once, without copies or categorization. Enter in a one-line field runs it, and the title takes the focus when the step opens, so a search result picked with Enter is one more Enter from saved. Enter still adds a line in the description and picks in open lists. When Fast Track is not shown (an edition for an existing work), Enter goes to the next step.
+- Every step, the duplicate prompt included, has a Cancel. It goes back to the page before, or to `/library` when the wizard was opened directly, and saves nothing (nothing is written before Fast Track or "Add to catalogue").
 
 ---
 
@@ -521,6 +551,33 @@ Full author profile page.
 - Search, filters (status: owned, wanted, on order; marks; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
 - Record column: the counts (books, editions, owned, wanted, on order), details (country, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
+- The record's Links group opens the house's organization page, where its roles in the other collections show.
+
+### Organizations (`/organizations`)
+
+One directory for the organizations of every collection: publishing groups, publishers and imprints, perfume houses, brands and manufacturers, retailers, production companies and distributors, museums and galleries. A publisher and its organization are one record (`publishing_houses`); the directory adds no table.
+
+- Search by name or other name (accent-insensitive, typo-tolerant, ranked), in the URL as `q`.
+- Role filter: one role at a time (`role`), each chip with the number of organizations that hold it among those the search finds; roles nobody holds are left out. Publishing levels come from the publisher record, the other roles from `organization_roles`.
+- Each row: the name, its roles in the collections' own words ("Perfume house", "Distributor", "Museum") and country, and what it takes part in ("124 editions · 2 houses under it · 1 book wanted · 3 films · 4 copies supplied"). Row counts stop at 999+ (`COUNT_CAP`), so a page reads a bounded number of rows per organization.
+- Pagination like the other lists. "Add organization" opens a dialog for any role outside publishing; publishers are still added under Publishers.
+- Services: `getOrganizationDirectory` and `getOrganizationRoleCounts` in `src/lib/actions/organization-directory.ts`.
+
+### Organization Detail (`/organizations/[slug]`)
+
+- Header: the name, its roles, and an actions menu (Edit, Delete) on the name's cap-height center.
+- One part per collection it takes part in, each left out when empty:
+  - **Books**: its publisher profile (level; editions and books counted, with the houses under it when it has some; the house above it and the houses under it) and a link to the publisher page, which keeps the books.
+  - **Perfumes**: a row of cards per role (as perfume house, as brand, as manufacturer), the perfumes it sells (retailer listings), and how many of your bottles it supplied.
+  - **Films**: films it produced and films it distributed, and how many of your copies it supplied.
+  - **Paintings**: paintings it owns (as a museum or gallery) and paintings at its venues now.
+  - **Venues**: the venues it runs or owns, each linking to its place page.
+- Each row shows the first 24 works with the full count; titles link to the collection's filtered home where one exists (`/perfumes?house=…&houseRole=…` lists only that role, `/paintings?institution=`, `/paintings?venue=`).
+- Record column: roles, country, other names, the publisher page and the website.
+- Edit changes the name, other names, country (its country id follows the text, as on the publisher form), website, description and the roles outside publishing (`updateOrganizationProfile`); the book profile and the house above it stay as the publisher page sets them. A role that perfume or film records still use cannot be removed (the database says why), and an organization that owns paintings stays a museum or a gallery.
+- Delete lists what still links to the organization (editions, houses under it, books wanted from it, perfume and film links, copies supplied, paintings, venues) and stays off until nothing does (`removeOrganization`).
+- An address that is malformed or longer than 500 characters shows the not-found page.
+- An organization nothing links to shows one line saying how it gets linked. Loading skeleton and a not-found page.
 
 ### Series (`/series`)
 
@@ -560,11 +617,26 @@ Management interface for physical and digital storage locations.
 
 ### Collections (`/collections`)
 
-Grid of curated edition collections.
+Grid of curated collections. A collection holds book editions and whole works
+of every open collection: books with no edition chosen, films, perfumes and
+paintings (SLN-362).
 
-**Per collection card**: Name, description, edition count, cover image.
+**Per collection card**: Name, description, count ("12 editions" when it holds
+only editions, else "5 items", a book held both ways counted once), cover
+image or the first four members' images.
 
-**Management**: Create, edit, delete collections. Add/remove editions. Reorder editions within a collection.
+**Collection page** (`/collections/[id]`): one ordered list of member cards
+(`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
+as the book" when the whole book is in too), a whole book ("The book, no
+edition chosen"), a film (poster or title card, directors, year and runtime),
+a perfume (bottle, house, concentrations) or a painting (picture, painters,
+date). Each card moves earlier or later in the one order and can be removed;
+the header counts books, editions, films, perfumes and paintings.
+
+**Management**: Create, edit, delete collections. "Add" opens a dialog with
+Editions, Books, Films, Perfumes and Paintings (the open collections). The
+library's selection dialog adds a book with no edition as a whole book; film,
+perfume and painting pages have "Collections" in their actions menu.
 
 ---
 
@@ -584,19 +656,27 @@ In-app e-book reader for one Calibre book. It opens the EPUB format first, then 
 
 ### Places (`/places`)
 
-Paginated index of venues (`venues` table): bookshops, online stores, fairs, auction houses and other places books come from.
+Paginated index of venues (`venues` table): bookshops, online stores, museums, galleries, perfumeries, cinemas, fairs, auction houses and other places.
 
-**Filters**: Search (`q`), venue type (`type`, comma-separated), favorites (`favorite=true`). Sort by name, recent or rating.
+**Filters**: Search (`q`), venue type (`type`, comma-separated), country (`country`, comma-separated ids: a venue is in a country when its place, or a place above it, is; a venue with no place or a bare map point has none; only countries with an active venue are offered), favorites (`favorite=true`), archived (`archived=include` or `only`; archived venues are hidden by default and marked "Archived" when shown). Sort by name, recent or rating.
 
-**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`).
+**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`); every field can be typed by hand, and an online shop needs no address.
 
 ---
 
 ### Place Detail (`/places/[slug]`)
 
-Single venue view: contact details, opening hours, visits, description, specialties and notes.
+A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 
----
+- Header: image, name, type, address and rating, with an actions menu on the name's cap-height center: Edit (the create form with rating, favorite and visit dates; a Google place chosen while editing replaces the venue's point, otherwise the address stays), Archive or Restore, Delete. Delete lists what still refers to the venue (orders, copies bought there, painting location records, retailer listings, institution links, sources, identifiers) and stays off; archiving keeps the history. Its images never block a delete: they go with it.
+- About, then **Institution**: who runs or owns the venue, each with its other venues (branches), and "Link an institution": search an organization, or create one with the role the venue's type implies (museum, gallery, publisher; retailer for a bookshop, online store, perfumery, market or fair). A cinema, library, cafe, auction house or other venue links an existing organization only. A retailer whose listings name the branch keeps running it.
+- **Here now**: each object with an open location record at this venue (`art_object_whereabouts` with no end), once, by its strongest record here (confirmed, then probable, then uncertain; the latest of equals), with its owner, custody (permanent collection, loan in, private, unknown), the occasion, start date, display state, certainty and source exactly as recorded. A holding is never read as on view.
+- **Its collection elsewhere**: objects owned by the venue's institutions with no open record here: their current place (strongest open record) is another venue, a private or unknown place, or not recorded. An object is in one list only.
+- **Perfumes sold here**: listings for this branch, then the online listings of the retailer that runs it, each with its formulation, the last offer seen and its date ("Checked 1 Oct 2026 (3 days ago)", with "may have changed" once stale).
+- **Orders**: orders placed at this venue, newest first, with a link to all orders.
+- **Bought here**: perfume bottles, film copies and art objects whose acquisition names this venue, with the date bought and their status.
+- Specialties and tags, notes, and the record column (contact, opening hours, visits).
+- Each part lists up to 100 rows (orders 50) and says when there are more.
 
 ### Provenance (`/provenance`)
 
@@ -635,6 +715,6 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
 - **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
 - **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
-- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`); refresh cached data.
+- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.

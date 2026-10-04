@@ -29,7 +29,19 @@ import {
   editorCrop,
 } from "@/lib/media/display";
 
-async function resolveImage(source: string) {
+/**
+ * The stored image behind an editor source. `shown` is the URL the editor
+ * displays when /api/s3/read does not serve the key: a Reader cover lives
+ * under gold/calibre/, beside the ebook files, so it shows through its own
+ * route.
+ */
+async function resolveImage(source: string): Promise<{
+  assetKey: string;
+  sources: string[];
+  monochrome: boolean;
+  media: typeof media.$inferSelect | null;
+  shown?: string;
+}> {
   const identity = imageSourceIdentity(z.string().max(4096).parse(source));
   if (!identity) throw new Error("This image is not a stored Durtal asset");
   if ("calibreId" in identity) {
@@ -45,6 +57,7 @@ async function resolveImage(source: string) {
       ],
       monochrome: false,
       media: null,
+      shown: `/api/reader/${row.calibreId}/cover`,
     };
   }
   const key = identity.key;
@@ -106,7 +119,13 @@ async function resolveImage(source: string) {
   const validKeys = [...new Set(keys.filter((k): k is string => !!k))];
   const sources = validKeys.map(s3ImageSource);
   if (calibre) sources.push(`/api/reader/${calibre.calibreId}/cover`);
-  return { assetKey: validKeys[0], sources, monochrome: !!author, media: null };
+  return {
+    assetKey: validKeys[0],
+    sources,
+    monochrome: !!author,
+    media: null,
+    shown: calibre ? `/api/reader/${calibre.calibreId}/cover` : undefined,
+  };
 }
 
 const getStored = cached(
@@ -136,9 +155,9 @@ export async function getImagePresentation(source: string) {
   const crop = framed ? editorCrop(framed) : null;
   return {
     assetKey: asset.assetKey,
-    source: s3ImageSource(asset.assetKey),
+    source: asset.shown ?? s3ImageSource(asset.assetKey),
     // The editor crops the uncropped image; every other view shows the crop
-    preview: s3ImageSource(framed?.uncroppedS3Key ?? asset.assetKey),
+    preview: asset.shown ?? s3ImageSource(framed?.uncroppedS3Key ?? asset.assetKey),
     monochrome: asset.monochrome,
     settings: enforceImagePolicy(settings, asset.monochrome),
     crop: crop

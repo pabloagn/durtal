@@ -21,7 +21,7 @@ export function Kbd({ children, className = "" }: { children: React.ReactNode; c
   );
 }
 
-/** A shortcut as key caps: "⌘ K", or "G then L" for a sequence */
+/** A shortcut as key caps: "⌘ K", or "G then B" for a sequence */
 export function KeyCombo({ keys, then = false }: { keys: Keys; then?: boolean }) {
   const mac = useIsMac();
   return (

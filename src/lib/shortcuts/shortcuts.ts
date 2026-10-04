@@ -14,7 +14,7 @@ export type Keys = string[];
 /** G opens the "Go to" menu; then one of these keys */
 export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: "d", label: "Dashboard", href: "/" },
-  // Each open collection's home: Books (L), and the others when they open
+  // Each open collection's home: Books (B), and the others when they open
   ...getEnabledWorkKinds().map((kind) => ({
     key: WORK_DOMAINS[kind].keys.go,
     label: WORK_DOMAINS[kind].pluralLabel,
@@ -116,7 +116,7 @@ export const SHORTCUT_GROUPS: {
     title: "Lists, forms and dialogs",
     items: [
       { keys: SHORTCUTS.pick, label: "Move in a list or menu" },
-      { keys: SHORTCUTS.confirm, label: "Pick, confirm, or next step" },
+      { keys: SHORTCUTS.confirm, label: "Pick, confirm, next step, Fast Track" },
       { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
       { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
       { keys: SHORTCUTS.close, label: "Close" },

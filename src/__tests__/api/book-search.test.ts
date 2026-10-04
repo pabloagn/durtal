@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { searchIsbndb, searchIsbndbByAuthor, searchIsbndbByIsbn } from "@/lib/api/isbndb";
 import { searchGoogleBooks } from "@/lib/api/google-books";
 import { searchOpenLibrary } from "@/lib/api/open-library";
-import { searchBooks } from "@/lib/api/search-engine";
+import { searchBooks, searchNotices } from "@/lib/api/search-engine";
+import { resetGoogleBooksQuota } from "@/lib/api/google-books-quota";
 
 // Pruned live ISBNdb record/response shape; no credentials or signed image URLs.
 const book = {
@@ -27,6 +28,7 @@ const fetchMock = vi.fn<typeof fetch>();
 const response = (body: unknown, status = 200) => Response.json(body, { status });
 
 beforeEach(() => {
+  resetGoogleBooksQuota();
   vi.stubGlobal("fetch", fetchMock);
   vi.stubEnv("ISBNDB_API_KEY", "test-isbndb-secret");
   vi.stubEnv("GOOGLE_BOOKS_API_KEY", "test-google-secret");
@@ -128,6 +130,8 @@ describe("search orchestration with real adapters", () => {
     expect(results).toContainEqual(expect.objectContaining({ source: "isbndb", isbn13: book.isbn13, publisher: book.publisher }));
     expect(results).toContainEqual(expect.objectContaining({ source: "open_library", title: "Lanark" }));
     expect(console.warn).toHaveBeenCalledWith("[book-search] google_books: HTTP 429");
+    // The search says why Google Books gave nothing
+    expect(searchNotices()).toEqual([expect.stringContaining("Google Books is over its quota")]);
   });
 
   it("retains exact ISBN lookup and deduplicates a matching edition", async () => {

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { inArray } from "drizzle-orm";
 import { z } from "zod/v4";
+import { db } from "@/lib/db";
+import { recommenders } from "@/lib/db/schema";
 import { getWork, updateWork } from "@/lib/actions/works";
 import { addWorkRecommenders } from "@/lib/actions/recommenders";
 import { createWorkSchema } from "@/lib/validations/works";
@@ -23,7 +26,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     return NextResponse.json(work);
-  } catch {
+  } catch (err) {
+    console.error("[api/works/:id] Failed to fetch work:", err);
     return NextResponse.json({ error: "Failed to fetch work" }, { status: 500 });
   }
 }
@@ -58,6 +62,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       patchWorkSchema.parse(await readJson(req));
     if (!(await getWork(id))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    // Checked before any write: an unknown recommender changes nothing
+    if (addRecommenderIds?.length) {
+      const found = await db
+        .select({ id: recommenders.id })
+        .from(recommenders)
+        .where(inArray(recommenders.id, addRecommenderIds));
+      if (found.length !== new Set(addRecommenderIds).size) {
+        return NextResponse.json({ error: "Recommender not found" }, { status: 404 });
+      }
     }
 
     if (title || catalogueStatus) {

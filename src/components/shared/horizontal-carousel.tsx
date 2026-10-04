@@ -3,17 +3,23 @@
 import { useRef, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CapAligned } from "./cap-aligned";
-import { SectionHeading } from "./section-heading";
+import { SectionHeading, headingRole } from "./section-heading";
 
 interface HorizontalCarouselProps {
   title: string;
   titleHref?: string;
+  /** Shown after the title, such as the full count when the row holds fewer */
+  count?: number;
+  /** h3 for a row inside a titled section */
+  as?: "h2" | "h3";
   children: React.ReactNode;
 }
 
 export function HorizontalCarousel({
   title,
   titleHref,
+  count,
+  as,
   children,
 }: HorizontalCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,6 +59,8 @@ export function HorizontalCarousel({
   return (
     <div>
       <SectionHeading
+        as={as}
+        count={count}
         title={
           titleHref ? (
             <a
@@ -69,7 +77,7 @@ export function HorizontalCarousel({
           (canScrollLeft || canScrollRight) && (
             // Carries the title's type: the arrows sit on the title's
             // cap-height center
-            <CapAligned height={24} className="type-section-title">
+            <CapAligned height={24} className={headingRole(as)}>
               <div className="flex gap-1">
                 <button
                   onClick={() => scroll("left")}

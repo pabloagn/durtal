@@ -73,6 +73,7 @@ import { createPerson, getPersonMergePreview, mergePeople } from "@/lib/actions/
 import { saveOrganization, deleteOrganization } from "@/lib/actions/organizations";
 import { updateWorkCuration, getWorkCuration } from "@/lib/actions/curation";
 import { STALE_RECORD } from "@/lib/catalogue/work-store";
+import { collectionExportRows } from "@/lib/export/collections";
 import type { CreatePaintingInput, PaintingQuery } from "@/lib/validations/paintings";
 
 /** The whole message a caller sees; never SQL. */
@@ -444,5 +445,27 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
     expect(named(options.venues)).toEqual([["Musée du Louvre", 1]]);
     expect(options.creationYears).toEqual({ min: 1503, max: 1910 });
     expect((await getPaintingChoices()).movements.map((m) => m.name)).toEqual(["Expressionism", "Renaissance"]);
+  });
+
+  it("exports paintings one row each, with the original's owner and size", async () => {
+    const mona = await monaLisa();
+    await createArtObject({ workId: mona.id, kind: "original", ownership: "institutional", ownerOrganizationId: orgs.louvre, height: 77, width: 53, dimensionUnit: "cm" });
+    await c`insert into works(title) values ('Mona Lisa')`;
+    const [row, ...more] = await collectionExportRows("paintings", null);
+    expect(more).toHaveLength(0);
+    expect(row).toMatchObject({
+      title: "Mona Lisa",
+      painters: "Leonardo da Vinci",
+      movements: "Renaissance",
+      genres: "portrait",
+      techniques: "oil",
+      supports: "panel",
+      original: "Original",
+      original_owner: "Musée du Louvre",
+      height_cm: 77,
+      width_cm: 53,
+      objects_owned: 0,
+    });
+    expect(row.painted).toContain("1503");
   });
 });

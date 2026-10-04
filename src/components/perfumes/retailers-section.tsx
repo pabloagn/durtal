@@ -19,7 +19,7 @@ import {
   recordRetailerObservation,
 } from "@/lib/actions/perfume-retailers";
 import type { getPerfumeRetailerLinks } from "@/lib/actions/perfume-retailers";
-import { RETAILER_AVAILABILITY } from "@/lib/catalogue/retailers";
+import { RETAILER_AVAILABILITY, AVAILABILITY_LABELS } from "@/lib/catalogue/retailers";
 import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";
 import {
   CONTAINER_LABELS,
@@ -31,15 +31,6 @@ import { SingleChoiceField, useOrganizationSearch } from "@/components/catalogue
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 
 type Listing = Awaited<ReturnType<typeof getPerfumeRetailerLinks>>[number];
-
-const AVAILABILITY_LABELS: Record<(typeof RETAILER_AVAILABILITY)[number], string> = {
-  unknown: "Availability unknown",
-  in_stock: "In stock",
-  out_of_stock: "Out of stock",
-  preorder: "Pre-order",
-  discontinued: "Discontinued",
-  unlisted: "No longer listed",
-};
 
 function checkedText(listing: Listing) {
   if (listing.ageDays === null) return "No price recorded yet";
@@ -204,7 +195,7 @@ function ListingForm({
   onDone: () => void;
 }) {
   const router = useRouter();
-  const retailers = useOrganizationSearch("retailer");
+  const retailers = useOrganizationSearch("retailer", ["retailer"]);
   const [retailer, setRetailer] = useState<{ id: string; label: string } | null>(null);
   const [variantId, setVariantId] = useState("");
   const [url, setUrl] = useState("");

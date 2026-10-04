@@ -95,7 +95,11 @@ describe.skipIf(!url)("venues and dated retailer observations", () => {
     expect(cleanup.deleteUnusedObjects).not.toHaveBeenCalled();
     const art = await createVenue({ name: "With artwork", type: "gallery", posterS3Key: "gold/venue/test.webp" });
     expect(await deleteVenue(art.id)).toEqual({ id: art.id, cleanupPending: false });
-    expect(cleanup.deleteUnusedObjects).toHaveBeenCalledWith({ keys: ["gold/venue/test.webp"], prefixes: [] }, `venue ${art.id}`);
+    // Its images, and the folder of its comment files (SLN-372)
+    expect(cleanup.deleteUnusedObjects).toHaveBeenCalledWith(
+      { keys: ["gold/venue/test.webp"], prefixes: [`gold/comments/venue/${art.id}/`] },
+      `venue ${art.id}`,
+    );
     const unused = await createVenue({ name: "Unused", type: "other" });
     await deleteVenue(unused.id); expect(await getVenue(unused.id)).toBeUndefined();
   });

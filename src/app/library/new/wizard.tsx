@@ -121,6 +121,26 @@ const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
   label: l.label,
 }));
 
+/**
+ * Whether the page before this one is a page of this app: the wizard was
+ * reached by an in-app link (the document was loaded at another address), or
+ * the document was loaded from one of our pages.
+ */
+function cameFromApp(): boolean {
+  const [loaded] = performance.getEntriesByType(
+    "navigation",
+  ) as PerformanceNavigationTiming[];
+  if (loaded && new URL(loaded.name).pathname !== location.pathname) return true;
+  try {
+    return (
+      !!document.referrer &&
+      new URL(document.referrer).origin === location.origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ── Wizard ───────────────────────────────────────────────────────────────────
 
 export function AddBookWizard() {
@@ -138,6 +158,7 @@ export function AddBookWizard() {
     query: searchQuery,
     setQuery: setSearchQuery,
     results: searchResults,
+    notices: searchNotices,
     isSearching,
     clearResults,
   } = useDebouncedSearch(300);
@@ -564,6 +585,29 @@ export function AddBookWizard() {
     setInstanceDrafts((prev) => [...prev, newCopyDraft(appSettings, defaultLocationId)]);
   }
 
+  // ── Cancel ───────────────────────────────────────────────────────────────
+
+  // Nothing is saved before Fast Track or "Add to catalogue", so leaving is
+  // enough: back to the app page the user came from, else the library. Never
+  // back to another site (a bookmark has no page of ours before), and never a
+  // back with no page at all (a tab opened with Cmd+click on "Add book").
+  function cancel() {
+    if (window.history.length > 1 && cameFromApp()) router.back();
+    else router.push("/library");
+  }
+
+  // In a footer, `mr-auto` keeps Cancel beside Back when the row wraps
+  const cancelButton = (className?: string) => (
+    <Button
+      variant="ghost"
+      className={className}
+      disabled={fastTrackSaving || isPending}
+      onClick={cancel}
+    >
+      Cancel
+    </Button>
+  );
+
   // ── Step progress ────────────────────────────────────────────────────────
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
@@ -642,7 +686,8 @@ export function AddBookWizard() {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    // Enter goes to the next step, ⌘Enter runs Fast Track or adds the book
+    // Enter goes to the next step (on Details, it runs Fast Track); ⌘Enter
+    // runs Fast Track or adds the book
     <div className="max-w-2xl" data-shortcut-scope="">
       <StepProgress />
 
@@ -670,10 +715,21 @@ export function AddBookWizard() {
 
             {/* Autocomplete dropdown */}
             {searchQuery.trim().length >= 2 &&
-              (searchResults.length > 0 || isSearching) && (
+              (searchResults.length > 0 || isSearching || searchNotices.length > 0) && (
                 // The glass never scrolls: its list does, inside it
                 <div className="glass absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden">
                   <div className="max-h-[420px] overflow-y-auto">
+                    {/* A source that could not answer, so "no results" is not misread */}
+                    {!isSearching &&
+                      searchNotices.map((notice) => (
+                        <p
+                          key={notice}
+                          role="status"
+                          className="border-b border-glass-border/50 px-3 py-2.5 text-xs text-fg-secondary"
+                        >
+                          {notice}
+                        </p>
+                      ))}
                     {searchResults.map((result, i) => (
                       <button
                         key={`${result.source}-${result.sourceId}-${i}`}
@@ -758,7 +814,7 @@ export function AddBookWizard() {
               )}
           </div>
 
-          <div className="border-t border-glass-border pt-4">
+          <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-4">
             <button
               onClick={() => setStep("details")}
               className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
@@ -766,6 +822,7 @@ export function AddBookWizard() {
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Enter details manually
             </button>
+            {cancelButton()}
           </div>
         </div>
       )}
@@ -809,7 +866,7 @@ export function AddBookWizard() {
             </CardContent>
           </Card>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               variant="primary"
               onClick={() => {
@@ -828,6 +885,7 @@ export function AddBookWizard() {
             >
               Create as new work
             </Button>
+            {cancelButton()}
           </div>
         </div>
       )}
@@ -848,6 +906,7 @@ export function AddBookWizard() {
               language={originalLanguage}
               placeholder="The Master and Margarita"
               required
+              autoFocus
             />
             <AuthorNameInput
               label="Author"
@@ -999,14 +1058,17 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               {!existingWorkId && (
                 <Button
                   type="button"
                   variant="primary"
+                  data-shortcut="next"
                   onClick={handleFastTrack}
                   disabled={fastTrackSaving || !title.trim() || !authorName.trim()}
                   data-tooltip="Save now, skipping copies and categorization"
+                  data-tooltip-keys="enter"
                 >
                   {fastTrackSaving && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
@@ -1014,7 +1076,10 @@ export function AddBookWizard() {
                   Fast Track
                 </Button>
               )}
-              <Button data-shortcut="next" onClick={() => setStep("edition")}>
+              <Button
+                data-shortcut={existingWorkId ? "next" : undefined}
+                onClick={() => setStep("edition")}
+              >
                 Edition details
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1101,6 +1166,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               {isWishlistStatus && (
                 <Button
@@ -1177,6 +1243,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button
                 variant="ghost"
@@ -1250,6 +1317,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton("mr-auto")}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => setStep("confirm")}>
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1555,6 +1623,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton("mr-auto")}
             <Button
               variant="primary"
               className="ml-auto"

@@ -19,8 +19,9 @@ import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import {
   updateCollection,
   deleteCollection,
-  moveCollectionEdition,
+  moveCollectionMember,
   removeEditionFromCollection,
+  removeWorksFromCollection,
 } from "@/lib/actions/collections";
 import { AddCollectionBooksDialog } from "./add-books-dialog";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
@@ -33,10 +34,13 @@ type Collection = {
 export function CollectionControls({
   collection,
   editionIds,
+  workIds = [],
   initialAdd = false,
 }: {
   collection: Collection;
   editionIds: string[];
+  /** Whole works in the collection */
+  workIds?: string[];
   initialAdd?: boolean;
 }) {
   const router = useRouter();
@@ -104,7 +108,7 @@ export function CollectionControls({
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAdd(true)}>
           <Plus size={14} strokeWidth={1.5} />
-          Add books
+          Add
         </Button>
         <Button
           onClick={() => {
@@ -135,6 +139,7 @@ export function CollectionControls({
           onClose={closeAdd}
           collectionId={collection.id}
           existingIds={editionIds}
+          existingWorkIds={workIds}
         />
       )}
       <Dialog
@@ -192,8 +197,8 @@ export function CollectionControls({
         expandable={false}
       >
         <p className="mb-4 text-sm text-fg-secondary">
-          Delete “{collection.name}” and its collection artwork? All books,
-          editions and copies stay in your library.
+          Delete “{collection.name}” and its collection artwork? Every book,
+          edition, copy and other work in it stays in your library.
         </p>
         <div className="flex justify-end gap-2">
           <Button disabled={busy} onClick={() => setDeleting(false)}>
@@ -217,13 +222,14 @@ export function CollectionControls({
 
 export function CollectionMemberControls({
   collectionId,
-  editionId,
+  member,
   title,
   first,
   last,
 }: {
   collectionId: string;
-  editionId: string;
+  /** An edition, or a whole work (film, perfume, painting, book with no edition chosen) */
+  member: { kind: "edition" | "work"; id: string };
   title: string;
   first: boolean;
   last: boolean;
@@ -237,10 +243,12 @@ export function CollectionMemberControls({
     setBusy(true);
     try {
       if (direction)
-        await moveCollectionEdition(collectionId, editionId, direction);
+        await moveCollectionMember(collectionId, member, direction);
       else {
-        await removeEditionFromCollection(collectionId, editionId);
-        toast.success("Removed from collection. Book kept in your library.");
+        if (member.kind === "edition")
+          await removeEditionFromCollection(collectionId, member.id);
+        else await removeWorksFromCollection(collectionId, [member.id]);
+        toast.success("Removed from collection. Kept in your library.");
         triggerActivityRefresh();
       }
       router.refresh();

@@ -5,6 +5,7 @@ import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
 import { workCardWith } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
+import { SLUG_RACE_MESSAGE, uniqueConstraint } from "@/lib/db/errors";
 import { atomic } from "@/lib/db/atomic";
 import { series, works, workAuthors } from "@/lib/db/schema";
 import { eq, asc, desc, count, sql, and, inArray, ne } from "drizzle-orm";
@@ -198,14 +199,22 @@ export async function createSeries(
 ): Promise<Result<typeof series.$inferSelect>> {
   const parsed = seriesInputSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
-  const [row] = await db
-    .insert(series)
-    .values({
-      ...parsed.data,
-      isComplete: parsed.data.isComplete ?? false,
-      slug: await uniqueSlug(series, slugify(parsed.data.title) || "series"),
-    })
-    .returning();
+  const slug = await uniqueSlug(series, slugify(parsed.data.title) || "series");
+  let row: typeof series.$inferSelect;
+  try {
+    [row] = await db
+      .insert(series)
+      .values({
+        ...parsed.data,
+        isComplete: parsed.data.isComplete ?? false,
+        slug,
+      })
+      .returning();
+  } catch (error) {
+    if (uniqueConstraint(error) === "series_slug_unique")
+      return { ok: false, error: SLUG_RACE_MESSAGE };
+    throw error;
+  }
   changed();
   return { ok: true, value: row };
 }
