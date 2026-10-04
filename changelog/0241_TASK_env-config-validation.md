@@ -31,6 +31,9 @@ from a misspelled key, `ISBNDN_API_KEY`.
   settings integrations checks and the authors map.
 - `vitest.config.ts` sets placeholders for the required variables. The
   database placeholder uses a host that never resolves.
+- `scripts/qa/preview-local.py` passes placeholder AWS keys, so the local
+  preview starts without credentials. They are no credential: an S3 call is
+  refused.
 - `.env.example` and `docs/13_CONFIGURATION.md` now list every variable the
   code reads, and none it does not. Removed: `CALIBRE_WEB_URL`,
   `NEXT_PUBLIC_APP_URL`, `INGEST_PARQUET_PATH`.

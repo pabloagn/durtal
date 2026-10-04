@@ -206,6 +206,9 @@ def main():
         # Minimal environment: no inherited database URL, token or cloud key.
         env = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "TERM") if key in os.environ}
         env.update(DATABASE_URL=url, NEXT_TELEMETRY_DISABLED="1")
+        # src/lib/env.ts stops the server without AWS keys. These placeholders
+        # pass that check and are no credential: an S3 call is refused.
+        env.update(AWS_ACCESS_KEY_ID="preview-no-s3", AWS_SECRET_ACCESS_KEY="preview-no-s3")
         def psql(sql):
             return run("docker", "exec", "-i", container, "psql", "-q", "-X", "-A", "-t",
                        "-v", "ON_ERROR_STOP=1", "-U", "durtal_preview", "-d", DATABASE, input=sql)
