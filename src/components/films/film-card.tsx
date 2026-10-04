@@ -66,7 +66,8 @@ export function FilmCard({
           year={catalogueDateYears(film.releaseDate)}
         />
         {held && (
-          <div className={COVER_CORNER.topRight}>
+          {/* Above the card's link, so its tooltip opens */}
+          <div className={`${COVER_CORNER.topRight} z-20`}>
             <span
               role="img"
               aria-label={`In the collection: ${held}`}
