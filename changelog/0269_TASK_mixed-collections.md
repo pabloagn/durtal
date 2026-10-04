@@ -1,6 +1,6 @@
 # Task 0269: Mixed Collections Without Losing Edition Choices (SLN-362)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-04
 **Priority**: MEDIUM
 **Type**: Feature
@@ -54,3 +54,33 @@ for whole works too; `searchWorksForCollection` finds works of one open kind.
 **Elsewhere**: similar books ("More from these collections") count a whole
 book like its editions; the harmonization "empty collection" check counts
 whole works; work merges carry `collection_works` as a membership link.
+
+## Completion Notes
+- Tests: `collections.test.ts` adds a painting, perfume, film and a book
+  edition in one order across reloads and moves, a book held both ways (shown
+  once, edition kept, whole book shown again after the edition goes, preview),
+  removal, deletion of a work and of a collection with their activity, and
+  selection and search of whole works. `book-domain-isolation.test.ts` and
+  `work-kind-migration.test.ts` follow. `pnpm typecheck` and `pnpm lint` are
+  clean (one more `no-img-element` warning, in the add dialog, of the kind the
+  file already had); `pnpm test` passes; `python3 scripts/qa/test-local.py`
+  passes 1,615 of 1,615.
+- Rehearsal: `preview-local.py --from-dump` on the 2026-10-04 11:37 backup
+  applied 0053 to 0057: 108 tables, 21,297 rows, 0 tables with differences;
+  `collection_works` starts empty, so every existing collection is unchanged.
+- Browser (headless Chrome, own profile, on that preview): added a film, a
+  perfume, a painting and the whole book of an edition already there to the
+  real "Russian Revolution" collection in one dialog; the book showed once
+  through its edition ("also collected as the book") and the header read
+  "2 books · 2 editions · 1 film · 1 perfume · 1 painting". Moved the
+  painting, reloaded (same order), removed the perfume; the collections list
+  read "4 items". Added a film to "Bodybuilding" from the film page's menu.
+- Audits at 1440 and 390px on the collection page, the collections list, the
+  add dialog (editions and films), the film page's collections dialog and the
+  dashboard: no deviation over 0.5px, no text under 4.5:1, no unnamed or
+  nested control, no overflow, no console error. (A first run flagged the
+  card images' links as unnamed; they now carry the title.)
+- `page-weight.js`: within budget except `/library` (313 KB), which this task
+  does not change and which is over budget on the live app too.
+- Linear would not move the issue's status from this thread.
+

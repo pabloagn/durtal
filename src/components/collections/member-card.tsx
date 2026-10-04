@@ -33,10 +33,11 @@ export function MemberCard({
 }) {
   return (
     <article className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4">
+      {/* The title link is the card's tab stop; the image repeats it for the pointer */}
       <Link
         href={href}
         tabIndex={-1}
-        aria-hidden
+        aria-label={title}
         className="flex h-32 w-20 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-primary"
       >
         <div className="w-full">{image}</div>
