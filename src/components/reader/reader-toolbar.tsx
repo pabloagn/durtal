@@ -72,7 +72,7 @@ export function ReaderToolbar({
           : "-translate-y-full opacity-0 pointer-events-none"
       }`}
     >
-      <div className="flex h-12 items-center justify-between bg-bg-primary/90 px-4 backdrop-blur-sm border-b border-glass-border">
+      <div className="glass-bar relative flex h-12 items-center justify-between border-b border-glass-border px-4">
         {/* Left: back + title */}
         <div className="flex items-center gap-3 min-w-0">
           <Link

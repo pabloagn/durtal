@@ -122,7 +122,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {navOpen && (
         <div
           aria-hidden="true"
-          className="fixed inset-0 z-40 bg-bg-primary/70 md:hidden"
+          className="glass-veil fixed inset-0 z-40 md:hidden"
           onClick={closeNav}
         />
       )}
