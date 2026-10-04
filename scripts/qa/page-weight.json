@@ -7,6 +7,8 @@
     { "path": "/authors", "maxKB": 300, "maxMs": 1000 },
     { "path": "/authors/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/collections", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/places", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/places/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/series", "maxKB": 300, "maxMs": 1000 },
     { "path": "/provenance", "maxKB": 300, "maxMs": 1000 },
     { "path": "/publishers", "maxKB": 300, "maxMs": 1000 },

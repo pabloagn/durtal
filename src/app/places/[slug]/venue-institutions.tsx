@@ -109,7 +109,10 @@ export function VenueInstitutions({
                   </p>
                 )}
               </div>
-              <RemoveButton label={`Remove ${institution.name}`} onClick={() => void unlink(institution)} />
+              {/* Carries the name's type: the button sits on its cap-height center */}
+              <div className="type-item-title">
+                <RemoveButton label={`Remove ${institution.name}`} onClick={() => void unlink(institution)} />
+              </div>
             </li>
           ))}
         </ul>

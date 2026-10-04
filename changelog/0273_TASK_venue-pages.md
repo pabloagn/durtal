@@ -1,6 +1,6 @@
 # Task 0273: Venue Pages Around Collections, Loans and Retailers (SLN-370)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-04
 **Priority**: MEDIUM
 **Type**: Feature
@@ -55,7 +55,42 @@ nothing refers to them. The places list gains country and archived filters.
   cards and rows.
 - `AVAILABILITY_LABELS` moved to `src/lib/catalogue/retailers.ts`, shared by
   the perfume page and the venue page.
+- `PlacePlate` (a venue card with no image) tints at 10%, the strongest tint
+  that keeps its `fg-secondary` label above 4.5:1; the gallery tone measured
+  4.41:1 at 12%.
+- `page-weight.json` gains `/places` and `/places/*`.
 
 **Limits**: institution names are plain text until the organization pages
 (SLN-369, PR #61) are on main. A venue with no place, or a bare map point from
 a Google lookup, has no country, so the country filter cannot reach it.
+
+## Completion Notes
+- Tests: `integration/venue-pages.test.ts` (database: a museum whose original
+  is lent to a gallery, here and away on both pages with dates, owner and
+  display as recorded, an unplaced object, branches; an online retailer with
+  no address, a branch listing with a dated offer and an online listing, the
+  guard that keeps a retailer on its branch; a bookshop's orders, refused
+  delete, archive and restore, edits; a venue's country through its places).
+- Checks: `pnpm typecheck` clean; `pnpm lint` has no errors and no new
+  warnings; `python3 scripts/qa/test-local.py` passes every suite (131 files,
+  1,615 tests).
+- Browser (headless Chrome, own profile) on `preview-local.py --from-dump` of
+  the 2026-10-04 11:37 backup (49 venues), seeded with the Louvre (two
+  museums, one painting lent to a Tokyo gallery, one in storage, one with no
+  recorded place) and an online perfume retailer with two listings. Audits at
+  1440 and 390px on the places list (all, archived, museums and galleries),
+  the museum, the gallery, the online retailer, a shop with 86 orders, the
+  edit, delete and link dialogs and a perfume page: no deviation over 0.5px,
+  no text under 4.5:1, no unnamed or nested control, no overflow, no console
+  error, after two fixes (the remove button beside an institution's name sat
+  0.88px off; the gallery plate label was 4.41:1).
+- Flows: edited a museum's name and specialties; archived it (hidden from the
+  list, shown with `archived=include`) and restored it; linked a new
+  institution created from the search (it gets the gallery role); removing a
+  retailer from its branch with listings shows "Retailer listing history
+  still references this operated branch"; Delete on the shop lists 86 orders
+  and stays off; an unused venue deletes and the page returns to the list.
+- `page-weight.js`: `/places` 187 KB in 76 ms, `/places/*` 53 KB; the museum
+  page 56 KB, the shop with orders 97 KB. Every other route is within budget
+  except `/library` (313 KB), which this task does not change. A toast's icon
+  sits 10px off its text, as on main.

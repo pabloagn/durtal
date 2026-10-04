@@ -105,13 +105,21 @@ export function VenueArtParts({ art, institutions }: { art: VenueArt; institutio
               const owner = ownerText(row);
               const custody = row.custody ? CUSTODY_LABELS[row.custody] : "Custody not recorded";
               const loan = row.custody === "temporary_loan" || row.custody === "long_term_loan";
+              // "Permanent collection of the Louvre", "On long-term loan, from a private collection"
+              const held = !owner
+                ? custody
+                : row.custody === "permanent_collection"
+                  ? `${custody} of ${owner}`
+                  : loan
+                    ? `${custody}, from ${owner}`
+                    : `${custody} · Owner: ${owner}`;
               return (
                 <li key={row.whereaboutsId ?? row.objectId} className={ROW}>
                   <PaintingTitle row={row} />
                   <p className="mt-0.5 text-sm text-fg-secondary">
                     {[
                       objectName(row),
-                      owner ? `${custody}, ${loan ? "from" : "of"} ${owner}` : custody,
+                      held,
                       row.occasionLabel,
                     ]
                       .filter(Boolean)
