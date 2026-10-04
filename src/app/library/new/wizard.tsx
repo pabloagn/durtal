@@ -564,6 +564,21 @@ export function AddBookWizard() {
     setInstanceDrafts((prev) => [...prev, newCopyDraft(appSettings, defaultLocationId)]);
   }
 
+  // ── Cancel ───────────────────────────────────────────────────────────────
+
+  // Nothing is saved before Fast Track or "Add to catalogue", so leaving is
+  // enough: back to the page the user came from, else the library
+  function cancel() {
+    if (window.history.length > 1) router.back();
+    else router.push("/library");
+  }
+
+  const cancelButton = (
+    <Button variant="ghost" disabled={fastTrackSaving || isPending} onClick={cancel}>
+      Cancel
+    </Button>
+  );
+
   // ── Step progress ────────────────────────────────────────────────────────
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
@@ -642,7 +657,8 @@ export function AddBookWizard() {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    // Enter goes to the next step, ⌘Enter runs Fast Track or adds the book
+    // Enter goes to the next step (on Details, it runs Fast Track); ⌘Enter
+    // runs Fast Track or adds the book
     <div className="max-w-2xl" data-shortcut-scope="">
       <StepProgress />
 
@@ -758,7 +774,7 @@ export function AddBookWizard() {
               )}
           </div>
 
-          <div className="border-t border-glass-border pt-4">
+          <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-4">
             <button
               onClick={() => setStep("details")}
               className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
@@ -766,6 +782,7 @@ export function AddBookWizard() {
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Enter details manually
             </button>
+            {cancelButton}
           </div>
         </div>
       )}
@@ -828,6 +845,7 @@ export function AddBookWizard() {
             >
               Create as new work
             </Button>
+            {cancelButton}
           </div>
         </div>
       )}
@@ -848,6 +866,7 @@ export function AddBookWizard() {
               language={originalLanguage}
               placeholder="The Master and Margarita"
               required
+              autoFocus
             />
             <AuthorNameInput
               label="Author"
@@ -999,14 +1018,17 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               {!existingWorkId && (
                 <Button
                   type="button"
                   variant="primary"
+                  data-shortcut="next"
                   onClick={handleFastTrack}
                   disabled={fastTrackSaving || !title.trim() || !authorName.trim()}
                   data-tooltip="Save now, skipping copies and categorization"
+                  data-tooltip-keys="enter"
                 >
                   {fastTrackSaving && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
@@ -1014,7 +1036,10 @@ export function AddBookWizard() {
                   Fast Track
                 </Button>
               )}
-              <Button data-shortcut="next" onClick={() => setStep("edition")}>
+              <Button
+                data-shortcut={existingWorkId ? "next" : undefined}
+                onClick={() => setStep("edition")}
+              >
                 Edition details
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
@@ -1101,6 +1126,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               {isWishlistStatus && (
                 <Button
@@ -1177,6 +1203,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button
                 variant="ghost"
@@ -1250,6 +1277,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton}
             <div className="ml-auto flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => setStep("confirm")}>
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1555,6 +1583,7 @@ export function AddBookWizard() {
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
               Back
             </Button>
+            {cancelButton}
             <Button
               variant="primary"
               className="ml-auto"
