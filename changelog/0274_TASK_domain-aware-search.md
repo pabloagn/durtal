@@ -1,6 +1,6 @@
 # Task 0274: Domain-Aware Search, Lists and Counts (SLN-371)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-04
 **Priority**: MEDIUM
 **Type**: Fix
@@ -49,3 +49,28 @@ catalogue, or type a command...".
 before paging, end every order with the work id and count on the same
 predicate (tasks 0202, 0213 and the painting gallery). No change was needed;
 the new tests pin it for every film sort.
+
+## Completion Notes
+- Tests: `integration/domain-search.test.ts` (database: a book and a film both
+  titled "Solaris" in their own groups and addresses; a director found by
+  name opens the films list; "Stanisław Lem" found as "stanislaw lem" and
+  "Lém"; a director named "黒澤明" found by "黒澤" and by an other name; "100%"
+  and "snake_case" read literally, "%%" and "__" find nothing; perfumes,
+  organizations and places with their addresses, archived places left out;
+  a director's films paged two at a time under every sort with stable,
+  complete pages and matching counts; a translator named as such).
+  `integration/quick-search.test.ts` reads people in place of authors.
+- Checks: `pnpm typecheck` clean; `pnpm lint` has no errors and no new
+  warnings; `python3 scripts/qa/test-local.py` passes every suite (131 files,
+  1,617 tests).
+- Browser (headless Chrome, own profile) on `preview-local.py --from-dump` of
+  the 2026-10-04 11:37 backup with seeded films, perfumes, a painting and a
+  perfume house: the palette at 1440 and 390px for "the thing" (books and
+  films apart), "guerlain" (perfumes, a person, the house), "carpenter"
+  (books, films, a writer and a director), "night watch" (a painting),
+  "heather lewis" (books and the writer) and "100%": groups and addresses as
+  above, no deviation over 0.5px, no unnamed control, no console error. The
+  only low-contrast text is the dashboard's 38px placeholder letters behind
+  the palette, which this task does not change.
+- Left for SLN-419: the shortcut help still reads "Search books, authors,
+  commands"; the author pages move to `/people` there.
