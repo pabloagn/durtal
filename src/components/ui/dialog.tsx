@@ -77,7 +77,7 @@ export function Dialog({
         event.preventDefault();
         onClose();
       }}
-      className={`dialog-enter m-auto w-full rounded-md p-0 outline-none text-fg-primary border border-glass-border bg-bg-secondary shadow-[0_24px_64px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(125,61,82,0.08)] backdrop:bg-black/60 backdrop:backdrop-blur-lg transition-[max-width] duration-200 ease-out ${sizeClass}`}
+      className={`dialog-enter glass m-auto w-full border-0 bg-transparent p-0 outline-none text-fg-primary backdrop:glass-veil transition-[max-width] duration-200 ease-out ${sizeClass}`}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}

@@ -223,7 +223,7 @@ export function GooglePlacesSearch({
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]"
+          className="glass absolute z-50 mt-1 max-h-72 w-full overflow-y-auto"
         >
           {results.map((place, i) => (
             <li
@@ -262,7 +262,7 @@ export function GooglePlacesSearch({
 
       {/* No results */}
       {isOpen && !isLoading && results.length === 0 && query.length >= MIN_QUERY_LENGTH && (
-        <div className="absolute z-50 mt-1 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 py-3 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+        <div className="glass absolute z-50 mt-1 w-full px-3 py-3">
           <p className="text-xs text-fg-secondary">No results for &ldquo;{query}&rdquo;</p>
         </div>
       )}

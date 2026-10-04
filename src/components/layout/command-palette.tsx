@@ -167,14 +167,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-bg-primary/70 backdrop-blur-md"
+        className="absolute inset-0 glass-veil"
         onClick={() => onOpenChange(false)}
       />
 
       {/* Palette */}
       <div className="absolute left-1/2 top-[20%] w-full max-w-xl -translate-x-1/2 px-4">
         <Command
-          className="overflow-hidden rounded-sm glass-surface shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]"
+          className="glass relative overflow-hidden"
           shouldFilter={false}
           value={selected}
           onValueChange={setSelected}

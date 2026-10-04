@@ -222,7 +222,7 @@ export function TooltipLayer() {
       id="app-tooltip"
       role="tooltip"
       popover="manual"
-      className="pointer-events-none fixed inset-auto m-0 max-w-80 overflow-visible rounded-sm border border-glass-border bg-bg-secondary px-2.5 py-1 text-xs text-fg-primary shadow-lg transition-opacity duration-150 starting:opacity-0"
+      className="glass pointer-events-none fixed inset-auto m-0 max-w-80 overflow-visible border-0 bg-transparent px-2.5 py-1 text-xs text-fg-primary transition-opacity duration-150 starting:opacity-0"
     >
       {tip && (
         <span className="flex items-center gap-2">

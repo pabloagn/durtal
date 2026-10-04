@@ -147,7 +147,7 @@ export function CollectionIconPicker({
             ref={panel}
             role="dialog"
             aria-label="Collection icon"
-            className="fixed z-[100] max-w-[calc(100vw-16px)] rounded-sm border border-glass-border bg-bg-secondary shadow-xl"
+            className="glass fixed z-[100] max-w-[calc(100vw-16px)]"
             style={{ ...position, width: PANEL_WIDTH }}
           >
             <Suspense

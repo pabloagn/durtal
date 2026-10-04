@@ -196,7 +196,7 @@ export function MarkToggle({
               )
                 closeSoon();
             }}
-            className="fixed z-[100] rounded-sm border border-glass-border bg-bg-secondary p-3 shadow-xl"
+            className="glass fixed z-[100] p-3"
             style={{ ...position, width: CARD_WIDTH }}
           >
             {/* Name and date on one line, then what the mark means */}

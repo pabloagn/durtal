@@ -671,7 +671,7 @@ export function AddBookWizard() {
             {/* Autocomplete dropdown */}
             {searchQuery.trim().length >= 2 &&
               (searchResults.length > 0 || isSearching) && (
-                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-[420px] overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+                <div className="glass absolute left-0 right-0 top-full z-10 mt-1 max-h-[420px] overflow-y-auto">
                   {searchResults.map((result, i) => (
                     <button
                       key={`${result.source}-${result.sourceId}-${i}`}

@@ -144,7 +144,7 @@ export function BulkActionToolbar({
 
   return (
     <>
-      <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/95 px-4 py-2.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] backdrop-blur-md">
+      <div className="glass fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 px-4 py-2.5">
         {/* Selection info */}
         <span className="text-sm text-fg-secondary">
           <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}

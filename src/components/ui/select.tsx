@@ -221,7 +221,7 @@ export function Select({
           <div
             ref={listRef}
             role="listbox"
-            className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]"
+            className="glass absolute z-50 mt-1 max-h-56 w-full overflow-y-auto"
           >
             {allOptions.map((opt, idx) => {
               const isSelected = opt.value === value;
@@ -273,7 +273,7 @@ export function Select({
 
         {/* Hint tooltip */}
         {activeHint && (
-          <div className="absolute z-[60] mt-1 w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+          <div className="glass absolute z-[60] mt-1 w-full px-3 py-2">
             <p className="text-xs leading-relaxed text-fg-secondary">
               {allOptions.find((o) => o.value === activeHint)?.hint}
             </p>

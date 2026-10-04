@@ -129,7 +129,7 @@ export function FilterDropdown({
 
       {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1.5 min-w-56 rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+        <div className="glass absolute right-0 top-full z-50 mt-1.5 min-w-56">
           {/* Header with clear all */}
           {activeCount > 0 && (
             <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">

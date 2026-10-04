@@ -99,7 +99,7 @@ export function TaxonomyColorPicker({
 
       {/* Popover */}
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-52 rounded-sm border border-glass-border bg-bg-secondary p-3 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+        <div className="glass absolute left-0 top-full z-50 mt-1 w-52 p-3">
           {/* Preset grid: 4 columns x 3 rows */}
           <div className="grid grid-cols-4 gap-2">
             {PRESET_COLORS.map((preset) => {

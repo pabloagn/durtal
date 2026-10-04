@@ -182,7 +182,7 @@ export function DropdownMenu({
           <div
             ref={menuRef}
             role="menu"
-            className={`absolute z-50 min-w-[180px] overflow-hidden rounded-sm border border-glass-border bg-bg-secondary py-1 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] ${alignClass} ${sideClass}`}
+            className={`glass absolute z-50 min-w-[180px] overflow-hidden py-1 ${alignClass} ${sideClass}`}
           >
             {children}
           </div>

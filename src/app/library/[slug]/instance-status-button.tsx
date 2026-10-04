@@ -102,7 +102,7 @@ export function InstanceStatusButton({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-0.5 min-w-[160px] rounded-sm border border-glass-border bg-bg-secondary shadow-lg">
+        <div className="glass absolute left-0 top-full z-20 mt-0.5 min-w-[160px]">
           {pendingStatus === "lent_out" ? (
             <form onSubmit={handleLentToSubmit} className="p-3 space-y-2">
               <p className="text-xs font-medium text-fg-secondary">Lent to</p>

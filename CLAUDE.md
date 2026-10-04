@@ -109,7 +109,7 @@ Key constraints:
 - Type: seven sizes only (12, 14, 16, 21, 30, 38, 46px). Headings use the `type-*` roles; every titled block on a page uses `SectionHeading` (`src/components/shared/section-heading.tsx`). See `docs/03_DESIGN_LANGUAGE.md`, Typography
 - Icons: Lucide, 1.5px stroke, 16px max
 - Tooltips: `data-tooltip` (and `data-tooltip-keys` for a shortcut), never the `title` attribute. Every icon-only control has an `aria-label` and a tooltip. See `docs/03_DESIGN_LANGUAGE.md`, Tooltips
-- Glassmorphism: Navigation bar and command palette ONLY
+- Glass: one material (`glass`, `glass-bar`, `glass-veil` in `globals.css`; `<Glass>` in `src/components/ui/glass.tsx`) for surfaces that float above the page: command palette, menus, popovers, tooltips, dialogs, selection toolbars. Never on page content. See `docs/03_DESIGN_LANGUAGE.md`, Glass
 - Alignment is pixel-perfect:
   - An icon or small button beside text sits on the cap-height center of the text's first line: use `CapAligned` (`src/components/shared/cap-aligned.tsx`), never plain `items-center` beside serif text
   - Siblings in a row keep equal gaps
