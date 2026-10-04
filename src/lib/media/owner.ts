@@ -61,11 +61,8 @@ export function supportsMediaType(
   mediaType: MediaType,
 ): boolean {
   if (entityType === "collection") return mediaType !== "gallery";
-  if (
-    entityType === "organization" ||
-    entityType === "art_object" ||
-    entityType === "perfume_variant"
-  )
+  // A publishing house has a banner (SLN-427); objects and bottles do not
+  if (entityType === "art_object" || entityType === "perfume_variant")
     return mediaType !== "background";
   return true;
 }
