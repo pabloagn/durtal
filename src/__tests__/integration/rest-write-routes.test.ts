@@ -275,6 +275,18 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
       expect([...res.body.recommenderIds].sort()).toEqual([a.id, b.id].sort());
     });
 
+    it("sets and clears the rating, and refuses one out of range", async () => {
+      let res = await answer(await patchWork(request("PATCH", "/x", { rating: 4 }), params(workId)));
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ rating: 4, catalogueStatus: "wanted" });
+      res = await answer(await patchWork(request("PATCH", "/x", { rating: null }), params(workId)));
+      expect(res.body).toMatchObject({ rating: null });
+      expect((await workRow()).rating).toBeNull();
+      expect((await patchWork(request("PATCH", "/x", { rating: 6 }), params(workId))).status).toBe(400);
+      expect((await patchWork(request("PATCH", "/x", { rating: 2.5 }), params(workId))).status).toBe(400);
+      expect((await workRow()).rating).toBeNull();
+    });
+
     it("refuses unknown fields, an unknown work and an invalid id", async () => {
       expect((await patchWork(request("PATCH", "/x", { titel: "typo" }), params(workId))).status).toBe(400);
       expect((await patchWork(request("PATCH", "/x", { title: "X" }), params(MISSING))).status).toBe(404);
