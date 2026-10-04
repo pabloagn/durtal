@@ -55,6 +55,18 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.order_updated":              { icon: "Truck",        color: MUTED,     category: "update" },
   "work.order_deleted":              { icon: "Truck",        color: RED,       category: "delete" },
   "work.comment_added":             { icon: "MessageSquare",color: SECONDARY, category: "comment" },
+  "work.credit_added":              { icon: "UserPlus",     color: MUTED,     category: "relation" },
+  "work.credit_removed":            { icon: "UserMinus",    color: RED,       category: "relation" },
+  "work.organization_added":        { icon: "Building2",    color: MUTED,     category: "relation" },
+  "work.organization_removed":      { icon: "Building2",    color: RED,       category: "relation" },
+  "work.classification_added":      { icon: "Tag",          color: MUTED,     category: "relation" },
+  "work.classification_removed":    { icon: "Tag",          color: RED,       category: "relation" },
+  "work.bottle_added":              { icon: "Package",      color: MUTED,     category: "relation" },
+  "work.bottle_updated":            { icon: "Package",      color: MUTED,     category: "update" },
+  "work.bottle_removed":            { icon: "Package",      color: RED,       category: "delete" },
+  "work.location_recorded":         { icon: "MapPin",       color: MUTED,     category: "update" },
+  "organization.comment_added":     { icon: "MessageSquare",color: SECONDARY, category: "comment" },
+  "venue.comment_added":            { icon: "MessageSquare",color: SECONDARY, category: "comment" },
 
   // ── Author events ────────────────────────────────────────────────────────
   "author.created":                 { icon: "Plus",         color: SAGE,      category: "create" },
@@ -111,6 +123,10 @@ function fieldChanged(
 }
 
 const languageLabel = (code: string) => languageName(code) ?? code;
+/** "director", "perfume house": the role a credit or organization event names */
+const roleWord = (m?: ActivityMetadata | null) => String(m?.extra?.role ?? "credit").toLowerCase();
+/** " (Film genres)": the family a classification event names */
+const familyWords = (m?: ActivityMetadata | null) => (m?.extra?.family ? ` (${String(m.extra.family)})` : "");
 
 const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.hunt_assessment_changed": (m) => m?.newValue
@@ -172,6 +188,30 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
     ? [text("Deleted an order (was "), label(String(m.oldValue).replace(/_/g, " ")), text(")")]
     : [text("Deleted an order")],
   "work.comment_added":             () => [text("Left a comment")],
+  "work.credit_added":              (m) => [text(`Added ${roleWord(m)} `), label(m?.targetName ?? "")],
+  "work.credit_removed":            (m) => [text(`Removed ${roleWord(m)} `), label(m?.targetName ?? "")],
+  "work.organization_added":        (m) => [text(`Added ${roleWord(m)} `), label(m?.targetName ?? "")],
+  "work.organization_removed":      (m) => [text(`Removed ${roleWord(m)} `), label(m?.targetName ?? "")],
+  "work.classification_added":      (m) => [text("Added "), label(m?.targetName ?? ""), text(familyWords(m))],
+  "work.classification_removed":    (m) => [text("Removed "), label(m?.targetName ?? ""), text(familyWords(m))],
+  "work.bottle_added":              (m) => [text("Added "), label(m?.targetName ?? "a container")],
+  "work.bottle_updated":            (m) => {
+    const changes = m?.extra?.changes;
+    return [text("Updated "), label(m?.targetName ?? "a container"),
+      ...(Array.isArray(changes) && changes.length ? [text(`: ${changes.join("; ")}`)] : [])];
+  },
+  "work.bottle_removed":            (m) => [text("Removed "), label(m?.targetName ?? "a container")],
+  "work.location_recorded":         (m) => {
+    const custody = m?.extra?.custody, certainty = m?.extra?.certainty;
+    const how = [custody, certainty].filter(Boolean).join(", ").toLowerCase();
+    return [
+      ...(m?.oldValue ? [text("Moved from "), label(String(m.oldValue)), text(" to ")] : [text("Recorded at ")]),
+      label(String(m?.newValue ?? "")),
+      ...(how ? [text(` (${how})`)] : []),
+    ];
+  },
+  "organization.comment_added":     () => [text("Left a comment")],
+  "venue.comment_added":            () => [text("Left a comment")],
 
   "author.created":                 () => [text("Created this author")],
   "author.deleted":                 () => [text("Deleted this author")],

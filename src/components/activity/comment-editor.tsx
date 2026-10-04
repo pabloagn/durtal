@@ -1,5 +1,6 @@
 "use client";
 
+import type { ActivityEntityType } from "@/lib/activity/entities";
 import { useState, useCallback, useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -26,7 +27,7 @@ import {
 const lowlight = createLowlight(common);
 
 interface CommentEditorProps {
-  entityType: "work" | "author";
+  entityType: ActivityEntityType;
   entityId: string;
   onCommentAdded?: (newComment?: {
     id: string;

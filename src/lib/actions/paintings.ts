@@ -1,5 +1,6 @@
 "use server";
 
+import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
@@ -461,6 +462,7 @@ export async function createPainting(input: CreatePaintingInput) {
     ...insertCredits(d, id, v.credits, []),
   ]);
   changedCatalogue();
+  await recordWorkEvents(id, [{ eventKey: "work.created", metadata: { newValue: v.title } }]);
   return (await getPainting(id))!;
 }
 
@@ -475,6 +477,8 @@ export async function updatePainting(
 ) {
   z.uuid().parse(id);
   const v = updatePaintingSchema.parse(input);
+  // The history compares the work before and after this edit
+  const before = await workSnapshot(id);
   const expected = fingerprintSchema.parse(fingerprint);
   const details = await db.query.paintingDetails.findFirst({
     where: eq(paintingDetails.workId, id),
@@ -547,6 +551,7 @@ export async function updatePainting(
       : []),
   ]);
   changedCatalogue();
+  await recordWorkChanges(id, before, await workSnapshot(id));
   return (await getPainting(id))!;
 }
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
@@ -80,7 +81,8 @@ import {
   loadPerfumeClassification,
   loadPerfumePerfumers,
 } from "@/lib/catalogue/perfume-model";
-import { perfumeHoldings } from "@/lib/catalogue/holdings";
+import { HOLDING_STATUS_LABELS, perfumeHoldings } from "@/lib/catalogue/holdings";
+import { CONTAINER_LABELS } from "@/lib/catalogue/perfume-labels";
 import { PERFUME_CONCENTRATIONS } from "@/lib/catalogue/perfumes";
 import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
@@ -619,6 +621,7 @@ export async function createPerfume(input: CreatePerfumeInput) {
     }
   }
   changedCatalogue();
+  await recordWorkEvents(id, [{ eventKey: "work.created", metadata: { newValue: v.title } }]);
   return (await getPerfume(id))!;
 }
 
@@ -633,6 +636,8 @@ export async function updatePerfume(
 ) {
   z.uuid().parse(id);
   const v = updatePerfumeSchema.parse(input);
+  // The history compares the work before and after this edit
+  const before = await workSnapshot(id);
   const expected = fingerprintSchema.parse(fingerprint);
   const details = await db.query.perfumeDetails.findFirst({
     where: eq(perfumeDetails.workId, id),
@@ -719,6 +724,7 @@ export async function updatePerfume(
       : []),
   ]);
   changedCatalogue();
+  await recordWorkChanges(id, before, await workSnapshot(id));
   return (await getPerfume(id))!;
 }
 
@@ -1094,7 +1100,15 @@ export async function addPerfumeBottle(input: PerfumeBottleInput) {
     }),
   ]);
   changedHoldings();
-  return (await getPerfumeBottle(id))!;
+  const added = (await getPerfumeBottle(id))!;
+  await recordWorkEvents(added.workId, [{ eventKey: "work.bottle_added", metadata: { targetName: bottleName(added) } }]);
+  return added;
+}
+
+/** "Bottle · 100 ml": a container as the history names it */
+function bottleName(b: { container: string; capacityValue: number; volumeUnit: string }) {
+  const one = CONTAINER_LABELS[b.container as keyof typeof CONTAINER_LABELS]?.one ?? b.container;
+  return `${one} · ${Number(b.capacityValue)} ${b.volumeUnit}`;
 }
 
 /**
@@ -1175,20 +1189,33 @@ export async function updatePerfumeBottle(
     ...releaseDates(d, [acquisition?.oldId, disposition?.oldId]),
   ]);
   changedHoldings();
-  return (await getPerfumeBottle(id))!;
+  const updated = (await getPerfumeBottle(id))!;
+  // "Status: Held → Lent out", "Left: 80 → 60 ml": what this edit changed
+  const changes = [
+    stored.status !== updated.status &&
+      `Status: ${HOLDING_STATUS_LABELS[stored.status]} → ${HOLDING_STATUS_LABELS[updated.status]}`,
+    Number(stored.remainingMl ?? -1) !== Number(updated.remainingMl ?? -1) &&
+      `Left: ${stored.remainingMl ?? "?"} → ${updated.remainingMl ?? "?"} ml`,
+    (stored.condition ?? "") !== (updated.condition ?? "") && `Condition: ${updated.condition ?? "none"}`,
+    stored.locationId !== updated.locationId && "Moved to another location",
+    stored.variantId !== updated.variantId && "Moved to another formulation",
+  ].filter((c): c is string => !!c);
+  if (changes.length)
+    await recordWorkEvents(updated.workId, [
+      { eventKey: "work.bottle_updated", metadata: { targetName: bottleName(updated), extra: { changes } } },
+    ]);
+  return updated;
 }
 
 export async function deletePerfumeBottle(id: string) {
   z.uuid().parse(id);
-  const bottle = await db.query.perfumeBottles.findFirst({
-    where: eq(perfumeBottles.id, id),
-    columns: { acquisitionDateId: true, dispositionDateId: true },
-  });
+  const bottle = await getPerfumeBottle(id);
   if (!bottle) throw new Error("Container not found");
   await write((d) => [
     d.delete(perfumeBottles).where(eq(perfumeBottles.id, id)),
     ...releaseDates(d, [bottle.acquisitionDateId, bottle.dispositionDateId]),
   ]);
   changedHoldings();
+  await recordWorkEvents(bottle.workId, [{ eventKey: "work.bottle_removed", metadata: { targetName: bottleName(bottle) } }]);
   return { id };
 }

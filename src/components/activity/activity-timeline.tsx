@@ -1,5 +1,6 @@
 "use client";
 
+import type { ActivityEntityType } from "@/lib/activity/entities";
 import { useState, useEffect, useCallback } from "react";
 import { getActivityTimeline, type TimelineItem } from "@/lib/actions/activity";
 import { onActivityRefresh } from "@/lib/activity/refresh-event";
@@ -10,11 +11,16 @@ import { ChevronDown } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
 
 interface ActivityTimelineProps {
-  entityType: "work" | "author";
+  entityType: ActivityEntityType;
   entityId: string;
+  /**
+   * Changes when the page renders again (after a save and router.refresh):
+   * the history reloads, so a change made by any dialog shows at once.
+   */
+  refreshKey?: string;
 }
 
-export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps) {
+export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityTimelineProps) {
   const [events, setEvents] = useState<TimelineItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -37,7 +43,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
       setNextCursor(result.nextCursor);
       setLoading(false);
     });
-  }, [fetchEvents]);
+  }, [fetchEvents, refreshKey]);
 
   // Listen for activity refresh events from any mutation on the page
   useEffect(() => {

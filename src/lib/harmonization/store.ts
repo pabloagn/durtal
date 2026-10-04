@@ -137,7 +137,13 @@ export function referencesTo(tableName: string): Reference[] {
     if (cols.length) refs.push({ table: name, columns: cols });
   }
   const type = (
-    { works: "work", authors: "author", collections: "collection" } as Record<
+    {
+      works: "work",
+      authors: "author",
+      collections: "collection",
+      publishing_houses: "organization",
+      venues: "venue",
+    } as Record<
       string,
       string
     >

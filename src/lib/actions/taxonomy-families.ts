@@ -1,5 +1,6 @@
 "use server";
 
+import { recordWorkChanges, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
@@ -717,6 +718,8 @@ export async function replaceTaxonomyAssignments(input: {
     throw new Error("Taxonomy family has no assignment store at this level");
   const ids = [...new Set(parsed.itemIds)];
   const owner = parsed.level === "work" ? works : editions;
+  // A work's history notes each item added or removed
+  const before = parsed.level === "work" ? await workSnapshot(parsed.ownerId) : null;
   // A refused change reaches the caller as its rule's message, never as SQL
   await withReadableErrors(() => atomic((d) => [
     d.execute(
@@ -761,5 +764,6 @@ export async function replaceTaxonomyAssignments(input: {
       : []),
   ]));
   changed();
+  if (before) await recordWorkChanges(parsed.ownerId, before, await workSnapshot(parsed.ownerId));
   return { ownerId: parsed.ownerId };
 }
