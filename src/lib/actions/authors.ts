@@ -6,6 +6,7 @@ import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { getPersonMergePreview, mergePeople } from "./people";
 
 import { db } from "@/lib/db";
+import { SLUG_RACE_MESSAGE, withReadableErrors } from "@/lib/db/errors";
 import { compareWorks } from "@/lib/utils/title-order";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
 import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
@@ -429,10 +430,14 @@ export async function createAuthor(input: CreateAuthorInput) {
 
   // The slug is decided first: the author and its slug are one statement
   const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
-  const [author] = await db
-    .insert(authors)
-    .values({ ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
-    .returning();
+  const [author] = await withReadableErrors(
+    () =>
+      db
+        .insert(authors)
+        .values({ ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
+        .returning(),
+    { unique: SLUG_RACE_MESSAGE },
+  );
 
   recordActivity("author", author.id, "author.created", { newValue: parsed.name });
   return author;
@@ -504,10 +509,10 @@ export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
     updatedAt: new Date(),
   };
 
-  await db
-    .update(authors)
-    .set(updatePayload)
-    .where(eq(authors.id, id));
+  await withReadableErrors(
+    () => db.update(authors).set(updatePayload).where(eq(authors.id, id)),
+    { unique: SLUG_RACE_MESSAGE },
+  );
 
   if (input.name !== undefined) {
     // Book slugs carry the author's name

@@ -1,5 +1,6 @@
 "use server";
 
+import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
@@ -208,8 +209,8 @@ export async function getPaintingFilterOptions() {
           where c.role_id='painting.painter' and c.person_id is not null
           union select c.person_id,o.work_id from art_object_credits c join art_objects o on o.id=c.object_id
           where c.person_id is not null)
-        select a.id,a.name,count(distinct c.work_id)::int as count from credited c join authors a on a.id=c.person_id
-        group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+        select a.id,a.name,x.count from (select person_id,count(*)::int as count from credited group by person_id) x
+        join authors a on a.id=x.person_id order by lower(coalesce(a.sort_name,a.name)),a.id`),
       db.execute(sql`select m.id,m.name,count(distinct wm.work_id)::int as count
         from work_art_movements wm join art_movements m on m.id=wm.art_movement_id
         join works w on w.id=wm.work_id and w.kind='painting'
@@ -461,6 +462,7 @@ export async function createPainting(input: CreatePaintingInput) {
     ...insertCredits(d, id, v.credits, []),
   ]);
   changedCatalogue();
+  await recordWorkEvents(id, [{ eventKey: "work.created", metadata: { newValue: v.title } }]);
   return (await getPainting(id))!;
 }
 
@@ -475,6 +477,8 @@ export async function updatePainting(
 ) {
   z.uuid().parse(id);
   const v = updatePaintingSchema.parse(input);
+  // The history compares the work before and after this edit
+  const before = await workSnapshot(id);
   const expected = fingerprintSchema.parse(fingerprint);
   const details = await db.query.paintingDetails.findFirst({
     where: eq(paintingDetails.workId, id),
@@ -547,6 +551,7 @@ export async function updatePainting(
       : []),
   ]);
   changedCatalogue();
+  await recordWorkChanges(id, before, await workSnapshot(id));
   return (await getPainting(id))!;
 }
 

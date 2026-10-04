@@ -28,7 +28,12 @@ const ALL_VENUE_TYPES = VENUE_TYPES;
  * Rendered outside the results' Suspense boundary so it stays mounted (and
  * keeps focus) while results reload, and stays visible when nothing matches.
  */
-export function PlacesFiltersBar() {
+export function PlacesFiltersBar({
+  countries = [],
+}: {
+  /** The countries of the venues, from their places */
+  countries?: { id: string; name: string; count: number }[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -47,6 +52,8 @@ export function PlacesFiltersBar() {
   const activeFilters: Record<string, string[]> = {
     type: searchParams.get("type")?.split(",").filter(Boolean) ?? [],
     favourites: favouritesOnly(searchParams.get(FAVOURITES_PARAM)) ? ["true"] : [],
+    country: searchParams.get("country")?.split(",").filter(Boolean) ?? [],
+    archived: searchParams.get("archived") ? [searchParams.get("archived")!] : [],
   };
 
   const filterGroups: AnyFilterGroup[] = [
@@ -59,15 +66,34 @@ export function PlacesFiltersBar() {
       })),
     },
     {
+      key: "country",
+      label: "Country",
+      options: countries.map((c) => ({ value: c.id, label: c.name })),
+    },
+    {
       key: FAVOURITES_PARAM,
       label: "Favourites",
       options: [{ value: "true", label: "Favourites only" }],
     },
-  ];
+    {
+      key: "archived",
+      label: "Archived",
+      options: [
+        { value: "include", label: "Include archived" },
+        { value: "only", label: "Archived only" },
+      ],
+    },
+  ].filter((group) => group.options.length > 0);
 
   function handleFilterChange(key: string, values: string[]) {
     const params = new URLSearchParams(searchParams.toString());
-    if (key === FAVOURITES_PARAM) {
+    if (key === "archived") {
+      // One choice at a time: the newest replaces the other
+      const current = params.get("archived");
+      const next = values.filter((v) => v !== current).at(-1) ?? values[0];
+      if (next) params.set("archived", next);
+      else params.delete("archived");
+    } else if (key === FAVOURITES_PARAM) {
       if (values.length > 0) {
         params.set(FAVOURITES_PARAM, "true");
       } else {
@@ -83,8 +109,7 @@ export function PlacesFiltersBar() {
 
   function handleClearAll() {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("type");
-    params.delete(FAVOURITES_PARAM);
+    for (const key of ["type", FAVOURITES_PARAM, "country", "archived"]) params.delete(key);
       router.push(firstPageHref("/places", params));
   }
 

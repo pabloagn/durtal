@@ -61,6 +61,8 @@ export {
   collectionsRelations,
   collectionEditions,
   collectionEditionsRelations,
+  collectionWorks,
+  collectionWorksRelations,
 } from "./collections";
 export { imports } from "./imports";
 export { media, mediaRelations } from "./media";
@@ -195,3 +197,4 @@ export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects
 export * from "./retailers";
 export * from "./films";
 export * from "./paintings";
+export { workRelations } from "./work-relations";

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Building2,
   Plus,
   Trash2,
   Pencil,
@@ -31,6 +32,7 @@ import {
 import { EVENT_CONFIG } from "@/lib/activity/event-config";
 
 const ICON_MAP: Record<string, LucideIcon> = {
+  Building2,
   Plus,
   Trash2,
   Pencil,

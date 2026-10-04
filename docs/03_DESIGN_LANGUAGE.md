@@ -54,9 +54,9 @@ Controls and text that sit on a cover, portrait or banner use the page's near-bl
 
 | Token | Value | Usage |
 |---|---|---|
-| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the media manager's hover actions (`bg-overlay`) |
-| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection pages) |
-| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image |
+| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the card actions menu, the cover chips (`cover-chip.ts`, also the reader's format chips), the media manager's hover actions (`bg-overlay`) |
+| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection, publisher and film pages) |
+| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image; its buttons keep 16px icons in `fg-secondary` |
 
 Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black`, `text-white` or blur on these: blur belongs to the glass (navigation, palette and floating panels).
 
@@ -128,7 +128,7 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 | `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels |
 | `type-prose` | EB Garamond 21px on 32px lines, primary, old-style figures, at most 26em (about 65 characters) | Long reading text: book descriptions, bios, collection and series descriptions. Use `<Prose>` (`src/components/shared/prose.tsx`), which loads the font |
 
-`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
+`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. A block inside a titled section (a row of cards under "Perfumes") uses `SectionHeading` with `as="h3"`, which takes `type-item-title`; `HorizontalCarousel` passes `as` through. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
 
 ---
 
@@ -180,10 +180,11 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 | Surface | Utility |
 |---|---|
 | Command palette, leader menu, dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
-| Menus, select lists, date picker, filter panels, pickers, hover cards | `glass` |
+| Menus, select lists, date picker, filter panels, pickers (also films' search picker), hover cards | `glass` |
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
-| A bar fixed to a screen edge (navigation on a phone) | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
+| A bar fixed to a screen edge: the navigation bar on a phone, the sidebar (a drawer over the page on a phone), the reader's toolbar and progress bar | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
+| What lies behind the phone drawer | `glass-veil` |
 
 `glass-veil` is the layer behind a modal surface: the page at 62% black, blurred 6px, so it stays in view but steps back.
 
@@ -203,7 +204,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 - Cover image with no border radius
 - Subtle 1px border in `bg-tertiary`
 - Hover: lifts with `accent-rose` border glow
-- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and an opaque backdrop (`bg-primary` at 85%, no blur), so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show only on hover and keyboard focus.
+- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and an opaque backdrop (`bg-primary` at 85%, no blur), so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show on hover and keyboard focus, and always on a touch screen, which has no hover (`hover-reveal` in `globals.css`).
 - Text, through `CardHeading` (`src/components/shared/card-heading.tsx`): the title in the serif (`type-item-title`), then the author 4px under the title's last line. The block always takes two title lines and one author line, so every card has the same height; a one-line title leaves its free line above the info row, not between the title and the author. A title cut by its `line-clamp-2` shows in full on hover, like text cut by `lines-*`.
 - Info row, in secondary text: the status as a colored dot and its label (`CardStatus`; the tooltip adds the priority and the number of copies), the language from 200px card width, then on the right the rating (a gold star and the number, `CardRating`, from 160px) and the year (from 160px; 220px beside a rating). The status always fits whole.
 
@@ -361,3 +362,10 @@ Selection uses the plum accent as background with primary foreground text:
 The application is designed desktop-first but must be usable on all screen sizes. No separate mobile app — responsive web only. PWA if needed later.
 
 A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
+
+### Keyboard, touch and motion
+
+- Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
+- On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating stars are 24px wide there (`pointer-coarse:w-6`).
+- With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.
+- Check it with `node scripts/qa/interaction-audit.mjs --disposable --base <app url> [route...]` on a disposable preview (`scripts/qa/preview-local.py`). It opens menus and dialogs, pressing only controls that open something, never one that writes; it refuses to start without `--disposable`, on another host or on port 3100.

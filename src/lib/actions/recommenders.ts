@@ -5,6 +5,7 @@ import { bookReferenceCondition } from "@/lib/catalogue/book-boundary";
 import { z } from "zod/v4";
 import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
+import { uniqueConstraint } from "@/lib/db/errors";
 import { recommenders, workRecommenders } from "@/lib/db/schema";
 import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -152,6 +153,19 @@ function changed() {
   invalidate(CACHE_TAGS.recommenders, CACHE_TAGS.works);
 }
 
+/**
+ * The write, or null when another save took the same name after the check:
+ * the name's unique constraint refused it.
+ */
+async function unlessTaken<T>(write: () => Promise<T>): Promise<T | null> {
+  try {
+    return await write();
+  } catch (error) {
+    if (uniqueConstraint(error) === "recommenders_name_unique") return null;
+    throw error;
+  }
+}
+
 type Saved =
   | { ok: true; recommender: typeof recommenders.$inferSelect }
   | { ok: false; error: string };
@@ -170,10 +184,14 @@ export async function createRecommender(
   const data = parsed.data;
   const clash = await nameClash(data.name);
   if (clash) return { ok: false, error: `"${clash}" already exists` };
-  const [row] = await db
-    .insert(recommenders)
-    .values({ name: data.name, url: data.url ?? null })
-    .returning();
+  const rows = await unlessTaken(() =>
+    db
+      .insert(recommenders)
+      .values({ name: data.name, url: data.url ?? null })
+      .returning(),
+  );
+  if (!rows) return { ok: false, error: `"${data.name}" already exists` };
+  const [row] = rows;
   changed();
   return { ok: true, recommender: row };
 }
@@ -188,11 +206,15 @@ export async function updateRecommender(
   const data = parsed.data;
   const clash = await nameClash(data.name, id);
   if (clash) return { ok: false, error: `"${clash}" already exists` };
-  const [row] = await db
-    .update(recommenders)
-    .set({ name: data.name, url: data.url ?? null, updatedAt: new Date() })
-    .where(eq(recommenders.id, id))
-    .returning();
+  const rows = await unlessTaken(() =>
+    db
+      .update(recommenders)
+      .set({ name: data.name, url: data.url ?? null, updatedAt: new Date() })
+      .where(eq(recommenders.id, id))
+      .returning(),
+  );
+  if (!rows) return { ok: false, error: `"${data.name}" already exists` };
+  const [row] = rows;
   if (!row) return { ok: false, error: "This recommender no longer exists" };
   changed();
   return { ok: true, recommender: row };

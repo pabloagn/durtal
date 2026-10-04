@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { FavouritesFilter } from "@/components/shared/favourites-filter";
 import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
+import { collectionCounts } from "@/lib/collections/counts";
 import {
   parsePagination,
   lastPage,
@@ -68,7 +69,7 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
             key={collection.id}
             collection={{
               ...collection,
-              editionCount: collection.collectionEditions?.length ?? 0,
+              ...collectionCounts(collection),
             }}
             covers={previews
               .filter((p) => p.collectionId === collection.id)

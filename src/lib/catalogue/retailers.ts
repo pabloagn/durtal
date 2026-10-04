@@ -3,6 +3,15 @@ import { sourceUrlSchema } from "./provenance";
 import { PERFUME_CONTAINERS } from "./perfumes";
 
 export const RETAILER_AVAILABILITY = ["unknown", "in_stock", "out_of_stock", "preorder", "discontinued", "unlisted"] as const;
+/** What a retailer observation says about stock, on the day it was checked */
+export const AVAILABILITY_LABELS: Record<(typeof RETAILER_AVAILABILITY)[number], string> = {
+  unknown: "Availability unknown",
+  in_stock: "In stock",
+  out_of_stock: "Out of stock",
+  preorder: "Pre-order",
+  discontinued: "Discontinued",
+  unlisted: "No longer listed",
+};
 export const retailerLinkSchema = z.strictObject({
   workId: z.uuid(), variantId: z.uuid().nullable().optional(),
   organizationId: z.uuid(), venueId: z.uuid().nullable().optional(),

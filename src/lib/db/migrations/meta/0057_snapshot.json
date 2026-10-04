@@ -1,5 +1,5 @@
 {
-  "id": "64f35f42-ff90-49fc-8552-1ee092f79517",
+  "id": "a1f8612e-9835-4204-be5e-82ddfc224848",
   "prevId": "1847066e-e10f-40f7-ba57-f98ca7e8422b",
   "version": "7",
   "dialect": "postgresql",
@@ -861,13 +861,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "is_favourite": {
-          "name": "is_favourite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1732,13 +1725,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "is_favourite": {
-          "name": "is_favourite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -6557,13 +6543,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "is_favourite": {
-          "name": "is_favourite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6638,13 +6617,6 @@
         },
         "is_complete": {
           "name": "is_complete",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "is_favourite": {
-          "name": "is_favourite",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -9043,6 +9015,14 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug"
+          ]
+        },
+        "works_id_kind_unique": {
+          "name": "works_id_kind_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "kind"
           ]
         }
       },

@@ -20,6 +20,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { href: "/reader", label: "Reader" },
   { href: "/authors", label: "Authors" },
   { href: "/publishers", label: "Publishers" },
+  { href: "/organizations", label: "Organizations" },
   { href: "/recommenders", label: "Recommenders" },
   { href: "/series", label: "Series" },
   { href: "/places", label: "Places" },

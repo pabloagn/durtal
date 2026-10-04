@@ -169,7 +169,7 @@ Change a work's title or catalogue status (as the Edit dialog does, with the act
 | `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
 | `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
 
-**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug.
+**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug. An unknown recommender id returns `404` (`"Recommender not found"`), and nothing in the request is written.
 
 ### `POST /api/works/refresh-slugs`
 
@@ -372,20 +372,20 @@ Fetch a single author with works and edition contributions.
 
 ### `POST /api/export`
 
-Download books or authors as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
+Download books, authors, perfumes, films or paintings as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
 
 **Body**:
 
 | Field | Type | Description |
 |---|---|---|
-| `entity` | `"works"` \| `"authors"` | Books, or authors of books |
+| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` | Books, authors of books, or the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes) |
 | `ids` | string[] | 1–500 ids to export. Not needed with `all` |
-| `all` | boolean | `true`: every book, or every author of a book, instead of `ids` |
+| `all` | boolean | `true`: every record of the entity instead of `ids` |
 | `format` | `"csv"` \| `"tsv"` \| `"parquet"` | File format |
 
-**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…` or `durtal-authors-all-…` with `all`, a slug of the name for a single record).
+**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
-**Response** `400`: a bad entity, format or id list. `404`: no record matched. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format or id list. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
 
 ---
 
@@ -393,7 +393,7 @@ Download books or authors as a file. Used by the export menus of the book and au
 
 ### `DELETE /api/media/[id]`
 
-Delete a media record, then its S3 objects (full image, thumbnail, uncropped image and color original). An object that another record still references is kept.
+Delete a media record (`id` a UUID, else `400`), then its S3 objects (full image, thumbnail, uncropped image and color original). An object that another record still references is kept.
 
 **Response** `200`:
 ```json
@@ -417,7 +417,7 @@ Two-phase media upload endpoint.
 
 #### Phase 1: Pre-sign
 
-Get a pre-signed S3 URL for the client to upload the raw file to bronze storage.
+Get a pre-signed S3 URL for the client to upload the raw file to bronze storage. `entityId` must be a UUID of an existing owner (`400` for a malformed id, `404` for a missing owner) and `contentType` a JPEG, PNG, WebP or GIF; the key's extension comes from `contentType`, not from `filename`.
 
 **Request body**:
 ```json
@@ -441,7 +441,7 @@ Get a pre-signed S3 URL for the client to upload the raw file to bronze storage.
 
 #### Phase 2: Process
 
-After the client uploads the raw file to S3, trigger server-side processing (resize, convert to WebP, create thumbnail, store in gold).
+After the client uploads the raw file to S3, trigger server-side processing (resize, convert to WebP, create thumbnail, store in gold). `bronzeKey` must be the key phase 1 returned for this `entityType`, `entityId` and `fileId` (all UUIDs); any other key is refused with `400`, and nothing is read or written.
 
 **Request body**:
 ```json
@@ -572,10 +572,10 @@ Comments attach to a work or an author. Adding a comment also records an activit
 
 ### `GET /api/comments`
 
-**Query parameters**: `entityType` (`work` or `author`) and `entityId`. Both are required.
+**Query parameters**: `entityType` (`work` or `author`) and `entityId` (a UUID). Both are required.
 
 **Response** `200`: Array of comments with their `attachments`, newest first.
-**Error** `400`: Missing parameter.
+**Error** `400`: Missing or invalid parameter.
 
 ### `POST /api/comments`
 
@@ -593,7 +593,7 @@ Comments attach to a work or an author. Adding a comment also records an activit
 
 **Request body**: `{ "contentHtml": "...", "contentJson": {} }`.
 
-**Response** `200`: The updated comment. **Error** `400`: Invalid body. **Error** `404`: Comment not found.
+**Response** `200`: The updated comment. **Error** `400`: Invalid comment id or body. **Error** `404`: Comment not found.
 
 ### `DELETE /api/comments/[commentId]`
 
@@ -603,10 +603,10 @@ Deletes the comment and its activity event in one transaction. The attachments g
 
 ### `POST /api/comments/[commentId]/attachments`
 
-Multipart upload with one `file` field. Maximum 25 MB per file and 10 attachments per comment.
+Multipart upload with one `file` field. Maximum 25 MB per file and 10 attachments per comment. Accepted: images (jpg, png, gif, webp, avif, svg), documents (pdf, doc, docx, xls, xlsx, odt, ods, rtf, epub), text and code (txt, md, csv, json and plain-text source files) and archives (zip, gz, tar); programs and scripts are refused (`src/lib/s3/attachment-types.ts`). The stored and served type comes from the extension, not from the browser.
 
 **Response** `201`: The attachment record (`fileName`, `fileSize`, `mimeType`, `s3Key`, `isImage`).
-**Error** `400`: No file, file too large, or 10 attachments already. **Error** `404`: Comment not found.
+**Error** `400`: Invalid comment id, no file, a file type not on the list, file too large, or 10 attachments already. **Error** `404`: Comment not found.
 
 ### `DELETE /api/comments/[commentId]/attachments/[attachmentId]`
 
@@ -732,39 +732,19 @@ Rate limit: 10 requests per 10 seconds. Returns at most 8 results.
 
 ## S3
 
-### `POST /api/s3/presign`
-
-Generate pre-signed URLs for direct S3 operations.
-
-**Request body**:
-```json
-{
-  "key": "gold/covers/uuid/cover.webp",
-  "contentType": "image/webp",
-  "action": "upload"
-}
-```
-
-`action` is either `"upload"` (PUT URL) or `"read"` (GET URL). Expiry: 1 hour.
-
-**Response** `200`:
-```json
-{
-  "url": "https://s3.amazonaws.com/durtal/gold/covers/..."
-}
-```
-
 ### `GET /api/s3/read`
 
-Redirect to a pre-signed read URL for an S3 object.
+Streams a stored image, edition cover or comment attachment from the app's own origin. Only keys under `gold/media/`, `gold/covers/` and `gold/comments/` are served; raw uploads and any other key are refused. Raster images show inline; every other type downloads, with `Content-Security-Policy: sandbox` and `nosniff`.
 
 **Query parameters**:
 
 | Param | Type | Required | Description |
 |---|---|---|---|
 | `key` | string | yes | S3 object key |
+| `w` | number | no | Resize to this width (allowed widths only) |
+| `v` | string | no | Version: marks the response immutable |
 
-**Response**: `302` redirect to pre-signed URL (1-hour expiry).
+**Response**: `200` the bytes. **Error** `400`: missing key, a key outside those folders, or an unsupported width. `404`: no such object.
 
 ---
 

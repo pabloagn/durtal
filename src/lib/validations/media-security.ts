@@ -1,12 +1,13 @@
 import { isBlockedAddress, isIpLiteral } from "@/lib/net/ip-policy";
 
-/** Allowed image MIME types for media uploads */
-export const ALLOWED_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
+/** Allowed image MIME types for media uploads, with the extension a raw upload is stored under */
+export const IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+export const ALLOWED_IMAGE_TYPES = new Set(Object.keys(IMAGE_EXTENSIONS));
 
 /** Maximum file size in bytes (50 MB) */
 export const MAX_MEDIA_SIZE_BYTES = 50 * 1024 * 1024;

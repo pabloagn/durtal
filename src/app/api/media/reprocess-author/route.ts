@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
 import { applyMonochromeProcessing } from "@/lib/s3/media";
 import { monochromeParamsSchema } from "@/lib/validations/media";
+import { isUuid } from "@/lib/utils/uuid";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
   buildDisplayFiles,
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
 
     if (!mediaId) {
       return NextResponse.json({ error: "Missing mediaId" }, { status: 400 });
+    }
+    if (!isUuid(mediaId)) {
+      return NextResponse.json({ error: "Invalid mediaId" }, { status: 400 });
     }
 
     const parsed = monochromeParamsSchema.safeParse(rawParams);

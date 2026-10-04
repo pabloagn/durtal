@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { isbnClash, isbnTaken } from "@/lib/catalogue/isbn-clash";
 import { atomic } from "@/lib/db/atomic";
 import {
   activityEvents,
@@ -78,14 +79,8 @@ export async function createBookFromWizard(
   const collectionIds = [...new Set(book.collectionIds)];
 
   // ── Checks: reads only ──────────────────────────────────────────────────
-  if (book.edition.isbn13) {
-    const clash = await isIsbnInUse(book.edition.isbn13);
-    if (clash.inUse)
-      return {
-        ok: false,
-        error: `An edition with ISBN ${book.edition.isbn13} already exists${clash.title ? ` ("${clash.title}")` : ""}`,
-      };
-  }
+  const clash = await isbnClash(book.edition);
+  if (clash) return { ok: false, error: clash };
   const locationIds = [...new Set(book.copies.map((copy) => copy.locationId))];
   if (locationIds.length) {
     const found = await db
@@ -201,6 +196,9 @@ export async function createBookFromWizard(
     };
   } catch (err) {
     await edition?.discardCover();
+    // Another save took this ISBN after the check
+    const taken = isbnTaken(err, book.edition);
+    if (taken) return { ok: false, error: taken };
     console.error("createBookFromWizard: the write failed, nothing was saved", err);
     return { ok: false, error: "Could not add the book. Nothing was saved." };
   }
