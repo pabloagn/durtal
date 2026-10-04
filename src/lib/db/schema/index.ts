@@ -61,6 +61,8 @@ export {
   collectionsRelations,
   collectionEditions,
   collectionEditionsRelations,
+  collectionWorks,
+  collectionWorksRelations,
 } from "./collections";
 export { imports } from "./imports";
 export { media, mediaRelations } from "./media";

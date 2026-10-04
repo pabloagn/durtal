@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { collectionCountLabel } from "@/lib/collections/counts";
 import { FolderOpen } from "lucide-react";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
@@ -26,6 +27,8 @@ export interface CollectionCardData {
   description?: string | null;
   editionCount: number;
   isFavourite?: boolean;
+  /** Whole works shown (films, perfumes, paintings, books with no edition chosen) */
+  workCount?: number;
   media?: ArtworkRow[];
 }
 
@@ -60,7 +63,7 @@ export function CollectionCard({
   footer?: React.ReactNode;
 }) {
   const poster = collectionPoster(collection.media);
-  const count = collection.editionCount;
+  const count = collectionCountLabel(collection);
   return (
     <div className="group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
@@ -139,7 +142,7 @@ export function CollectionCard({
         <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
           {footer && <span className="min-w-0 truncate">{footer}</span>}
           <span className="ml-auto shrink-0">
-            {count} {count === 1 ? "edition" : "editions"}
+            {count}
           </span>
         </div>
       </div>
