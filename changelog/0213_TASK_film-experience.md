@@ -130,6 +130,16 @@ then lists every open kind.
   no-results action was a button inside a link (`no-results.tsx`, shared).
   After the fixes: no deviation over 0.5px, no text under 4.5:1, no unnamed
   or nested control, no horizontal overflow.
+- Review fixes (independent pre-merge review, 2026-10-04): the edit form
+  deleted the terms of every family but film genres (it now carries them as
+  `otherItemIds`; `classificationInput`, `otherClassificationIds` in
+  `film-labels.ts`), a film titled "New" took the slug `new` that `/films/new`
+  owns (now `new-2`), and `/films?page=30000` failed the offset cap (the home
+  now counts and redirects before it reads). The record column names each
+  family when a film has more than genres. Regression tests in
+  `film-services.test.ts` and `film-home.test.ts`; full suite 1505 of 1505;
+  checked in the browser (Edit film saved twice kept the Mood term; the page
+  redirect; "New" became `new-2`) with no audit finding at 1440 and 390px.
 - Not checked: the perfume pages in the browser after the shared move (the
   perfume integration and render tests pass); poster and still images (the
   preview has no image storage); Escape returning focus (the headless key
