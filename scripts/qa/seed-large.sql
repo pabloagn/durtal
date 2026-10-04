@@ -16,6 +16,23 @@
 -- Every name starts with "Seed". psql variable :n is the count per kind.
 
 \set ON_ERROR_STOP on
+-- Never on any database but the disposable preview's
+do $$ begin
+  if current_database() <> 'durtal_preview' then
+    raise exception 'seed-large.sql runs on the disposable preview database only (durtal_preview), not %', current_database();
+  end if;
+end $$;
+-- A fresh database has no reference rows: add a few, so every film and
+-- painting gets its countries, languages and movement
+insert into countries(name, alpha_2, alpha_3)
+  select * from (values ('France', 'FR', 'FRA'), ('Japan', 'JP', 'JPN'), ('Italy', 'IT', 'ITA'), ('Mexico', 'MX', 'MEX'), ('United States', 'US', 'USA')) v(name, a2, a3)
+  where not exists (select 1 from countries);
+insert into languages(name, iso_639_1)
+  select * from (values ('French', 'fr'), ('Japanese', 'ja'), ('Italian', 'it'), ('Spanish', 'es'), ('English', 'en')) v(name, code)
+  where not exists (select 1 from languages);
+insert into art_movements(name, slug)
+  select * from (values ('Baroque', 'baroque'), ('Romanticism', 'romanticism'), ('Impressionism', 'impressionism'), ('Symbolism', 'symbolism')) v(name, slug)
+  where not exists (select 1 from art_movements);
 select greatest(count(*), 1) as countries from countries \gset
 select greatest(count(*), 1) as languages from languages \gset
 select greatest(count(*), 1) as movements from art_movements \gset
@@ -166,6 +183,13 @@ insert into art_object_whereabouts(object_id, place_kind, venue_id, custody, dis
 analyze;
 commit;
 
+do $$ begin
+  if not exists (select 1 from film_countries c join works w on w.id = c.work_id where w.title like 'Seed %')
+     or not exists (select 1 from film_languages l join works w on w.id = l.work_id where w.title like 'Seed %')
+     or not exists (select 1 from work_art_movements m join works w on w.id = m.work_id where w.title like 'Seed %') then
+    raise exception 'The seed linked no country, language or movement';
+  end if;
+end $$;
 select 'seeded ' || (select count(*) from works where title like 'Seed %') || ' works, '
   || (select count(*) from work_credits c join works w on w.id = c.work_id where w.title like 'Seed %') || ' credits, '
   || (select count(*) from art_object_whereabouts) || ' location records';

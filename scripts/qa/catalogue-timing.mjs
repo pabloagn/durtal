@@ -11,7 +11,10 @@
  *     [--explain durtal-preview-xxxx] [--json out.json] [route...]
  *
  * Each route is requested once with a throwaway query first, so a fresh next
- * dev compiles it before the timed requests. Read only: it sends GETs.
+ * dev compiles it before the timed requests. It sends GETs only, and refuses
+ * any host but this computer and port 3100 (the live app). --explain replays
+ * only reads (select, with), each inside a transaction that is rolled back,
+ * and only in a container named durtal-preview-*.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -33,6 +36,20 @@ const ROUTES = [
   "/authors/seed-person-1",
 ];
 const routes = args.length ? args : ROUTES;
+const target = URL.parse(base);
+const refusal = !target
+  ? `${base} is not a URL`
+  : !["127.0.0.1", "localhost", "[::1]"].includes(target.hostname)
+    ? `${target.hostname} is not this computer`
+    : target.port === "3100"
+      ? "port 3100 is the live app"
+      : container && !/^durtal-preview-[0-9a-f]+$/.test(container)
+        ? `${container} is not a preview container (durtal-preview-*)`
+        : null;
+if (refusal) {
+  console.error(`Refused: ${refusal}`);
+  process.exit(2);
+}
 if (!sqlLog || !existsSync(sqlLog)) {
   console.error("Pass --sql-log FILE: the file a preview started with --log-sql writes");
   process.exit(2);
@@ -86,7 +103,9 @@ for (const { path, first } of results) {
 
 if (container) {
   const distinct = new Map();
-  for (const { first } of results) for (const q of first.all) {
+  // Reads only: a logged write is never run again
+  const isRead = (sql) => /^\s*(select|with)\b/i.test(sql);
+  for (const { first } of results) for (const q of first.all.filter((q) => isRead(q.sql))) {
     const known = distinct.get(q.sql);
     if (!known || q.ms > known.ms) distinct.set(q.sql, q);
   }
@@ -94,7 +113,8 @@ if (container) {
   console.log("\nQuery plans of the slowest distinct queries:");
   for (const [n, q] of slowest.entries()) {
     const literal = (v) => (v === null ? "null" : `'${String(v).replace(/'/g, "''")}'`);
-    const sql = `prepare timing_q as ${q.sql};\nexplain (analyze, buffers, costs off) execute timing_q${q.params?.length ? `(${q.params.map(literal).join(", ")})` : ""};\ndeallocate timing_q;`;
+    // In a transaction that is rolled back: even a write hidden in a with clause leaves nothing
+    const sql = `begin;\nprepare timing_q as ${q.sql};\nexplain (analyze, buffers, costs off) execute timing_q${q.params?.length ? `(${q.params.map(literal).join(", ")})` : ""};\nrollback;\ndeallocate timing_q;`;
     let plan;
     try {
       plan = execFileSync("docker", ["exec", "-i", container, "psql", "-X", "-A", "-t", "-U", "durtal_preview", "-d", "durtal_preview"], { input: sql, encoding: "utf8" });

@@ -19,7 +19,9 @@ backup must come from pg_dump 16, which the container's pg_restore can read:
 With --seed-large N, scripts/qa/seed-large.sql adds N perfumes, films and
 paintings with many credits, formulations and location records, for timing
 checks. With --log-sql FILE, the bridge appends each query the app sends, with
-its time in ms and its row count, to FILE as one JSON line.
+its time in ms, its row count and its parameters, to FILE as one JSON line.
+After --from-dump the log holds real catalogue data: keep it out of the
+repository (.gitignore ignores *.jsonl).
 
     python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--seed-large N] [--log-sql FILE]
 """
@@ -84,7 +86,8 @@ globalThis.fetch = async (input, options) => {
       for (const query of body.queries || [body]) {
         const started = performance.now();
         const rows = await tx.unsafe(query.query, query.params).values();
-        if (sqlLog) appendFileSync(sqlLog, JSON.stringify({ at: Date.now(), ms: +(performance.now() - started).toFixed(2), rows: rows.count, sql: query.query, params: query.params }) + "\n");
+        // The log never breaks a query: a write that fails is skipped
+        if (sqlLog) try { appendFileSync(sqlLog, JSON.stringify({ at: Date.now(), ms: +(performance.now() - started).toFixed(2), rows: rows.count, sql: query.query, params: query.params }) + "\n"); } catch {}
         output.push({
           command: rows.command, rowCount: rows.count,
           fields: (rows.columns ?? []).map((c) => ({ name: c.name, dataTypeID: c.type })),
@@ -255,6 +258,7 @@ def main():
             seed = (Path(__file__).parent / "seed-large.sql").read_text()
             print(psql(f"\\set n {args.seed_large}\n{seed}"), flush=True)
         if args.log_sql:
+            args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
         bridge = workdir / "neon-bridge.mjs"
         bridge.write_text(BRIDGE % {

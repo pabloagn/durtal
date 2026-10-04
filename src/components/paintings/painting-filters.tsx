@@ -97,15 +97,16 @@ export function PaintingFilters() {
     rows.map((row) => ({ value: row.id, label: row.name }));
   const terms = (rows: { id: string; name: string; parentName: string | null }[]) =>
     rows.map((row) => ({ value: row.id, label: itemLabel(row) }));
-  const groups: AnyFilterGroup[] = !options ? [] : [
-    { key: "painter", label: "Painter", options: named(options.painters) },
-    { key: "movement", label: "Movement", options: named(options.movements) },
-    { key: "genre", label: "Genre", options: terms(options.genres) },
-    { key: "technique", label: "Technique", options: terms(options.techniques) },
-    { key: "medium", label: "Medium", options: terms(options.media) },
-    { key: "support", label: "Support", options: terms(options.supports) },
-    { key: "institution", label: "Owned by", options: named(options.institutions) },
-    { key: "venue", label: "Now at", options: named(options.venues) },
+  // The fixed groups show at once; the record lists join when they load
+  const groups: AnyFilterGroup[] = [
+    { key: "painter", label: "Painter", options: named(options?.painters ?? []) },
+    { key: "movement", label: "Movement", options: named(options?.movements ?? []) },
+    { key: "genre", label: "Genre", options: terms(options?.genres ?? []) },
+    { key: "technique", label: "Technique", options: terms(options?.techniques ?? []) },
+    { key: "medium", label: "Medium", options: terms(options?.media ?? []) },
+    { key: "support", label: "Support", options: terms(options?.supports ?? []) },
+    { key: "institution", label: "Owned by", options: named(options?.institutions ?? []) },
+    { key: "venue", label: "Now at", options: named(options?.venues ?? []) },
     {
       key: "holding",
       label: "Collection",

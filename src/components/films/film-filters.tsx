@@ -97,31 +97,32 @@ export function FilmFilters() {
   const years = options?.releaseYears ?? null;
   const from = Number(searchParams.get("from")) || undefined;
   const to = Number(searchParams.get("to")) || undefined;
-  const groups: AnyFilterGroup[] = !options ? [] : [
+  // The fixed groups show at once; the record lists join when they load
+  const groups: AnyFilterGroup[] = [
     {
       key: "director",
       label: "Director",
-      options: options.directors.map((p) => ({ value: p.id, label: p.name })),
+      options: (options?.directors ?? []).map((p) => ({ value: p.id, label: p.name })),
     },
     {
       key: "cast",
       label: "Cast",
-      options: options.cast.map((p) => ({ value: p.id, label: p.name })),
+      options: (options?.cast ?? []).map((p) => ({ value: p.id, label: p.name })),
     },
     {
       key: "genre",
       label: "Genre",
-      options: options.genres.map((g) => ({ value: g.id, label: itemLabel(g) })),
+      options: (options?.genres ?? []).map((g) => ({ value: g.id, label: itemLabel(g) })),
     },
     {
       key: "language",
       label: "Language",
-      options: options.languages.map((l) => ({ value: l.id, label: l.name })),
+      options: (options?.languages ?? []).map((l) => ({ value: l.id, label: l.name })),
     },
     {
       key: "country",
       label: "Country",
-      options: options.countries.map((c) => ({ value: c.id, label: c.name })),
+      options: (options?.countries ?? []).map((c) => ({ value: c.id, label: c.name })),
     },
     {
       key: "holding",

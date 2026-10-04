@@ -83,36 +83,37 @@ export function PerfumeFilters() {
   const years = options?.releaseYears ?? null;
   const from = Number(searchParams.get("from")) || undefined;
   const to = Number(searchParams.get("to")) || undefined;
-  const groups: AnyFilterGroup[] = !options ? [] : [
+  // The fixed groups show at once; the record lists join when they load
+  const groups: AnyFilterGroup[] = [
     {
       key: "house",
       label: "House",
-      options: options.houses.map((h) => ({ value: h.id, label: h.name })),
+      options: (options?.houses ?? []).map((h) => ({ value: h.id, label: h.name })),
     },
     {
       key: "perfumer",
       label: "Perfumer",
-      options: options.perfumers.map((p) => ({ value: p.id, label: p.name })),
+      options: (options?.perfumers ?? []).map((p) => ({ value: p.id, label: p.name })),
     },
     {
       key: "family",
       label: "Family",
-      options: options.families.map((f) => ({ value: f.id, label: itemLabel(f) })),
+      options: (options?.families ?? []).map((f) => ({ value: f.id, label: itemLabel(f) })),
     },
     {
       key: "accord",
       label: "Accord",
-      options: options.accords.map((a) => ({ value: a.id, label: itemLabel(a) })),
+      options: (options?.accords ?? []).map((a) => ({ value: a.id, label: itemLabel(a) })),
     },
     {
       key: "note",
       label: "Note",
-      options: options.notes.map((n) => ({ value: n.id, label: itemLabel(n) })),
+      options: (options?.notes ?? []).map((n) => ({ value: n.id, label: itemLabel(n) })),
     },
     {
       key: "concentration",
       label: "Concentration",
-      options: options.concentrations.map((c) => ({
+      options: (options?.concentrations ?? []).map((c) => ({
         value: c,
         label: CONCENTRATION_LABELS[c].label,
       })),

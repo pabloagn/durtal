@@ -40,8 +40,18 @@ Disposable restores of the newest live backup (673 books, 2,166 authors), `next 
 - At 50 per kind the homes were already small (`/films` 279 KB, `/perfumes` 260 KB); the HTML grew with the catalogue only through the filter lists.
 - Book pages do not slow down with 20,000 people credited on films, perfumes and paintings: `/library` and `/authors` take the same time as at 50 per kind. (A first seed left every seeded person a book author, as the insert trigger does until the app replaces the domain; `/authors` then took 600 ms. The seed now records each person's real domains, as `createPerson` does.)
 - Cache and paging: creating, editing and deleting a perfume, film or painting shows at once in its list, search, favourites and export (`scripts/qa/journeys.mjs`, task 0282). Lists page by number: the count comes first, and a page past the end goes to the last one (task 0266), so an insert moves later rows by one place and none is lost.
-- `pnpm typecheck`, `pnpm lint` (0 errors), `python3 scripts/qa/test-local.py` (1,611 tests in 130 files, 0 skipped): pass.
+- `pnpm typecheck`, `pnpm lint` (0 errors), `python3 scripts/qa/test-local.py` (1,617 tests in 131 files, 0 skipped): pass.
 - `node scripts/qa/page-weight.js` on the restore without a seed: 9 of 10 routes within budget; `/library` 313 of 300 KB, as on main.
+
+### Review fixes
+
+- `seed-large.sql` refuses any database but `durtal_preview`, adds a few countries, languages and movements when a fresh database has none, and fails loudly if it links none. On a fresh preview (`preview-local.py --seed-large 5`, no backup) it seeds 15 works with their countries, languages and movements.
+- `catalogue-timing.mjs` refuses port 3100 and other hosts, and `--explain` only in a `durtal-preview-*` container. It replays only reads (`select`, `with`), each inside a transaction that is rolled back.
+- `--log-sql` creates the log's folder, and a failed log write never breaks the query. `.gitignore` ignores `*.jsonl`: after `--from-dump` the log holds catalogue data.
+- The fixed filter groups (such as copies and favourites) show at once; the record lists join them when they load, and stay away if the load fails.
+- `src/__tests__/ui/filter-dropdown.test.ts`: one load however often it is started, a new start after a failure, 200 of 250 options with the count line, chosen options kept past the limit, no line when all fit, the load starting on pointer and click, the loading and failure rows.
+- `scripts/qa/page-weight.json`: budgets for `/perfumes`, `/films` and `/paintings` (300 KB, 1,000 ms). On a restore with 300 per kind: 216, 197 and 160 KB.
+- `alignment-audit.js` and `design-audit.js` with the panel open on the seven pages that use it (`/perfumes`, `/films`, `/paintings`, `/library`, `/authors`, `/places`, `/publishers`) at 1440, 768 and 390 px, and on the three collection homes with the panel loading (slow network) and failed (offline): 0 deviations, 0 low-contrast rows; the count line, "Loading filters…" and the failure row all measured. The design audit counts two unnamed controls on `/authors`: two author card links whose card has no text, the same on main's code, not in the panel.
 
 ### Not changed
 
