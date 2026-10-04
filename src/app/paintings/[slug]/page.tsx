@@ -1,4 +1,6 @@
 import { cache } from "react";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -19,6 +21,8 @@ import {
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
+import { LinkedWorksSection } from "@/components/catalogue/work-relations";
+import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import type { StorageLocation } from "@/components/catalogue/holding-fields";
 import { PaintingImage } from "@/components/paintings/painting-image";
@@ -84,17 +88,15 @@ function periodText(record: History["records"][number]) {
   return `${from} – ${to}`;
 }
 
-/** Days since a moment, never negative */
-function ageInDays(at: Date) {
-  return Math.max(0, Math.floor((Date.now() - at.getTime()) / 86400000));
-}
-
 /** The object's views for the section: its lines, history and edit form */
 function objectView(
   object: ArtObject,
   history: History | null,
   objects: ArtObject[],
+  /** The painting's sources by id: what a location record cites */
+  sourceLabels: Map<string, string>,
 ): ObjectView {
+  const sourceOf = (id: string | null) => (id ? (sourceLabels.get(id) ?? null) : null);
   const dims = dimensionsText(object);
   const made = catalogueDateYears(object.creationDate?.value ?? null);
   const hands = object.attributionOverride
@@ -118,7 +120,8 @@ function objectView(
     period: periodText(r),
     certainty: r.certainty as WhereaboutsCertainty,
     occasion: r.occasionLabel,
-    checked: r.verifiedAt ? checkedText(ageInDays(r.verifiedAt)) : null,
+    checked: r.verifiedAt ? checkedText(r) : null,
+    source: sourceOf(r.sourceRecordId),
     notes: r.notes,
     current: history?.current?.id === r.id,
     conflict: conflicts.has(r.id),
@@ -186,8 +189,9 @@ function objectView(
           place: placeText(current),
           custody: custodyText(current) || null,
           since: current.since ? `since ${catalogueDateText(current.since)}` : null,
-          checked: checkedText(current.ageDays),
+          checked: history?.current ? checkedText(history.current) : checkedText({ verifiedAt: null, recordedAt: current.checkedAt }),
           stale: current.isStale,
+          source: sourceOf(history?.current?.sourceRecordId ?? null),
         }
       : null,
     history: historyViews,
@@ -281,7 +285,7 @@ export default async function PaintingPage({
   const painting = await loadPainting(slug);
   if (!painting) notFound();
   const owner = { kind: "painting" as const, id: painting.id };
-  const [media, curation, provenance, families, allLocations, choices, histories] =
+  const [media, curation, provenance, families, allLocations, choices, histories, links] =
     await Promise.all([
       getMediaForWork(painting.id),
       getWorkCuration(owner),
@@ -290,6 +294,7 @@ export default async function PaintingPage({
       getLocations(),
       getPaintingChoices(),
       Promise.all(painting.objects.map((o) => getWhereabouts(o.id))),
+      getWorkRelations(painting.id),
     ]);
 
   // ── The picture ───────────────────────────────────────────────────────────
@@ -321,7 +326,10 @@ export default async function PaintingPage({
     .join(" · ");
 
   // ── Objects ───────────────────────────────────────────────────────────────
-  const objects = painting.objects.map((o, i) => objectView(o, histories[i], painting.objects));
+  const sourceLabels = new Map(sourceChoices(provenance).map((s) => [s.id, s.label]));
+  const objects = painting.objects.map((o, i) =>
+    objectView(o, histories[i], painting.objects, sourceLabels),
+  );
   const primaryView = primary ? objects.find((o) => o.id === primary.id)! : null;
   const owned = painting.objects.filter((o) => o.ownership === "personal");
   const held = owned.filter((o) => o.holdingStatus !== "disposed");
@@ -335,9 +343,13 @@ export default async function PaintingPage({
 
   // ── Sources ───────────────────────────────────────────────────────────────
   const cited = new Set(
-    [painting.sourceRecordId, ...painting.objects.map((o) => o.sourceRecordId)].filter(
-      (id): id is string => !!id,
-    ),
+    [
+      painting.sourceRecordId,
+      ...painting.objects.map((o) => o.sourceRecordId),
+      ...histories.flatMap((h) => h?.records.map((r) => r.sourceRecordId) ?? []),
+      // A link starting here cites a source of this painting
+      ...links.filter((l) => l.direction === "outgoing").map((l) => l.source?.id),
+    ].filter((id): id is string => !!id),
   );
   const sources = sourceViews(provenance, cited);
   const citable = sourceChoices(provenance);
@@ -493,6 +505,7 @@ export default async function PaintingPage({
                         <span className={`block text-xs ${now.stale ? "text-accent-gold" : "text-fg-secondary"}`}>
                           {[now.since, now.checked].filter(Boolean).join(" · ")}
                           {now.stale && ", check again"}
+                          {now.source && ` · Source: ${now.source}`}
                         </span>
                       </>
                     ) : (
@@ -573,6 +586,11 @@ export default async function PaintingPage({
             sources={citable}
           />
 
+          <LinkedWorksSection
+            work={{ id: painting.id, kind: "painting", title: painting.title }}
+            relations={links}
+          />
+
           <SourcesSection
             owner={owner}
             title={painting.title}
@@ -590,6 +608,8 @@ export default async function PaintingPage({
         </DetailColumns>
 
         <GallerySection entityType="work" entityId={painting.id} />
+
+        <ActivityTimeline entityType="work" entityId={painting.id} refreshKey={renderStamp()} />
       </div>
     </CurationProvider>
   );

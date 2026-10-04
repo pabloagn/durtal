@@ -5,6 +5,7 @@ import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Suspense } from "react";
 import { MapPin } from "lucide-react";
 import { getVenues, getVenueCount } from "@/lib/actions/venues";
+import { getVenueCountries } from "@/lib/actions/venue-pages";
 import { VENUE_TYPES, type VenueType } from "@/lib/catalogue/venues";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,6 +26,8 @@ interface PageProps {
     perPage?: string;
     type?: string;
     favourites?: string;
+    country?: string;
+    archived?: string;
   }>;
 }
 
@@ -39,6 +42,8 @@ async function PlacesContent({
     perPage?: string;
     type?: string;
     favourites?: string;
+    country?: string;
+    archived?: string;
   };
 }) {
   const search = searchParams.q?.slice(0, 200);
@@ -48,12 +53,18 @@ async function PlacesContent({
     ?.split(",")
     .filter((value): value is VenueType => VENUE_TYPES.includes(value as VenueType));
   const favoriteFilter = favouritesOnly(searchParams.favourites) ? true : undefined;
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const countryFilter = searchParams.country?.split(",").filter((id) => UUID.test(id)).slice(0, 50);
+  const archivedFilter: "include" | "only" | undefined =
+    searchParams.archived === "include" || searchParams.archived === "only" ? searchParams.archived : undefined;
 
   const { page, perPage: limit, offset } = parsePagination(searchParams);
 
   const filters = {
     types: typeFilter?.length ? typeFilter : undefined,
     favorite: favoriteFilter,
+    countryIds: countryFilter?.length ? countryFilter : undefined,
+    archived: archivedFilter,
   };
 
   const [rawVenues, total] = await Promise.all([
@@ -96,6 +107,7 @@ async function PlacesContent({
       : null,
     color: v.color,
     createdAt: new Date(v.createdAt).toLocaleDateString(),
+    archived: v.archivedAt !== null,
   }));
 
 
@@ -107,17 +119,17 @@ async function PlacesContent({
 }
 
 export default async function PlacesPage({ searchParams }: PageProps) {
-  const params = await searchParams;
+  const [params, countries] = await Promise.all([searchParams, getVenueCountries()]);
 
   return (
     <>
       <PageHeader
         title="Places"
-        description="Bookshops, cafes, libraries, and other venues"
+        description="Bookshops, museums, galleries, perfumeries, cinemas and other venues"
         actions={<VenueCreateDialog />}
       />
 
-      <PlacesFiltersBar />
+      <PlacesFiltersBar countries={countries} />
 
       <Suspense
         key={JSON.stringify(params)}

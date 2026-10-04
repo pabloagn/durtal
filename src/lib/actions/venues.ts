@@ -11,7 +11,7 @@ import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { createVenueSchema, updateVenueSchema, venueSearchSchema, type CreateVenueInput } from "@/lib/validations/venues";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
-import { deleteUnusedObjects, keysOf } from "@/lib/s3/cleanup";
+import { deleteUnusedObjects, keysOf, venueObjects } from "@/lib/s3/cleanup";
 import { textSearchCondition } from "./utils/text-search";
 export type { VenueType } from "@/lib/catalogue/venues";
 export type { CreateVenueInput } from "@/lib/validations/venues";
@@ -24,6 +24,15 @@ function venueWhere({ search, filters }: z.output<typeof venueSearchSchema>) {
     filters?.types?.length ? inArray(venues.type, filters.types) : undefined,
     filters?.favorite !== undefined ? eq(venues.isFavorite, filters.favorite) : undefined,
     filters?.organizationId ? sql`exists(select 1 from organization_venues ov where ov.venue_id=${venues.id} and ov.organization_id=${filters.organizationId}::uuid)` : undefined,
+    // A venue is in a country when its place, or a place above it, is
+    filters?.countryIds?.length
+      ? sql`exists(with recursive up as (
+          select p.parent_id, p.country_id, 0 as depth from places p where p.id = ${venues.placeId}
+          union all
+          select p.parent_id, p.country_id, up.depth + 1 from up join places p on p.id = up.parent_id
+          where up.country_id is null and up.depth < 10
+        ) select 1 from up where up.country_id in (${sql.join(filters.countryIds.map((id) => sql`${id}::uuid`), sql`, `)}))`
+      : undefined,
   ];
   if (filters?.tags?.length) conditions.push(sql`${venues.tags} && ARRAY[${sql.join(filters.tags.map(t => sql`${t}`), sql`, `)}]::text[]`);
   return and(...conditions);
@@ -103,13 +112,22 @@ export async function archiveVenue(id: string, archived = true) {
 /** Historical references require archival; PostgreSQL protects direct writes too. Images go after commit. */
 export async function deleteVenue(id: string) {
   z.uuid().parse(id);
+  // Read the comment files first: deleting the comments removes the rows that name them
+  const files = await venueObjects(id);
   const results = await atomic(d => [
     ...lockVenue(d, id),
+    // Its history, comments (their attachments cascade) and gallery layout go with it
+    ...["comments", "activity_events", "gallery_layouts"].map((table) =>
+      d.execute(sql`delete from ${sql.identifier(table)} where entity_type = 'venue' and entity_id = ${id}::uuid`),
+    ),
     d.delete(venues).where(eq(venues.id, id)).returning({ posterS3Key: venues.posterS3Key, thumbnailS3Key: venues.thumbnailS3Key }),
   ]);
   changed();
-  // After commit: remove the deleted venue's own images unless another row still uses them.
+  // After commit: remove the deleted venue's images and comment files unless another row still uses them.
   const [deleted] = resultRows<{ posterS3Key: string | null; thumbnailS3Key: string | null }>(results.at(-1));
-  const cleanupPending = !!deleted && (await deleteUnusedObjects({ keys: keysOf([deleted]), prefixes: [] }, `venue ${id}`));
+  const cleanupPending = !!deleted && (await deleteUnusedObjects(
+    { keys: [...keysOf([deleted]), ...files.keys], prefixes: files.prefixes },
+    `venue ${id}`,
+  ));
   return { id, cleanupPending };
 }

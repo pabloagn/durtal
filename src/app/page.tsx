@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { collectionCounts } from "@/lib/collections/counts";
 import Link from "next/link";
 import {
   BookOpen,
@@ -54,7 +55,7 @@ function StatCard({
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   return (
-    <Card glass>
+    <Card>
       <CardContent className="flex items-center gap-4 py-5">
         {/* Decoration only: on a phone the count and its label need the room */}
         <div className="hidden rounded-sm border border-glass-border bg-bg-primary/50 p-2.5 sm:block">
@@ -300,7 +301,7 @@ async function DashboardContent() {
                 key={collection.id}
                 collection={{
                   ...collection,
-                  editionCount: collection.collectionEditions?.length ?? 0,
+                  ...collectionCounts(collection),
                 }}
                 covers={covers
                   .filter((preview) => preview.collectionId === collection.id)

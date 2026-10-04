@@ -25,6 +25,7 @@ export interface VenueItem {
   thumbnailUrl: string | null;
   color: string | null;
   createdAt: string;
+  archived: boolean;
 }
 
 interface PlacesShellProps {
@@ -34,7 +35,7 @@ interface PlacesShellProps {
 }
 
 /** URL params (besides the search term) that filter the venue list */
-const PLACE_FILTER_PARAMS = ["type", FAVOURITES_PARAM];
+const PLACE_FILTER_PARAMS = ["type", FAVOURITES_PARAM, "country", "archived"];
 
 export function PlacesShell({ venues, total }: PlacesShellProps) {
   const searchParams = useSearchParams();
@@ -86,6 +87,7 @@ export function PlacesShell({ venues, total }: PlacesShellProps) {
                 website={v.website}
                 thumbnailUrl={v.thumbnailUrl}
                 color={v.color}
+                archived={v.archived}
               />
             ))}
           </div>
@@ -107,6 +109,7 @@ export function PlacesShell({ venues, total }: PlacesShellProps) {
               personalRating={v.personalRating}
               website={v.website}
               thumbnailUrl={v.thumbnailUrl}
+              archived={v.archived}
             />
           ))}
         </div>

@@ -2,7 +2,6 @@ export { s3, S3_BUCKET } from "./client";
 export {
   uploadToS3,
   deleteFromS3,
-  getPresignedReadUrl,
   getPresignedUploadUrl,
   processAndUploadCover,
   storeRawCover,

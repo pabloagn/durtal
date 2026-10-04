@@ -76,6 +76,10 @@ import {
   previewMatchHouses,
 } from "@/lib/actions/match";
 import {
+  GOOGLE_BOOKS_QUOTA_MESSAGE,
+  resetGoogleBooksQuota,
+} from "@/lib/api/google-books-quota";
+import {
   findEditionCandidates,
   getIdentifyQueue,
   identifyEdition,
@@ -1037,6 +1041,12 @@ describe.skipIf(!url)(
       );
     }
     const ids = (isbn13: string) => [{ type: "ISBN_13", identifier: isbn13 }];
+    /** A preview from a source that answered */
+    async function answered(preview: ReturnType<typeof previewMatch>) {
+      const read = await preview;
+      if ("error" in read) throw new Error(read.error);
+      return read;
+    }
 
     it("Match keeps manual publisher identities and honours metadata locks", async () => {
       const p = await publisher(),
@@ -1048,7 +1058,7 @@ describe.skipIf(!url)(
         publisher: "Unrecognised spelling",
       });
       try {
-        const preview = await previewMatch(e.id, "google_books", "synthetic-volume");
+        const preview = await answered(previewMatch(e.id, "google_books", "synthetic-volume"));
         expect(preview.houses.confirmed).toBe(true);
         // Same edition: values the reader has are not ticked
         expect(preview.rows.every((r) => !r.checked)).toBe(true);
@@ -1069,7 +1079,7 @@ describe.skipIf(!url)(
         expect((await getEditionPublisherLinks(e.id))[0].publisher.id).toBe(p.id);
         await updateEdition(e.id, { metadataLocked: true });
         fetchMock.mockClear();
-        expect((await previewMatch(e.id, "google_books", "synthetic-volume")).locked).toBe(true);
+        expect((await answered(previewMatch(e.id, "google_books", "synthetic-volume"))).locked).toBe(true);
         await expect(
           applyMatch(e.id, "google_books", "synthetic-volume", [
             { field: "title", value: "Refreshed title" },
@@ -1104,7 +1114,7 @@ describe.skipIf(!url)(
         printType: "BOOK",
       });
       try {
-        const preview = await previewMatch(e.id, "google_books", "vol-1");
+        const preview = await answered(previewMatch(e.id, "google_books", "vol-1"));
         expect(preview.newEdition).toBe(true);
         const ticked = preview.rows.filter((r) => r.checked);
         expect(ticked.map((r) => r.field).sort()).toEqual(
@@ -1170,7 +1180,7 @@ describe.skipIf(!url)(
       const e = await createEdition({ workId: w.id, title: "The Stranger", isbn13: isbn("978067972020") });
       const fetchMock = googleVolume({ title: "The Stranger", industryIdentifiers: ids(taken), pageCount: 90 });
       try {
-        const preview = await previewMatch(e.id, "google_books", "vol-2");
+        const preview = await answered(previewMatch(e.id, "google_books", "vol-2"));
         expect(preview.rows.find((r) => r.field === "isbn13")?.blocked).toMatch(/Another book/);
         expect(preview.rows.some((r) => r.checked)).toBe(false);
         await expect(
@@ -1178,6 +1188,30 @@ describe.skipIf(!url)(
         ).rejects.toThrow("Already on");
       } finally {
         fetchMock.mockRestore();
+      }
+    });
+
+    it("Match returns Google Books' quota refusal as a value and writes nothing", async () => {
+      resetGoogleBooksQuota();
+      const w = await work("Over quota");
+      const e = await createEdition({ workId: w.id, title: "Over quota" });
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(async () => new Response("{}", { status: 429, headers: { "retry-after": "0" } }));
+      try {
+        // Production hides a thrown action's message, so the reason is a value
+        expect(await previewMatch(e.id, "google_books", "vol-q")).toEqual({
+          ok: false,
+          error: GOOGLE_BOOKS_QUOTA_MESSAGE,
+        });
+        expect(
+          await applyMatch(e.id, "google_books", "vol-q", [{ field: "title", value: "Changed" }]),
+        ).toEqual({ ok: false, error: GOOGLE_BOOKS_QUOTA_MESSAGE });
+        const [kept] = await db.select().from(schema.editions).where(eq(schema.editions.id, e.id));
+        expect(kept.title).toBe("Over quota");
+      } finally {
+        fetchMock.mockRestore();
+        resetGoogleBooksQuota();
       }
     });
 

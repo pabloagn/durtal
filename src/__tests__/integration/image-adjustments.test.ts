@@ -292,6 +292,12 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       (await getImagePresentation(s3ImageSource("reader.jpg"))).settings
         .exposure,
     ).toBe(1);
+    // gold/calibre/ also holds ebooks, so /api/s3/read refuses it: the editor shows the Reader route
+    for (const opened of ["/api/reader/42/cover", s3ImageSource("reader.jpg")]) {
+      const shown = await getImagePresentation(opened);
+      expect(shown.source).toBe("/api/reader/42/cover");
+      expect(shown.preview).toBe("/api/reader/42/cover");
+    }
   });
   it("supports image attachments but never treats documents as editable pictures", async () => {
     const [work] = await db

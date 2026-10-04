@@ -6,6 +6,18 @@ import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { ArrowLeft, BookOpen, FolderOpen } from "lucide-react";
 import { getCollection } from "@/lib/actions/collections";
+import { loadFilmCards } from "@/lib/catalogue/film-store";
+import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
+import { loadPaintingCards } from "@/lib/catalogue/painting-store";
+import { catalogueDateYears } from "@/lib/catalogue/dates";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { MemberCard } from "@/components/collections/member-card";
+import { FilmPoster } from "@/components/films/film-poster";
+import { filmDirectors, filmFacts, filmHref } from "@/components/films/film-card";
+import { PerfumeImage } from "@/components/perfumes/perfume-image";
+import { perfumeFacts, perfumeHref, perfumeMakers } from "@/components/perfumes/perfume-card";
+import { PaintingImage } from "@/components/paintings/painting-image";
+import { paintingFacts, paintingHref, paintingPainters } from "@/components/paintings/painting-card";
 import {
   CollectionControls,
   CollectionMemberControls,
@@ -33,6 +45,183 @@ import {
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
+
+type Collection = NonNullable<Awaited<ReturnType<typeof getCollection>>>;
+
+interface Member {
+  kind: "edition" | "work";
+  id: string;
+  sortOrder: number;
+  addedAt: Date;
+  card: Omit<React.ComponentProps<typeof MemberCard>, "actions">;
+  /** Copy title and author, for books */
+  copy?: React.ReactNode;
+}
+
+const cover = (key: string | null | undefined, alt: string) =>
+  key ? (
+    <img
+      src={imageUrl(key)}
+      alt={alt}
+      className="max-h-32 w-full object-contain"
+    />
+  ) : (
+    <BookOpen size={24} className="mx-auto text-fg-muted" />
+  );
+
+/**
+ * Every member the page shows, in the collection's one order: each edition,
+ * and each whole work except a book that also has an edition here (the
+ * edition stands for it and says so).
+ */
+async function collectionMembers(collection: Collection): Promise<Member[]> {
+  const editionWorks = new Set(collection.collectionEditions.map((m) => m.edition.workId));
+  const wholeWorks = collection.collectionWorks.filter((m) => !editionWorks.has(m.workId));
+  const heldAsWork = new Set(collection.collectionWorks.map((m) => m.workId));
+  const ofKind = (kind: string) =>
+    wholeWorks.filter((m) => m.work.kind === kind).map((m) => m.workId);
+  const [films, perfumes, paintings] = await Promise.all([
+    loadFilmCards(ofKind("film")),
+    loadPerfumeCards(ofKind("perfume")),
+    loadPaintingCards(ofKind("painting")),
+  ]);
+
+  const editionMembers: Member[] = collection.collectionEditions.map((member) => {
+    const e = member.edition;
+    const work = e.work;
+    const names = work.workAuthors.map((a) => a.author.name);
+    return {
+      kind: "edition",
+      id: e.id,
+      sortOrder: member.sortOrder,
+      addedAt: member.addedAt,
+      card: {
+        href: `/library/${work.slug ?? work.id}#edition-${e.id}`,
+        image: cover(
+          e.thumbnailS3Key ?? e.coverS3Key ?? work.media[0]?.thumbnailS3Key ?? work.media[0]?.s3Key,
+          e.title,
+        ),
+        title: e.title,
+        byline: names.join(" & "),
+        facts: [e.publisher, e.publicationYear, e.language, e.binding].filter(Boolean).join(" · "),
+        // A book held both ways shows as its edition, and says so
+        note: heldAsWork.has(work.id)
+          ? [e.isbn13, "also collected as the book"].filter(Boolean).join(" · ")
+          : e.isbn13,
+        noteMono: true,
+      },
+      copy: <CopyBookButton title={work.title} authorNames={names} />,
+    };
+  });
+
+  const workMembers: Member[] = wholeWorks.flatMap((member): Member[] => {
+    const w = member.work;
+    const base = { kind: "work" as const, id: w.id, sortOrder: member.sortOrder, addedAt: member.addedAt };
+    const label = WORK_DOMAINS[w.kind].label;
+    if (w.kind === "book") {
+      const names = w.workAuthors.map((a) => a.author.name);
+      return [
+        {
+          ...base,
+          card: {
+            href: `/library/${w.slug ?? w.id}`,
+            image: cover(w.media[0]?.thumbnailS3Key ?? w.media[0]?.s3Key, w.title),
+            title: w.title,
+            byline: names.join(" & "),
+            facts: "The book, no edition chosen",
+            note: label,
+          },
+          copy: <CopyBookButton title={w.title} authorNames={names} />,
+        },
+      ];
+    }
+    if (w.kind === "film") {
+      const film = films.find((f) => f.id === w.id);
+      if (!film) return [];
+      return [
+        {
+          ...base,
+          card: {
+            href: filmHref(film),
+            image: (
+              <FilmPoster
+                image={film.poster}
+                title={film.title}
+                year={catalogueDateYears(film.releaseDate)}
+                small
+              />
+            ),
+            title: film.title,
+            byline: filmDirectors(film),
+            facts: filmFacts(film) || null,
+            note: label,
+          },
+        },
+      ];
+    }
+    if (w.kind === "perfume") {
+      const perfume = perfumes.find((p) => p.id === w.id);
+      if (!perfume) return [];
+      return [
+        {
+          ...base,
+          card: {
+            href: perfumeHref(perfume),
+            image: <PerfumeImage image={perfume.poster} title={perfume.title} small />,
+            title: perfume.title,
+            byline: perfumeMakers(perfume),
+            facts: perfumeFacts(perfume) || null,
+            note: label,
+          },
+        },
+      ];
+    }
+    const painting = paintings.find((p) => p.id === w.id);
+    if (!painting) return [];
+    return [
+      {
+        ...base,
+        card: {
+          href: paintingHref(painting),
+          image: <PaintingImage image={painting.poster} title={painting.title} small />,
+          title: painting.title,
+          byline: paintingPainters(painting),
+          facts: paintingFacts(painting) || null,
+          note: label,
+        },
+      },
+    ];
+  });
+
+  // The same order as the database: position, then when added, then id
+  return [...editionMembers, ...workMembers].sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      a.addedAt.getTime() - b.addedAt.getTime() ||
+      a.kind.localeCompare(b.kind) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+/** "3 books · 4 editions · 2 films": a book collected both ways counts once */
+function memberCounts(collection: Collection) {
+  const books = new Set([
+    ...collection.collectionEditions.map((m) => m.edition.workId),
+    ...collection.collectionWorks.filter((m) => m.work.kind === "book").map((m) => m.workId),
+  ]).size;
+  const of = (kind: string) => collection.collectionWorks.filter((m) => m.work.kind === kind).length;
+  const editionCount = collection.collectionEditions.length;
+  const parts: [number, string, string][] = [
+    [books, "book", "books"],
+    [editionCount, "edition", "editions"],
+    [of("film"), "film", "films"],
+    [of("perfume"), "perfume", "perfumes"],
+    [of("painting"), "painting", "paintings"],
+  ];
+  const shown = parts.filter(([n]) => n > 0);
+  if (!shown.length) return "Nothing yet";
+  return shown.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`).join(" · ");
+}
 
 /** One read per request for the page and its title */
 const loadCollection = cache(getCollection);
@@ -62,12 +251,11 @@ export default async function CollectionPage({
   if (!collection) notFound();
   const query = await searchParams;
   const { page, perPage, offset } = parsePagination(query);
-  const total = collection.collectionEditions.length;
+  const members = await collectionMembers(collection);
+  const total = members.length;
   if (page > lastPage(total, perPage))
     redirect(pageHref(`/collections/${id}`, query, lastPage(total, perPage)));
-  const bookCount = new Set(
-    collection.collectionEditions.map((m) => m.edition.workId),
-  ).size;
+  const counts = memberCounts(collection);
   const poster = collectionPoster(collection.media);
   const background = collectionBackground(collection.media);
   return (
@@ -155,15 +343,13 @@ export default async function CollectionPage({
                   {collection.description}
                 </Prose>
               )}
-              <p className="my-4 text-xs text-fg-secondary">
-                {bookCount} {bookCount === 1 ? "book" : "books"} · {total}{" "}
-                {total === 1 ? "edition" : "editions"}
-              </p>
+              <p className="my-4 text-xs text-fg-secondary">{counts}</p>
               <CollectionControls
                 collection={collection}
                 editionIds={collection.collectionEditions.map(
                   (m) => m.editionId,
                 )}
+                workIds={collection.collectionWorks.map((m) => m.workId)}
                 initialAdd={query.add === "1"}
               />
             </div>
@@ -175,75 +361,27 @@ export default async function CollectionPage({
           page={page}
           perPage={perPage}
           total={total}
-          noun="editions"
+          noun="items"
         >
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {collection.collectionEditions
-              .slice(offset, offset + perPage)
-              .map((member, index) => {
-                const e = member.edition;
-                const work = e.work;
-                const names = work.workAuthors.map((a) => a.author.name);
-                const image =
-                  e.thumbnailS3Key ??
-                  e.coverS3Key ??
-                  work.media[0]?.thumbnailS3Key ??
-                  work.media[0]?.s3Key;
-                return (
-                  <article
-                    key={e.id}
-                    className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4"
-                  >
-                    <Link
-                      href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
-                      className="flex h-32 w-20 shrink-0 items-center justify-center rounded-sm bg-bg-primary"
-                    >
-                      {image ? (
-                        <img
-                          src={`/api/s3/read?key=${encodeURIComponent(image)}`}
-                          alt={e.title}
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <BookOpen size={24} className="text-fg-muted" />
-                      )}
-                    </Link>
-                    {/* Fixed lines: every member card has the same height */}
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <Link
-                        href={`/library/${work.slug ?? work.id}#edition-${e.id}`}
-                        className="lines-2 type-item-title"
-                      >
-                        {e.title}
-                      </Link>
-                      <p className="mt-1 lines-1 text-sm text-fg-secondary">
-                        {names.join(" & ")}
-                      </p>
-                      <p className="mt-2 lines-1 text-xs text-fg-secondary">
-                        {[e.publisher, e.publicationYear, e.language, e.binding]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      <p className="mt-1 lines-1 font-mono text-xs text-fg-secondary">
-                        {e.isbn13}
-                      </p>
-                      <div className="mt-auto flex items-center justify-between pt-3">
-                        <CopyBookButton
-                          title={work.title}
-                          authorNames={names}
-                        />
-                        <CollectionMemberControls
-                          collectionId={id}
-                          editionId={e.id}
-                          title={e.title}
-                          first={offset + index === 0}
-                          last={offset + index === total - 1}
-                        />
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            {members.slice(offset, offset + perPage).map((member, index) => (
+              <MemberCard
+                key={`${member.kind}:${member.id}`}
+                {...member.card}
+                actions={
+                  <>
+                    {member.copy ?? <span />}
+                    <CollectionMemberControls
+                      collectionId={id}
+                      member={{ kind: member.kind, id: member.id }}
+                      title={member.card.title}
+                      first={offset + index === 0}
+                      last={offset + index === total - 1}
+                    />
+                  </>
+                }
+              />
+            ))}
           </div>
         </PaginatedSection>
       ) : (
@@ -255,8 +393,8 @@ export default async function CollectionPage({
           />
           <h2 className="type-item-title">Build your collection</h2>
           <p className="mt-2 text-sm text-fg-secondary">
-            Use Add books above, or select books in your library and choose
-            Collections.
+            Use Add above for editions, books, films, perfumes or paintings,
+            or select books in your library and choose Collections.
           </p>
         </div>
       )}

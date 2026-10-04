@@ -28,6 +28,7 @@ const SCAN_TABLES = [
     "edition_publishers",
     "ignored_publisher_names",
     "collection_editions",
+    "collection_works",
     "taxonomy_families",
   ]),
 ];
@@ -130,14 +131,25 @@ export function referencesTo(tableName: string): Reference[] {
     const cols = config(name).foreignKeys.flatMap((fk) => {
       const ref = fk.reference();
       if (getTableConfig(ref.foreignTable).name !== tableName) return [];
-      if (ref.columns.length !== 1 || ref.foreignColumns[0].name !== "id")
+      // A key on (id, kind) ties a row to a work of one kind (work_relations):
+      // kind never changes, so the id column is the reference
+      const foreign = ref.foreignColumns.map((c) => c.name);
+      const kindTied =
+        ref.columns.length === 2 && foreign[0] === "id" && foreign[1] === "kind";
+      if (!kindTied && (ref.columns.length !== 1 || foreign[0] !== "id"))
         throw new Error("This relationship needs a dedicated merge strategy");
       return [ref.columns[0].name];
     });
     if (cols.length) refs.push({ table: name, columns: cols });
   }
   const type = (
-    { works: "work", authors: "author", collections: "collection" } as Record<
+    {
+      works: "work",
+      authors: "author",
+      collections: "collection",
+      publishing_houses: "organization",
+      venues: "venue",
+    } as Record<
       string,
       string
     >

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { bookCreditMergeQueries } from "./book-credit-merge";
+import { workRelationMergeQueries } from "./work-relation-merge";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
@@ -322,7 +323,10 @@ export async function executeMerge(input: {
       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
       join pg_attribute f on f.attrelid = c.confrelid and f.attnum = c.confkey[1]
       where c.contype = 'f' and c.confrelid = ${entity.table}::regclass
-      and (cardinality(c.conkey) <> 1 or f.attname <> 'id' or not (${
+      and (f.attname <> 'id'
+        or (cardinality(c.conkey) <> 1 and not (cardinality(c.conkey) = 2
+          and (select k.attname from pg_attribute k where k.attrelid = c.confrelid and k.attnum = c.confkey[2]) = 'kind'))
+        or not (${
         foreignRefs.length
           ? sql.join(
               foreignRefs.map(
@@ -373,9 +377,12 @@ export async function executeMerge(input: {
     ];
     const junction =
       primary.length > 1 && primary.some((c) => ref.columns.includes(c.name));
-    const creditQueries = ref.columns.length === 1
-      ? bookCreditMergeQueries(ref.table, ref.columns[0], source.id, target.id)
-      : undefined;
+    const creditQueries =
+      ref.table === "work_relations"
+        ? workRelationMergeQueries(source.id, target.id)
+        : ref.columns.length === 1
+          ? bookCreditMergeQueries(ref.table, ref.columns[0], source.id, target.id)
+          : undefined;
     if (creditQueries) {
       queries.push(...creditQueries);
     } else if (junction) {

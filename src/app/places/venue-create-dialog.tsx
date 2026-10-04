@@ -11,21 +11,51 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { GooglePlacesSearch } from "@/components/venues/google-places-search";
 import type { GooglePlaceResult } from "@/components/venues/google-places-search";
-import { createVenue } from "@/lib/actions/venues";
+import { createVenue, updateVenue } from "@/lib/actions/venues";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
 
 const VENUE_TYPE_OPTIONS = VENUE_TYPES.map(value => ({ value, label: VENUE_TYPE_LABELS[value] }));
+const RATING_OPTIONS = [
+  { value: "", label: "No rating" },
+  ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} of 5` })),
+];
+
+/** A venue as the editor starts from it */
+export interface EditableVenue {
+  id: string;
+  name: string;
+  type: VenueType;
+  subtype: string | null;
+  description: string | null;
+  website: string | null;
+  instagramHandle: string | null;
+  formattedAddress: string | null;
+  phone: string | null;
+  email: string | null;
+  specialties: string | null;
+  notes: string | null;
+  tags: string[] | null;
+  isFavorite: boolean;
+  personalRating: number | null;
+  firstVisitDate: string | null;
+  lastVisitDate: string | null;
+}
 
 /**
- * Add Venue. With `open` and `onOpenChange` the caller controls it (the A
- * menu); otherwise it shows its own "Add Venue" button.
+ * Add Venue, or edit one when `venue` is given. With `open` and
+ * `onOpenChange` the caller controls it (the A menu, the venue page's menu);
+ * otherwise it shows its own "Add Venue" button. Mount an edit dialog per
+ * opening, so it starts from the venue as it is now. A Google place is
+ * optional: every field can be typed by hand.
  */
 export function VenueCreateDialog({
   open: controlledOpen,
   onOpenChange,
+  venue,
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  venue?: EditableVenue;
 } = {}) {
   const router = useRouter();
   const [ownOpen, setOwnOpen] = useState(false);
@@ -36,18 +66,22 @@ export function VenueCreateDialog({
   const [isPending, startTransition] = useTransition();
 
   // Form state
-  const [name, setName] = useState("");
-  const [type, setType] = useState<VenueType>("bookshop");
-  const [subtype, setSubtype] = useState("");
-  const [description, setDescription] = useState("");
-  const [website, setWebsite] = useState("");
-  const [instagramHandle, setInstagramHandle] = useState("");
-  const [formattedAddress, setFormattedAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [specialties, setSpecialties] = useState("");
-  const [notes, setNotes] = useState("");
-  const [tagsRaw, setTagsRaw] = useState("");
+  const [name, setName] = useState(venue?.name ?? "");
+  const [type, setType] = useState<VenueType>(venue?.type ?? "bookshop");
+  const [subtype, setSubtype] = useState(venue?.subtype ?? "");
+  const [description, setDescription] = useState(venue?.description ?? "");
+  const [website, setWebsite] = useState(venue?.website ?? "");
+  const [instagramHandle, setInstagramHandle] = useState(venue?.instagramHandle ?? "");
+  const [formattedAddress, setFormattedAddress] = useState(venue?.formattedAddress ?? "");
+  const [phone, setPhone] = useState(venue?.phone ?? "");
+  const [email, setEmail] = useState(venue?.email ?? "");
+  const [specialties, setSpecialties] = useState(venue?.specialties ?? "");
+  const [notes, setNotes] = useState(venue?.notes ?? "");
+  const [tagsRaw, setTagsRaw] = useState(venue?.tags?.join(", ") ?? "");
+  const [isFavorite, setIsFavorite] = useState(venue?.isFavorite ?? false);
+  const [rating, setRating] = useState(venue?.personalRating ? String(venue.personalRating) : "");
+  const [firstVisit, setFirstVisit] = useState(venue?.firstVisitDate ?? "");
+  const [lastVisit, setLastVisit] = useState(venue?.lastVisitDate ?? "");
 
   // Google Places data (stored for submission)
   const [googlePlaceId, setGooglePlaceId] = useState<string | null>(null);
@@ -69,6 +103,10 @@ export function VenueCreateDialog({
     setSpecialties("");
     setNotes("");
     setTagsRaw("");
+    setIsFavorite(false);
+    setRating("");
+    setFirstVisit("");
+    setLastVisit("");
     setGooglePlaceId(null);
     setPlaceCoords(null);
   }
@@ -102,36 +140,57 @@ export function VenueCreateDialog({
       return;
     }
 
+    if (firstVisit && lastVisit && lastVisit < firstVisit) {
+      toast.error("The last visit cannot come before the first");
+      return;
+    }
+
     const tags = tagsRaw
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
 
     startTransition(async () => {
+      const fields = {
+        name: name.trim(),
+        type,
+        subtype: subtype.trim() || null,
+        description: description.trim() || null,
+        website: website.trim() || null,
+        instagramHandle: instagramHandle.trim() || null,
+        formattedAddress: formattedAddress.trim() || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        specialties: specialties.trim() || null,
+        notes: notes.trim() || null,
+        tags: tags.length > 0 ? tags : null,
+        isFavorite,
+        personalRating: rating ? Number(rating) : null,
+        firstVisitDate: firstVisit || null,
+        lastVisitDate: lastVisit || null,
+      };
       try {
-        const venue = await createVenue({
-          name: name.trim(),
-          type,
-          subtype: subtype.trim() || null,
-          description: description.trim() || null,
-          website: website.trim() || null,
-          instagramHandle: instagramHandle.trim() || null,
-          formattedAddress: formattedAddress.trim() || null,
-          googlePlaceId: googlePlaceId ?? null,
-          placeCoordinates: placeCoords ?? null,
-          phone: phone.trim() || null,
-          email: email.trim() || null,
-          specialties: specialties.trim() || null,
-          notes: notes.trim() || null,
-          tags: tags.length > 0 ? tags : null,
-        });
-        toast.success(`Venue "${venue.name}" created`);
+        if (venue) {
+          // A Google place chosen now replaces the venue's point; otherwise it stays
+          await updateVenue(venue.id, {
+            ...fields,
+            ...(googlePlaceId ? { googlePlaceId, placeCoordinates: placeCoords ?? null } : {}),
+          });
+          toast.success("Venue saved");
+        } else {
+          const created = await createVenue({
+            ...fields,
+            googlePlaceId: googlePlaceId ?? null,
+            placeCoordinates: placeCoords ?? null,
+          });
+          toast.success(`Venue "${created.name}" created`);
+        }
         setOpen(false);
         resetForm();
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to create venue",
+          err instanceof Error ? err.message : venue ? "Could not save the venue" : "Failed to create venue",
         );
       }
     });
@@ -157,7 +216,8 @@ export function VenueCreateDialog({
       <Dialog
         open={open}
         onClose={handleClose}
-        title="Add Venue"
+        title={venue ? "Edit venue" : "Add Venue"}
+        description={venue?.name}
       >
         <div className="max-h-[75vh] overflow-y-auto pr-1">
           <div className="space-y-6">
@@ -264,6 +324,47 @@ export function VenueCreateDialog({
               </div>
             </section>
 
+            {/* Personal */}
+            <section>
+              <h3 className="type-group-title mb-3">
+                Personal
+              </h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Select
+                    id="venue-rating"
+                    label="Rating"
+                    options={RATING_OPTIONS}
+                    value={rating}
+                    onChange={(e) => setRating(e.target.value)}
+                  />
+                  <label className="flex items-end gap-2 pb-2 text-sm text-fg-primary">
+                    <input
+                      type="checkbox"
+                      checked={isFavorite}
+                      onChange={(e) => setIsFavorite(e.target.checked)}
+                    />
+                    Favorite
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="First visit"
+                    type="date"
+                    value={firstVisit}
+                    onChange={(e) => setFirstVisit(e.target.value)}
+                  />
+                  <Input
+                    label="Last visit"
+                    type="date"
+                    value={lastVisit}
+                    min={firstVisit || undefined}
+                    onChange={(e) => setLastVisit(e.target.value)}
+                  />
+                </div>
+              </div>
+            </section>
+
             {/* Notes */}
             <section>
               <h3 className="type-group-title mb-3">
@@ -313,8 +414,10 @@ export function VenueCreateDialog({
             {isPending ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-                Creating
+                {venue ? "Saving" : "Creating"}
               </>
+            ) : venue ? (
+              "Save"
             ) : (
               "Create Venue"
             )}

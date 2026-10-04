@@ -1,6 +1,7 @@
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import type { ActivityEntityType } from "@/lib/activity/entities";
 import {
   artObjects,
   authors,
@@ -63,7 +64,9 @@ export const ownedPrefixes = {
   organization: (id: string) => [
     `gold/media/organization/${id}/`,
     `bronze/media/organization/${id}/`,
+    `gold/comments/organization/${id}/`,
   ],
+  venue: (id: string) => [`gold/comments/venue/${id}/`],
   art_object: (id: string) => [
     `gold/media/art_object/${id}/`,
     `bronze/media/art_object/${id}/`,
@@ -95,7 +98,7 @@ const mediaKeys = {
   uncroppedS3Key: media.uncroppedS3Key,
 };
 
-function commentFiles(entityType: "work" | "author", entityId: string) {
+function commentFiles(entityType: ActivityEntityType, entityId: string) {
   return db
     .select({ s3Key: commentAttachments.s3Key })
     .from(commentAttachments)
@@ -171,8 +174,18 @@ export async function ownedMediaObjects(
       : type === "art_object"
         ? media.artObjectId
         : media.perfumeVariantId;
-  const images = await db.select(mediaKeys).from(media).where(eq(column, id));
-  return { keys: keysOf(images), prefixes: ownedPrefixes[type](id) };
+  const [images, files] = await Promise.all([
+    db.select(mediaKeys).from(media).where(eq(column, id)),
+    // An organization's comments carry files too
+    type === "organization" ? commentFiles("organization", id) : [],
+  ]);
+  return { keys: [...keysOf(images), ...keysOf(files)], prefixes: ownedPrefixes[type](id) };
+}
+
+/** A venue's comment files: its only stored objects besides its own images */
+export async function venueObjects(id: string): Promise<StoredObjects> {
+  const files = await commentFiles("venue", id);
+  return { keys: keysOf(files), prefixes: ownedPrefixes.venue(id) };
 }
 
 /** An author's images and photo, and (unless a merge moves them) its comment files. */

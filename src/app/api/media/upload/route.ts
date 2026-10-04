@@ -5,6 +5,7 @@ import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { isAllowedImageType, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
 import type { MediaEntityType } from "@/lib/s3/keys";
 import type { MediaType } from "@/lib/types";
+import { isUuid } from "@/lib/utils/uuid";
 
 /**
  * POST /api/media/upload
@@ -60,6 +61,9 @@ export async function POST(req: NextRequest) {
         { error: "This owner does not accept that image type" },
         { status: 400 },
       );
+    }
+    if (!isUuid(entityId)) {
+      return NextResponse.json({ error: "Invalid entityId" }, { status: 400 });
     }
 
     if (file.size > MAX_MEDIA_SIZE_BYTES) {

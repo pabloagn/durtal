@@ -44,8 +44,10 @@ export interface HistoryView {
   period: string;
   certainty: "confirmed" | "probable" | "uncertain";
   occasion: string | null;
-  /** "Checked 3 days ago" */
+  /** "Checked Oct 4, 2026" */
   checked: string | null;
+  /** The source the record cites: "Museo del Prado, collection page" */
+  source: string | null;
   notes: string | null;
   current: boolean;
   /** Overlaps the current location at another place */
@@ -70,7 +72,16 @@ export interface ObjectView {
   notes: string | null;
   disposed: boolean;
   /** Where it is now, and how old that knowledge is */
-  now: { place: string; custody: string | null; since: string | null; checked: string; stale: boolean } | null;
+  now: {
+    place: string;
+    custody: string | null;
+    since: string | null;
+    /** "Checked Oct 4, 2026", "Recorded Oct 4, 2026, not checked" */
+    checked: string;
+    stale: boolean;
+    /** The source the current location cites */
+    source: string | null;
+  } | null;
   history: HistoryView[];
   historyFingerprint: string;
   /** Its last permanent collection venue: where a return goes */
@@ -129,7 +140,15 @@ function HistoryList({
                 )}
               </p>
               <p className="text-xs text-fg-secondary">
-                {[record.period, record.custody, record.occasion, record.checked].filter(Boolean).join(" · ")}
+                {[
+                  record.period,
+                  record.custody,
+                  record.occasion,
+                  record.checked,
+                  record.source ? `Source: ${record.source}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
               {record.notes && <p className="text-xs text-fg-secondary">{record.notes}</p>}
             </div>
@@ -189,6 +208,7 @@ function ObjectItem({
                     {object.now.checked}
                     {object.now.stale && ", check again"}
                   </span>
+                  {object.now.source && ` · Source: ${object.now.source}`}
                 </>
               ) : (
                 <span>Not recorded</span>

@@ -1,6 +1,6 @@
 {
-  "id": "6412d221-a21e-4daf-bd73-6c36695b850f",
-  "prevId": "64f35f42-ff90-49fc-8552-1ee092f79517",
+  "id": "e91f3158-4d94-4da9-b8b9-ebb9ae0ce8f1",
+  "prevId": "a1f8612e-9835-4204-be5e-82ddfc224848",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -861,13 +861,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "is_favourite": {
-          "name": "is_favourite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1732,13 +1725,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "is_favourite": {
-          "name": "is_favourite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -6296,18 +6282,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "founded_year": {
-          "name": "founded_year",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "founded_place_id": {
-          "name": "founded_place_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "search_text": {
           "name": "search_text",
           "type": "text",
@@ -6400,19 +6374,6 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
-        },
-        "publishing_houses_founded_place_id_places_id_fk": {
-          "name": "publishing_houses_founded_place_id_places_id_fk",
-          "tableFrom": "publishing_houses",
-          "tableTo": "places",
-          "columnsFrom": [
-            "founded_place_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -6427,10 +6388,6 @@
       },
       "policies": {},
       "checkConstraints": {
-        "publisher_founded_year_check": {
-          "name": "publisher_founded_year_check",
-          "value": "\"publishing_houses\".\"founded_year\" is null or \"publishing_houses\".\"founded_year\" between 1000 and 2100"
-        },
         "publisher_kind_parent_check": {
           "name": "publisher_kind_parent_check",
           "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'group' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'publisher' AND (\"publishing_houses\".\"parent_id\" IS NULL OR \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
@@ -6586,13 +6543,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "is_favourite": {
-          "name": "is_favourite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6667,13 +6617,6 @@
         },
         "is_complete": {
           "name": "is_complete",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "is_favourite": {
-          "name": "is_favourite",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -8553,6 +8496,211 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.work_relations": {
+      "name": "work_relations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_work_id": {
+          "name": "from_work_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_kind": {
+          "name": "from_kind",
+          "type": "work_kind_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_work_id": {
+          "name": "to_work_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_kind": {
+          "name": "to_kind",
+          "type": "work_kind_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_record_id": {
+          "name": "source_record_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "work_relation_pair_unique": {
+          "name": "work_relation_pair_unique",
+          "columns": [
+            {
+              "expression": "least(\"from_work_id\", \"to_work_id\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "greatest(\"from_work_id\", \"to_work_id\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "work_relation_from_idx": {
+          "name": "work_relation_from_idx",
+          "columns": [
+            {
+              "expression": "from_work_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "work_relation_to_idx": {
+          "name": "work_relation_to_idx",
+          "columns": [
+            {
+              "expression": "to_work_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "work_relation_source_idx": {
+          "name": "work_relation_source_idx",
+          "columns": [
+            {
+              "expression": "source_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "work_relations_source_record_id_source_records_id_fk": {
+          "name": "work_relations_source_record_id_source_records_id_fk",
+          "tableFrom": "work_relations",
+          "tableTo": "source_records",
+          "columnsFrom": [
+            "source_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_relation_from_fk": {
+          "name": "work_relation_from_fk",
+          "tableFrom": "work_relations",
+          "tableTo": "works",
+          "columnsFrom": [
+            "from_work_id",
+            "from_kind"
+          ],
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "work_relation_to_fk": {
+          "name": "work_relation_to_fk",
+          "tableFrom": "work_relations",
+          "tableTo": "works",
+          "columnsFrom": [
+            "to_work_id",
+            "to_kind"
+          ],
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "work_relation_self_check": {
+          "name": "work_relation_self_check",
+          "value": "\"work_relations\".\"from_work_id\" <> \"work_relations\".\"to_work_id\""
+        },
+        "work_relation_pair_check": {
+          "name": "work_relation_pair_check",
+          "value": "(\"work_relations\".\"type\" = 'adaptation' and ((\"work_relations\".\"from_kind\" = 'film' and \"work_relations\".\"to_kind\" = 'book') or (\"work_relations\".\"from_kind\" = 'book' and \"work_relations\".\"to_kind\" = 'film')))\n        or (\"work_relations\".\"type\" = 'remake' and \"work_relations\".\"from_kind\" = 'film' and \"work_relations\".\"to_kind\" = 'film')\n        or (\"work_relations\".\"type\" = 'flanker' and \"work_relations\".\"from_kind\" = 'perfume' and \"work_relations\".\"to_kind\" = 'perfume')\n        or \"work_relations\".\"type\" = 'inspiration'"
+        },
+        "work_relation_source_check": {
+          "name": "work_relation_source_check",
+          "value": "\"work_relations\".\"type\" <> 'inspiration' or \"work_relations\".\"source_record_id\" is not null"
+        },
+        "work_relation_notes_check": {
+          "name": "work_relation_notes_check",
+          "value": "\"work_relations\".\"notes\" is null or length(trim(\"work_relations\".\"notes\")) between 1 and 2000"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.work_status_history": {
       "name": "work_status_history",
       "schema": "",
@@ -9072,6 +9220,14 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug"
+          ]
+        },
+        "works_id_kind_unique": {
+          "name": "works_id_kind_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "kind"
           ]
         }
       },
