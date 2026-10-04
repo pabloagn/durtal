@@ -11,12 +11,28 @@
 /library/identify           Identify placeholder editions (one at a time)
 /authors                    Author index
 /authors/[slug]             Author detail (slug format: {author-name})
+/publishers                 Publisher index
+/publishers/new             Add a publisher
+/publishers/review          Review publisher names on editions
+/publishers/[slug]          Publisher detail
+/publishers/[slug]/edit     Edit a publisher
+/recommenders               Recommender index
+/recommenders/[id]          Recommender detail
+/reader                     Calibre e-book library
+/reader/[calibreId]         E-book reader for one Calibre book
 /series                     Series index
 /series/[id]                Series detail
+/series/suggestions         Books that match a series by title
+/places                     Venue index (bookshops, stores, fairs)
+/places/[slug]              Venue detail
+/provenance                 Orders and acquisition history
 /locations                  Location management
 /collections                Collection management
-/tags                       Tag management
-/subjects                   Subject management
+/collections/[id]           Collection detail
+/taxonomy                   Taxonomy family index
+/taxonomy/[familySlug]      Items in one taxonomy family
+/taxonomy/[familySlug]/[itemSlug]  Works and editions linked to one item
+/harmonize                  Library-wide data harmonization
 /settings                   Settings: General (defaults for new records)
 /settings/display           Settings: lists, sidebar (this browser)
 /settings/reader            Settings: reader typography (this browser)
@@ -507,9 +523,7 @@ Full author profile page.
 
 Index of all book series in the library.
 
-**Columns**: Title, original title, work count (total and owned), completion status.
-
-**Features**: Search by title.
+**Features**: Paginated list. Sort by relevance, title, book count or recent. A link opens `/series/suggestions` when some books match a series by title.
 
 ---
 
@@ -551,13 +565,59 @@ Grid of curated edition collections.
 
 ---
 
-### Tags (`/tags`)
+### Reader (`/reader`)
 
-Tag management interface.
+Library of Calibre e-books (`calibre_books` table): recently read books (6), then a paginated grid of all books.
 
-**Per tag**: Name, optional color, edition count.
+**Features**: Search by title through the `q` query parameter.
 
-**Management**: Create, edit, delete tags. Color picker for visual categorization.
+---
+
+### Reader View (`/reader/[calibreId]`)
+
+In-app e-book reader for one Calibre book. It opens the EPUB format first, then PDF, then the first format available. The file comes from `/api/reader/[calibreId]/file`. The position is saved to `/api/reader/[calibreId]/progress`.
+
+---
+
+### Places (`/places`)
+
+Paginated index of venues (`venues` table): bookshops, online stores, fairs, auction houses and other places books come from.
+
+**Filters**: Search (`q`), venue type (`type`, comma-separated), favorites (`favorite=true`). Sort by name, recent or rating.
+
+**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`).
+
+---
+
+### Place Detail (`/places/[slug]`)
+
+Single venue view: contact details, opening hours, visits, description, specialties and notes.
+
+---
+
+### Provenance (`/provenance`)
+
+Acquisition tracking (`orders` table): stats, active orders, then a paginated acquisition history.
+
+**Actions**: Create and edit orders.
+
+---
+
+### Taxonomy (`/taxonomy`)
+
+Grid of taxonomy families (`taxonomy_families` table). System families wrap the built-in vocabularies (subjects, genres, tags, themes and others). Custom families hold user-created items. There are no separate `/tags` or `/subjects` pages: each is a family here.
+
+---
+
+### Taxonomy Family (`/taxonomy/[familySlug]`)
+
+Items in one family. **Actions**: Create, merge and delete items.
+
+---
+
+### Taxonomy Item (`/taxonomy/[familySlug]/[itemSlug]`)
+
+The works or editions linked to one item.
 
 ---
 

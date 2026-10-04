@@ -1322,6 +1322,14 @@ with UUID identity, family FK, name, family-unique slug, description, color,
 parent, sort order and creation timestamp. Work and edition links retain their
 existing composite keys and foreign keys. No prior IDs or assignments are moved.
 
+Custom items link to records through two junction tables
+(`src/lib/db/schema/taxonomy-families.ts`):
+
+| Table | Columns | Key |
+|---|---|---|
+| `custom_taxonomy_item_works` | `item_id` FK → custom_taxonomy_items, CASCADE; `work_id` FK → works, CASCADE | PK `(item_id, work_id)` |
+| `custom_taxonomy_item_editions` | `item_id` FK → custom_taxonomy_items, CASCADE; `edition_id` FK → editions, CASCADE | PK `(item_id, edition_id)` |
+
 Migration `0041_taxonomy_applicability` adds `taxonomy_applicability`:
 
 | Column | Type | Constraints |
@@ -1969,7 +1977,7 @@ JOIN editions e ON e.work_id = w.id
 JOIN instances i ON i.edition_id = e.id
 JOIN locations l ON l.id = i.location_id
 WHERE l.name = 'Mexico City'
-  AND w.catalogue_status = 'catalogued';
+  AND w.catalogue_status = 'accessioned';
 ```
 
 **"Show me all editions of Don Quixote I own"**:

@@ -190,7 +190,7 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 2. **Generate migration**: `task db:generate` (creates SQL file in `src/lib/db/migrations/`)
 3. **Review migration**: Inspect the generated SQL
 4. **Apply migration**: `task db:migrate` (runs against Neon)
-5. **Update docs**: Update `docs/01_SPECS.md` if the schema change is architectural
+5. **Update docs**: Update `docs/02_DATA_MODEL.md` to match the schema, and `docs/01_ARCHITECTURE.md` if the change is architectural
 
 For rapid development:
 - `task db:push` applies schema changes directly without creating a migration file. Useful during iteration, but all production changes should go through migrations.

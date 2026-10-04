@@ -196,7 +196,7 @@ Script: `scripts/ingest/seed_books.py`
 
 **Work decomposition**:
 - `title`, `author`, `series`, `series_position`, `description`, `rating`, `notes`
-- `catalogue_status`: `'catalogued'` if any Library column populated, else based on Priority field
+- `catalogue_status`: `'accessioned'` if any Library column populated, else based on Priority field
 - `work_type_id`: matched from Work_Types lookup
 
 **Edition decomposition**:
@@ -338,7 +338,7 @@ Output:
 | `Library_Mobile_iPad` | `instances` | Create instance at iPad |
 | `Library_Mobile_iPhone` | `instances` | Create instance at iPhone |
 
-**Catalogue status derivation**: If any `Library_*` column is populated, set `catalogue_status = 'catalogued'`. Otherwise, if `Priority` is set, mark as `'wishlist'`.
+**Catalogue status derivation**: If any `Library_*` column is populated, set `catalogue_status = 'accessioned'`. Otherwise, Priority 4 or higher gives `'wanted'`, Priority 3 gives `'shortlisted'`, and anything else gives `'tracked'`.
 
 ### `People` Sheet -> `authors` Table
 

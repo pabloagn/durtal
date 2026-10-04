@@ -8,7 +8,9 @@ The app's own pages use server actions (see [06_SERVER_ACTIONS.md](06_SERVER_ACT
 
 ### Write access
 
-Every write route (`POST`, `PATCH`, `DELETE`) needs the header `Authorization: Bearer <DURTAL_API_TOKEN>`. The token lives in `.env.local`. When `DURTAL_API_TOKEN` is not set, every write returns `503`, so a missing setting never leaves the API open. A wrong or missing token returns `401`.
+The write routes for works, editions, orders, copies and collections (the routes that use `src/lib/api/rest.ts`) need the header `Authorization: Bearer <DURTAL_API_TOKEN>`. The token lives in `.env.local`. When `DURTAL_API_TOKEN` is not set, these writes return `503`, so a missing setting never leaves them open. A wrong or missing token returns `401`.
+
+The media, S3, comments, export, reader and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
@@ -49,7 +51,7 @@ Library statistics for dashboard and TUI.
       "id": "uuid",
       "title": "Don Quixote",
       "originalYear": 1605,
-      "catalogueStatus": "catalogued",
+      "catalogueStatus": "accessioned",
       "rating": 5,
       "createdAt": "2024-01-15T10:30:00.000Z",
       "editions": [...],
@@ -128,7 +130,7 @@ List works with pagination and search.
       "title": "Don Quixote",
       "originalLanguage": "es",
       "originalYear": 1605,
-      "catalogueStatus": "catalogued",
+      "catalogueStatus": "accessioned",
       "rating": 5,
       "editions": [...],
       "workAuthors": [{ "author": { "name": "Miguel de Cervantes" }, "role": "author" }]
@@ -462,6 +464,263 @@ After the client uploads the raw file to S3, trigger server-side processing (res
   }
 }
 ```
+
+### `POST /api/media/upload`
+
+Multipart upload. The server processes the image and writes it to S3. This avoids CORS problems with pre-signed URLs.
+
+**Form fields**:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `file` | File | yes | JPEG, PNG, WebP or GIF. Maximum 50 MB |
+| `entityType` | string | yes | `work`, `author`, `collection`, `organization`, `art_object` or `perfume_variant` |
+| `entityId` | string | yes | ID of the owner |
+| `mediaType` | string | yes | `poster`, `background` or `gallery` |
+| `attribution` | JSON string | no | `altText`, `credit`, `license`, `licenseUrl`, `sourceUrl`, `sourceRecordId` |
+| `processingParams` | JSON string | no | Author only. Monochrome settings |
+
+A collection takes no `gallery` image. An organization, art object or perfume variant takes no `background` image.
+
+**Response** `200`: `{ "media": { ...media record } }`.
+**Error** `400`: Missing field, bad `mediaType`, owner does not take that image type, file too large, type not allowed, empty file, or invalid attribution. A broken multipart body returns `code: "INVALID_MULTIPART"` and a `requestId`. **Error** `404`: Owner not found.
+
+### `POST /api/media/from-url`
+
+Downloads an image from a URL and runs the same pipeline as `/api/media/upload`. The URL is stored as the image's `sourceUrl` unless `attribution` gives one.
+
+**Request body**:
+```json
+{
+  "entityType": "work",
+  "entityId": "uuid",
+  "mediaType": "poster",
+  "imageUrl": "https://example.com/cover.jpg",
+  "caption": "optional",
+  "attribution": { "credit": "optional" },
+  "processingParams": { "contrast": 1.0 }
+}
+```
+
+`entityType` defaults to `work`. The legacy field `workId` is accepted in place of `entityId`. The download goes through `safeFetchImage` (`src/lib/net/safe-fetch.ts`): HTTPS to public hosts only, limited redirects, a timeout, 50 MB maximum and image types only.
+
+**Response** `200`: `{ "media": { ...media record } }`.
+**Error** `400`: Missing field, bad `mediaType`, owner does not take that image type, or a refused download (the message names the reason). **Error** `404`: Owner not found.
+
+### `GET /api/media/preview-monochrome`
+
+Returns a preview of an author image with new monochrome settings. It reads the stored original and writes nothing to S3.
+
+**Query parameters**:
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `mediaId` | string | — | Required. A media record with an original |
+| `contrast` | number | `1.0` | |
+| `sharpness` | number | `1.0` | |
+| `gamma` | number | `2.2` | |
+| `brightness` | number | `1.0` | |
+
+**Response** `200`: `image/webp` bytes, at most 800 x 1200, `Cache-Control: no-store`.
+**Error** `400`: Missing `mediaId` or bad settings. **Error** `404`: No media record or no original.
+
+### `POST /api/media/reprocess-author`
+
+Re-processes one author image from its stored original with new monochrome settings. The original is never changed. A saved crop is applied again.
+
+**Request body**:
+```json
+{ "mediaId": "uuid", "processingParams": { "grayscale": true, "contrast": 1.2, "sharpness": 1.0, "gamma": 2.2, "brightness": 1.0 } }
+```
+
+**Response** `200`: `{ "media": { ...updated media record } }`.
+**Error** `400`: Missing `mediaId` or bad settings. **Error** `404`: No media record or no original. **Error** `409`: The image changed during the edit.
+
+### `POST /api/media/reprocess`
+
+Admin bulk job. Regenerates the thumbnail of every media record from its full-size image (800 x 1200, WebP quality 82). Requires `x-admin-token` when `ADMIN_TOKEN` is set.
+
+**Response** `200`:
+```json
+{ "total": 120, "success": 118, "failed": 2, "errors": ["uuid: message"] }
+```
+
+`errors` holds at most 10 entries. **Error** `401`: Wrong admin token.
+
+### `POST /api/media/backfill-palettes`
+
+Admin bulk job. Extracts a color palette for every poster that has none. Requires `x-admin-token` when `ADMIN_TOKEN` is set.
+
+**Response** `200`:
+```json
+{ "total": 40, "processed": 39, "failed": 1, "errors": ["uuid: message"] }
+```
+
+**Error** `401`: Wrong admin token.
+
+---
+
+## Comments
+
+Comments attach to a work or an author. Adding a comment also records an activity event.
+
+### `GET /api/comments`
+
+**Query parameters**: `entityType` (`work` or `author`) and `entityId`. Both are required.
+
+**Response** `200`: Array of comments with their `attachments`, newest first.
+**Error** `400`: Missing parameter.
+
+### `POST /api/comments`
+
+**Request body**:
+```json
+{ "entityType": "work", "entityId": "uuid", "contentHtml": "<p>Text</p>", "contentJson": {} }
+```
+
+`contentHtml` is 1 to 50,000 characters. The server sanitizes it. `contentJson` is optional.
+
+**Response** `201`: The comment, plus `eventId` of the activity event.
+**Error** `400`: Invalid body.
+
+### `PATCH /api/comments/[commentId]`
+
+**Request body**: `{ "contentHtml": "...", "contentJson": {} }`.
+
+**Response** `200`: The updated comment. **Error** `400`: Invalid body. **Error** `404`: Comment not found.
+
+### `DELETE /api/comments/[commentId]`
+
+Deletes the comment and its activity event in one transaction. The attachments go with the comment (cascade), then their S3 files are removed.
+
+**Response** `200`: `{ "success": true }`. **Error** `404`: Comment not found.
+
+### `POST /api/comments/[commentId]/attachments`
+
+Multipart upload with one `file` field. Maximum 25 MB per file and 10 attachments per comment.
+
+**Response** `201`: The attachment record (`fileName`, `fileSize`, `mimeType`, `s3Key`, `isImage`).
+**Error** `400`: No file, file too large, or 10 attachments already. **Error** `404`: Comment not found.
+
+### `DELETE /api/comments/[commentId]/attachments/[attachmentId]`
+
+Deletes the attachment, only when it belongs to the comment in the URL, then its S3 file.
+
+**Response** `200`: `{ "success": true }`. **Error** `404`: Attachment not found.
+
+---
+
+## Match
+
+### `GET /api/match`
+
+Searches external book sources and returns a compact list for matching a record.
+
+**Query parameters**:
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `q` | string | yes | Search text |
+| `source` | string | no | `all` (default), `isbndb`, `google_books` or `open_library` |
+
+**Response** `200`:
+```json
+{
+  "results": [
+    {
+      "id": "google_books:abc123",
+      "title": "Don Quixote",
+      "subtitle": null,
+      "authors": ["Miguel de Cervantes"],
+      "year": 2003,
+      "isbn": "9780142437230",
+      "coverUrl": "https://...",
+      "source": "google_books",
+      "sourceId": "abc123",
+      "publisher": "Penguin Classics",
+      "pageCount": 1023,
+      "language": "en"
+    }
+  ]
+}
+```
+
+**Error** `400`: Missing `q`.
+
+---
+
+## Reader
+
+Endpoints for the Calibre e-book reader. `[calibreId]` is the integer Calibre ID.
+
+### `GET /api/reader/[calibreId]/cover`
+
+Streams the book cover from S3. `Cache-Control: private, max-age=604800`.
+
+**Error** `400`: ID is not a number. **Error** `404`: No cover.
+
+### `GET /api/reader/[calibreId]/file`
+
+Streams the book file from S3, inline.
+
+**Query parameters**: `format` (optional): `epub`, `pdf`, `mobi` or `azw3`. Without it, the server takes the first available format in that order.
+
+**Error** `400`: ID is not a number. **Error** `404`: Book or file not found.
+
+### `GET /api/reader/[calibreId]/progress`
+
+**Response** `200`: `{ "progress": { ...reading_progress row } }`, or `{ "progress": null }`.
+
+### `POST /api/reader/[calibreId]/progress`
+
+Saves the reading position.
+
+**Request body** (all fields optional):
+```json
+{ "cfi": "epubcfi(...)", "page": 42, "progressPercent": 0.35, "currentChapter": "Chapter 3" }
+```
+
+`progressPercent` is clamped to 0–1. **Response** `200`: `{ "ok": true }`.
+**Error** `400`: Bad ID or invalid JSON. **Error** `404`: Book not found.
+
+---
+
+## Venues
+
+Proxies to the Google Places API (New). Both endpoints need `GOOGLE_PLACES_API_KEY` and return `503` without it. Both return `502` when the Places API fails and `504` when it does not answer.
+
+### `POST /api/venues/search-places`
+
+**Request body**: `{ "query": "bookshop amsterdam", "type": "book_store" }`. `type` is optional.
+
+Rate limit: 10 requests per 10 seconds. Returns at most 8 results.
+
+**Response** `200`:
+```json
+{
+  "results": [
+    {
+      "placeId": "ChIJ...",
+      "name": "The American Book Center",
+      "formattedAddress": "Spui 12, Amsterdam",
+      "nationalPhoneNumber": "020 625 5537",
+      "websiteUri": "https://abc.nl",
+      "location": { "latitude": 52.368, "longitude": 4.889 },
+      "types": ["book_store"],
+      "googleMapsUri": "https://maps.google.com/..."
+    }
+  ]
+}
+```
+
+**Error** `400`: Missing query. **Error** `429`: Rate limited.
+
+### `GET /api/venues/place-details`
+
+**Query parameters**: `placeId` (required; letters, digits, `_` and `-`).
+
+**Response** `200`: `{ "place": { ...Places API fields } }`: address, phone numbers, website, location, types, opening hours, business status and rating.
+**Error** `400`: Missing or bad `placeId`. **Error** `404`: Place not found.
 
 ---
 
