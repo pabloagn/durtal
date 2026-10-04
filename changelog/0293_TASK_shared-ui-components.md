@@ -24,9 +24,10 @@ Every existing file and export stays, so no page that imports them changes: the 
 
 ## Completion Notes
 
-- Every changed dialog, in a browser on a disposable copy of the live data, first on main's code and then on this branch: create an author; edit one (filled in, saved, still there after a reload); Edit Work on a book page (the same); the list's quick edit (filled in, saved); add and edit an edition; add and edit a copy; the provenance page and the first step of a new order. 9 of 9 pass on both, with no page errors.
+- Every changed dialog in **Chrome, Firefox and Safari**, on a disposable copy of the live data, on this branch merged with main d6d0981: create an author; edit one (filled in, saved, still there after a reload); Edit Work on a book page (the same); the list's quick edit (filled in, saved); add and edit an edition; add and edit a copy; the provenance page and the first step of a new order. 9 of 9 pass in each browser. The same flows passed on main's code before the change (Chrome). Safari needed main's dialog fix (SLN-443) first: before it, every dialog in Safari showed only its header.
 - Alignment and contrast audit on `/provenance`, `/authors` and a book page at 1440, 768 and 390px: nothing new. Two findings were there before and are on main too: the "Add to collection" icon 8.69px off the title of a book with no ISBN, and two author cards whose link has no name.
-- `pnpm typecheck` clean; `pnpm lint` 0 errors and no new warnings; the full suite (`scripts/qa/test-local.py`) 1,611 of 1,611.
+- Page weight: `/provenance` 261 KB, the same as main; `/library` is over its budget on main too (SLN-381).
+- `pnpm typecheck` clean; `pnpm lint` 0 errors and no new warnings; the full suite (`scripts/qa/test-local.py`) 1,774 of 1,774.
 
 ### Not changed (open PRs change these files)
 
