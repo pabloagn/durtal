@@ -9,7 +9,7 @@
 
 ## Overview
 
-A perfume's House picker ("Search houses...") suggested publishing houses:
+SLN-436. A perfume's House picker ("Search houses...") suggested publishing houses:
 "47North · publisher", "AK Press · publisher", "Alfred A. Knopf · imprint".
 Every organization picker had the same fault: `useOrganizationSearch(role)`
 used `role` only for "Create" and searched every organization.
