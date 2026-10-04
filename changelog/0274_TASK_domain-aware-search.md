@@ -74,3 +74,16 @@ the new tests pin it for every film sort.
   the palette, which this task does not change.
 - Left for SLN-419: the shortcut help still reads "Search books, authors,
   commands"; the author pages move to `/people` there.
+
+### Review fixes (PR #70)
+- A book is found by the title of its series again (`series.title`, as on
+  main), besides its own series name.
+- A perfume is found by a perfumer credited on one formulation only
+  (`perfume_variant_perfumers`).
+- Speed: the search text is built once per work in a materialized step, and
+  makers and pictures are read only for the rows shown. Each collection reads
+  only its own credits. Measured on a disposable database with 1,000 books,
+  150 films and 100 perfumes (median of 15 runs): "the" 40 ms (main 62 ms),
+  "book" 40 ms (79 ms), "series 4" 44 ms (197 ms), "author" 49 ms (78 ms).
+- Tests: a book found by its series title; a perfume found by a
+  formulation perfumer.

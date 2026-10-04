@@ -1,6 +1,6 @@
 "use server";
 
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
@@ -35,30 +35,39 @@ const PER_KIND = 5;
 const EMPTY: QuickSearchResult = { works: [], people: [], organizations: [], venues: [] };
 
 /**
- * A work's search text: its title, series and the names its collection
- * credits it to (book authors; directors and writers; perfumers and houses;
- * painters). Credited-as names count, so "Leonardo" finds a painting credited
- * that way.
+ * A work's search text: its title, series (its own name and the series it
+ * belongs to) and the names its collection credits it to: book authors;
+ * directors and writers; perfumers (of the fragrance or of one formulation)
+ * and houses; painters. Credited-as names count, so "Leonardo" finds a
+ * painting credited that way. Each collection reads only its own credits, so
+ * a book costs what it did before.
  */
 const workHaystack = sql`search_normalize(w.title
   || ' ' || coalesce(w.series_name, '')
-  || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')
-  || ' ' || coalesce((select string_agg(coalesce(c.credited_as, a.name, ''), ' ') from work_credits c left join authors a on a.id = c.person_id
-       where c.work_id = w.id and c.role_id in ('film.director', 'film.screenwriter', 'perfume.perfumer', 'painting.painter')), '')
-  || ' ' || coalesce((select string_agg(o.name, ' ') from perfume_organizations po join publishing_houses o on o.id = po.organization_id where po.work_id = w.id), ''))`;
+  || ' ' || coalesce((select s.title from series s where s.id = w.series_id), '')
+  || ' ' || case when w.kind = 'book'
+    then coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')
+    else coalesce((select string_agg(coalesce(c.credited_as, a.name, ''), ' ') from work_credits c left join authors a on a.id = c.person_id
+        where c.work_id = w.id and c.role_id in ('film.director', 'film.screenwriter', 'perfume.perfumer', 'painting.painter')), '')
+      || case when w.kind = 'perfume' then
+        ' ' || coalesce((select string_agg(o.name, ' ') from perfume_organizations po join publishing_houses o on o.id = po.organization_id where po.work_id = w.id), '')
+        || ' ' || coalesce((select string_agg(coalesce(p.credited_as, a.name, ''), ' ') from perfume_variants v
+          join perfume_variant_perfumers p on p.variant_id = v.id left join authors a on a.id = p.person_id where v.work_id = w.id), '')
+      else '' end
+  end)`;
 
 /** The makers shown beside a result, in the collection's own terms */
-const workCreators = sql`case w.kind
-  when 'book' then (select array_agg(a.name order by wa.sort_order, a.id) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id)
+const workCreators = (w: SQL) => sql`case ${w}.kind
+  when 'book' then (select array_agg(a.name order by wa.sort_order, a.id) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${w}.id)
   when 'perfume' then (select array_agg(o.name order by po.sort_order, o.id) from perfume_organizations po join publishing_houses o on o.id = po.organization_id
-    where po.work_id = w.id and po.role in ('perfume_house', 'brand'))
+    where po.work_id = ${w}.id and po.role in ('perfume_house', 'brand'))
   else (select array_agg(coalesce(c.credited_as, a.name) order by c.sort_order, c.id) from work_credits c left join authors a on a.id = c.person_id
-    where c.work_id = w.id and c.role_id in ('film.director', 'painting.painter') and coalesce(c.credited_as, a.name) is not null)
+    where c.work_id = ${w}.id and c.role_id in ('film.director', 'painting.painter') and coalesce(c.credited_as, a.name) is not null)
   end`;
 
-const workCover = sql`coalesce(
-  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1),
-  case when w.kind = 'book' then (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id
+const workCover = (w: SQL) => sql`coalesce(
+  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = ${w}.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1),
+  case when ${w}.kind = 'book' then (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = ${w}.id
     and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last, e.id limit 1) end)`;
 
 /** A work's address in its collection; a book needs its slug, the others accept the id */
@@ -71,7 +80,8 @@ async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWor
   const isbnMatch = /^\d{9}[\dX]$|^\d{13}$/i.test(isbn)
     ? sql`exists (select 1 from editions e where e.work_id = w.id and (e.isbn_13 = ${isbn} or e.isbn_10 = ${isbn}))`
     : null;
-  const textMatch = textSearchCondition(workHaystack, q);
+  const hay = sql`h.hay`;
+  const textMatch = textSearchCondition(hay, q);
   const match =
     isbnMatch && textMatch ? sql`(${isbnMatch} or ${textMatch})` : (isbnMatch ?? textMatch ?? null);
   if (!match || !kinds.length) return [];
@@ -79,6 +89,8 @@ async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWor
     kinds.map((k) => sql`${k}`),
     sql`, `,
   );
+  // The search text is built once per work (a materialized step: the matching
+  // and ranking read it many times); makers and pictures only for shown rows
   const rows = resultRows<{
     id: string;
     kind: WorkKind;
@@ -88,17 +100,19 @@ async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWor
     creators: string[] | null;
     cover: string | null;
   }>(
-    await db.execute(sql`select id, kind, slug, title, year, creators, cover from (
+    await db.execute(sql`with h as materialized (
+        select w.id, ${workHaystack} as hay from works w
+        where w.kind::text in (${list}) and (w.kind <> 'book' or w.slug is not null)
+      ), found as (
         select w.id, w.kind, w.slug, w.title, w.original_year as year,
-          ${workCreators} as creators, ${workCover} as cover,
           row_number() over (partition by w.kind
-            order by ${textSearchRank(workHaystack, sql`w.title`, q)} desc, lower(w.title), w.id) as n
-        from works w
-        where w.kind::text in (${list})
-          and (w.kind <> 'book' or w.slug is not null)
-          and ${match}
-      ) found where n <= ${PER_KIND}
-      order by array_position(array[${list}]::text[], kind::text), n`),
+            order by ${textSearchRank(hay, sql`w.title`, q)} desc, lower(w.title), w.id) as n
+        from h join works w on w.id = h.id
+        where ${match}
+      )
+      select f.id, f.kind, f.slug, f.title, f.year, ${workCreators(sql`f`)} as creators, ${workCover(sql`f`)} as cover
+      from found f where f.n <= ${PER_KIND}
+      order by array_position(array[${list}]::text[], f.kind::text), f.n`),
   );
   return rows.map((row) => ({
     id: row.id,

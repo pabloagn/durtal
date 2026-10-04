@@ -168,4 +168,19 @@ describe.skipIf(!url)("search and lists across the collections", () => {
       expect.objectContaining({ name: "Umberto Eco", roles: "Writer" }),
     ]);
   });
+
+  it("finds a book by the title of its series, and a perfume by a perfumer of one formulation", async () => {
+    const swann = await book("Swann's Way", "Marcel Proust");
+    const [series] = await c`insert into series(title, slug) values ('In Search of Lost Time', 'in-search-of-lost-time') returning id`;
+    await c`update works set series_id = ${series.id} where id = ${swann.id}`;
+    expect((await quickSearch("lost time")).works.map((w) => w.title)).toEqual(["Swann's Way"]);
+
+    const perfume = await createPerfume({ title: "Jicky" });
+    const jacques = (await createPerson({ name: "Aimé Guerlain", domains: ["perfume"] })).id;
+    const [variant] = await c`insert into perfume_variants(work_id, concentration, perfumers_override) values (${perfume.id}, 'eau_de_toilette', true) returning id`;
+    await c`insert into perfume_variant_perfumers(variant_id, person_id, sort_order) values (${variant.id}, ${jacques}, 0)`;
+    expect((await quickSearch("aime guerlain")).works).toEqual([
+      expect.objectContaining({ kind: "perfume", title: "Jicky" }),
+    ]);
+  });
 });
