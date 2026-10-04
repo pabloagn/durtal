@@ -142,8 +142,9 @@ function ReleaseFields({
   const label = `Release ${index + 1}`;
   return (
     <li className="space-y-3 rounded-sm border border-glass-border bg-bg-secondary/40 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="type-label">{label}</p>
+      {/* The row carries the label's type: the button sits on its cap-height center */}
+      <div className="type-label flex items-start justify-between gap-3">
+        <p>{label}</p>
         <CapAligned height={24}>
           <button
             type="button"
