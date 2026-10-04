@@ -90,6 +90,7 @@ import { generateWorkSlug } from "@/lib/utils/slugify";
 import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { wantedTargetQueries } from "@/lib/catalogue/acquisition-receipt";
 import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
 
 const lockWork = (d: Db, workId: string) => lockAnyWork(d, workId, "film");
@@ -935,6 +936,7 @@ export async function updateFilmVersion(
               "A personal copy names a release you removed; change the copy first",
             ),
           ),
+          ...wantedTargetQueries(d, sql`t.film_release_id in (${uuids(removed.map((r) => r.id))})`, "release"),
           d.delete(filmReleases).where(
             inArray(
               filmReleases.id,
@@ -986,6 +988,11 @@ export async function deleteFilmVersion(id: string) {
           or h.release_id in (select r.id from film_releases r where r.version_id=${id}::uuid))`,
         "Delete or move the personal copies of this version first",
       ),
+    ),
+    ...wantedTargetQueries(
+      d,
+      sql`t.film_version_id=${id}::uuid or t.film_release_id in (select r.id from film_releases r where r.version_id=${id}::uuid)`,
+      "version",
     ),
     d.delete(filmVersions).where(eq(filmVersions.id, id)),
     ...releaseDates(

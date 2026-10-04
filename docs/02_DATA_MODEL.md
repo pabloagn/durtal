@@ -106,7 +106,8 @@ neither is fabricated when unknown. Acquisition references a date value, retaile
 organization, venue, and paired nonnegative price/currency. Disposition has its own
 date and reason. Referenced supplier roles, venues and locations are protected;
 location edits cannot turn a perfume shelf into digital storage. A variant or work
-with containers cannot be deleted implicitly. Typed order links remain SLN-374.
+with containers cannot be deleted implicitly. A container can come from a
+received order (SLN-374, see `acquisition_targets`).
 
 The shared `works.original_language` column is now nullable, with a domain check:
 books retain their non-null language and legacy English insert default, while
@@ -1352,7 +1353,9 @@ Guardrails hold placeholders, print-on-demand platforms, distributors and parent
 
 Both optional IDs NULL means **any edition**; a publisher ID means a publisher preference; an edition ID means an exact edition. CHECK prevents both IDs being populated. Partial unique index prevents duplicate active targets, including the NULL cases. A trigger validates the edition's work; target identity is immutable. Existing targets can be removed only when no non-cancelled/non-returned orders depend on them.
 
-Target state is derived, not independently stored: cancelled; received through an explicitly linked matching order or active matching copy; on order; otherwise wanted. Receiving another publisher's edition cannot fulfil a target. Returns or disposal of its only linked copy reopen it. Work ownership still derives from copies: owning one edition and wanting another coexist. Library Wanted/On order filters include matching acquisition targets while preserving the work's stored status.
+**Typed targets (SLN-374).** A film, perfume or painting has targets of its own kind, never an edition or publisher one: a perfume's names a formulation (`perfume_variant_id`) and a container size (`perfume_container`, `perfume_capacity_value`, `perfume_volume_unit`); a film's a version (`film_version_id`), optionally a release of it (`film_release_id`), and a medium (`film_medium`, with an optional `film_format_label`); a painting's an object in private or unknown hands to buy (`art_object_id`) or an original or version to buy a reproduction of (`art_reproduces_object_id`). All are nullable FKs (RESTRICT); `acquisition_target_typed_check` allows one kind per row, each complete or absent. The active-target unique index adds these columns, so a book's identity is unchanged and two formulations, sizes, versions or media of one work are two targets. `book_parent_required` now runs `require_target_parent()`: an untyped target still needs a book, with the same message and constraint name. `typed_target_guard` (`validate_typed_acquisition_target()`) checks that the formulation, version, release or object belongs to the work (a harmonization merge may move the target first), refuses a museum's object ("its custody is recorded, not bought") and one you already own, and keeps the typed identity immutable. Deleting a formulation, version, release or object also deletes the targets removed from the Wanted list that name it and have no order; a target still on the list, or one an order names, stops the delete with what to do. A harmonization merge compares active targets on the same identity as the unique index, so two films or perfumes that want different versions or formulations merge.
+
+Target state is derived, not independently stored: cancelled; received through an explicitly linked matching order or active matching copy (for a typed target: any order delivered, purchased or received); on order; otherwise wanted. Receiving another publisher's edition cannot fulfil a target. Returns or disposal of its only linked copy reopen it. Work ownership still derives from copies: owning one edition and wanting another coexist. Library Wanted/On order filters include matching acquisition targets while preserving the work's stored status.
 
 ### `acquisition_target_copies`
 
@@ -1853,6 +1856,9 @@ Tracks the acquisition pipeline for individual works — from intent to receipt.
 | `acquisition_target_id` | UUID | nullable, FK → acquisition_targets, RESTRICT | Optional collecting target; database validates work, edition and copy compatibility |
 | `edition_id` | UUID | FK → `editions.id`, SET NULL, nullable | Specific edition ordered (if known) |
 | `instance_id` | UUID | FK → `instances.id`, SET NULL, nullable | Resulting instance once received |
+| `film_holding_id` | UUID | FK → `film_holdings.id`, SET NULL, nullable, unique | The film copy a received typed order brought in |
+| `perfume_bottle_id` | UUID | FK → `perfume_bottles.id`, SET NULL, nullable, unique | The bottle, sample or decant a received typed order brought in |
+| `art_object_id` | UUID | FK → `art_objects.id`, SET NULL, nullable, unique | The object a received typed order bought, or the reproduction it brought in |
 | `venue_id` | UUID | FK → `venues.id`, RESTRICT, nullable | Venue / seller from which the order was placed; archive the venue instead of deleting it |
 | `acquisition_method` | `acquisition_method_enum` | NOT NULL | How the work is being acquired |
 | `status` | `order_status_enum` | NOT NULL, default `'placed'` | Current stage in the acquisition pipeline |
@@ -1878,6 +1884,8 @@ Tracks the acquisition pipeline for individual works — from intent to receipt.
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
 **Relations**: `work` (N:1), `edition` (N:1), `instance` (N:1), `venue` (N:1), `originPlace` (N:1), `destinationLocation` (N:1), `destinationSubLocation` (N:1), `statusHistory` (1:N → `order_status_history`)
+
+**Film, perfume and painting orders (SLN-374).** A non-book order needs a typed target of its work (`require_order_parent()`; an untyped one keeps the 0038 message) and has no edition or book copy. `orders_received_item_check` allows at most one of `instance_id` and the three links. When the order reaches delivered, purchased or received, the same write (`src/lib/catalogue/acquisition-receipt.ts`, from `createOrder` and `updateOrderStatus`) creates what the target names: a bottle of the formulation and size, a copy of the version, release and medium, a reproduction of the object; or it makes the bought object personal (its custody records in `art_object_whereabouts` stay as they were). The holding takes the order's destination (a physical place, or a digital one for a digital copy; any other is refused with what to change), shop, price with currency (total, else price) and delivery date. The write first asserts the order has brought nothing in, so a replayed or concurrent receipt adds nothing. `validate_target_order()` (0032 definition, book branch unchanged) checks that the link matches the target (another formulation's bottle, another version or medium, another object are refused), that a received typed order has its link, and that only a received or returned order has one. Deleting what a received order brought in is refused until the order is returned. A return marks the holding disposed ("Returned to the seller", dated). `getProvenanceStats({ kind })` totals one collection; amounts stay per currency.
 
 ### `order_status_history`
 
