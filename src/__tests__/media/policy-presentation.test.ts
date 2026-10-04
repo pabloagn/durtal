@@ -35,10 +35,26 @@ describe("image policies per domain", () => {
     }
     expect(size(imagePolicy({ type: "work", kind: "book" }, "gallery"))).toEqual(["native", "contain", 2400, 2400, false]);
   });
-  it("keeps author portraits monochrome and backgrounds landscape", () => {
+  it("makes every author image monochrome and keeps backgrounds landscape", () => {
     expect(imagePolicy({ type: "author" }, "poster")).toMatchObject({ slot: "portrait", monochrome: true });
+    expect(imagePolicy({ type: "author" }, "background")).toMatchObject({ slot: "landscape", fit: "cover", maxWidth: 2560, monochrome: true });
+    expect(imagePolicy({ type: "author" }, "gallery")).toMatchObject({ slot: "native", monochrome: true });
     expect(imagePolicy({ type: "work", kind: "painting" }, "background")).toMatchObject({ slot: "landscape", fit: "cover", maxWidth: 2560 });
     expect(imagePolicy({ type: "organization" }, "poster")).toMatchObject({ slot: "square", fit: "contain", maxWidth: 1600 });
+  });
+  it("keeps every other image in colour", () => {
+    const owners = [
+      { type: "work" as const, kind: "book" as const },
+      { type: "work" as const, kind: "film" as const },
+      { type: "work" as const, kind: "painting" as const },
+      { type: "collection" as const },
+      { type: "organization" as const },
+      { type: "art_object" as const },
+      { type: "perfume_variant" as const },
+    ];
+    for (const owner of owners)
+      for (const mediaType of ["poster", "background", "gallery"] as const)
+        expect(imagePolicy(owner, mediaType).monochrome).toBe(false);
   });
 });
 
