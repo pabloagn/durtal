@@ -12,6 +12,7 @@ import {
 describe("shared image presentation", () => {
   it("leaves unedited images alone and uses neutral defaults", () => {
     expect(imageAdjustmentStyles([])).toBe("");
+    expect(DEFAULT_IMAGE_ADJUSTMENTS).toEqual(imageAdjustmentsSchema.parse({}));
     expect(imageAdjustmentFilter(imageAdjustmentsSchema.parse({}))).toBe(
       "brightness(100%) contrast(100%) saturate(100%) grayscale(0%) sepia(0%) blur(0px)",
     );
