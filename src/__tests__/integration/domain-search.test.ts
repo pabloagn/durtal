@@ -64,7 +64,7 @@ describe.skipIf(!url)("search and lists across the collections", () => {
   it("keeps a book and a film of the same title apart, each at its own address", async () => {
     const novel = await book("Solaris", "Stanisław Lem");
     const tarkovsky = await createPerson({ name: "Andrei Tarkovsky", domains: ["film"], aliases: ["Андрей Тарковский"] });
-    const film = await createFilm({ title: "Solaris", credits: [{ personId: tarkovsky, roleId: "film.director" }] });
+    const film = await createFilm({ title: "Solaris", credits: [{ personId: tarkovsky.id, roleId: "film.director" }] });
 
     const { works, people } = await quickSearch("solaris");
     expect(works.map((w) => [w.kind, w.title, w.href, w.creators])).toEqual([
