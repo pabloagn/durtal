@@ -9,7 +9,7 @@ import Link from "next/link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ArrowLeft, Star, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
@@ -286,7 +286,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 <h1 className="type-page-title min-w-0 break-words">
                   {work.title}
                 </h1>
-                <div className="flex shrink-0 items-center gap-2">
+                {/* On the cap-height center of the title's first line */}
+                <CapAlignedControls height={32} className="type-page-title">
                   <CollectionButton workId={work.id} title={work.title} />
                   <CopyBookButton
                     title={work.title}
@@ -404,7 +405,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                       })),
                     }}
                   />
-                </div>
+                </CapAlignedControls>
               </div>
 
               {/* Author links */}

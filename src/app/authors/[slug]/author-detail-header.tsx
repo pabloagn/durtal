@@ -12,6 +12,7 @@ import { AuthorMediaManagerDialog } from "@/components/media/author-media-manage
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ExportMenu } from "@/components/shared/export-menu";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
@@ -158,7 +159,8 @@ export function AuthorDetailHeader({
                 </p>
               )}
             </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
+            {/* On the cap-height center of the name's first line */}
+            <CapAlignedControls height={32} className="type-page-title">
               <ExportMenu
                 entity="authors"
                 ids={[authorId]}
@@ -167,7 +169,7 @@ export function AuthorDetailHeader({
                 size="sm"
               />
               <EntityActionMenu items={actionItems} />
-            </div>
+            </CapAlignedControls>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">

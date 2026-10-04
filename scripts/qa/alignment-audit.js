@@ -8,12 +8,18 @@
  * is checked against the stack's center instead. Icons that do not share a
  * line with the text (a large placeholder above a title) are skipped.
  *
+ * A second pass checks the icon controls beside each heading (a title row's
+ * buttons and menu): each control's box against the heading's cap height.
+ *
  * Every front-end change must pass this with an empty result on each page it
  * touches (see CLAUDE.md, "Pixel-perfect alignment").
  */
 (() => {
   const TOLERANCE = 0.5;
   const MAX_ICON = 48;
+  // How far up from an icon the text row may be: a button in a CapAligned
+  // slot, or a menu trigger, puts the row 5-7 levels above the svg
+  const MAX_DEPTH = 8;
   const ctx = document.createElement("canvas").getContext("2d");
 
   function firstText(el) {
@@ -93,7 +99,7 @@
     );
   }
 
-  /** Box of the icon's own column in the row that holds the text */
+  /** Box of the icon's own column in the row that holds the text (an element or a bare text node) */
   function outerBox(svg, holder) {
     let el = svg;
     while (el.parentElement && !el.parentElement.contains(holder)) el = el.parentElement;
@@ -123,11 +129,11 @@
     const box = svg.getBoundingClientRect();
     if (box.width > MAX_ICON || box.height > MAX_ICON) continue;
 
-    // Nearest flex row (up to 4 levels) that holds text beside the icon
+    // Nearest flex row (up to MAX_DEPTH levels) that holds text beside the icon
     let node = svg;
     let text = null;
     let holder = null;
-    for (let depth = 0; depth < 4 && node.parentElement && !text; depth++) {
+    for (let depth = 0; depth < MAX_DEPTH && node.parentElement && !text; depth++) {
       const row = node.parentElement;
       const cs = getComputedStyle(row);
       const isRow =
@@ -159,7 +165,8 @@
     // A compact stack (a number over a label) with an icon box of about its
     // height centers the icon on itself; otherwise the first line counts
     const stackBox = holder?.getBoundingClientRect();
-    const iconBox = node === svg ? box : outerBox(svg, holder);
+    // With a bare text node in the row, the text itself marks the row
+    const iconBox = node === svg ? box : outerBox(svg, holder ?? text);
     // An icon inside a large tile (an image placeholder) is not beside the text
     if (iconBox.height > 3 * box.height) continue;
     if (isStack(holder) && iconBox.height >= 0.6 * stackBox.height) {
@@ -177,5 +184,45 @@
         where: label(svg),
       });
   }
+  // Icon controls beside a heading (the buttons and menus of a title row):
+  // their boxes sit on the heading's cap-height center. The pass above can
+  // pair such an icon with a neighbouring control's label instead.
+  const seen = new Set();
+  for (const heading of document.querySelectorAll("h1, h2, h3")) {
+    if (!visible(heading)) continue;
+    const text = firstText(heading);
+    const line = text && firstLine(text);
+    if (!line) continue;
+    // The heading's row: the nearest flex row (up to 3 levels) with controls
+    let row = heading;
+    let controls = [];
+    for (let depth = 0; depth < 3 && row.parentElement && !controls.length; depth++) {
+      row = row.parentElement;
+      const cs = getComputedStyle(row);
+      if (!cs.display.includes("flex") || cs.flexDirection.startsWith("column")) continue;
+      controls = [...row.querySelectorAll('button, a[href], [role="button"]')].filter((c) => {
+        if (heading.contains(c) || seen.has(c) || !visible(c) || !c.querySelector("svg")) return false;
+        if (c.parentElement.closest('button, a[href], [role="button"]')) return false;
+        // Icon controls only: a text button sits on its own label
+        if (c.textContent.trim().length > 2) return false;
+        const r = c.getBoundingClientRect();
+        return r.height <= MAX_ICON && r.bottom > line.rect.top && r.top < line.rect.bottom;
+      });
+    }
+    for (const control of controls) {
+      seen.add(control);
+      const r = control.getBoundingClientRect();
+      checked++;
+      const off = +(r.top + r.height / 2 - line.cap).toFixed(2);
+      if (Math.abs(off) > TOLERANCE)
+        issues.push({
+          off,
+          text: text.textContent.trim().slice(0, 32),
+          font: getComputedStyle(text.parentElement).fontSize,
+          where: label(control.querySelector("svg")),
+        });
+    }
+  }
+
   return { page: location.pathname, checked, issues };
 })();
