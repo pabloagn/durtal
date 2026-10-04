@@ -223,6 +223,26 @@ DURTAL_GOOGLE_BOOKS_API_KEY=xxx
 
 ---
 
+## Backups, Recovery and Rollback
+
+**Database.** Before every live migration, `pg_dump --format=custom` with pg_dump 16 into `~/personal/durtal-backups/live-before-<what>-<timestamp>.dump`. A backup counts as verified once it restores strictly: `python3 scripts/qa/preview-local.py --from-dump FILE` restores it with `pg_restore --exit-on-error` into a disposable PostgreSQL, applies the pending migrations and prints the tables whose rows changed.
+
+**Files (S3).** Checked 2026-10-04 (task 0267): every key the newest backup names (3,274) exists in the bucket (3,374 objects, 468 MB). No copy of the bucket exists, and the app's IAM user cannot read its versioning, replication or lifecycle settings, so whether deleted or overwritten files can be recovered is unknown.
+
+**Checking a build against a backup.** `pnpm build`, then `python3 scripts/qa/preview-local.py --start --from-dump FILE` serves the standalone build as the Docker image does (`server.js` with its static files) against a disposable restore of the backup.
+
+**Rolling back a collection.** Perfumes, films and paintings can be closed again without losing what was entered:
+
+1. In `src/lib/catalogue/domains.ts`, set `enabled: false` for the collection.
+2. Keep the database as it is: never roll back `0053_open_perfumes`, `0054_film_kind_enabled` or `0055_open_paintings`, and never drop the collection's tables. The database keeps accepting the kind, so its rows stay valid.
+3. Build and serve that code. Every page of the collection answers 404, no menu, switch or dashboard section names it, and the book pages, lists and searches leave its records out.
+
+To roll forward, set `enabled: true` again. The records come back as they were. An older build from before a collection existed is not a safe rollback once that collection has rows: use the current code with the switch off instead.
+
+The drill of 2026-10-04 (task 0267) ran this on disposable restores of `live-before-0053-0056-20261004-113735.dump`: main's build added a perfume, a film and a painting; the recovery build (all three switches off) restored a dump of that database strictly, kept every table's row count, answered 404 on every collection page and 200 on the book pages; main's build on the same dump showed the three records again.
+
+---
+
 ## External Services
 
 | Service | Connection | Purpose |
