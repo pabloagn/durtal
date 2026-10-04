@@ -4,6 +4,21 @@
  * object opened directly could otherwise run its script here.
  */
 
+/**
+ * Folders whose files the app shows: images, edition covers and comment
+ * attachments. Raw uploads, intermediate files and anything else in the
+ * bucket are not served.
+ */
+const READABLE_PREFIXES = ["gold/media/", "gold/covers/", "gold/comments/"];
+
+/** Whether /api/s3/read may serve this key. */
+export function isReadableKey(key: string): boolean {
+  return (
+    READABLE_PREFIXES.some((prefix) => key.startsWith(prefix)) &&
+    !key.split("/").some((part) => part === ".." || part === "")
+  );
+}
+
 /** Raster images: safe to show inline. */
 const INLINE_TYPES = new Set([
   "image/avif",

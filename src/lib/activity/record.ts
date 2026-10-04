@@ -1,13 +1,14 @@
 import { db } from "@/lib/db";
 import { activityEvents } from "@/lib/db/schema";
 import type { ActivityMetadata } from "./types";
+import type { ActivityEntityType } from "./entities";
 
 /**
  * Fire-and-forget activity event recording.
  * Never blocks or breaks the calling mutation.
  */
 export function recordActivity(
-  entityType: "work" | "author",
+  entityType: ActivityEntityType,
   entityId: string,
   eventKey: string,
   metadata?: ActivityMetadata,

@@ -10,6 +10,7 @@ import { SettingRow, settingDescriptionId } from "@/components/settings/settings
 import {
   EXPORT_FORMAT_LABELS,
   triggerExport,
+  type ExportEntity,
   type ExportFormat,
 } from "@/components/shared/export-menu";
 import { refreshCachedData } from "@/lib/actions/settings";
@@ -19,13 +20,13 @@ const FORMAT_OPTIONS = (Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map
   label: EXPORT_FORMAT_LABELS[format],
 }));
 
-/** Every book or every author as one file, in the format picked beside it. */
+/** Every record of one kind as one file, in the format picked beside it. */
 export function ExportRow({
   entity,
   label,
   description,
 }: {
-  entity: "works" | "authors";
+  entity: ExportEntity;
   label: string;
   description: string;
 }) {

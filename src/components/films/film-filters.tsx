@@ -11,7 +11,8 @@ import { useHomeView } from "@/components/domains/domain-home-shell";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { FILM_FILTER_KEYS } from "@/lib/catalogue/film-params";
-import type { FilmFilterOptions } from "@/lib/actions/films";
+import { getFilmFilterOptions } from "@/lib/actions/films";
+import { useLazyOptions } from "@/hooks/use-lazy-options";
 
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 
@@ -53,7 +54,9 @@ function itemLabel(item: { name: string; parentName: string | null }) {
  * director and a cast member must both match. Every choice is in the URL, so
  * a filtered home can be linked.
  */
-export function FilmFilters({ options }: { options: FilmFilterOptions }) {
+export function FilmFilters() {
+  // The options load when the filter panel is about to open, not with the page
+  const { value: options, failed, start } = useLazyOptions(getFilmFilterOptions);
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = useHomeView("film");
@@ -91,34 +94,35 @@ export function FilmFilters({ options }: { options: FilmFilterOptions }) {
     push(params);
   }, [push, searchParams]);
 
-  const years = options.releaseYears;
+  const years = options?.releaseYears ?? null;
   const from = Number(searchParams.get("from")) || undefined;
   const to = Number(searchParams.get("to")) || undefined;
+  // The fixed groups show at once; the record lists join when they load
   const groups: AnyFilterGroup[] = [
     {
       key: "director",
       label: "Director",
-      options: options.directors.map((p) => ({ value: p.id, label: p.name })),
+      options: (options?.directors ?? []).map((p) => ({ value: p.id, label: p.name })),
     },
     {
       key: "cast",
       label: "Cast",
-      options: options.cast.map((p) => ({ value: p.id, label: p.name })),
+      options: (options?.cast ?? []).map((p) => ({ value: p.id, label: p.name })),
     },
     {
       key: "genre",
       label: "Genre",
-      options: options.genres.map((g) => ({ value: g.id, label: itemLabel(g) })),
+      options: (options?.genres ?? []).map((g) => ({ value: g.id, label: itemLabel(g) })),
     },
     {
       key: "language",
       label: "Language",
-      options: options.languages.map((l) => ({ value: l.id, label: l.name })),
+      options: (options?.languages ?? []).map((l) => ({ value: l.id, label: l.name })),
     },
     {
       key: "country",
       label: "Country",
-      options: options.countries.map((c) => ({ value: c.id, label: c.name })),
+      options: (options?.countries ?? []).map((c) => ({ value: c.id, label: c.name })),
     },
     {
       key: "holding",
@@ -181,6 +185,9 @@ export function FilmFilters({ options }: { options: FilmFilterOptions }) {
     >
       <FilterDropdown
         groups={groups}
+        onIntent={start}
+        loading={!options && !failed}
+        failed={failed}
         activeFilters={Object.fromEntries(LIST_KEYS.map((key) => [key, list(key)]))}
         onFilterChange={handleFilterChange}
         onClearAll={handleClearAll}

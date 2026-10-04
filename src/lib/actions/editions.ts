@@ -27,23 +27,15 @@ import { processAndUploadCover } from "@/lib/s3/covers";
 import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
+import { isbnClash, isbnTaken } from "@/lib/catalogue/isbn-clash";
 
 export async function createEdition(input: CreateEditionInput) {
   const parsed = createEditionSchema.parse(input);
   await requireBookWork(parsed.workId);
 
-  // Check for duplicate ISBN-13 before inserting
-  if (parsed.isbn13) {
-    const existing = await db.query.editions.findFirst({
-      where: eq(editions.isbn13, parsed.isbn13),
-      columns: { id: true, title: true },
-    });
-    if (existing) {
-      throw new Error(
-        `An edition with ISBN ${parsed.isbn13} already exists${existing.title ? ` ("${existing.title}")` : ""}`,
-      );
-    }
-  }
+  // An ISBN another edition holds is refused before anything is uploaded
+  const clash = await isbnClash(parsed);
+  if (clash) throw new Error(clash);
 
   // The cover is uploaded first; the edition, its links and any contributor
   // created by name are one write. A failed write removes the uploaded cover
@@ -57,7 +49,8 @@ export async function createEdition(input: CreateEditionInput) {
     ]);
   } catch (err) {
     await plan.discardCover();
-    throw err;
+    const taken = isbnTaken(err, parsed);
+    throw taken ? new Error(taken, { cause: err }) : err;
   }
 
   // A publisher name no house knows yet is decided when it is safe
@@ -83,6 +76,9 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
     ...editionData
   } = parsed;
 
+  const clash = await isbnClash(editionData, id);
+  if (clash) throw new Error(clash);
+
   const updates: Record<string, unknown> = {
     ...editionData,
     updatedAt: new Date(),
@@ -101,42 +97,47 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   // The edition, every link the edit names and any contributor created by
   // name are one write
   const { credits, newAuthors } = await resolveBookCredits(contributorIds);
-  await atomic((d) => [
-    ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
-    d.update(editions).set(updates).where(eq(editions.id, id)),
-    ...(publisherIds !== undefined
-      ? [
-          d.execute(
-            sql`select set_edition_publishers(${id}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(publisherIds)}::jsonb)::uuid))`,
-          ),
-        ]
-      : []),
-    ...(credits ? editionContributorQueries(d, id, credits) : []),
-    ...(genreIds
-      ? [
-          d.delete(editionGenres).where(eq(editionGenres.editionId, id)),
-          ...(genreIds.length
-            ? [
-                d.insert(editionGenres).values(
-                  [...new Set(genreIds)].map((genreId) => ({ editionId: id, genreId })),
-                ),
-              ]
-            : []),
-        ]
-      : []),
-    ...(tagIds
-      ? [
-          d.delete(editionTags).where(eq(editionTags.editionId, id)),
-          ...(tagIds.length
-            ? [
-                d.insert(editionTags).values(
-                  [...new Set(tagIds)].map((tagId) => ({ editionId: id, tagId })),
-                ),
-              ]
-            : []),
-        ]
-      : []),
-  ]);
+  try {
+    await atomic((d) => [
+      ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
+      d.update(editions).set(updates).where(eq(editions.id, id)),
+      ...(publisherIds !== undefined
+        ? [
+            d.execute(
+              sql`select set_edition_publishers(${id}::uuid, ARRAY(select jsonb_array_elements_text(${JSON.stringify(publisherIds)}::jsonb)::uuid))`,
+            ),
+          ]
+        : []),
+      ...(credits ? editionContributorQueries(d, id, credits) : []),
+      ...(genreIds
+        ? [
+            d.delete(editionGenres).where(eq(editionGenres.editionId, id)),
+            ...(genreIds.length
+              ? [
+                  d.insert(editionGenres).values(
+                    [...new Set(genreIds)].map((genreId) => ({ editionId: id, genreId })),
+                  ),
+                ]
+              : []),
+          ]
+        : []),
+      ...(tagIds
+        ? [
+            d.delete(editionTags).where(eq(editionTags.editionId, id)),
+            ...(tagIds.length
+              ? [
+                  d.insert(editionTags).values(
+                    [...new Set(tagIds)].map((tagId) => ({ editionId: id, tagId })),
+                  ),
+                ]
+              : []),
+          ]
+        : []),
+    ]);
+  } catch (err) {
+    const taken = isbnTaken(err, editionData);
+    throw taken ? new Error(taken, { cause: err }) : err;
+  }
 
   // Record activity — resolve workId from editionData or fetch from DB
   const workId =

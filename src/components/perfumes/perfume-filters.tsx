@@ -12,7 +12,8 @@ import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { CONCENTRATION_LABELS } from "@/lib/catalogue/perfume-labels";
 import { PERFUME_FILTER_KEYS } from "@/lib/catalogue/perfume-params";
-import type { PerfumeFilterOptions } from "@/lib/actions/perfumes";
+import { getPerfumeFilterOptions } from "@/lib/actions/perfumes";
+import { useLazyOptions } from "@/hooks/use-lazy-options";
 
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 
@@ -37,9 +38,12 @@ function itemLabel(item: { name: string; parentName: string | null }) {
 /**
  * Search, sort, view and filters of the perfume home. Houses, perfumers and
  * concentrations match any one chosen; families, accords and notes must all
- * match. Every choice is in the URL, so a filtered home can be linked.
+ * match. A house matches as perfume house, brand or manufacturer, unless a
+ * house role narrows it. Every choice is in the URL, so a filtered home can be linked.
  */
-export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
+export function PerfumeFilters() {
+  // The options load when the filter panel is about to open, not with the page
+  const { value: options, failed, start } = useLazyOptions(getPerfumeFilterOptions);
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = useHomeView("perfume");
@@ -64,6 +68,9 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
       if (key === "container" && next.length) {
         if (params.get("holding") === "not_owned") params.delete("holding");
       }
+      // A house role narrows the houses chosen with it: one at a time, gone when they change
+      if (key === "houseRole") next = values.filter((v) => v !== params.get("houseRole")).slice(-1);
+      if (key === "house") params.delete("houseRole");
       if (next.length) params.set(key, next.join(","));
       else params.delete(key);
       push(params);
@@ -77,39 +84,54 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
     push(params);
   }, [push, searchParams]);
 
-  const years = options.releaseYears;
+  const years = options?.releaseYears ?? null;
   const from = Number(searchParams.get("from")) || undefined;
   const to = Number(searchParams.get("to")) || undefined;
+  // The fixed groups show at once; the record lists join when they load
   const groups: AnyFilterGroup[] = [
     {
       key: "house",
       label: "House",
-      options: options.houses.map((h) => ({ value: h.id, label: h.name })),
+      options: (options?.houses ?? []).map((h) => ({ value: h.id, label: h.name })),
     },
+    // Shown with a house: what the houses must be to the perfume
+    ...(list("house").length
+      ? [
+          {
+            key: "houseRole",
+            label: "House role",
+            options: [
+              { value: "perfume_house", label: "As perfume house" },
+              { value: "brand", label: "As brand" },
+              { value: "manufacturer", label: "As manufacturer" },
+            ],
+          },
+        ]
+      : []),
     {
       key: "perfumer",
       label: "Perfumer",
-      options: options.perfumers.map((p) => ({ value: p.id, label: p.name })),
+      options: (options?.perfumers ?? []).map((p) => ({ value: p.id, label: p.name })),
     },
     {
       key: "family",
       label: "Family",
-      options: options.families.map((f) => ({ value: f.id, label: itemLabel(f) })),
+      options: (options?.families ?? []).map((f) => ({ value: f.id, label: itemLabel(f) })),
     },
     {
       key: "accord",
       label: "Accord",
-      options: options.accords.map((a) => ({ value: a.id, label: itemLabel(a) })),
+      options: (options?.accords ?? []).map((a) => ({ value: a.id, label: itemLabel(a) })),
     },
     {
       key: "note",
       label: "Note",
-      options: options.notes.map((n) => ({ value: n.id, label: itemLabel(n) })),
+      options: (options?.notes ?? []).map((n) => ({ value: n.id, label: itemLabel(n) })),
     },
     {
       key: "concentration",
       label: "Concentration",
-      options: options.concentrations.map((c) => ({
+      options: (options?.concentrations ?? []).map((c) => ({
         value: c,
         label: CONCENTRATION_LABELS[c].label,
       })),
@@ -176,9 +198,13 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
     >
       <FilterDropdown
         groups={groups}
+        onIntent={start}
+        loading={!options && !failed}
+        failed={failed}
         activeFilters={Object.fromEntries(
-          ["house", "perfumer", "family", "accord", "note", "concentration", "holding", "container", "favourite"].map(
-            (key) => [key, list(key)],
+          ["house", "houseRole", "perfumer", "family", "accord", "note", "concentration", "holding", "container", "favourite"].map(
+            // A house role counts only with a house: alone it filters nothing
+            (key) => [key, key === "houseRole" && !list("house").length ? [] : list(key)],
           ),
         )}
         onFilterChange={handleFilterChange}
