@@ -290,6 +290,33 @@ describe.skipIf(!url)(
       expect(second.rows[0].id).not.toBe(first.rows[0].id);
       await expect(getOrganizations({ limit: 101 })).rejects.toThrow();
     });
+    it("a picker offers only its kinds: a perfume's house never suggests a publisher", async () => {
+      const save = async (
+        name: string,
+        roles: Parameters<typeof saveOrganization>[0]["roles"],
+        parentId?: string,
+      ) => (await saveOrganization({ name, roles, parentId }))!.id;
+      const house = await save("Guerlain", ["perfume_house"]);
+      const brand = await save("Guerlain Parfums", ["brand"]);
+      const maker = await save("Guerlain Atelier", ["manufacturer"]);
+      const press = await save("Guerlain Press", ["publisher"]);
+      await save("Guerlain Imprint", ["imprint"], press);
+      const museum = await save("Musée Guerlain", ["museum"]);
+      const gallery = await save("Galerie Guerlain", ["gallery"]);
+      const ids = async (roles: Parameters<typeof getOrganizations>[0]) =>
+        (await getOrganizations(roles)).rows.map((r) => r.id).sort();
+      expect(
+        await ids({ query: "guerlain", roles: ["perfume_house", "brand", "manufacturer"] }),
+      ).toEqual([house, brand, maker].sort());
+      expect(await ids({ query: "guerlain", roles: ["museum", "gallery"] })).toEqual(
+        [museum, gallery].sort(),
+      );
+      // Publisher and imprint are the book profile's kind, not a role row
+      expect((await getOrganizations({ query: "guerlain", roles: ["publisher", "imprint"] })).total).toBe(2);
+      // Without roles every organization still shows (the directory)
+      expect((await getOrganizations({ query: "guerlain" })).total).toBe(7);
+      await expect(getOrganizations({ roles: [] })).rejects.toThrow();
+    });
     it("keeps concurrent same-name identities distinct and URLs stable after edits", async () => {
       const orgs = await Promise.all(
         Array.from({ length: 5 }, () =>

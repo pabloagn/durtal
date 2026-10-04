@@ -76,10 +76,10 @@ export function PerfumeCard({
             <span
               role="img"
               aria-label={`In the collection: ${held}`}
-              className={`${COVER_CHIP} ${COVER_CHIP_TEXT} ${COVER_CHIP_TONE.sage} gap-0.5`}
+              className={`${COVER_CHIP} ${COVER_CHIP_TEXT} gap-0.5 text-fg-primary`}
               data-tooltip={`In the collection: ${held}`}
             >
-              <Droplet className={COVER_CHIP_ICON} strokeWidth={1.5} />
+              <Droplet className={`${COVER_CHIP_ICON} ${COVER_CHIP_TONE.sage}`} strokeWidth={1.5} />
               {count}
             </span>
           </div>

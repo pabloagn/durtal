@@ -10,9 +10,11 @@ interface Props {
   authorNames?: readonly string[];
   authorName?: string;
   className?: string;
+  /** On a cover: glass on the image instead of a plain button */
+  glass?: boolean;
 }
 
-export function CopyBookButton({ title, authorNames, authorName, className = "" }: Props) {
+export function CopyBookButton({ title, authorNames, authorName, className = "", glass = false }: Props) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -35,7 +37,7 @@ export function CopyBookButton({ title, authorNames, authorName, className = "" 
   const label = copied ? "Copied" : "Copy book title and author";
   const Icon = copied ? Check : Copy;
   return <button type="button" onClick={handleCopy} aria-label={label} data-tooltip={label}
-    className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary ${className}`}>
+    className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm ${glass ? "border glass-chip text-fg-primary hover:glass-chip-lift" : "text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"} ${className}`}>
     <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
   </button>;
 }
