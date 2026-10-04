@@ -365,7 +365,7 @@ export function AuthorMediaManagerDialog({
                           }`}
                         >
                           {isSelected && (
-                            <Check className="h-3 w-3 text-white" strokeWidth={2} />
+                            <Check className="h-3 w-3 text-fg-primary" strokeWidth={2} />
                           )}
                         </button>
 
@@ -381,7 +381,7 @@ export function AuthorMediaManagerDialog({
                             }}
                             className={`absolute left-7 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm transition-all ${
                               isTuning
-                                ? "bg-accent-rose text-white"
+                                ? "bg-accent-rose text-fg-primary"
                                 : "bg-bg-primary/80 text-fg-muted opacity-0 hover:text-accent-rose group-hover:opacity-100 focus-visible:opacity-100"
                             }`}
                           >
@@ -427,11 +427,11 @@ export function AuthorMediaManagerDialog({
                             className="h-full w-full object-cover"
                           />
                           {!isGallery && !item.isActive && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 in-focus-visible:opacity-100">
+                            <div className="absolute inset-0 flex items-center justify-center bg-overlay opacity-0 transition-opacity group-hover:opacity-100 in-focus-visible:opacity-100">
                               {isSettingThisActive ? (
-                                <Spinner className="text-white" />
+                                <Spinner className="text-fg-primary" />
                               ) : (
-                                <span className="text-micro font-medium text-white">
+                                <span className="text-micro font-medium text-fg-primary">
                                   Set active
                                 </span>
                               )}
@@ -515,7 +515,7 @@ export function AuthorMediaManagerDialog({
                   <button
                     type="submit"
                     disabled={urlLoading || !url.trim()}
-                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-white transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {urlLoading && (
                       <Loader2

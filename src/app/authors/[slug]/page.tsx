@@ -124,7 +124,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
               style={mediaImageStyle(mediaCrop(bgMedia))}
             />
             {/* Dark overlay for readability */}
-            <div className="absolute inset-0 bg-black/70" />
+            <div className="absolute inset-0 bg-scrim" />
             {/* Bottom gradient: dissolves into the page background */}
             <div
               className="absolute inset-x-0 bottom-0 h-40"

@@ -43,7 +43,7 @@ export function ImageLightbox({ src, alt, open, onClose }: ImageLightboxProps) {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-scrim-deep"
         onClick={onClose}
         aria-hidden="true"
       />

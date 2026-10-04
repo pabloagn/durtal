@@ -51,6 +51,14 @@
   /* What lies behind a dialog or the command palette */
   --color-glass-veil: rgba(3, 5, 7, 0.62);
 
+  /* ── Over images ─────────────────────────────────────────────────────── */
+  /* The page's near-black, never pure black: a control on a cover or photo
+     (overlay), a banner dimmed behind a header (scrim), the lightbox around
+     an open image (scrim-deep). Text on them is fg-primary, never white. */
+  --color-overlay: rgba(3, 5, 7, 0.85);
+  --color-scrim: rgba(3, 5, 7, 0.7);
+  --color-scrim-deep: rgba(3, 5, 7, 0.9);
+
   /* ── Border radius ───────────────────────────────────────────────────── */
   --radius-sm: 2px;
   --radius-md: 4px;

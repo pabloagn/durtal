@@ -65,7 +65,7 @@ export default async function CollectionPage({
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(background))}
             />
-            <div className="absolute inset-0 bg-black/70" />
+            <div className="absolute inset-0 bg-scrim" />
             <div
               className="absolute inset-x-0 bottom-0 h-40"
               style={{

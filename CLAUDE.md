@@ -104,11 +104,11 @@ Dark-mode only. Gothic-minimal aesthetic. Reference: `docs/03_DESIGN_LANGUAGE.md
 
 Key constraints:
 - Border radius: 2px default (squared, not rounded)
-- Colors: All desaturated, muted. No bright neons.
+- Colors: All desaturated, muted. No bright neons. Over an image, use the `overlay`, `scrim` and `scrim-deep` tokens, never `bg-black` or `text-white`
 - Text contrast is at least 4.5:1: text a reader needs uses `fg-secondary` or brighter; `fg-muted` is for placeholders, disabled text, separators and decoration only; rose and red text use `accent-rose-text` / `accent-red-text`. Check with `scripts/qa/design-audit.js`
 - Typography: serif headings (PP Cirka), sans body (Inter); long reading text (descriptions, bios) in EB Garamond through `<Prose>` (`src/components/shared/prose.tsx`, role `type-prose`)
 - Type: seven sizes only (12, 14, 16, 21, 30, 38, 46px). Headings use the `type-*` roles; every titled block on a page uses `SectionHeading` (`src/components/shared/section-heading.tsx`). See `docs/03_DESIGN_LANGUAGE.md`, Typography
-- Icons: Lucide, 1.5px stroke, 16px max
+- Icons: Lucide, 1.5px stroke, 16px max for interface icons (image placeholders may use larger decorative ones)
 - Tooltips: `data-tooltip` (and `data-tooltip-keys` for a shortcut), never the `title` attribute. Every icon-only control has an `aria-label` and a tooltip. See `docs/03_DESIGN_LANGUAGE.md`, Tooltips
 - Glass: one material (`glass`, `glass-bar`, `glass-veil` in `globals.css`) for surfaces that float above the page: command palette, menus, popovers, tooltips, dialogs, selection toolbars. Never on page content. A glass surface never scrolls: it takes `overflow-hidden` and an element inside it scrolls. See `docs/03_DESIGN_LANGUAGE.md`, Glass
 - Alignment is pixel-perfect:
