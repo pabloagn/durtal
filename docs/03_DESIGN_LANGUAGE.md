@@ -301,7 +301,7 @@ A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
 
 - Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
-- `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then l"` (a sequence).
+- `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.

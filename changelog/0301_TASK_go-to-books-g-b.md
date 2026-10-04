@@ -21,7 +21,7 @@ SLN-440. The Go to menu opened Books with `G L` ("Go Library"). It is now
   I, Authors A, Publishers P, Series S, Collections C, Provenance O, Places M,
   Taxonomy T, Harmonize H, Reader R, Settings ,). `domain-navigation.test.ts`
   checks that every Go key stays unique.
-- `docs/04_ROUTES_AND_VIEWS.md` and two comments say `G B`.
+- `docs/04_ROUTES_AND_VIEWS.md`, the example in `docs/03_DESIGN_LANGUAGE.md` and two comments say `G B`.
 
 ## Completion Notes
 
