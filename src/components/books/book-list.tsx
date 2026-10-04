@@ -11,6 +11,7 @@ import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 
 interface BookListItem {
   workId: string;
@@ -38,6 +39,39 @@ interface BookListProps {
   onSelect?: (workId: string) => void;
 }
 
+/** The selection mark on a row's thumbnail, like the grid card's */
+export function RowCheckbox({ checked }: { checked: boolean }) {
+  return (
+    <div
+      className={`absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-[2px] border transition-colors ${
+        checked
+          ? "border-accent-rose bg-accent-rose text-fg-primary"
+          : "border-glass-border bg-overlay text-transparent"
+      }`}
+    >
+      {checked && (
+        <svg
+          className="h-2.5 w-2.5"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M2 6l3 3 5-5" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A list row is two lines beside its thumbnail. The first line holds the
+ * title, then the marks, status and rating, then the copy button: each on
+ * the title's cap-height center. The second line holds the author, the year
+ * and the copies, on the author's baseline.
+ */
 export function BookList({ books, isSelecting = false, selectedIds, onSelect }: BookListProps) {
   return (
     <div className="space-y-px">
@@ -51,45 +85,26 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           }
         }
 
+        const statusInfo = book.catalogueStatus
+          ? STATUS_CONFIG[book.catalogueStatus as CatalogueStatus]
+          : null;
+        const priorityInfo =
+          book.acquisitionPriority && book.acquisitionPriority !== "none"
+            ? PRIORITY_CONFIG[book.acquisitionPriority as AcquisitionPriority]
+            : null;
+
         return (
         <div
           key={book.workId}
-          className={`group flex items-center gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 ${isSelected ? "bg-accent-rose/5" : ""}`}
+          className={`group flex items-start gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 ${isSelected ? "bg-accent-rose/5" : ""}`}
           onClick={handleRowClick}
         >
-          {/* Selection checkbox */}
-          {isSelecting && (
-            <div className="flex-shrink-0">
-              <div
-                className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
-                  isSelected
-                    ? "border-accent-rose bg-accent-rose text-fg-primary"
-                    : "border-glass-border bg-overlay text-transparent"
-                }`}
-              >
-                {isSelected && (
-                  <svg
-                    className="h-3 w-3"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M2 6l3 3 5-5" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          )}
-
           <Link
             href={`/library/${book.slug}`}
             className={`flex min-w-0 flex-1 items-center gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
             tabIndex={isSelecting ? -1 : undefined}
           >
-          {/* Small thumbnail */}
+          {/* Small thumbnail; in selection mode it carries the checkbox */}
           <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (
               <Image
@@ -108,59 +123,52 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                 </span>
               </div>
             )}
+            {isSelecting && <RowCheckbox checked={isSelected} />}
           </div>
 
-          {/* Info */}
           <div className="min-w-0 flex-1">
-            <h3 className="type-item-title truncate transition-colors group-hover:text-accent-rose-text">
-              {book.title}
-            </h3>
-            <p className="truncate text-sm text-fg-secondary">
-              {book.authorName}
-            </p>
-          </div>
-
-          <HuntBadge {...book} />
-          <PoisonBadge isPoison={book.isPoison} />
-
-          {/* Meta */}
-          <div className="flex flex-shrink-0 items-center gap-3">
-            {(() => {
-              const statusInfo = book.catalogueStatus
-                ? STATUS_CONFIG[book.catalogueStatus as CatalogueStatus]
-                : null;
-              return statusInfo ? (
-                <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-              ) : null;
-            })()}
-            {(() => {
-              const priorityInfo =
-                book.acquisitionPriority && book.acquisitionPriority !== "none"
-                  ? PRIORITY_CONFIG[book.acquisitionPriority as AcquisitionPriority]
-                  : null;
-              return priorityInfo ? (
-                <span
-                  className={`inline-block h-2 w-2 rounded-full ${priorityInfo.dotColor}`}
-                  role="img"
-                  aria-label={`${priorityInfo.label} priority`}
-                  data-tooltip={`${priorityInfo.label} priority`}
-                />
-              ) : null;
-            })()}
-            {book.publicationYear && (
-              <span className="font-mono text-micro text-fg-secondary">
-                {book.publicationYear}
+            {/* First line: the title, then the marks, status and rating */}
+            <div className="type-item-title flex gap-3">
+              <h3 className="type-item-title min-w-0 flex-1 truncate transition-colors group-hover:text-accent-rose-text">
+                {book.title}
+              </h3>
+              <CapAlignedControls height={20}>
+                <HuntBadge {...book} />
+                <PoisonBadge isPoison={book.isPoison} />
+                {priorityInfo && (
+                  <span
+                    className={`inline-block h-2 w-2 rounded-full ${priorityInfo.dotColor}`}
+                    role="img"
+                    aria-label={`${priorityInfo.label} priority`}
+                    data-tooltip={`${priorityInfo.label} priority`}
+                  />
+                )}
+                {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
+                {book.rating && <Badge variant="gold">{book.rating}/5</Badge>}
+              </CapAlignedControls>
+            </div>
+            {/* Second line: the author, then the year and the copies */}
+            <div className="flex items-baseline gap-3">
+              <p className="min-w-0 flex-1 truncate text-sm text-fg-secondary">
+                {book.authorName}
+              </p>
+              {book.publicationYear && (
+                <span className="font-mono text-micro text-fg-secondary">
+                  {book.publicationYear}
+                </span>
+              )}
+              <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
+                {book.instanceCount} {book.instanceCount === 1 ? "copy" : "copies"}
               </span>
-            )}
-            {book.rating && (
-              <Badge variant="gold">{book.rating}/5</Badge>
-            )}
-            <span className="w-14 text-right font-mono text-micro text-fg-secondary">
-              {book.instanceCount} {book.instanceCount === 1 ? "copy" : "copies"}
-            </span>
+            </div>
           </div>
           </Link>
-          {!isSelecting && <CopyBookButton {...book} />}
+          {/* On the title's cap-height center, beside the first line */}
+          {!isSelecting && (
+            <CapAlignedControls height={28} className="type-item-title">
+              <CopyBookButton {...book} />
+            </CapAlignedControls>
+          )}
         </div>
         );
       })}

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { RowCheckbox } from "@/components/books/book-list";
 
 type PosterCrop = MediaCrop;
 
@@ -56,42 +58,15 @@ export function AuthorListItem({
 
   return (
     <div
-      className={`group relative flex items-center gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary ${selectionBg}`}
+      className={`group relative flex items-start gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary ${selectionBg}`}
       onClick={handleRowClick}
     >
-      {/* Selection checkbox */}
-      {isSelecting && (
-        <div className="flex-shrink-0">
-          <div
-            className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
-              isSelected
-                ? "border-accent-rose bg-accent-rose text-fg-primary"
-                : "border-glass-border bg-overlay text-transparent"
-            }`}
-          >
-            {isSelected && (
-              <svg
-                className="h-3 w-3"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M2 6l3 3 5-5" />
-              </svg>
-            )}
-          </div>
-        </div>
-      )}
-
       <Link
         href={`/authors/${slug}`}
         className={`flex min-w-0 flex-1 items-center gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
         tabIndex={isSelecting ? -1 : undefined}
       >
-        {/* Small thumbnail */}
+        {/* Small thumbnail; in selection mode it carries the checkbox */}
         <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary" onContextMenu={(e) => e.preventDefault()}>
           {photoUrl ? (
             <Image
@@ -110,36 +85,39 @@ export function AuthorListItem({
               </span>
             </div>
           )}
+          {isSelecting && <RowCheckbox checked={isSelected} />}
         </div>
 
-        {/* Info */}
+        {/* Two lines, like a book row: name and years, then nationality and the book count */}
         <div className="min-w-0 flex-1">
-          <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
-            {name}
-          </h3>
-          <p className="truncate text-sm text-fg-secondary">
-            {nationality ?? "Unknown nationality"}
-          </p>
-        </div>
-
-        {/* Meta */}
-        <div className="flex flex-shrink-0 items-center gap-3">
-          {years && (
-            <span className="font-mono text-micro text-fg-secondary">{years}</span>
-          )}
-          <span className="w-14 text-right font-mono text-micro text-fg-secondary">
-            {worksCount} {worksCount === 1 ? "book" : "books"}
-          </span>
+          <div className="flex items-baseline gap-3">
+            <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-rose-text">
+              {name}
+            </h3>
+            {years && (
+              <span className="font-mono text-micro text-fg-secondary">{years}</span>
+            )}
+          </div>
+          <div className="flex items-baseline gap-3">
+            <p className="min-w-0 flex-1 truncate text-sm text-fg-secondary">
+              {nationality ?? "Unknown nationality"}
+            </p>
+            <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
+              {worksCount} {worksCount === 1 ? "book" : "books"}
+            </span>
+          </div>
         </div>
       </Link>
 
-      {/* Actions menu — visible on hover */}
+      {/* Actions menu, on the name's cap-height center; visible on hover */}
       {!isSelecting && (
         <div
           className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
-          <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
+          <CapAlignedControls height={28} className="type-item-title">
+            <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
+          </CapAlignedControls>
         </div>
       )}
     </div>
