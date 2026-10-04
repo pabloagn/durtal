@@ -7,20 +7,38 @@
  *   find it by search and by the favourites filter → export it → delete it →
  *   its page shows the not-found view and the export leaves it out.
  *
- *   node scripts/qa/journeys.mjs [baseUrl] [collection ...]
+ *   node scripts/qa/journeys.mjs --disposable [baseUrl] [collection ...]
  *
- * Run it against a disposable database only (scripts/qa/preview-local.py):
- * it writes and deletes records. Chrome comes from CHROME, else the
- * Playwright cache (chrome-headless-shell). No dependency: it speaks the
- * DevTools protocol over Node's own WebSocket.
+ * It writes and deletes records, so it runs against a disposable database
+ * only (scripts/qa/preview-local.py): it refuses to start without
+ * --disposable, on any host but this computer, and on port 3100 (the live
+ * app). Chrome comes from CHROME, else the Playwright cache
+ * (chrome-headless-shell). No dependency: it speaks the DevTools protocol over
+ * Node's own WebSocket.
  */
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const [baseArg, ...only] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const disposable = argv.includes("--disposable");
+const [baseArg, ...only] = argv.filter((a) => a !== "--disposable");
 const base = (baseArg ?? "http://127.0.0.1:3410").replace(/\/$/, "");
+const target = URL.parse(base);
+const refusal = !target
+  ? `${base} is not a URL`
+  : !disposable
+  ? "it writes and deletes records: pass --disposable to confirm the server runs on a disposable database (scripts/qa/preview-local.py)"
+  : !["127.0.0.1", "localhost", "[::1]"].includes(target.hostname)
+    ? `${target.hostname} is not this computer`
+    : target.port === "3100"
+      ? "port 3100 is the live app"
+      : null;
+if (refusal) {
+  console.error(`Refused: ${refusal}`);
+  process.exit(2);
+}
 const COLLECTIONS = {
   perfumes: { form: "Add perfume", placeholder: "Shalimar", entity: "perfumes", missing: "Perfume not found" },
   films: { form: "Add film", placeholder: "The Thing", entity: "films", missing: "Film not found" },
@@ -190,6 +208,12 @@ async function journey(name) {
     return false;
   }
 }
+
+// A fresh next dev compiles each route on its first request: compile them here,
+// so the journeys' waits measure the app, not the compiler
+for (const name of chosen.filter((n) => COLLECTIONS[n]))
+  for (const path of [`/${name}`, `/${name}/new`, `/${name}/journey-warm-up`])
+    await fetch(base + path, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 
 let failed = 0;
 for (const name of chosen) {
