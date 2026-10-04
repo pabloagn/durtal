@@ -218,56 +218,59 @@ export function Select({
 
         {/* Dropdown */}
         {isOpen && (
-          <div
-            ref={listRef}
-            role="listbox"
-            className="glass absolute z-50 mt-1 max-h-56 w-full overflow-y-auto"
-          >
-            {allOptions.map((opt, idx) => {
-              const isSelected = opt.value === value;
-              const isFocused = idx === focusIndex;
-              return (
-                <div
-                  key={opt.value}
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleSelect(opt.value)}
-                  onMouseEnter={() => setFocusIndex(idx)}
-                  className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm transition-colors ${
-                    isSelected
-                      ? "bg-accent-rose/10 text-fg-primary"
-                      : isFocused
-                        ? "bg-bg-tertiary text-fg-primary"
-                        : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    {isSelected && (
-                      <span className="text-micro text-accent-rose-text">
-                        &#10003;
-                      </span>
-                    )}
-                    {opt.hint && hasAnyHints && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveHint(
-                            activeHint === opt.value ? null : opt.value,
-                          );
-                        }}
-                        className="rounded-sm p-0.5 text-fg-muted transition-colors hover:text-fg-secondary"
-                        aria-label={`Help for ${opt.label}`}
-                        data-tooltip={`Help for ${opt.label}`}
-                      >
-                        <HelpCircle className="h-3 w-3" strokeWidth={1.5} />
-                      </button>
-                    )}
+          // The glass never scrolls: its list does, inside it
+          <div className="glass absolute z-50 mt-1 w-full overflow-hidden">
+            <div
+              ref={listRef}
+              role="listbox"
+              className="max-h-56 overflow-y-auto"
+            >
+              {allOptions.map((opt, idx) => {
+                const isSelected = opt.value === value;
+                const isFocused = idx === focusIndex;
+                return (
+                  <div
+                    key={opt.value}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(opt.value)}
+                    onMouseEnter={() => setFocusIndex(idx)}
+                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm transition-colors ${
+                      isSelected
+                        ? "bg-accent-rose/10 text-fg-primary"
+                        : isFocused
+                          ? "bg-bg-tertiary text-fg-primary"
+                          : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      {isSelected && (
+                        <span className="text-micro text-accent-rose-text">
+                          &#10003;
+                        </span>
+                      )}
+                      {opt.hint && hasAnyHints && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveHint(
+                              activeHint === opt.value ? null : opt.value,
+                            );
+                          }}
+                          className="rounded-sm p-0.5 text-fg-muted transition-colors hover:text-fg-secondary"
+                          aria-label={`Help for ${opt.label}`}
+                          data-tooltip={`Help for ${opt.label}`}
+                        >
+                          <HelpCircle className="h-3 w-3" strokeWidth={1.5} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 

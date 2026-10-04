@@ -13,6 +13,10 @@ import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
  *
  * Elements that cannot be wrapped (a native `<dialog>`, a cmdk list) take
  * the `glass` class directly.
+ *
+ * A glass surface never scrolls: the material would scroll away with the
+ * first screenful. Give it `overflow-hidden` and let an element inside it
+ * scroll.
  */
 export function Glass<T extends ElementType = "div">({
   as,

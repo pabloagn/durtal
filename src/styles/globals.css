@@ -191,7 +191,11 @@ dialog::backdrop {
    backdrop-filter on the element would become the containing block of its
    position: fixed children (pickers and hover cards inside a dialog). The
    element needs a position (absolute, fixed, relative or a dialog) and no
-   background or border of its own. */
+   background or border of its own.
+
+   So a glass surface never scrolls: the layer would scroll away with the
+   first screenful and leave the rest of the list on the bare page. The
+   element takes overflow-hidden and an element inside it scrolls. */
 @utility glass {
   isolation: isolate;
   border-radius: var(--radius-md);
