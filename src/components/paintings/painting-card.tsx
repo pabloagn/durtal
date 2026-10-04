@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Frame, Heart } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { Frame } from "lucide-react";
 import type { getPaintings } from "@/lib/actions/paintings";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { ownerText } from "@/lib/catalogue/painting-labels";
@@ -68,10 +70,12 @@ export function PaintingCard({
 }) {
   const owned = painting.personalCount;
   return (
-    <Link
-      href={paintingHref(painting)}
-      className="@container group block rounded-sm border border-glass-border bg-bg-secondary card-interactive"
-    >
+    <div className="@container group relative block rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+      <Link
+        href={paintingHref(painting)}
+        aria-label={painting.title}
+        className="absolute inset-0 z-10 rounded-sm"
+      />
       <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
         <PaintingImage
           image={painting.poster}
@@ -79,18 +83,6 @@ export function PaintingCard({
           year={catalogueDateYears(painting.creationDate)}
           size={objectSize(painting)}
         />
-        {painting.isFavourite && (
-          <div className={COVER_CORNER.topLeft}>
-            <span
-              role="img"
-              aria-label="Favourite"
-              className={`${COVER_CHIP} ${COVER_CHIP_TONE.rose}`}
-              data-tooltip="Favourite"
-            >
-              <Heart className={COVER_CHIP_ICON} strokeWidth={1.5} fill="currentColor" />
-            </span>
-          </div>
-        )}
         {owned > 0 && (
           <div className={COVER_CORNER.topRight}>
             <span
@@ -106,7 +98,18 @@ export function PaintingCard({
         )}
       </div>
       <div className="p-3">
-        <h3 className="type-item-title lines-2">{painting.title}</h3>
+        {/* The row carries the title's type: the star sits on the
+            cap-height center of the title's first line */}
+        <div className="type-item-title flex items-start gap-2">
+          <h3 className="type-item-title lines-2 min-w-0 flex-1">{painting.title}</h3>
+          <CapAligned height={32} className="relative z-20 -mr-2">
+            <FavouriteToggle
+              favourite={painting.isFavourite}
+              target={{ entity: "work", id: painting.id }}
+              name={painting.title}
+            />
+          </CapAligned>
+        </div>
         <p className="mt-1 lines-1 text-sm text-fg-secondary">
           {paintingPainters(painting) ?? "Painter unknown"}
         </p>
@@ -114,7 +117,7 @@ export function PaintingCard({
           {caption ?? paintingFacts(painting)}
         </p>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -126,31 +129,35 @@ export function PaintingCard({
 export function PaintingRow({ painting }: { painting: PaintingCardData }) {
   const owned = painting.personalCount ? ownedText(painting.personalCount) : null;
   return (
-    <Link
-      href={paintingHref(painting)}
-      className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60"
-    >
-      <PaintingImage
-        image={painting.poster}
-        title={painting.title}
-        size={objectSize(painting)}
-        small
-        className="w-10 shrink-0 rounded-sm"
+    <div className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60">
+      <Link href={paintingHref(painting)} className="flex min-w-0 flex-1 items-center gap-3">
+        <PaintingImage
+          image={painting.poster}
+          title={painting.title}
+          size={objectSize(painting)}
+          small
+          className="w-10 shrink-0 rounded-sm"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="type-item-title truncate">{painting.title}</p>
+          <p className="truncate text-sm text-fg-secondary">
+            {[paintingPainters(painting) ?? "Painter unknown", paintingFacts(painting)]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {owned && <p className="truncate text-xs text-fg-secondary sm:hidden">{owned}</p>}
+        </div>
+        {owned && (
+          <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
+            {owned}
+          </span>
+        )}
+      </Link>
+      <FavouriteToggle
+        favourite={painting.isFavourite}
+        target={{ entity: "work", id: painting.id }}
+        name={painting.title}
       />
-      <div className="min-w-0 flex-1">
-        <p className="type-item-title truncate">{painting.title}</p>
-        <p className="truncate text-sm text-fg-secondary">
-          {[paintingPainters(painting) ?? "Painter unknown", paintingFacts(painting)]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {owned && <p className="truncate text-xs text-fg-secondary sm:hidden">{owned}</p>}
-      </div>
-      {owned && (
-        <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
-          {owned}
-        </span>
-      )}
-    </Link>
+    </div>
   );
 }

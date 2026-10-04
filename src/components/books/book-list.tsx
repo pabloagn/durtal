@@ -1,5 +1,6 @@
 "use client";
 
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CopyBookButton } from "./copy-book-button";
 
 import Image from "next/image";
@@ -29,6 +30,7 @@ interface BookListItem {
   isRare?: boolean;
   huntAssessedOn?: string | null;
   isPoison?: boolean;
+  isFavourite?: boolean;
   acquisitionPriority?: string | null;
 }
 
@@ -164,9 +166,16 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           </div>
           </Link>
           {/* On the title's cap-height center, beside the first line */}
-          {!isSelecting && (
-            <CapAlignedControls height={28} className="type-item-title">
-              <CopyBookButton {...book} />
+          {(book.isFavourite !== undefined || !isSelecting) && (
+            <CapAlignedControls height={32} className="type-item-title">
+              {book.isFavourite !== undefined && (
+                <FavouriteToggle
+                  favourite={book.isFavourite}
+                  target={{ entity: "work", id: book.workId }}
+                  name={book.title}
+                />
+              )}
+              {!isSelecting && <CopyBookButton {...book} />}
             </CapAlignedControls>
           )}
         </div>

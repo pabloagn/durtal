@@ -13,6 +13,9 @@ import { CapAligned } from "./cap-aligned";
  * How it works: an invisible copy with the fixed-height `lines-*` boxes
  * reserves the space; the visible title and subtitle share its grid cell and
  * take only the lines they need.
+ *
+ * `action` (the favourite star) sits at the end of the title's first line,
+ * on its cap-height center, above a card-wide link (`z-20`).
  */
 export function CardHeading({
   title,
@@ -21,6 +24,7 @@ export function CardHeading({
   subtitleLines = 1,
   subtitleClassName = "text-sm text-fg-secondary",
   titleClassName = "",
+  action,
 }: {
   title: ReactNode;
   /** A 16px icon before the title, on the cap-height center of its first line */
@@ -32,11 +36,13 @@ export function CardHeading({
   subtitleClassName?: string;
   /** Extra classes on the title, such as a hover color */
   titleClassName?: string;
+  /** A 32px control after the title: the favourite star */
+  action?: ReactNode;
 }) {
   const reserve = subtitleLines === 2 ? "lines-2" : "lines-1";
   const clamp = subtitleLines === 2 ? "line-clamp-2" : "line-clamp-1";
-  return (
-    <div className="grid">
+  const heading = (
+    <div className={`grid ${action ? "min-w-0 flex-1" : ""}`}>
       <div aria-hidden="true" className="invisible col-start-1 row-start-1">
         <div className="type-item-title lines-2" />
         <div className={`mt-1 ${reserve} ${subtitleClassName}`} />
@@ -52,6 +58,16 @@ export function CardHeading({
           </p>
         )}
       </div>
+    </div>
+  );
+  if (!action) return heading;
+  // The row carries the title's type, so the action finds its first line
+  return (
+    <div className="type-item-title flex items-start gap-2">
+      {heading}
+      <CapAligned height={32} className="relative z-20 -mr-2">
+        {action}
+      </CapAligned>
     </div>
   );
 }

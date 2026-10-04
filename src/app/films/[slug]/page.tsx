@@ -15,7 +15,7 @@ import {
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 import {
   CurationProvider,
-  FavouriteToggle,
+  CurationFavourite,
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
@@ -417,7 +417,7 @@ export default async function FilmPage({
                     sources={citable}
                     copies={film.holdings.length}
                   >
-                    <FavouriteToggle isFavourite={curation?.isFavourite ?? false} />
+                    <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
                   </FilmActions>
                 </div>
                 {film.originalTitle && film.originalTitle !== film.title && (

@@ -73,6 +73,14 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         delete work.is_favourite;
       }
     }
+    // Migration 0057 stars nothing: every new favourite starts off
+    for (const table of ["authors", "collections", "series", "recommenders"])
+      for (const row of projected[table] ?? []) {
+        if ("is_favourite" in row) {
+          expect(row.is_favourite, table).toBe(false);
+          delete row.is_favourite;
+        }
+      }
     if (projected.taxonomy_applicability) {
       for (const definition of DOMAIN_TAXONOMIES) {
         const family = projected.taxonomy_families.find(

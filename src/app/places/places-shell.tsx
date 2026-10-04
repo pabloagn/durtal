@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { VenueCard } from "@/components/venues/venue-card";
@@ -33,7 +34,7 @@ interface PlacesShellProps {
 }
 
 /** URL params (besides the search term) that filter the venue list */
-const PLACE_FILTER_PARAMS = ["type", "favorite"];
+const PLACE_FILTER_PARAMS = ["type", FAVOURITES_PARAM];
 
 export function PlacesShell({ venues, total }: PlacesShellProps) {
   const searchParams = useSearchParams();

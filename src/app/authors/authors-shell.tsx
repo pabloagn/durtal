@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
@@ -69,6 +70,7 @@ export interface AuthorItem {
   website: string | null;
   bio: string | null;
   worksCount: number;
+  isFavourite: boolean;
   createdAt: string;
 }
 
@@ -174,6 +176,7 @@ const AUTHOR_FILTER_PARAMS = [
   "gender",
   "zodiac",
   "alive",
+  FAVOURITES_PARAM,
   "birthYearMin",
   "birthYearMax",
   "deathYearMin",
@@ -300,6 +303,7 @@ export function AuthorsShell({
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
                 worksCount={a.worksCount}
+                isFavourite={a.isFavourite}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -325,6 +329,7 @@ export function AuthorsShell({
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
               worksCount={a.worksCount}
+              isFavourite={a.isFavourite}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}

@@ -1,4 +1,5 @@
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
+import { favouritesOnly } from "@/lib/constants/favourites";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
@@ -45,6 +46,7 @@ interface PageProps {
     deathYearMin?: string;
     deathYearMax?: string;
     alive?: string;
+    favourites?: string;
   }>;
 }
 
@@ -65,6 +67,7 @@ async function AuthorsContent({
     deathYearMin?: string;
     deathYearMax?: string;
     alive?: string;
+    favourites?: string;
   };
 }) {
   const search = searchParams.q;
@@ -98,6 +101,7 @@ async function AuthorsContent({
     deathYearMin,
     deathYearMax,
     alive,
+    favourites: favouritesOnly(searchParams.favourites) || undefined,
   };
 
   // getAuthorsForTimeline uses alive as a string ("true"|"false"), not boolean
@@ -110,6 +114,7 @@ async function AuthorsContent({
     deathYearMin,
     deathYearMax,
     alive: aliveParam,
+    favourites: favouritesOnly(searchParams.favourites) || undefined,
   };
 
   const [rawAuthors, total] = await Promise.all([
@@ -167,6 +172,7 @@ async function AuthorsContent({
       // Bios are stored as HTML; the list shows a one-line text preview
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
+      isFavourite: a.isFavourite,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
     };

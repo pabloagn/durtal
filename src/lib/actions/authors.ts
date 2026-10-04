@@ -50,6 +50,7 @@ export async function getAuthors(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: boolean;
+    favourites?: boolean;
   };
 }) {
   const { search, limit = 48, offset = 0, order, filters } = opts ?? {};
@@ -217,6 +218,7 @@ export async function getAuthorCount(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: boolean;
+    favourites?: boolean;
   };
 }) {
   const { search, filters } = opts ?? {};

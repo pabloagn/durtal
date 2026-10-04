@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import { VENUE_TYPE_LABELS, VENUE_TYPES } from "@/lib/catalogue/venues";
 import { firstPageHref } from "@/lib/utils/list-params";
 
@@ -45,7 +46,7 @@ export function PlacesFiltersBar() {
   // --- Active filter values from URL ---
   const activeFilters: Record<string, string[]> = {
     type: searchParams.get("type")?.split(",").filter(Boolean) ?? [],
-    favorite: searchParams.get("favorite") ? [searchParams.get("favorite")!] : [],
+    favourites: favouritesOnly(searchParams.get(FAVOURITES_PARAM)) ? ["true"] : [],
   };
 
   const filterGroups: AnyFilterGroup[] = [
@@ -58,19 +59,19 @@ export function PlacesFiltersBar() {
       })),
     },
     {
-      key: "favorite",
-      label: "Favorites",
-      options: [{ value: "true", label: "Favorites only" }],
+      key: FAVOURITES_PARAM,
+      label: "Favourites",
+      options: [{ value: "true", label: "Favourites only" }],
     },
   ];
 
   function handleFilterChange(key: string, values: string[]) {
     const params = new URLSearchParams(searchParams.toString());
-    if (key === "favorite") {
+    if (key === FAVOURITES_PARAM) {
       if (values.length > 0) {
-        params.set("favorite", "true");
+        params.set(FAVOURITES_PARAM, "true");
       } else {
-        params.delete("favorite");
+        params.delete(FAVOURITES_PARAM);
       }
     } else if (values.length > 0) {
       params.set(key, values.join(","));
@@ -83,7 +84,7 @@ export function PlacesFiltersBar() {
   function handleClearAll() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("type");
-    params.delete("favorite");
+    params.delete(FAVOURITES_PARAM);
       router.push(firstPageHref("/places", params));
   }
 

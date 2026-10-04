@@ -33,6 +33,7 @@ const listSchema = z.object({
   order: z.enum(["asc", "desc"]).optional(),
   limit: z.number().int().min(1).max(500).optional(),
   offset: z.number().int().min(0).optional(),
+  favourites: z.boolean().optional(),
 });
 
 /** Recommenders with their book counts, searched with the shared engine. */
@@ -44,7 +45,10 @@ export async function getRecommenderList(
   const sort = o.sort ?? (q ? "relevance" : "name");
   const dir =
     (o.order ?? (sort === "name" ? "asc" : "desc")) === "asc" ? asc : desc;
-  const where = textSearchCondition(haystack, q);
+  const where = and(
+    textSearchCondition(haystack, q),
+    o.favourites ? eq(recommenders.isFavourite, true) : undefined,
+  );
   const orderBy =
     sort === "relevance" && q
       ? [
@@ -62,6 +66,7 @@ export async function getRecommenderList(
         id: recommenders.id,
         name: recommenders.name,
         url: recommenders.url,
+        isFavourite: recommenders.isFavourite,
         createdAt: recommenders.createdAt,
         bookCount,
       })

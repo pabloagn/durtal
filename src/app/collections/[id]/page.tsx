@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -140,6 +141,14 @@ export default async function CollectionPage({
                 <h1 className="type-page-title min-w-0 break-words">
                   {collection.name}
                 </h1>
+                <CapAligned height={32} className="ml-1.5">
+                  <FavouriteToggle
+                    favourite={collection.isFavourite}
+                    target={{ entity: "collection", id: collection.id }}
+                    name={collection.name}
+                    shortcut
+                  />
+                </CapAligned>
               </div>
               {collection.description && (
                 <Prose className="mt-3 whitespace-pre-wrap">

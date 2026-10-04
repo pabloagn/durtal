@@ -34,6 +34,7 @@ export async function getAuthorsForTimeline(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: string;
+    favourites?: boolean;
   };
 }): Promise<AuthorTimelineItem[]> {
   const { search, filters } = opts ?? {};

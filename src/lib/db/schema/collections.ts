@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   integer,
+  boolean,
   timestamp,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -18,6 +19,7 @@ export const collections = pgTable("collections", {
   icon: text("icon"),
   // Poster and background images live in `media` (collection_id), like works and authors.
   sortOrder: integer("sort_order").notNull().default(0),
+  isFavourite: boolean("is_favourite").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

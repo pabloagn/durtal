@@ -33,6 +33,7 @@ export async function getAuthorsForMap(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: boolean;
+    favourites?: boolean;
   };
 }): Promise<AuthorMapPoint[]> {
   const { search, filters } = opts ?? {};

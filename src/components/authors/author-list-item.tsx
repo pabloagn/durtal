@@ -6,6 +6,7 @@ import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RowCheckbox } from "@/components/books/book-list";
 
 type PosterCrop = MediaCrop;
@@ -22,6 +23,8 @@ interface AuthorListItemProps {
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
   worksCount: number;
+  /** The favourite star shows when this is given */
+  isFavourite?: boolean;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -39,6 +42,7 @@ export function AuthorListItem({
   photoUrl,
   posterCrop,
   worksCount,
+  isFavourite,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -108,6 +112,17 @@ export function AuthorListItem({
           </div>
         </div>
       </Link>
+
+      {/* On the name's cap-height center, like the actions menu */}
+      {isFavourite !== undefined && (
+        <CapAlignedControls height={32} className="type-item-title">
+          <FavouriteToggle
+            favourite={isFavourite}
+            target={{ entity: "author", id }}
+            name={name}
+          />
+        </CapAlignedControls>
+      )}
 
       {/* Actions menu, on the name's cap-height center; visible on hover */}
       {!isSelecting && (

@@ -46,12 +46,11 @@ export async function getCollections(pagination?: {
   limit: number;
   offset: number;
   query?: string;
+  favourites?: boolean;
 }) {
   const search = (pagination?.query ?? "").trim().slice(0, 160);
   return db.query.collections.findMany({
-    where: search
-      ? ilike(collections.name, containsPattern(search))
-      : undefined,
+    where: collectionListCondition(search, pagination?.favourites),
     orderBy: [
       asc(collections.sortOrder),
       asc(collections.name),
@@ -65,17 +64,21 @@ export async function getCollections(pagination?: {
     },
   });
 }
-export async function getCollectionCount(query = "") {
+export async function getCollectionCount(query = "", favourites = false) {
   const value = query.trim().slice(0, 160);
   const [result] = await db
     .select({ count: count() })
     .from(collections)
-    .where(
-      value
-        ? ilike(collections.name, containsPattern(value))
-        : undefined,
-    );
+    .where(collectionListCondition(value, favourites));
   return result.count;
+}
+
+/** The collections a list shows: by name, and favourites only when asked */
+function collectionListCondition(search: string, favourites?: boolean) {
+  return and(
+    search ? ilike(collections.name, containsPattern(search)) : undefined,
+    favourites ? eq(collections.isFavourite, true) : undefined,
+  );
 }
 export async function getCollection(id: string) {
   z.string().uuid().parse(id);

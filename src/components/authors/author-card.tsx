@@ -6,6 +6,7 @@ import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/med
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { displayYear } from "@/lib/utils/years";
 
 type PosterCrop = MediaCrop;
@@ -26,6 +27,8 @@ interface AuthorCardProps {
   /** Book covers to show when there is no portrait */
   coverPreviews?: string[];
   worksCount: number;
+  /** The favourite star shows when this is given */
+  isFavourite?: boolean;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -45,6 +48,7 @@ export function AuthorCard({
   photoTone,
   coverPreviews = [],
   worksCount,
+  isFavourite,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -141,16 +145,31 @@ export function AuthorCard({
         </div>
       )}
 
-      {/* Meta — navigates on click */}
-      <Link
-        href={href}
-        className={`block ${isSelecting ? "pointer-events-none" : ""}`}
-        tabIndex={isSelecting ? -1 : undefined}
-      >
+      {/* Meta — navigates on click. The link covers the text, so the
+          favourite star can sit above it */}
+      <div className="relative">
+        <Link
+          href={href}
+          aria-label={name}
+          className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
+          tabIndex={-1}
+        />
         <div className="p-3.5">
           {/* Two name lines and one nationality line, always: every author
               card has the same height. The portrait shows no overlay. */}
-          <CardHeading title={name} subtitle={nationality} />
+          <CardHeading
+            title={name}
+            subtitle={nationality}
+            action={
+              isFavourite === undefined ? undefined : (
+                <FavouriteToggle
+                  favourite={isFavourite}
+                  target={{ entity: "author", id }}
+                  name={name}
+                />
+              )
+            }
+          />
           <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
             {years && <span>{years}</span>}
             {worksCount > 0 && (
@@ -160,7 +179,7 @@ export function AuthorCard({
             )}
           </div>
         </div>
-      </Link>
+      </div>
     </div>
   );
 }

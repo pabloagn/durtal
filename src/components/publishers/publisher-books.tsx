@@ -71,7 +71,7 @@ export function PublisherBooksFilters({
     {
       key: "mark",
       label: MARKS_LABEL,
-      options: WORK_MARKS.filter((m) => m.key === "rare" || m.key === "poison").map((m) => ({
+      options: WORK_MARKS.map((m) => ({
         value: m.key,
         label: m.label,
       })),

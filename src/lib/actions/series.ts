@@ -73,6 +73,7 @@ const listSchema = z.object({
   order: z.enum(["asc", "desc"]).optional(),
   limit: z.number().int().min(1).max(500).optional(),
   offset: z.number().int().min(0).optional(),
+  favourites: z.boolean().optional(),
 });
 
 /** Series list with counts and up to four member covers, searched like authors. */
@@ -82,7 +83,10 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
   const sort = o.sort ?? (q ? "relevance" : "title");
   const dir =
     (o.order ?? (sort === "title" ? "asc" : "desc")) === "asc" ? asc : desc;
-  const where = textSearchCondition(haystack, q);
+  const where = and(
+    textSearchCondition(haystack, q),
+    o.favourites ? eq(series.isFavourite, true) : undefined,
+  );
   const orderBy =
     sort === "relevance" && q
       ? [
@@ -102,6 +106,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
         originalTitle: series.originalTitle,
         totalVolumes: series.totalVolumes,
         isComplete: series.isComplete,
+        isFavourite: series.isFavourite,
         createdAt: series.createdAt,
         bookCount,
         ownedCount,

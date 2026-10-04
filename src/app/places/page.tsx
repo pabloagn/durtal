@@ -1,4 +1,5 @@
 import { PaginatedSection } from "@/components/shared/pagination";
+import { favouritesOnly } from "@/lib/constants/favourites";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Suspense } from "react";
@@ -23,7 +24,7 @@ interface PageProps {
     page?: string;
     perPage?: string;
     type?: string;
-    favorite?: string;
+    favourites?: string;
   }>;
 }
 
@@ -37,7 +38,7 @@ async function PlacesContent({
     page?: string;
     perPage?: string;
     type?: string;
-    favorite?: string;
+    favourites?: string;
   };
 }) {
   const search = searchParams.q?.slice(0, 200);
@@ -46,7 +47,7 @@ async function PlacesContent({
   const typeFilter = searchParams.type
     ?.split(",")
     .filter((value): value is VenueType => VENUE_TYPES.includes(value as VenueType));
-  const favoriteFilter = searchParams.favorite === "true" ? true : undefined;
+  const favoriteFilter = favouritesOnly(searchParams.favourites) ? true : undefined;
 
   const { page, perPage: limit, offset } = parsePagination(searchParams);
 
