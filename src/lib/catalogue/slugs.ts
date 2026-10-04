@@ -1,6 +1,6 @@
 import { like } from "drizzle-orm";
 import { db } from "@/lib/db";
-import type { authors, works } from "@/lib/db/schema";
+import type { authors, series, works } from "@/lib/db/schema";
 import { makeUnique } from "@/lib/utils/slugify";
 
 /**
@@ -10,7 +10,7 @@ import { makeUnique } from "@/lib/utils/slugify";
  * `taken`. Decided before the write, so the row and its slug are one statement.
  */
 export async function uniqueSlug(
-  table: typeof works | typeof authors,
+  table: typeof works | typeof authors | typeof series,
   base: string,
   { own, taken = [] }: { own?: string | null; taken?: Iterable<string> } = {},
 ) {

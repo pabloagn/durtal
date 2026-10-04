@@ -12,8 +12,9 @@ import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import { db } from "@/lib/db";
 import { works, authors, workAuthors } from "@/lib/db/schema";
-import { eq, asc, like } from "drizzle-orm";
-import { generateWorkSlug, generateAuthorSlug, makeUnique } from "@/lib/utils/slugify";
+import { eq, asc } from "drizzle-orm";
+import { generateWorkSlug, generateAuthorSlug } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 
 async function backfillAuthors() {
   console.log("Regenerating author slugs…");
@@ -28,20 +29,9 @@ async function backfillAuthors() {
 
   let updated = 0;
   for (const author of allAuthors) {
-    const baseSlug = generateAuthorSlug(author.name);
-
-    // Fetch existing slugs with the same prefix to check uniqueness
-    // Exclude own row so we don't collide with ourselves
-    const existing = await db
-      .select({ slug: authors.slug })
-      .from(authors)
-      .where(like(authors.slug, `${baseSlug}%`));
-
-    const existingSlugs = existing
-      .map((r) => r.slug)
-      .filter((s): s is string => s !== null && s !== author.slug);
-
-    const slug = makeUnique(baseSlug, existingSlugs);
+    const slug = await uniqueSlug(authors, generateAuthorSlug(author.name), {
+      own: author.slug,
+    });
 
     if (slug !== author.slug) {
       await db.update(authors).set({ slug }).where(eq(authors.id, author.id));
@@ -74,18 +64,11 @@ async function backfillWorks() {
   let updated = 0;
   for (const work of allWorks) {
     const authorName = work.workAuthors[0]?.author.name ?? "unknown";
-    const baseSlug = generateWorkSlug(work.title, authorName, work.id);
-
-    const existing = await db
-      .select({ slug: works.slug })
-      .from(works)
-      .where(like(works.slug, `${baseSlug}%`));
-
-    const existingSlugs = existing
-      .map((r) => r.slug)
-      .filter((s): s is string => s !== null && s !== work.slug);
-
-    const slug = makeUnique(baseSlug, existingSlugs);
+    const slug = await uniqueSlug(
+      works,
+      generateWorkSlug(work.title, authorName, work.id),
+      { own: work.slug },
+    );
 
     if (slug !== work.slug) {
       await db.update(works).set({ slug }).where(eq(works.id, work.id));

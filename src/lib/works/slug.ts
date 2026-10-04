@@ -1,8 +1,9 @@
-import { and, asc, eq, like } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { db } from "@/lib/db";
 import { workAuthors, works } from "@/lib/db/schema";
-import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
+import { generateWorkSlug } from "@/lib/utils/slugify";
 
 /**
  * A work's slug follows its title and primary author (task 0175). A rename
@@ -55,15 +56,7 @@ export async function refreshWorkSlug(
   );
   if (slugFitsBase(work.slug, base)) return null;
 
-  const taken = (
-    await db
-      .select({ slug: works.slug })
-      .from(works)
-      .where(like(works.slug, `${base}%`))
-  )
-    .map((r) => r.slug)
-    .filter((s): s is string => s !== null && s !== work.slug);
-  const to = makeUnique(base, taken);
+  const to = await uniqueSlug(works, base, { own: work.slug });
 
   if (apply) await db.update(works).set({ slug: to }).where(eq(works.id, workId));
   return { id: work.id, title: work.title, from: work.slug, to };

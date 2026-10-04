@@ -1,3 +1,4 @@
+import { parseYear } from "@/lib/utils/years";
 import type { SearchResult } from "./types";
 import { reportSearchFailure } from "./search-diagnostics";
 import { normalizeBinding } from "@/lib/utils/binding";
@@ -39,12 +40,6 @@ function getHeaders(): HeadersInit {
     Authorization: apiKey,
     "Content-Type": "application/json",
   };
-}
-
-function parseYear(dateStr?: string): number | undefined {
-  if (!dateStr) return undefined;
-  const match = dateStr.match(/(\d{4})/);
-  return match ? parseInt(match[1], 10) : undefined;
 }
 
 /** ISBNdb text without the hidden sort markers of library records */
