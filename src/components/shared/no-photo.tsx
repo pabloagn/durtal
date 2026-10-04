@@ -230,3 +230,45 @@ export function ShelfSpines({ seed, volumes }: { seed: string; volumes: number |
     </div>
   );
 }
+
+/**
+ * A title card for a film with no poster, like the card that opens an old
+ * print: a thin inset frame on a tint taken from the title, the title in the
+ * serif, a rule and the year. Without `lettering` (small thumbnails) only
+ * the frame shows. The card's own `@container` sets the type size.
+ */
+export function TitleCard({
+  title,
+  year,
+  lettering = true,
+}: {
+  title: string;
+  year?: string | null;
+  lettering?: boolean;
+}) {
+  return (
+    <div
+      className="absolute inset-0 p-[7%]"
+      style={tint(TONES[hash(title) % TONES.length], 10)}
+      aria-hidden
+    >
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 border border-white/[0.08] px-[9%] text-center">
+        {lettering && (
+          <>
+            <span
+              className="overflow-hidden font-serif text-sm leading-snug text-fg-primary [-webkit-box-orient:vertical] [-webkit-line-clamp:4] [display:-webkit-box] [overflow-wrap:anywhere] @[220px]:text-lg"
+            >
+              {title}
+            </span>
+            {year && (
+              <>
+                <span className="h-px w-6 bg-fg-muted" />
+                <span className="type-caption">{year}</span>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

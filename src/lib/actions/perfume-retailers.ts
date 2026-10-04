@@ -7,7 +7,7 @@ import { retailerLinkSchema, retailerObservationSchema, retailerObservationAge, 
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { atomic } from "@/lib/db/atomic";
 import { withReadableErrors } from "@/lib/db/errors";
-import { organizationRoleQueries } from "@/lib/catalogue/perfume-store";
+import { organizationRoleQueries } from "@/lib/catalogue/work-store";
 
 function changed() { invalidate(CACHE_TAGS.works, CACHE_TAGS.venues); }
 /** The organization that sells it becomes a retailer in the same write, if it is not one yet. */

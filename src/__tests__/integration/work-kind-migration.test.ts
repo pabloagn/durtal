@@ -424,7 +424,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         });
       }
     }
-    expect(accepted).toEqual(getEnabledWorkKinds());
+    // The same kinds; the enum and the menus list them in different orders
+    expect([...accepted].sort()).toEqual([...getEnabledWorkKinds()].sort());
   });
 
   it("rejects unknown and null identities at the database boundary", async () => {

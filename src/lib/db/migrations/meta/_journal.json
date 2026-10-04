@@ -379,6 +379,13 @@
       "when": 1791068080974,
       "tag": "0053_open_perfumes",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791106338306,
+      "tag": "0054_film_kind_enabled",
+      "breakpoints": true
     }
   ]
 }

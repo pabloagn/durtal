@@ -27,6 +27,15 @@ export const PERSONAL_HOLDING_STATUSES = [
   "missing",
   "disposed",
 ] as const;
+export type HoldingStatus = (typeof PERSONAL_HOLDING_STATUSES)[number];
+/** How each status reads in forms and lists, for every collection */
+export const HOLDING_STATUS_LABELS: Record<HoldingStatus, string> = {
+  held: "Held",
+  lent_out: "Lent out",
+  in_storage: "In storage",
+  missing: "Missing",
+  disposed: "Disposed",
+};
 export const personalHoldingStatusSchema = z.enum(PERSONAL_HOLDING_STATUSES);
 const holder = z.object({ id: z.uuid(), status: personalHoldingStatusSchema });
 /** Rules every personal copy shares: storage, price and disposition. */

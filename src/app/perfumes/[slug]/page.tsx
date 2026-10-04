@@ -14,7 +14,7 @@ import {
   FavouriteToggle,
   PersonalNotes,
   RatingControl,
-} from "@/components/perfumes/perfume-curation";
+} from "@/components/catalogue/curation";
 import { NotesSection } from "@/components/perfumes/notes-section";
 import {
   FormulationsSection,
@@ -22,7 +22,8 @@ import {
 } from "@/components/perfumes/formulations-section";
 import { BottlesSection, type BottleView } from "@/components/perfumes/bottles-section";
 import { RetailersSection } from "@/components/perfumes/retailers-section";
-import { SourcesSection, type SourceView } from "@/components/perfumes/sources-section";
+import { SourcesSection } from "@/components/catalogue/sources-section";
+import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { RelatedPerfumes } from "@/components/perfumes/related-perfumes";
 import type { FormulationVocabulary } from "@/components/perfumes/formulation-dialog";
 import { getPerfume, getRelatedPerfumes } from "@/lib/actions/perfumes";
@@ -171,34 +172,8 @@ export default async function PerfumePage({
       ...perfume.retailers.flatMap((r) => [r.link.sourceRecordId, r.observation?.sourceRecordId]),
     ].filter((id): id is string => !!id),
   );
-  const sources: SourceView[] = provenance.observations.map((o) => {
-    const payload = o.payload as { entry?: string; note?: string };
-    const manual = payload.entry === "manual" && !o.locked;
-    return {
-      id: o.id,
-      attribution: o.attribution,
-      url: o.url,
-      provider: o.provider,
-      consulted: `Consulted ${catalogueDateText({
-        precision: "day",
-        start: {
-          year: o.retrievedAt.getUTCFullYear(),
-          month: o.retrievedAt.getUTCMonth() + 1,
-          day: o.retrievedAt.getUTCDate(),
-        },
-        end: null,
-        approximate: false,
-        label: null,
-      })}`,
-      note: typeof payload.note === "string" ? payload.note : null,
-      removable: manual && !cited.has(o.id),
-      kept: cited.has(o.id) ? "Cited here" : null,
-    };
-  });
-  const sourceChoices = provenance.observations.map((o) => ({
-    id: o.id,
-    label: o.attribution ?? o.provider,
-  }));
+  const sources = sourceViews(provenance, cited);
+  const choices = sourceChoices(provenance);
 
   // ── Formulations ──────────────────────────────────────────────────────────
   const vocabularies: FormulationVocabulary[] = families
@@ -374,7 +349,7 @@ export default async function PerfumePage({
     : undefined;
 
   return (
-    <CurationProvider workId={perfume.id} fingerprint={curation?.fingerprint ?? ""}>
+    <CurationProvider owner={{ kind: "perfume", id: perfume.id }} fingerprint={curation?.fingerprint ?? ""}>
       <CopyShortcuts
         name={[perfume.title, names(houses)].filter(Boolean).join(", ")}
         title={perfume.title}
@@ -431,7 +406,7 @@ export default async function PerfumePage({
                 })),
               }}
               fingerprint={perfume.fingerprint}
-              sources={sourceChoices}
+              sources={choices}
               containers={perfume.bottles.length}
               listings={perfume.retailers.length}
             >
@@ -599,7 +574,7 @@ export default async function PerfumePage({
         clearHref={base}
         vocabularies={vocabularies}
         inherited={inherited}
-        sources={sourceChoices}
+        sources={choices}
         locations={locations}
       />
 
@@ -620,9 +595,17 @@ export default async function PerfumePage({
 
       <GallerySection entityType="work" entityId={perfume.id} />
 
-      <SourcesSection perfumeId={perfume.id} perfumeTitle={perfume.title} sources={sources} />
+      <SourcesSection
+        owner={{ kind: "perfume", id: perfume.id }}
+        title={perfume.title}
+        sources={sources}
+        examples={{
+          name: "Fragrantica, the house's website, a book and page",
+          says: "Launch year, perfumer",
+        }}
+      />
 
-      <PersonalNotes notes={curation?.notes ?? null} />
+      <PersonalNotes notes={curation?.notes ?? null} placeholder="How it wears on you, when you reach for it" />
 
       <RelatedPerfumes related={related} />
     </CurationProvider>

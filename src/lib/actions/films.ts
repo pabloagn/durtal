@@ -2,11 +2,12 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
-import { withReadableErrors } from "@/lib/db/errors";
+import { readableDatabaseError, withReadableErrors } from "@/lib/db/errors";
 import {
+  authors,
   works,
   filmDetails,
   filmCountries,
@@ -50,6 +51,7 @@ import {
   filmFingerprint,
   filmReleaseStart,
   filmWhere,
+  distributorRoleQueries,
   holdingFingerprint,
   insertCountries,
   insertFilmOrganizations,
@@ -69,6 +71,7 @@ import {
   loadDates,
   lockWork as lockAnyWork,
   newDate,
+  organizationRoleQueries,
   readFingerprint,
   releaseDates,
   replaceDate,
@@ -82,7 +85,8 @@ import { filmHoldings as summarizeFilmHoldings } from "@/lib/catalogue/holdings"
 import { normalizeCatalogueDate } from "@/lib/catalogue/dates";
 import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
-import { slugify } from "@/lib/utils/slugify";
+import { generateWorkSlug } from "@/lib/utils/slugify";
+import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
@@ -171,6 +175,165 @@ export async function getFilmCount(input: FilmQuery = {}) {
     .from(works)
     .where(and(filmDomain, filmWhere(filmQuerySchema.parse(input))));
   return row.count;
+}
+
+/** People credited in one role on any film, with how many films each */
+async function creditedPeople(roleId: string) {
+  return resultRows<{ id: string; name: string; count: number }>(
+    await db.execute(sql`select a.id,a.name,count(distinct c.work_id)::int as count
+      from work_credits c join works w on w.id=c.work_id and w.kind='film' join authors a on a.id=c.person_id
+      where c.role_id=${roleId}
+      group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+  );
+}
+
+/**
+ * The values the film home can filter by, each with how many films have it:
+ * directors, cast, genres (with the broader genres of those used), original
+ * languages, production countries and the span of release years.
+ */
+export async function getFilmFilterOptions() {
+  const [directors, cast, genres, languageRows, countryRows, [years]] =
+    await Promise.all([
+      creditedPeople("film.director"),
+      creditedPeople("film.cast"),
+      resultRows<{ id: string; name: string; parentName: string | null; count: number }>(
+        await db.execute(sql`with recursive used(work_id,item_id) as (
+            select t.work_id,t.item_id from custom_taxonomy_item_works t join works w on w.id=t.work_id and w.kind='film'
+          ), broader(work_id,item_id) as (
+            select work_id,item_id from used
+            union select b.work_id,i.parent_id from broader b join custom_taxonomy_items i on i.id=b.item_id where i.parent_id is not null
+          )
+          select i.id,i.name,p.name as "parentName",count(distinct b.work_id)::int as count
+          from broader b join custom_taxonomy_items i on i.id=b.item_id join taxonomy_families f on f.id=i.family_id
+          left join custom_taxonomy_items p on p.id=i.parent_id
+          where f.slug='film-genres'
+          group by i.id,i.name,p.name
+          order by lower(coalesce(p.name || ' › ','') || i.name),i.id`),
+      ),
+      resultRows<{ id: string; name: string; count: number }>(
+        await db.execute(sql`select l.id,l.name,count(distinct x.work_id)::int as count
+          from film_languages x join languages l on l.id=x.language_id join works w on w.id=x.work_id and w.kind='film'
+          group by l.id,l.name order by lower(l.name),l.id`),
+      ),
+      resultRows<{ id: string; name: string; count: number }>(
+        await db.execute(sql`select k.id,k.name,count(distinct x.work_id)::int as count
+          from film_countries x join countries k on k.id=x.country_id join works w on w.id=x.work_id and w.kind='film'
+          group by k.id,k.name order by lower(k.name),k.id`),
+      ),
+      resultRows<{ min: number | null; max: number | null }>(
+        await db.execute(sql`select min(rd.start_year)::int as min,max(coalesce(rd.end_year,rd.start_year))::int as max
+          from film_details fd join works w on w.id=fd.work_id and w.kind='film'
+          join catalogue_dates rd on rd.id=fd.release_date_id where rd.start_year is not null`),
+      ),
+    ]);
+  return {
+    directors,
+    cast,
+    genres,
+    languages: languageRows,
+    countries: countryRows,
+    releaseYears:
+      years?.min != null && years.max != null ? { min: years.min, max: years.max } : null,
+  };
+}
+export type FilmFilterOptions = Awaited<ReturnType<typeof getFilmFilterOptions>>;
+
+/**
+ * Films to look at next, each row with its reason: more by the first
+ * director, films that share cast (most shared first, with the names), and
+ * films that share at least two genres. A film appears in one row only.
+ */
+export async function getRelatedFilms(id: string, limit = 12) {
+  z.uuid().parse(id);
+  z.number().int().min(1).max(48).parse(limit);
+  const [director] = resultRows<{ id: string; name: string; slug: string }>(
+    await db.execute(sql`select a.id,a.name,a.slug from work_credits c join authors a on a.id=c.person_id
+      where c.work_id=${id}::uuid and c.role_id='film.director' order by c.sort_order,c.id limit 1`),
+  );
+  const shown = new Set([id]);
+  const excluded = () =>
+    sql`(${sql.join(
+      [...shown].map((s) => sql`${s}::uuid`),
+      sql`,`,
+    )})`;
+  const related = async (query: SQL) =>
+    resultRows<{ id: string; names?: string[] }>(await db.execute(query));
+
+  const directorIds = director
+    ? await related(sql`select w.id from works w where w.kind='film' and w.id not in ${excluded()}
+        and exists(select 1 from work_credits c where c.work_id=w.id and c.role_id='film.director' and c.person_id=${director.id}::uuid)
+        order by (select rd.lower_bound from film_details fd join catalogue_dates rd on rd.id=fd.release_date_id where fd.work_id=w.id) asc nulls last,lower(w.title),w.id limit ${limit}`)
+    : [];
+  directorIds.forEach((row) => shown.add(row.id));
+
+  const cast = await related(sql`select c.work_id as id,jsonb_agg(distinct a.name) as names
+    from work_credits c join work_credits m on m.person_id=c.person_id and m.role_id='film.cast' and m.work_id=${id}::uuid
+    join works w on w.id=c.work_id and w.kind='film' join authors a on a.id=c.person_id
+    where c.role_id='film.cast' and c.work_id not in ${excluded()}
+    group by c.work_id order by count(distinct c.person_id) desc,c.work_id limit ${limit}`);
+  cast.forEach((row) => shown.add(row.id));
+
+  const genres = await related(sql`select t.work_id as id,jsonb_agg(i.name order by lower(i.name),i.id) as names
+    from custom_taxonomy_item_works t join custom_taxonomy_item_works m on m.item_id=t.item_id and m.work_id=${id}::uuid
+    join works w on w.id=t.work_id and w.kind='film'
+    join custom_taxonomy_items i on i.id=t.item_id join taxonomy_families f on f.id=i.family_id and f.slug='film-genres'
+    where t.work_id not in ${excluded()}
+    group by t.work_id having count(*)>=2
+    order by count(*) desc,t.work_id limit ${limit}`);
+
+  const [directorCards, castCards, genreCards] = await Promise.all([
+    loadFilmCards(directorIds.map((row) => row.id)),
+    loadFilmCards(cast.map((row) => row.id)),
+    loadFilmCards(genres.map((row) => row.id)),
+  ]);
+  const withNames = (
+    cards: Awaited<ReturnType<typeof loadFilmCards>>,
+    rows: { id: string; names?: string[] }[],
+  ) =>
+    cards.map((card) => ({
+      ...card,
+      shared: [...(rows.find((row) => row.id === card.id)?.names ?? [])].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    }));
+  return {
+    director:
+      director && directorCards.length ? { ...director, films: directorCards } : null,
+    cast: withNames(castCards, cast),
+    genres: withNames(genreCards, genres),
+  };
+}
+
+/**
+ * Films whose title or original title reads the same as `title`, ignoring
+ * case, accents and punctuation: a new film with one of these names may be
+ * a remake (a new film) or a cut of the same film (a version of it).
+ */
+export async function findFilmsByTitle(title: string) {
+  const text = z.string().trim().min(1).max(500).parse(title);
+  const rows = resultRows<{ id: string }>(
+    await db.execute(sql`select w.id from works w join film_details d on d.work_id=w.id
+      where w.kind='film' and (search_normalize(w.title)=search_normalize(${text})
+        or (d.original_title is not null and search_normalize(d.original_title)=search_normalize(${text})))
+      order by w.created_at,w.id limit 5`),
+  );
+  return loadFilmCards(rows.map((row) => row.id));
+}
+
+/** The countries and languages a film form chooses from, by name */
+export async function getFilmChoices() {
+  const [countryRows, languageRows] = await Promise.all([
+    db
+      .select({ id: countries.id, name: countries.name })
+      .from(countries)
+      .orderBy(asc(countries.name), asc(countries.id)),
+    db
+      .select({ id: languages.id, name: languages.name })
+      .from(languages)
+      .orderBy(asc(languages.name), asc(languages.id)),
+  ]);
+  return { countries: countryRows, languages: languageRows };
 }
 
 async function loadVersions(workId: string, ids?: string[]) {
@@ -386,6 +549,36 @@ export async function getFilmHolding(id: string) {
 
 // ── Film writes ──────────────────────────────────────────────────────────────
 
+/**
+ * The address of a new film: `{title}-by-{director}` (the first director, by
+ * name or as credited; the title alone without one), numbered when taken, like
+ * a book's. If another work takes it during the write, the next free one is
+ * tried; the last try adds the film's id. Renames keep the address.
+ */
+async function filmSlug(
+  id: string,
+  title: string,
+  credits: { roleId: string; personId: string | null; creditedAs: string | null }[],
+  attempt: number,
+) {
+  const director = credits.find(
+    (c) => c.roleId === "film.director" && (c.personId || c.creditedAs),
+  );
+  const name = director?.personId
+    ? ((
+        await db.query.authors.findFirst({
+          where: eq(authors.id, director.personId),
+          columns: { name: true },
+        })
+      )?.name ??
+      director.creditedAs ??
+      "")
+    : (director?.creditedAs ?? "");
+  const base = generateWorkSlug(title, name, id);
+  // "new" is the Add film page, /films/new: a film never takes it
+  return attempt < 2 ? uniqueSlug(works, base, { taken: ["new"] }) : `${base}-${id}`;
+}
+
 /** One transaction writes the film and every section. A remake is a new film. */
 export async function createFilm(input: CreateFilmInput) {
   const v = createFilmSchema.parse(input);
@@ -394,27 +587,36 @@ export async function createFilm(input: CreateFilmInput) {
     throw new Error("A new film has no existing credits");
   const id = randomUUID();
   const release = newDate(v.releaseDate);
-  await write((d) => [
-    d.insert(works).values({
-      id,
-      kind: "film",
-      title: v.title,
-      slug: `${slugify(v.title) || "film"}-${id}`,
-      description: v.description || null,
-      originalLanguage: null,
-    }),
-    ...insertDates(d, [release]),
-    d.insert(filmDetails).values({
-      workId: id,
-      originalTitle: v.originalTitle,
-      releaseDateId: release?.id ?? null,
-    }),
-    ...insertCountries(d, id, v.countryIds),
-    ...insertLanguages(d, id, v.languageIds),
-    ...insertFilmOrganizations(d, id, v.organizations),
-    ...insertWorkTaxa(d, id, v.classificationItemIds),
-    ...insertCredits(d, id, v.credits, []),
-  ]);
+  for (let attempt = 0; ; attempt++) {
+    const slug = await filmSlug(id, v.title, v.credits, attempt);
+    try {
+      await atomic((d) => [
+        d.insert(works).values({
+          id,
+          kind: "film",
+          title: v.title,
+          slug,
+          description: v.description || null,
+          originalLanguage: null,
+        }),
+        ...insertDates(d, [release]),
+        d.insert(filmDetails).values({
+          workId: id,
+          originalTitle: v.originalTitle,
+          releaseDateId: release?.id ?? null,
+        }),
+        ...insertCountries(d, id, v.countryIds),
+        ...insertLanguages(d, id, v.languageIds),
+        ...insertFilmOrganizations(d, id, v.organizations),
+        ...insertWorkTaxa(d, id, v.classificationItemIds),
+        ...insertCredits(d, id, v.credits, []),
+      ]);
+      break;
+    } catch (error) {
+      if (attempt < 2 && isWorkSlugClash(error)) continue;
+      throw readableDatabaseError(error);
+    }
+  }
   changedCatalogue();
   return (await getFilm(id))!;
 }
@@ -630,6 +832,10 @@ export async function createFilmVersion(input: CreateFilmVersionInput) {
       sourceRecordId: v.sourceRecordId,
       sortOrder: sql`(select coalesce(max(sort_order)+1,0) from film_versions where work_id=${v.workId}::uuid)`,
     }),
+    ...distributorRoleQueries(
+      d,
+      releases.map((r) => r.row),
+    ),
     ...insertReleases(
       d,
       releases.map((r) => r.row),
@@ -733,6 +939,10 @@ export async function updateFilmVersion(
       ...kept.map((k) => k.date?.row),
       ...added.map((a) => a.date),
     ]),
+    ...distributorRoleQueries(d, [
+      ...kept.map((k) => k.row),
+      ...added.map((a) => a.row),
+    ]),
     ...kept.map((k) =>
       d.update(filmReleases).set(k.row).where(eq(filmReleases.id, k.release.id!)),
     ),
@@ -793,6 +1003,14 @@ function holdingValues(
   return { ...fields, ...dates };
 }
 
+/** A copy's seller gets the retailer role, in the same write. */
+function supplierRole(d: Db, supplierId: string | null) {
+  return organizationRoleQueries(
+    d,
+    supplierId ? [{ organizationId: supplierId, role: "retailer" }] : [],
+  );
+}
+
 /** Curating or watching a film never creates a copy; this is the only way. */
 export async function addFilmHolding(input: FilmHoldingInput) {
   const { workId, ...fields } = input;
@@ -806,6 +1024,7 @@ export async function addFilmHolding(input: FilmHoldingInput) {
     disposition = newDate(record.dispositionDate);
   await write((d) => [
     ...insertDates(d, [acquisition, disposition]),
+    ...supplierRole(d, record.supplierId),
     d.insert(filmHoldings).values({
       id,
       workId,
@@ -861,6 +1080,7 @@ export async function updateFilmHolding(
       ),
     ),
     ...insertDates(d, [acquisition?.row, disposition?.row]),
+    ...supplierRole(d, record.supplierId),
     d
       .update(filmHoldings)
       .set({

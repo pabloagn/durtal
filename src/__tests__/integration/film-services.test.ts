@@ -62,10 +62,14 @@ import {
   deleteFilm,
   deleteFilmHolding,
   deleteFilmVersion,
+  findFilmsByTitle,
   getFilm,
+  getFilmChoices,
   getFilmCount,
+  getFilmFilterOptions,
   getFilms,
   getFilmVersion,
+  getRelatedFilms,
   updateFilm,
   updateFilmHolding,
   updateFilmVersion,
@@ -78,6 +82,7 @@ import {
 } from "@/lib/actions/organizations";
 import { updateWorkCuration, getWorkCuration } from "@/lib/actions/curation";
 import { STALE_RECORD } from "@/lib/catalogue/work-store";
+import { classificationInput, otherClassificationIds } from "@/lib/catalogue/film-labels";
 import type { CreateFilmInput, FilmQuery } from "@/lib/validations/films";
 
 /** The whole message a caller sees; never SQL. */
@@ -188,7 +193,7 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
 
   it("creates a film with ordered cast and crew, origins and genres in one transaction", async () => {
     const film = await theThing();
-    expect(film.slug).toBe(`the-thing-${film.id}`);
+    expect(film.slug).toBe("the-thing-by-john-carpenter");
     expect(film.releaseDate?.value).toMatchObject({ precision: "day", start: { year: 1982, month: 6, day: 25 } });
     expect(film.countries.map((x) => x.alpha2)).toEqual(["US"]);
     expect(film.languages.map((x) => x.code)).toEqual(["en"]);
@@ -234,8 +239,16 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
       "Contribution role does not apply to films",
     );
     expect(
-      await failure(createFilm({ ...base, organizations: [{ organizationId: orgs.shop, role: "production_company" }] })),
-    ).toBe("Organization does not have the required production_company role");
+      await failure(
+        createFilm({
+          ...base,
+          organizations: [{ organizationId: orgs.shop, role: "production_company" }],
+          classificationItemIds: [items.floral],
+        }),
+      ),
+    ).toBe("Taxonomy family does not apply to this domain and record level");
+    // The company's new role was part of the rolled-back write
+    expect(await c`select 1 from organization_roles where organization_id=${orgs.shop} and role='production_company'`).toHaveLength(0);
     for (const table of ["works", "film_details", "catalogue_dates", "film_countries", "work_credits"])
       expect(await c`select 1 from ${c(table)}`, table).toHaveLength(0);
   });
@@ -293,9 +306,9 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     expect(await failure(createFilmVersion({ workId: film.id }))).toBe("This film already has an unlabelled version");
     expect(
       await failure(
-        updateFilmVersion(theatrical.id, { releases: [{ format: "theatrical", distributorId: orgs.rko }] }, theatrical.fingerprint),
+        updateFilmVersion(theatrical.id, { releases: [{ format: "theatrical", countryId: lang.en }] }, theatrical.fingerprint),
       ),
-    ).toBe("Organization does not have the required distribution_company role");
+    ).toBe("Another record still uses this, or a linked record no longer exists");
     // The rejected edit changed nothing.
     expect((await getFilmVersion(theatrical.id))!.fingerprint).toBe(theatrical.fingerprint);
 
@@ -496,5 +509,189 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     });
     await expect(getFilms({ creditRoleIds: ["film.director"] })).rejects.toThrow();
     await expect(getFilms({ holding: "not_owned", media: ["digital"] })).rejects.toThrow();
+  });
+  it("names a new film by its title and first director, numbered when taken", async () => {
+    const first = await theThing();
+    const second = await theThing();
+    expect(first.slug).toBe("the-thing-by-john-carpenter");
+    expect(second.slug).toBe("the-thing-by-john-carpenter-2");
+    const credited = await createFilm({
+      title: "Alan Smithee Film",
+      credits: [{ personId: null, roleId: "film.director", creditedAs: "Alan Smithee" }],
+    });
+    expect(credited.slug).toBe("alan-smithee-film-by-alan-smithee");
+    // Only a director names the film; a composer does not
+    const undirected = await createFilm({ title: "Night Music", credits: [credit("carpenter", "composer")] });
+    expect(undirected.slug).toBe("night-music");
+    const renamed = await updateFilm(first.id, { title: "The Thing (1982)" }, first.fingerprint);
+    expect(renamed.slug).toBe(first.slug);
+    // /films/new is the Add film page: a film titled "New" never takes it
+    expect((await createFilm({ title: "New" })).slug).toBe("new-2");
+  });
+
+  it("keeps the terms of other families when the edit form saves its genres", async () => {
+    const [mood] =
+      await c`insert into taxonomy_families(name,slug,entity_level) values ('Mood','mood','work')
+        on conflict (slug) do update set name=excluded.name returning id`;
+    await c`insert into taxonomy_applicability(family_id,kind,level) values (${mood.id},'film','work') on conflict do nothing`;
+    const [bleak] =
+      await c`insert into custom_taxonomy_items(family_id,name,slug) values (${mood.id},'Bleak','bleak') returning id`;
+    const film = await createFilm({ title: "The Fog", classificationItemIds: [items.horror, bleak.id] });
+    const names = (f: typeof film) => f.classification.map((x) => x.name).sort();
+    expect(names(film)).toEqual(["Bleak", "horror"]);
+    // What the form sends: its genres, then the other families' terms as they were
+    const genreIds = (f: typeof film) =>
+      f.classification.filter((x) => x.familySlug === "film-genres").map((x) => x.itemId);
+    const saved = await updateFilm(
+      film.id,
+      { title: "The Fog (1980)", classificationItemIds: classificationInput(genreIds(film), otherClassificationIds(film.classification)) },
+      film.fingerprint,
+    );
+    expect(names(saved)).toEqual(["Bleak", "horror"]);
+    // Removing the last genre in the form still keeps the mood
+    const cleared = await updateFilm(
+      film.id,
+      { classificationItemIds: classificationInput([], otherClassificationIds(saved.classification)) },
+      saved.fingerprint,
+    );
+    expect(names(cleared)).toEqual(["Bleak"]);
+  });
+
+  it("gives each company, distributor and seller its role in the same write", async () => {
+    const roles = async (id: string) =>
+      (await c`select role from organization_roles where organization_id=${id} order by role`).map((r) => r.role);
+    const film = await createFilm({
+      title: "The Fog",
+      organizations: [{ organizationId: orgs.shop, role: "production_company" }],
+    });
+    expect(film.organizations.map((o) => o.organizationId)).toEqual([orgs.shop]);
+    expect(await roles(orgs.shop)).toEqual(["production_company", "retailer"]);
+    const version = await createFilmVersion({
+      workId: film.id,
+      releases: [{ countryId: place.US, format: "theatrical", distributorId: orgs.rko }],
+    });
+    expect(version.releases[0]).toMatchObject({ distributorId: orgs.rko, distributorName: "RKO" });
+    expect(await roles(orgs.rko)).toEqual(["distribution_company", "production_company"]);
+    await addFilmHolding({ workId: film.id, medium: "physical", supplierId: orgs.universal });
+    expect(await roles(orgs.universal)).toEqual(["distribution_company", "production_company", "retailer"]);
+    // A role it already has stays as it is
+    await updateFilmVersion(
+      version.id,
+      { releases: [{ id: version.releases[0].id, countryId: place.US, format: "theatrical", distributorId: orgs.rko }] },
+      version.fingerprint,
+    );
+    expect(await roles(orgs.rko)).toEqual(["distribution_company", "production_company"]);
+  });
+
+  it("filters by director and cast together, each in its own role", async () => {
+    const make = (title: string, credits: ReturnType<typeof credit>[]) => createFilm({ title, credits });
+    await make("The Thing", [credit("carpenter", "director"), credit("russell", "cast")]);
+    await make("Escape from New York", [credit("carpenter", "director"), credit("russell", "cast"), credit("carpenter", "composer")]);
+    await make("Halloween", [credit("carpenter", "director")]);
+    await make("Tango and Cash", [credit("nyby", "director"), credit("russell", "cast")]);
+    await make("Silver Screen", [credit("russell", "director"), credit("carpenter", "cast")]);
+    const titles = async (q: FilmQuery) => (await getFilms({ ...q, limit: 50 })).map((f) => f.title);
+    const cases: [FilmQuery, string[]][] = [
+      [{ directorIds: [people.carpenter] }, ["Escape from New York", "Halloween", "The Thing"]],
+      [{ castIds: [people.russell] }, ["Escape from New York", "Tango and Cash", "The Thing"]],
+      [{ directorIds: [people.carpenter], castIds: [people.russell] }, ["Escape from New York", "The Thing"]],
+      [{ directorIds: [people.carpenter, people.nyby], castIds: [people.russell] }, ["Escape from New York", "Tango and Cash", "The Thing"]],
+      [{ castIds: [people.carpenter] }, ["Silver Screen"]],
+    ];
+    for (const [q, expected] of cases) {
+      expect(await titles(q), JSON.stringify(q)).toEqual(expected);
+      expect(await getFilmCount(q), JSON.stringify(q)).toBe(expected.length);
+    }
+  });
+
+  it("lists what the film home can filter by, with how many films each", async () => {
+    expect(await getFilmFilterOptions()).toEqual({
+      directors: [],
+      cast: [],
+      genres: [],
+      languages: [],
+      countries: [],
+      releaseYears: null,
+    });
+    await theThing();
+    await createFilm({
+      title: "Le Samouraï",
+      releaseDate: { precision: "range", start: { year: 1967 }, end: { year: 1968 } },
+      countryIds: [place.FR],
+      languageIds: [lang.fr],
+      credits: [credit("melville", "director")],
+      classificationItemIds: [items.crime],
+    });
+    await createFilm({ title: "Halloween", releaseDate: year(1978), countryIds: [place.US], credits: [credit("carpenter", "director")], classificationItemIds: [items.horror] });
+    await c`insert into works(title) values ('A book about films')`;
+    const options = await getFilmFilterOptions();
+    // By surname
+    expect(options.directors).toEqual([
+      { id: people.carpenter, name: "John Carpenter", count: 2 },
+      { id: people.melville, name: "Jean-Pierre Melville", count: 1 },
+    ]);
+    // By surname; a credit without a person record is not a choice
+    expect(options.cast).toEqual([
+      { id: people.brimley, name: "Wilford Brimley", count: 1 },
+      { id: people.russell, name: "Kurt Russell", count: 1 },
+    ]);
+    // A narrower genre counts for the broader one too
+    expect(options.genres).toEqual([
+      { id: items.crime, name: "crime", parentName: null, count: 1 },
+      { id: items.horror, name: "horror", parentName: null, count: 2 },
+      { id: items.bodyHorror, name: "bodyHorror", parentName: "horror", count: 1 },
+    ]);
+    expect(options.languages).toEqual([
+      { id: lang.en, name: "English", count: 1 },
+      { id: lang.fr, name: "French", count: 1 },
+    ]);
+    expect(options.countries).toEqual([
+      { id: place.FR, name: "France", count: 1 },
+      { id: place.US, name: "United States", count: 2 },
+    ]);
+    expect(options.releaseYears).toEqual({ min: 1967, max: 1982 });
+  });
+
+  it("finds related films by director, shared cast and shared genres, each film once", async () => {
+    const thing = await createFilm({
+      title: "The Thing",
+      releaseDate: year(1982),
+      credits: [credit("carpenter", "director"), credit("russell", "cast"), credit("brimley", "cast")],
+      classificationItemIds: [items.horror, items.crime],
+    });
+    const make = (title: string, input: Omit<CreateFilmInput, "title"> = {}) => createFilm({ ...input, title });
+    const escape = await make("Escape from New York", { releaseDate: year(1981), credits: [credit("carpenter", "director"), credit("russell", "cast")] });
+    const halloween = await make("Halloween", { releaseDate: year(1978), credits: [credit("carpenter", "director")] });
+    const cocoon = await make("Cocoon", { credits: [credit("brimley", "cast"), credit("russell", "cast")] });
+    const hardcore = await make("Hardcore", { credits: [credit("brimley", "cast")], classificationItemIds: [items.horror, items.crime] });
+    await make("One Genre", { classificationItemIds: [items.horror] });
+    await make("No Link", { credits: [credit("kurosawa", "director")] });
+    const related = await getRelatedFilms(thing.id);
+    expect(related.director).toMatchObject({ id: people.carpenter, name: "John Carpenter" });
+    // Oldest first; Escape from New York appears only under the director
+    expect(related.director!.films.map((f) => f.id)).toEqual([halloween.id, escape.id]);
+    expect(related.cast.map((f) => [f.id, f.shared])).toEqual([
+      [cocoon.id, ["Kurt Russell", "Wilford Brimley"]],
+      [hardcore.id, ["Wilford Brimley"]],
+    ]);
+    // Hardcore already shows under the cast, so no film shares two genres
+    expect(related.genres).toEqual([]);
+    const lonely = await make("Lonely", { classificationItemIds: [items.horror, items.crime] });
+    expect((await getRelatedFilms(lonely.id)).genres.map((f) => [f.id, f.shared])).toEqual([
+      [thing.id, ["crime", "horror"]],
+      [hardcore.id, ["crime", "horror"]],
+    ].sort((a, b) => (String(a[0]) < String(b[0]) ? -1 : 1)));
+    expect(await getRelatedFilms(halloween.id)).toMatchObject({ cast: [], genres: [] });
+  });
+
+  it("finds films with the same title or original title, and the choices of the form", async () => {
+    const thing = await theThing();
+    const samourai = await createFilm({ title: "The Samurai", originalTitle: "Le Samouraï" });
+    expect((await findFilmsByTitle("the THING")).map((f) => f.id)).toEqual([thing.id]);
+    expect((await findFilmsByTitle("le samourai")).map((f) => f.id)).toEqual([samourai.id]);
+    expect(await findFilmsByTitle("The Thing from Another World")).toEqual([]);
+    const choices = await getFilmChoices();
+    expect(choices.countries.map((x) => x.name)).toEqual(["France", "Japan", "United States"]);
+    expect(choices.languages.map((x) => x.name)).toEqual(["English", "French", "Japanese"]);
   });
 });

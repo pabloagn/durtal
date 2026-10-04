@@ -22,13 +22,12 @@ import {
 } from "@/lib/catalogue/perfume-labels";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import type { Attribution } from "@/lib/catalogue/credits";
+import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
 import {
   CreditListField,
   NotePyramidEditor,
-  TermListField,
   type CreditEntry,
   type NoteEntry,
-  type TermEntry,
 } from "./perfume-fields";
 
 /** A stored formulation, as the edit dialog starts from it */

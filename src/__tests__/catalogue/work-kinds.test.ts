@@ -19,8 +19,8 @@ describe("work domain boundaries", () => {
     (input) => expect(isWorkKind(input)).toBe(false),
   );
 
-  it("exposes only the ready domains: books and perfumes", () => {
-    expect(getEnabledWorkKinds()).toEqual(["book", "perfume"]);
+  it("exposes only the ready domains: books, perfumes and films", () => {
+    expect(getEnabledWorkKinds()).toEqual(["book", "perfume", "film"]);
     expect(WORK_DOMAINS.book.basePath).toBe("/library");
   });
 

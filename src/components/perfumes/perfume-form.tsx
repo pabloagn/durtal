@@ -11,15 +11,14 @@ import { TitleInput } from "@/components/shared/title-input";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { createPerfume, updatePerfume } from "@/lib/actions/perfumes";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
+import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
 import {
   CreditListField,
   NotePyramidEditor,
   OrganizationRolesField,
-  TermListField,
   type CreditEntry,
   type NoteEntry,
   type OrganizationEntry,
-  type TermEntry,
 } from "./perfume-fields";
 
 /** The identity of a stored perfume, as the edit form starts from it */

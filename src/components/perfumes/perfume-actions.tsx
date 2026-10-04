@@ -10,7 +10,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import { deletePerfume } from "@/lib/actions/perfumes";
 import { PerfumeForm, type EditablePerfume } from "./perfume-form";
-import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 
 /**
  * The perfume's own actions beside its title, on the title's cap-height

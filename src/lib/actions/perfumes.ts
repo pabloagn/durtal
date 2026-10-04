@@ -54,7 +54,6 @@ import {
   insertVariantPerfumers,
   insertVariantTaxa,
   loadPerfumeCards,
-  organizationRoleQueries,
   perfumeDomain,
   perfumeFingerprint,
   perfumeWhere,
@@ -68,6 +67,7 @@ import {
   loadDates,
   lockWork as lockAnyWork,
   newDate,
+  organizationRoleQueries,
   readFingerprint,
   releaseDates,
   replaceDate,
@@ -86,7 +86,7 @@ import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { getPerfumeRetailerLinks } from "./perfume-retailers";
 import { generateWorkSlug } from "@/lib/utils/slugify";
-import { uniqueSlug } from "@/lib/catalogue/slugs";
+import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
@@ -550,21 +550,6 @@ export async function getPerfumeBottle(id: string) {
 // ── Fragrance writes ─────────────────────────────────────────────────────────
 
 /** Another work took the slug between the check and the write. */
-function isSlugClash(error: unknown) {
-  let current = error as
-    | { code?: unknown; constraint?: unknown; constraint_name?: unknown; cause?: unknown }
-    | undefined;
-  for (let depth = 0; current && depth < 6; depth++) {
-    if (
-      current.code === "23505" &&
-      [current.constraint, current.constraint_name].includes("works_slug_unique")
-    )
-      return true;
-    current = current.cause as typeof current;
-  }
-  return false;
-}
-
 /**
  * The address of a new perfume: `{title}-by-{house}` (or the title alone),
  * numbered when taken, like a book's. If another work takes it during the
@@ -629,7 +614,7 @@ export async function createPerfume(input: CreatePerfumeInput) {
       ]);
       break;
     } catch (error) {
-      if (attempt < 2 && isSlugClash(error)) continue;
+      if (attempt < 2 && isWorkSlugClash(error)) continue;
       throw readableDatabaseError(error);
     }
   }
