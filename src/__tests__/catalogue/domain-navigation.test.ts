@@ -49,7 +49,7 @@ describe("collection navigation", () => {
       href: "/perfumes/new",
     });
     expect(GO_TO.find((g) => g.href === "/library")).toEqual({
-      key: "l",
+      key: "b",
       label: "Books",
       href: "/library",
     });
