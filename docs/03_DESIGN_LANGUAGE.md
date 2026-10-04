@@ -184,7 +184,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
 | A bar fixed to a screen edge: the navigation bar on a phone, the sidebar (a drawer over the page on a phone), the reader's toolbar and progress bar | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
-| A small control or mark on an image: cover chips, a card's copy, actions and selection controls, the image adjustment button | `glass-chip`: a lighter tint (42%) over the image blurred 10px, saturated 160% and dimmed to 32%, a hairline edge lit from above (`border` on the element). The image shows through as smoked glass; an icon keeps 3:1 and a label 4.5:1 even over a white cover. Labels are `fg-primary`, a tone colors only the icon. `glass-chip-lift` brightens it on hover |
+| A small control or mark on an image: cover chips, a card's copy, actions and selection controls, the image adjustment button | `glass-chip`: a 68% tint over the image blurred 10px, saturated 180% and dimmed to 60%, a hairline edge lit from above (`border` on the element). The dimming is in the tint, so Chrome, Safari and Firefox draw it alike. The image shows through as smoked glass; an icon keeps 3:1 and a label 4.5:1 even over a white cover. Labels are `fg-primary`, a tone colors only the icon. `glass-chip-lift` brightens it on hover |
 | What lies behind the phone drawer | `glass-veil` |
 
 `glass-veil` is the layer behind a modal surface: the page at 62% black, blurred 6px, so it stays in view but steps back.
