@@ -1,4 +1,6 @@
 import { cache } from "react";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -19,6 +21,8 @@ import {
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
+import { LinkedWorksSection } from "@/components/catalogue/work-relations";
+import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import { FilmPoster } from "@/components/films/film-poster";
 import { FilmActions } from "@/components/films/film-actions";
@@ -121,7 +125,7 @@ export default async function FilmPage({
   const film = await loadFilm(slug);
   if (!film) notFound();
   const owner = { kind: "film" as const, id: film.id };
-  const [media, curation, provenance, related, genres, allLocations, choices] =
+  const [media, curation, provenance, related, genres, allLocations, choices, links] =
     await Promise.all([
       getMediaForWork(film.id),
       getWorkCuration(owner),
@@ -130,6 +134,7 @@ export default async function FilmPage({
       getTaxonomyAssignments({ kind: "film", level: "work", ownerId: film.id }),
       getLocations(),
       getFilmChoices(),
+      getWorkRelations(film.id),
     ]);
 
   // ── Images ────────────────────────────────────────────────────────────────
@@ -187,6 +192,8 @@ export default async function FilmPage({
       film.sourceRecordId,
       ...film.organizations.map((o) => o.sourceRecordId),
       ...film.versions.flatMap((v) => [v.sourceRecordId, ...v.releases.map((r) => r.sourceRecordId)]),
+      // A link starting here cites a source of this film
+      ...links.filter((l) => l.direction === "outgoing").map((l) => l.source?.id),
     ].filter((id): id is string => !!id),
   );
   const sources = sourceViews(provenance, cited);
@@ -373,7 +380,7 @@ export default async function FilmPage({
                 className="h-full w-full object-cover"
                 style={mediaImageStyle(mediaCrop(still))}
               />
-              <div className="absolute inset-0 bg-black/70" />
+              <div className="absolute inset-0 bg-scrim" />
               <div
                 className="absolute inset-x-0 bottom-0 h-40"
                 style={{
@@ -555,6 +562,11 @@ export default async function FilmPage({
           <CastSection cast={cast} />
           <CrewSection crew={crew} />
 
+          <LinkedWorksSection
+            work={{ id: film.id, kind: "film", title: film.title }}
+            relations={links}
+          />
+
           <VersionsSection
             film={{ id: film.id, title: film.title, fingerprint: film.fingerprint }}
             versions={versions}
@@ -592,6 +604,8 @@ export default async function FilmPage({
         <GallerySection entityType="work" entityId={film.id} />
 
         <RelatedFilms related={related} />
+
+        <ActivityTimeline entityType="work" entityId={film.id} refreshKey={renderStamp()} />
       </div>
     </CurationProvider>
   );

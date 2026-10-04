@@ -288,7 +288,7 @@ export function AuthorMediaManagerDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Manage author media"
+      title="Manage media"
       description={authorName}
       className="max-w-3xl"
     >

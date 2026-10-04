@@ -4,12 +4,19 @@
     { "path": "/", "maxKB": 300, "maxMs": 1000 },
     { "path": "/library", "maxKB": 300, "maxMs": 1000 },
     { "path": "/library/*", "maxKB": 400, "maxMs": 1000, "skip": ["identify", "import"] },
-    { "path": "/authors", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/authors/*", "maxKB": 400, "maxMs": 1000 },
+    { "path": "/people", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/people/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/collections", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/places", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/places/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/series", "maxKB": 300, "maxMs": 1000 },
     { "path": "/provenance", "maxKB": 300, "maxMs": 1000 },
     { "path": "/publishers", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/harmonize", "maxKB": 300, "maxMs": 1000 }
+    { "path": "/organizations", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/organizations/*", "maxKB": 400, "maxMs": 1000 },
+    { "path": "/harmonize", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/perfumes", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/films", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/paintings", "maxKB": 300, "maxMs": 1000 }
   ]
 }

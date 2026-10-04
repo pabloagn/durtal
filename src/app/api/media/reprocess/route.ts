@@ -11,9 +11,9 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 /**
  * POST /api/media/reprocess
  *
- * Re-processes all media items: fetches the full-size image from S3 gold/,
- * regenerates the thumbnail at the current (higher) resolution settings,
- * and updates the DB record.
+ * Re-processes all media items: fetches the full-size image from S3 gold/
+ * and regenerates the thumbnail at the current (higher) resolution settings,
+ * over the same key. No database row changes: the keys stay the same.
  *
  * This fixes thumbnails that were generated at too-low resolution.
  * The full-size images keep their current quality (can't upscale).

@@ -13,6 +13,7 @@ import Image from "next/image";
 import { Search, BookOpenText } from "lucide-react";
 import type { CalibreBookRow } from "@/lib/calibre/queries";
 import { PageHeader } from "@/components/layout/page-header";
+import { COVER_CHIP, COVER_CHIP_TEXT, COVER_CORNER } from "@/components/books/cover-chip";
 
 interface ReaderLibraryProps {
   books: CalibreBookRow[];
@@ -160,7 +161,7 @@ function ReaderBookCard({
     <div className="relative">
     <Link
       href={`/reader/${book.calibreId}`}
-      className="group relative flex flex-col overflow-hidden rounded-sm border border-glass-border bg-bg-secondary transition-all duration-200 hover:border-fg-muted/20 hover:shadow-lg hover:shadow-black/20"
+      className="group @container relative flex flex-col overflow-hidden rounded-sm border border-glass-border bg-bg-secondary transition-all duration-200 hover:border-fg-muted/20 hover:shadow-lg hover:shadow-black/20"
     >
       {/* Cover */}
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-bg-tertiary">
@@ -192,15 +193,15 @@ function ReaderBookCard({
           </div>
         )}
 
-        {/* Format badges */}
-        <div className="absolute right-1.5 top-1.5 flex gap-1">
+        {/* Format badges: cover chips, like the marks on a book card */}
+        <div className={COVER_CORNER.topRight}>
           {hasEpub && (
-            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-micro uppercase text-fg-secondary backdrop-blur-sm">
+            <span className={`${COVER_CHIP} ${COVER_CHIP_TEXT} uppercase text-fg-primary`}>
               epub
             </span>
           )}
           {hasPdf && (
-            <span className="rounded-sm bg-bg-primary/80 px-1.5 py-0.5 font-mono text-micro uppercase text-fg-secondary backdrop-blur-sm">
+            <span className={`${COVER_CHIP} ${COVER_CHIP_TEXT} uppercase text-fg-primary`}>
               pdf
             </span>
           )}

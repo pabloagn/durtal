@@ -3,6 +3,7 @@ import { ingestMedia } from "@/lib/media/ingest";
 import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-input";
 import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { safeFetchImage, SafeFetchError, type SafeFetchErrorCode } from "@/lib/net/safe-fetch";
+import { isUuid } from "@/lib/utils/uuid";
 import type { MediaEntityType } from "@/lib/s3/keys";
 import type { MediaType } from "@/lib/types";
 
@@ -78,6 +79,9 @@ export async function POST(req: NextRequest) {
         { error: "This owner does not accept that image type" },
         { status: 400 },
       );
+    }
+    if (!isUuid(entityId)) {
+      return NextResponse.json({ error: "Invalid entityId" }, { status: 400 });
     }
 
     // Download through the SSRF, redirect, size, timeout and image-type guard

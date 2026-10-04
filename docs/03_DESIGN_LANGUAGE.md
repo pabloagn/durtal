@@ -50,15 +50,15 @@ Information density is high, ornamentation is absent, and every pixel earns its 
 
 ### Over images
 
-Controls and text that sit on a cover, portrait or banner use the page's near-black, never pure black or white:
+Small controls and marks that sit on a cover, poster or portrait are glass on the image (`glass-chip`, see Glass): the selection box, the copy button, the card actions menu, the image adjustment button and the cover chips (`cover-chip.ts`, on book, film, perfume, painting and reader cards). Larger layers over an image use the page's near-black, never pure black or white:
 
 | Token | Value | Usage |
 |---|---|---|
-| `--color-overlay` | `bg-primary` at 85% | A control or chip on an image: the selection checkbox, the copy button, the media manager's hover actions (`bg-overlay`) |
-| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection pages) |
-| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image |
+| `--color-overlay` | `bg-primary` at 85% | The media manager's hover actions over a whole thumbnail (`bg-overlay`) |
+| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection, publisher and film pages) |
+| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image; its buttons keep 16px icons in `fg-secondary` |
 
-Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black`, `text-white` or blur on these: blur belongs to the glass (navigation, palette and floating panels).
+Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black` or `text-white`, and no blur of their own: blur belongs to the glass.
 
 ### Gothic Underlay
 
@@ -128,7 +128,7 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 | `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels |
 | `type-prose` | EB Garamond 21px on 32px lines, primary, old-style figures, at most 26em (about 65 characters) | Long reading text: book descriptions, bios, collection and series descriptions. Use `<Prose>` (`src/components/shared/prose.tsx`), which loads the font |
 
-`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
+`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. A block inside a titled section (a row of cards under "Perfumes") uses `SectionHeading` with `as="h3"`, which takes `type-item-title`; `HorizontalCarousel` passes `as` through. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
 
 ---
 
@@ -180,18 +180,22 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 | Surface | Utility |
 |---|---|
 | Command palette, leader menu, dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
-| Menus, select lists, date picker, filter panels, pickers, hover cards | `glass` |
+| Menus, select lists, date picker, filter panels, pickers (also films' search picker), hover cards | `glass` |
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
-| A bar fixed to a screen edge (navigation on a phone) | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
+| A bar fixed to a screen edge: the navigation bar on a phone, the sidebar (a drawer over the page on a phone), the reader's toolbar and progress bar | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
+| A small control or mark on an image: cover chips, a card's copy, actions and selection controls, the image adjustment button | `glass-chip`: a 72% tint over the image blurred 10px (3px on a 16px cover mark, where a wide radius keeps the image's edges), saturated 180% and dimmed to 60%, a hairline edge lit from above (`border` on the element). The dimming is in the tint, so Chrome, Safari and Firefox draw it alike. The image shows through as smoked glass; an icon keeps 3:1 and a label 4.5:1 even over a white cover. Labels are `fg-primary`, a tone colors only the icon. `glass-chip-lift` brightens it on hover; controls that show on hover fade their glass (`hover-reveal-glass`), not a wrapper, so the blur is there all through the fade |
+| What lies behind the phone drawer | `glass-veil` |
 
 `glass-veil` is the layer behind a modal surface: the page at 62% black, blurred 6px, so it stays in view but steps back.
+
+In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other order, Lightning CSS (Turbopack, Tailwind) reads the prefixed line as an override, drops the standard line, and Chrome shows no blur. `src/__tests__/glass-surfaces.test.ts` checks the order.
 
 **How to use it.** Add the `glass` class to the floating element itself (`glass-bar` for a bar fixed to a screen edge), also on a native `<dialog>` or a cmdk list. The element needs a position and no background or border of its own; a `<dialog>` also takes `border-0 bg-transparent` against the browser's defaults. The material sits on a `::before` layer: a backdrop filter on the element itself would trap its `position: fixed` children, such as a picker inside a dialog.
 
 **A glass surface never scrolls.** The `::before` layer would scroll away with the first screenful and leave the rest of a long list on the bare page. The glass element takes `overflow-hidden`; an element inside it scrolls (`max-h-56 overflow-y-auto` on a select's list). A dialog's body scrolls, not the dialog, so its header stays in view. `src/__tests__/glass-surfaces.test.ts` checks it.
 
-**Never** on page content: cards, panels, sections, tables and the record column stay opaque (`bg-secondary`). Controls on top of an image use an opaque backdrop instead (cover chips, `src/components/books/cover-chip.ts`).
+**Never** on page content: cards, panels, sections, tables and the record column stay opaque (`bg-secondary`). The controls and marks on a card's image are `glass-chip`.
 
 ---
 
@@ -203,7 +207,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 - Cover image with no border radius
 - Subtle 1px border in `bg-tertiary`
 - Hover: lifts with `accent-rose` border glow
-- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and an opaque backdrop (`bg-primary` at 85%, no blur), so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show only on hover and keyboard focus.
+- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and an opaque backdrop (`bg-primary` at 85%, no blur), so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show on hover and keyboard focus, and always on a touch screen, which has no hover (`hover-reveal` in `globals.css`).
 - Text, through `CardHeading` (`src/components/shared/card-heading.tsx`): the title in the serif (`type-item-title`), then the author 4px under the title's last line. The block always takes two title lines and one author line, so every card has the same height; a one-line title leaves its free line above the info row, not between the title and the author. A title cut by its `line-clamp-2` shows in full on hover, like text cut by `lines-*`.
 - Info row, in secondary text: the status as a colored dot and its label (`CardStatus`; the tooltip adds the priority and the number of copies), the language from 200px card width, then on the right the rating (a gold star and the number, `CardRating`, from 160px) and the year (from 160px; 220px beside a rating). The status always fits whole.
 
@@ -300,7 +304,7 @@ A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
 
 - Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
-- `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then l"` (a sequence).
+- `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
@@ -361,3 +365,10 @@ Selection uses the plum accent as background with primary foreground text:
 The application is designed desktop-first but must be usable on all screen sizes. No separate mobile app — responsive web only. PWA if needed later.
 
 A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
+
+### Keyboard, touch and motion
+
+- Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
+- On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating stars are 24px wide there (`pointer-coarse:w-6`).
+- With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.
+- Check it with `node scripts/qa/interaction-audit.mjs --disposable --base <app url> [route...]` on a disposable preview (`scripts/qa/preview-local.py`). It opens menus and dialogs, pressing only controls that open something, never one that writes; it refuses to start without `--disposable`, on another host or on port 3100.

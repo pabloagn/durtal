@@ -144,13 +144,23 @@ export default async function PublisherPage({
           </RecordFields>
         </RecordGroup>
       )}
-      {website && (
-        <RecordGroup title="Links">
-          <a href={website} target="_blank" rel="noopener noreferrer" className={`text-sm ${LINK}`}>
-            Website
-          </a>
-        </RecordGroup>
-      )}
+      <RecordGroup title="Links">
+        <ul className="space-y-1 text-sm">
+          {/* Every role of this house, in every collection */}
+          <li>
+            <Link href={`/organizations/${p.slug}`} className={LINK}>
+              Organization page
+            </Link>
+          </li>
+          {website && (
+            <li>
+              <a href={website} target="_blank" rel="noopener noreferrer" className={LINK}>
+                Website
+              </a>
+            </li>
+          )}
+        </ul>
+      </RecordGroup>
     </RecordPanel>
   );
 
@@ -168,7 +178,7 @@ export default async function PublisherPage({
               style={mediaImageStyle(mediaCrop(background))}
             />
             {/* Dark overlay for readability */}
-            <div className="absolute inset-0 bg-black/70" />
+            <div className="absolute inset-0 bg-scrim" />
             {/* Bottom gradient: dissolves into the page background */}
             <div
               className="absolute inset-x-0 bottom-0 h-40"

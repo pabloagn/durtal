@@ -195,8 +195,10 @@ export const PERFUME_SORTS = ["title", "release", "recent", "rating"] as const;
 export const perfumeQuerySchema = z
   .strictObject({
     search: z.string().trim().max(200).optional(),
-    /** Any of these as perfume house or brand. */
+    /** Any of these as perfume house, brand or manufacturer. */
     houseIds: z.array(z.uuid()).max(50).optional(),
+    /** With `houseIds`: only in this role (an organization page's "As brand" row). */
+    houseRole: z.enum(["perfume_house", "brand", "manufacturer"]).optional(),
     /** Any of these as perfumer of the fragrance or of one formulation. */
     perfumerIds: z.array(z.uuid()).max(50).optional(),
     /**

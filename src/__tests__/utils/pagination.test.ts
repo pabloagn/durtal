@@ -101,21 +101,21 @@ describe("page links and filtering", () => {
     expect(original.get("page")).toBe("2");
   });
   it("resets to page one without losing filters when changing size", () => {
-    expect(pageHref("/authors", { nationality: "HU", page: "8" }, 1, 192)).toBe(
-      "/authors?nationality=HU&perPage=192",
+    expect(pageHref("/people", { nationality: "HU", page: "8" }, 1, 192)).toBe(
+      "/people?nationality=HU&perPage=192",
     );
     expect(
-      firstPageHref("/authors", new URLSearchParams("q=Lem&page=9&perPage=96")),
-    ).toBe("/authors?q=Lem&perPage=96");
+      firstPageHref("/people", new URLSearchParams("q=Lem&page=9&perPage=96")),
+    ).toBe("/people?q=Lem&perPage=96");
   });
   it("does not mistake page size for a filter and retains it on clearing", () => {
     expect(hasListQuery(new URLSearchParams("perPage=96&page=2"))).toBe(false);
     expect(
       clearedListHref(
-        "/authors",
+        "/people",
         new URLSearchParams("q=Lem&page=9&perPage=96"),
       ),
-    ).toBe("/authors?perPage=96");
+    ).toBe("/people?perPage=96");
   });
 });
 

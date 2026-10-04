@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { bookCreditMergeQueries } from "./book-credit-merge";
+import { workRelationMergeQueries } from "./work-relation-merge";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
@@ -10,19 +11,34 @@ import { isBlank, stableStringify } from "./normalize";
 import {
   assertSql,
   config,
+  DETAIL_TABLE_NAMES,
   ident,
   loadSnapshot,
   lockSql,
-  referencesTo,
+  mergeReferences,
   referenceWhere,
   resultRows,
   snapshotQuery,
+  type Reference,
   type Snapshot,
 } from "./store";
+import {
+  detailCopyQuery,
+  detailTableOf,
+  detailUpdateQuery,
+  domainMergeConflicts,
+  mergeOrder,
+  releasedDetailDatesQuery,
+  workCreditMergeQueries,
+} from "./domain-merge";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
+import { catalogueDateText, dateFromColumns } from "@/lib/catalogue/dates";
 import type { Dataset, MergeField, MergePreview, Row } from "./types";
 
 const PROTECTED = new Set([
   "id",
+  "work_id",
   "kind",
   "slug",
   "created_at",
@@ -100,6 +116,23 @@ export function mergeFields(source: Row, target: Row): MergeField[] {
   }
   return fields;
 }
+/** "film", "perfume": a work kind in a sentence */
+function kindNoun(kind: unknown) {
+  return WORK_DOMAINS[kind as WorkKind]?.label.toLowerCase() ?? "work";
+}
+/** A profile field's choice key: "detail.original_title" */
+const DETAIL = "detail.";
+/** The two works' profile rows from a merge snapshot; a work with none reads as empty */
+function detailPair(table: string, snapshot: Snapshot, source: Row, target: Row) {
+  const rows = (snapshot.references[table] || []) as Row[];
+  const find = (id: string) => rows.find((r) => r.work_id === id) || ({ id } as Row);
+  return { source: find(source.id), target: find(target.id) };
+}
+/** The profile a works merge also reconciles: both works share one kind */
+function mergedDetail(entityKey: string, source: Row, target: Row) {
+  return entityKey === "works" && source.kind === target.kind ? detailTableOf(target.kind) : undefined;
+}
+
 export function mergeBlockers(
   entityKey: string,
   source: Row,
@@ -108,8 +141,13 @@ export function mergeBlockers(
 ): string[] {
   const entity = entityDefinition(entityKey);
   const blockers: string[] = [];
-  if (entityKey === "works" && (source.kind !== "book" || target.kind !== "book"))
-    blockers.push("Book harmonization can only merge books. Use the matching domain editor.");
+  // A work merges only with a work of its own collection: a film is never a book
+  if (entityKey === "works" && source.kind !== target.kind)
+    blockers.push(
+      `A ${kindNoun(source.kind)} and a ${kindNoun(target.kind)} cannot be merged. Choose two records of one kind.`,
+    );
+  if (entityKey === "works" && source.kind === target.kind)
+    blockers.push(...domainMergeConflicts(source.kind, snapshot, source.id, target.id));
   if (!entity.merge)
     blockers.push("These records require individual review in their editor.");
   if (!sameScope(entity, source, target))
@@ -150,6 +188,51 @@ export function mergeBlockers(
   // A gallery layout is derived from media; it will be regenerated. All source data is archived.
   return [...new Set(blockers)];
 }
+/** Shows a referenced record by its name, and a date as text, not as an id */
+async function describeReferences(table: string, fields: MergeField[]) {
+  await Promise.all(
+    config(table).foreignKeys.map(async (fk) => {
+      const ref = fk.reference();
+      const field = fields.find((f) => f.key === ref.columns[0].name);
+      if (!field || ref.columns.length !== 1) return;
+      const foreign = getTableConfig(ref.foreignTable);
+      const ids = [field.source, field.target].filter((v) => !isBlank(v));
+      const list = sql.join(
+        ids.map((id) => sql`${String(id)}::uuid`),
+        sql`, `,
+      );
+      let labels: { id: string; label: string | null }[];
+      if (foreign.name === "catalogue_dates")
+        labels = resultRows<Parameters<typeof dateFromColumns>[0] & { id: string }>(
+          await db.execute(
+            sql`select id, precision, start_year as "startYear", start_month as "startMonth", start_day as "startDay", end_year as "endYear", end_month as "endMonth", end_day as "endDay", approximate, label from catalogue_dates where id in (${list})`,
+          ),
+        ).map((r) => ({ id: r.id, label: catalogueDateText(dateFromColumns(r)) }));
+      else {
+        const labelsToTry = ["full_name", "name", "title", "code", "attribution", "provider", "id"].filter(
+          (name) => foreign.columns.some((c) => c.name === name),
+        );
+        const label = sql`coalesce(${sql.join(
+          labelsToTry.map((name) => sql`nullif(${ident(name)}::text, '')`),
+          sql`, `,
+        )})`;
+        labels = resultRows<{ id: string; label: string }>(
+          await db.execute(
+            sql`select id, ${label} as label from ${ident(foreign.name)} where id in (${list})`,
+          ),
+        );
+      }
+      const display = (value: unknown) =>
+        isBlank(value)
+          ? null
+          : labels.find((r) => r.id === value)?.label || "Unavailable record";
+      field.display = {
+        source: display(field.source),
+        target: display(field.target),
+      };
+    }),
+  );
+}
 export async function previewMerge(
   entityKey: string,
   sourceId: string,
@@ -168,38 +251,21 @@ export async function previewMerge(
       "A record has changed or was removed. Scan the library again.",
     );
   const fields = mergeFields(source, target);
-  await Promise.all(
-    config(entity.table).foreignKeys.map(async (fk) => {
-      const ref = fk.reference();
-      const field = fields.find((f) => f.key === ref.columns[0].name);
-      if (!field || ref.columns.length !== 1) return;
-      const foreign = getTableConfig(ref.foreignTable);
-      const labelsToTry = ["full_name", "name", "title", "code", "id"].filter(
-        (name) => foreign.columns.some((c) => c.name === name),
-      );
-      const label = sql`coalesce(${sql.join(
-        labelsToTry.map((name) => sql`nullif(${ident(name)}::text, '')`),
-        sql`, `,
-      )})`;
-      const ids = [field.source, field.target].filter((v) => !isBlank(v));
-      const labels = resultRows<{ id: string; label: string }>(
-        await db.execute(
-          sql`select id, ${label} as label from ${ident(foreign.name)} where id in (${sql.join(
-            ids.map((id) => sql`${String(id)}::uuid`),
-            sql`, `,
-          )})`,
-        ),
-      );
-      const display = (value: unknown) =>
-        isBlank(value)
-          ? null
-          : labels.find((r) => r.id === value)?.label || "Unavailable record";
-      field.display = {
-        source: display(field.source),
-        target: display(field.target),
-      };
-    }),
-  );
+  await describeReferences(entity.table, fields);
+  const detailTable = mergedDetail(entityKey, source, target);
+  if (detailTable) {
+    const pair = detailPair(detailTable, data, source, target);
+    const profile = mergeFields(pair.source, pair.target);
+    await describeReferences(detailTable, profile);
+    fields.push(
+      ...profile.map((f) => ({
+        ...f,
+        key: `${DETAIL}${f.key}`,
+        // "Release date", not "Release date reference": the value shows as a date
+        label: f.key.endsWith("_date_id") ? fieldLabel(f.key.replace(/_id$/, "")) : f.label,
+      })),
+    );
+  }
   const context: Dataset = { [entity.table]: data.records };
   return {
     entity: entityKey,
@@ -208,7 +274,8 @@ export async function previewMerge(
     fingerprint,
     fields,
     blockers: mergeBlockers(entityKey, source, target, data),
-    relationships: referencesTo(entity.table)
+    relationships: mergeReferences(entity.table)
+      .filter((ref) => !DETAIL_TABLE_NAMES.includes(ref.table))
       .map((ref) => ({
         label: fieldLabel(ref.table),
         count: (data.references[ref.table] || []).filter((r) =>
@@ -262,6 +329,38 @@ function updateQuery(
 }
 export { updateQuery };
 
+/**
+ * Fails when a table points at `table` through a key no merge step knows
+ * about. A key on (id, kind) ties a row to a work of one kind (work_relations)
+ * and counts as a key on the id.
+ */
+function unknownReferencesSql(table: string, key: string, known: Reference[]) {
+  return assertSql(
+    sql`not exists (select 1 from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+      join pg_attribute f on f.attrelid = c.confrelid and f.attnum = c.confkey[1]
+      where c.contype = 'f' and c.confrelid = ${table}::regclass
+      and (f.attname <> ${key}
+        or (cardinality(c.conkey) <> 1 and not (cardinality(c.conkey) = 2
+          and (select k.attname from pg_attribute k where k.attrelid = c.confrelid and k.attnum = c.confkey[2]) = 'kind'))
+        or not (${
+          known.length
+            ? sql.join(
+                known.map(
+                  (r) =>
+                    sql`(c.conrelid = ${r.table}::regclass and a.attname in (${sql.join(
+                      r.columns.map((c) => sql`${c}`),
+                      sql`, `,
+                    )}))`,
+                ),
+                sql` or `,
+              )
+            : sql`false`
+        }))
+    )`,
+    "A new relationship needs a merge strategy before this record can be merged.",
+  );
+}
 export async function executeMerge(input: {
   entity: string;
   sourceId: string;
@@ -284,14 +383,25 @@ export async function executeMerge(input: {
     throw new Error("Choose two existing, different records");
   const blockers = mergeBlockers(input.entity, source, target, data);
   if (blockers.length) throw new Error(blockers[0]);
-  const changes = resolvedValues(source, target, input.choices);
+  const detailTable = mergedDetail(input.entity, source, target);
+  const workChoices: Record<string, "source" | "target"> = {};
+  const detailChoices: Record<string, "source" | "target"> = {};
+  for (const [key, choice] of Object.entries(input.choices)) {
+    if (!key.startsWith(DETAIL)) workChoices[key] = choice;
+    else if (detailTable) detailChoices[key.slice(DETAIL.length)] = choice;
+    else throw new Error("An unknown merge field was submitted");
+  }
+  const changes = resolvedValues(source, target, workChoices);
+  const detail = detailTable ? detailPair(detailTable, data, source, target) : undefined;
+  const detailChanges =
+    detailTable && detail ? resolvedValues(detail.source, detail.target, detailChoices) : {};
   if (
     entity.person &&
     !String(target.name).includes(",") &&
     String(changes.name || target.name).includes(",")
   )
     throw new Error("The canonical author name must not contain a comma");
-  const refs = referencesTo(entity.table);
+  const refs = mergeReferences(entity.table);
   const operationId = randomUUID();
   const foreignRefs = refs.filter((r) => !r.polymorphic);
   const queries: SQL[] = [
@@ -317,28 +427,10 @@ export async function executeMerge(input: {
       "The records or their relationships changed. Review a fresh merge preview.",
     ),
     // Fail closed if a future migration introduces references the registry does not know about.
-    assertSql(
-      sql`not exists (select 1 from pg_constraint c
-      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
-      join pg_attribute f on f.attrelid = c.confrelid and f.attnum = c.confkey[1]
-      where c.contype = 'f' and c.confrelid = ${entity.table}::regclass
-      and (cardinality(c.conkey) <> 1 or f.attname <> 'id' or not (${
-        foreignRefs.length
-          ? sql.join(
-              foreignRefs.map(
-                (r) =>
-                  sql`(c.conrelid = ${r.table}::regclass and a.attname in (${sql.join(
-                    r.columns.map((c) => sql`${c}`),
-                    sql`, `,
-                  )}))`,
-              ),
-              sql` or `,
-            )
-          : sql`false`
-      }))
-    )`,
-      "A new relationship needs a merge strategy before this record can be merged.",
-    ),
+    unknownReferencesSql(entity.table, "id", foreignRefs),
+    ...(input.entity === "works"
+      ? DETAIL_TABLE_NAMES.map((table) => unknownReferencesSql(table, "work_id", foreignRefs))
+      : []),
     sql`insert into harmonization_operations (id, action, entity, source_id, target_id, label, before) values (${operationId}::uuid, 'merge', ${input.entity}, ${source.id}::uuid, ${target.id}::uuid, ${`${source[entity.name]} → ${target[entity.name]}`}, ${JSON.stringify(data)}::jsonb)`,
     sql`select set_config('durtal.harmonization_operation', ${operationId}, true)`,
   ];
@@ -347,19 +439,21 @@ export async function executeMerge(input: {
     queries.push(
       sql`update media s set is_active = false where s.${ident(entity.mediaOwner)} = ${source.id}::uuid and s.type in ('poster', 'background') and exists (select 1 from media t where t.${ident(entity.mediaOwner)} = ${target.id}::uuid and t.type = s.type and t.is_active)`,
     );
-  // Editions must move before acquisition targets and orders. Guard functions recognize this audited merge only.
-  const ordered = [...refs].sort((a, b) => {
-    const order = (name: string) =>
-      name === "editions"
-        ? 0
-        : name === "acquisition_targets"
-          ? 1
-          : name === "orders"
-            ? 3
-            : 2;
-    return order(a.table) - order(b.table) || a.table.localeCompare(b.table);
-  });
+  // Sources move first and editions before acquisition targets and orders
+  // (mergeOrder). Guard functions recognize this audited merge only.
+  const ordered = [...refs].sort(
+    (a, b) =>
+      mergeOrder(a.table) - mergeOrder(b.table) ||
+      a.table.localeCompare(b.table),
+  );
   for (const ref of ordered) {
+    // A work has one profile: the kept work keeps its own (or gets a copy of
+    // the merged one's), and the merged one's goes with the merged work
+    if (DETAIL_TABLE_NAMES.includes(ref.table)) {
+      if (ref.table === detailTable)
+        queries.push(detailCopyQuery(ref.table, source.id, target.id));
+      continue;
+    }
     if (ref.table === "gallery_layouts") {
       queries.push(
         sql`delete from gallery_layouts where ${referenceWhere(ref, [source.id, target.id])}`,
@@ -373,9 +467,14 @@ export async function executeMerge(input: {
     ];
     const junction =
       primary.length > 1 && primary.some((c) => ref.columns.includes(c.name));
-    const creditQueries = ref.columns.length === 1
-      ? bookCreditMergeQueries(ref.table, ref.columns[0], source.id, target.id)
-      : undefined;
+    const creditQueries =
+      ref.table === "work_relations"
+        ? workRelationMergeQueries(source.id, target.id)
+        : ref.table === "work_credits" && ref.columns[0] === "work_id"
+          ? workCreditMergeQueries(source.id, target.id)
+          : ref.columns.length === 1
+          ? bookCreditMergeQueries(ref.table, ref.columns[0], source.id, target.id)
+          : undefined;
     if (creditQueries) {
       queries.push(...creditQueries);
     } else if (junction) {
@@ -423,6 +522,12 @@ export async function executeMerge(input: {
     sql`delete from ${ident(entity.table)} where id = ${source.id}::uuid`,
     updateQuery(entity.table, target.id, changes),
   );
+  if (detailTable && detail) {
+    const update = detailUpdateQuery(detailTable, target.id, detailChanges);
+    if (update) queries.push(update);
+    const released = releasedDetailDatesQuery(detailTable, [detail.source, detail.target]);
+    if (released) queries.push(released);
+  }
   // Venue counters are currency-blind legacy caches. Rebuild counts and date; never sum across currencies.
   if (input.entity === "venues")
     queries.push(

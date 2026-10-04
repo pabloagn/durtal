@@ -137,7 +137,8 @@ export function AcquisitionFields({
   /** The kind of a shop created from the search: a perfumery, a bookshop */
   shopType: VenueType;
 }) {
-  const suppliers = useOrganizationSearch("retailer");
+  // A bottle bought at a house's own boutique comes from the house
+  const suppliers = useOrganizationSearch("retailer", ["retailer", "perfume_house", "brand"]);
   const searchShops = useCallback(
     async (query: string): Promise<PickerChoice[]> =>
       (await searchVenues(query)).map((v) => ({

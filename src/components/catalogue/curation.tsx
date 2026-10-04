@@ -134,7 +134,7 @@ export function RatingControl({ rating }: { rating: number | null }) {
                 setValue(next);
                 if (!(await save({ rating: next }))) setValue(previous);
               }}
-              className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors ${
+              className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors pointer-coarse:w-6 ${
                 filled ? "text-accent-gold" : "text-fg-muted hover:text-fg-secondary"
               }`}
             >

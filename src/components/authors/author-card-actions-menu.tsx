@@ -40,16 +40,16 @@ export function AuthorCardActionsMenu({
   }
 
   function handleEdit() {
-    router.push(`/authors/${slug}`);
+    router.push(`/people/${slug}`);
   }
 
   async function handleDelete() {
     try {
       await deleteAuthor(authorId);
-      toast.success("Author deleted");
+      toast.success("Person deleted");
       router.refresh();
     } catch {
-      toast.error("Failed to delete author");
+      toast.error("Could not delete the person");
     }
     setDeleteOpen(false);
   }
@@ -61,7 +61,7 @@ export function AuthorCardActionsMenu({
         side="top"
         label="Actions"
         trigger={
-          <button className="flex h-7 w-7 items-center justify-center rounded-[2px] bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80">
+          <button className="flex h-7 w-7 items-center justify-center rounded-[2px] border glass-chip text-fg-primary hover:glass-chip-lift">
             <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
           </button>
         }
@@ -92,10 +92,10 @@ export function AuthorCardActionsMenu({
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete author"
-        description="Are you sure you want to delete this author? This action cannot be undone."
+        title="Delete person"
+        description="Are you sure you want to delete this person? This action cannot be undone."
         itemName={name}
-        cascade="This will permanently remove the author from all associated books and editions."
+        cascade="This will permanently remove the person from every book, edition, film, perfume and painting they are credited on."
       />
     </>
   );

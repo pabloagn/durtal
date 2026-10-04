@@ -9,6 +9,7 @@ import {
   Pencil,
   Tag,
   ImageIcon,
+  Link2,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { WorkTaxonomyEditDialog } from "./work-taxonomy-edit-dialog";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
+import { WorkRelationDialog } from "@/components/catalogue/work-relations";
 import { deleteWork } from "@/lib/actions/works";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
@@ -115,6 +117,7 @@ export function WorkActionsMenu({
   const [taxonomyOpen, setTaxonomyOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [addEditionOpen, setAddEditionOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   // E then W, M or T (the Edit menu)
@@ -185,6 +188,11 @@ export function WorkActionsMenu({
       onClick: () => setAddEditionOpen(true),
     },
     {
+      label: "Link a Work",
+      icon: Link2,
+      onClick: () => setLinkOpen(true),
+    },
+    {
       label: "Delete Work",
       icon: Trash2,
       onClick: () => setDeleteOpen(true),
@@ -251,6 +259,12 @@ export function WorkActionsMenu({
         availableTags={availableTags}
         open={addEditionOpen}
         onOpenChange={setAddEditionOpen}
+      />
+
+      <WorkRelationDialog
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        work={{ id: work.id, kind: "book", title: work.title }}
       />
 
       <DeleteConfirmDialog

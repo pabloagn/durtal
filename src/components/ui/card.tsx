@@ -2,17 +2,13 @@ interface CardProps {
   children: React.ReactNode;
   className?: string;
   hover?: boolean;
-  glass?: boolean;
 }
 
-export function Card({ children, className = "", hover, glass }: CardProps) {
+/** Page content: opaque, never glass (glass is for what floats above the page) */
+export function Card({ children, className = "", hover }: CardProps) {
   return (
     <div
-      className={`rounded-sm border border-glass-border ${
-        glass
-          ? "glass-subtle"
-          : "bg-bg-secondary"
-      } ${
+      className={`rounded-sm border border-glass-border bg-bg-secondary ${
         hover ? "card-interactive" : ""
       } ${className}`}
     >

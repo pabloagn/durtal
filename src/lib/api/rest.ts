@@ -11,8 +11,7 @@ import { serverEnv } from "@/lib/env";
  * leaves the API open.
  */
 
-export const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export { UUID_RE } from "@/lib/utils/uuid";
 
 /** An error response when the request may not write, otherwise null. */
 export function requireApiToken(req: NextRequest): NextResponse | null {

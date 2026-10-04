@@ -60,4 +60,45 @@ describe("glass surfaces", () => {
     expect(dialogs.length).toBeGreaterThan(0);
     for (const { classes } of dialogs) expect(classes).toContain("overflow-hidden");
   });
+
+  it("are the only blur: nothing else blurs what lies behind it", () => {
+    const blurred = sourceFiles(SRC).flatMap((file) =>
+      classNames(readFileSync(file, "utf8"))
+        .filter(({ classes }) => classes.some((c) => /(^|:)backdrop-blur/.test(c)))
+        .map(({ tag }) => `${path.relative(SRC, file)} <${tag}>`),
+    );
+    expect(blurred).toEqual([]);
+  });
+
+  it("are the only blur: no style, constant or stylesheet blurs on its own", () => {
+    // Any source but the material's own definition in globals.css
+    const files = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const full = path.join(dir, name);
+        if (name === "__tests__") return [];
+        if (statSync(full).isDirectory()) return files(full);
+        return /\.(tsx?|css)$/.test(name) ? [full] : [];
+      });
+    const BLUR = /backdrop-blur|backdrop-filter\s*:|[bB]ackdropFilter\s*:/;
+    const blurred = files(SRC)
+      .filter((file) => !file.endsWith(path.join("styles", "globals.css")))
+      .filter((file) => BLUR.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(SRC, file));
+    expect(blurred).toEqual([]);
+  });
+
+  it("keep the standard backdrop-filter: the prefixed line comes first", () => {
+    // Lightning CSS (Turbopack, Tailwind) reads a -webkit-backdrop-filter
+    // after backdrop-filter as an override and drops the standard line; Chrome
+    // has no -webkit- form, so the glass loses its blur there
+    const css = readFileSync(path.join(SRC, "styles", "globals.css"), "utf8");
+    const lines = css.split("\n").map((l) => l.trim());
+    const standard = lines.flatMap((line, i) => (line.startsWith("backdrop-filter:") ? [i] : []));
+    expect(standard.length).toBeGreaterThanOrEqual(4);
+    for (const i of standard) {
+      const value = lines[i].slice("backdrop-filter:".length).trim();
+      expect(lines[i - 1]).toBe(`-webkit-backdrop-filter: ${value}`);
+      expect(lines[i + 1]?.startsWith("-webkit-backdrop-filter:")).toBe(false);
+    }
+  });
 });

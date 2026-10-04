@@ -7,6 +7,9 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
 import { displayYear } from "@/lib/utils/years";
+import { PersonRoles } from "@/components/people/person-roles";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 type PosterCrop = MediaCrop;
 
@@ -26,6 +29,12 @@ interface AuthorCardProps {
   /** Book covers to show when there is no portrait */
   coverPreviews?: string[];
   worksCount: number;
+  /** Roles with credit counts; the line stays, empty, without them */
+  roles?: PersonRole[];
+  /** On a collection's list, that collection's roles come first */
+  preferKind?: WorkKind | null;
+  /** Roles the list is filtered by: they lead the role line */
+  preferRoles?: string[] | null;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -45,6 +54,9 @@ export function AuthorCard({
   photoTone,
   coverPreviews = [],
   worksCount,
+  roles,
+  preferKind,
+  preferRoles,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -54,7 +66,7 @@ export function AuthorCard({
     : null;
 
 
-  const href = `/authors/${slug}`;
+  const href = `/people/${slug}`;
 
   function handleCardClick(e: React.MouseEvent) {
     if (isSelecting && onSelect) {
@@ -106,7 +118,7 @@ export function AuthorCard({
         {/* Three-dot menu — outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (
           <div
-            className="absolute bottom-1 right-1 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 @[180px]:bottom-2 @[180px]:right-2"
+            className="absolute bottom-1 right-1 z-20 hover-reveal-glass @[180px]:bottom-2 @[180px]:right-2"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             <AuthorCardActionsMenu authorId={id} slug={slug} name={name} firstName={firstName} lastName={lastName} />
@@ -121,7 +133,7 @@ export function AuthorCard({
             className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
               isSelected
                 ? "border-accent-rose bg-accent-rose text-fg-primary"
-                : "border-glass-border bg-overlay text-transparent"
+                : "glass-chip text-transparent"
             }`}
           >
             {isSelected && (
@@ -151,6 +163,8 @@ export function AuthorCard({
           {/* Two name lines and one nationality line, always: every author
               card has the same height. The portrait shows no overlay. */}
           <CardHeading title={name} subtitle={nationality} />
+          {/* What the person is: one line, reserved when empty */}
+          <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} className="mt-1" />
           <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
             {years && <span>{years}</span>}
             {worksCount > 0 && (

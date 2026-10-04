@@ -1,19 +1,27 @@
 "use server";
 
-import { bookCondition } from "@/lib/catalogue/book-boundary";
-
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
-import { addMembers, idArray, lockCollection } from "@/lib/collections/members";
+import {
+  addMembers,
+  addWorkMembers,
+  idArray,
+  lockCollection,
+  moveMember,
+} from "@/lib/collections/members";
 import {
   collections,
   collectionEditions,
+  collectionWorks,
   editions,
   works,
   media,
 } from "@/lib/db/schema";
+import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
+import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { eq, asc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
@@ -23,6 +31,7 @@ import {
   collectionUpdateSchema,
 } from "@/lib/validations/collections";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { collectionCounts } from "@/lib/collections/counts";
 import { icons } from "lucide-react";
 
 function changed() {
@@ -38,6 +47,16 @@ const activeArtwork = {
   where: eq(media.isActive, true),
   orderBy: [asc(media.type), asc(media.sortOrder)],
 };
+
+/** Enough of each member to count it as the page shows it (collectionCounts) */
+const memberSummary = {
+  collectionEditions: {
+    columns: { editionId: true },
+    with: { edition: { columns: { workId: true } } },
+  },
+  collectionWorks: { columns: { workId: true } },
+  media: activeArtwork,
+} as const;
 
 function rows<T>(result: unknown): T[] {
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
@@ -59,10 +78,7 @@ export async function getCollections(pagination?: {
     ],
     limit: pagination?.limit,
     offset: pagination?.offset,
-    with: {
-      collectionEditions: { columns: { editionId: true } },
-      media: activeArtwork,
-    },
+    with: memberSummary,
   });
 }
 export async function getCollectionCount(query = "") {
@@ -113,6 +129,29 @@ export async function getCollection(id: string) {
           },
         },
       },
+      collectionWorks: {
+        orderBy: [
+          asc(collectionWorks.sortOrder),
+          asc(collectionWorks.addedAt),
+          asc(collectionWorks.workId),
+        ],
+        with: {
+          work: {
+            columns: { id: true, kind: true, title: true, slug: true },
+            with: {
+              workAuthors: {
+                orderBy: (a, { asc }) => [asc(a.sortOrder), asc(a.authorId)],
+                with: { author: { columns: { name: true } } },
+              },
+              media: {
+                where: (m, { and, eq }) =>
+                  and(eq(m.type, "poster"), eq(m.isActive, true)),
+                limit: 1,
+              },
+            },
+          },
+        },
+      },
     },
   });
 }
@@ -122,9 +161,12 @@ export async function createCollection(
   input: z.input<typeof collectionDetailsSchema>,
   editionIds: string[] = [],
   requestId?: string,
+  /** Whole works to add after the editions (films, perfumes, paintings, books with no edition) */
+  workIds: string[] = [],
 ) {
   const data = collectionDetailsSchema.parse(input);
   const ids = collectionIdsSchema.parse(editionIds);
+  const wids = collectionIdsSchema.parse(workIds);
   const id = requestId ? z.string().uuid().parse(requestId) : randomUUID();
   await atomic((d) => [
     d
@@ -133,6 +175,7 @@ export async function createCollection(
       .onConflictDoNothing(),
     d.execute(lockCollection(id)),
     ...(ids.length ? [d.execute(addMembers(id, ids))] : []),
+    ...(wids.length ? [d.execute(addWorkMembers(id, wids))] : []),
   ]);
   changed();
   return (await db.select().from(collections).where(eq(collections.id, id)))[0];
@@ -193,25 +236,100 @@ export async function removeEditionFromCollection(
   return removeEditionsFromCollection(collectionId, [editionId]);
 }
 
+/**
+ * Adds whole works: films, perfumes, paintings, or books with no edition
+ * chosen. They join the collection's one order after its last member.
+ */
+export async function bulkAddWorksToCollection(collectionId: string, workIds: string[]) {
+  z.string().uuid().parse(collectionId);
+  const ids = collectionIdsSchema.parse(workIds);
+  if (!ids.length) return { changed: 0 };
+  // Only works of an open collection can join
+  const open = await db
+    .select({ id: works.id })
+    .from(works)
+    .where(and(inArray(works.id, ids), inArray(works.kind, getEnabledWorkKinds())));
+  if (open.length !== ids.length) throw new Error("A work was not found");
+  const result = await atomic((d) => [
+    d.execute(lockCollection(collectionId)),
+    d.execute(addWorkMembers(collectionId, ids)),
+  ]);
+  changed();
+  return rows<{ changed: number }>(result[1])[0];
+}
+export async function removeWorksFromCollection(collectionId: string, workIds: string[]) {
+  z.string().uuid().parse(collectionId);
+  const ids = collectionIdsSchema.parse(workIds);
+  if (!ids.length) return { changed: 0 };
+  const result = await atomic((d) => [
+    d.execute(lockCollection(collectionId)),
+    d.execute(sql`with removed as (
+    delete from collection_works where collection_id=${collectionId}::uuid and work_id=any(${idArray(ids)}) returning work_id
+  ), events as (
+    insert into activity_events(entity_type,entity_id,event_key,metadata)
+    select 'work',removed.work_id,'work.collection_removed',jsonb_build_object('collectionName',c.name,'extra',jsonb_build_object('collectionId',c.id))
+    from removed cross join collections c where c.id=${collectionId}::uuid
+  ) select count(*)::int as changed from removed`),
+  ]);
+  changed();
+  return rows<{ changed: number }>(result[1])[0];
+}
+
+/**
+ * Moves an edition or a whole work one place in the collection's one order
+ * (the complete collection, not just the visible page).
+ */
+export async function moveCollectionMember(
+  collectionId: string,
+  member: { kind: "edition" | "work"; id: string },
+  direction: -1 | 1,
+) {
+  z.string().uuid().parse(collectionId);
+  const m = z.object({ kind: z.enum(["edition", "work"]), id: z.string().uuid() }).parse(member);
+  z.union([z.literal(-1), z.literal(1)]).parse(direction);
+  await atomic((d) => [
+    d.execute(lockCollection(collectionId)),
+    d.execute(moveMember(collectionId, m, direction)),
+  ]);
+  changed();
+}
+
 /** Move within the complete collection, not just the currently visible page. */
 export async function moveCollectionEdition(
   collectionId: string,
   editionId: string,
   direction: -1 | 1,
 ) {
-  z.string().uuid().parse(collectionId);
-  z.string().uuid().parse(editionId);
-  z.union([z.literal(-1), z.literal(1)]).parse(direction);
-  await atomic((d) => [
-    d.execute(lockCollection(collectionId)),
-    d.execute(sql`with ranked as (
-    select edition_id,row_number() over(order by sort_order,added_at,edition_id)::int as position from collection_editions where collection_id=${collectionId}::uuid
-  ), target as (select position from ranked where edition_id=${editionId}::uuid), moved as (
-    select edition_id, case when position=(select position from target) then greatest(1,least((select count(*)::int from ranked),position+${direction}))
-      when position=(select position from target)+${direction} then position-${direction} else position end as position from ranked
-  ) update collection_editions ce set sort_order=moved.position-1 from moved where ce.collection_id=${collectionId}::uuid and ce.edition_id=moved.edition_id`),
-  ]);
-  changed();
+  return moveCollectionMember(collectionId, { kind: "edition", id: editionId }, direction);
+}
+
+/**
+ * Works to add to a collection, by title, from one open collection kind;
+ * books carry their authors. Already-held works are marked by the caller.
+ */
+export async function searchWorksForCollection(search: string, kind: WorkKind, limit = 30) {
+  const value = z.string().trim().max(300).parse(search);
+  const k = z.enum(WORK_KINDS).parse(kind);
+  const size = z.number().int().min(1).max(100).parse(limit);
+  if (!getEnabledWorkKinds().includes(k)) return [];
+  const match = value ? textSearchCondition(sql`search_normalize(w.title)`, value) : undefined;
+  return rows<{
+    workId: string;
+    kind: WorkKind;
+    title: string;
+    creators: string | null;
+    imageS3Key: string | null;
+  }>(
+    await db.execute(sql`select w.id as "workId", w.kind, w.title,
+      coalesce(
+        (select string_agg(a.name, ' & ' order by wa.sort_order, a.id) from work_authors wa join authors a on a.id=wa.author_id where wa.work_id=w.id),
+        (select string_agg(coalesce(a.name, c.credited_as), ' & ' order by c.sort_order, c.id) from work_credits c left join authors a on a.id=c.person_id
+          where c.work_id=w.id and c.role_id in ('film.director','perfume.perfumer','painting.painter') and coalesce(a.name, c.credited_as) is not null)
+      ) as creators,
+      (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.id limit 1) as "imageS3Key"
+      from works w where w.kind=${k} ${match ? sql`and ${match}` : sql``}
+      order by lower(w.title), w.id limit ${size}`),
+  );
 }
 
 export async function getCollectionSelection(
@@ -246,16 +364,20 @@ export async function getCollectionSelection(
       : [],
     wids.length
       ? db
-          .select({ id: works.id, title: works.title })
+          .select({ id: works.id, title: works.title, kind: works.kind })
           .from(works)
-          .where(and(bookCondition, inArray(works.id, wids)))
+          .where(and(inArray(works.id, wids), inArray(works.kind, getEnabledWorkKinds())))
       : [],
   ]);
   return {
     collections: cols,
     editions: selected,
-    withoutEditions: selectedWorks.filter(
-      (w) => !selected.some((e) => e.workId === w.id),
+    /**
+     * Works that join as whole works: films, perfumes, paintings, and books
+     * with no edition (no placeholder edition is made for them)
+     */
+    works: selectedWorks.filter(
+      (w) => !(w.kind === "book" && selected.some((e) => e.workId === w.id)),
     ),
   };
 }
@@ -331,7 +453,8 @@ export async function deleteCollection(id: string) {
   const results = await atomic((d) => [
     d.execute(lockCollection(id)),
     d.execute(sql`with affected as (
-    select distinct e.work_id from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=${id}::uuid
+    select e.work_id from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=${id}::uuid
+    union select cw.work_id from collection_works cw where cw.collection_id=${id}::uuid
   ), removed as (delete from collections where id=${id}::uuid returning *), events as (
     insert into activity_events(entity_type,entity_id,event_key,metadata)
     select 'work',affected.work_id,'work.collection_removed',jsonb_build_object('collectionName',removed.name,'extra',jsonb_build_object('collectionId',removed.id)) from affected cross join removed
@@ -350,12 +473,22 @@ export async function deleteCollection(id: string) {
 export async function getCollectionCoverPreviews(collectionIds: string[]) {
   const ids = collectionIdsSchema.parse(collectionIds);
   if (!ids.length) return [];
+  // The first four images in each collection's one order: an edition's
+  // cover (else its book's poster), a whole work's active image
+  const poster = (work: ReturnType<typeof sql>) =>
+    sql`(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=${work} and m.type='poster' and m.is_active order by m.id limit 1)`;
   const result =
     await db.execute(sql`select collection_id as "collectionId",cover as "s3Key" from (
-    select ce.collection_id,coalesce(e.thumbnail_s3_key,e.cover_s3_key,(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=e.work_id and m.type='poster' and m.is_active order by m.id limit 1)) as cover,
-    row_number() over(partition by ce.collection_id order by ce.sort_order,ce.added_at,ce.edition_id) as position
-    from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=any(${idArray(ids)})
-  ) previews where position<=4 and cover is not null order by collection_id,position`);
+    select collection_id, cover, row_number() over(partition by collection_id order by sort_order,added_at,member_id) as position from (
+      select ce.collection_id,ce.sort_order,ce.added_at,ce.edition_id as member_id,
+        coalesce(e.thumbnail_s3_key,e.cover_s3_key,${poster(sql`e.work_id`)}) as cover
+      from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=any(${idArray(ids)})
+      union all
+      select cw.collection_id,cw.sort_order,cw.added_at,cw.work_id,${poster(sql`cw.work_id`)}
+      from collection_works cw where cw.collection_id=any(${idArray(ids)})
+        and not exists(select 1 from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=cw.collection_id and e.work_id=cw.work_id)
+    ) members where cover is not null
+  ) previews where position<=4 order by collection_id,position`);
   return rows<{ collectionId: string; s3Key: string }>(result);
 }
 
@@ -375,7 +508,14 @@ export async function getCollectionsForWork(workId: string) {
     .from(collectionEditions)
     .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
     .where(eq(editions.workId, workId));
-  const ids = [...new Set(memberships.map((m) => m.collectionId))];
+  // Collections that hold the work itself, with no edition chosen
+  const asWork = await db
+    .select({ collectionId: collectionWorks.collectionId })
+    .from(collectionWorks)
+    .where(eq(collectionWorks.workId, workId));
+  const ids = [
+    ...new Set([...memberships, ...asWork].map((m) => m.collectionId)),
+  ];
   if (!ids.length) return [];
   const found = await db.query.collections.findMany({
     where: inArray(collections.id, ids),
@@ -384,14 +524,13 @@ export async function getCollectionsForWork(workId: string) {
       asc(collections.name),
       asc(collections.id),
     ],
-    with: {
-      collectionEditions: { columns: { editionId: true } },
-      media: activeArtwork,
-    },
+    with: memberSummary,
   });
   return found.map((collection) => ({
     ...collection,
-    editionCount: collection.collectionEditions.length,
+    ...collectionCounts(collection),
+    /** The collection holds the work as a whole, not (only) an edition of it */
+    holdsWork: asWork.some((m) => m.collectionId === collection.id),
     heldEditions: memberships
       .filter((m) => m.collectionId === collection.id)
       .map(({ editionId, editionTitle, publicationYear }) => ({
