@@ -49,6 +49,7 @@ vi.mock("@/lib/net/safe-fetch", async (original) => ({
   safeFetchImage: mocks.fetchImage,
 }));
 vi.mock("@/lib/actions/media", () => ({ deleteMedia: mocks.deleteMedia }));
+vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), cached: (fn: unknown) => fn, CACHE_TAGS: {} }));
 
 import { isUuid } from "@/lib/utils/uuid";
 import { isReadableKey } from "@/lib/s3/read-headers";
@@ -64,6 +65,8 @@ import { GET as listComments } from "@/app/api/comments/route";
 import { PATCH as editComment, DELETE as deleteComment } from "@/app/api/comments/[commentId]/route";
 import { POST as attach } from "@/app/api/comments/[commentId]/attachments/route";
 import { DELETE as detach } from "@/app/api/comments/[commentId]/attachments/[attachmentId]/route";
+import { POST as reprocessAuthor } from "@/app/api/media/reprocess-author/route";
+import { POST as exportRoute } from "@/app/api/export/route";
 
 const get = (path: string) => new NextRequest(`http://local${path}`);
 const post = (path: string, body: unknown) =>
@@ -125,6 +128,8 @@ describe("record ids", () => {
       await deleteComment(get("/api/comments/x"), params({ commentId: "x" })),
       await attach(form("/api/comments/x/attachments", { file: png() }), params({ commentId: "x" })),
       await detach(get("/api/comments/x/attachments/y"), params({ commentId: ID, attachmentId: "y" })),
+      await reprocessAuthor(post("/api/media/reprocess-author", { mediaId: "x", processingParams: {} })),
+      await exportRoute(post("/api/export", { entity: "works", ids: [ID, "x"], format: "csv" })),
     ];
     expect(responses.map((r) => r.status)).toEqual(Array(responses.length).fill(400));
     for (const call of [mocks.send, mocks.upload, mocks.presign, mocks.ingest, mocks.fetchImage, mocks.deleteMedia])

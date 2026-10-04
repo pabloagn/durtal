@@ -4,17 +4,9 @@ import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-
 import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { bronzeMediaKey, type MediaEntityType } from "@/lib/s3/keys";
 import { getPresignedUploadUrl } from "@/lib/s3/covers";
-import { isAllowedImageType } from "@/lib/validations/media-security";
+import { IMAGE_EXTENSIONS, isAllowedImageType } from "@/lib/validations/media-security";
 import type { MediaType } from "@/lib/types";
 import { isUuid } from "@/lib/utils/uuid";
-
-/** The raw file's extension, from its checked type (never from the client's file name) */
-const RAW_EXTENSIONS: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
 
 /**
  * POST /api/media/process
@@ -66,7 +58,8 @@ export async function POST(req: NextRequest) {
       // A missing owner is refused (404) before anything can be uploaded
       await mediaOwnerKind({ type: entityType, id: entityId });
       const fileId = crypto.randomUUID();
-      const ext = RAW_EXTENSIONS[contentType.toLowerCase().split(";")[0].trim()];
+      // The raw file's extension comes from its checked type, never from the client's file name
+      const ext = IMAGE_EXTENSIONS[contentType.toLowerCase().split(";")[0].trim()];
       const key = bronzeMediaKey(entityType, entityId, fileId, ext);
       const url = await getPresignedUploadUrl(key, contentType);
 
@@ -107,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
     // Only the raw file presign named for this owner and file id
     if (
-      !Object.values(RAW_EXTENSIONS).some(
+      !Object.values(IMAGE_EXTENSIONS).some(
         (ext) => bronzeKey === bronzeMediaKey(entityType, entityId, fileId, ext),
       )
     ) {
