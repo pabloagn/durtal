@@ -4,7 +4,9 @@ import { useEffect, useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
+  Building2,
   Library,
+  MapPin,
   Search,
   Keyboard,
   Loader2,
@@ -19,6 +21,7 @@ import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/sho
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
 import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
+import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
 import { monogramTint } from "@/components/shared/no-photo";
 
@@ -67,13 +70,16 @@ const ACTION_ITEMS: PaletteItem[] = [
   { label: "Keyboard shortcuts", run: "help", icon: Keyboard, keys: SHORTCUTS.help },
 ];
 
-const NO_RESULTS: QuickSearchResult = { works: [], authors: [] };
+const NO_RESULTS: QuickSearchResult = { works: [], people: [], organizations: [], venues: [] };
+
+/** The open collections, in navigation order: one group of results each */
+const RESULT_KINDS = getEnabledWorkKinds();
 
 const imageUrl = (key: string) => `/api/s3/read?key=${encodeURIComponent(key)}`;
 
 /**
- * A result's picture: the book's cover, 24x36 like a small card, or the
- * author's portrait, 28px square. Both sit on a 36px row, so every row keeps
+ * A result's picture: the work's cover or poster, 24x36 like a small card, or
+ * the person's portrait, 28px square. Both sit on a 36px row, so every row keeps
  * one height. The box is fixed, so the list never moves while it loads; with
  * no picture, the box shows the initials on the tint taken from the name, as
  * on the cards.
@@ -144,7 +150,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
   }, [open]);
 
-  // Books and authors from the catalogue; an older answer never replaces a newer one
+  // Works of every open collection, people, organizations and places; an
+  // older answer never replaces a newer one
   const trimmed = query.trim();
   useEffect(() => {
     if (trimmed.length < 2) {
@@ -189,7 +196,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     : NAVIGATION_ITEMS;
   const firstValue =
     (results.works[0] && `work:${results.works[0].id}`) ||
-    (results.authors[0] && `author:${results.authors[0].id}`) ||
+    (results.people[0] && `person:${results.people[0].id}`) ||
+    (results.organizations[0] && `org:${results.organizations[0].id}`) ||
+    (results.venues[0] && `venue:${results.venues[0].id}`) ||
     (editItems[0] && `edit:${editItems[0].key}`) ||
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
@@ -226,7 +235,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <Command.Input
               value={query}
               onValueChange={setQuery}
-              placeholder="Search books and people, or type a command..."
+              placeholder="Search the catalogue, or type a command..."
               className="h-11 w-full bg-transparent text-sm text-fg-primary outline-none placeholder:text-fg-muted"
               autoFocus
             />
@@ -239,46 +248,104 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </div>
 
           <Command.List className="max-h-96 overflow-y-auto p-2">
-            {results.works.length > 0 && (
-              <Command.Group heading="Books" className={GROUP_CLASS}>
-                {results.works.map((work) => (
+            {RESULT_KINDS.map((kind) => {
+              const works = results.works.filter((work) => work.kind === kind);
+              if (!works.length) return null;
+              return (
+                <Command.Group key={kind} heading={WORK_DOMAINS[kind].pluralLabel} className={GROUP_CLASS}>
+                  {works.map((work) => (
+                    <Command.Item
+                      key={work.id}
+                      value={`work:${work.id}`}
+                      onSelect={() => navigate(work.href)}
+                      className={ITEM_CLASS}
+                    >
+                      <ResultThumb src={work.cover} name={work.title} kind="book" />
+                      <span className="min-w-0 flex-1 truncate">
+                        {work.title}
+                        {work.creators.length > 0 && (
+                          <span className="text-fg-secondary">
+                            {"  ·  "}
+                            {work.creators.slice(0, 2).join(", ")}
+                          </span>
+                        )}
+                      </span>
+                      {work.year && (
+                        <span className="shrink-0 text-xs tabular-nums text-fg-secondary">
+                          {work.year}
+                        </span>
+                      )}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              );
+            })}
+
+            {results.people.length > 0 && (
+              <Command.Group heading="People" className={GROUP_CLASS}>
+                {results.people.map((person) => (
                   <Command.Item
-                    key={work.id}
-                    value={`work:${work.id}`}
-                    onSelect={() => navigate(`/library/${work.slug}`)}
+                    key={person.id}
+                    value={`person:${person.id}`}
+                    onSelect={() => navigate(person.href)}
                     className={ITEM_CLASS}
                   >
-                    <ResultThumb src={work.cover} name={work.title} kind="book" />
+                    <ResultThumb src={person.photo} name={person.name} kind="author" />
                     <span className="min-w-0 flex-1 truncate">
-                      {work.title}
-                      {work.authors.length > 0 && (
+                      {person.name}
+                      {person.roles && (
                         <span className="text-fg-secondary">
                           {"  ·  "}
-                          {work.authors.slice(0, 2).join(", ")}
+                          {person.roles}
                         </span>
                       )}
                     </span>
-                    {work.year && (
-                      <span className="shrink-0 text-xs tabular-nums text-fg-secondary">
-                        {work.year}
-                      </span>
-                    )}
                   </Command.Item>
                 ))}
               </Command.Group>
             )}
 
-            {results.authors.length > 0 && (
-              <Command.Group heading="People" className={GROUP_CLASS}>
-                {results.authors.map((author) => (
+            {results.organizations.length > 0 && (
+              <Command.Group heading="Organizations" className={GROUP_CLASS}>
+                {results.organizations.map((organization) => (
                   <Command.Item
-                    key={author.id}
-                    value={`author:${author.id}`}
-                    onSelect={() => navigate(`/people/${author.slug}`)}
+                    key={organization.id}
+                    value={`org:${organization.id}`}
+                    onSelect={() => navigate(organization.href)}
                     className={ITEM_CLASS}
                   >
-                    <ResultThumb src={author.photo} name={author.name} kind="author" />
-                    <span className="min-w-0 flex-1 truncate">{author.name}</span>
+                    <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {organization.name}
+                      {organization.roles && (
+                        <span className="text-fg-secondary">
+                          {"  ·  "}
+                          {organization.roles}
+                        </span>
+                      )}
+                    </span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {results.venues.length > 0 && (
+              <Command.Group heading="Places" className={GROUP_CLASS}>
+                {results.venues.map((venue) => (
+                  <Command.Item
+                    key={venue.id}
+                    value={`venue:${venue.id}`}
+                    onSelect={() => navigate(venue.href)}
+                    className={ITEM_CLASS}
+                  >
+                    <MapPin className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {venue.name}
+                      <span className="text-fg-secondary">
+                        {"  ·  "}
+                        {venue.type}
+                      </span>
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>

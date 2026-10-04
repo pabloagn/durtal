@@ -409,5 +409,12 @@ there with dated offers, and its orders. Venues can be edited, archived,
 restored and deleted only when nothing refers to them. The places list gains
 country and archived filters. No schema change.
 
+Domain-aware search (SLN-371, task 0274): the command palette groups works by
+collection and opens each in its own collection, so a film no longer opens
+under `/library`. People, organizations and places get their own groups with
+the page each has today. The collection lists already filtered and sorted in
+SQL before paging, with the work id as the last tie breaker and counts on the
+same predicate; tests now pin that for every film sort.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

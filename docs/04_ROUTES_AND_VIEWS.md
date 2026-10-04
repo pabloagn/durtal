@@ -91,7 +91,11 @@ Active route is highlighted with `bg-accent-plum`.
 Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmdk` library.
 
 Groups:
-- **Books** and **Authors**: matches for the typed text, each with its picture: the book's cover (its active poster, else an edition's), 24x36 like a small card, or the author's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. The pictures load lazily in a fixed box, so the list never moves
+- One group per open collection (**Books**, **Perfumes**, **Films**, **Paintings**, in `DOMAIN_ORDER`): up to five matches each, by title, series, the names the work is credited to (authors; directors and writers; perfumers and houses; painters) or ISBN. Each opens the work in its own collection (`/library/…`, `/films/…`, `/perfumes/…`, `/paintings/…`) and shows its picture (the active poster, else, for a book, an edition's cover), its makers and year. A book and a film of the same title stay two results
+- **People**: matches by any name or other name, with what they are (Writer, Translator or another edition role, Director, Cast, Perfumer, Painter). A person with books opens their author page; anyone else opens their collection's list filtered to them (`/films?director=`, `/perfumes?perfumer=`, `/paintings?painter=`). A person with no credit has no page yet and is left out
+- **Organizations**: a publishing profile opens the publisher page; a perfume house or brand opens `/perfumes?house=`; a museum or gallery opens `/paintings?institution=`. An organization with none of these is left out until organizations have pages
+- **Places**: venues by name or address, archived ones left out
+- Pictures: a work's cover or poster, 24x36 like a small card, or a person's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. They load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
 - **Search**: one "Search books for …" entry per open collection
 - **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
