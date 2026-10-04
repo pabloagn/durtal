@@ -5,7 +5,7 @@ import { workAuthors, works } from "@/lib/db/schema";
 import { generateWorkSlug, makeUnique } from "@/lib/utils/slugify";
 
 /**
- * A work's slug follows its title and primary author (task 0175). A rename
+ * A work's slug follows its title and primary author (task 0175b). A rename
  * of the work, a new primary author, an author rename or an author merge
  * refreshes it. A slug that matches the current title and author is left
  * alone, so a numbered slug ("...-2") keeps its number.

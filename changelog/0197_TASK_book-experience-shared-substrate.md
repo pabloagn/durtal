@@ -29,7 +29,7 @@ API payloads do not change; edition and copy UI stay book-specific.
 - Fast Track writes its recommendations through `curationQueries`.
 - The book page's edit dialog goes to the book's new address after a rename
   (`updateWork` returns `slug`). Before, it reloaded the old address, which is
-  404 because old slugs do not redirect (task 0175).
+  404 because old slugs do not redirect (task 0175b).
 - Person pages: "Works" becomes "Books" on the author page (section and
   paging), author cards and rows ("3 books"), the dashboard's recent authors,
   the authors "Books" sort label, and the delete and merge confirmations.

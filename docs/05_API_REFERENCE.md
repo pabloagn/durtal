@@ -394,7 +394,7 @@ Delete a media record, then its S3 objects (full image, thumbnail, uncropped ima
 
 ### `POST /api/media/apply-crops`
 
-One-time move of crops saved as CSS framing into cropped files (task 0155). The uncropped image stays at `uncropped_s3_key`. Rows already moved are skipped, so a second run changes nothing. Requires `x-admin-token` when `ADMIN_TOKEN` is set.
+One-time move of crops saved as CSS framing into cropped files (task 0155b). The uncropped image stays at `uncropped_s3_key`. Rows already moved are skipped, so a second run changes nothing. Requires `x-admin-token` when `ADMIN_TOKEN` is set.
 
 **Query**: `dryRun=1` lists the rows and changes nothing. `id=<media id>` limits the run to one item.
 

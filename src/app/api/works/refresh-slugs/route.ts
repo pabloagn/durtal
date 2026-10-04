@@ -14,7 +14,7 @@ import { UUID_RE, errorResponse, requireApiToken } from "@/lib/api/rest";
  * POST /api/works/refresh-slugs[?dryRun=1][&id=<work id>]
  *
  * Gives every work whose slug no longer fits its title and primary author
- * the slug it should have (renames before task 0175 kept the old one).
+ * the slug it should have (renames before task 0175b kept the old one).
  * `dryRun=1` lists the changes and writes nothing. `id` limits the run to one
  * work. Safe to run again: fitting slugs are left alone.
  */
