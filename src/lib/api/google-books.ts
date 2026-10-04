@@ -1,5 +1,6 @@
 import type { SearchResult } from "./types";
 import { reportSearchFailure } from "./search-diagnostics";
+import { serverEnv } from "@/lib/env";
 
 interface GoogleBooksVolume {
   id: string;
@@ -84,7 +85,7 @@ export async function searchGoogleBooks(
   query: string,
   maxResults = 10,
 ): Promise<SearchResult[]> {
-  const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
+  const apiKey = serverEnv().GOOGLE_BOOKS_API_KEY;
   const params = new URLSearchParams({
     q: query,
     maxResults: String(maxResults),

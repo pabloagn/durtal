@@ -2,6 +2,7 @@ import { HeadBucketCommand } from "@aws-sdk/client-s3";
 import { count, eq, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { calibreBooks, sourceRecords } from "@/lib/db/schema";
+import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import {
   EXTERNAL_TIMEOUT_MS,
@@ -115,7 +116,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       id: "isbndb",
       name: "ISBNdb",
       purpose: "First source for book search, Identify and Match. Each check uses one call of the plan.",
-      env: [{ name: "ISBNDN_API_KEY", set: isSet("ISBNDN_API_KEY") }],
+      env: [{ name: "ISBNDB_API_KEY", set: Boolean(serverEnv().ISBNDB_API_KEY) }],
       checkFrom: "server",
       facts: [],
     },
@@ -252,7 +253,7 @@ async function checkStorage(): Promise<CheckResult> {
   if (!isSet("AWS_ACCESS_KEY_ID") || !isSet("AWS_SECRET_ACCESS_KEY")) {
     return off("The access keys are not set");
   }
-  const region = process.env.AWS_REGION ?? "us-east-1";
+  const region = serverEnv().AWS_REGION;
   const start = performance.now();
   try {
     const answer = await s3.send(new HeadBucketCommand({ Bucket: S3_BUCKET }), {
@@ -287,8 +288,8 @@ async function checkStorage(): Promise<CheckResult> {
 }
 
 function checkIsbndb(): Promise<CheckResult> {
-  const key = process.env.ISBNDN_API_KEY?.trim();
-  if (!key) return Promise.resolve(off("ISBNDN_API_KEY is not set"));
+  const key = serverEnv().ISBNDB_API_KEY?.trim();
+  if (!key) return Promise.resolve(off("ISBNDB_API_KEY is not set"));
   return httpCheck(
     "ISBNdb",
     () =>
@@ -306,7 +307,7 @@ function checkIsbndb(): Promise<CheckResult> {
 }
 
 async function checkGoogleBooks(): Promise<CheckResult> {
-  const key = process.env.GOOGLE_BOOKS_API_KEY?.trim();
+  const key = serverEnv().GOOGLE_BOOKS_API_KEY?.trim();
   const params = new URLSearchParams({ q: `isbn:${PROBE_ISBN}`, maxResults: "1" });
   if (key) params.set("key", key);
   const result = await httpCheck(
@@ -336,7 +337,7 @@ function checkOpenLibrary(): Promise<CheckResult> {
 }
 
 function checkGooglePlaces(): Promise<CheckResult> {
-  const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
+  const key = serverEnv().GOOGLE_PLACES_API_KEY?.trim();
   if (!key) return Promise.resolve(off("GOOGLE_PLACES_API_KEY is not set"));
   return httpCheck(
     "Google Places",

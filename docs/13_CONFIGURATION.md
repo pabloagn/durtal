@@ -2,7 +2,9 @@
 
 ## Environment Variables
 
-All environment variables are documented in `.env.example`. Copy to `.env.local` for Next.js and `.env` for Python scripts.
+All environment variables are listed in `.env.example`. Copy it to `.env.local` for Next.js and `.env` for Python scripts.
+
+`src/lib/env.ts` is the only place the app reads them. `serverEnv()` validates the server variables with zod, and `src/instrumentation.ts` calls it when the server starts. A missing or invalid required variable stops the server with one error that lists every problem. `next build` does not validate, so a build needs no secrets. Empty values count as unset.
 
 ### Database
 
@@ -16,41 +18,38 @@ All environment variables are documented in `.env.example`. Copy to `.env.local`
 |---|---|---|---|
 | `AWS_ACCESS_KEY_ID` | Yes | — | IAM access key for the `durtal-app` user |
 | `AWS_SECRET_ACCESS_KEY` | Yes | — | IAM secret key |
-| `AWS_REGION` | Yes | `us-east-1` | S3 bucket region (`eu-central-1` in production) |
-| `S3_BUCKET` | Yes | `durtal` | S3 bucket name |
+| `AWS_REGION` | No | `us-east-1` | S3 bucket region (`eu-central-1` in production) |
+| `S3_BUCKET` | No | `durtal` | S3 bucket name |
 
 ### External APIs
 
 | Variable | Required | Description |
 |---|---|---|
-| `GOOGLE_BOOKS_API_KEY` | Yes | Google Cloud API key with Books API enabled |
-
-### Internal Services
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `CALIBRE_WEB_URL` | No | — | Calibre-Web base URL for deep linking (e.g., `http://calibre-web:8083`) |
+| `GOOGLE_BOOKS_API_KEY` | No | Google Cloud API key with Books API enabled. Without it, requests are anonymous and hit the shared rate limit (HTTP 429) |
+| `GOOGLE_PLACES_API_KEY` | No | Google Cloud API key with Places API (New) enabled. Without it, venue search answers 503 |
+| `ISBNDB_API_KEY` | No | ISBNdb API key. Without it, ISBNdb search is skipped. The misspelled `ISBNDN_API_KEY` is still accepted, with a warning, for one release |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | No | Mapbox public token for the authors map. Inlined into the client bundle at build time |
 
 ### Application
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `NEXT_PUBLIC_APP_URL` | No | `http://localhost:3000` | Public application URL |
-| `NODE_ENV` | No | `development` | Node environment (`development` or `production`) |
+| `NODE_ENV` | No | `development` | Node environment (`development`, `production` or `test`) |
 | `DURTAL_API_TOKEN` | No | — | Bearer token for the REST API write routes (orders, copies, works). Not set: every API write is refused. Make one with `openssl rand -hex 32`. See [05_API_REFERENCE.md](05_API_REFERENCE.md) |
+| `ADMIN_TOKEN` | No | — | Token for the bulk media endpoints (`/api/media/reprocess`, `/api/media/backfill-palettes`, `/api/media/apply-crops`), sent as the `x-admin-token` header. Not set: these endpoints skip the check, so set it (SLN-423 makes them refuse instead). Make one with `openssl rand -hex 32` |
 
-### Ingestion Scripts
-
-| Variable | Required | Description |
-|---|---|---|
-| `INGEST_EXCEL_PATH` | For ingestion | Absolute path to `knowledge_base.xlsx` |
-| `INGEST_PARQUET_PATH` | No | Absolute path to `consolidated_books.parquet` (optional) |
-
-### TUI
+### Python Scripts
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
+| `DATABASE_URL`, `AWS_*`, `S3_BUCKET` | — | — | Same as above |
+| `INGEST_EXCEL_PATH` | For ingestion | `~/dev/phantom/.../knowledge_base.xlsx` | Absolute path to `knowledge_base.xlsx` |
+| `CALIBRE_LIBRARY_PATH` | No | `/mnt/data/Books-Library` | Calibre library root for `scripts/calibre_sync` |
 | `DURTAL_API_URL` | No | `http://localhost:3003` | API base URL for the TUI client (loaded from `.env.local`) |
+
+### Tests
+
+Integration tests read their own `DURTAL_*_TEST_DATABASE_URL` variables and skip when they are unset. `vitest.config.ts` sets placeholder values for the variables `src/lib/env.ts` requires.
 
 ---
 

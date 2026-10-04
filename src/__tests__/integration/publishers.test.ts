@@ -1182,7 +1182,7 @@ describe.skipIf(!url)(
     }
     /** ISBNdb answers: a search returns `books`, a lookup the one with that ISBN */
     function isbndb(books: Record<string, unknown>[]) {
-      vi.stubEnv("ISBNDN_API_KEY", "test-key");
+      vi.stubEnv("ISBNDB_API_KEY", "test-key");
       return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
         const url = String(input instanceof Request ? input.url : input);
         const one = url.match(/\/book\/(\d+)/)?.[1];

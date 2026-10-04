@@ -1,0 +1,8 @@
+/** Runs once when the Next.js server starts. */
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { serverEnv } = await import("@/lib/env");
+    // Fail at startup, not at the first request that needs a variable.
+    serverEnv();
+  }
+}
