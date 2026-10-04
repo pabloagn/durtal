@@ -33,6 +33,25 @@ export function keyHash(...parts: (string | null | undefined)[]): string {
     .digest("hex");
 }
 
+/**
+ * Every key prefix in one table: a source that changes (a new importer, a
+ * reader that no longer depends on Calibre) changes here, and the fixture
+ * with it.
+ */
+const PREFIXES = {
+  goodreads: "goodreads",
+  storygraph: "storygraph",
+  seed: "seed",
+  durtal: "durtal",
+  durtalImport: "durtal-import",
+  reader: "reader",
+  goodreadsToRead: "goodreads-to-read",
+  storygraphToRead: "storygraph-to-read",
+  goodreadsNote: "goodreads-note",
+} as const;
+
+const key = (source: keyof typeof PREFIXES, body: string) => `${PREFIXES[source]}:${body}`;
+
 interface BookIdentity {
   bookId?: string | null;
   isbn13?: string | null;
@@ -51,51 +70,48 @@ function goodreadsIdentity(b: BookIdentity) {
 
 /** The n-th read (1 for the first) of a Goodreads export row */
 export function goodreadsReadingKey(b: BookIdentity, n: number) {
-  return `goodreads:${goodreadsIdentity(b)}#${n}`;
+  return key("goodreads", `${goodreadsIdentity(b)}#${n}`);
 }
 
 /** The n-th read of a StoryGraph export row */
 export function storygraphReadingKey(b: { title: string; firstAuthor: string; isbn13?: string | null }, n: number) {
-  return `storygraph:${keyHash(b.title, b.firstAuthor, isbnDigits(b.isbn13))}#${n}`;
+  return key("storygraph", `${keyHash(b.title, b.firstAuthor, isbnDigits(b.isbn13))}#${n}`);
 }
 
 /** A read from the seed spreadsheet */
 export function seedReadingKey(b: { title: string; firstAuthor: string }) {
-  return `seed:${keyHash(b.title, b.firstAuthor)}`;
+  return key("seed", keyHash(b.title, b.firstAuthor));
 }
 
 /** A reading exported from Durtal with no stored key */
 export function durtalReadingKey(readingId: string) {
-  return `durtal:${readingId}`;
+  return key("durtal", readingId);
 }
 
 /** A hand-made Durtal CSV row with neither a reading id nor a key: its trimmed cells, in column order */
 export function durtalImportRowKey(cells: (string | null | undefined)[]) {
   const json = JSON.stringify(cells.map((c) => (c ?? "").trim()));
-  return `durtal-import:${createHash("sha256").update(json, "utf8").digest("hex")}`;
+  return key("durtalImport", createHash("sha256").update(json, "utf8").digest("hex"));
 }
 
-/** The built-in reader's finished book (the backfill) */
-export function readerReadingKey(calibreBookId: string) {
-  return `reader:${calibreBookId}`;
-}
-
-/** Calibre's finished-date signal */
-export function calibreReadingKey(calibreId: number | string) {
-  return `calibre:${calibreId}`;
+/** The built-in reader's finished book (the backfill), by its e-book record's id: opaque, trimmed */
+export function readerReadingKey(ebookId: string) {
+  const id = ebookId.trim();
+  if (!id) throw new Error("A reader key needs the e-book's id");
+  return key("reader", id);
 }
 
 /** A Goodreads to-read row, for Up Next */
 export function goodreadsToReadKey(b: BookIdentity) {
-  return `goodreads-to-read:${goodreadsIdentity(b)}`;
+  return key("goodreadsToRead", goodreadsIdentity(b));
 }
 
 /** A StoryGraph to-read row, for Up Next */
 export function storygraphToReadKey(b: { title: string; firstAuthor: string; isbn13?: string | null }) {
-  return `storygraph-to-read:${keyHash(b.title, b.firstAuthor, isbnDigits(b.isbn13))}`;
+  return key("storygraphToRead", keyHash(b.title, b.firstAuthor, isbnDigits(b.isbn13)));
 }
 
 /** A Goodreads review or note, for the commonplace book */
 export function goodreadsNoteKey(b: BookIdentity) {
-  return `goodreads-note:${goodreadsIdentity(b)}`;
+  return key("goodreadsNote", goodreadsIdentity(b));
 }

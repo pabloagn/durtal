@@ -20,6 +20,9 @@ describe("source keys", () => {
       expect(build(c.input as never, n), `${c.builder} ${JSON.stringify(c.input)}`).toBe(c.expected);
     }
   });
+  it("refuses a reader key without an e-book id", () => {
+    expect(() => keys.readerReadingKey("  ")).toThrow("A reader key needs the e-book's id");
+  });
   it("reduces an ISBN to its digits", () => {
     expect(keys.isbnDigits('="9780141182803"')).toBe("9780141182803");
     expect(keys.isbnDigits(null)).toBe("");

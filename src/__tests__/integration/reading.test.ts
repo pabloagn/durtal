@@ -633,10 +633,10 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(await value<number>(`select rating::float8 from works where id = $1`, [workId])).toBe(4);
     });
 
-    it("finds a calibre read on the same finish day as a reader read", async () => {
-      const workId = await book("Calibre");
+    it("finds an imported read on the same finish day as a reader read", async () => {
+      const workId = await book("Reader");
       await writeReadings([{ workId, format: "ebook", status: "finished", startedPrecision: "unknown", finishedOn: "2024-02-03", finishedPrecision: "day", sourceKey: "reader:x" }], { source: "backfill" });
-      const out = await writeReadings([{ workId, format: "ebook", status: "finished", startedPrecision: "unknown", finishedOn: "2024-02-03", finishedPrecision: "day", sourceKey: "calibre:7" }], { source: "backfill" });
+      const out = await writeReadings([{ workId, format: "ebook", status: "finished", startedPrecision: "unknown", finishedOn: "2024-02-03", finishedPrecision: "day", sourceKey: "goodreads:7#1" }], { source: "backfill" });
       expect(out[0].outcome).toBe("already_present");
     });
 

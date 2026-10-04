@@ -409,9 +409,9 @@
    "expected": "reader:7d1e0000-0000-4000-8000-000000000002"
   },
   {
-   "builder": "calibreReadingKey",
-   "input": 417,
-   "expected": "calibre:417"
+   "builder": "readerReadingKey",
+   "input": "  ebook-42 ",
+   "expected": "reader:ebook-42"
   }
  ]
 }
