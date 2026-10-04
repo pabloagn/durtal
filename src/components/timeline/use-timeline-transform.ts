@@ -139,6 +139,12 @@ export function useTimelineTransform(
   const onPointerMove = useCallback(
     (e: PointerEvent<HTMLElement>) => {
       if (pressedPointer.current !== e.pointerId) return;
+      // Released outside the canvas before it took the pointer: the press is over
+      if (e.buttons === 0) {
+        pressedPointer.current = null;
+        isDragging.current = false;
+        return;
+      }
       const dx = e.clientX - dragStartX.current;
       const dy = e.clientY - dragStartY.current;
       if (!isDragging.current) {

@@ -15,7 +15,8 @@ SLN-413. On the book timeline (`/library`, timeline view) a mouse click on a boo
   - A press records where it starts. The canvas takes the pointer only once the press moves more than 3px: a drag. Until then the click stays with the marker or bar under it.
   - The click that ends a drag opens nothing: a capture-phase click handler on the canvas swallows that one click. The next press clears it, so a drag the browser cuts short (`pointercancel`) never swallows a later click.
   - A press on a control inside the canvas (a button, a link, a field, or the minimap, `role="scrollbar"`) is left to it.
-- `src/__tests__/ui/timeline-clicks.test.ts` (new, happy-dom): a click on a marker opens it and the canvas does not take the pointer; a drag pans 50px and the click that ends it on a marker opens nothing, and the next click does; presses on a button and the minimap are left to them; a cancelled drag swallows nothing. The code before the fix fails 3 of the 4.
+  - A move with no button held ends a press the canvas never saw released: a quick flick that leaves the canvas, or the window, before it moves 3px. Without this (found in review), a plain hover over the canvas afterwards panned the timeline until the next click.
+- `src/__tests__/ui/timeline-clicks.test.ts` (new, happy-dom): a click on a marker opens it and the canvas does not take the pointer; a drag pans 50px and the click that ends it on a marker opens nothing, and the next click does; presses on a button and the minimap are left to them; a press released outside the canvas ends, so a hover after it leaves the timeline where it was; a cancelled drag swallows nothing. The code before the fix fails 3 of these; the review case fails without the button check.
 
 ## Completion Notes
 Real mouse input (Chrome DevTools `Input` events, so pointer capture behaves as for a person) on `scripts/qa/preview-local.py` (2026-10-04 backup), both timelines, 1440x900 and 390x844:
@@ -28,7 +29,16 @@ Real mouse input (Chrome DevTools `Input` events, so pointer capture behaves as 
 | Click at 90% of the minimap | jumps from 1800 to 2011 | jumps from 414 BC to 1802 |
 | Enter on a focused marker / bar | opens it | opens it |
 
+The review case, `/library` at both widths, real mouse:
+
+| Check | Result |
+|---|---|
+| Press on a marker, 2px, release above the canvas; then a 120px hover | pans 0px, opens nothing |
+| The same, released outside the window | pans 0px |
+| A drag that leaves the window (pans 130px); then a 120px hover | the hover pans 0px; a click on a marker then opens it |
+| An 80px drag that ends on a marker; then a click on it | the drag opens nothing; the click opens it |
+
 - Before: a click on a marker or bar did nothing (the issue's evidence, a dev server on `main`). The new test fails 3 of 4 on the code before the fix.
 - `scripts/qa/alignment-audit.js`: 0 rows over 0.5px on both timelines at both widths (31 and 27 rows checked at 1440px). `scripts/qa/design-audit.js`: 0 low-contrast texts, 0 nested controls. No console errors.
-- `pnpm typecheck`, `pnpm lint` (0 errors) and `python3 scripts/qa/test-local.py` (1,615 tests) pass.
+- `pnpm typecheck`, `pnpm lint` (0 errors) and `python3 scripts/qa/test-local.py` (1,616 tests) pass.
 - `scripts/qa/page-weight.js`: 9 of 10 routes pass; `/library` is 313 KB against its 300 KB budget. It is the same on `main` (321 KB on the live app); this task changes no server HTML.

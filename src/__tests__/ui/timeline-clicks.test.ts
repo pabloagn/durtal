@@ -55,10 +55,11 @@ afterEach(() => {
 });
 
 const $ = (id: string) => document.getElementById(id)!;
-const pointer = (target: Element, type: string, x: number, y = 10) =>
+// The main button is held from pointerdown until pointerup, unless `buttons` says otherwise
+const pointer = (target: Element, type: string, x: number, buttons = type === "pointerup" ? 0 : 1) =>
   act(() => {
     target.dispatchEvent(
-      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", button: 0, clientX: x, clientY: y }),
+      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", button: 0, buttons, clientX: x, clientY: 10 }),
     );
   });
 const click = (target: Element) =>
@@ -104,6 +105,19 @@ describe("timeline clicks", () => {
     }
     expect(zoomed).toHaveBeenCalledTimes(2);
     expect(transform.offsetX).toBe(0);
+  });
+
+  it("a press released outside the canvas ends: a hover after it does not pan", async () => {
+    pointer($("marker"), "pointerdown", 10);
+    pointer($("marker"), "pointermove", 12);
+    // The button comes up outside the canvas, so the canvas never sees it
+    pointer(document.body, "pointerup", 400);
+    pointer($("marker"), "pointermove", 100, 0);
+    await frame();
+    expect(transform.offsetX).toBe(0);
+    expect($("canvas").hasAttribute("data-capture")).toBe(false);
+    click($("marker"));
+    expect(opened).toHaveBeenCalledTimes(1);
   });
 
   it("a drag cut short by the browser does not swallow the next click", () => {
