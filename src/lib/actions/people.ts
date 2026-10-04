@@ -28,7 +28,6 @@ import { cleanBioForStorage } from "@/lib/utils/sanitize";
 import { assertSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { recordActivity } from "@/lib/activity/record";
 import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
 
 function changed() {
@@ -300,15 +299,7 @@ export async function mergePeople(input: unknown) {
   // Moved media rows keep their keys; only files nothing references any more
   // (such as a discarded photo) are removed. Comment files move with comments.
   const stored = await authorObjects(parsed.sourceId, { withComments: false });
-  const source = await db.query.authors.findFirst({
-    where: eq(authors.id, parsed.sourceId),
-    columns: { name: true },
-  });
   const result = await executeMerge({ ...parsed, entity: "authors" });
-  recordActivity("author", parsed.targetId, "author.merged", {
-    targetId: parsed.sourceId,
-    targetName: source?.name ?? "",
-  });
   changed();
   const cleanupPending = await deleteUnusedObjects(
     stored,

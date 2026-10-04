@@ -42,11 +42,13 @@ vi.mock("@/lib/s3/cleanup", () => ({
   authorObjects: vi.fn(async () => ({ keys: [], prefixes: [] })),
   deleteUnusedObjects: vi.fn(async () => false),
 }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { getActivityTimeline } from "@/lib/actions/activity";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
 import { createTaxonomyItem } from "@/lib/actions/taxonomy-families";
 import { getPersonMergePreview, mergePeople } from "@/lib/actions/people";
 import { formatEventDescription } from "@/lib/activity/event-config";
+import { getMergePreview, mergeRecords } from "@/lib/actions/harmonization";
 
 describe.skipIf(!url)("activity timeline accuracy", () => {
   const c = client!;
@@ -123,25 +125,55 @@ describe.skipIf(!url)("activity timeline accuracy", () => {
     ).toHaveLength(3);
   });
 
-  it("records the merge on the author that remains", async () => {
+  async function twoAuthors() {
     const [source, target] =
       await c`insert into authors(name,slug) values ('H. P. Lovecraft','h-p-lovecraft'),('Howard Phillips Lovecraft','howard-phillips-lovecraft') returning id`;
+    // An older event on the source moves to the target with the merge.
+    await c`insert into activity_events(entity_type,entity_id,event_key) values ('author',${source.id},'author.created')`;
+    return { source, target };
+  }
+  const targetChoices = (fields: { key: string; conflict: boolean }[]) =>
+    Object.fromEntries(
+      fields.filter((f) => f.conflict).map((f) => [f.key, "target"]),
+    );
+  async function expectOneMergeEvent(sourceId: string, targetId: string) {
+    const merged = await eventsOf(targetId, "author.merged");
+    expect(merged.map((r) => r.metadata)).toEqual([
+      { targetId: sourceId, targetName: "H. P. Lovecraft" },
+    ]);
+    expect(
+      await c`select event_key from activity_events where entity_id=${targetId} order by event_key`,
+    ).toEqual([{ event_key: "author.created" }, { event_key: "author.merged" }]);
+  }
+
+  it("records one merge event on the author that remains, from the author page", async () => {
+    const { source, target } = await twoAuthors();
     const preview = await getPersonMergePreview(source.id, target.id);
     await mergePeople({
       sourceId: source.id,
       targetId: target.id,
       fingerprint: preview.fingerprint,
-      choices: Object.fromEntries(
-        preview.fields.filter((f) => f.conflict).map((f) => [f.key, "target"]),
-      ),
+      choices: targetChoices(preview.fields),
     });
-    await vi.waitFor(async () =>
-      expect(await eventsOf(target.id, "author.merged")).toHaveLength(1),
-    );
-    const [merged] = await eventsOf(target.id, "author.merged");
-    expect(merged.metadata).toEqual({
-      targetId: source.id,
-      targetName: "H. P. Lovecraft",
+    await expectOneMergeEvent(source.id, target.id);
+  });
+
+  it("records one merge event on the author that remains, from Harmonize", async () => {
+    const { source, target } = await twoAuthors();
+    const preview = await getMergePreview({
+      entity: "authors",
+      sourceId: source.id,
+      targetId: target.id,
     });
+    if (!preview.ok) throw new Error(preview.error);
+    const result = await mergeRecords({
+      entity: "authors",
+      sourceId: source.id,
+      targetId: target.id,
+      fingerprint: preview.value.fingerprint,
+      choices: targetChoices(preview.value.fields),
+    });
+    expect(result.ok).toBe(true);
+    await expectOneMergeEvent(source.id, target.id);
   });
 });

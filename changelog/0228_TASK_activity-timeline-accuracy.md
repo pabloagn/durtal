@@ -16,7 +16,7 @@ Some activity events were wrong or missing, so the work and author activity trai
 
 ## Implementation Details
 - `updateWorkTaxonomy` (`src/lib/actions/taxonomy.ts`) reads the current links of each family in the input before the write. After the write, it records one `work.taxonomy_added` or `work.taxonomy_removed` event for each item that changed. Each event holds `taxonomyType` (for example "theme"), `targetId` and `targetName`. A save that changes nothing records nothing. The families come from `WORK_TAXONOMY_FIELDS` and the system taxonomy registry.
-- `mergePeople` (`src/lib/actions/people.ts`) records `author.merged` on the target author, with the source author's id and name. `mergeAuthors` calls `mergePeople`, so both paths record it. The event config already had the key.
+- `executeMerge` (`src/lib/harmonization/merge.ts`) records `author.merged` on the target author, with the source author's id and name. It inserts the event in the merge transaction, before the merge writes its "after" snapshot. Every merge path goes through `executeMerge`: the author page (`mergeAuthors` and `mergePeople`) and Harmonize (`mergeRecords`). So each merge records exactly one event, and a failed merge records none. The event config already had the key.
 - `getActivityTimeline` (`src/lib/actions/activity.ts`) pages on the keyset `(created_at, id)` and orders by both columns. It returns `nextCursor`. The cursor holds the database's text form of `created_at`, so it keeps microseconds; a JS `Date` cuts them to milliseconds. Encode and decode are in `src/lib/activity/cursor.ts`.
 - `ActivityTimeline` (`src/components/activity/activity-timeline.tsx`) keeps the server's `nextCursor` and sends it for "Show more".
 - No change for collection removal: main already records `work.collection_removed` in `removeEditionsFromCollection`.
@@ -25,6 +25,6 @@ Some activity events were wrong or missing, so the work and author activity trai
 - New database suite `src/__tests__/integration/activity-timeline.test.ts` (database `sln297_test`):
   - Seven events, five with one timestamp, paged two at a time: every event appears once, in order.
   - Two themes added, then one removed: two added events and one removed event with names. "Removed theme Dread" is the text. A save with no change adds no event.
-  - An author merge records `author.merged` on the target with the source name.
+  - An author merge from the author page and a merge from Harmonize each record exactly one `author.merged` event on the target, with the source name. The source's older events move to the target.
 - New unit test `src/__tests__/activity/cursor.test.ts` for the cursor encode and decode.
 - No schema change and no migration. Old generic taxonomy events stay in the database as they are.
