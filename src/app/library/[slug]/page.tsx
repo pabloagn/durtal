@@ -232,7 +232,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       {/* Cinematic backdrop + header */}
       <div
         className={
-          background ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"
+          background ? "relative z-[1] -mx-4 -mt-6 mb-8 md:-mx-6" : "relative z-[1] mb-8"
         }
       >
         {/* Background image layer */}
@@ -258,7 +258,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
         )}
 
         {/* Content on top of the backdrop */}
-        <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+        <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           {/* Back link */}
           <Link
             href="/library"
@@ -269,7 +269,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
           </Link>
 
           {/* Header */}
-          <div className={`${background ? "mb-4" : "mb-8"} flex gap-6`}>
+          <div className={`${background ? "mb-4" : "mb-8"} flex flex-col gap-6 sm:flex-row`}>
             {/* Poster image */}
             {poster && (
               <WorkPosterImage
@@ -281,8 +281,9 @@ export default async function WorkDetailPage({ params }: PageProps) {
             )}
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-3">
-                <h1 className="type-page-title">
+              {/* On a phone the actions wrap below a long title */}
+              <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
+                <h1 className="type-page-title min-w-0 break-words">
                   {work.title}
                 </h1>
                 <div className="flex shrink-0 items-center gap-2">

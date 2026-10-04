@@ -114,7 +114,7 @@ async function PlaceContent({ slug }: { slug: string }) {
         {/* Title block */}
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex items-start gap-3 font-serif text-4xl tracking-tight">
-            <h1 className="type-page-title">
+            <h1 className="type-page-title min-w-0 break-words">
               {venue.name}
             </h1>
             {venue.isFavorite && (

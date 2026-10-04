@@ -306,8 +306,10 @@ Selection uses the plum accent as background with primary foreground text:
 
 ## Responsive Behavior
 
-- **Desktop**: Full sidebar visible, multi-column grids, data tables
-- **Tablet**: Sidebar collapses or overlays, reduced grid columns
-- **Mobile**: Single column, stacked layouts, touch-friendly targets
+- **Desktop** (over 800px): Full sidebar visible, multi-column grids, data tables
+- **Tablet** (768–800px): The sidebar is the 56px icon rail; the saved width comes back above 800px
+- **Phone** (under 768px, Tailwind `md`): No sidebar. A glass navigation bar (`mobile-nav-bar.tsx`, 48px) holds the menu button, the name and search; the menu opens the sidebar as a drawer over the page, with labels, and its section list scrolls. The page gutter is 16px (24px from `md`). Detail headers stack the poster above the title below `sm`; header actions wrap below a long title. Touch targets are at least 44px
 
 The application is designed desktop-first but must be usable on all screen sizes. No separate mobile app — responsive web only. PWA if needed later.
+
+A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
