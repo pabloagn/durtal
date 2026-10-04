@@ -11,7 +11,8 @@ import { useHomeView } from "@/components/domains/domain-home-shell";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { PAINTING_FILTER_KEYS } from "@/lib/catalogue/painting-params";
-import type { PaintingFilterOptions } from "@/lib/actions/paintings";
+import { getPaintingFilterOptions } from "@/lib/actions/paintings";
+import { useLazyOptions } from "@/hooks/use-lazy-options";
 
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 
@@ -53,7 +54,9 @@ function itemLabel(item: { name: string; parentName: string | null }) {
  * and supports must all match. Every choice is in the URL, so a filtered
  * home can be linked.
  */
-export function PaintingFilters({ options }: { options: PaintingFilterOptions }) {
+export function PaintingFilters() {
+  // The options load when the filter panel is about to open, not with the page
+  const { value: options, failed, start } = useLazyOptions(getPaintingFilterOptions);
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = useHomeView("painting");
@@ -87,22 +90,23 @@ export function PaintingFilters({ options }: { options: PaintingFilterOptions })
     push(params);
   }, [push, searchParams]);
 
-  const years = options.creationYears;
+  const years = options?.creationYears ?? null;
   const from = Number(searchParams.get("from")) || undefined;
   const to = Number(searchParams.get("to")) || undefined;
   const named = (rows: { id: string; name: string }[]) =>
     rows.map((row) => ({ value: row.id, label: row.name }));
   const terms = (rows: { id: string; name: string; parentName: string | null }[]) =>
     rows.map((row) => ({ value: row.id, label: itemLabel(row) }));
+  // The fixed groups show at once; the record lists join when they load
   const groups: AnyFilterGroup[] = [
-    { key: "painter", label: "Painter", options: named(options.painters) },
-    { key: "movement", label: "Movement", options: named(options.movements) },
-    { key: "genre", label: "Genre", options: terms(options.genres) },
-    { key: "technique", label: "Technique", options: terms(options.techniques) },
-    { key: "medium", label: "Medium", options: terms(options.media) },
-    { key: "support", label: "Support", options: terms(options.supports) },
-    { key: "institution", label: "Owned by", options: named(options.institutions) },
-    { key: "venue", label: "Now at", options: named(options.venues) },
+    { key: "painter", label: "Painter", options: named(options?.painters ?? []) },
+    { key: "movement", label: "Movement", options: named(options?.movements ?? []) },
+    { key: "genre", label: "Genre", options: terms(options?.genres ?? []) },
+    { key: "technique", label: "Technique", options: terms(options?.techniques ?? []) },
+    { key: "medium", label: "Medium", options: terms(options?.media ?? []) },
+    { key: "support", label: "Support", options: terms(options?.supports ?? []) },
+    { key: "institution", label: "Owned by", options: named(options?.institutions ?? []) },
+    { key: "venue", label: "Now at", options: named(options?.venues ?? []) },
     {
       key: "holding",
       label: "Collection",
@@ -156,6 +160,9 @@ export function PaintingFilters({ options }: { options: PaintingFilterOptions })
     >
       <FilterDropdown
         groups={groups}
+        onIntent={start}
+        loading={!options && !failed}
+        failed={failed}
         activeFilters={Object.fromEntries(LIST_KEYS.map((key) => [key, list(key)]))}
         onFilterChange={handleFilterChange}
         onClearAll={handleClearAll}

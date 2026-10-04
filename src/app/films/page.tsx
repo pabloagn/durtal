@@ -11,7 +11,7 @@ import {
 } from "@/components/domains/domain-add-link";
 import { FilmFilters } from "@/components/films/film-filters";
 import { FilmGrid } from "@/components/films/film-grid";
-import { getFilmCount, getFilmFilterOptions, getFilms } from "@/lib/actions/films";
+import { getFilmCount, getFilms } from "@/lib/actions/films";
 import { filmQueryFromParams, hasFilmFilters } from "@/lib/catalogue/film-params";
 import {
   lastPage,
@@ -53,10 +53,7 @@ export default async function FilmsPage({
   searchParams: Promise<ListSearchParams>;
 }) {
   const params = await searchParams;
-  const [catalogued, options] = await Promise.all([
-    getFilmCount(),
-    getFilmFilterOptions(),
-  ]);
+  const catalogued = await getFilmCount();
 
   return (
     <>
@@ -75,7 +72,7 @@ export default async function FilmsPage({
         />
       ) : (
         <>
-          <FilmFilters options={options} />
+          <FilmFilters />
           <Suspense
             key={JSON.stringify(params)}
             fallback={

@@ -180,10 +180,12 @@ export async function getFilmCount(input: FilmQuery = {}) {
 /** People credited in one role on any film, with how many films each */
 async function creditedPeople(roleId: string) {
   return resultRows<{ id: string; name: string; count: number }>(
-    await db.execute(sql`select a.id,a.name,count(distinct c.work_id)::int as count
-      from work_credits c join works w on w.id=c.work_id and w.kind='film' join authors a on a.id=c.person_id
-      where c.role_id=${roleId}
-      group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+    await db.execute(sql`select a.id,a.name,x.count from (
+        select person_id,count(*)::int as count from (
+          select distinct c.person_id,c.work_id from work_credits c join works w on w.id=c.work_id and w.kind='film'
+          where c.role_id=${roleId} and c.person_id is not null) d
+        group by person_id) x
+      join authors a on a.id=x.person_id order by lower(coalesce(a.sort_name,a.name)),a.id`),
   );
 }
 
