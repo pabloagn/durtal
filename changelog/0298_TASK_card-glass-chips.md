@@ -34,4 +34,5 @@ SLN-435. Pablo, on the live app: the transparency on the cards "does not even ha
 - The first tuning (`brightness(0.32)`, the accents as they are) left a white cover's chips mid grey: `brightness()` works in linear light. The poison mark was 1.4:1 and the film heart over a red poster 2.8:1. The shipped values pass everywhere above.
 - The served stylesheet carries `-webkit-backdrop-filter` next to `backdrop-filter`. Safari itself was not run: driving it needs a system setting changed.
 - `scripts/qa/alignment-audit.js`: 0 rows over 0.5px on every card above, at both widths. `scripts/qa/design-audit.js`: 0 low-contrast texts, 0 nested controls.
-- `pnpm typecheck`, `pnpm lint` and `python3 scripts/qa/test-local.py`: SUITE.
+- Rechecked after merging `main` (2f0a11e, whose cards now show their buttons through `hover-reveal`): the same blur on the book and author cards, lowest contrast 3.34:1 on the white cover, 0 rows over 0.5px.
+- `pnpm typecheck`, `pnpm lint` (0 errors) and `python3 scripts/qa/test-local.py` (1,760 tests) pass. `scripts/qa/page-weight.js` was not rerun: the preview was stopped to free the shared lock, and the change adds only class names.
