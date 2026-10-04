@@ -151,6 +151,10 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           expect(row[column], column).toBeNull();
           delete row[column];
         }
+    // 0065 (SLN-444): works.rating becomes numeric(2,1); a stored 4 reads as
+    // the number 4 either way, so only its type is checked
+    for (const row of projected.works ?? [])
+      if (row.rating != null) expect(typeof row.rating, "works.rating").toBe("number");
     // 0052 adds the one settings row with today's defaults. This catalogue has
     // no Amsterdam or Mexico City, so new copies get no default location.
     if (projected.app_settings)
@@ -202,6 +206,9 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "art_object_whereabouts",
       "work_relations",
       "collection_works",
+      "readings",
+      "reading_sessions",
+      "reading_status_history",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -342,6 +349,21 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         join(folder, "meta/_journal.json"),
         JSON.stringify(journal),
       );
+      if (entry.tag.endsWith("_reading_rating_precheck")) {
+        // A rating outside 1 to 5 stops the migration with its title, changing nothing
+        const [odd] =
+          await c`insert into works(title,slug,rating) values ('Nadja','nadja-precheck',0) returning id`;
+        const worksBefore = await c`select id, rating from works order by id`;
+        const failure = await migrate(db!, { migrationsFolder: folder }).then(
+          () => null,
+          (error) => error,
+        );
+        expect(String((failure?.cause ?? failure)?.message)).toMatch(
+          new RegExp(`^Ratings outside 1 to 5; ask Joris before migrating: ${odd.id} Nadja \\(rating 0\\)`),
+        );
+        expect(await c`select id, rating from works order by id`).toEqual(worksBefore);
+        await c`delete from works where id=${odd.id}`;
+      }
       if (entry.tag === "0045_venues_retailer_observations") {
         // Legacy writes skipped validation: stop with a clear error, change nothing.
         const [invalid] =

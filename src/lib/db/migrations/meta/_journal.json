@@ -449,6 +449,20 @@
       "when": 1791152851975,
       "tag": "0063_typed_acquisition_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1791153801244,
+      "tag": "0064_reading_rating_precheck",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1791153802262,
+      "tag": "0065_reading_data_model",
+      "breakpoints": true
     }
   ]
 }

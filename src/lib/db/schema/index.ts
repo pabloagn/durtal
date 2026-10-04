@@ -198,3 +198,4 @@ export * from "./retailers";
 export * from "./films";
 export * from "./paintings";
 export { workRelations } from "./work-relations";
+export * from "./readings";

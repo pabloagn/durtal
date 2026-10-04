@@ -1,6 +1,7 @@
 "use client";
 
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
+import { BULK_DELETE_CASCADE } from "./delete-cascade";
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus } from "lucide-react";
@@ -321,7 +322,7 @@ export function BulkActionToolbar({
         title={`Delete ${selectedCount} ${selectedCount === 1 ? "work" : "works"}`}
         description="Are you sure you want to delete the selected works? This action cannot be undone."
         itemName={displayName}
-        cascade="This will permanently delete all editions, instances, and media associated with the selected works."
+        cascade={BULK_DELETE_CASCADE}
       />
     </>
   );

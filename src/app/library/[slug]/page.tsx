@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getReadingCounts } from "@/lib/actions/reading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
@@ -159,6 +160,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     markRows,
     seriesWorks,
     links,
+    readingCounts,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -179,6 +181,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
       ? getOtherWorksInSeries(work.seriesId, work.id)
       : Promise.resolve([]),
     getWorkRelations(work.id),
+    getReadingCounts(work.id),
   ]);
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
@@ -347,6 +350,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                       role: wa.role,
                     }))}
                     authorName={primaryAuthors.map((a) => a.name).join(", ")}
+                    readingCounts={readingCounts}
                     editionCount={work.editions.length}
                     instanceCount={work.editions.reduce(
                       (acc, e) => acc + (e.instances?.length ?? 0),

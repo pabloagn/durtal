@@ -2,7 +2,7 @@
 
 Durtal is a self-hosted personal book catalogue and library index. It serves as the single source of truth for every book in the owner's collection — physical and digital, across multiple geographic locations.
 
-Think Radarr/Sonarr for books: a comprehensive index with full metadata, ownership tracking, location management, and a world-class interface. No reading tracker, no social features, no automated downloading. An obsessively organized catalogue.
+Think Radarr/Sonarr for books: a comprehensive index with full metadata, ownership tracking, location management, and a world-class interface. No social features, no automated downloading. An obsessively organized catalogue, with a reading tracker built on it.
 
 The name references Durtal, the protagonist of Joris-Karl Huysmans' tetralogy — a character who moves through decadence, occultism, and monastic discipline. This informs the application's aesthetic: an occult library rendered in clean, modern design language.
 
@@ -121,9 +121,8 @@ See [12_DEVELOPMENT.md](12_DEVELOPMENT.md) for the full command reference.
 
 Explicitly out of scope:
 
-- **Reading tracker** — Goodreads handles this. Durtal is a catalogue, not a reading log.
 - **Social features** — No friends, no feed, no sharing. Single user.
-- **Book recommendations** — No ML, no "you might like". This is an index.
+- **Recommendations from outside** — Suggestions come only from the owner's own catalogue and history, explained, with no external service or machine-learning model.
 - **Automated downloading** — No integration with book download services. This is not Readarr.
 - **E-reader sync** — No Kobo/Kindle sync. Calibre-Web handles OPDS/Kobo.
 - **Multi-user** — Single owner. Authelia provides the auth gate.

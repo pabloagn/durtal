@@ -435,5 +435,11 @@ copy or object once, in the order's write; a return disposes of it. Book
 targets and totals are unchanged; museum custody never enters the purchase
 flow. Migration 0063.
 
+Reading tracker data model (SLN-444, task 0302): reading is book-only
+consumption state, gated by the `reading` capability. A reading is one
+read-through with its own dates, edition, copy, sessions and rating; it never
+reuses `catalogue_status`, which is about buying. The book's rating becomes
+half-step. Migrations 0064 and 0065.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

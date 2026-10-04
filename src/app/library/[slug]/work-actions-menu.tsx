@@ -25,6 +25,7 @@ import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";
 import { deleteWork } from "@/lib/actions/works";
+import { workDeleteCascadeMessage } from "@/components/books/delete-cascade";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
 
@@ -83,6 +84,8 @@ interface WorkActionsMenuProps {
   authorName: string;
   editionCount: number;
   instanceCount: number;
+  /** The reading history the delete removes */
+  readingCounts?: { readings: number; sessions: number };
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
@@ -101,6 +104,7 @@ export function WorkActionsMenu({
   authorName: _authorName,
   editionCount,
   instanceCount,
+  readingCounts,
   posterCount: _posterCount,
   backgroundCount: _backgroundCount,
   galleryCount: _galleryCount,
@@ -149,13 +153,12 @@ export function WorkActionsMenu({
   }
 
   function buildCascadeMessage(): string | undefined {
-    const parts: string[] = [];
-    if (editionCount > 0)
-      parts.push(`${editionCount} edition${editionCount === 1 ? "" : "s"}`);
-    if (instanceCount > 0)
-      parts.push(`${instanceCount} instance${instanceCount === 1 ? "" : "s"}`);
-    if (parts.length === 0) return undefined;
-    return `This will also delete ${parts.join(" and ")}.`;
+    return workDeleteCascadeMessage({
+      editions: editionCount,
+      instances: instanceCount,
+      readings: readingCounts?.readings ?? 0,
+      sessions: readingCounts?.sessions ?? 0,
+    });
   }
 
   const actionItems = [

@@ -544,7 +544,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `work_type_id` | UUID | FK → `work_types.id`, nullable | Classification of the work form |
 | `is_anthology` | BOOLEAN | NOT NULL, default `false` | Whether the work is an anthology |
 | `notes` | TEXT | nullable | Personal notes |
-| `rating` | SMALLINT | nullable, 1–5 | Personal rating |
+| `rating` | NUMERIC(2,1) | nullable, 0.5–5.0 in half steps (`works_rating_check`) | The book's rating: the owner's current verdict (SLN-444; was SMALLINT 1–5). Raw SQL casts it with `::float8`, since it returns numeric as a string |
 | `catalogue_status` | `catalogue_status_enum` | NOT NULL, default `'tracked'` | Work-level acquisition/ownership status |
 | `acquisition_priority` | `acquisition_priority_enum` | NOT NULL, default `'none'` | Urgency of acquisition intent |
 | `is_rare` | BOOLEAN | NOT NULL, default `false` | Simple personal rare-book flag; independent of lifecycle/priority and instance collector flags |
@@ -2209,6 +2209,97 @@ Tracks reading position, bookmarks, and per-book reader settings. One record per
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
 **Relations**: `calibreBook` (N:1 -> `calibre_books`)
+
+`reading_progress` stays the e-book reader's own position, owned by the reader
+epic: the reader keeps where it is in a file. Readings alone hold read status,
+dates and ratings: a read-through, with its dates, sessions and rating, is a
+`readings` row (below); sub-issue 10 of the reading tracker feeds reader
+sessions into it.
+
+## Reading tracker (SLN-444)
+
+A reading is one read-through of a book. A book has many (re-reads); at most
+one is open (reading or paused). Reading is book-only consumption state: the
+three tables accept only works of kind `book` (`book_parent_required`), and
+they never touch `catalogue_status`, which is about buying. A book's reading
+state is derived from its readings, like ownership. Constants live in
+`src/lib/reading/constants.ts`; every write goes through
+`src/lib/reading/service.ts`.
+
+### `readings`
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `work_id` | UUID | NOT NULL, FK → `works` CASCADE | `book_parent_required` (`require_book_parent()`, 0038) |
+| `edition_id` | UUID | nullable, FK → `editions` SET NULL | Must belong to `work_id` (`guard_reading`) |
+| `instance_id` | UUID | nullable, FK → `instances` SET NULL | The copy; set only with `edition_id` and belonging to it. Set to null when `edition_id` becomes null |
+| `location_id` | UUID | nullable, FK → `locations` SET NULL | The home the read happens in: always a physical place. Defaults to the copy's location when physical |
+| `format` | TEXT | NOT NULL, default `'print'` | `print`, `ebook`, `audio` |
+| `status` | TEXT | NOT NULL, default `'reading'` | `reading`, `paused`, `finished`, `abandoned`; changes only along `READING_TRANSITIONS` |
+| `started_on` | DATE | nullable | First day of the known period: 2009-01-01 for "2009", 2019-04-01 for "Apr 2019" |
+| `started_precision` | TEXT | NOT NULL, no default | `day`, `month`, `year`, `unknown`; `unknown` exactly when `started_on` is null |
+| `finished_on` | DATE | nullable | Same convention; only on a finished or abandoned read (for abandoned, the day it stopped) |
+| `finished_precision` | TEXT | NOT NULL, default `'unknown'` | Same rule |
+| `unit` | TEXT | NOT NULL, default `'pages'` | `pages`, `percent`, `minutes` |
+| `total_pages` / `total_minutes` | INTEGER | nullable, above 0 | Pages to read in this edition (from `editions.page_count`, editable) and audio length; never below the start or current position |
+| `start_page`, `start_percent`, `start_minutes` | INTEGER / NUMERIC(5,2) / INTEGER | nullable | Where tracking began, for a book begun before tracking; within the totals |
+| `current_page`, `current_percent`, `current_minutes`, `current_chapter` | INTEGER / NUMERIC(5,2) / INTEGER / TEXT | nullable | The position; `current_percent` is kept whenever it can be known, whatever the unit |
+| `last_read_at` | TIMESTAMPTZ | nullable | Last progress or session |
+| `rating` | NUMERIC(2,1) | nullable, 0.5–5.0 in half steps | This read's rating |
+| `review_html`, `review_json` | TEXT, JSONB | nullable | Sanitized HTML (`sanitizeCommentHtml`) and the Tiptap document |
+| `abandon_reason`, `abandon_note` | TEXT | nullable; only on `abandoned` | Reason in `ABANDON_REASONS`; note up to 2000 characters |
+| `source` | TEXT | NOT NULL, default `'manual'` | `manual`, `reader`, `import`, `backfill` |
+| `import_id` | UUID | nullable, FK → `imports` SET NULL | |
+| `source_key` | TEXT | UNIQUE, nullable | Idempotency key, built only by `src/lib/reading/source-keys.ts` |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | Every write to the reading or its sessions sets `updated_at`, so its fingerprint (`md5(to_jsonb(r)::text)`) changes |
+
+Constraints: `reading_open_unique` (one open reading per book), `reading_precision_check`, `reading_dates_check` (`public.reading_period_end(finished_on, finished_precision) >= started_on`: a start of 14 Apr 2019 accepts a finish of "Apr 2019" or "2019", not "Mar 2019"), `reading_status_dates_check` (an open reading has no finish date), `reading_abandon_check`, `reading_values_check`, `reading_position_check`, `reading_rating_check`, `reading_note_check`. Indexes on `work_id`, `status`, `finished_on`, `last_read_at`, `import_id`, `edition_id`, `instance_id`, `location_id`.
+
+`public.reading_period_end(date, precision)` returns the last day of a month or year date (the stored date is already the period's first day), with built-ins only so a restore with an empty search path can evaluate it; `readingPeriodEnd` in `src/lib/reading/dates.ts` is its TypeScript twin.
+
+### `reading_sessions`
+
+One sitting or one progress update.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `reading_id` | UUID | NOT NULL, FK → `readings` CASCADE | |
+| `edition_id` | UUID | nullable, FK → `editions` SET NULL | The edition read in this session; may differ from the reading's, but belongs to its book (`guard_reading_session`) |
+| `format` | TEXT | NOT NULL | May differ from the reading's |
+| `read_on` | DATE | NOT NULL | The reading day: `readingDay(started_at ?? save time, time_zone, 4)`; hours before 04:00 count for the evening before. Stored, never recomputed |
+| `time_zone` | TEXT | NOT NULL | IANA zone the session was read in |
+| `started_at`, `ended_at` | TIMESTAMPTZ | nullable | `ended_at >= started_at` |
+| `duration_seconds` | INTEGER | nullable, 1–86400 | |
+| `start_page`, `end_page`, `start_percent`, `end_percent`, `start_minutes`, `end_minutes` | INTEGER / NUMERIC(5,2) / INTEGER | nullable | Positions in the session's edition |
+| `end_chapter`, `note` | TEXT | nullable | Up to 300 and 2000 characters |
+| `pages_total` | INTEGER | nullable | The page count the session was logged against |
+| `pages_read` | INTEGER | generated | `greatest(end_page - start_page, 0)` when both are known; for the session list only |
+| `source` | TEXT | NOT NULL, default `'manual'` | `manual`, `timer`, `reader`, `import` |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+`reading_session_timer_unique` allows one running timer (`source = 'timer'` with `ended_at` null) in the whole app; position recompute and every total leave it out. Indexes on `(reading_id, read_on)`, `read_on`, `edition_id`.
+
+### `reading_status_history`
+
+Every status change of a reading, shaped like `work_status_history`: `id`, `reading_id` (FK → `readings` CASCADE), `from_status` (null for the first row), `to_status`, `changed_at`, `notes`. Index on `(reading_id, changed_at)`. Pause intervals for pace come from it.
+
+### Guards and null rules
+
+`edition_id` and `instance_id` are `on delete set null`, and Postgres applies that as an UPDATE that fires BEFORE UPDATE triggers, so the guards check a reference only when it is set and new or changed: `guard_reading` clears `instance_id` when `edition_id` is null, then checks the edition's book (`reading_edition_work`, "This edition belongs to another book") and the copy's edition (`reading_instance_edition`, "This copy belongs to another edition"); `guard_reading_session` checks a session's edition (`reading_session_edition_work`). An update that only sets references to null never raises, so deleting an edition, a copy, a location or the book needs no extra code. A book merge moves `readings.work_id` after the editions, so the guard lets it through; it is refused while both books have an open reading. An edition moved to another book clears it from the old book's readings and their sessions (`updateEdition`); a placeholder edition's readings and sessions move to the real edition (`moveToExistingEdition`).
+
+### Positions, state and counting
+
+A reading has a start position; the first session starts there (else at 0), each later one where the one before it ended, in the order `(read_on, coalesce(ended_at, started_at, created_at), created_at)` with the running timer left out. An open reading is where its latest session ended; a session in another edition moves it through its `end_percent` (`remapPosition`), never its `end_page`. Going back by mistake replaces the latest session's end ("fix my last log"); going back on purpose writes a session that counts nothing ("I went back"). A reader sitting that ends behind the furthest point counts nothing and leaves the position.
+
+`src/lib/reading/summary.ts` gives SQL fragments over a work id: `readingStateSql` (the open reading's status, else `read`, `abandoned` or `unread`), `readCountSql` (finished readings only), `lastFinishedOnSql`, `lastFinishedPrecisionSql`, `lastReadAtSql`, `openReadingPercentSql`, `readingOrdinalSql` (all readings by `coalesce(started_on, finished_on)`, unknown first, then source key, creation and id; the open reading last) and `countedPagesSql`. Pages read are never a sum of raw session deltas: a session counts only past the furthest point reached before it, as a share of its page total; a finished reading without sessions counts `total_pages - start_page` in its finish period.
+
+Which rating feeds what: the book's rating is `works.rating` (library filters and sorts, author averages, the Goodreads export); a read's rating is `readings.rating` (`readingRatingSql`, falling back to the book's when it is the only finished read); taste evidence (`tasteRatingSql`) is the book's rating of a book with at least one finished reading, so a rating on a book never finished, which may be a seed priority, is never evidence.
+
+### Source keys and duplicates
+
+`src/lib/reading/source-keys.ts` builds every key: `goodreads:<Book Id>#<n>` (else `goodreads:isbn13:<ISBN>#<n>`, else `goodreads:title:<hash>#<n>`), `storygraph:<hash>#<n>`, `seed:<hash>`, `durtal:<reading id>`, `durtal-import:<hash of the row>`, `reader:<e-book id>` (the reader's own e-book record, an opaque id; no Calibre key), and the Up Next and note keys of later steps. A hash is the SHA-256 of the normalized parts (NFKD, marks dropped, lower case, runs of non-letters and non-digits as one space) joined with `|`. `src/lib/reading/duplicates.ts` holds the one duplicate rule: the same reading or source key; the same read (same status, the same finish date at the coarser precision); an undated read against that status's unmatched readings (imports create only the undated reads beyond those already there; elsewhere it is a possible duplicate, written only when chosen). Each existing reading matches one row at most.
 
 ## Activity & Comments
 
