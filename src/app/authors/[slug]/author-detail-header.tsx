@@ -108,7 +108,7 @@ export function AuthorDetailHeader({
 
   return (
     <>
-      <div className="mb-8 flex gap-8">
+      <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:gap-8">
         {posterUrl ? (
           <ProtectedImageWrapper
             className="h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary cursor-pointer"

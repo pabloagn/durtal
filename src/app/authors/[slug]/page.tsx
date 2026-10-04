@@ -113,7 +113,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     <>
       <CopyShortcuts name={author.name} />
       {/* Cinematic backdrop + header */}
-      <div className={bgMedia ? "relative -mx-6 -mt-6 mb-8" : ""}>
+      <div className={bgMedia ? "relative -mx-4 -mt-6 mb-8 md:-mx-6" : ""}>
         {/* Background image layer: always spans the full main area */}
         {bgMedia && backgroundUrl && (
           <FullBleedLayer className="-z-0">
@@ -137,7 +137,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
         )}
 
         {/* Content on top of the backdrop */}
-        <div className={bgMedia ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+        <div className={bgMedia ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           <Link
             href="/authors"
             className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"

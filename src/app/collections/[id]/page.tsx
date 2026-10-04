@@ -56,7 +56,7 @@ export default async function CollectionPage({
     <>
       <CopyShortcuts name={collection.name} />
       {/* Cinematic backdrop + header, as on author and book pages */}
-      <div className={background ? "relative -mx-6 -mt-6 mb-8" : "mb-8"}>
+      <div className={background ? "relative -mx-4 -mt-6 mb-8 md:-mx-6" : "mb-8"}>
         {background && (
           <FullBleedLayer className="-z-0">
             <img
@@ -75,7 +75,7 @@ export default async function CollectionPage({
             />
           </FullBleedLayer>
         )}
-        <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+        <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           <Link
             href="/collections"
             className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"

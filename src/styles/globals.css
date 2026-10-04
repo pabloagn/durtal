@@ -90,6 +90,14 @@ html {
   overflow-y: scroll;
 }
 
+/* Below md the phone navigation bar (48px, fixed) covers the top of the
+   page: anchors and scrollIntoView stop below it */
+@media (width < 48rem) {
+  html {
+    scroll-padding-top: 3rem;
+  }
+}
+
 /* One keyboard focus ring for every control. In the base layer, so a text
    field can replace it with its own rose border (focus:outline-none). */
 @layer base {
