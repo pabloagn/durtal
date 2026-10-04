@@ -182,7 +182,7 @@ function ArtObjectForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const institutions = useOrganizationSearch("museum");
+  const institutions = useOrganizationSearch("museum", ["museum", "gallery"]);
   const searchShops = useCallback(
     async (query: string): Promise<PickerChoice[]> =>
       (await searchVenues(query)).map((v) => ({

@@ -158,16 +158,24 @@ const ROLE_HINTS: Record<OrganizationRole, string> = {
   gallery: "gallery",
 };
 
-/** An organization search, with "Create" making one with `role` */
-export function useOrganizationSearch(role: OrganizationRole) {
+/**
+ * An organization search that offers only organizations with one of `roles`
+ * (a perfume's house never suggests a publisher), with "Create" making one
+ * with `role`.
+ */
+export function useOrganizationSearch(
+  role: OrganizationRole,
+  roles: readonly OrganizationRole[] = [role],
+) {
+  const key = roles.join(",");
   const search = useCallback(
     async (query: string): Promise<PickerChoice[]> =>
-      (await getOrganizations({ query, limit: 8 })).rows.map((o) => ({
+      (await getOrganizations({ query, roles: key.split(",") as OrganizationRole[], limit: 8 })).rows.map((o) => ({
         id: o.id,
         label: o.name,
         hint: o.roles.flatMap((r) => (ROLE_HINTS[r] ? [ROLE_HINTS[r]] : [])).join(", ") || null,
       })),
-    [],
+    [key],
   );
   const create = useCallback(
     async (name: string): Promise<PickerChoice> => {
