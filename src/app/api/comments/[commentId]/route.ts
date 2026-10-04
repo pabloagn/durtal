@@ -7,12 +7,16 @@ import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { updateCommentSchema } from "@/lib/validations/comments";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
+import { isUuid } from "@/lib/utils/uuid";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ commentId: string }> },
 ) {
   const { commentId } = await params;
+  if (!isUuid(commentId)) {
+    return NextResponse.json({ error: "Invalid comment id" }, { status: 400 });
+  }
   let parsed;
   try {
     const body = await req.json();
@@ -44,6 +48,9 @@ export async function DELETE(
   { params }: { params: Promise<{ commentId: string }> },
 ) {
   const { commentId } = await params;
+  if (!isUuid(commentId)) {
+    return NextResponse.json({ error: "Invalid comment id" }, { status: 400 });
+  }
 
   // Read the file keys first: the cascade removes the attachment rows.
   const comment = await db.query.comments.findFirst({

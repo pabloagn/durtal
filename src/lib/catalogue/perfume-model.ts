@@ -60,8 +60,17 @@ export interface PerfumeClassification {
   inherited: boolean;
 }
 
-export async function loadPerfumePerfumers(workId: string, variantId?: string) {
-  await requirePerfume(workId, variantId);
+/**
+ * `checked`: the caller has just read this perfume and formulation, so the
+ * existence check is skipped (one formulation after another, it would cost
+ * two queries each).
+ */
+export async function loadPerfumePerfumers(
+  workId: string,
+  variantId?: string,
+  checked = false,
+) {
+  if (!checked) await requirePerfume(workId, variantId);
   const variant = variantId ?? null;
   return resultRows<{
     id: string;
@@ -90,8 +99,9 @@ export async function loadPerfumePerfumers(workId: string, variantId?: string) {
 export async function loadPerfumeClassification(
   workId: string,
   variantId?: string,
+  checked = false,
 ) {
-  await requirePerfume(workId, variantId);
+  if (!checked) await requirePerfume(workId, variantId);
   const variant = variantId ?? null;
   return resultRows<PerfumeClassification>(
     await db.execute(sql`

@@ -218,6 +218,12 @@ export async function deleteOrganization(id: string) {
         "Organization not found",
       ),
     ),
+    // Its history, comments (their attachments cascade) and gallery layout go with it
+    ...["comments", "activity_events", "gallery_layouts"].map((table) =>
+      d.execute(
+        sql`delete from ${sql.identifier(table)} where entity_type = 'organization' and entity_id = ${id}::uuid`,
+      ),
+    ),
     d.delete(identities).where(eq(identities.id, id)),
   ]);
   changed();

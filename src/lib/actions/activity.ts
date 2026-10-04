@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { activityEvents } from "@/lib/db/schema";
 import { comments } from "@/lib/db/schema";
 import { eq, and, desc, inArray, sql, getTableColumns } from "drizzle-orm";
+import { z } from "zod";
+import { ACTIVITY_ENTITY_TYPES, type ActivityEntityType } from "@/lib/activity/entities";
 import {
   decodeActivityCursor,
   encodeActivityCursor,
@@ -35,11 +37,14 @@ export interface TimelineItem {
 }
 
 export async function getActivityTimeline(
-  entityType: "work" | "author",
+  entityType: ActivityEntityType,
   entityId: string,
   limit = 20,
   cursor?: string,
 ): Promise<{ events: TimelineItem[]; hasMore: boolean; nextCursor: string | null }> {
+  z.enum(ACTIVITY_ENTITY_TYPES).parse(entityType);
+  z.uuid().parse(entityId);
+  limit = z.number().int().min(1).max(100).parse(limit);
   const conditions = [
     eq(activityEvents.entityType, entityType),
     eq(activityEvents.entityId, entityId),

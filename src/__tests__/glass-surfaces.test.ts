@@ -69,4 +69,21 @@ describe("glass surfaces", () => {
     );
     expect(blurred).toEqual([]);
   });
+
+  it("are the only blur: no style, constant or stylesheet blurs on its own", () => {
+    // Any source but the material's own definition in globals.css
+    const files = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const full = path.join(dir, name);
+        if (name === "__tests__") return [];
+        if (statSync(full).isDirectory()) return files(full);
+        return /\.(tsx?|css)$/.test(name) ? [full] : [];
+      });
+    const BLUR = /backdrop-blur|backdrop-filter\s*:|[bB]ackdropFilter\s*:/;
+    const blurred = files(SRC)
+      .filter((file) => !file.endsWith(path.join("styles", "globals.css")))
+      .filter((file) => BLUR.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(SRC, file));
+    expect(blurred).toEqual([]);
+  });
 });

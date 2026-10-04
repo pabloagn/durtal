@@ -1,8 +1,9 @@
 "use server";
 
+import { recordWorkChanges, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
@@ -35,7 +36,8 @@ import {
   updateTaxonomyItemSchema,
   mergeTaxonomyItemsSchema,
 } from "@/lib/validations/taxonomy-management";
-import { makeUnique, slugify } from "@/lib/utils/slugify";
+import { slugify } from "@/lib/utils/slugify";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { withReadableErrors } from "@/lib/db/errors";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { assertSql, resultRows, lockSql } from "@/lib/harmonization/store";
@@ -181,19 +183,12 @@ function writeScopes(
   ];
 }
 const FAMILY_NAME_TAKEN = "A taxonomy family with this name already exists";
+const ITEM_NAME_TAKEN = "This family already has an item with this name";
 
 /** A custom family and the scopes it applies to, in one transaction. */
 export async function createTaxonomyFamily(input: CreateTaxonomyFamilyInput) {
   const { scopes, ...fields } = createTaxonomyFamilySchema.parse(input);
-  const base = slugify(fields.name) || "family";
-  const taken = await db
-    .select({ slug: taxonomyFamilies.slug })
-    .from(taxonomyFamilies)
-    .where(like(taxonomyFamilies.slug, `${base}%`));
-  const slug = makeUnique(
-    base,
-    taken.map((row) => row.slug),
-  );
+  const slug = await uniqueSlug(taxonomyFamilies, slugify(fields.name) || "family");
   const id = randomUUID();
   // The legacy level column follows the first book scope; scopes are the rule.
   const entityLevel =
@@ -476,7 +471,7 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
           sql`,`,
         )})`,
       ),
-    { unique: "This family already has an item with this name" },
+    { unique: ITEM_NAME_TAKEN },
   );
   changed();
   return { id, ...parsed, slug: values.slug as string };
@@ -508,12 +503,17 @@ export async function updateTaxonomyItem(
   }
   const fields = Object.entries(values);
   if (!fields.length) throw new Error("No editable fields supplied");
+  // A rename to a name another item has is refused with the create's message
   const rows = resultRows<{ id: string }>(
-    await db.execute(
-      sql`update ${sql.identifier(storage.table)} i set ${sql.join(
-        fields.map(([key, value]) => sql`${sql.identifier(key)}=${value}`),
-        sql`,`,
-      )} where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`,
+    await withReadableErrors(
+      () =>
+        db.execute(
+          sql`update ${sql.identifier(storage.table)} i set ${sql.join(
+            fields.map(([key, value]) => sql`${sql.identifier(key)}=${value}`),
+            sql`,`,
+          )} where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`,
+        ),
+      { unique: ITEM_NAME_TAKEN },
     ),
   );
   if (!rows.length)
@@ -717,6 +717,8 @@ export async function replaceTaxonomyAssignments(input: {
     throw new Error("Taxonomy family has no assignment store at this level");
   const ids = [...new Set(parsed.itemIds)];
   const owner = parsed.level === "work" ? works : editions;
+  // A work's history notes each item added or removed
+  const before = parsed.level === "work" ? await workSnapshot(parsed.ownerId) : null;
   // A refused change reaches the caller as its rule's message, never as SQL
   await withReadableErrors(() => atomic((d) => [
     d.execute(
@@ -761,5 +763,6 @@ export async function replaceTaxonomyAssignments(input: {
       : []),
   ]));
   changed();
+  if (before) await recordWorkChanges(parsed.ownerId, before, await workSnapshot(parsed.ownerId));
   return { ownerId: parsed.ownerId };
 }

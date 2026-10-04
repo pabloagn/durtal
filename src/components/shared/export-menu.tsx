@@ -12,8 +12,11 @@ import { toast } from "sonner";
 
 export type ExportFormat = "csv" | "tsv" | "parquet";
 
+/** What can be exported: books, authors, or one of the other collections */
+export type ExportEntity = "works" | "authors" | "perfumes" | "films" | "paintings";
+
 interface ExportMenuProps {
-  entity: "works" | "authors";
+  entity: ExportEntity;
   ids: string[] | Set<string>;
   /** Button variant — defaults to "ghost" */
   variant?: "ghost" | "primary";
@@ -32,7 +35,7 @@ export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
 
 /** Download an export: these records, or every one ("all"). */
 export async function triggerExport(
-  entity: "works" | "authors",
+  entity: ExportEntity,
   ids: string[] | "all",
   format: ExportFormat,
 ) {
