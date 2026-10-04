@@ -39,7 +39,8 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({ results: normalized, notices: searchNotices() });
-  } catch {
+  } catch (err) {
+    console.error("[api/match] Match search failed:", err);
     return NextResponse.json(
       { error: "Match search failed" },
       { status: 500 },

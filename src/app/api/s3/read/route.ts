@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import { isMediaWidth } from "@/lib/s3/media-url";
-import { contentHeaders, READ_SAFETY_HEADERS } from "@/lib/s3/read-headers";
+import { contentHeaders, isReadableKey, READ_SAFETY_HEADERS } from "@/lib/s3/read-headers";
 
 /** Prevent Next.js from caching this route handler's response. */
 export const dynamic = "force-dynamic";
@@ -31,8 +31,9 @@ function s3EtagFrom(ifNoneMatch: string | null, width: number | null) {
 /**
  * GET /api/s3/read?key=...[&w=400][&v=...]
  *
- * Streams the S3 object. With `w`, resizes it to that width (allowed
- * widths only). With `v`, marks the response immutable. Only raster images
+ * Streams the S3 object: an image, a cover or a comment attachment
+ * (`isReadableKey`); any other key is refused. With `w`, resizes it to that
+ * width (allowed widths only). With `v`, marks the response immutable. Only raster images
  * show inline; see `contentHeaders`.
  */
 export async function GET(req: NextRequest) {
@@ -40,6 +41,9 @@ export async function GET(req: NextRequest) {
   const key = params.get("key");
   if (!key) {
     return NextResponse.json({ error: "Missing key" }, { status: 400 });
+  }
+  if (!isReadableKey(key)) {
+    return NextResponse.json({ error: "This file cannot be read" }, { status: 400 });
   }
 
   const wParam = params.get("w");
@@ -97,6 +101,7 @@ export async function GET(req: NextRequest) {
     if (status === 404 || (err as { name?: string }).name === "NoSuchKey") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    console.error("[api/s3/read] Failed to read object:", err);
     return NextResponse.json({ error: "Failed to read object" }, { status: 500 });
   }
 }

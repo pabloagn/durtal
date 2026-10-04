@@ -192,15 +192,15 @@ Output format: WebP for all processed images. `* original` is stored only when t
 
 ## Pre-Signed URLs
 
-All S3 access uses pre-signed URLs. Credentials are never exposed to the client.
+Credentials never reach the client: uploads go through the app or through a pre-signed upload URL, and reads through the app.
 
 ### Upload URLs
 
 Generated via `getPresignedUploadUrl()`. Default expiry: 1 hour. The client PUTs raw bytes directly to S3.
 
-### Read URLs
+### Reads
 
-Generated via `getPresignedReadUrl()`. Default expiry: 1 hour. The `GET /api/s3/read` endpoint redirects to a fresh pre-signed URL.
+The app serves stored files itself through `GET /api/s3/read`, and only those under `gold/media/`, `gold/covers/` and `gold/comments/` (`isReadableKey` in `src/lib/s3/read-headers.ts`). Raw uploads (`bronze/`), intermediate files (`silver/`) and anything else in the bucket are never served.
 
 ---
 
@@ -212,7 +212,6 @@ Core operations in `src/lib/s3/covers.ts`:
 |---|---|
 | `uploadToS3(key, buffer, contentType)` | Upload a buffer to S3 |
 | `deleteFromS3(key)` | Delete an S3 object |
-| `getPresignedReadUrl(key, expiresIn?)` | Generate signed GET URL |
 | `getPresignedUploadUrl(key, contentType, expiresIn?)` | Generate signed PUT URL |
 | `processAndUploadCover(editionId, sourceUrl)` | Full cover pipeline |
 

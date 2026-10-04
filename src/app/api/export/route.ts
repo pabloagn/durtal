@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
 import { db } from "@/lib/db";
 import { todayLocal } from "@/lib/utils/date";
+import { isUuid } from "@/lib/utils/uuid";
 import { works, workAuthors, authors } from "@/lib/db/schema";
 import { inArray, asc, and } from "drizzle-orm";
 import {
@@ -179,6 +180,10 @@ export async function POST(req: NextRequest) {
         { error: "Too many IDs. Maximum: 500." },
         { status: 400 },
       );
+    }
+
+    if (all !== true && !ids!.every(isUuid)) {
+      return NextResponse.json({ error: "Every id must be a UUID." }, { status: 400 });
     }
 
     if (!format || !VALID_FORMATS.includes(format as ExportFormat)) {

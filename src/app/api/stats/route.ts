@@ -5,7 +5,8 @@ export async function GET() {
   try {
     const stats = await getLibraryStats();
     return NextResponse.json(stats);
-  } catch {
+  } catch (err) {
+    console.error("[api/stats] Failed to fetch stats:", err);
     return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
   }
 }

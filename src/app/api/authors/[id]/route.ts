@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthor } from "@/lib/actions/authors";
+import { isUuid } from "@/lib/utils/uuid";
 
 export async function GET(
   _req: NextRequest,
@@ -7,8 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!UUID_RE.test(id)) {
+    if (!isUuid(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
     const author = await getAuthor(id);
@@ -16,7 +16,8 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     return NextResponse.json(author);
-  } catch {
+  } catch (err) {
+    console.error("[api/authors/:id] Failed to fetch author:", err);
     return NextResponse.json({ error: "Failed to fetch author" }, { status: 500 });
   }
 }

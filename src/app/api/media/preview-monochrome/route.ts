@@ -6,6 +6,7 @@ import { s3, S3_BUCKET } from "@/lib/s3/client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { applyMonochromeProcessing } from "@/lib/s3/media";
 import { monochromeParamsSchema } from "@/lib/validations/media";
+import { isUuid } from "@/lib/utils/uuid";
 
 /**
  * GET /api/media/preview-monochrome?mediaId=...&contrast=...&sharpness=...&gamma=...&brightness=...
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest) {
 
     if (!mediaId) {
       return NextResponse.json({ error: "Missing mediaId" }, { status: 400 });
+    }
+    if (!isUuid(mediaId)) {
+      return NextResponse.json({ error: "Invalid mediaId" }, { status: 400 });
     }
 
     const record = await db.query.media.findFirst({
