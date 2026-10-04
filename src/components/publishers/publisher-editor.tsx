@@ -1,4 +1,5 @@
 "use client";
+import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,7 +17,11 @@ export function PublisherEditor({
   parent: initialParent = null,
   specialties,
 }: {
-  publisher?: PublisherInput & { id: string };
+  publisher?: PublisherInput & {
+    id: string;
+    /** The city where the house was founded */
+    foundedPlace?: PlaceValue | null;
+  };
   /** The current parent house of an imprint */
   parent?: PublisherOption | null;
   specialties: { id: string; name: string }[];
@@ -27,6 +32,9 @@ export function PublisherEditor({
   const [parent, setParent] = useState<PublisherOption | null>(initialParent);
   const [chosen, setChosen] = useState(publisher?.specialtyIds ?? []);
   const [specialtySearch, setSpecialtySearch] = useState("");
+  const [foundedPlace, setFoundedPlace] = useState<PlaceValue | null>(
+    publisher?.foundedPlace ?? null,
+  );
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -40,6 +48,8 @@ export function PublisherEditor({
             website: text("website") || null,
             description: text("description") || null,
             notes: text("notes") || null,
+            foundedYear: text("foundedYear") ? Number(text("foundedYear")) : null,
+            foundedPlaceId: foundedPlace?.id ?? null,
             kind,
             parentId: PARENT_KIND[kind] ? (parent?.id ?? null) : null,
             aliases: text("aliases")
@@ -104,7 +114,27 @@ export function PublisherEditor({
               <option value="imprint">Imprint: the brand on the book</option>
             </select>
           </label>
+          <label className="block space-y-1 text-sm text-fg-secondary">
+            <span>Founded (year)</span>
+            <input
+              name="foundedYear"
+              aria-label="Founded (year)"
+              className={fieldClass}
+              defaultValue={publisher?.foundedYear ?? ""}
+              type="number"
+              inputMode="numeric"
+              min={1000}
+              max={2100}
+            />
+          </label>
         </div>
+        {/* The shared place search, as in the author dialogs */}
+        <PlacePicker
+          label="Founded in (city)"
+          value={foundedPlace}
+          onChange={setFoundedPlace}
+          disabled={pending}
+        />
         {PARENT_KIND[kind] && (
           <PublisherChoice
             label={kind === "imprint" ? "Publisher" : "Group (optional)"}

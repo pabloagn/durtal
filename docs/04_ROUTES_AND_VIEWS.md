@@ -537,10 +537,10 @@ Everyone in the catalogue, in every collection: writers, translators, directors,
 
 ### Publisher Detail (`/publishers/[slug]`)
 
-- Header like the author page: the house's background banner and backdrop, its logo (shown whole, never cropped), the name, what it is (imprint of, group) and where, the favourite star, Edit and an actions menu (Copy name, Edit, Manage media, View in library). Manage media opens the shared media manager with a Logo and a Background tab (owner `organization`).
-- Reading column: About (`<Prose>`), notes, then the books as a catalogue: one card per book with this house's edition cover (owned edition first, then one with a cover, then the earliest), in grid or list view. The house's imprints count as the house.
-- Search, filters (status: owned, wanted, on order; marks; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
-- Record column: the counts (books, editions, owned, wanted, on order), details (country, group, imprints, other names, specialties, ISBN prefixes) and the website.
+- Header like the author page: the house's background banner and backdrop, its logo (shown whole, never cropped), the name, what it is (imprint of, group) and where, when and where it was founded ("Founded 1936 in New York"), the favourite star, Edit and an actions menu (Copy name, Edit, Manage media, View in library). Manage media opens the shared media manager with a Logo and a Background tab (owner `organization`).
+- Reading column: About (`<Prose>`), notes, then the books as a catalogue: one card per book with this house's edition cover (owned edition first, then one with a cover, then the earliest), in grid or list view. The view is in the URL (`?view=grid` or `?view=list`), so a shared link opens the same view; without it, the last view chosen on this device. The house's imprints count as the house.
+- Search, filters (status: owned, wanted, on order; marks: Rare, Anathema, Favourite; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
+- Record column: the counts (books, editions, owned, wanted, on order), details (country, founded, founded in, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
 - The record's Links group opens the house's organization page, where its roles in the other collections show.
 

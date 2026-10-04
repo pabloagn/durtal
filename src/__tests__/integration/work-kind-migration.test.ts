@@ -73,6 +73,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         delete work.is_favourite;
       }
     }
+    // Migration 0062 adds a house's founding year and city, empty for every row
+    for (const row of projected.publishing_houses ?? [])
+      for (const column of ["founded_year", "founded_place_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
     // Migration 0061 stars nothing: every new favourite starts off
     for (const table of ["authors", "collections", "series", "recommenders"])
       for (const row of projected[table] ?? []) {

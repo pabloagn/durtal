@@ -1203,6 +1203,8 @@ for deterministic collision handling under concurrent creation.
 | `notes` | TEXT | Personal collecting notes, nullable |
 | `description` | TEXT | nullable |
 | `website` | TEXT | nullable; web writes accept HTTP(S) URLs |
+| `founded_year` | SMALLINT | nullable; 1000 to 2100 (`publisher_founded_year_check`). Migration `0062_publisher_founding` |
+| `founded_place_id` | UUID | FK → `places.id` (ON DELETE SET NULL), nullable: the city where the house was founded |
 | `search_text` | TEXT | GENERATED ALWAYS from search_normalize(name), GIN trigram index |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
 

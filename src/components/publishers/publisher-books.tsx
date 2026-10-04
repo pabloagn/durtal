@@ -17,6 +17,9 @@ import type { PublisherBook, PublisherBookFacets } from "@/lib/publishers/books"
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 const VIEW_KEY = "durtal-publisher-books-view-mode";
 const GRID_KEY = "durtal-publisher-books-grid-columns";
+/** The grid size slider's range */
+const MIN_COLUMNS = 2;
+const MAX_COLUMNS = 8;
 
 const SORT_OPTIONS = [
   { value: "title", label: "Title" },
@@ -31,6 +34,50 @@ const DEFAULT_SORT_ORDERS: Record<string, "asc" | "desc"> = {
   recent: "desc",
 };
 
+/**
+ * A display choice kept in the URL (`param`) and on the device: the URL wins,
+ * so a shared link shows the same view; without it, the last choice made on
+ * this device. A choice goes to both. The URL changes without a server
+ * request (`history.replaceState`, which `useSearchParams` follows).
+ */
+function useUrlPreference<T extends string | number>(
+  param: string,
+  stored: T,
+  setStored: (value: T) => void,
+  parse: (raw: string) => T | null,
+) {
+  const searchParams = useSearchParams();
+  const raw = searchParams.get(param);
+  const fromUrl = raw == null ? null : parse(raw);
+  const set = useCallback(
+    (next: T) => {
+      setStored(next);
+      const params = new URLSearchParams(window.location.search);
+      params.set(param, String(next));
+      window.history.replaceState(null, "", `?${params.toString()}`);
+    },
+    [param, setStored],
+  );
+  return [fromUrl ?? stored, set] as const;
+}
+
+/** The books' grid or list view (`?view=`) */
+function usePublisherView() {
+  const [stored, setStored] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
+  return useUrlPreference<ViewMode>("view", stored, setStored, (raw) =>
+    VIEW_MODES.includes(raw as ViewMode) ? (raw as ViewMode) : null,
+  );
+}
+
+/** The grid's columns (`?cols=`) */
+function usePublisherColumns() {
+  const [stored, setStored] = usePreference(GRID_KEY, 5);
+  return useUrlPreference<number>("cols", stored, setStored, (raw) => {
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= MIN_COLUMNS && n <= MAX_COLUMNS ? n : null;
+  });
+}
+
 /** URL parameters the filters set; "Clear" removes them all */
 const FILTER_KEYS = ["state", "mark", "language", "binding", "yearMin", "yearMax", "author", "imprint", "filter"];
 
@@ -44,8 +91,8 @@ export function PublisherBooksFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
-  const [gridColumns, setGridColumns] = usePreference(GRID_KEY, 5);
+  const [viewMode, setViewMode] = usePublisherView();
+  const [gridColumns, setGridColumns] = usePublisherColumns();
 
   const values = (key: string) => searchParams.get(key)?.split(",").filter(Boolean) ?? [];
   const legacy = searchParams.get("filter");
@@ -182,8 +229,8 @@ export function PublisherBooksView({
   books: PublisherBook[];
   pagination: PaginationData;
 }) {
-  const [viewMode] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
-  const [gridColumns] = usePreference(GRID_KEY, 5);
+  const [viewMode] = usePublisherView();
+  const [gridColumns] = usePublisherColumns();
   return (
     <>
       <Pagination {...pagination} noun="books" compact />

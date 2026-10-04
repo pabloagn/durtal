@@ -16,6 +16,8 @@ export const publisherSchema = z
       .optional(),
     description: optionalText,
     notes: optionalText,
+    foundedYear: z.number().int().min(1000).max(2100).nullable().optional(),
+    foundedPlaceId: z.uuid().nullable().optional(),
     kind: z.enum(["group", "publisher", "imprint"]).default("publisher"),
     parentId: z.uuid().nullable().optional(),
     aliases: z.array(z.string().trim().min(1).max(200)).max(100).default([]),
