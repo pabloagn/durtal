@@ -1,4 +1,4 @@
-# Task 0155: Real image crop
+# Task 0155b: Real image crop
 
 **Status**: Completed
 **Created**: 2026-09-30

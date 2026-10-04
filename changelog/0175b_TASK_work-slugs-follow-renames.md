@@ -1,4 +1,4 @@
-# Task 0175: Work slugs follow renames
+# Task 0175b: Work slugs follow renames
 
 **Status**: Completed
 **Created**: 2026-10-03
