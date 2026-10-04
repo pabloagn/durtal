@@ -145,8 +145,7 @@ export function BulkActionToolbar({
   return (
     <>
       <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/95 px-4 py-2.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] backdrop-blur-md">
-        {/* Selection info. Nothing in the bar wraps: every item keeps one
-            line, so the row's center is each label's center */}
+        {/* Selection info */}
         <span className="whitespace-nowrap text-sm text-fg-secondary">
           <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}
           selected
@@ -154,6 +153,8 @@ export function BulkActionToolbar({
 
         <div className="h-4 w-px bg-glass-border" />
 
+        {/* Nothing in the bar wraps: every item keeps one line, so the
+            row's center is each label's center */}
         <button
           onClick={() => onSelectAll(allIds)}
           className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
