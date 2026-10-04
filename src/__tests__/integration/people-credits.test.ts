@@ -68,6 +68,7 @@ import {
   getPeopleFilterOptions,
   getPersonWorkCredits,
   getPersonRoles,
+  getPersonWorkCounts,
 } from "@/lib/actions/authors";
 import { updateWork, getLibraryStats } from "@/lib/actions/works";
 import { updateEdition } from "@/lib/actions/editions";
@@ -195,6 +196,9 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     expect(roles[translator.id]).toEqual([{ kind: "book", label: "Translator", count: 1 }]);
     expect(Object.keys(roles)).toHaveLength(3);
     expect(await getPersonRoles([])).toEqual({});
+    // The Works column counts every collection's works, each once
+    const counts = await getPersonWorkCounts([director.id, perfumer.id, translator.id]);
+    expect(counts).toEqual({ [director.id]: 1, [perfumer.id]: 1, [translator.id]: 1 });
     // A person with no books and no credits is deleted through the shared path
     const lone = await person("Nobody yet", ["painting"]);
     await deleteAuthor(lone.id);

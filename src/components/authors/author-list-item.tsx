@@ -112,7 +112,8 @@ export function AuthorListItem({
               {nationality ?? "Unknown nationality"}
             </p>
             <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
-              {worksCount} {worksCount === 1 ? "book" : "books"}
+              {/* A director or a perfumer has no books: no "0 books" */}
+              {worksCount > 0 && `${worksCount} ${worksCount === 1 ? "book" : "books"}`}
             </span>
           </div>
           {/* What the person is: one line, reserved when empty */}

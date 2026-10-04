@@ -13,6 +13,7 @@ import {
   getAuthorDeathYearRange,
   getPeopleFilterOptions,
   getPersonRoles,
+  getPersonWorkCounts,
 } from "@/lib/actions/authors";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
@@ -182,22 +183,27 @@ async function AuthorsContent({
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
       roles: [] as PersonRole[],
+      booksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
     };
   });
 
   // Authors with no portrait show some of their book covers instead
-  // Cover previews and every card's roles: one query each, never one per card
-  const [previews, rolesById] = await Promise.all([
+  // Cover previews, every card's roles and the Works column's counts: one
+  // query each, never one per card
+  const [previews, rolesById, workCounts] = await Promise.all([
     getAuthorCoverPreviews(
-      authors.filter((a) => !a.photoUrl && a.worksCount > 0).map((a) => a.id),
+      authors.filter((a) => !a.photoUrl && a.booksCount > 0).map((a) => a.id),
     ),
     getPersonRoles(authors.map((a) => a.id)),
+    // The Works column counts every collection's works, not only books
+    getPersonWorkCounts(authors.map((a) => a.id)),
   ]);
   for (const a of authors) {
     a.coverPreviews = previews[a.id] ?? [];
     a.roles = rolesById[a.id] ?? [];
+    a.worksCount = workCounts[a.id] ?? 0;
   }
   // Filtered to one collection: its roles come first on the cards
   const preferKind =
