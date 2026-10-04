@@ -539,7 +539,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
 
     it("refuses a stale fingerprint, and retries a fingerprint-less log once", async () => {
       const { reading } = await started({ title: "Stale" });
-      await log(reading.id, { page: 10 });
+      // The day before the concurrent logs, so they come after it in reading order
+      await log(reading.id, { page: 10, readOn: "2026-09-04" });
       await expect(logProgress({ readingId: reading.id, fingerprint: reading.fingerprint, page: 20 })).rejects.toThrow(
         "This reading changed elsewhere; reload before saving",
       );
