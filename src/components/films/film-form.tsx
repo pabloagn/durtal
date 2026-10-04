@@ -14,7 +14,11 @@ import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
 import { createFilm, findFilmsByTitle, updateFilm } from "@/lib/actions/films";
 import { catalogueDateYears, type CatalogueDateInput } from "@/lib/catalogue/dates";
-import { creditInput } from "@/lib/catalogue/film-labels";
+import {
+  FILM_GENRES_FAMILY,
+  classificationInput,
+  creditInput,
+} from "@/lib/catalogue/film-labels";
 import {
   ChoiceListField,
   CompaniesField,
@@ -38,6 +42,8 @@ export interface EditableFilm {
   companies: CompanyEntry[];
   credits: FilmCreditEntry[];
   genres: TermEntry[];
+  /** Terms of its other families (a mood, a theme), kept as they are on save */
+  otherItemIds: string[];
 }
 
 /** The countries and languages a film chooses from */
@@ -59,7 +65,7 @@ type Props =
       onCancel: () => void;
     };
 
-const GENRES = { slug: "film-genres", name: "Film genres" };
+const GENRES = { slug: FILM_GENRES_FAMILY, name: "Film genres" };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -171,7 +177,10 @@ export function FilmForm(props: Props) {
       countryIds: countries.map((c) => c.id),
       languageIds: languages.map((l) => l.id),
       credits: creditInput(credits),
-      classificationItemIds: genres.map((g) => g.id),
+      classificationItemIds: classificationInput(
+        genres.map((g) => g.id),
+        editing?.otherItemIds ?? [],
+      ),
     };
     try {
       if (props.mode === "create") {

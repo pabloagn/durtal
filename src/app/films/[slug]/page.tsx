@@ -37,6 +37,7 @@ import { getLocations } from "@/lib/actions/locations";
 import { catalogueDateText, catalogueDateYears } from "@/lib/catalogue/dates";
 import {
   FILM_CREDIT_ROLE_IDS,
+  FILM_GENRES_FAMILY,
   FILM_MEDIUM_LABELS,
   FILM_RELEASE_FORMAT_LABELS,
   HOLDING_STATUS_LABELS,
@@ -44,6 +45,7 @@ import {
   filmCreditName,
   filmHoldingsText,
   formatRuntime,
+  otherClassificationIds,
   releaseTerritory,
   versionName,
   type FilmCreditRole,
@@ -340,12 +342,16 @@ export default async function FilmPage({
         notes: c.notes,
       }),
     ),
+    otherItemIds: otherClassificationIds(film.classification),
     genres: film.classification
-      .filter((c) => c.familySlug === "film-genres")
+      .filter((c) => c.familySlug === FILM_GENRES_FAMILY)
       .map((c) => ({
         id: c.itemId,
         name: c.name,
-        parentName: genres[0]?.items.find((i) => i.id === c.itemId)?.parentName ?? null,
+        parentName:
+          genres
+            .find((f) => f.slug === FILM_GENRES_FAMILY)
+            ?.items.find((i) => i.id === c.itemId)?.parentName ?? null,
       })),
   };
 
@@ -521,13 +527,14 @@ export default async function FilmPage({
                 </RecordFields>
               </RecordGroup>
               {genres.length > 0 && (
-                <RecordGroup title="Genres">
+                // Genres alone need no label; with other families each is named
+                <RecordGroup title={genres.length === 1 ? "Genres" : "Taxonomy"}>
                   <TaxonomyAssignments
                     kind="film"
                     level="work"
                     ownerId={film.id}
                     families={genres}
-                    labelled={false}
+                    labelled={genres.length > 1}
                   />
                 </RecordGroup>
               )}

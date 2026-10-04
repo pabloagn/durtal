@@ -4,7 +4,9 @@ import {
   creditInput,
   filmCreditName,
   filmHoldingsText,
+  classificationInput,
   formatRuntime,
+  otherClassificationIds,
   parseRuntime,
   readCharacters,
   releaseTerritory,
@@ -59,6 +61,19 @@ describe("film runtimes and names", () => {
     expect(releaseTerritory({ countryName: null, territoryLabel: null })).toBe("Worldwide");
     expect(filmHoldingsText({ physical: 2, digital: 1 })).toBe("2 physical copies, 1 digital copy");
     expect(filmHoldingsText({ physical: 0, digital: 0 })).toBeNull();
+  });
+});
+
+describe("the film form's classification", () => {
+  it("saves its genres and carries the other families' terms unchanged", () => {
+    const classification = [
+      { itemId: A, familySlug: "film-genres" },
+      { itemId: B, familySlug: "mood" },
+      { itemId: C, familySlug: "themes" },
+    ];
+    expect(otherClassificationIds(classification)).toEqual([B, C]);
+    expect(classificationInput([A], [B, C])).toEqual([A, B, C]);
+    expect(classificationInput([], [B, B])).toEqual([B]);
   });
 });
 

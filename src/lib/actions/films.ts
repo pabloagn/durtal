@@ -575,7 +575,8 @@ async function filmSlug(
       "")
     : (director?.creditedAs ?? "");
   const base = generateWorkSlug(title, name, id);
-  return attempt < 2 ? uniqueSlug(works, base) : `${base}-${id}`;
+  // "new" is the Add film page, /films/new: a film never takes it
+  return attempt < 2 ? uniqueSlug(works, base, { taken: ["new"] }) : `${base}-${id}`;
 }
 
 /** One transaction writes the film and every section. A remake is a new film. */

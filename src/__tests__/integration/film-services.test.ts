@@ -82,6 +82,7 @@ import {
 } from "@/lib/actions/organizations";
 import { updateWorkCuration, getWorkCuration } from "@/lib/actions/curation";
 import { STALE_RECORD } from "@/lib/catalogue/work-store";
+import { classificationInput, otherClassificationIds } from "@/lib/catalogue/film-labels";
 import type { CreateFilmInput, FilmQuery } from "@/lib/validations/films";
 
 /** The whole message a caller sees; never SQL. */
@@ -524,6 +525,36 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     expect(undirected.slug).toBe("night-music");
     const renamed = await updateFilm(first.id, { title: "The Thing (1982)" }, first.fingerprint);
     expect(renamed.slug).toBe(first.slug);
+    // /films/new is the Add film page: a film titled "New" never takes it
+    expect((await createFilm({ title: "New" })).slug).toBe("new-2");
+  });
+
+  it("keeps the terms of other families when the edit form saves its genres", async () => {
+    const [mood] =
+      await c`insert into taxonomy_families(name,slug,entity_level) values ('Mood','mood','work')
+        on conflict (slug) do update set name=excluded.name returning id`;
+    await c`insert into taxonomy_applicability(family_id,kind,level) values (${mood.id},'film','work') on conflict do nothing`;
+    const [bleak] =
+      await c`insert into custom_taxonomy_items(family_id,name,slug) values (${mood.id},'Bleak','bleak') returning id`;
+    const film = await createFilm({ title: "The Fog", classificationItemIds: [items.horror, bleak.id] });
+    const names = (f: typeof film) => f.classification.map((x) => x.name).sort();
+    expect(names(film)).toEqual(["Bleak", "horror"]);
+    // What the form sends: its genres, then the other families' terms as they were
+    const genreIds = (f: typeof film) =>
+      f.classification.filter((x) => x.familySlug === "film-genres").map((x) => x.itemId);
+    const saved = await updateFilm(
+      film.id,
+      { title: "The Fog (1980)", classificationItemIds: classificationInput(genreIds(film), otherClassificationIds(film.classification)) },
+      film.fingerprint,
+    );
+    expect(names(saved)).toEqual(["Bleak", "horror"]);
+    // Removing the last genre in the form still keeps the mood
+    const cleared = await updateFilm(
+      film.id,
+      { classificationItemIds: classificationInput([], otherClassificationIds(saved.classification)) },
+      saved.fingerprint,
+    );
+    expect(names(cleared)).toEqual(["Bleak"]);
   });
 
   it("gives each company, distributor and seller its role in the same write", async () => {

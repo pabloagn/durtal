@@ -171,3 +171,26 @@ export function creditInput(entries: FilmCreditEntry[]) {
     notes: c.notes,
   }));
 }
+
+// ── Classification ──────────────────────────────────────────────────────────
+
+/** The one vocabulary the film form edits; other families keep their terms */
+export const FILM_GENRES_FAMILY = "film-genres";
+
+/** The terms of every family but film genres: the form carries them unchanged */
+export function otherClassificationIds(
+  classification: { itemId: string; familySlug: string }[],
+) {
+  return classification
+    .filter((c) => c.familySlug !== FILM_GENRES_FAMILY)
+    .map((c) => c.itemId);
+}
+
+/**
+ * The classification a film form saves: its genres, then the other families'
+ * terms as they were. `updateFilm` replaces the whole classification, so
+ * leaving the others out would delete them.
+ */
+export function classificationInput(genreIds: string[], otherItemIds: string[]) {
+  return [...new Set([...genreIds, ...otherItemIds])];
+}

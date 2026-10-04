@@ -24,12 +24,13 @@ import {
 async function FilmResults({ params }: { params: ListSearchParams }) {
   const query = filmQueryFromParams(params);
   const { page, perPage, offset } = parsePagination(params);
-  const [films, total] = await Promise.all([
-    getFilms({ ...query, limit: perPage, offset }),
-    getFilmCount(query),
-  ]);
+  // Count first: a page past the end goes to the last page before any read
+  // with an offset beyond what the list accepts
+  const total = await getFilmCount(query);
   if (total > 0 && page > lastPage(total, perPage))
     redirect(pageHref("/films", params, lastPage(total, perPage)));
+  const films =
+    offset < total ? await getFilms({ ...query, limit: perPage, offset }) : [];
   return (
     <FilmGrid
       films={films}
