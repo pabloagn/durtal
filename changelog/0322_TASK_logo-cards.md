@@ -50,5 +50,6 @@ sharp.
 - Browser: Chrome, Safari and Firefox 157, at 1440, 768 and 390 px: drop a
   logo, the 1200×800 preview shows, a switch changes it. Saving needs S3,
   which the disposable preview has none of: the DB test covers it.
+- `node scripts/qa/page-weight.js`: 17 of 17 routes within budget.
 - Limit: a logo photographed on a busy background needs a background-removal
   model; not part of this task.
