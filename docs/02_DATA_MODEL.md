@@ -9,11 +9,11 @@ Migration `0037_work_kinds` adds `works.kind` using `work_kind_enum`:
 column default to `book`. This identity is independent of `work_type_id` and all
 taxonomies: a book about painting remains a book.
 
-Books, perfumes and films are enabled. The `works_kind_enabled_check`
-constraint (`kind IN ('book', 'perfume', 'film')`: perfumes since migration
-`0053_open_perfumes`, films since `0054_film_kind_enabled`) rejects painting
-writes until their screens, models and legacy-query isolation pass the rollout
-gates. `src/lib/catalogue/domains.ts` records the same
+All four kinds are enabled. The `works_kind_enabled_check` constraint
+(`kind IN ('book', 'perfume', 'film', 'painting')`: perfumes since migration
+`0053_open_perfumes`, films since `0054_film_kind_enabled`, paintings since
+`0055_open_paintings`) admitted each kind only once its screens, models and
+legacy-query isolation passed the rollout gates. `src/lib/catalogue/domains.ts` records the same
 application readiness plus domain labels, routes, primary creator vocabulary and
 image presentation defaults. The write services do not read that switch, so the
 constraint is the write guard: each domain widens it in the same change that
@@ -184,9 +184,8 @@ create one. A copy protects its film, version and release from deletion
 
 Migration `0047_painting_model` adds a painting profile and identifiable art
 objects. A curated painting needs no object, edition or owned copy. Its screens
-are SLN-368 (task 0223); task 0224 turns its switch on. The migration that adds
-`painting` to `works_kind_enabled_check` is generated once the perfume and film
-activations have merged, so it lists every open kind.
+are SLN-368 (task 0223); task 0224 turns its switch on, and migration
+`0055_open_paintings` adds `painting` to `works_kind_enabled_check`.
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |

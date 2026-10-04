@@ -84,17 +84,15 @@ function periodText(record: History["records"][number]) {
   return `${from} – ${to}`;
 }
 
-/** Days since a moment, never negative */
-function ageInDays(at: Date) {
-  return Math.max(0, Math.floor((Date.now() - at.getTime()) / 86400000));
-}
-
 /** The object's views for the section: its lines, history and edit form */
 function objectView(
   object: ArtObject,
   history: History | null,
   objects: ArtObject[],
+  /** The painting's sources by id: what a location record cites */
+  sourceLabels: Map<string, string>,
 ): ObjectView {
+  const sourceOf = (id: string | null) => (id ? (sourceLabels.get(id) ?? null) : null);
   const dims = dimensionsText(object);
   const made = catalogueDateYears(object.creationDate?.value ?? null);
   const hands = object.attributionOverride
@@ -118,7 +116,8 @@ function objectView(
     period: periodText(r),
     certainty: r.certainty as WhereaboutsCertainty,
     occasion: r.occasionLabel,
-    checked: r.verifiedAt ? checkedText(ageInDays(r.verifiedAt)) : null,
+    checked: r.verifiedAt ? checkedText(r) : null,
+    source: sourceOf(r.sourceRecordId),
     notes: r.notes,
     current: history?.current?.id === r.id,
     conflict: conflicts.has(r.id),
@@ -186,8 +185,9 @@ function objectView(
           place: placeText(current),
           custody: custodyText(current) || null,
           since: current.since ? `since ${catalogueDateText(current.since)}` : null,
-          checked: checkedText(current.ageDays),
+          checked: history?.current ? checkedText(history.current) : checkedText({ verifiedAt: null, recordedAt: current.checkedAt }),
           stale: current.isStale,
+          source: sourceOf(history?.current?.sourceRecordId ?? null),
         }
       : null,
     history: historyViews,
@@ -321,7 +321,10 @@ export default async function PaintingPage({
     .join(" · ");
 
   // ── Objects ───────────────────────────────────────────────────────────────
-  const objects = painting.objects.map((o, i) => objectView(o, histories[i], painting.objects));
+  const sourceLabels = new Map(sourceChoices(provenance).map((s) => [s.id, s.label]));
+  const objects = painting.objects.map((o, i) =>
+    objectView(o, histories[i], painting.objects, sourceLabels),
+  );
   const primaryView = primary ? objects.find((o) => o.id === primary.id)! : null;
   const owned = painting.objects.filter((o) => o.ownership === "personal");
   const held = owned.filter((o) => o.holdingStatus !== "disposed");
@@ -335,9 +338,11 @@ export default async function PaintingPage({
 
   // ── Sources ───────────────────────────────────────────────────────────────
   const cited = new Set(
-    [painting.sourceRecordId, ...painting.objects.map((o) => o.sourceRecordId)].filter(
-      (id): id is string => !!id,
-    ),
+    [
+      painting.sourceRecordId,
+      ...painting.objects.map((o) => o.sourceRecordId),
+      ...histories.flatMap((h) => h?.records.map((r) => r.sourceRecordId) ?? []),
+    ].filter((id): id is string => !!id),
   );
   const sources = sourceViews(provenance, cited);
   const citable = sourceChoices(provenance);
@@ -493,6 +498,7 @@ export default async function PaintingPage({
                         <span className={`block text-xs ${now.stale ? "text-accent-gold" : "text-fg-secondary"}`}>
                           {[now.since, now.checked].filter(Boolean).join(" · ")}
                           {now.stale && ", check again"}
+                          {now.source && ` · Source: ${now.source}`}
                         </span>
                       </>
                     ) : (
