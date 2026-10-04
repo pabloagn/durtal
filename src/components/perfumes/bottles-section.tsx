@@ -9,7 +9,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { deletePerfumeBottle } from "@/lib/actions/perfumes";
-import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
+import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { BottleDialog, type EditableBottle, type StorageLocation } from "./bottle-dialog";
 
 /** One container as the section lists it; the page writes its lines */

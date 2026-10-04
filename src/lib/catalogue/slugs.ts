@@ -23,3 +23,22 @@ export async function uniqueSlug(
     ...taken,
   ]);
 }
+
+/**
+ * Whether a failed write lost a race for a work's slug: another work took it
+ * between the check and the insert. The write can then try the next one.
+ */
+export function isWorkSlugClash(error: unknown) {
+  let current = error as
+    | { code?: unknown; constraint?: unknown; constraint_name?: unknown; cause?: unknown }
+    | undefined;
+  for (let depth = 0; current && depth < 6; depth++) {
+    if (
+      current.code === "23505" &&
+      [current.constraint, current.constraint_name].includes("works_slug_unique")
+    )
+      return true;
+    current = current.cause as typeof current;
+  }
+  return false;
+}

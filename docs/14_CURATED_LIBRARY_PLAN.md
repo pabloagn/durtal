@@ -365,5 +365,17 @@ readable messages. `CapAlignedControls` puts a menu beside a title on its
 cap-height center without clipping it. Measured at 1440, 768 and 390px with no
 deviation over 0.5px. Perfumes stay closed until SLN-382.
 
+The film experience (SLN-367, task 0213): a poster-led home with filters in the
+URL (director, cast, genre, language, country, copies, favourites, release
+years); a detail page with the still behind the poster, cast and crew, versions
+with their releases, copies, sources and related films beside the record; and
+every create, edit and delete flow, with the same-title prompt that tells a
+remake (a new film) from a cut (a version). Films get readable slugs
+(`{title}-by-{director}`), and company, distributor and supplier links add the
+role they need. The record parts shared with perfumes moved to
+`src/components/catalogue/`. Films open with this task: migration
+`0053_film_kind_enabled` widens `works_kind_enabled_check` to `book` and `film`,
+in step with `WORK_DOMAINS.film.enabled`.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

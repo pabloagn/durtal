@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -9,9 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
+import {
+  AcquisitionFields,
+  DisposalFields,
+  StorageFields,
+  numberText,
+  priceError,
+  readNumber,
+  type AcquisitionDraft,
+  type StorageLocation,
+} from "@/components/catalogue/holding-fields";
 import { addPerfumeBottle, updatePerfumeBottle } from "@/lib/actions/perfumes";
-import { createVenue, searchVenues } from "@/lib/actions/venues";
 import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";
 import { PERSONAL_HOLDING_STATUSES } from "@/lib/catalogue/holdings";
 import {
@@ -22,8 +30,8 @@ import {
   type PerfumeContainer,
 } from "@/lib/catalogue/perfume-labels";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
-import { SingleChoiceField, useOrganizationSearch } from "./perfume-fields";
-import type { PickerChoice } from "./search-picker";
+
+export type { StorageLocation };
 
 /** A stored bottle, sample or decant, as the edit dialog starts from it */
 export interface EditableBottle {
@@ -47,21 +55,6 @@ export interface EditableBottle {
   dispositionDate: CatalogueDateInput | null;
   dispositionReason: string | null;
   notes: string | null;
-}
-
-export interface StorageLocation {
-  id: string;
-  name: string;
-  subLocations: { id: string; name: string }[];
-}
-
-/** A number as typed, or null when the field is empty; NaN when it is not a number */
-function readNumber(text: string) {
-  const trimmed = text.trim().replace(",", ".");
-  return trimmed ? Number(trimmed) : null;
-}
-function text(value: number | null | undefined) {
-  return value === null || value === undefined ? "" : String(value);
 }
 
 /**
@@ -126,19 +119,21 @@ function BottleForm({
     bottle?.variantId ?? initialFormulationId ?? formulations[0]?.id ?? "",
   );
   const [container, setContainer] = useState<PerfumeContainer>(bottle?.container ?? "bottle");
-  const [capacity, setCapacity] = useState(text(bottle?.capacityValue));
+  const [capacity, setCapacity] = useState(numberText(bottle?.capacityValue));
   const [unit, setUnit] = useState<"ml" | "l">(bottle?.volumeUnit ?? "ml");
-  const [remaining, setRemaining] = useState(text(bottle?.remainingMl));
+  const [remaining, setRemaining] = useState(numberText(bottle?.remainingMl));
   const [status, setStatus] = useState<HoldingStatus>(bottle?.status ?? "held");
   const [batchCode, setBatchCode] = useState(bottle?.batchCode ?? "");
   const [condition, setCondition] = useState(bottle?.condition ?? "");
   const [locationId, setLocationId] = useState(bottle?.locationId ?? "");
   const [subLocationId, setSubLocationId] = useState(bottle?.subLocationId ?? "");
-  const [acquired, setAcquired] = useState(bottle?.acquisitionDate ?? null);
-  const [supplier, setSupplier] = useState(bottle?.supplier ?? null);
-  const [venue, setVenue] = useState(bottle?.venue ?? null);
-  const [price, setPrice] = useState(text(bottle?.acquisitionPrice));
-  const [currency, setCurrency] = useState(bottle?.acquisitionCurrency ?? "");
+  const [acquisition, setAcquisition] = useState<AcquisitionDraft>({
+    acquired: bottle?.acquisitionDate ?? null,
+    supplier: bottle?.supplier ?? null,
+    venue: bottle?.venue ?? null,
+    price: numberText(bottle?.acquisitionPrice),
+    currency: bottle?.acquisitionCurrency ?? "",
+  });
   const [disposed, setDisposed] = useState(bottle?.dispositionDate ?? null);
   const [reason, setReason] = useState(bottle?.dispositionReason ?? "");
   const [notes, setNotes] = useState(bottle?.notes ?? "");
@@ -146,26 +141,11 @@ function BottleForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const suppliers = useOrganizationSearch("retailer");
-  const searchShops = useCallback(
-    async (query: string): Promise<PickerChoice[]> =>
-      (await searchVenues(query)).map((v) => ({
-        id: v.id,
-        label: v.name,
-        hint: v.place?.name ?? null,
-      })),
-    [],
-  );
-  const createShop = useCallback(async (name: string): Promise<PickerChoice> => {
-    const created = await createVenue({ name, type: "perfumery" });
-    return { id: created.id, label: created.name };
-  }, []);
-
   // Field checks, in the words of the field they concern
   const capacityValue = readNumber(capacity);
   const capacityMl = capacityValue === null ? null : capacityValue * (unit === "l" ? 1000 : 1);
   const remainingMl = readNumber(remaining);
-  const priceValue = readNumber(price);
+  const priceValue = readNumber(acquisition.price);
   const capacityError =
     capacityValue === null
       ? "Enter the size"
@@ -180,22 +160,12 @@ function BottleForm({
         : capacityMl !== null && remainingMl > capacityMl
           ? "More than the size"
           : null;
-  const priceError =
-    priceValue !== null && (!Number.isFinite(priceValue) || priceValue < 0)
-      ? "Enter a price of 0 or more"
-      : (priceValue === null) !== !currency.trim()
-        ? "A price needs its currency, and a currency its price"
-        : currency.trim() && !/^[A-Z]{3}$/.test(currency.trim())
-          ? "Use a three-letter code: EUR, GBP, USD"
-          : null;
   const blocked =
     !variantId ||
     !!capacityError ||
     !!remainingError ||
-    !!priceError ||
+    !!priceError(acquisition.price, acquisition.currency) ||
     Object.values(dateErrors).some(Boolean);
-  const location = locations.find((l) => l.id === locationId);
-
   async function save() {
     if (blocked || saving || capacityValue === null) return;
     setSaving(true);
@@ -212,11 +182,11 @@ function BottleForm({
       condition: condition.trim() || null,
       locationId: locationId || null,
       subLocationId: (locationId && subLocationId) || null,
-      acquisitionDate: acquired,
-      supplierId: supplier?.id ?? null,
-      venueId: venue?.id ?? null,
+      acquisitionDate: acquisition.acquired,
+      supplierId: acquisition.supplier?.id ?? null,
+      venueId: acquisition.venue?.id ?? null,
       acquisitionPrice: priceValue,
-      acquisitionCurrency: currency.trim() || null,
+      acquisitionCurrency: acquisition.currency.trim() || null,
       dispositionDate: isDisposed ? disposed : null,
       dispositionReason: isDisposed ? reason.trim() || null : null,
       notes: notes.trim() || null,
@@ -318,95 +288,35 @@ function BottleForm({
       </div>
 
       {status === "disposed" && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <CatalogueDateField
-            label="Gone since"
-            value={disposed}
-            onChange={(value, err) => {
-              setDisposed(value);
-              setDateErrors((e) => ({ ...e, disposed: err }));
-            }}
-          />
-          <Input
-            label="How it went"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Used up, given away, sold"
-            maxLength={1000}
-          />
-        </div>
+        <DisposalFields
+          disposed={disposed}
+          reason={reason}
+          onDisposed={(value, err) => {
+            setDisposed(value);
+            setDateErrors((e) => ({ ...e, disposed: err }));
+          }}
+          onReason={setReason}
+          reasonPlaceholder="Used up, given away, sold"
+        />
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Select
-          label="Kept in"
-          value={locationId}
-          placeholder="Not recorded"
-          onChange={(e) => {
-            setLocationId(e.target.value);
-            setSubLocationId("");
-          }}
-          options={locations.map((l) => ({ value: l.id, label: l.name }))}
-        />
-        {location && location.subLocations.length > 0 && (
-          <Select
-            label="Shelf or place"
-            value={subLocationId}
-            placeholder="Anywhere in it"
-            onChange={(e) => setSubLocationId(e.target.value)}
-            options={location.subLocations.map((s) => ({ value: s.id, label: s.name }))}
-          />
-        )}
-      </div>
+      <StorageFields
+        locations={locations}
+        locationId={locationId}
+        subLocationId={subLocationId}
+        onLocation={(id) => {
+          setLocationId(id);
+          setSubLocationId("");
+        }}
+        onSubLocation={setSubLocationId}
+      />
 
-      <fieldset className="space-y-3">
-        <legend className="type-group-title mb-3">Acquisition</legend>
-        <CatalogueDateField
-          label="Acquired"
-          value={acquired}
-          onChange={(value, err) => {
-            setAcquired(value);
-            setDateErrors((e) => ({ ...e, acquired: err }));
-          }}
-        />
-        <div className="space-y-2">
-          <SingleChoiceField
-            label="Supplier"
-            value={supplier}
-            onChange={setSupplier}
-            search={suppliers.search}
-            onCreate={suppliers.create}
-            placeholder="Search sellers..."
-          />
-          <SingleChoiceField
-            label="Shop"
-            value={venue}
-            onChange={setVenue}
-            search={searchShops}
-            onCreate={createShop}
-            placeholder="Search shops..."
-          />
-        </div>
-        <div className="grid max-w-sm grid-cols-[1fr_6rem] gap-4">
-          <Input
-            label="Price"
-            inputMode="decimal"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="0.00"
-          />
-          <Input
-            label="Currency"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            placeholder="EUR"
-            maxLength={3}
-          />
-        </div>
-        {(price || currency) && priceError && (
-          <p className="text-xs text-accent-red-text">{priceError}</p>
-        )}
-      </fieldset>
+      <AcquisitionFields
+        value={acquisition}
+        onChange={setAcquisition}
+        onDateError={(err) => setDateErrors((e) => ({ ...e, acquired: err }))}
+        shopType="perfumery"
+      />
 
       <Textarea
         label="Notes"

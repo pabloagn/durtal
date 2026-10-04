@@ -61,7 +61,7 @@ export const WORK_DOMAINS = {
     pluralLabel: "Films",
     basePath: "/films",
     keys: { go: "f", add: "f" },
-    enabled: false,
+    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,

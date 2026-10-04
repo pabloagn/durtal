@@ -10,7 +10,7 @@ import {
   filmReleases,
 } from "@/lib/db/schema";
 import { dateFromColumns } from "./dates";
-import { newDate, orderWithin, uuids, type Db } from "./work-store";
+import { newDate, orderWithin, organizationRoleQueries, uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
 import type {
@@ -76,6 +76,7 @@ export function insertLanguages(d: Db, workId: string, ids: string[]) {
       ]
     : [];
 }
+/** Production companies in credited order; each gets the role it is named in. */
 export function insertFilmOrganizations(
   d: Db,
   workId: string,
@@ -83,6 +84,7 @@ export function insertFilmOrganizations(
 ) {
   return list.length
     ? [
+        ...organizationRoleQueries(d, list),
         d.insert(filmOrganizations).values(
           orderWithin(list, (o) => o.role).map((o) => ({ ...o, workId })),
         ),
@@ -108,6 +110,20 @@ export function newReleases(versionId: string, list: ReleaseInput[]) {
     };
   });
 }
+/** A release's distributor gets the distribution role, in the same write. */
+export function distributorRoleQueries(
+  d: Db,
+  releases: { distributorId: string | null }[],
+) {
+  return organizationRoleQueries(
+    d,
+    releases.flatMap((r) =>
+      r.distributorId
+        ? [{ organizationId: r.distributorId, role: "distribution_company" as const }]
+        : [],
+    ),
+  );
+}
 export function insertReleases(
   d: Db,
   rows: ReturnType<typeof newReleases>[number]["row"][],
@@ -123,6 +139,10 @@ function taxonomyMatch(itemId: string) {
   return sql`exists(with recursive narrower(id) as (
       select ${itemId}::uuid union select i.id from custom_taxonomy_items i join narrower n on i.parent_id=n.id)
     select 1 from narrower n join custom_taxonomy_item_works t on t.item_id=n.id where t.work_id=${works.id})`;
+}
+/** Any of these people holds this role on the film */
+function creditedAs(roleId: string, personIds: string[]) {
+  return sql`exists(select 1 from work_credits c where c.work_id=${works.id} and c.role_id=${roleId} and c.person_id in (${uuids(personIds)}))`;
 }
 function activeCopies(media?: readonly string[]) {
   return sql`exists(select 1 from film_holdings h where h.work_id=${works.id} and h.status<>'disposed'${
@@ -159,6 +179,8 @@ export function filmWhere(q: FilmQuery): SQL | undefined {
           : sql``
       })`,
     );
+  if (q.directorIds?.length) conditions.push(creditedAs("film.director", q.directorIds));
+  if (q.castIds?.length) conditions.push(creditedAs("film.cast", q.castIds));
   for (const itemId of new Set(q.taxonomyItemIds ?? []))
     conditions.push(taxonomyMatch(itemId));
   if (q.countryIds?.length)
@@ -212,6 +234,8 @@ export async function loadFilmCards(ids: string[]) {
       cropX: number;
       cropY: number;
       cropZoom: number;
+      /** The poster's main color: the frame shows it while the image loads */
+      tone: string | null;
     } | null;
   }>(
     await db.execute(sql`select w.id,w.slug,w.title,d.original_title as "originalTitle",w.rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
@@ -224,7 +248,7 @@ export async function loadFilmCards(ids: string[]) {
         from film_countries x join countries k on k.id=x.country_id where x.work_id=w.id),'[]') as countries,
       (select jsonb_build_object('physical',count(*) filter (where h.medium='physical'),'digital',count(*) filter (where h.medium='digital'))
         from film_holdings h where h.work_id=w.id and h.status<>'disposed') as holdings,
-      (select jsonb_build_object('s3Key',m.s3_key,'thumbnailS3Key',m.thumbnail_s3_key,'cropX',m.crop_x,'cropY',m.crop_y,'cropZoom',m.crop_zoom)
+      (select jsonb_build_object('s3Key',m.s3_key,'thumbnailS3Key',m.thumbnail_s3_key,'cropX',m.crop_x,'cropY',m.crop_y,'cropZoom',m.crop_zoom,'tone',m.color_palette->'dominant'->>'hex')
         from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.created_at desc,m.id limit 1) as poster
       from works w join film_details d on d.work_id=w.id left join catalogue_dates rd on rd.id=d.release_date_id
       where w.kind='film' and w.id in (${uuids(ids)})`),

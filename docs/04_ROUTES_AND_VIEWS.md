@@ -28,7 +28,11 @@
 /perfumes/new               Add a perfume
 /perfumes/[slug]            Perfume detail (slug format: {title}-by-{house});
                             ?formulation={id} chooses one formulation
-/films, /paintings          Homes of the other collections; 404 until each opens
+/films                      Films: the film collection's home (open)
+/films/new                  Add a film
+/films/[slug]               Film detail (slug format: {title}-by-{director});
+                            ?add=version opens "Add version"
+/paintings                  Home of the painting collection; 404 until it opens
 ```
 
 A collection opens when `WORK_DOMAINS[kind].enabled` is true
@@ -217,16 +221,74 @@ samples or listings cannot be deleted; the dialog says what to do first.
 Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
 in the house, people and note pickers; Escape closes a dialog.
 
-### Films, Paintings (`/films`, `/paintings`)
+### Films (`/films`)
+
+Open since SLN-367. `src/app/films/page.tsx` shows the title, "Add film", the
+collection switch, search (titles and original titles), the sorts (title,
+release, runtime, added, rating), grid and list views (saved:
+`durtal-films-view-mode`, `durtal-films-grid-columns`), paging, and the empty,
+no-results, loading and error states. An empty catalogue shows "No films yet"
+with "Add film".
+
+Filters (`FilmFilters`, `src/components/films/film-filters.tsx`) live in the
+URL. Several values of one key are a comma list; unknown or malformed values
+are dropped (`filmQueryFromParams`, `src/lib/catalogue/film-params.ts`):
+
+| Parameter | Matches |
+|-----------|---------|
+| `director`, `cast` | Person ids; any one listed in that role. A director and a cast member must both match |
+| `genre` | Film genre ids; all listed, a broader genre takes in its narrower ones |
+| `language`, `country` | Original language or production country ids; any one listed |
+| `holding` | `owned` or `not_owned` (both: no filter) |
+| `medium` | `physical`, `digital` copies held |
+| `favourite` | `1`: favourites only |
+| `from`, `to` | Release years; reversed years swap; an unknown date never matches |
+
+A card (`FilmCard`) shows the poster in a 2:3 frame, cropped as framed, over its
+own tone (or a title card drawn from the title and year, `TitleCard`,
+`src/components/shared/no-photo.tsx`), the title on two fixed lines, the
+directors, and "1982 · 1h 49m · US". Chips mark a favourite and the copies held.
+A list row (`FilmRow`) shows a small poster, title, directors and facts, and
+the copies held (under the facts on a phone).
+
+### Film detail (`/films/[slug]`)
+
+The active still (a `background` image) lies behind the header, dimmed, as on a
+book page. The header has the poster (or the title card), the title with the
+favourite toggle and the action menu (Edit, Images, Delete) on its cap-height
+center, the original title, and: directed by (links to `/films?director=`),
+written by, starring (the first three, links to `/films?cast=`), released,
+runtime (per version when they differ), the copies in the collection and the
+personal rating.
+
+`DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
+order, characters, credited names; the first twelve until "Show all"), Crew by
+role, Versions (each cut with its runtime and releases: territory, format,
+date, distributor), Copies, Sources and Your notes. The record column holds
+Details (original title, first release, countries, languages, production,
+added), Genres (edited in place) and Media counts. Then the gallery and related
+films ("More by {director}", "Shared cast", "Shared genres").
+
+Create and edit share `FilmForm`: title, original title, cast and crew in three
+groups (direction and writing, cast, crew; each with roles, characters,
+credited names, "Unknown" and reordering), first release of any precision,
+countries, languages, production companies, genres and synopsis. On create, a
+film already in the catalogue under the same title or original title is shown:
+a remake is a new film, and a cut goes to that film as a version ("Add a version
+to it" opens `?add=version`). Dialogs add and edit versions with their
+releases, and copies (physical or digital, version and release, status,
+storage, acquisition, disposal). A version a copy names, and a film with
+copies, cannot be deleted; the dialog says what to do first.
+
+### Paintings (`/paintings`)
 
 Reachable once the collection opens (see Route Map). `DomainHome`
-(`src/components/domains/domain-home.tsx`) shows the title, "Add film" ("Add
-painting"), the collection switch, search, the collection's sorts, grid and list
-views (saved per collection: `durtal-films-view-mode`), paging, and empty,
-no-results, loading and error states. Records use `DomainTileCard` and
-`DomainTileRow`: the image in the collection's slot (contained, never cropped)
-or the title's first letter, the credited people and the years. Detail and
-domain-specific cards belong to the collection's own task (SLN-367, SLN-368).
+(`src/components/domains/domain-home.tsx`) shows the title, "Add painting", the
+collection switch, search, the collection's sorts, grid and list views (saved:
+`durtal-paintings-view-mode`), paging, and empty, no-results, loading and error
+states. Records use `DomainTileCard` and `DomainTileRow`: the image contained,
+never cropped, or the title's first letter, the credited people and the years.
+Detail and domain-specific cards belong to SLN-368.
 
 ### Work Detail (`/library/[slug]`)
 

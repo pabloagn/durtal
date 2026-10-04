@@ -21,6 +21,12 @@ interface TaxonomyAssignmentsProps {
   level: "work" | "edition";
   ownerId: string;
   families: Family[];
+  /**
+   * Shows each family's name beside its terms. Off where a heading already
+   * names the one family (a film's Genres): the name is kept for screen
+   * readers and the terms take the full width.
+   */
+  labelled?: boolean;
 }
 
 /**
@@ -32,6 +38,7 @@ export function TaxonomyAssignments({
   level,
   ownerId,
   families,
+  labelled = true,
 }: TaxonomyAssignmentsProps) {
   if (!families.length) return null;
   return (
@@ -43,6 +50,7 @@ export function TaxonomyAssignments({
           kind={kind}
           level={level}
           ownerId={ownerId}
+          labelled={labelled}
         />
       ))}
     </div>
@@ -54,6 +62,7 @@ function FamilyAssignment({
   kind,
   level,
   ownerId,
+  labelled,
 }: { family: Family } & Omit<TaxonomyAssignmentsProps, "families">) {
   const router = useRouter();
   const [items, setItems] = useState(family.items);
@@ -98,7 +107,9 @@ function FamilyAssignment({
 
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 text-sm">
-      <span className="w-32 shrink-0 text-xs leading-6 text-fg-secondary">
+      <span
+        className={labelled ? "w-32 shrink-0 text-xs leading-6 text-fg-secondary" : "sr-only"}
+      >
         {family.name}
       </span>
       <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5">

@@ -254,7 +254,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
       ).withoutEditions.map((r) => r.id),
     ).toEqual([books[1]]);
   });
-  it("keeps shared recommendation and taxonomy links but counts and lists only books", async () => {
+  it("keeps shared recommendation and taxonomy links but counts and lists only open collections", async () => {
     expect((await getRecommenderList()).rows[0].bookCount).toBe(1);
     expect(ids((await getRecommender(recommender))!.books)).toEqual([books[0]]);
     expect((await getSubjectsWithWorkCounts())[0].workCount).toBe(1);
@@ -265,11 +265,12 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           ?.entityIds,
       ).toEqual([books[0]]);
     }
+    // A family counts the works of every open collection: the book and the film
     expect(
       (await getTaxonomyFamilies())
         .filter((f) => ["subjects", "mood"].includes(f.slug))
         .map((f) => f.entityCount),
-    ).toEqual([1, 1]);
+    ).toEqual([2, 2]);
     expect(await c`select * from work_subjects`).toHaveLength(4);
   });
   it("exports selected books without serializing other media as publications", async () => {

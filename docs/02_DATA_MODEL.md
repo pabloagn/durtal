@@ -140,8 +140,9 @@ read-time hint (default 30 days); an old observation stays visibly dated.
 ## Film domain model
 
 Migration `0046_film_model` adds a film profile, versions (cuts), releases and
-optional personal copies. The domain stays disabled until its screens and
-release gates pass (`works_kind_enabled_check` still allows only books).
+optional personal copies. Films open with their screens (SLN-367):
+`works_kind_enabled_check` allows `book` and `film`, in step with
+`WORK_DOMAINS.film.enabled`.
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |
@@ -164,9 +165,11 @@ cannot move to another film, and a release cannot move to another version. A
 copy's version and release must belong to its film, and a release to the named
 version. A physical copy needs a physical location and a digital copy a digital
 one; location type and sublocation changes that would break this are rejected.
-A copy's supplier needs the `retailer` role. Company, distributor and supplier
-roles in use cannot be removed (deferred constraint trigger on
-`organization_roles`). Every source must be owned by the same film.
+A copy's supplier needs the `retailer` role. The film services add the role a
+company, distributor or supplier needs in the same transaction as the link; a
+role it already has stays. Company, distributor and supplier roles in use
+cannot be removed (deferred constraint trigger on `organization_roles`). Every
+source must be owned by the same film.
 
 Copies are the only personal holdings: curation, ratings and viewing never
 create one. A copy protects its film, version and release from deletion
@@ -487,7 +490,7 @@ The abstract intellectual creation. A work exists independently of any particula
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
 | `kind` | `work_kind_enum` | NOT NULL, default `book`; immutable; currently book-only CHECK | Stable domain identity, independent of work-type taxonomy |
-| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug. Books: `{title}-by-{author}`, with `-2`, `-3`... when taken; it follows the title and primary author, so a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`, books only). Perfumes: `{title}-by-{house}` (the house, else the brand; `{title}` with neither), with `-2`, `-3`... when taken, set at creation and unchanged by renames. Films and paintings: `{title}-{uuid}`, unchanged by renames. Old slugs do not redirect |
+| `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug. Books: `{title}-by-{author}`, with `-2`, `-3`... when taken; it follows the title and primary author, so a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`, books only). Perfumes: `{title}-by-{house}` (the house, else the brand; `{title}` with neither), with `-2`, `-3`... when taken, set at creation and unchanged by renames. Films: `{title}-by-{director}` (the first director, by name or as credited; `{title}` with none), with `-2`, `-3`... when taken, set at creation and unchanged by renames. Paintings: `{title}-{uuid}`, unchanged by renames. Old slugs do not redirect |
 | `original_language` | TEXT | nullable, default `'en'`; required for books and null for other domains (`works_language_domain_check`) | Language code; stored form set by trigger (see `languages`). An absent value stays absent |
 | `original_year` | SMALLINT | nullable | Year of first publication |
 | `description` | TEXT | nullable | Synopsis or summary |

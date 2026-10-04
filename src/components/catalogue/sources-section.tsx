@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { citeSource, deleteCitedSource } from "@/lib/actions/catalogue-provenance";
+import type { SourceOwner } from "@/lib/catalogue/provenance";
 
 export interface SourceView {
   id: string;
@@ -20,7 +21,7 @@ export interface SourceView {
   /** "Consulted Oct 1, 2026" */
   consulted: string;
   note: string | null;
-  /** The user cited it (not a provider), and nothing on the perfume cites it */
+  /** The user cited it (not a provider), and nothing on the record cites it */
   removable: boolean;
   /** Why it cannot be removed, when it cannot */
   kept: string | null;
@@ -34,25 +35,29 @@ function today() {
 
 /**
  * Where the facts on this page come from: a website, a book, a box. A source
- * can then be cited for the dates or a formulation; a cited one stays.
+ * can then be cited for a fact, such as a date; a cited one stays.
  */
 export function SourcesSection({
-  perfumeId,
-  perfumeTitle,
+  owner,
+  title,
   sources,
+  examples,
 }: {
-  perfumeId: string;
-  perfumeTitle: string;
+  owner: SourceOwner;
+  /** The record's name, under the dialog title */
+  title: string;
   sources: SourceView[];
+  /** Placeholders of the form: where facts of this kind come from, and what they say */
+  examples: { name: string; says: string };
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
 
   return (
-    <section className="mb-10" aria-labelledby="perfume-sources">
+    <section className="mb-10" aria-labelledby="sources">
       <SectionHeading
-        id="perfume-sources"
+        id="sources"
         title="Sources"
         count={sources.length || undefined}
         action={
@@ -128,19 +133,24 @@ export function SourcesSection({
         </ul>
       )}
 
-      <Dialog open={adding} onClose={() => setAdding(false)} title="Add source" description={perfumeTitle} className="max-w-xl">
+      <Dialog open={adding} onClose={() => setAdding(false)} title="Add source" description={title} className="max-w-xl">
         {adding && (
-          <SourceForm
-            perfumeId={perfumeId}
-            onDone={() => setAdding(false)}
-          />
+          <SourceForm owner={owner} examples={examples} onDone={() => setAdding(false)} />
         )}
       </Dialog>
     </section>
   );
 }
 
-function SourceForm({ perfumeId, onDone }: { perfumeId: string; onDone: () => void }) {
+function SourceForm({
+  owner,
+  examples,
+  onDone,
+}: {
+  owner: SourceOwner;
+  examples: { name: string; says: string };
+  onDone: () => void;
+}) {
   const router = useRouter();
   const [attribution, setAttribution] = useState("");
   const [url, setUrl] = useState("");
@@ -155,7 +165,7 @@ function SourceForm({ perfumeId, onDone }: { perfumeId: string; onDone: () => vo
         label="Name"
         value={attribution}
         onChange={(e) => setAttribution(e.target.value)}
-        placeholder="Fragrantica, the house's website, a book and page"
+        placeholder={examples.name}
         maxLength={1000}
       />
       <Input
@@ -174,7 +184,7 @@ function SourceForm({ perfumeId, onDone }: { perfumeId: string; onDone: () => vo
         onChange={(e) => setNote(e.target.value)}
         rows={2}
         maxLength={2000}
-        placeholder="Launch year, perfumer"
+        placeholder={examples.says}
       />
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone} disabled={saving}>
@@ -188,7 +198,7 @@ function SourceForm({ perfumeId, onDone }: { perfumeId: string; onDone: () => vo
             setSaving(true);
             try {
               await citeSource({
-                owner: { kind: "perfume", id: perfumeId },
+                owner,
                 attribution: attribution.trim(),
                 url: url.trim() || null,
                 retrievedOn: day,

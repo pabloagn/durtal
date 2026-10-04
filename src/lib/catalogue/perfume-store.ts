@@ -4,16 +4,14 @@ import type { z } from "zod";
 import { db } from "@/lib/db";
 import {
   works,
-  organizationRoles,
   perfumeNotes,
   perfumeOrganizations,
   perfumeVariantNotes,
   perfumeVariantPerfumers,
   perfumeVariantTaxa,
 } from "@/lib/db/schema";
-import type { NON_PUBLISHING_ROLES } from "./organizations";
 import { dateFromColumns } from "./dates";
-import { orderWithin, uuids, type Db } from "./work-store";
+import { orderWithin, organizationRoleQueries, uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
 import type {
@@ -54,30 +52,6 @@ export function bottleFingerprint(id: SQL) {
   return sql`(select md5(to_jsonb(pb)::text) from perfume_bottles pb where pb.id=${id})`;
 }
 // ── Section writers (built on the transaction connection) ────────────────────
-
-/**
- * Naming an organization as a house, brand, manufacturer or retailer gives it
- * that role, in the same write: the database requires the role, and the user
- * chose it. A role it already has stays as it is; no other role is added.
- */
-export function organizationRoleQueries(
-  d: Db,
-  list: { organizationId: string; role: (typeof NON_PUBLISHING_ROLES)[number] }[],
-) {
-  const unique = [
-    ...new Map(list.map((o) => [`${o.organizationId}:${o.role}`, o])).values(),
-  ];
-  return unique.length
-    ? [
-        d
-          .insert(organizationRoles)
-          .values(
-            unique.map(({ organizationId, role }) => ({ organizationId, role })),
-          )
-          .onConflictDoNothing(),
-      ]
-    : [];
-}
 
 export function insertOrganizations(
   d: Db,
