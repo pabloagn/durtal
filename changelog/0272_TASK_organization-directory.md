@@ -1,6 +1,6 @@
 # Task 0272: Shared Organization Directory (SLN-369)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-04
 **Priority**: MEDIUM
 **Type**: Feature
@@ -66,7 +66,12 @@ in each collection's words ("Perfume house", "Distributor", "Museum"),
   linked. Delete lists what still links to it. Loading and not-found states.
 - The publisher page's Links group opens the organization page.
 - Sidebar and command palette: "Organizations" after Publishers (Landmark
-  icon). `HorizontalCarousel` takes a heading level and a count.
+  icon).
+- `SectionHeading` as an h3 takes `type-item-title` (a block inside a titled
+  section, docs 03); `HorizontalCarousel` passes a heading level and a count
+  through. The organization dialogs render at the end of the page (a portal),
+  outside the title rows, so nothing in a title row holds them.
+- `page-weight.json` gains `/organizations` and `/organizations/*`.
 
 **Deferred**: maps and timelines of organizations; a role filter for more than
 one role at a time; retailer and production company filters on the perfume and
@@ -80,3 +85,25 @@ film homes.
   level, parent and slug; a role in use cannot be removed; a sparse museum;
   delete of a linked and an unlinked organization) and
   `catalogue/organization-directory.test.ts` (words, counts, sidebar entry).
+- Checks: `pnpm typecheck` clean; `pnpm lint` has no errors and no new
+  warnings; `python3 scripts/qa/test-local.py` passes every suite (132 files,
+  1,620 tests).
+- Browser (headless Chrome, own profile) on `preview-local.py --from-dump` of
+  the 2026-10-04 11:37 backup (264 organizations), with seeded films,
+  perfumes, a painting, a perfume house (Guerlain), a museum with a venue and
+  an owned painting (Rijksmuseum), a gallery with nothing linked, and Penguin
+  Books as publisher, retailer and distributor. Audits at 1440 and 390px on
+  the directory (all, one role, a search, no results), the add, edit and
+  delete dialogs, a multi-role publisher, a perfume house, a museum, a sparse
+  gallery, a publishing group and the publisher page: no deviation over
+  0.5px, no text under 4.5:1, no unnamed or nested control, no overflow, no
+  console error.
+- Flows: added an organization with a role and another name (opens its page,
+  found by the other name); edited a name and a role; removing Penguin's
+  retailer role shows "This organization role is in use by perfume records"
+  and keeps it; Delete on Penguin lists 82 editions, 3 houses under it, 1
+  retailer listing and 1 film distributed, and stays off; an unlinked gallery
+  deletes and the page returns to the directory.
+- `page-weight.js` on that preview: `/organizations` 132 KB in 78 ms,
+  `/organizations/*` 54 KB in 76 ms; Penguin's page 75 KB. Every other route
+  is within budget except `/library` (313 KB), which this task does not change.

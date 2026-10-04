@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CapAligned } from "./cap-aligned";
-import { SectionHeading } from "./section-heading";
+import { SectionHeading, headingRole } from "./section-heading";
 
 interface HorizontalCarouselProps {
   title: string;
@@ -77,7 +77,7 @@ export function HorizontalCarousel({
           (canScrollLeft || canScrollRight) && (
             // Carries the title's type: the arrows sit on the title's
             // cap-height center
-            <CapAligned height={24} className="type-section-title">
+            <CapAligned height={24} className={headingRole(as)}>
               <div className="flex gap-1">
                 <button
                   onClick={() => scroll("left")}

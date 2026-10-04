@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,28 +42,35 @@ export function OrganizationActions({
           ]}
         />
       </CapAlignedControls>
-      <OrganizationDialog open={open === "edit"} onClose={close} organization={organization} />
-      <ConfirmDeleteDialog
-        open={open === "delete"}
-        onClose={close}
-        title="Delete organization"
-        name={organization.name}
-        description={
-          blockers.length
-            ? "Records still link to this organization. Remove those links first:"
-            : "This removes the organization and its other names."
-        }
-        blockers={blockers}
-        onConfirm={async () => {
-          try {
-            await removeOrganization(organization.id);
-            toast.success(`${organization.name} deleted`);
-            router.push("/organizations");
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the organization");
-          }
-        }}
-      />
+      {/* The dialogs go to the end of the page, outside the title row */}
+      {open &&
+        createPortal(
+          <>
+            <OrganizationDialog open={open === "edit"} onClose={close} organization={organization} />
+            <ConfirmDeleteDialog
+              open={open === "delete"}
+              onClose={close}
+              title="Delete organization"
+              name={organization.name}
+              description={
+                blockers.length
+                  ? "Records still link to this organization. Remove those links first:"
+                  : "This removes the organization and its other names."
+              }
+              blockers={blockers}
+              onConfirm={async () => {
+                try {
+                  await removeOrganization(organization.id);
+                  toast.success(`${organization.name} deleted`);
+                  router.push("/organizations");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not delete the organization");
+                }
+              }}
+            />
+          </>,
+          document.body,
+        )}
     </>
   );
 }

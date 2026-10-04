@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -244,7 +245,10 @@ function OrganizationForm({
   );
 }
 
-/** "Add organization" in the directory's header, with its dialog */
+/**
+ * "Add organization" in the directory's header. Its dialog goes to the end of
+ * the page, outside the header row, so nothing in the row holds it.
+ */
 export function AddOrganizationButton() {
   const [open, setOpen] = useState(false);
   return (
@@ -253,7 +257,8 @@ export function AddOrganizationButton() {
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add organization
       </Button>
-      <OrganizationDialog open={open} onClose={() => setOpen(false)} />
+      {open &&
+        createPortal(<OrganizationDialog open onClose={() => setOpen(false)} />, document.body)}
     </>
   );
 }
