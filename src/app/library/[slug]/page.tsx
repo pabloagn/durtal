@@ -67,6 +67,8 @@ import { formatBookClipboardText } from "@/lib/utils/copy-book";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { DetailColumns } from "@/components/shared/detail-layout";
+import { LinkedWorksSection } from "@/components/catalogue/work-relations";
+import { getWorkRelations } from "@/lib/actions/work-relations";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
 import { languageName } from "@/lib/utils/language";
 
@@ -155,6 +157,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     similarWorks,
     markRows,
     seriesWorks,
+    links,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -174,6 +177,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     work.seriesId
       ? getOtherWorksInSeries(work.seriesId, work.id)
       : Promise.resolve([]),
+    getWorkRelations(work.id),
   ]);
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
@@ -622,6 +626,13 @@ export default async function WorkDetailPage({ params }: PageProps) {
             ))}
           </div>
         </section>
+
+        {/* Recorded links only; "Link a work" is in the actions menu */}
+        <LinkedWorksSection
+          work={{ id: work.id, kind: "book", title: work.title }}
+          relations={links}
+          showEmpty={false}
+        />
       </DetailColumns>
 
       {/* Gallery collage */}
