@@ -8,6 +8,7 @@ import { updateInstance } from "@/lib/actions/instances";
 import { todayLocal } from "@/lib/utils/date";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { INSTANCE_STATUSES } from "@/lib/types/index";
+import { enumLabel } from "@/lib/utils/labels";
 
 interface InstanceStatusButtonProps {
   instanceId: string;
@@ -98,7 +99,7 @@ export function InstanceStatusButton({
         disabled={isPending}
         className={`inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors hover:bg-bg-tertiary disabled:opacity-50 ${statusColorClass}`}
       >
-        {currentStatus.replace(/_/g, " ")}
+        {enumLabel(currentStatus)}
         <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
       </button>
 
@@ -145,7 +146,7 @@ export function InstanceStatusButton({
                     : "text-fg-secondary"
                 }`}
               >
-                {s.replace(/_/g, " ")}
+                {enumLabel(s)}
                 {s === currentStatus && (
                   <span className="ml-1 text-fg-secondary">(current)</span>
                 )}

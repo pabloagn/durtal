@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { RecordGroup, RecordPanel } from "@/components/shared/detail-layout";
 import { WorkDetails } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
+import { enumLabel, metadataSourceLabel } from "@/lib/utils/labels";
 
 type Order = Awaited<ReturnType<typeof getOrdersForWork>>[number];
 
@@ -80,7 +81,7 @@ export function WorkRecord({
               <li key={order.id}>
                 <div className="flex items-baseline justify-between gap-3">
                   <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "muted"}>
-                    {order.status.replace(/_/g, " ")}
+                    {enumLabel(order.status)}
                   </Badge>
                   <span className="shrink-0 font-mono text-micro text-fg-secondary">
                     {new Date(order.orderDate).toLocaleDateString("en-US", {
@@ -91,7 +92,7 @@ export function WorkRecord({
                   </span>
                 </div>
                 <p className="mt-1 lines-1 text-xs text-fg-secondary">
-                  {order.venue?.name ?? order.acquisitionMethod.replace(/_/g, " ")}
+                  {order.venue?.name ?? enumLabel(order.acquisitionMethod)}
                 </p>
               </li>
             ))}
@@ -121,7 +122,7 @@ export function WorkRecord({
             <p
               className={`text-xs text-fg-secondary ${links.length > 0 ? "mt-3" : ""}`}
             >
-              Metadata from {work.metadataSource}
+              Metadata from {metadataSourceLabel(work.metadataSource)}
               {work.metadataSourceId && (
                 <span className="ml-1 font-mono">{work.metadataSourceId}</span>
               )}

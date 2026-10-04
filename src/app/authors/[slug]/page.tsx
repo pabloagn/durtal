@@ -26,6 +26,11 @@ import {
 import { Prose } from "@/components/shared/prose";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { displayYear } from "@/lib/utils/years";
+import {
+  countryDisplayName,
+  enumLabel,
+  metadataSourceLabel,
+} from "@/lib/utils/labels";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -98,10 +103,12 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     metadataFields.push({ label: "Last name", value: author.lastName });
   if (author.realName)
     metadataFields.push({ label: "Real name", value: author.realName });
+  if (author.gender)
+    metadataFields.push({ label: "Gender", value: enumLabel(author.gender) });
   if (author.metadataSource)
     metadataFields.push({
       label: "Metadata source",
-      value: author.metadataSource,
+      value: metadataSourceLabel(author.metadataSource),
     });
 
   const links = [
@@ -163,10 +170,10 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             firstName={author.firstName}
             lastName={author.lastName}
             realName={author.realName}
-            countryName={author.country?.name}
+            countryName={countryDisplayName(author.country)}
+            countryOfficialName={author.country?.name}
             countryCode={author.country?.alpha2}
             lifeDates={lifeDates}
-            gender={author.gender}
             posterUrl={posterUrl}
             posterCrop={posterCrop}
             workCount={works.length}
@@ -320,7 +327,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                           </span>
                         )}
                       </div>
-                      <Badge variant="blue">{edition.role}</Badge>
+                      <Badge variant="blue">{enumLabel(edition.role)}</Badge>
                     </div>
                   ))}
                 </div>

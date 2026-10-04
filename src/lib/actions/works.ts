@@ -70,6 +70,7 @@ import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import type { SQL } from "drizzle-orm";
+import { countryDisplayName } from "@/lib/utils/labels";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -845,7 +846,7 @@ export async function getLibraryStats() {
           with: {
             author: {
               with: {
-                country: { columns: { name: true } },
+                country: { columns: { name: true, alpha2: true } },
                 workAuthors: { columns: { workId: true } },
                 media: {
                   columns: {
@@ -900,7 +901,7 @@ export async function getLibraryStats() {
         photoS3Key: photoKey,
         photoTone:
           (activePoster as { tone?: string | null } | undefined)?.tone ?? null,
-        nationality: author.country?.name ?? null,
+        nationality: countryDisplayName(author.country),
         birthYear: author.birthYear,
         deathYear: author.deathYear,
         worksCount: author.workAuthors.length,

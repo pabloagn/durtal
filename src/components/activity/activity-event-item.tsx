@@ -22,7 +22,7 @@ function DescriptionText({ segments }: { segments: DescriptionSegment[] }) {
         seg.type === "label" ? (
           <span
             key={i}
-            className="inline-flex rounded-sm bg-bg-tertiary px-1.5 py-0.5 font-mono text-micro leading-none text-fg-primary"
+            className="inline-flex rounded-sm bg-bg-tertiary px-1.5 py-0.5 text-micro leading-none text-fg-primary"
           >
             {seg.value}
           </span>

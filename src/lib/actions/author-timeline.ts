@@ -9,6 +9,7 @@ import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
+import { countryDisplayName } from "@/lib/utils/labels";
 
 export interface AuthorTimelineItem {
   id: string;
@@ -52,7 +53,7 @@ export async function getAuthorsForTimeline(opts?: {
     orderBy: asc(authors.birthYear),
     with: {
       country: {
-        columns: { name: true },
+        columns: { name: true, alpha2: true },
       },
       workAuthors: {
         columns: { workId: true },
@@ -100,7 +101,7 @@ export async function getAuthorsForTimeline(opts?: {
       name: row.name,
       birthYear,
       deathYear: row.deathYear ?? null,
-      nationality: row.country?.name ?? null,
+      nationality: countryDisplayName(row.country),
       posterUrl: photoKey
         ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
         : null,
