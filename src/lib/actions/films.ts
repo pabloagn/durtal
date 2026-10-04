@@ -542,7 +542,8 @@ export async function getFilmVersion(id: string) {
   if (!row) return null;
   return (await loadVersions(row.workId, [id]))[0] ?? null;
 }
-export async function getFilmHolding(id: string) {
+/** A copy as the film page shows it. Not exported: a server action export is a callable endpoint, and only the writes below return it. */
+async function getFilmHolding(id: string) {
   z.uuid().parse(id);
   return (await loadHoldings(eq(filmHoldings.id, id)))[0] ?? null;
 }
