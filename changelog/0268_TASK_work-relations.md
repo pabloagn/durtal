@@ -1,6 +1,6 @@
 # Task 0268: Sourced Links Between Works (SLN-363)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-04
 **Priority**: MEDIUM
 **Type**: Feature
@@ -71,4 +71,24 @@ as they were, below and apart from the recorded links.
   kind-tied keys, inspiration source rules and source preservation, same-title
   works stay unlinked, deletion, a book merge) and
   `catalogue/work-relations.test.ts` (rules and labels).
-'''
+- Checks: `pnpm typecheck` and `pnpm lint` are clean (no new warnings);
+  `pnpm test` passes; `python3 scripts/qa/test-local.py` passes every suite.
+  `work-kind-migration.test.ts` lists `work_relations` with the other
+  additive tables.
+- Rehearsal: `preview-local.py --from-dump` on the 2026-10-04 11:37 backup
+  applied 0053 to 0058: 108 tables, 21,297 rows, 0 tables with differences.
+- Browser (headless Chrome, own profile, on that preview with seeded films,
+  perfumes and a painting): linked a remake (film to film), an adaptation
+  (film to a real book), a flanker (perfume to perfume) and an inspiration
+  (perfume to painting, with a new source) through the dialog; each shows from
+  both ends with its source. The book page shows the section only with a link,
+  and "Link a Work" opens the dialog from its menu.
+- Audits at 1440 and 390px on the film, perfume, painting and book pages and
+  on the link and remove dialogs: no deviation over 0.5px, no text under
+  4.5:1, no unnamed or nested control, no console error. The book page at
+  390px also shows a 19px offset on the "More in ..." carousel buttons and an
+  8px overflow from the ambient color layer; both appear on a book with no
+  link and come from code this task does not change.
+- `page-weight.js`: every route within budget except `/library` (313 KB on the
+  backup); `/library` is unchanged here and measures 328 KB on the live app.
+
