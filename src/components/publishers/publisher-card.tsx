@@ -18,6 +18,8 @@ export interface PublisherItem {
   editionCount: number;
   /** The house's active logo */
   logoUrl?: string | null;
+  /** The logo is a logo card (SLN-441): it fills its tile */
+  logoIsCard?: boolean;
   createdAt: string;
 }
 
@@ -25,7 +27,18 @@ export interface PublisherItem {
  * The house's logo, whole on a dark tile; with no logo, its initials on a
  * faint tint, like an author with no portrait (`Monogram`)
  */
-export function PublisherLogo({ name, url, className }: { name: string; url?: string | null; className: string }) {
+export function PublisherLogo({
+  name,
+  url,
+  card = false,
+  className,
+}: {
+  name: string;
+  url?: string | null;
+  /** A logo card already holds its margins and black ground: it fills the tile */
+  card?: boolean;
+  className: string;
+}) {
   return (
     <div className={`relative flex items-center justify-center overflow-hidden bg-bg-tertiary ${className}`}>
       {url ? (
@@ -33,7 +46,7 @@ export function PublisherLogo({ name, url, className }: { name: string; url?: st
           src={url}
           alt=""
           loading="lazy"
-          className="protected-image max-h-[80%] max-w-[80%] object-contain"
+          className={`protected-image ${card ? "h-full w-full object-cover" : "max-h-[80%] max-w-[80%] object-contain"}`}
         />
       ) : (
         <Monogram name={name} />
@@ -55,7 +68,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         aria-label={`Open ${p.name}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <PublisherLogo name={p.name} url={p.logoUrl} className="aspect-[3/2] rounded-t-sm border-b border-glass-border" />
+      <PublisherLogo name={p.name} url={p.logoUrl} card={p.logoIsCard} className="aspect-[3/2] rounded-t-sm border-b border-glass-border" />
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}
       <div className="type-item-title flex items-start gap-2 p-4 pb-2">

@@ -17,6 +17,7 @@ import { HOUSE_KIND_LABEL } from "@/lib/publishers/kinds";
 import { lastPage, pageHref, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { isLogoCard } from "@/lib/media/logo-card-options";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -202,6 +203,7 @@ export default async function PublisherPage({
             slug={p.slug}
             name={p.name}
             logoUrl={logo ? imageUrl(logo.thumbnailS3Key ?? logo.s3Key) : null}
+            logoIsCard={isLogoCard(logo?.processingParams)}
             facts={facts}
             favourite={p.isFavourite}
           />

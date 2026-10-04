@@ -34,6 +34,7 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import type { ColorPalette, MediaType } from "@/lib/types";
 import { imagePolicy } from "./policy";
+import type { LogoCardOptions } from "./logo-card";
 import { MEDIA_OWNER_COLUMN, mediaOwnerFields, supportsMediaType } from "./owner";
 
 /** A request the caller can correct; routes answer it with its status. */
@@ -58,6 +59,8 @@ export interface IngestInput {
   attribution?: MediaAttribution;
   /** Author portraits only. */
   processingParams?: MonochromeParams;
+  /** A logo card (SLN-441): the received logo, kept to run the switches again */
+  logoCard?: { original: Buffer; options: LogoCardOptions };
 }
 
 /** The owner's domain decides its image policy; a missing owner is refused. */
@@ -140,18 +143,19 @@ export async function ingestMedia(input: IngestInput) {
     }
 
   const fileId = input.fileId ?? randomUUID();
+  const original = input.logoCard?.original ?? rendered.original;
   const keys = {
     s3Key: goldMediaKey(owner.type, owner.id, mediaType, fileId),
     thumbnailS3Key: goldMediaThumbnailKey(owner.type, owner.id, mediaType, fileId),
-    originalS3Key: rendered.original
+    originalS3Key: original
       ? goldMediaOriginalKey(owner.type, owner.id, mediaType, fileId)
       : null,
   };
   const files: [string, Buffer][] = [
     [keys.s3Key, rendered.full],
     [keys.thumbnailS3Key, rendered.thumb],
-    ...(rendered.original && keys.originalS3Key
-      ? [[keys.originalS3Key, rendered.original] as [string, Buffer]]
+    ...(original && keys.originalS3Key
+      ? [[keys.originalS3Key, original] as [string, Buffer]]
       : []),
   ];
   const stored: string[] = [];
@@ -192,7 +196,9 @@ export async function ingestMedia(input: IngestInput) {
             sizeBytes: input.buffer.length,
             isActive: true,
             caption: input.caption ?? null,
-            processingParams: params,
+            processingParams: input.logoCard
+              ? ({ logoCard: input.logoCard.options } as unknown as MonochromeParams)
+              : params,
             colorPalette,
             ...attribution,
           })

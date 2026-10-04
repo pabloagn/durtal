@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { UploadZone } from "@/components/media/upload-zone";
+import { LogoCardUpload, type LogoSource } from "@/components/media/logo-card-upload";
+import { isLogoCard, parseLogoCardOptions } from "@/lib/media/logo-card-options";
 import {
   getMediaByType,
   setActiveMedia,
@@ -44,6 +46,8 @@ interface MediaItem {
   cropX: number;
   cropY: number;
   cropZoom: number;
+  /** A logo card's switches live here (SLN-441) */
+  processingParams?: unknown;
   brightness: number;
   contrast: number;
   createdAt: Date;
@@ -137,6 +141,9 @@ export function MediaManagerDialog({
   const [urlLoading, setUrlLoading] = useState(false);
 
   const [adjustmentVersion, setAdjustmentVersion] = useState(0);
+  // An organization's logo tab makes logo cards; a saved card can be adjusted
+  const logoCards = entityType === "organization" && activeTab === "poster";
+  const [adjusting, setAdjusting] = useState<LogoSource | null>(null);
   // Gallery images have no active one; clicking an image opens its details.
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const isGallery = activeTab === "gallery";
@@ -487,6 +494,22 @@ export function MediaManagerDialog({
                               {item.width}x{item.height}
                             </span>
                           )}
+                          {logoCards && isLogoCard(item.processingParams) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdjusting({
+                                  mediaId: item.id,
+                                  options: parseLogoCardOptions(
+                                    (item.processingParams as { logoCard?: unknown }).logoCard,
+                                  ),
+                                })
+                              }
+                              className="self-start text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                            >
+                              Adjust
+                            </button>
+                          )}
                           {isGallery && item.caption && (
                             <span className="truncate text-micro text-fg-secondary">
                               {item.caption}
@@ -515,7 +538,19 @@ export function MediaManagerDialog({
               </p>
             )}
 
-            {/* Upload section */}
+            {/* Upload section: an organization's logo becomes its card (SLN-441) */}
+            {logoCards ? (
+              <div className="border-t border-glass-border pt-4">
+                <LogoCardUpload
+                  organizationId={entityId}
+                  source={adjusting}
+                  onSaved={() => {
+                    setAdjusting(null);
+                    handleUploadComplete();
+                  }}
+                />
+              </div>
+            ) : (
             <div className="border-t border-glass-border pt-4">
               <UploadZone
                 entityType={entityType}
@@ -566,6 +601,7 @@ export function MediaManagerDialog({
                 </form>
               )}
             </div>
+            )}
 
             {/* Bulk actions bar */}
             {selected.size > 0 && (

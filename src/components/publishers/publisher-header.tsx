@@ -20,6 +20,7 @@ export function PublisherHeader({
   slug,
   name,
   logoUrl,
+  logoIsCard = false,
   facts,
   favourite,
 }: {
@@ -27,6 +28,8 @@ export function PublisherHeader({
   slug: string;
   name: string;
   logoUrl: string | null;
+  /** A logo card (SLN-441): a 3:2 tile it fills */
+  logoIsCard?: boolean;
   /** What the house is and where, in reading order: "Imprint of Penguin", "United Kingdom" */
   facts: React.ReactNode[];
   favourite: boolean;
@@ -53,13 +56,16 @@ export function PublisherHeader({
   return (
     <>
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:gap-8">
-        {/* A logo is never cut: it sits whole, centered, on its tile */}
-        <div className="relative flex size-40 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary">
+        {/* A logo is never cut: it sits whole, centered, on its tile; a logo
+            card fills its own 3:2 tile */}
+        <div
+          className={`relative flex ${logoIsCard ? "h-40 w-60" : "size-40"} shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary`}
+        >
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={`${name} logo`}
-              className="protected-image max-h-[85%] max-w-[85%] object-contain"
+              className={`protected-image ${logoIsCard ? "h-full w-full object-cover" : "max-h-[85%] max-w-[85%] object-contain"}`}
             />
           ) : (
             <Monogram name={name} />
