@@ -129,6 +129,9 @@ importers:
       '@eslint/eslintrc':
         specifier: ^3.3.5
         version: 3.3.5
+      '@next/eslint-plugin-next':
+        specifier: ^16.2.1
+        version: 16.2.1
       '@types/geojson':
         specifier: ^7946.0.16
         version: 7946.0.16
@@ -159,6 +162,9 @@ importers:
       eslint-config-next:
         specifier: ^16.2.1
         version: 16.2.1(@typescript-eslint/parser@8.58.0(eslint@10.1.0(jiti@2.6.1))(typescript@5.9.3))(eslint@10.1.0(jiti@2.6.1))(typescript@5.9.3)
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.0.1(eslint@10.1.0(jiti@2.6.1))
       postgres:
         specifier: ^3.4.8
         version: 3.4.8
