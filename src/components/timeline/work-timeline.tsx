@@ -33,16 +33,12 @@ function packIntoLanes(
   const assignments = new Map<string, number>();
 
   // At scale 1, works in one lane are at least LABEL_ROOM apart, so their
-  // labels fit side by side
+  // labels fit side by side. A work holds only its own marker: its edition
+  // dots show on hover, over whatever else is in the lane, so they reserve
+  // no space.
   for (const work of sorted) {
     const workLeft = work.originalYear * pixelsPerYear - LABEL_ROOM / 2;
-    const editionRights = work.editions.map(
-      (e) => (e.publicationYear ?? work.originalYear) * pixelsPerYear + 10,
-    );
-    const workRight = Math.max(
-      work.originalYear * pixelsPerYear + LABEL_ROOM / 2,
-      ...editionRights,
-    );
+    const workRight = work.originalYear * pixelsPerYear + LABEL_ROOM / 2;
 
     let lane = laneEnds.findIndex((end) => end < workLeft);
     if (lane === -1) {
