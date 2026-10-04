@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminToken } from "@/lib/api/admin";
 import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -14,12 +15,8 @@ import { s3, S3_BUCKET } from "@/lib/s3/client";
  * Returns a summary of how many were processed.
  */
 export async function POST(req: Request) {
-  if (process.env.ADMIN_TOKEN) {
-    const adminToken = req.headers.get("x-admin-token");
-    if (adminToken !== process.env.ADMIN_TOKEN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
 
   try {
     // Find all poster media without a color palette

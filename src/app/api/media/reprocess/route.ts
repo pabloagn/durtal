@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminToken } from "@/lib/api/admin";
 import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
 import { isNotNull } from "drizzle-orm";
@@ -18,12 +19,8 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
  * The full-size images keep their current quality (can't upscale).
  */
 export async function POST(req: Request) {
-  if (process.env.ADMIN_TOKEN) {
-    const adminToken = req.headers.get("x-admin-token");
-    if (adminToken !== process.env.ADMIN_TOKEN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
 
   try {
     const allMedia = await db

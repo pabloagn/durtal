@@ -37,7 +37,7 @@ All environment variables are listed in `.env.example`. Copy it to `.env.local` 
 | `NODE_ENV` | No | `development` | Node environment (`development`, `production` or `test`) |
 | `DURTAL_API_TOKEN` | No | — | Bearer token for the REST API write routes (orders, copies, works). Not set: every API write is refused. Make one with `openssl rand -hex 32`. See [05_API_REFERENCE.md](05_API_REFERENCE.md) |
 | `APP_TIMEZONE` | No | `Europe/Amsterdam` | IANA time zone the server uses for "today" (default order, shipped and delivered dates; export file names) |
-| `ADMIN_TOKEN` | No | — | Token for the bulk media endpoints (`/api/media/reprocess`, `/api/media/backfill-palettes`, `/api/media/apply-crops`), sent as the `x-admin-token` header. Not set: these endpoints skip the check, so set it (SLN-423 makes them refuse instead). Make one with `openssl rand -hex 32` |
+| `ADMIN_TOKEN` | No | — | Token for the bulk media endpoints (`/api/media/reprocess`, `/api/media/backfill-palettes`, `/api/media/apply-crops`), sent as the `x-admin-token` header. Not set: these endpoints refuse every call (SLN-423). Make one with `openssl rand -hex 32` |
 
 ### Python Scripts
 

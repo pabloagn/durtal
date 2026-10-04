@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminToken } from "@/lib/api/admin";
 import { and, eq, inArray, isNull, or, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -22,12 +23,8 @@ import {
  * run to one media item, to check it before the rest.
  */
 export async function POST(req: NextRequest) {
-  if (process.env.ADMIN_TOKEN) {
-    const adminToken = req.headers.get("x-admin-token");
-    if (adminToken !== process.env.ADMIN_TOKEN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = requireAdminToken(req);
+  if (denied) return denied;
   const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
   const id = req.nextUrl.searchParams.get("id");
   if (id && !z.string().uuid().safeParse(id).success)

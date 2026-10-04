@@ -5,6 +5,7 @@ import {
   describe,
   it,
   expect,
+  onTestFinished,
   vi,
 } from "vitest";
 import postgres from "postgres";
@@ -543,13 +544,20 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
   });
 
   it("moves crops saved as CSS framing into files, once", async () => {
+    vi.stubEnv("ADMIN_TOKEN", "test-admin-token");
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
     const { item } = await croppablePoster();
     await db
       .update(schema.media)
       .set({ cropX: 100, cropY: 100, cropZoom: 200 })
       .where(eq(schema.media.id, item.id));
     const call = async (query = "") =>
-      (await applyCrops(new NextRequest(`http://local/api/media/apply-crops${query}`, { method: "POST" }))).json();
+      (await applyCrops(new NextRequest(`http://local/api/media/apply-crops${query}`, {
+        method: "POST",
+        headers: { "x-admin-token": "test-admin-token" },
+      }))).json();
     expect(await call("?dryRun=1")).toMatchObject({ dryRun: true, total: 1 });
     expect((await row(item.id)).uncroppedS3Key).toBeNull();
     expect(await call()).toEqual({ total: 1, applied: 1, unchanged: 0, failed: [] });
