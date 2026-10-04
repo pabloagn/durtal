@@ -588,7 +588,8 @@ async function perfumeSlug(
       )?.name ?? "")
     : "";
   const base = generateWorkSlug(title, houseName, id);
-  return attempt < 2 ? uniqueSlug(works, base) : `${base}-${id}`;
+  // "new" is the Add perfume page, /perfumes/new: a perfume never takes it
+  return attempt < 2 ? uniqueSlug(works, base, { taken: ["new"] }) : `${base}-${id}`;
 }
 
 /**

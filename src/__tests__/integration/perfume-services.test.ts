@@ -359,6 +359,12 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     expect(await getPerfumeCount()).toBe(2);
   });
 
+  it("never gives a perfume the slug of the Add perfume page", async () => {
+    // /perfumes/new is the Add perfume page: a perfume titled "New" never takes it
+    expect((await createPerfume({ title: "New" })).slug).toBe("new-2");
+    expect((await createPerfume({ title: "New" })).slug).toBe("new-3");
+  });
+
   it("adds containers within quantity bounds and records disposition", async () => {
     const perfume = await fullPerfume();
     const edp = await createPerfumeVariant({ workId: perfume.id, concentration: "eau_de_parfum" });
