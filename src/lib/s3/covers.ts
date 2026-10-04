@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "./client";
 import { goldCoverKey, goldThumbnailKey, bronzeCoverKey } from "./keys";
 import { safeFetchImage } from "@/lib/net/safe-fetch";
@@ -70,10 +71,10 @@ export async function getPresignedUploadUrl(
   // causing S3 to reject the upload with a signature mismatch.
   const s3NoChecksum =
     noChecksumClient ?? new S3Client({
-      region: process.env.AWS_REGION ?? "us-east-1",
+      region: serverEnv().AWS_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId: serverEnv().AWS_ACCESS_KEY_ID,
+        secretAccessKey: serverEnv().AWS_SECRET_ACCESS_KEY,
       },
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",

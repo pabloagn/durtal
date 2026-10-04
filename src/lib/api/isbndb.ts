@@ -2,6 +2,7 @@ import type { SearchResult } from "./types";
 import { reportSearchFailure } from "./search-diagnostics";
 import { normalizeBinding } from "@/lib/utils/binding";
 import { stripControlChars } from "@/lib/utils/sanitize";
+import { serverEnv } from "@/lib/env";
 
 export interface IsbndbBook {
   title: string;
@@ -33,8 +34,8 @@ const BASE_URL = "https://api2.isbndb.com";
 const FETCH_TIMEOUT_MS = 8000;
 
 function getHeaders(): HeadersInit {
-  const apiKey = process.env.ISBNDN_API_KEY;
-  if (!apiKey) throw new Error("ISBNDN_API_KEY is not set");
+  const apiKey = serverEnv().ISBNDB_API_KEY;
+  if (!apiKey) throw new Error("ISBNDB_API_KEY is not set");
   return {
     Authorization: apiKey,
     "Content-Type": "application/json",

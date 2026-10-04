@@ -28,7 +28,7 @@ const response = (body: unknown, status = 200) => Response.json(body, { status }
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
-  vi.stubEnv("ISBNDN_API_KEY", "test-isbndb-secret");
+  vi.stubEnv("ISBNDB_API_KEY", "test-isbndb-secret");
   vi.stubEnv("GOOGLE_BOOKS_API_KEY", "test-google-secret");
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -143,7 +143,7 @@ describe("search orchestration with real adapters", () => {
   });
 
   it.each(["timeout", "bad-json", "missing-key"])("keeps fallback search working after %s without logging sensitive errors", async (failure) => {
-    if (failure === "missing-key") vi.stubEnv("ISBNDN_API_KEY", "");
+    if (failure === "missing-key") vi.stubEnv("ISBNDB_API_KEY", "");
     fetchMock.mockImplementation(async (input) => {
       const url = new URL(String(input));
       if (url.hostname === "api2.isbndb.com") {

@@ -18,6 +18,7 @@ import {
   SettingsIntro,
 } from "@/components/settings/settings-group";
 import { checkIntegration } from "@/lib/actions/integrations";
+import { publicEnv } from "@/lib/env";
 import type {
   CheckResult,
   CheckStatus,
@@ -36,7 +37,7 @@ const STATUS: Record<CheckStatus | "checking", { label: string; icon: LucideIcon
 
 /** Mapbox serves the browser, so the browser checks it, the way the authors map loads it. */
 async function checkMapbox(): Promise<CheckResult> {
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const token = publicEnv.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!token) return { status: "off", message: "NEXT_PUBLIC_MAPBOX_TOKEN is not set" };
   const start = performance.now();
   try {

@@ -24,7 +24,8 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
-      - ISBNDN_API_KEY=${ISBNDN_API_KEY}
+      - ISBNDB_API_KEY=${ISBNDB_API_KEY}
+      - ISBNDN_API_KEY=${ISBNDN_API_KEY} # old name, accepted for one release
       - ADMIN_TOKEN=${ADMIN_TOKEN}
       - DURTAL_API_TOKEN=${DURTAL_API_TOKEN}
       - NODE_ENV=production

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { serverEnv } from "@/lib/env";
 
 /**
  * Shared helpers for the write routes of the REST API (task 0174).
@@ -15,7 +16,7 @@ export const UUID_RE =
 
 /** An error response when the request may not write, otherwise null. */
 export function requireApiToken(req: NextRequest): NextResponse | null {
-  const expected = process.env.DURTAL_API_TOKEN;
+  const expected = serverEnv().DURTAL_API_TOKEN;
   if (!expected) {
     return NextResponse.json(
       { error: "Writes are disabled: DURTAL_API_TOKEN is not set" },

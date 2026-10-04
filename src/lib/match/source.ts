@@ -15,6 +15,7 @@ import {
   validIsbn13,
   type MatchCandidate,
 } from "@/lib/match/plan";
+import { serverEnv } from "@/lib/env";
 
 export const MATCH_SOURCES = ["isbndb", "google_books", "open_library"] as const;
 export type MatchSource = (typeof MATCH_SOURCES)[number];
@@ -102,7 +103,7 @@ export function cleanRecord(raw: RawRecord): MatchCandidate {
 const timeout = () => ({ signal: AbortSignal.timeout(10000) });
 
 async function fromGoogleBooks(id: string): Promise<SourceRecord> {
-  const key = process.env.GOOGLE_BOOKS_API_KEY;
+  const key = serverEnv().GOOGLE_BOOKS_API_KEY;
   const res = await fetch(
     `https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}${key ? `?key=${key}` : ""}`,
     timeout(),

@@ -3,6 +3,7 @@ import {
   ExternalFetchError,
   fetchWithTimeout,
 } from "@/lib/api/external-fetch";
+import { serverEnv } from "@/lib/env";
 
 const PLACES_API_BASE = "https://places.googleapis.com/v1/places:searchText";
 
@@ -73,7 +74,7 @@ function isRateLimited(): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const apiKey = serverEnv().GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       { error: "Google Places API key not configured" },

@@ -33,6 +33,7 @@ import {
 import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality-param";
 import { displayYear } from "@/lib/utils/years";
 import { LIST_PREFERENCES } from "@/lib/preferences";
+import { publicEnv } from "@/lib/env";
 
 interface AuthorProperties {
   id: string;
@@ -252,7 +253,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
     LIST_PREFERENCES.authors.view.fallback,
   );
   const [selection, setSelection] = useState<MapSelection | null>(null);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const token = publicEnv.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   const geojson: FeatureCollection<Point, AuthorProperties> = {
     type: "FeatureCollection",
