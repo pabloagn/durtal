@@ -453,7 +453,7 @@ export function WorkQuickEditDialog({
                     placeholder="Personal notes"
                   />
                   <div>
-                    <label className="type-label mb-1.5 block">
+                    <label htmlFor="quick-edit-recommender" className="type-label mb-1.5 block">
                       Recommended by
                     </label>
                     {recommenderIds.length > 0 && (
@@ -485,6 +485,7 @@ export function WorkQuickEditDialog({
                       </div>
                     )}
                     <select
+                      id="quick-edit-recommender"
                       value=""
                       onChange={(e) => {
                         const val = e.target.value;
@@ -533,6 +534,7 @@ export function WorkQuickEditDialog({
                         {author.name}
                       </span>
                       <select
+                        aria-label={`Role of ${author.name}`}
                         value={author.role}
                         onChange={(e) =>
                           updateAuthorRole(author.id, e.target.value)

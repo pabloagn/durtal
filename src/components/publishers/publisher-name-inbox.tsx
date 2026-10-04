@@ -155,11 +155,15 @@ function NameRow({
             variant={i === 0 ? "primary" : "secondary"}
             disabled={pending}
             onClick={() => link(s.publisher.id)}
+            className="max-w-full"
           >
-            {s.via === "isbn"
-              ? `Link ${row.editions.length === 1 ? "it" : `these ${row.editions.length}`} to `
-              : "Link to "}
-            {s.publisher.name}
+            {/* A long house name ends in an ellipsis on a phone: the line above names it whole */}
+            <span className="min-w-0 truncate">
+              {s.via === "isbn"
+                ? `Link ${row.editions.length === 1 ? "it" : `these ${row.editions.length}`} to `
+                : "Link to "}
+              {s.publisher.name}
+            </span>
           </Button>
         ))}
         <Button
@@ -177,8 +181,9 @@ function NameRow({
             variant="ghost"
             disabled={pending}
             onClick={() => decide([{ key: row.key, action: "create", usePrefixes }])}
+            className="max-w-full"
           >
-            Create &ldquo;{row.cleanName}&rdquo;
+            <span className="min-w-0 truncate">Create &ldquo;{row.cleanName}&rdquo;</span>
           </Button>
         )}
         <Button

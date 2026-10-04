@@ -958,7 +958,7 @@ export function AddBookWizard() {
             </div>
 
             <div>
-              <label className="type-label mb-1.5 block">
+              <label htmlFor="wizard-recommender" className="type-label mb-1.5 block">
                 Recommended by
               </label>
               {selectedRecommenderIds.length > 0 && (
@@ -988,6 +988,7 @@ export function AddBookWizard() {
                 </div>
               )}
               <select
+                id="wizard-recommender"
                 value=""
                 onChange={(e) => {
                   const val = e.target.value;

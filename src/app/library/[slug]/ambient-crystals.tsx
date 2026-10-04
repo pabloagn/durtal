@@ -140,7 +140,7 @@ export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
 
   return (
     <div
-      className="pointer-events-none absolute -left-6 -top-6 -right-6 z-0 h-[650px] overflow-hidden"
+      className="pointer-events-none absolute -left-4 -top-6 -right-4 z-0 h-[650px] overflow-hidden md:-left-6 md:-right-6"
       aria-hidden="true"
       // The glow stays behind the header: it is gone by 58% of its height,
       // above the description
