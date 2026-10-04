@@ -54,3 +54,10 @@ Measured on production builds (`next build` + `next start`) with live data:
   `design-audit.js`: no low contrast or unnamed controls. One nested control
   on the author page comes from markup this task does not touch.
 - No migration.
+
+### Follow-up: API reference entry (2026-10-04)
+- `docs/05_API_REFERENCE.md` gains an "Image Adjustments" section for
+  `GET /api/image-adjustments.css`. Without it, the doc-coverage test from
+  PR #24 (SLN-310) fails once both PRs are merged.
+- Checked by merging this branch with PR #24's head locally: the doc-coverage
+  test passes. `git merge-tree` against PRs #34 and #36 shows no conflict.

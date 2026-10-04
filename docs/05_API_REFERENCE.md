@@ -503,6 +503,22 @@ Redirect to a pre-signed read URL for an S3 object.
 
 ---
 
+## Image Adjustments
+
+### `GET /api/image-adjustments.css`
+
+The saved photo adjustments of every edited image, as one stylesheet. The root layout links it on every page. It is not called directly.
+
+**Query parameters**:
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `v` | string | no | Version: the latest `updated_at` in `image_adjustments` plus the row count. A saved adjustment changes it. |
+
+**Response**: `200` `text/css`. One `filter` rule per adjusted image, matched by its `img[src]` URLs. When `v` is the current version, `Cache-Control: public, max-age=31536000, immutable`. Any other `v` gets `Cache-Control: no-store`.
+
+---
+
 ## Geocode
 
 ### `GET /api/geocode`
