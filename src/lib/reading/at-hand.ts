@@ -35,7 +35,8 @@ export function atHandCopySql(workId: SQL | string, locationId: SQL | string | n
     join locations l on l.id = i.location_id
     where e.work_id = ${workId}::uuid and i.status = 'available'
       and (i.location_id = ${home} or l.type = 'digital')
-    order by (l.type = 'physical') desc, i.created_at, i.id
+    order by (l.type = 'physical') desc, i.created_at, i.id`;
+}
 
 const STATUS_WORDS: Record<string, string> = {
   in_storage: "In storage",
