@@ -25,6 +25,54 @@ interface DialogProps {
 const FIRST_FIELD =
   'input:not([type="hidden"],[type="checkbox"],[type="radio"],[type="file"],[type="range"],[type="color"],[type="button"],[type="submit"]):not(:disabled), textarea:not(:disabled), [contenteditable="true"]';
 
+/**
+ * Where focus goes back to when a dialog closes. A dialog opened from a menu
+ * item opens after the menu is gone, with focus already on the page body, so
+ * the last focused element and the button of the menu that held it are kept
+ * here as they happen.
+ */
+interface FocusOrigin {
+  target: HTMLElement;
+  menuButton: HTMLElement | null;
+}
+
+let lastFocus: FocusOrigin | null = null;
+
+function originOf(target: HTMLElement): FocusOrigin {
+  const menu = target.closest('[role="menu"]');
+  return {
+    target,
+    menuButton:
+      menu?.parentElement?.querySelector<HTMLElement>('[aria-haspopup="menu"]') ?? null,
+  };
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("focusin", (event) => {
+    if (event.target instanceof HTMLElement) lastFocus = originOf(event.target);
+  });
+}
+
+function focusOrigin(): FocusOrigin | null {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body) {
+    return lastFocus?.target === active ? lastFocus : originOf(active);
+  }
+  // Focus fell to the body because its element left the page (a menu item).
+  // An element still on the page lost focus on purpose: leave it alone.
+  return lastFocus && !lastFocus.target.isConnected ? lastFocus : null;
+}
+
+/** The control that opened the dialog, else its menu's button, else nothing. */
+function returnFocus(origin: FocusOrigin | null) {
+  for (const el of [origin?.target, origin?.menuButton]) {
+    if (el?.isConnected) {
+      el.focus();
+      return;
+    }
+  }
+}
+
 export function Dialog({
   open,
   onClose,
@@ -38,6 +86,27 @@ export function Dialog({
   const [expanded, setExpanded] = useState(false);
 
   const handleClose = useCallback(() => onClose(), [onClose]);
+
+  // Runs before the effect below moves focus into the dialog. However the
+  // dialog closes (Esc, Cancel, Close, a confirm, or the page unmounting it),
+  // focus goes back to the control that opened it. React's development
+  // re-run cleans up and runs again at once: the trigger is kept from the
+  // first run, and the cleanup that a re-run follows does nothing.
+  const origin = useRef<FocusOrigin | null | undefined>(undefined);
+  const openRuns = useRef(0);
+  useEffect(() => {
+    if (!open) return;
+    const run = ++openRuns.current;
+    if (origin.current === undefined) origin.current = focusOrigin();
+    return () => {
+      queueMicrotask(() => {
+        if (openRuns.current !== run) return;
+        const target = origin.current;
+        origin.current = undefined;
+        returnFocus(target ?? null);
+      });
+    };
+  }, [open]);
 
   useEffect(() => {
     const el = dialogRef.current;
