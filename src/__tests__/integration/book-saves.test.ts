@@ -152,7 +152,7 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
         recommenderIds: [critic, MISSING],
       }),
     ).rejects.toThrow();
-    const [stored] = await c`select title, rating, slug from works where id=${work.id}`;
+    const [stored] = await c`select title, rating::float8 as rating, slug from works where id=${work.id}`;
     expect(stored).toEqual({ title: "Demian", rating: 3, slug: "demian-by-hermann-hesse" });
     expect(await rows(work.id)).toEqual({
       authors: [hesse],
@@ -196,7 +196,7 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
     });
     expect(result).toEqual({ id: work.id });
     const [stored] =
-      await c`select w.rating, w.notes, s.title as series from works w join series s on s.id = w.series_id where w.id=${work.id}`;
+      await c`select w.rating::float8 as rating, w.notes, s.title as series from works w join series s on s.id = w.series_id where w.id=${work.id}`;
     expect(stored).toEqual({ rating: 4, notes: "Reread", series: "Hesse novels" });
     expect((await rows(work.id)).recommenders).toEqual([friend]);
   });

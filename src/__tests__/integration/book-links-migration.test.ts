@@ -56,9 +56,11 @@ describe.skipIf(!url)("book links migration", () => {
 
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
       const [after] = await c`select * from works`;
-      // Later migrations add more work columns, so match the known ones.
+      // Later migrations add more work columns, so match the known ones. The
+      // reading tracker makes the rating numeric(2,1), which returns as text.
       expect(after).toMatchObject({
         ...work,
+        rating: "5.0",
         goodreads_url: null,
         storygraph_url: null,
       });
