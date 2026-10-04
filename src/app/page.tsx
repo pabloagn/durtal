@@ -28,12 +28,12 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { BookCard } from "@/components/books/book-card";
+import { CardStatus } from "@/components/books/card-status";
+import { CardHeading } from "@/components/shared/card-heading";
 import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { DomainTileCard } from "@/components/domains/domain-tile";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
-import { STATUS_CONFIG } from "@/lib/constants/catalogue";
-import type { CatalogueStatus } from "@/lib/types";
 import { coverToneStyle, mediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
@@ -357,27 +357,23 @@ async function DashboardContent() {
                   ) : (
                     <Monogram name={author.name} />
                   )}
-                  {author.worksCount > 0 && (
-                    <div className="absolute right-1.5 top-1.5">
-                      <Badge variant="muted">
-                        {author.worksCount} {author.worksCount === 1 ? "book" : "books"}
-                      </Badge>
-                    </div>
-                  )}
                 </div>
-                <div className="p-3">
-                  {/* Fixed lines: every author card has the same height */}
-                  <h3 className="type-item-title lines-2">
-                    {author.name}
-                  </h3>
-                  <p className="mt-1 lines-1 text-sm text-fg-secondary">
-                    {author.nationality}
-                  </p>
-                  <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
-                    {author.birthYear
-                      ? `${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`
-                      : null}
-                  </p>
+                <div className="p-3.5">
+                  {/* The author card's layout: two name lines, one
+                      nationality line, then years and the book count */}
+                  <CardHeading title={author.name} subtitle={author.nationality} />
+                  <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
+                    {author.birthYear && (
+                      <span>
+                        {`${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`}
+                      </span>
+                    )}
+                    {author.worksCount > 0 && (
+                      <span className="ml-auto shrink-0">
+                        {author.worksCount} {author.worksCount === 1 ? "book" : "books"}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Link>
             ))}
@@ -397,35 +393,26 @@ async function DashboardContent() {
             {stats.wantedWorks.map((work) => {
               const edition = work.editions[0];
               const author = work.workAuthors[0]?.author;
-              const statusInfo =
-                STATUS_CONFIG[work.catalogueStatus as CatalogueStatus];
               return (
                 <Link
                   key={work.id}
                   href={`/library/${work.slug ?? ""}`}
                   className="group rounded-sm border border-glass-border bg-bg-secondary p-4 card-interactive"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="type-item-title lines-2">
-                      {work.title}
-                    </h3>
-                    {statusInfo && (
-                      <Badge variant={statusInfo.variant} className="shrink-0">
-                        {statusInfo.label}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="mt-1.5 lines-1 text-sm text-fg-secondary">
-                    {author?.name}
-                  </p>
-                  <div className="mt-3 flex h-5 items-center gap-2">
-                    {edition?.publicationYear && (
-                      <span className="font-mono text-micro text-fg-secondary">
-                        {edition.publicationYear}
-                      </span>
-                    )}
+                  {/* The book card's text: title, author, then the info row */}
+                  <CardHeading title={work.title} subtitle={author?.name} />
+                  <div className="mt-2.5 flex h-5 items-center gap-2">
+                    <CardStatus
+                      status={work.catalogueStatus}
+                      priority={work.acquisitionPriority}
+                    />
                     {edition?.language && edition.language !== "en" && (
                       <Badge variant="blue">{edition.language}</Badge>
+                    )}
+                    {edition?.publicationYear && (
+                      <span className="ml-auto shrink-0 font-mono text-micro text-fg-secondary">
+                        {edition.publicationYear}
+                      </span>
                     )}
                   </div>
                 </Link>

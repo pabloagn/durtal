@@ -1,11 +1,15 @@
 /**
- * One look for every indicator on a book cover (status, rating, priority,
- * marks, digital edition): the same height, border, background, radius and
- * corner inset, so the corners line up. Sizes follow the card width, with
- * the card's 220px container query.
+ * One look for every indicator on a cover: the same height, border,
+ * background, radius and corner inset, so the corners line up. Sizes follow
+ * the card width, with the card's 220px container query.
+ *
+ * The backdrop is opaque (the page background at 85%), not a blur: a chip
+ * keeps its contrast on a white cover as on a black one. Book covers carry
+ * only the marks that make a copy special (rare, poison, digital edition);
+ * status and rating sit in the card's info row (`CardStatus`).
  */
 export const COVER_CHIP =
-  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[2px] border border-white/15 bg-black/55 backdrop-blur-md @[220px]:h-5 @[220px]:min-w-5";
+  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[2px] border border-white/10 bg-bg-primary/85 @[220px]:h-5 @[220px]:min-w-5";
 
 /** Text chips (status, rating): side padding and small type */
 export const COVER_CHIP_TEXT =
@@ -13,6 +17,12 @@ export const COVER_CHIP_TEXT =
 
 /** An icon inside a chip */
 export const COVER_CHIP_ICON = "h-2.5 w-2.5 @[220px]:h-3 @[220px]:w-3";
+
+/**
+ * The stroke of a chip icon, in Lucide's 24-unit box: 1.25px at 10px and
+ * 1.5px at 12px. The usual 1.5 would draw a faint 0.6px line at this size.
+ */
+export const COVER_CHIP_STROKE = 3;
 
 /** The corners: 4px in, 8px on wide cards; chips in a corner sit 4px apart */
 export const COVER_CORNER = {
