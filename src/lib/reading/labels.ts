@@ -123,3 +123,36 @@ export function ordinalRead(n: number) {
   const suffix = teen ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
   return `${n}${suffix} read`;
 }
+
+export interface RecordReading {
+  status: ReadingStatus;
+  startedOn: string | null;
+  startedPrecision: ReadingDatePrecision;
+  finishedOn: string | null;
+  finishedPrecision: ReadingDatePrecision;
+}
+
+/** The record column's Reading group: first read, last finished, times read, time spent */
+export function readingRecord(rows: { reading: RecordReading; totalSeconds: number }[]) {
+  const dated = rows
+    .flatMap((r): { date: string; precision: ReadingDatePrecision }[] =>
+      r.reading.startedOn && r.reading.startedPrecision !== "unknown"
+        ? [{ date: r.reading.startedOn, precision: r.reading.startedPrecision }]
+        : r.reading.finishedOn && r.reading.finishedPrecision !== "unknown"
+          ? [{ date: r.reading.finishedOn, precision: r.reading.finishedPrecision }]
+          : [],
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const finished = rows
+    .filter((r) => r.reading.status === "finished" && r.reading.finishedOn && r.reading.finishedPrecision !== "unknown")
+    .sort((a, b) => b.reading.finishedOn!.localeCompare(a.reading.finishedOn!));
+  const seconds = rows.reduce((sum, r) => sum + (r.totalSeconds || 0), 0);
+  const hours = Math.floor(seconds / 3600),
+    minutes = Math.round((seconds % 3600) / 60);
+  return {
+    firstRead: dated[0] ? formatReadingDate(dated[0].date, dated[0].precision) : null,
+    lastFinished: finished[0] ? formatReadingDate(finished[0].reading.finishedOn, finished[0].reading.finishedPrecision) : null,
+    timesRead: rows.filter((r) => r.reading.status === "finished").length,
+    timeSpent: seconds > 0 ? (hours ? `${hours} h ${minutes} min` : `${minutes} min`) : null,
+  };
+}
