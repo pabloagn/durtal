@@ -1,9 +1,7 @@
 "use server";
 
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { isbnClash, isbnTaken } from "@/lib/catalogue/isbn-clash";
 import { atomic } from "@/lib/db/atomic";
-import { editions } from "@/lib/db/schema";
 import {
   fastTrackBookSchema,
   type FastTrackBookInput,
@@ -39,17 +37,9 @@ export async function fastTrackBook(
   const { authorName, work, edition } = parsed.data;
   let plan: Awaited<ReturnType<typeof planBookEdition>> | null = null;
   try {
-    if (edition.isbn13) {
-      const existing = await db.query.editions.findFirst({
-        where: eq(editions.isbn13, edition.isbn13),
-        columns: { id: true },
-      });
-      if (existing)
-        return {
-          ok: false,
-          error: `An edition with ISBN ${edition.isbn13} already exists. Open that book to add a copy.`,
-        };
-    }
+    const clash = await isbnClash(edition);
+    if (clash)
+      return { ok: false, error: `${clash}. Open that book to add a copy.` };
 
     const author = await bookAuthorFor(authorName);
     const book = await planBookWork(
@@ -87,6 +77,10 @@ export async function fastTrackBook(
     };
   } catch (err) {
     await plan?.discardCover();
+    // Another save took this ISBN after the check
+    const taken = isbnTaken(err, edition);
+    if (taken)
+      return { ok: false, error: `${taken}. Open that book to add a copy.` };
     console.error("Fast Track failed", err);
     return { ok: false, error: "Could not add the book. Please try again." };
   }

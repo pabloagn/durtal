@@ -50,6 +50,12 @@ export function readableDatabaseError(
             : null;
   return message ? new Error(message, { cause: error }) : error;
 }
+/**
+ * A slug is chosen just before its write; only another save of the same name
+ * at the same moment can take it first.
+ */
+export const SLUG_RACE_MESSAGE =
+  "Another save took this name's address at the same moment. Save again.";
 export async function withReadableErrors<T>(
   run: () => Promise<T>,
   messages?: DatabaseMessages,
@@ -64,4 +70,17 @@ export async function withReadableErrors<T>(
 /** The PostgreSQL error code behind an error, such as "42P01" (no such table), or null. */
 export function databaseErrorCode(error: unknown): string | null {
   return databaseCause(error)?.code ?? null;
+}
+
+/**
+ * The unique constraint behind a duplicate-value error, such as
+ * "editions_isbn_13_unique", or null for any other error.
+ */
+export function uniqueConstraint(error: unknown): string | null {
+  const cause = databaseCause(error) as
+    | (DatabaseCause & { constraint?: unknown; constraint_name?: unknown })
+    | null;
+  if (cause?.code !== "23505") return null;
+  const name = cause.constraint_name ?? cause.constraint;
+  return typeof name === "string" ? name : null;
 }
