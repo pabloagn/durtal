@@ -57,8 +57,9 @@ do not change. No migration.
   `half-star-ratings.test.ts` (filter `rating=4.5` returns 4.5 and 5, not 4;
   unrated last in both sort directions; 3.5 kept through an Edit Work save;
   a half star saved on a book and a film; 4.5 returned as a number by the
-  film, perfume, painting and publisher lists). Typecheck clean; lint adds no
-  warning; 845 unit tests and the affected database suites pass.
+  film, perfume, painting and publisher lists). `pnpm typecheck` clean;
+  `pnpm lint` 0 errors and 81 warnings (one fewer than before); `pnpm deadcode`
+  clean; `python3 scripts/qa/test-local.py`: 165 files, 1904 tests, 0 skipped.
 - Preview from `live-before-0063-20261005-004058.dump` with half ratings
   seeded on books, a film, perfumes and paintings.
 - Page weight before (task 0302 code) and after, same preview: every route the
