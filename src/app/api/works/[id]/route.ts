@@ -34,19 +34,21 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 /**
  * The fields a work PATCH may change. `addRecommenderIds` adds recommenders
- * and keeps the existing ones. Unknown fields are refused.
+ * and keeps the existing ones; `rating` null clears the rating. Unknown fields
+ * are refused.
  */
 const patchWorkSchema = z
   .object({
     title: z.string().trim().min(1).optional(),
     catalogueStatus: createWorkSchema.shape.catalogueStatus.unwrap().optional(),
     addRecommenderIds: z.array(z.uuid()).optional(),
+    rating: z.number().int().min(1).max(5).nullable().optional(),
   })
   .strict();
 
 /**
- * PATCH /api/works/[id] — change a work's title (the slug follows) or
- * catalogue status, as the Edit dialog does (activity log included), and add
+ * PATCH /api/works/[id] — change a work's title (the slug follows), catalogue
+ * status or rating, as the Edit dialog does (activity log included), and add
  * recommenders.
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
@@ -58,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
-    const { title, catalogueStatus, addRecommenderIds } =
+    const { title, catalogueStatus, addRecommenderIds, rating } =
       patchWorkSchema.parse(await readJson(req));
     if (!(await getWork(id))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -74,10 +76,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       }
     }
 
-    if (title || catalogueStatus) {
+    if (title || catalogueStatus || rating !== undefined) {
       await updateWork(id, {
         ...(title ? { title } : {}),
         ...(catalogueStatus ? { catalogueStatus } : {}),
+        ...(rating !== undefined ? { rating } : {}),
       });
     }
     const recommendersAdded = addRecommenderIds
@@ -90,6 +93,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       title: work?.title,
       slug: work?.slug,
       catalogueStatus: work?.catalogueStatus,
+      rating: work?.rating ?? null,
       recommenderIds: work?.workRecommenders.map((wr) => wr.recommender.id),
       recommendersAdded,
     });
