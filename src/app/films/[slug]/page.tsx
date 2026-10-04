@@ -1,4 +1,6 @@
 import { cache } from "react";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -602,6 +604,8 @@ export default async function FilmPage({
         <GallerySection entityType="work" entityId={film.id} />
 
         <RelatedFilms related={related} />
+
+        <ActivityTimeline entityType="work" entityId={film.id} refreshKey={renderStamp()} />
       </div>
     </CurationProvider>
   );

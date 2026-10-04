@@ -240,7 +240,7 @@ people (perfumer, creative director, with "Unknown"), launch and
 discontinuation dates of any precision, description, and (on create) notes by
 position, families and accords. Dialogs add and edit formulations, bottles and
 samples, retailer listings and prices, and sources. A perfume with bottles,
-samples or listings cannot be deleted; the dialog says what to do first.
+samples or listings cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each bottle, sample or decant added, changed (status, amount left, condition, location) or removed.
 Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
 in the house, people and note pickers; Escape closes a dialog.
 
@@ -301,7 +301,7 @@ a remake is a new film, and a cut goes to that film as a version ("Add a version
 to it" opens `?add=version`). Dialogs add and edit versions with their
 releases, and copies (physical or digital, version and release, status,
 storage, acquisition, disposal). A version a copy names, and a film with
-copies, cannot be deleted; the dialog says what to do first.
+copies, cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed.
 
 ### Paintings (`/paintings`)
 
@@ -363,7 +363,7 @@ move, a loan (an exhibition, on display), a return to the owning venue, a past
 or uncertain location, or edits a record; places are a venue, a private place,
 unknown, lost or destroyed. A move closes the current location on its date.
 "Checked today" stamps the record. A painting with objects you own cannot be
-deleted; the dialog says what to do first.
+deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each location recorded ("Moved from Louvre, Paris to Tokyo Gallery (on loan for an exhibition, confirmed)").
 
 ### Linked works (every detail page)
 

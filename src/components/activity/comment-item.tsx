@@ -1,5 +1,6 @@
 "use client";
 
+import type { ActivityEntityType } from "@/lib/activity/entities";
 import { useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { CommentEditor } from "./comment-editor";
@@ -27,7 +28,7 @@ interface CommentItemProps {
     }[];
   };
   createdAt: Date;
-  entityType: "work" | "author";
+  entityType: ActivityEntityType;
   entityId: string;
   onDeleted: (commentId: string) => void;
   onUpdated: () => void;

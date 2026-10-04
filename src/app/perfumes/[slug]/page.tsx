@@ -1,4 +1,6 @@
 import { cache } from "react";
+import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -618,6 +620,8 @@ export default async function PerfumePage({
       <PersonalNotes notes={curation?.notes ?? null} placeholder="How it wears on you, when you reach for it" />
 
       <RelatedPerfumes related={related} />
+
+      <ActivityTimeline entityType="work" entityId={perfume.id} refreshKey={renderStamp()} />
     </CurationProvider>
   );
 }
