@@ -138,6 +138,7 @@ export function AddBookWizard() {
     query: searchQuery,
     setQuery: setSearchQuery,
     results: searchResults,
+    notices: searchNotices,
     isSearching,
     clearResults,
   } = useDebouncedSearch(300);
@@ -670,10 +671,21 @@ export function AddBookWizard() {
 
             {/* Autocomplete dropdown */}
             {searchQuery.trim().length >= 2 &&
-              (searchResults.length > 0 || isSearching) && (
+              (searchResults.length > 0 || isSearching || searchNotices.length > 0) && (
                 // The glass never scrolls: its list does, inside it
                 <div className="glass absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden">
                   <div className="max-h-[420px] overflow-y-auto">
+                    {/* A source that could not answer, so "no results" is not misread */}
+                    {!isSearching &&
+                      searchNotices.map((notice) => (
+                        <p
+                          key={notice}
+                          role="status"
+                          className="border-b border-glass-border/50 px-3 py-2.5 text-xs text-fg-secondary"
+                        >
+                          {notice}
+                        </p>
+                      ))}
                     {searchResults.map((result, i) => (
                       <button
                         key={`${result.source}-${result.sourceId}-${i}`}
