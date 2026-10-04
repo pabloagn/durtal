@@ -20,17 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { getAuthorsForMap } from "@/lib/actions/author-map";
 import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
 import { useViewData } from "@/lib/hooks/use-view-data";
+import { ViewStatus } from "@/components/shared/view-status";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { LIST_PREFERENCES } from "@/lib/preferences";
-
-function ViewLoading({ label }: { label: string }) {
-  return (
-    <div className="flex h-full items-center justify-center font-mono text-sm text-fg-secondary">
-      {label}
-    </div>
-  );
-}
 
 const AuthorsMap = dynamic(
   () =>
@@ -39,7 +32,7 @@ const AuthorsMap = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <ViewLoading label="Loading map..." />,
+    loading: () => <ViewStatus label="Loading map..." />,
   },
 );
 
@@ -50,7 +43,7 @@ const AuthorTimeline = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <ViewLoading label="Loading timeline..." />,
+    loading: () => <ViewStatus label="Loading timeline..." />,
   },
 );
 
@@ -209,14 +202,8 @@ export function AuthorsShell({
   );
 
   // Map and timeline cover every matching author: load them only when shown
-  const mapAuthors = useViewData(viewMode === "map", JSON.stringify(mapQuery ?? {}), () =>
-    getAuthorsForMap(mapQuery),
-  );
-  const timelineAuthors = useViewData(
-    viewMode === "timeline",
-    JSON.stringify(timelineQuery ?? {}),
-    () => getAuthorsForTimeline(timelineQuery),
-  );
+  const mapAuthors = useViewData(viewMode === "map", mapQuery, getAuthorsForMap);
+  const timelineAuthors = useViewData(viewMode === "timeline", timelineQuery, getAuthorsForTimeline);
 
   const selection = useAuthorSelection();
   const allIds = authors.map((a) => a.id);
@@ -265,20 +252,28 @@ export function AuthorsShell({
 
       {viewMode === "map" && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
-          {mapAuthors ? <AuthorsMap authors={mapAuthors} /> : <ViewLoading label="Loading map..." />}
+          {mapAuthors.status === "ready" ? (
+            <AuthorsMap authors={mapAuthors.data} />
+          ) : mapAuthors.status === "error" ? (
+            <ViewStatus label="Could not load the map." onRetry={mapAuthors.retry} />
+          ) : (
+            <ViewStatus label="Loading map..." />
+          )}
         </div>
       )}
 
       {viewMode === "timeline" && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
-          {timelineAuthors ? (
+          {timelineAuthors.status === "ready" ? (
             <AuthorTimeline
-              authors={timelineAuthors}
+              authors={timelineAuthors.data}
               sortBy={(searchParams.get("sort") ?? "birth") as "name" | "lastName" | "birth" | "works" | "recent"}
               sortOrder={(searchParams.get("order") ?? "asc") as "asc" | "desc"}
             />
+          ) : timelineAuthors.status === "error" ? (
+            <ViewStatus label="Could not load the timeline." onRetry={timelineAuthors.retry} />
           ) : (
-            <ViewLoading label="Loading timeline..." />
+            <ViewStatus label="Loading timeline..." />
           )}
         </div>
       )}

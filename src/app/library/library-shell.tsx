@@ -16,14 +16,7 @@ import type { CoverCrop } from "@/components/books/book-card";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { useViewData } from "@/lib/hooks/use-view-data";
 import { LIST_PREFERENCES } from "@/lib/preferences";
-
-function TimelineLoading() {
-  return (
-    <div className="flex h-[400px] items-center justify-center font-mono text-sm text-fg-secondary">
-      Loading timeline...
-    </div>
-  );
-}
+import { ViewStatus } from "@/components/shared/view-status";
 
 // Dynamic import — timeline pulls in canvas + WebGL-adjacent code; skip SSR
 const WorkTimeline = dynamic(
@@ -33,7 +26,7 @@ const WorkTimeline = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <TimelineLoading />,
+    loading: () => <ViewStatus label="Loading timeline..." className="h-[400px]" />,
   },
 );
 
@@ -87,9 +80,7 @@ export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellP
   const titleMap = new Map(books.map((b) => [b.workId, b.title]));
 
   const isTimeline = viewMode === "timeline";
-  const timelineWorks = useViewData(isTimeline, JSON.stringify(timelineQuery ?? {}), () =>
-    getWorksForTimeline(timelineQuery),
-  );
+  const timelineWorks = useViewData(isTimeline, timelineQuery, getWorksForTimeline);
 
   return (
     <>
@@ -114,7 +105,17 @@ export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellP
       {/* Timeline view */}
       {isTimeline && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
-          {timelineWorks ? <WorkTimeline works={timelineWorks} /> : <TimelineLoading />}
+          {timelineWorks.status === "ready" ? (
+            <WorkTimeline works={timelineWorks.data} />
+          ) : timelineWorks.status === "error" ? (
+            <ViewStatus
+              label="Could not load the timeline."
+              onRetry={timelineWorks.retry}
+              className="h-[400px]"
+            />
+          ) : (
+            <ViewStatus label="Loading timeline..." className="h-[400px]" />
+          )}
         </div>
       )}
 

@@ -17,12 +17,18 @@ the timelines load through their server actions only when that view is open.
 ## Implementation Details
 
 - `src/lib/hooks/use-view-data.ts`: new hook. It calls a loader only while a
-  view is shown, keeps each result in memory by its query key, and returns
-  null while loading.
+  view is shown and returns `idle`, `loading`, `error` (with `retry`) or
+  `ready`. It keeps the result for the query object the server sent:
+  switching views keeps it, while a `router.refresh` (edit dialogs, bulk
+  actions) or a new filter sends a new object and loads again. The decisions
+  are the pure functions `needsViewLoad` and `viewDataStatus`, tested in
+  `src/__tests__/hooks/use-view-data.test.ts`.
+- `src/components/shared/view-status.tsx`: the loading line, or an error line
+  with a Retry button, for the map and the timelines.
 - `src/app/authors/page.tsx`, `authors-shell.tsx`: the page no longer calls
   `getAuthorsForMap` or `getAuthorsForTimeline`. It passes the same search and
   filters as `mapQuery` and `timelineQuery`; the shell loads them with
-  `useViewData` and shows "Loading map..." or "Loading timeline..." meanwhile.
+  `useViewData` and shows `ViewStatus` while loading or after a failure.
 - `src/app/library/page.tsx`, `library-shell.tsx`: the same for
   `getWorksForTimeline` (`timelineQuery`). The empty state now depends on the
   paged works only.
@@ -53,5 +59,19 @@ books timeline 548 works.
 and results identical to the live app. The low-contrast items in the map
 attribution and the timeline labels already exist on main.
 
+Review fixes (pre-merge review of PR #7):
+
+- Stale data: the first version cached results by the JSON of the query in a
+  ref that was never cleared, so after `router.refresh` an open map or
+  timeline kept the old data. Now the result belongs to the query object, and
+  a refresh loads again.
+- Stuck loader: a failed load was only logged, so the view stayed on
+  "Loading...". Now it shows "Could not load the map." (or timeline) with Retry.
+- Headless Chrome on `/authors` (map, timeline) and `/library` (timeline):
+  `window.next.router.refresh()` loads the view again; a failed server action
+  shows the error and Retry loads the data. One load per view, no loop.
+  `alignment-audit.js` and `design-audit.js` on the error state at 1440px and
+  390px: 0 deviations, 0 low-contrast and 0 unnamed elements.
+
 Checks: `pnpm typecheck`, eslint on the changed files, and
-`scripts/qa/test-local.py` (108 files, 1,488 tests) pass.
+`scripts/qa/test-local.py` (109 files, 1,492 tests) pass.
