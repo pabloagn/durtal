@@ -230,17 +230,22 @@ export function BookCard({
               priority={acquisitionPriority}
               copies={instanceCount}
             />
-            {/* The status keeps the row: the language shows from 200px of
-                card width, the year from 160px */}
+            {/* The status keeps the row: the rating shows from 160px of card
+                width, the language from 200px, the year from 160px (220px
+                beside a rating) */}
             {language && language !== "en" && (
               <span className="hidden @[200px]:contents">
                 <Badge variant="blue">{language}</Badge>
               </span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-2">
-              <CardRating rating={rating} />
+              <span className="hidden @[160px]:contents">
+                <CardRating rating={rating} />
+              </span>
               {publicationYear && (
-                <span className="hidden font-mono text-micro text-fg-secondary @[160px]:inline">
+                <span
+                  className={`hidden font-mono text-micro text-fg-secondary ${rating ? "@[220px]:inline" : "@[160px]:inline"}`}
+                >
                   {publicationYear}
                 </span>
               )}

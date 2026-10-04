@@ -1,7 +1,7 @@
 import { Gem } from "lucide-react";
 import type { HuntAssessment } from "@/lib/constants/hunting";
 import { MARKS } from "@/lib/constants/marks";
-import { COVER_CHIP, COVER_CHIP_ICON } from "./cover-chip";
+import { COVER_CHIP, COVER_CHIP_ICON, COVER_CHIP_STROKE } from "./cover-chip";
 
 export function HuntBadge({
   isRare,
@@ -21,7 +21,7 @@ export function HuntBadge({
     >
       <Gem
         className={cover ? COVER_CHIP_ICON : "h-3.5 w-3.5"}
-        strokeWidth={1.5}
+        strokeWidth={cover ? COVER_CHIP_STROKE : 1.5}
         fill="currentColor"
         fillOpacity={0.18}
         aria-hidden="true"

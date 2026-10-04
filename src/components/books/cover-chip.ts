@@ -18,6 +18,12 @@ export const COVER_CHIP_TEXT =
 /** An icon inside a chip */
 export const COVER_CHIP_ICON = "h-2.5 w-2.5 @[220px]:h-3 @[220px]:w-3";
 
+/**
+ * The stroke of a chip icon, in Lucide's 24-unit box: 1.25px at 10px and
+ * 1.5px at 12px. The usual 1.5 would draw a faint 0.6px line at this size.
+ */
+export const COVER_CHIP_STROKE = 3;
+
 /** The corners: 4px in, 8px on wide cards; chips in a corner sit 4px apart */
 export const COVER_CORNER = {
   topLeft:
