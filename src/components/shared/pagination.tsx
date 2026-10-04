@@ -175,6 +175,9 @@ export function Pagination({
     </form>
   );
 
+  // An empty list shows its empty state alone
+  if (total === 0) return null;
+
   return (
     <nav
       id={compact ? anchor : undefined}
