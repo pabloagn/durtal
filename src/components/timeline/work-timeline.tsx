@@ -31,15 +31,11 @@ function packIntoLanes(
   const laneEnds: number[] = [];
   const assignments = new Map<string, number>();
 
+  // A work holds only its own marker. Its edition dots show on hover, over
+  // whatever else is in the lane, so they reserve no space.
   for (const work of sorted) {
     const workLeft = work.originalYear * pixelsPerYear - 30;
-    const editionRights = work.editions.map(
-      (e) => (e.publicationYear ?? work.originalYear) * pixelsPerYear + 10,
-    );
-    const workRight = Math.max(
-      work.originalYear * pixelsPerYear + 30,
-      ...editionRights,
-    );
+    const workRight = work.originalYear * pixelsPerYear + 30;
 
     let lane = laneEnds.findIndex((end) => end < workLeft);
     if (lane === -1) {

@@ -55,7 +55,8 @@ export function WorkTimelineMarker({
   const showCover = scale > 0.3;
   const showAuthor = scale > 0.5;
   const showTitle = scale > 0.8;
-  const showEditions = scale > 0.8;
+  // Editions reserve no lane space (packIntoLanes), so they show on hover only
+  const showEditions = isHovered && scale > 0.8;
 
   const diamondSize = isHovered ? DIAMOND_SIZE_HOVER : DIAMOND_SIZE_BASE;
 
