@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PublisherFavourite } from "./favourite-button";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { Monogram } from "@/components/shared/no-photo";
 
 export interface PublisherItem {
   id: string;
@@ -15,14 +16,37 @@ export interface PublisherItem {
   website: string | null;
   isFavourite: boolean;
   editionCount: number;
+  /** The house's active logo */
+  logoUrl?: string | null;
   createdAt: string;
+}
+
+/**
+ * The house's logo, whole on a dark tile; with no logo, its initials on a
+ * faint tint, like an author with no portrait (`Monogram`)
+ */
+export function PublisherLogo({ name, url, className }: { name: string; url?: string | null; className: string }) {
+  return (
+    <div className={`relative flex items-center justify-center overflow-hidden bg-bg-tertiary ${className}`}>
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          className="protected-image max-h-[80%] max-w-[80%] object-contain"
+        />
+      ) : (
+        <Monogram name={name} />
+      )}
+    </div>
+  );
 }
 
 function editionsLabel(count: number) {
   return `${count} ${count === 1 ? "edition" : "editions"}`;
 }
 
-/** Grid card: publishers have no artwork, so the card leads with the name. */
+/** Grid card: the house's logo, then its name, kind, country and count. */
 export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
   return (
     <div className="@container group relative flex flex-col rounded-sm border border-glass-border bg-bg-secondary card-interactive">
@@ -31,6 +55,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         aria-label={`Open ${p.name}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
+      <PublisherLogo name={p.name} url={p.logoUrl} className="aspect-[3/2] rounded-t-sm border-b border-glass-border" />
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}
       <div className="type-item-title flex items-start gap-2 p-4 pb-2">
@@ -97,11 +122,7 @@ export function PublisherListItem({
         href={`/publishers/${p.slug}`}
         className="flex min-w-0 flex-1 items-center gap-3"
       >
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
-          <span className="font-serif text-sm text-fg-muted/50">
-            {p.name[0]}
-          </span>
-        </div>
+        <PublisherLogo name={p.name} url={p.logoUrl} className="h-10 w-10 flex-shrink-0 rounded-sm [&_span]:text-xs" />
         <div className="min-w-0 flex-1">
           <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
             {p.name}

@@ -111,7 +111,7 @@ export const media = pgTable(
       "media_type_check",
       sql`${t.type} in ('poster','background','gallery')
   and not (${t.collectionId} is not null and ${t.type}='gallery')
-  and not ((${t.organizationId} is not null or ${t.artObjectId} is not null or ${t.perfumeVariantId} is not null) and ${t.type}='background')`,
+  and not ((${t.artObjectId} is not null or ${t.perfumeVariantId} is not null) and ${t.type}='background')`,
     ),
     check(
       "media_attribution_check",

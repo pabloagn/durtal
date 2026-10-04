@@ -179,6 +179,10 @@ export async function getPublishers(options: PublisherListOptions = {}) {
         parentName: sql<
           string | null
         >`(select parent.name from publishing_houses parent where parent.id = "publishing_houses"."parent_id")`,
+        // The house's active logo, for its card
+        logoKey: sql<
+          string | null
+        >`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.organization_id = "publishing_houses"."id" and m.type = 'poster' and m.is_active limit 1)`,
       })
       .from(houses)
       .where(where)

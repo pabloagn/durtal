@@ -1650,7 +1650,7 @@ Images attached to works, people, collections, organizations, art objects or per
 | `organization_id` | UUID | FK → `publishing_houses.id`, CASCADE, nullable (migration `0049`) |
 | `art_object_id` | UUID | FK → `art_objects.id`, CASCADE, nullable (migration `0049`) |
 | `perfume_variant_id` | UUID | FK → `perfume_variants.id`, CASCADE, nullable (migration `0049`) |
-| `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background; organizations, art objects and perfume formulations use poster and gallery) |
+| `type` | TEXT | NOT NULL (`'poster'`, `'background'`, `'gallery'`; collections use poster and background; art objects and perfume formulations use poster and gallery; organizations use all three: a publishing house's logo is its poster and its banner its background, migration `0053_publisher_backgrounds`) |
 | `s3_key` | TEXT | NOT NULL |
 | `thumbnail_s3_key` | TEXT | nullable |
 | `original_filename` | TEXT | nullable |

@@ -266,6 +266,8 @@ A book, author or place page has three parts (`src/components/shared/detail-layo
 - `DetailColumns`: the reading column (description, notes, editions, books) and, from `lg` up, an 18rem record column on the right: one `RecordPanel` of `RecordGroup`s (Details, Taxonomy, Media, Orders, Links, Contact), with caption titles and label-over-value `RecordField`s. Below `lg` the record follows the reading content.
 - Full-width rows: related books, gallery, activity.
 
+A publisher page follows the author page: the house's banner behind the header and its logo beside the name. A logo is never cropped: it sits whole on a dark tile (`object-contain`), on the page and on the publisher cards. Publisher images keep their colours (the monochrome rule is for people only). Its books are book cards with this house's edition covers, filtered, sorted and paged like the library.
+
 A section or group with nothing to show is left out; its "Add" action lives in the page's actions menu.
 
 ### Images of people

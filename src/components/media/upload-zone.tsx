@@ -7,7 +7,7 @@ import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
 
 interface UploadZoneProps {
-  entityType: "work" | "author" | "collection" | "perfume_variant";
+  entityType: "work" | "author" | "collection" | "perfume_variant" | "organization";
   entityId: string;
   mediaType: MediaType;
   onUploadComplete?: () => void;
@@ -15,6 +15,8 @@ interface UploadZoneProps {
   accept?: string;
   multiple?: boolean;
   processingParams?: MonochromeParams;
+  /** What the image is called in the drop prompt: defaults to the media type ("poster") */
+  noun?: string;
 }
 
 interface UploadState {
@@ -95,6 +97,7 @@ export function UploadZone({
   accept = "image/*",
   multiple = false,
   processingParams,
+  noun,
 }: UploadZoneProps) {
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -259,7 +262,7 @@ export function UploadZone({
       >
         <Upload className="mb-2 h-5 w-5 text-fg-muted" strokeWidth={1.5} />
         <p className="text-xs text-fg-secondary">
-          Drop {mediaType} image{multiple ? "s" : ""} here or click to browse
+          Drop {noun ?? mediaType} image{multiple ? "s" : ""} here or click to browse
         </p>
         <p className="mt-0.5 text-micro text-fg-muted/60">
           Drag from browser or file system

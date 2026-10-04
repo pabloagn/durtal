@@ -53,9 +53,10 @@ interface MediaManagerDialogProps {
   onClose: () => void;
   /**
    * Owner of the images: a work (poster, background, gallery), a collection
-   * (poster, background) or a perfume formulation (image, gallery)
+   * (poster, background), a perfume formulation (image, gallery) or a
+   * publishing house (logo, background)
    */
-  entityType?: "work" | "collection" | "perfume_variant";
+  entityType?: "work" | "collection" | "perfume_variant" | "organization";
   entityId: string;
   title: string;
   /** Which tab to open on: defaults to "poster" */
@@ -81,6 +82,12 @@ const SQUARE_TABS: { key: TabType; label: string }[] = [
   { key: "gallery", label: "Gallery" },
 ];
 
+/** A publishing house: its logo, shown whole, and a background banner */
+const ORGANIZATION_TABS: { key: TabType; label: string }[] = [
+  { key: "poster", label: "Logo" },
+  { key: "background", label: "Background" },
+];
+
 const ASPECT_CLASSES: Record<TabType, string> = {
   poster: "aspect-[2/3]",
   background: "aspect-video",
@@ -103,7 +110,13 @@ export function MediaManagerDialog({
 }: MediaManagerDialogProps) {
   const square = slot === "square";
   const tabs =
-    entityType === "collection" ? COLLECTION_TABS : square ? SQUARE_TABS : TABS;
+    entityType === "collection"
+      ? COLLECTION_TABS
+      : entityType === "organization"
+        ? ORGANIZATION_TABS
+        : square
+          ? SQUARE_TABS
+          : TABS;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -122,8 +135,15 @@ export function MediaManagerDialog({
   // Gallery images have no active one; clicking an image opens its details.
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const isGallery = activeTab === "gallery";
-  // What the open tab's images are called: "poster", or "image" in a square frame
-  const noun = square && activeTab === "poster" ? "image" : activeTab;
+  // What the open tab's images are called: "poster", "logo", or "image" in a square frame
+  const noun =
+    activeTab !== "poster"
+      ? activeTab
+      : entityType === "organization"
+        ? "logo"
+        : square
+          ? "image"
+          : activeTab;
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -422,7 +442,7 @@ export function MediaManagerDialog({
                           <img
                             src={thumbnailUrl(item)}
                             alt={item.altText || item.caption || item.originalFilename || "Media"}
-                            className={`h-full w-full ${square ? "object-contain" : "object-cover"}`}
+                            className={`h-full w-full ${square && activeTab === "poster" ? "object-contain" : "object-cover"}`}
                           />
                           {/* Hover overlay for set active */}
                           {!isGallery && !item.isActive && (
@@ -485,6 +505,7 @@ export function MediaManagerDialog({
                 entityType={entityType}
                 entityId={entityId}
                 mediaType={activeTab}
+                noun={noun}
                 multiple={isGallery}
                 onUploadComplete={handleUploadComplete}
               />

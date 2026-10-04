@@ -393,6 +393,13 @@
       "when": 1791106361779,
       "tag": "0055_open_paintings",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791106371623,
+      "tag": "0056_publisher_backgrounds",
+      "breakpoints": true
     }
   ]
 }
