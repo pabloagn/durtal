@@ -61,11 +61,14 @@ import {
   deletePainting,
   getArtObject,
   getPainting,
+  getPaintingChoices,
   getPaintingCount,
+  getPaintingFilterOptions,
   getPaintings,
   updateArtObject,
   updatePainting,
 } from "@/lib/actions/paintings";
+import { getWhereabouts, recordWhereabouts } from "@/lib/actions/whereabouts";
 import { createPerson, getPersonMergePreview, mergePeople } from "@/lib/actions/people";
 import { saveOrganization, deleteOrganization } from "@/lib/actions/organizations";
 import { updateWorkCuration, getWorkCuration } from "@/lib/actions/curation";
@@ -408,5 +411,38 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
       personalCount: 1,
     });
     await expect(getPaintings({ createdFrom: 1900, createdTo: 1800 })).rejects.toThrow();
+  });
+
+  it("lists the home's filter options with the paintings each matches", async () => {
+    const mona = await monaLisa();
+    await scream();
+    const original = await createArtObject({ workId: mona.id, kind: "original", ownership: "institutional", ownerOrganizationId: orgs.louvre });
+    await createArtObject({
+      workId: mona.id,
+      kind: "version",
+      label: "Isleworth",
+      classificationItemIds: [items.tempera],
+      attribution: [{ personId: people.vermeer, attribution: "uncertain" }],
+    });
+    const [venue] = await c`insert into venues(name,slug,type) values ('Musée du Louvre','louvre','museum') returning id`;
+    await recordWhereabouts(
+      { objectId: original.id, placeKind: "venue", venueId: venue.id, custody: "permanent_collection", displayStatus: "on_display", certainty: "confirmed" },
+      (await getWhereabouts(original.id))!.fingerprint,
+    );
+    await c`insert into works(title) values ('A book about paintings')`;
+    const options = await getPaintingFilterOptions();
+    const named = (rows: { name: string; count: number }[]) =>
+      rows.map((r) => [r.name, r.count]).sort(([a], [b]) => String(a).localeCompare(String(b)));
+    expect(named(options.painters)).toEqual([["Edvard Munch", 1], ["Johannes Vermeer", 1], ["Leonardo da Vinci", 1]]);
+    expect(named(options.movements)).toEqual([["Expressionism", 1], ["Renaissance", 1]]);
+    expect(named(options.genres)).toEqual([["portrait", 1]]);
+    // A broader technique counts the paintings of its narrower ones, objects included
+    expect(named(options.techniques)).toEqual([["oil", 1], ["paint", 1], ["tempera", 1]]);
+    expect(options.techniques.find((t) => t.name === "oil")?.parentName).toBe("paint");
+    expect(named(options.supports)).toEqual([["cardboard", 1], ["panel", 1]]);
+    expect(named(options.institutions)).toEqual([["Musée du Louvre", 1]]);
+    expect(named(options.venues)).toEqual([["Musée du Louvre", 1]]);
+    expect(options.creationYears).toEqual({ min: 1503, max: 1910 });
+    expect((await getPaintingChoices()).movements.map((m) => m.name)).toEqual(["Expressionism", "Renaissance"]);
   });
 });

@@ -185,6 +185,98 @@ export async function getPaintingCount(input: PaintingQuery = {}) {
   return row.count;
 }
 
+/** The painting families the home filters by, each its own filter. */
+const FILTER_FAMILIES = [
+  "painting-genres",
+  "painting-techniques",
+  "painting-media",
+  "painting-supports",
+] as const;
+
+/**
+ * What the painting home can filter by, each with the number of paintings it
+ * matches: painters (of the work or of an object), movements, the painting
+ * families (a broader item counts the paintings of its narrower ones), owning
+ * institutions, current venues and the creation years.
+ */
+export async function getPaintingFilterOptions() {
+  type Option = { id: string; name: string; count: number };
+  const [painters, movements, items, institutions, venueRows, [years]] =
+    await Promise.all([
+      db.execute(sql`with credited as (
+          select c.person_id,c.work_id from work_credits c join works w on w.id=c.work_id and w.kind='painting'
+          where c.role_id='painting.painter' and c.person_id is not null
+          union select c.person_id,o.work_id from art_object_credits c join art_objects o on o.id=c.object_id
+          where c.person_id is not null)
+        select a.id,a.name,count(distinct c.work_id)::int as count from credited c join authors a on a.id=c.person_id
+        group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+      db.execute(sql`select m.id,m.name,count(distinct wm.work_id)::int as count
+        from work_art_movements wm join art_movements m on m.id=wm.art_movement_id
+        join works w on w.id=wm.work_id and w.kind='painting'
+        group by m.id,m.name order by lower(m.name),m.id`),
+      db.execute(sql`with recursive used(work_id,item_id) as (
+          select t.work_id,t.item_id from custom_taxonomy_item_works t join works w on w.id=t.work_id and w.kind='painting'
+          union select o.work_id,t.item_id from art_object_taxa t join art_objects o on o.id=t.object_id
+        ), broader(work_id,item_id) as (
+          select work_id,item_id from used
+          union select b.work_id,i.parent_id from broader b join custom_taxonomy_items i on i.id=b.item_id where i.parent_id is not null
+        )
+        select i.id,i.name,p.name as "parentName",f.slug as "familySlug",count(distinct b.work_id)::int as count
+        from broader b join custom_taxonomy_items i on i.id=b.item_id join taxonomy_families f on f.id=i.family_id
+        left join custom_taxonomy_items p on p.id=i.parent_id
+        where f.slug in (${sql.join(
+          FILTER_FAMILIES.map((slug) => sql`${slug}`),
+          sql`,`,
+        )})
+        group by i.id,i.name,p.name,f.slug
+        order by f.slug,lower(coalesce(p.name || ' › ','') || i.name),i.id`),
+      db.execute(sql`select p.id,p.name,count(distinct o.work_id)::int as count
+        from art_objects o join publishing_houses p on p.id=o.owner_organization_id
+        group by p.id,p.name order by lower(p.name),p.id`),
+      db.execute(sql`select v.id,v.name,count(distinct o.work_id)::int as count
+        from art_object_whereabouts wa join art_objects o on o.id=wa.object_id join venues v on v.id=wa.venue_id
+        where wa.certainty='confirmed' and wa.ends_on_id is null
+        group by v.id,v.name order by lower(v.name),v.id`),
+      db.execute(sql`select min(cd.start_year)::int as min,max(coalesce(cd.end_year,cd.start_year))::int as max
+        from painting_details pd join works w on w.id=pd.work_id and w.kind='painting'
+        join catalogue_dates cd on cd.id=pd.creation_date_id where cd.start_year is not null`).then(
+        (result) => resultRows<{ min: number | null; max: number | null }>(result),
+      ),
+    ]);
+  const terms = resultRows<
+    Option & { parentName: string | null; familySlug: (typeof FILTER_FAMILIES)[number] }
+  >(items);
+  const family = (slug: (typeof FILTER_FAMILIES)[number]) =>
+    terms.filter((item) => item.familySlug === slug);
+  return {
+    painters: resultRows<Option>(painters),
+    movements: resultRows<Option>(movements),
+    genres: family("painting-genres"),
+    techniques: family("painting-techniques"),
+    media: family("painting-media"),
+    supports: family("painting-supports"),
+    institutions: resultRows<Option>(institutions),
+    venues: resultRows<Option>(venueRows),
+    creationYears:
+      years?.min != null && years.max != null
+        ? { min: years.min, max: years.max }
+        : null,
+  };
+}
+export type PaintingFilterOptions = Awaited<
+  ReturnType<typeof getPaintingFilterOptions>
+>;
+
+/** The art movements a painting chooses from, by name */
+export async function getPaintingChoices() {
+  const movements = await db
+    .select({ id: artMovements.id, name: artMovements.name })
+    .from(artMovements)
+    .orderBy(sql`lower(${artMovements.name})`, asc(artMovements.id));
+  return { movements };
+}
+export type PaintingChoices = Awaited<ReturnType<typeof getPaintingChoices>>;
+
 /** Current location with its age; a long-unchecked location is flagged as stale. */
 function currentLocation(row: CurrentWhereabouts | undefined) {
   if (!row) return null;
