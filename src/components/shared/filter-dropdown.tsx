@@ -6,6 +6,8 @@ import { RangeSlider } from "@/components/ui/range-slider";
 
 /** Minimum number of options before showing the search box in a filter group */
 const SEARCH_THRESHOLD = 8;
+/** Most options one group lists at once: a longer list (every actor of a large film catalogue) narrows by its search */
+const LIST_LIMIT = 200;
 
 export interface FilterGroup {
   key: string;
@@ -33,6 +35,12 @@ interface FilterDropdownProps {
   onClearAll: () => void;
   /** Count of active range filters (for badge display) */
   activeRangeCount?: number;
+  /** Called when the pointer reaches the button, it takes focus or the panel opens: start loading lazy options */
+  onIntent?: () => void;
+  /** The groups are still loading */
+  loading?: boolean;
+  /** The groups did not load; opening the panel again retries */
+  failed?: boolean;
 }
 
 export function FilterDropdown({
@@ -41,6 +49,9 @@ export function FilterDropdown({
   onFilterChange,
   onClearAll,
   activeRangeCount = 0,
+  onIntent,
+  loading = false,
+  failed = false,
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,7 +122,12 @@ export function FilterDropdown({
     <div ref={containerRef} className="relative">
       {/* Trigger button */}
       <button
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          onIntent?.();
+          setOpen((prev) => !prev);
+        }}
+        onPointerEnter={onIntent}
+        onFocus={onIntent}
         className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs transition-colors ${
           activeCount > 0
             ? "bg-accent-plum/20 text-fg-primary"
@@ -145,6 +161,17 @@ export function FilterDropdown({
                 Clear all
               </button>
             </div>
+          )}
+
+          {loading && (
+            <p role="status" className="px-3 py-2.5 text-xs text-fg-secondary">
+              Loading filters…
+            </p>
+          )}
+          {failed && (
+            <p role="alert" className="px-3 py-2.5 text-xs text-fg-secondary">
+              The filters did not load. Close the panel and open it again.
+            </p>
           )}
 
           {/* Filter groups */}
@@ -230,7 +257,12 @@ export function FilterDropdown({
                                 o.label.toLowerCase().includes(searchTerm),
                               )
                             : (group as FilterGroup).options;
-                          return filteredOptions.map((option) => {
+                          // Past the limit only chosen options stay listed, and a line says how many there are
+                          const chosen = activeFilters[group.key] ?? [];
+                          const shown = filteredOptions.filter(
+                            (o, i) => i < LIST_LIMIT || chosen.includes(o.value),
+                          );
+                          const rows = shown.map((option) => {
                             const isChecked =
                               activeFilters[group.key]?.includes(option.value) ?? false;
                             return (
@@ -275,6 +307,13 @@ export function FilterDropdown({
                               </label>
                             );
                           });
+                          if (shown.length === filteredOptions.length) return rows;
+                          return [
+                            ...rows,
+                            <p key="more" className="px-1.5 py-1 text-xs text-fg-secondary">
+                              {shown.length} of {filteredOptions.length.toLocaleString("en")} shown. Type to narrow.
+                            </p>,
+                          ];
                         })()}
                       </div>
                     )

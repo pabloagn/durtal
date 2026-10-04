@@ -12,7 +12,8 @@ import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { CONCENTRATION_LABELS } from "@/lib/catalogue/perfume-labels";
 import { PERFUME_FILTER_KEYS } from "@/lib/catalogue/perfume-params";
-import type { PerfumeFilterOptions } from "@/lib/actions/perfumes";
+import { getPerfumeFilterOptions } from "@/lib/actions/perfumes";
+import { useLazyOptions } from "@/hooks/use-lazy-options";
 
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 
@@ -39,7 +40,9 @@ function itemLabel(item: { name: string; parentName: string | null }) {
  * concentrations match any one chosen; families, accords and notes must all
  * match. Every choice is in the URL, so a filtered home can be linked.
  */
-export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
+export function PerfumeFilters() {
+  // The options load when the filter panel is about to open, not with the page
+  const { value: options, failed, start } = useLazyOptions(getPerfumeFilterOptions);
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = useHomeView("perfume");
@@ -77,10 +80,10 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
     push(params);
   }, [push, searchParams]);
 
-  const years = options.releaseYears;
+  const years = options?.releaseYears ?? null;
   const from = Number(searchParams.get("from")) || undefined;
   const to = Number(searchParams.get("to")) || undefined;
-  const groups: AnyFilterGroup[] = [
+  const groups: AnyFilterGroup[] = !options ? [] : [
     {
       key: "house",
       label: "House",
@@ -176,6 +179,9 @@ export function PerfumeFilters({ options }: { options: PerfumeFilterOptions }) {
     >
       <FilterDropdown
         groups={groups}
+        onIntent={start}
+        loading={!options && !failed}
+        failed={failed}
         activeFilters={Object.fromEntries(
           ["house", "perfumer", "family", "accord", "note", "concentration", "holding", "container", "favourite"].map(
             (key) => [key, list(key)],

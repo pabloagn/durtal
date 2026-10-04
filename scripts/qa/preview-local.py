@@ -16,7 +16,12 @@ backup must come from pg_dump 16, which the container's pg_restore can read:
 
     docker run --rm -e PGURL postgres:16 sh -c 'pg_dump --format=custom "$PGURL"' > FILE
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE]
+With --seed-large N, scripts/qa/seed-large.sql adds N perfumes, films and
+paintings with many credits, formulations and location records, for timing
+checks. With --log-sql FILE, the bridge appends each query the app sends, with
+its time in ms and its row count, to FILE as one JSON line.
+
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--seed-large N] [--log-sql FILE]
 """
 
 import argparse
@@ -65,6 +70,9 @@ const encode = (value, type) =>
   : value instanceof Date ? value.toISOString()
   : typeof value === "object" ? JSON.stringify(value)
   : typeof value === "boolean" ? (value ? "t" : "f") : String(value);
+// With DURTAL_PREVIEW_SQL_LOG, one JSON line per query: its time, rows and text
+import { appendFileSync } from "node:fs";
+const sqlLog = process.env.DURTAL_PREVIEW_SQL_LOG;
 const upstream = globalThis.fetch;
 globalThis.fetch = async (input, options) => {
   const endpoint = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
@@ -74,7 +82,9 @@ globalThis.fetch = async (input, options) => {
     const results = await client.begin(async (tx) => {
       const output = [];
       for (const query of body.queries || [body]) {
+        const started = performance.now();
         const rows = await tx.unsafe(query.query, query.params).values();
+        if (sqlLog) appendFileSync(sqlLog, JSON.stringify({ at: Date.now(), ms: +(performance.now() - started).toFixed(2), rows: rows.count, sql: query.query, params: query.params }) + "\n");
         output.push({
           command: rows.command, rowCount: rows.count,
           fields: (rows.columns ?? []).map((c) => ({ name: c.name, dataTypeID: c.type })),
@@ -176,6 +186,10 @@ def main():
     parser.add_argument("--port", type=int, default=3410)
     parser.add_argument("--from-dump", type=Path, metavar="FILE",
                         help="rehearse the pending migrations on this pg_dump backup")
+    parser.add_argument("--seed-large", type=int, metavar="N",
+                        help="add N perfumes, N films and N paintings (scripts/qa/seed-large.sql)")
+    parser.add_argument("--log-sql", type=Path, metavar="FILE",
+                        help="append every query the app sends, with its time, to FILE (JSON lines)")
     args = parser.parse_args()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
@@ -237,6 +251,11 @@ def main():
         else:
             run("node", "--input-type=module", "-e", MIGRATE, cwd=ROOT, env=env)
             psql(SEED)
+        if args.seed_large:
+            seed = (Path(__file__).parent / "seed-large.sql").read_text()
+            print(psql(f"\\set n {args.seed_large}\n{seed}"), flush=True)
+        if args.log_sql:
+            env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
         bridge = workdir / "neon-bridge.mjs"
         bridge.write_text(BRIDGE % {
             "postgres": repr(str(ROOT / "node_modules/postgres/src/index.js")),

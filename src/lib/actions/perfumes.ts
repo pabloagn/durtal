@@ -197,8 +197,8 @@ export async function getPerfumeFilterOptions() {
           where c.role_id='perfume.perfumer' and c.person_id is not null
           union select p.person_id,v.work_id from perfume_variant_perfumers p join perfume_variants v on v.id=p.variant_id
           where p.person_id is not null)
-        select a.id,a.name,count(distinct c.work_id)::int as count from credited c join authors a on a.id=c.person_id
-        group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+        select a.id,a.name,x.count from (select person_id,count(*)::int as count from credited group by person_id) x
+        join authors a on a.id=x.person_id order by lower(coalesce(a.sort_name,a.name)),a.id`),
     ),
     resultRows<{
       id: string;
@@ -382,9 +382,10 @@ async function loadVariants(
   // formulation of this fragrance.
   return Promise.all(
     rows.map(async ({ variant, fingerprint }) => {
+      // The formulation was just read with this perfume: no existence check
       const [classification, perfumers] = await Promise.all([
-        loadPerfumeClassification(workId, variant.id),
-        loadPerfumePerfumers(workId, variant.id),
+        loadPerfumeClassification(workId, variant.id, true),
+        loadPerfumePerfumers(workId, variant.id, true),
       ]);
       const image = images.find((row) => row.variantId === variant.id);
       return {

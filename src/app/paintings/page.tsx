@@ -13,7 +13,6 @@ import { PaintingFilters } from "@/components/paintings/painting-filters";
 import { PaintingGrid } from "@/components/paintings/painting-grid";
 import {
   getPaintingCount,
-  getPaintingFilterOptions,
   getPaintings,
 } from "@/lib/actions/paintings";
 import {
@@ -60,10 +59,7 @@ export default async function PaintingsPage({
   searchParams: Promise<ListSearchParams>;
 }) {
   const params = await searchParams;
-  const [catalogued, options] = await Promise.all([
-    getPaintingCount(),
-    getPaintingFilterOptions(),
-  ]);
+  const catalogued = await getPaintingCount();
 
   return (
     <>
@@ -82,7 +78,7 @@ export default async function PaintingsPage({
         />
       ) : (
         <>
-          <PaintingFilters options={options} />
+          <PaintingFilters />
           <Suspense
             key={JSON.stringify(params)}
             fallback={
