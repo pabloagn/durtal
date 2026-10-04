@@ -65,6 +65,9 @@ import {
   getAuthorBySlug,
   deleteAuthor,
   mergeAuthors,
+  getPeopleFilterOptions,
+  getPersonWorkCredits,
+  getPersonWorkCounts,
 } from "@/lib/actions/authors";
 import { updateWork, getLibraryStats } from "@/lib/actions/works";
 import { updateEdition } from "@/lib/actions/editions";
@@ -135,8 +138,11 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     ).toEqual([first.id]);
     expect((await getPeople({ limit: 1 })).total).toBe(2);
     expect((await getPeople({ limit: 1, offset: 1 })).rows).toHaveLength(1);
-    expect(await getAuthorCount()).toBe(0);
-    expect(await getAuthors()).toHaveLength(0);
+    // People lists everyone (SLN-419); the book views stay book-only
+    expect(await getAuthorCount()).toBe(2);
+    expect(await getAuthors()).toHaveLength(2);
+    expect(await getAuthorCount({ filters: { collections: ["book"] } })).toBe(0);
+    expect(await getAuthorCount({ filters: { collections: ["perfume"] } })).toBe(1);
     expect((await getLibraryStats()).authors).toBe(0);
     expect((await loadDataset()).authors).toHaveLength(0);
     const [country] =
@@ -144,6 +150,54 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     await updatePerson(first.id, { nationalityId: country.id });
     expect(await getAuthorsForMap()).toHaveLength(0);
     await expect(getPeople({ limit: 101 })).rejects.toThrow();
+  });
+  it("People: filters by collection and role, counts each choice, and opens every person's page", async () => {
+    const director = await person("Agnès Varda", ["film"]);
+    const perfumer = await person("Germaine Cellier", ["perfume"]);
+    const translator = await person("Edith Grossman", ["book"]);
+    await replaceWorkCredits(work.film, [{ personId: director.id, roleId: "film.director" }]);
+    await replaceWorkCredits(work.perfume, [{ personId: perfumer.id, roleId: "perfume.perfumer" }]);
+    await replaceEditionCredits(editionId, [{ personId: translator.id, roleId: "book.edition.translator" }]);
+    const ids = async (filters: Parameters<typeof getAuthors>[0]) =>
+      (await getAuthors(filters)).map((a) => a.id).sort();
+    expect(await ids({ filters: { roles: ["film.director"] } })).toEqual([director.id]);
+    expect(await ids({ filters: { roles: ["book.edition.translator", "perfume.perfumer"] } })).toEqual(
+      [perfumer.id, translator.id].sort(),
+    );
+    expect(await ids({ filters: { collections: ["film", "perfume"] } })).toEqual(
+      [director.id, perfumer.id].sort(),
+    );
+    // A malformed role or collection is ignored, not sent to the database
+    expect(await ids({ filters: { roles: ["x'); drop table authors;--"], collections: ["nope"] } })).toHaveLength(3);
+    const options = await getPeopleFilterOptions();
+    expect(options.collections).toEqual(
+      expect.arrayContaining([{ kind: "film", count: 1 }, { kind: "perfume", count: 1 }, { kind: "book", count: 1 }]),
+    );
+    expect(options.roles).toEqual(
+      expect.arrayContaining([
+        { roleId: "film.director", kind: "film", label: "Director", count: 1 },
+        { roleId: "perfume.perfumer", kind: "perfume", label: "Perfumer", count: 1 },
+        { roleId: "book.edition.translator", kind: "book", label: "Translator", count: 1 },
+      ]),
+    );
+    // Every person has a page, books or not, with their credits
+    expect((await getAuthorBySlug(director.slug))?.id).toBe(director.id);
+    expect(await getPersonWorkCredits(director.id)).toEqual([
+      { kind: "film", roleId: "film.director", role: "Director", workId: work.film, title: "A film", slug: "a-film" },
+    ]);
+    expect((await getPersonWorkCredits(translator.id)).map((c) => [c.kind, c.role, c.title])).toEqual([
+      ["book", "Translator", "A book"],
+    ]);
+    // The Works column counts every collection's works, each once
+    const counts = await getPersonWorkCounts([director.id, perfumer.id, translator.id]);
+    expect(counts).toEqual({ [director.id]: 1, [perfumer.id]: 1, [translator.id]: 1 });
+    // A person with no books and no credits is deleted through the shared path
+    const lone = await person("Nobody yet", ["painting"]);
+    await deleteAuthor(lone.id);
+    expect(await getPerson(lone.id)).toBeFalsy();
+    // With credits, the shared path refuses and nothing changes
+    await expect(deleteAuthor(director.id)).rejects.toThrow();
+    expect((await getPerson(director.id))?.id).toBe(director.id);
   });
   it("allocates distinct stable URLs for concurrent people with the same name", async () => {
     const people = await Promise.all(

@@ -3,6 +3,14 @@ import { authors, countries } from "@/lib/db/schema";
 import { gte, lte, isNull, isNotNull, inArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { resolveLegacyNationalityNames } from "@/lib/utils/nationality-param";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
+import {
+  personKindsCondition,
+  personRolesCondition,
+} from "@/lib/catalogue/person-boundary";
+
+/** A credit role id: "book.author", "film.director", "book.edition.translator" */
+const ROLE_ID = /^[a-z_]+(\.[a-z0-9_]+){1,3}$/;
 
 /**
  * Resolve an old name-based `nationality` URL param to ISO alpha-2 codes.
@@ -32,8 +40,19 @@ export async function buildAuthorFilterConditions(filters?: {
   deathYearMin?: number;
   deathYearMax?: number;
   alive?: string | boolean;
+  /** Collections (work kinds) the person belongs to, any of them */
+  collections?: string[];
+  /** Credit role ids, any of them */
+  roles?: string[];
 }): Promise<SQL[] | null> {
   const conditions: SQL[] = [];
+
+  const kinds = (filters?.collections ?? []).filter((k): k is WorkKind =>
+    (WORK_KINDS as readonly string[]).includes(k),
+  );
+  if (kinds.length) conditions.push(personKindsCondition(kinds));
+  const roles = (filters?.roles ?? []).filter((r) => ROLE_ID.test(r)).slice(0, 50);
+  if (roles.length) conditions.push(personRolesCondition(roles));
 
   // Nationality filtering: resolve country codes to IDs
   if (filters?.nationalities?.length) {

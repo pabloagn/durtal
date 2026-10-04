@@ -237,7 +237,7 @@ async function DashboardContent() {
           <StatCard label="Books" value={stats.works} icon={BookOpen} />
           <StatCard label="Editions" value={stats.editions} icon={Layers} />
           <StatCard label="Instances" value={stats.instances} icon={Copy} />
-          <StatCard label="Authors" value={stats.authors} icon={Users} />
+          <StatCard label="People" value={stats.authors} icon={Users} />
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <DomainAddLink kind="book" />
@@ -332,15 +332,15 @@ async function DashboardContent() {
       {stats.recentAuthors.length > 0 && (
         <section className="mt-12">
           <SectionHeader
-            title="Recent authors"
+            title="Recent people"
             icon={Users}
-            href="/authors?sort=recent"
+            href="/people?sort=recent"
           />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {stats.recentAuthors.map((author) => (
               <Link
                 key={author.id}
-                href={`/authors/${author.slug ?? ""}`}
+                href={`/people/${author.slug ?? ""}`}
                 className="group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
               >
                 {/* While the photo loads, the frame shows its main color */}

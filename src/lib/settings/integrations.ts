@@ -161,7 +161,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
     {
       id: "mapbox",
       name: "Mapbox",
-      purpose: "The authors map. The token is built into the app: a new token needs a new build.",
+      purpose: "The People map. The token is built into the app: a new token needs a new build.",
       env: [{ name: "NEXT_PUBLIC_MAPBOX_TOKEN", set: isSet("NEXT_PUBLIC_MAPBOX_TOKEN") }],
       checkFrom: "browser",
       facts: [],
@@ -169,7 +169,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
     {
       id: "wikidata",
       name: "Wikidata",
-      purpose: "Facts about authors and publishers, read by the enrichment scripts. No key needed.",
+      purpose: "Facts about people and publishers, read by the enrichment scripts. No key needed.",
       env: [],
       checkFrom: "server",
       facts: [

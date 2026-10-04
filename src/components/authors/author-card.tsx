@@ -54,7 +54,7 @@ export function AuthorCard({
     : null;
 
 
-  const href = `/authors/${slug}`;
+  const href = `/people/${slug}`;
 
   function handleCardClick(e: React.MouseEvent) {
     if (isSelecting && onSelect) {

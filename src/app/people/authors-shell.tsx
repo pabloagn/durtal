@@ -68,7 +68,10 @@ export interface AuthorItem {
   coverPreviews: string[];
   website: string | null;
   bio: string | null;
+  /** Works credited in every collection: the table's Works column */
   worksCount: number;
+  /** Books written: the cards' "N books" */
+  booksCount: number;
   createdAt: string;
 }
 
@@ -96,7 +99,7 @@ function renderAuthorCell(author: AuthorItem, key: string) {
     case "name": {
       return (
         <Link
-          href={`/authors/${author.slug}`}
+          href={`/people/${author.slug}`}
           className="flex items-center gap-2 hover:text-accent-rose-text"
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
@@ -218,17 +221,17 @@ export function AuthorsShell({
   if (pagination.total === 0) {
     return (
       <NoResults
-        noun="authors"
+        noun="people"
         search={search}
         hasFilters={hasFilters}
-        clearHref={clearedListHref("/authors", searchParams)}
+        clearHref={clearedListHref("/people", searchParams)}
       />
     );
   }
 
   // Page number past the last page
   if (authors.length === 0) {
-    return <PageOutOfRange firstPageHref={firstPageHref("/authors", searchParams)} />;
+    return <PageOutOfRange firstPageHref={firstPageHref("/people", searchParams)} />;
   }
 
   return (
@@ -279,7 +282,7 @@ export function AuthorsShell({
         </div>
       )}
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" compact />}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" compact />}
 
       {viewMode === "grid" && (
         <div className="@container">
@@ -299,7 +302,7 @@ export function AuthorsShell({
                 posterCrop={a.posterCrop}
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
-                worksCount={a.worksCount}
+                worksCount={a.booksCount}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -324,7 +327,7 @@ export function AuthorsShell({
               deathYear={a.deathYear}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
-              worksCount={a.worksCount}
+              worksCount={a.booksCount}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}
@@ -357,7 +360,7 @@ export function AuthorsShell({
         onExitSelection={selection.exitSelectionMode}
       />
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="authors" />}
+      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" />}
     </>
   );
 }
