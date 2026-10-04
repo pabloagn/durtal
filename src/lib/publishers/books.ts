@@ -12,6 +12,7 @@ import { targetState } from "./conditions";
 import { resultRows } from "@/lib/harmonization/store";
 import { parsePagination, type ListSearchParams, toSearchParams } from "@/lib/utils/pagination";
 import { parseMarks, type WorkMarkKey } from "@/lib/constants/marks";
+import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 
 export const PUBLISHER_BOOK_STATES = ["owned", "wanted", "on_order"] as const;
 export type PublisherBookState = (typeof PUBLISHER_BOOK_STATES)[number];
@@ -89,7 +90,7 @@ export interface PublisherBook {
   authorName: string;
   authorNames: string[];
   coverUrl: string | null;
-  coverCrop: { cropX: number; cropY: number; cropZoom: number } | null;
+  coverCrop: MediaCrop | null;
   coverTone: string | null;
   publicationYear: number | null;
   language: string | null;
@@ -208,7 +209,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
     title: string;
     authors: string[] | null;
     edition_cover: string | null;
-    poster: { s3Key: string; thumbnailS3Key: string | null; cropX: number; cropY: number; cropZoom: number; tone: string | null } | null;
+    poster: { s3Key: string; thumbnailS3Key: string | null; cropX: number; cropY: number; cropZoom: number; brightness: number; contrast: number; tone: string | null } | null;
     year: number | null;
     language: string | null;
     copies: number;
@@ -223,7 +224,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
         (select array_agg(a.name order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id) as authors,
         coalesce(e.thumbnail_s3_key, e.cover_s3_key) as edition_cover,
         (select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y,
-            'cropZoom', m.crop_zoom, 'tone', m.color_palette->'dominant'->>'hex')
+            'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast, 'tone', m.color_palette->'dominant'->>'hex')
           from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1) as poster,
         e.publication_year as year, e.language,
         (select count(*)::int from instances i where i.edition_id = e.id and i.status <> 'deaccessioned') as copies,
@@ -241,7 +242,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
       authorName: r.authors?.[0] ?? "Unknown",
       authorNames: r.authors ?? [],
       coverUrl: s3Url(r.edition_cover ?? (r.poster ? r.poster.thumbnailS3Key ?? r.poster.s3Key : null)),
-      coverCrop: usePoster ? { cropX: r.poster!.cropX, cropY: r.poster!.cropY, cropZoom: r.poster!.cropZoom } : null,
+      coverCrop: usePoster ? mediaCrop(r.poster!) : null,
       coverTone: r.poster?.tone ?? null,
       publicationYear: r.year,
       language: r.language,
