@@ -19,6 +19,7 @@ import {
   domainDescription,
 } from "@/components/domains/domain-add-link";
 import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
+import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { parseMarks } from "@/lib/constants/marks";
 
@@ -189,6 +190,10 @@ async function LibraryContent({
       activePoster?.thumbnailS3Key ??
       activePoster?.s3Key ??
       firstEdition?.thumbnailS3Key;
+    // Edition cover keys are reused when the cover changes: version the URL
+    const coverVersion = activePoster
+      ? activePoster.createdAt
+      : firstEdition?.updatedAt;
 
     return {
       workId: work.id,
@@ -197,7 +202,7 @@ async function LibraryContent({
       authorName: primaryAuthor?.name ?? "Unknown",
       authorNames: work.workAuthors.map((wa) => wa.author.name),
       coverUrl: coverS3Key
-        ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
+        ? mediaUrl(coverS3Key, { version: coverVersion })
         : null,
       coverCrop: activePoster ? mediaCrop(activePoster) : null,
       coverTone: activePoster?.tone ?? null,

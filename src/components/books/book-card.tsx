@@ -19,6 +19,7 @@ import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
+import { MEDIA_WIDTHS, withMediaWidth } from "@/lib/s3/media-url";
 
 export type CoverCrop = MediaCrop;
 
@@ -48,6 +49,10 @@ interface BookCardProps {
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (workId: string) => void;
+  /** `sizes` for the cover: the card's rendered width */
+  coverSizes?: string;
+  /** Load the cover at once with high priority (cards above the fold) */
+  coverPriority?: boolean;
 }
 
 function CoverPlaceholder({ letter }: { letter: string }) {
@@ -63,11 +68,15 @@ function CoverImage({
   alt,
   fallbackLetter,
   crop,
+  sizes,
+  priority = false,
 }: {
   src: string;
   alt: string;
   fallbackLetter: string;
   crop?: CoverCrop | null;
+  sizes: string;
+  priority?: boolean;
 }) {
   const [retries, setRetries] = useState(0);
   const maxRetries = 3;
@@ -78,13 +87,18 @@ function CoverImage({
 
   // Append retry count to bust the browser's failed-request cache
   const retrySrc = retries > 0 ? `${src}&_r=${retries}` : src;
+  // The route resizes each candidate; the browser picks one for `sizes`
+  const srcSet = MEDIA_WIDTHS.map((w) => `${withMediaWidth(retrySrc, w)} ${w}w`).join(", ");
 
   return (
     <FadeImage
       key={retries}
-      src={retrySrc}
+      src={withMediaWidth(retrySrc, 400)}
+      srcSet={srcSet}
+      sizes={sizes}
       alt={alt}
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
       decoding="async"
       className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
       style={mediaImageStyle(crop)}
@@ -119,6 +133,8 @@ export function BookCard({
   isSelecting = false,
   isSelected = false,
   onSelect,
+  coverSizes = "(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px",
+  coverPriority = false,
 }: BookCardProps) {
   const statusInfo = catalogueStatus
     ? STATUS_CONFIG[catalogueStatus as CatalogueStatus]
@@ -161,6 +177,8 @@ export function BookCard({
                 alt={title}
                 fallbackLetter={title[0]}
                 crop={coverCrop}
+                sizes={coverSizes}
+                priority={coverPriority}
               />
             ) : (
               <CoverPlaceholder letter={title[0]} />

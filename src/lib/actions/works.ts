@@ -303,6 +303,7 @@ export async function getWorks(opts?: {
           thumbnailS3Key: true,
           publicationYear: true,
           language: true,
+          updatedAt: true,
         },
         with: {
           instances: {
@@ -321,6 +322,7 @@ export async function getWorks(opts?: {
           cropZoom: true,
           brightness: true,
           contrast: true,
+          createdAt: true,
         },
         extras: posterTone,
       },

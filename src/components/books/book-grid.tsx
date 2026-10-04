@@ -1,4 +1,4 @@
-import { COL_CLASSES } from "@/components/shared/grid-columns";
+import { COL_CLASSES, maxCardWidth } from "@/components/shared/grid-columns";
 import { BookCard } from "./book-card";
 import type { CoverCrop } from "./book-card";
 
@@ -38,13 +38,17 @@ export function BookGrid({
   onSelect?: (workId: string) => void;
 }) {
   const colClass = COL_CLASSES[columns] ?? COL_CLASSES[6];
+  // Covers come in a few widths; the browser picks one for the widest card
+  const coverSizes = `${maxCardWidth(columns)}px`;
   return (
     <div className="@container">
       <div className={`grid gap-4 ${colClass}`}>
-        {books.map((book) => (
+        {books.map((book, i) => (
           <BookCard
             key={book.workId}
             {...book}
+            coverSizes={coverSizes}
+            coverPriority={i < columns}
             isSelecting={isSelecting}
             isSelected={selectedIds?.has(book.workId) ?? false}
             onSelect={onSelect}
