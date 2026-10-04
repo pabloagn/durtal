@@ -116,7 +116,7 @@ export const SHORTCUT_GROUPS: {
     title: "Lists, forms and dialogs",
     items: [
       { keys: SHORTCUTS.pick, label: "Move in a list or menu" },
-      { keys: SHORTCUTS.confirm, label: "Pick, confirm, or next step" },
+      { keys: SHORTCUTS.confirm, label: "Pick, confirm, next step, Fast Track" },
       { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
       { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
       { keys: SHORTCUTS.close, label: "Close" },
