@@ -58,7 +58,9 @@ describe("curation independent of ownership", () => {
     expect(kindsWithCapability("originalWhereabouts")).toEqual(["painting"]);
     expect(kindsWithCapability("curation")).toEqual([...WORK_KINDS]);
     expect(WORK_DOMAINS.painting.capabilities.reading).toBe(false);
-    expect(canUseWorkCapability("painting", "artObjects")).toBe(false);
+    // A capability is usable only while its domain is open
+    expect(canUseWorkCapability("painting", "artObjects")).toBe(WORK_DOMAINS.painting.enabled);
+    expect(canUseWorkCapability("painting", "reading")).toBe(false);
     expect(canUseWorkCapability("book", "reading")).toBe(true);
   });
   it("keeps a curated film unowned until an optional copy is recorded", () => {

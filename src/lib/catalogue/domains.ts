@@ -101,7 +101,7 @@ export const WORK_DOMAINS = {
     pluralLabel: "Paintings",
     basePath: "/paintings",
     keys: { go: "i", add: "i" },
-    enabled: false,
+    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,

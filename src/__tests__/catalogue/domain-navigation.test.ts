@@ -21,19 +21,34 @@ import PerfumesLayout from "@/app/perfumes/layout";
 import FilmsLayout from "@/app/films/layout";
 import PaintingsLayout from "@/app/paintings/layout";
 
-const UNREADY = ["/perfumes", "/films", "/paintings"];
+const UNREADY = ["/perfumes", "/films"];
 
 describe("collection navigation", () => {
   it("lists only the open collections, named after them", () => {
-    expect(DOMAIN_SECTIONS).toEqual([{ href: "/library", label: "Books" }]);
+    expect(DOMAIN_SECTIONS).toEqual([
+      { href: "/library", label: "Books" },
+      { href: "/paintings", label: "Paintings" },
+    ]);
     for (const list of [NAV_SECTIONS, GO_TO])
       expect(list.map((entry) => entry.href)).not.toEqual(
-        expect.arrayContaining([expect.stringMatching(/^\/(perfumes|films|paintings)/)]),
+        expect.arrayContaining([expect.stringMatching(/^\/(perfumes|films)/)]),
       );
-    expect(NAV_SECTIONS.slice(0, 2).map((s) => s.label)).toEqual([
+    expect(NAV_SECTIONS.slice(0, 3).map((s) => s.label)).toEqual([
       "Dashboard",
       "Books",
+      "Paintings",
     ]);
+    expect(GO_TO.find((g) => g.href === "/paintings")).toEqual({
+      key: "i",
+      label: "Paintings",
+      href: "/paintings",
+    });
+    expect(ADD.find((a) => a.section === "/paintings")).toEqual({
+      key: "i",
+      label: "Painting",
+      section: "/paintings",
+      href: "/paintings/new",
+    });
     expect(GO_TO.find((g) => g.href === "/library")).toEqual({
       key: "l",
       label: "Books",
@@ -110,11 +125,12 @@ describe("collection switch", () => {
 });
 
 describe("collection readiness gate", () => {
-  it("lets the open collection through", () => {
-    expect(() => requireEnabledDomain("book")).not.toThrow();
+  it.each(["book", "painting"] as const)("lets the open %s collection through", (kind) => {
+    expect(() => requireEnabledDomain(kind)).not.toThrow();
+    expect(() => PaintingsLayout({ children: null })).not.toThrow();
   });
 
-  it.each(["perfume", "film", "painting"] as const)(
+  it.each(["perfume", "film"] as const)(
     "answers 404 for every %s page while the collection is unready",
     (kind) => {
       expect(() => requireEnabledDomain(kind)).toThrow("NEXT_NOT_FOUND");
@@ -124,7 +140,6 @@ describe("collection readiness gate", () => {
   it.each([
     ["perfumes", PerfumesLayout],
     ["films", FilmsLayout],
-    ["paintings", PaintingsLayout],
   ])("gates the /%s layout", (_, Layout) => {
     expect(() => Layout({ children: null })).toThrow("NEXT_NOT_FOUND");
   });
