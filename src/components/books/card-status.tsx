@@ -40,7 +40,7 @@ export function CardStatus({
   ].filter(Boolean);
   return (
     <span
-      className="flex min-w-0 gap-1.5 text-micro text-fg-secondary"
+      className="relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary"
       data-tooltip={details.join(" · ")}
     >
       <CapAligned height={6}>
@@ -59,7 +59,7 @@ export function CardRating({ rating }: { rating?: number | null }) {
   if (!rating) return null;
   return (
     <span
-      className="flex shrink-0 gap-1 font-mono text-micro text-accent-gold"
+      className="relative z-20 flex shrink-0 gap-1 font-mono text-micro text-accent-gold"
       role="img"
       aria-label={`Rated ${rating} out of 5`}
       data-tooltip={`Rated ${rating}/5`}

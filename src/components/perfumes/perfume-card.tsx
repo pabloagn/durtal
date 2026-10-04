@@ -72,7 +72,7 @@ export function PerfumeCard({
       <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
         <PerfumeImage image={perfume.poster} title={perfume.title} />
         {held && (
-          <div className={COVER_CORNER.topRight}>
+          <div className={`${COVER_CORNER.topRight} z-20` /* above the card's link, so its tooltip opens */}>
             <span
               role="img"
               aria-label={`In the collection: ${held}`}
