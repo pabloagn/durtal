@@ -22,8 +22,9 @@ function rows<T>(result: unknown): T[] {
  *
  * Every signal adds one row per (similar work, shared source) to `signals`.
  * Collections are the first signal: two books in the same collection are
- * similar. Collections hold editions, so several editions of a work count
- * once per collection.
+ * similar. A book is in a collection through its editions or as a whole
+ * book (SLN-362); either way it counts once per collection. Other kinds of
+ * work in a collection are not books and are left out.
  *
  * Ranking: more shared sources first. At an equal count, the higher weight
  * wins; a collection weighs 1/size, so a shared small collection says more
@@ -38,17 +39,21 @@ export async function getSimilarWorks(workId: string, limit = 12) {
   z.number().int().min(1).max(50).parse(limit);
   const ranked = rows<{ workId: string; reasons: SimilarityReason[] }>(
     await db.execute(sql`
-      with members as (
-        select ce.collection_id, e.work_id,
-          min(ce.sort_order) as position, min(ce.added_at) as added_at
-        from collection_editions ce
-        join editions e on e.id = ce.edition_id
-        where ce.collection_id in (
-          select ce2.collection_id from collection_editions ce2
-          join editions e2 on e2.id = ce2.edition_id
-          where e2.work_id = ${workId}::uuid
+      with held as (
+        -- A book is in a collection through an edition or as a whole book
+        select ce.collection_id, e.work_id, ce.sort_order, ce.added_at
+        from collection_editions ce join editions e on e.id = ce.edition_id
+        union all
+        select cw.collection_id, cw.work_id, cw.sort_order, cw.added_at
+        from collection_works cw join works w on w.id = cw.work_id and w.kind = 'book'
+      ), members as (
+        select collection_id, work_id,
+          min(sort_order) as position, min(added_at) as added_at
+        from held
+        where collection_id in (
+          select collection_id from held where work_id = ${workId}::uuid
         )
-        group by ce.collection_id, e.work_id
+        group by collection_id, work_id
       ), signals as (
         select m.work_id, 'collection' as kind, c.id as source_id,
           c.name as source_name,

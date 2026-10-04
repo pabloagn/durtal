@@ -617,11 +617,26 @@ Management interface for physical and digital storage locations.
 
 ### Collections (`/collections`)
 
-Grid of curated edition collections.
+Grid of curated collections. A collection holds book editions and whole works
+of every open collection: books with no edition chosen, films, perfumes and
+paintings (SLN-362).
 
-**Per collection card**: Name, description, edition count, cover image.
+**Per collection card**: Name, description, count ("12 editions" when it holds
+only editions, else "5 items", a book held both ways counted once), cover
+image or the first four members' images.
 
-**Management**: Create, edit, delete collections. Add/remove editions. Reorder editions within a collection.
+**Collection page** (`/collections/[id]`): one ordered list of member cards
+(`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
+as the book" when the whole book is in too), a whole book ("The book, no
+edition chosen"), a film (poster or title card, directors, year and runtime),
+a perfume (bottle, house, concentrations) or a painting (picture, painters,
+date). Each card moves earlier or later in the one order and can be removed;
+the header counts books, editions, films, perfumes and paintings.
+
+**Management**: Create, edit, delete collections. "Add" opens a dialog with
+Editions, Books, Films, Perfumes and Paintings (the open collections). The
+library's selection dialog adds a book with no edition as a whole book; film,
+perfume and painting pages have "Collections" in their actions menu.
 
 ---
 
