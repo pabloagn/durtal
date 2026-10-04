@@ -6,6 +6,7 @@ import {
   useReducer,
   useEffect,
   type PointerEvent,
+  type MouseEvent,
   type WheelEvent,
   type KeyboardEvent,
 } from "react";
@@ -20,6 +21,11 @@ const MIN_SCALE = 0.05;
 const MAX_SCALE = 15;
 const PAN_STEP = 80;
 const ZOOM_FACTOR = 1.15;
+// A press pans only once it moves this far; until then the click stays with
+// the marker or bar under it
+const DRAG_THRESHOLD = 3;
+// Controls inside the canvas take their own presses: the zoom buttons, the minimap
+const CONTROLS = "button, a, input, select, textarea, [role='scrollbar']";
 
 type Action =
   | { type: "SET"; transform: TimelineTransform }
@@ -44,6 +50,8 @@ export interface TimelineTransformHandlers {
   onPointerDown: (e: PointerEvent<HTMLElement>) => void;
   onPointerMove: (e: PointerEvent<HTMLElement>) => void;
   onPointerUp: (e: PointerEvent<HTMLElement>) => void;
+  onPointerCancel: (e: PointerEvent<HTMLElement>) => void;
+  onClickCapture: (e: MouseEvent<HTMLElement>) => void;
   onWheel: (e: WheelEvent<HTMLElement>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
 }
@@ -70,7 +78,11 @@ export function useTimelineTransform(
 
   // Refs for drag state — kept outside React state to avoid re-renders during drag
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // The pointer pressed on the canvas, until it is released
+  const pressedPointer = useRef<number | null>(null);
   const isDragging = useRef(false);
+  // A drag ends with a click on whatever is under the pointer: it opens nothing
+  const swallowClick = useRef(false);
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const dragStartOffsetX = useRef(0);
@@ -111,22 +123,31 @@ export function useTimelineTransform(
   // ── Pointer events ────────────────────────────────────────────────────────
 
   const onPointerDown = useCallback((e: PointerEvent<HTMLElement>) => {
+    swallowClick.current = false;
     // Only main button (left click / single touch)
     if (e.button !== 0 && e.pointerType === "mouse") return;
-    isDragging.current = true;
+    if ((e.target as Element).closest(CONTROLS)) return;
+    pressedPointer.current = e.pointerId;
+    isDragging.current = false;
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     dragStartOffsetX.current = transformRef.current.offsetX;
     dragStartOffsetY.current = transformRef.current.offsetY;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     e.preventDefault();
   }, []);
 
   const onPointerMove = useCallback(
     (e: PointerEvent<HTMLElement>) => {
-      if (!isDragging.current) return;
+      if (pressedPointer.current !== e.pointerId) return;
       const dx = e.clientX - dragStartX.current;
       const dy = e.clientY - dragStartY.current;
+      if (!isDragging.current) {
+        if (Math.hypot(dx, dy) <= DRAG_THRESHOLD) return;
+        // Now a drag: the canvas takes the pointer, so panning goes on
+        // outside it
+        isDragging.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
       const next: TimelineTransform = {
         ...transformRef.current,
         offsetX: dragStartOffsetX.current + dx,
@@ -137,9 +158,24 @@ export function useTimelineTransform(
     [scheduleUpdate],
   );
 
-  const onPointerUp = useCallback((e: PointerEvent<HTMLElement>) => {
+  const endPress = useCallback((e: PointerEvent<HTMLElement>, clickFollows: boolean) => {
+    if (pressedPointer.current !== e.pointerId) return;
+    pressedPointer.current = null;
+    if (!isDragging.current) return;
     isDragging.current = false;
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    swallowClick.current = clickFollows;
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerUp = useCallback((e: PointerEvent<HTMLElement>) => endPress(e, true), [endPress]);
+  const onPointerCancel = useCallback((e: PointerEvent<HTMLElement>) => endPress(e, false), [endPress]);
+
+  const onClickCapture = useCallback((e: MouseEvent<HTMLElement>) => {
+    if (!swallowClick.current) return;
+    swallowClick.current = false;
+    e.stopPropagation();
+    e.preventDefault();
   }, []);
 
   // ── Wheel event ───────────────────────────────────────────────────────────
@@ -283,7 +319,15 @@ export function useTimelineTransform(
   return {
     transform,
     containerRef,
-    handlers: { onPointerDown, onPointerMove, onPointerUp, onWheel, onKeyDown },
+    handlers: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel,
+      onClickCapture,
+      onWheel,
+      onKeyDown,
+    },
     zoomIn,
     zoomOut,
     resetView,
