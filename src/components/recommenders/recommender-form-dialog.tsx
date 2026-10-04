@@ -11,7 +11,7 @@ import {
   createRecommender,
   updateRecommender,
 } from "@/lib/actions/recommenders";
-import { parseWebsite } from "@/lib/validations/recommenders";
+import { parseWebsite } from "@/lib/utils/website";
 
 interface Existing {
   id: string;

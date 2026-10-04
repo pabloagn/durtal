@@ -17,7 +17,7 @@ import {
   imageSourceIdentity,
   s3ImageSource,
   type ImageAdjustments,
-} from "@/lib/utils/image-adjustments";
+} from "@/lib/utils/image-adjustment-css";
 import { useImageAdjustmentUpdate } from "./image-adjustment-provider";
 
 type Presentation = Awaited<ReturnType<typeof getImagePresentation>>;

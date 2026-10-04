@@ -8,20 +8,21 @@ import {
   useState,
 } from "react";
 import {
-  imageAdjustmentStyles,
+  imageAdjustmentRule,
   type StoredImageAdjustments,
-} from "@/lib/utils/image-adjustments";
+} from "@/lib/utils/image-adjustment-css";
 
 const AdjustmentContext = createContext<
   (record: StoredImageAdjustments) => void
 >(() => {});
 
-/** Match canonical asset URLs across cards, thumbnails and lightboxes, including portals. */
+/**
+ * Saved adjustments come from the cached stylesheet in the root layout. This
+ * provider adds only the edits saved since the page loaded, so they show at once.
+ */
 export function ImageAdjustmentProvider({
-  initial,
   children,
 }: {
-  initial: StoredImageAdjustments[];
   children: React.ReactNode;
 }) {
   const [edits, setEdits] = useState<Record<string, StoredImageAdjustments>>(
@@ -30,15 +31,13 @@ export function ImageAdjustmentProvider({
   const update = useCallback((record: StoredImageAdjustments) => {
     setEdits((current) => ({ ...current, [record.assetKey]: record }));
   }, []);
-  const css = useMemo(() => {
-    const records = new Map(initial.map((record) => [record.assetKey, record]));
-    for (const record of Object.values(edits))
-      records.set(record.assetKey, record);
-    return imageAdjustmentStyles([...records.values()]);
-  }, [initial, edits]);
+  const css = useMemo(
+    () => Object.values(edits).map(imageAdjustmentRule).join("\n"),
+    [edits],
+  );
   return (
     <AdjustmentContext.Provider value={update}>
-      <style data-image-adjustments>{css}</style>
+      {css && <style data-image-adjustments>{css}</style>}
       {children}
     </AdjustmentContext.Provider>
   );
