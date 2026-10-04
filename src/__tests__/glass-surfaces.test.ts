@@ -86,4 +86,19 @@ describe("glass surfaces", () => {
       .map((file) => path.relative(SRC, file));
     expect(blurred).toEqual([]);
   });
+
+  it("keep the standard backdrop-filter: the prefixed line comes first", () => {
+    // Lightning CSS (Turbopack, Tailwind) reads a -webkit-backdrop-filter
+    // after backdrop-filter as an override and drops the standard line; Chrome
+    // has no -webkit- form, so the glass loses its blur there
+    const css = readFileSync(path.join(SRC, "styles", "globals.css"), "utf8");
+    const lines = css.split("\n").map((l) => l.trim());
+    const standard = lines.flatMap((line, i) => (line.startsWith("backdrop-filter:") ? [i] : []));
+    expect(standard.length).toBeGreaterThanOrEqual(4);
+    for (const i of standard) {
+      const value = lines[i].slice("backdrop-filter:".length).trim();
+      expect(lines[i - 1]).toBe(`-webkit-backdrop-filter: ${value}`);
+      expect(lines[i + 1]?.startsWith("-webkit-backdrop-filter:")).toBe(false);
+    }
+  });
 });
