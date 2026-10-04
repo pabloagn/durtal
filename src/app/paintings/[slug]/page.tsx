@@ -19,6 +19,8 @@ import {
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
+import { LinkedWorksSection } from "@/components/catalogue/work-relations";
+import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import type { StorageLocation } from "@/components/catalogue/holding-fields";
 import { PaintingImage } from "@/components/paintings/painting-image";
@@ -281,7 +283,7 @@ export default async function PaintingPage({
   const painting = await loadPainting(slug);
   if (!painting) notFound();
   const owner = { kind: "painting" as const, id: painting.id };
-  const [media, curation, provenance, families, allLocations, choices, histories] =
+  const [media, curation, provenance, families, allLocations, choices, histories, links] =
     await Promise.all([
       getMediaForWork(painting.id),
       getWorkCuration(owner),
@@ -290,6 +292,7 @@ export default async function PaintingPage({
       getLocations(),
       getPaintingChoices(),
       Promise.all(painting.objects.map((o) => getWhereabouts(o.id))),
+      getWorkRelations(painting.id),
     ]);
 
   // ── The picture ───────────────────────────────────────────────────────────
@@ -335,7 +338,12 @@ export default async function PaintingPage({
 
   // ── Sources ───────────────────────────────────────────────────────────────
   const cited = new Set(
-    [painting.sourceRecordId, ...painting.objects.map((o) => o.sourceRecordId)].filter(
+    [
+      painting.sourceRecordId,
+      ...painting.objects.map((o) => o.sourceRecordId),
+      // A link starting here cites a source of this painting
+      ...links.filter((l) => l.direction === "outgoing").map((l) => l.source?.id),
+    ].filter(
       (id): id is string => !!id,
     ),
   );
@@ -571,6 +579,11 @@ export default async function PaintingPage({
             objects={objects}
             locations={locations}
             sources={citable}
+          />
+
+          <LinkedWorksSection
+            work={{ id: painting.id, kind: "painting", title: painting.title }}
+            relations={links}
           />
 
           <SourcesSection

@@ -252,6 +252,41 @@ conflicting claims (probable or uncertain records that may overlap the current
 period at another place) and staleness (current location unchecked for 365
 days by default).
 
+## Links between works
+
+Migration `0058_work_relations` (SLN-363) adds `work_relations`: directed, typed
+links between two works, recorded by hand. Similarity never creates one.
+Migration `0057_work_kind_keys` adds `UNIQUE (id, kind)` on `works`, the target
+of the link's composite keys.
+
+| Column | Type | Rule |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `type` | TEXT | `adaptation`, `remake`, `flanker` or `inspiration` |
+| `from_work_id`, `from_kind` | UUID, `work_kind_enum` | FK (`work_relation_from_fk`) → `works (id, kind)`, CASCADE: the adaptation, remake, flanker or the inspired work |
+| `to_work_id`, `to_kind` | UUID, `work_kind_enum` | FK (`work_relation_to_fk`) → `works (id, kind)`, CASCADE: the work it adapts, remakes, flanks or draws on |
+| `source_record_id` | UUID, nullable | FK → `source_records`; a source of the first work (the services check its owner). A cited source cannot be deleted |
+| `notes` | TEXT, nullable | 1–2000 characters |
+| `created_at` | TIMESTAMPTZ | |
+
+Checks: no link from a work to itself (`work_relation_self_check`); the kinds a
+type joins (`work_relation_pair_check`: an adaptation joins a film to a book or
+a book to a film, a remake a film to a film, a flanker a perfume to a perfume,
+an inspiration any two works); an inspiration cites a source
+(`work_relation_source_check`). `work_relation_pair_unique` on
+`(least(from, to), greatest(from, to), type)` allows one link of a type per
+pair of works, whichever way it points. Each end's kind travels in the
+composite key, and a work's kind never changes, so the pair check stays true.
+
+Each link reads from both ends (`WORK_RELATION_LABELS`,
+`src/lib/catalogue/work-relations.ts`): "Adapted from" and "Adapted as",
+"Remake of" and "Remade as", "Flanker of" and "Flankers", "Inspired by" and
+"Inspired". Deleting a work deletes its links; removing a link keeps its
+source. A book merge moves the merged book's links to the kept book, drops a
+link between the two and a link the kept book already has
+(`src/lib/harmonization/work-relation-merge.ts`); merges accept a key on
+`works (id, kind)` as a reference to the id.
+
 ## Personal curation and holdings contracts
 
 ## Personal curation and holdings contracts
