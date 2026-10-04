@@ -48,7 +48,7 @@ export function RowCheckbox({ checked }: { checked: boolean }) {
       className={`absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-[2px] border transition-colors ${
         checked
           ? "border-accent-rose bg-accent-rose text-fg-primary"
-          : "border-glass-border bg-overlay text-transparent"
+          : "glass-chip text-transparent"
       }`}
     >
       {checked && (

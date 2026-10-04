@@ -391,7 +391,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
       [others[0].id, books[0]],
     ]) {
       const preview = await previewMerge("works", sourceId, targetId);
-      expect(preview.blockers.join(" ")).toContain("only merge books");
+      expect(preview.blockers.join(" ")).toContain("cannot be merged");
       await expect(
         executeMerge({
           entity: "works",
@@ -400,7 +400,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           fingerprint: preview.fingerprint,
           choices: {},
         }),
-      ).rejects.toThrow("only merge books");
+      ).rejects.toThrow("cannot be merged");
     }
   });
   it("still accepts ordinary book edits, edition creation, targets, and series membership", async () => {
