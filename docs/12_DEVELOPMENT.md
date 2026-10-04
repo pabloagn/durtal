@@ -175,6 +175,8 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 | `pnpm typecheck` | Run `tsc --noEmit` |
 | `pnpm format` | Format with Prettier |
 | `pnpm format:check` | Check formatting |
+| `pnpm test` | Vitest. Skips the database suites and names each one it skipped |
+| `pnpm test:local` | Every Vitest suite, including the database suites, against a disposable PostgreSQL 16 container (`scripts/qa/test-local.py`). Needs Docker and the `postgres:16` image. Run it before landing a change |
 | `pnpm db:generate` | `drizzle-kit generate` |
 | `pnpm db:migrate` | `drizzle-kit migrate` |
 | `pnpm db:push` | `drizzle-kit push` |
