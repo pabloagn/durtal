@@ -56,7 +56,7 @@ const routes = args.length ? args : ["/perfumes", "/films", "/paintings", "/perf
 /** Controls the audit presses: their label says they open a dialog, a panel or a form */
 const OPENER = /^(edit|add|new|note|write|rename|change|choose|manage|images|details|adjust|link|attach|view|open)\b/i;
 /** Controls it never presses, whatever else the label says: they change data or state */
-const WRITES = /delete|remove|save|submit|favourite|archive|unarchive|move|checked|mark|restore|duplicate|set as|make |primary|verify|sync|import|refresh|clear|reset|apply|undo|confirm|download|export|upload|merge|accept|reject|dismiss|sign out|rate |copy/i;
+const WRITES = /delete|remove|save|submit|favourite|archive|unarchive|move|checked|mark|restore|duplicate|set as|make |primary|verify|sync|import|refresh|clear|reset|apply|undo|confirm|download|export|upload|merge|accept|reject|dismiss|sign out|rate /i;
 const pressable = (label) => OPENER.test(label) && !WRITES.test(label);
 
 function findChrome() {
