@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({ works, total });
-  } catch {
+  } catch (err) {
+    console.error("[api/works] Failed to fetch works:", err);
     return NextResponse.json({ error: "Failed to fetch works" }, { status: 500 });
   }
 }

@@ -37,18 +37,6 @@ export async function deleteFromS3(key: string) {
   );
 }
 
-/** Get a pre-signed URL for reading an S3 object */
-export async function getPresignedReadUrl(
-  key: string,
-  expiresIn = 3600,
-): Promise<string> {
-  return getSignedUrl(
-    s3,
-    new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
-    { expiresIn },
-  );
-}
-
 /** Get an S3 object as a readable stream with metadata */
 export async function getS3Object(key: string) {
   const response = await s3.send(

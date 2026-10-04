@@ -391,6 +391,24 @@ a pair check, one link per pair and type, and a source check for inspirations.
 Every detail page lists them apart from its suggestions, and book merges carry
 them. Migrations 0057 and 0058.
 
+The organization directory (SLN-369, task 0272): `/organizations` lists every
+organization of every collection, with search by name or other name, a
+one-role filter with counts, and row counts that stop at 999+. Its detail page
+keeps the parts apart: the publisher profile (which links to the publisher
+page, where the books stay), perfume houses, brands, manufacturers and
+retailers, film production and distribution, paintings owned or shown, and the
+venues it runs. Publisher URLs, slugs and the group, publisher and imprint
+levels do not change; the directory edits only the roles outside publishing.
+The people half of SLN-369 moved to SLN-419 (People, at `/people`) and SLN-420
+(role indicators on person cards).
+
+Venue pages (SLN-370, task 0273): a venue page now shows who runs or owns it
+and its other branches, the art recorded there now apart from what its
+institutions own elsewhere (loans out, unrecorded places), the perfumes sold
+there with dated offers, and its orders. Venues can be edited, archived,
+restored and deleted only when nothing refers to them. The places list gains
+country and archived filters. No schema change.
+
 Domain-aware search (SLN-371, task 0274): the command palette groups works by
 collection and opens each in its own collection, so a film no longer opens
 under `/library`. People, organizations and places get their own groups with

@@ -56,5 +56,6 @@ export const venueSearchSchema = z.strictObject({
     tags: z.array(z.string().trim().min(1).max(100)).max(100).optional(),
     archived: z.enum(["exclude", "include", "only"]).default("exclude"),
     organizationId: z.uuid().optional(),
+    countryIds: z.array(z.uuid()).max(50).optional(),
   }).optional(),
 });

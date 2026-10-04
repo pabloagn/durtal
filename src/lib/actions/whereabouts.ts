@@ -1,5 +1,15 @@
 "use server";
 
+import { recordWorkEvents } from "@/lib/activity/work-changes";
+import {
+  ART_OBJECT_KIND_LABELS,
+  CERTAINTY_LABELS,
+  CUSTODY_LABELS,
+  PLACE_LABELS,
+  type WhereaboutsCertainty,
+  type WhereaboutsCustody,
+  type WhereaboutsPlace,
+} from "@/lib/catalogue/painting-labels";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
@@ -228,7 +238,45 @@ export async function recordWhereabouts(
     }),
   ]);
   changed();
-  return (await getWhereabouts(objectId))!;
+  const history = (await getWhereabouts(objectId))!;
+  await recordMove(objectId, history.records.find((r) => r.id === id), current && history.records.find((r) => r.id === current.id));
+  return history;
+}
+
+/** "Louvre, Paris", "In a private place: Geneva": a record's place as the history names it */
+function placeName(r: { placeKind: WhereaboutsPlace; venueName: string | null; placeLabel: string | null }) {
+  return r.venueName ?? [PLACE_LABELS[r.placeKind], r.placeLabel].filter(Boolean).join(": ");
+}
+
+/**
+ * A painting move in its work's history: where from (the confirmed location
+ * it closed, if any), where to, with custody and certainty as recorded.
+ */
+async function recordMove(
+  objectId: string,
+  to: { placeKind: WhereaboutsPlace; venueName: string | null; placeLabel: string | null; custody: WhereaboutsCustody; certainty: WhereaboutsCertainty } | undefined,
+  from: { placeKind: WhereaboutsPlace; venueName: string | null; placeLabel: string | null } | null | undefined,
+) {
+  if (!to) return;
+  const object = await db.query.artObjects.findFirst({
+    where: eq(artObjects.id, objectId),
+    columns: { workId: true, kind: true, label: true },
+  });
+  if (!object) return;
+  await recordWorkEvents(object.workId, [
+    {
+      eventKey: "work.location_recorded",
+      metadata: {
+        oldValue: from ? placeName(from) : null,
+        newValue: placeName(to),
+        extra: {
+          object: [ART_OBJECT_KIND_LABELS[object.kind], object.label].filter(Boolean).join(": "),
+          custody: CUSTODY_LABELS[to.custody],
+          certainty: CERTAINTY_LABELS[to.certainty],
+        },
+      },
+    },
+  ]);
 }
 
 /**

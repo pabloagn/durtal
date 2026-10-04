@@ -16,6 +16,9 @@
 /publishers/review          Review publisher names on editions
 /publishers/[slug]          Publisher detail
 /publishers/[slug]/edit     Edit a publisher
+/organizations              Organization directory: every collection's houses,
+                            studios, museums and shops
+/organizations/[slug]       Organization detail (same slug as its publisher page)
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
 /reader                     Calibre e-book library
@@ -75,7 +78,7 @@ Structure from top to bottom:
 3. **Navigation links**: `NAV_SECTIONS` in `src/lib/navigation.ts`, the one
    list the sidebar and the command palette read. Dashboard, then one entry per
    open collection in the order Books, Perfumes, Films, Paintings
-   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Recommenders, Series,
+   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Organizations, Recommenders, Series,
    Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
    Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
    (`src/components/shortcuts/section-icons.ts`).
@@ -200,7 +203,8 @@ list; unknown or malformed values are dropped (`perfumeQueryFromParams`,
 
 | Parameter | Matches |
 |-----------|---------|
-| `house`, `perfumer` | Organization or person ids; any one listed |
+| `house`, `perfumer` | Organization or person ids; any one listed. The House list holds every perfume house, brand and manufacturer |
+| `houseRole` | With `house`: only that role (`perfume_house`, `brand` or `manufacturer`), shown as the "House role" group in the filters and removed whenever the houses change; without it a house matches in any of the three roles. Alone it filters nothing |
 | `family`, `accord`, `note` | Taxonomy item ids; all listed, a broader item takes in its narrower ones |
 | `concentration` | Concentrations made (`eau_de_parfum`, `extrait`, ...); any one listed |
 | `holding` | `owned` or `not_owned` (both: no filter) |
@@ -240,7 +244,7 @@ people (perfumer, creative director, with "Unknown"), launch and
 discontinuation dates of any precision, description, and (on create) notes by
 position, families and accords. Dialogs add and edit formulations, bottles and
 samples, retailer listings and prices, and sources. A perfume with bottles,
-samples or listings cannot be deleted; the dialog says what to do first.
+samples or listings cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each bottle, sample or decant added, changed (status, amount left, condition, location) or removed.
 Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
 in the house, people and note pickers; Escape closes a dialog.
 
@@ -301,7 +305,7 @@ a remake is a new film, and a cut goes to that film as a version ("Add a version
 to it" opens `?add=version`). Dialogs add and edit versions with their
 releases, and copies (physical or digital, version and release, status,
 storage, acquisition, disposal). A version a copy names, and a film with
-copies, cannot be deleted; the dialog says what to do first.
+copies, cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed.
 
 ### Paintings (`/paintings`)
 
@@ -363,7 +367,7 @@ move, a loan (an exhibition, on display), a return to the owning venue, a past
 or uncertain location, or edits a record; places are a venue, a private place,
 unknown, lost or destroyed. A move closes the current location on its date.
 "Checked today" stamps the record. A painting with objects you own cannot be
-deleted; the dialog says what to do first.
+deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each location recorded ("Moved from Louvre, Paris to Tokyo Gallery (on loan for an exhibition, confirmed)").
 
 ### Linked works (every detail page)
 
@@ -543,6 +547,33 @@ Full author profile page.
 - Search, filters (status: owned, wanted, on order; marks; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
 - Record column: the counts (books, editions, owned, wanted, on order), details (country, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
+- The record's Links group opens the house's organization page, where its roles in the other collections show.
+
+### Organizations (`/organizations`)
+
+One directory for the organizations of every collection: publishing groups, publishers and imprints, perfume houses, brands and manufacturers, retailers, production companies and distributors, museums and galleries. A publisher and its organization are one record (`publishing_houses`); the directory adds no table.
+
+- Search by name or other name (accent-insensitive, typo-tolerant, ranked), in the URL as `q`.
+- Role filter: one role at a time (`role`), each chip with the number of organizations that hold it among those the search finds; roles nobody holds are left out. Publishing levels come from the publisher record, the other roles from `organization_roles`.
+- Each row: the name, its roles in the collections' own words ("Perfume house", "Distributor", "Museum") and country, and what it takes part in ("124 editions · 2 houses under it · 1 book wanted · 3 films · 4 copies supplied"). Row counts stop at 999+ (`COUNT_CAP`), so a page reads a bounded number of rows per organization.
+- Pagination like the other lists. "Add organization" opens a dialog for any role outside publishing; publishers are still added under Publishers.
+- Services: `getOrganizationDirectory` and `getOrganizationRoleCounts` in `src/lib/actions/organization-directory.ts`.
+
+### Organization Detail (`/organizations/[slug]`)
+
+- Header: the name, its roles, and an actions menu (Edit, Delete) on the name's cap-height center.
+- One part per collection it takes part in, each left out when empty:
+  - **Books**: its publisher profile (level; editions and books counted, with the houses under it when it has some; the house above it and the houses under it) and a link to the publisher page, which keeps the books.
+  - **Perfumes**: a row of cards per role (as perfume house, as brand, as manufacturer), the perfumes it sells (retailer listings), and how many of your bottles it supplied.
+  - **Films**: films it produced and films it distributed, and how many of your copies it supplied.
+  - **Paintings**: paintings it owns (as a museum or gallery) and paintings at its venues now.
+  - **Venues**: the venues it runs or owns, each linking to its place page.
+- Each row shows the first 24 works with the full count; titles link to the collection's filtered home where one exists (`/perfumes?house=…&houseRole=…` lists only that role, `/paintings?institution=`, `/paintings?venue=`).
+- Record column: roles, country, other names, the publisher page and the website.
+- Edit changes the name, other names, country (its country id follows the text, as on the publisher form), website, description and the roles outside publishing (`updateOrganizationProfile`); the book profile and the house above it stay as the publisher page sets them. A role that perfume or film records still use cannot be removed (the database says why), and an organization that owns paintings stays a museum or a gallery.
+- Delete lists what still links to the organization (editions, houses under it, books wanted from it, perfume and film links, copies supplied, paintings, venues) and stays off until nothing does (`removeOrganization`).
+- An address that is malformed or longer than 500 characters shows the not-found page.
+- An organization nothing links to shows one line saying how it gets linked. Loading skeleton and a not-found page.
 
 ### Series (`/series`)
 
@@ -606,19 +637,27 @@ In-app e-book reader for one Calibre book. It opens the EPUB format first, then 
 
 ### Places (`/places`)
 
-Paginated index of venues (`venues` table): bookshops, online stores, fairs, auction houses and other places books come from.
+Paginated index of venues (`venues` table): bookshops, online stores, museums, galleries, perfumeries, cinemas, fairs, auction houses and other places.
 
-**Filters**: Search (`q`), venue type (`type`, comma-separated), favorites (`favorite=true`). Sort by name, recent or rating.
+**Filters**: Search (`q`), venue type (`type`, comma-separated), country (`country`, comma-separated ids: a venue is in a country when its place, or a place above it, is; a venue with no place or a bare map point has none; only countries with an active venue are offered), favorites (`favorite=true`), archived (`archived=include` or `only`; archived venues are hidden by default and marked "Archived" when shown). Sort by name, recent or rating.
 
-**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`).
+**Actions**: Create a venue. The create dialog can look up the venue through Google Places (`/api/venues/*`); every field can be typed by hand, and an online shop needs no address.
 
 ---
 
 ### Place Detail (`/places/[slug]`)
 
-Single venue view: contact details, opening hours, visits, description, specialties and notes.
+A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 
----
+- Header: image, name, type, address and rating, with an actions menu on the name's cap-height center: Edit (the create form with rating, favorite and visit dates; a Google place chosen while editing replaces the venue's point, otherwise the address stays), Archive or Restore, Delete. Delete lists what still refers to the venue (orders, copies bought there, painting location records, retailer listings, institution links, sources, identifiers) and stays off; archiving keeps the history. Its images never block a delete: they go with it.
+- About, then **Institution**: who runs or owns the venue, each with its other venues (branches), and "Link an institution": search an organization, or create one with the role the venue's type implies (museum, gallery, publisher; retailer for a bookshop, online store, perfumery, market or fair). A cinema, library, cafe, auction house or other venue links an existing organization only. A retailer whose listings name the branch keeps running it.
+- **Here now**: each object with an open location record at this venue (`art_object_whereabouts` with no end), once, by its strongest record here (confirmed, then probable, then uncertain; the latest of equals), with its owner, custody (permanent collection, loan in, private, unknown), the occasion, start date, display state, certainty and source exactly as recorded. A holding is never read as on view.
+- **Its collection elsewhere**: objects owned by the venue's institutions with no open record here: their current place (strongest open record) is another venue, a private or unknown place, or not recorded. An object is in one list only.
+- **Perfumes sold here**: listings for this branch, then the online listings of the retailer that runs it, each with its formulation, the last offer seen and its date ("Checked 1 Oct 2026 (3 days ago)", with "may have changed" once stale).
+- **Orders**: orders placed at this venue, newest first, with a link to all orders.
+- **Bought here**: perfume bottles, film copies and art objects whose acquisition names this venue, with the date bought and their status.
+- Specialties and tags, notes, and the record column (contact, opening hours, visits).
+- Each part lists up to 100 rows (orders 50) and says when there are more.
 
 ### Provenance (`/provenance`)
 
@@ -657,6 +696,6 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
 - **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
 - **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
-- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`); refresh cached data.
+- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.

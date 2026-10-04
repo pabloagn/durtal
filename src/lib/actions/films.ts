@@ -1,5 +1,6 @@
 "use server";
 
+import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
@@ -180,10 +181,12 @@ export async function getFilmCount(input: FilmQuery = {}) {
 /** People credited in one role on any film, with how many films each */
 async function creditedPeople(roleId: string) {
   return resultRows<{ id: string; name: string; count: number }>(
-    await db.execute(sql`select a.id,a.name,count(distinct c.work_id)::int as count
-      from work_credits c join works w on w.id=c.work_id and w.kind='film' join authors a on a.id=c.person_id
-      where c.role_id=${roleId}
-      group by a.id,a.name order by lower(coalesce(a.sort_name,a.name)),a.id`),
+    await db.execute(sql`select a.id,a.name,x.count from (
+        select person_id,count(*)::int as count from (
+          select distinct c.person_id,c.work_id from work_credits c join works w on w.id=c.work_id and w.kind='film'
+          where c.role_id=${roleId} and c.person_id is not null) d
+        group by person_id) x
+      join authors a on a.id=x.person_id order by lower(coalesce(a.sort_name,a.name)),a.id`),
   );
 }
 
@@ -542,7 +545,8 @@ export async function getFilmVersion(id: string) {
   if (!row) return null;
   return (await loadVersions(row.workId, [id]))[0] ?? null;
 }
-export async function getFilmHolding(id: string) {
+/** A copy as the film page shows it. Not exported: a server action export is a callable endpoint, and only the writes below return it. */
+async function getFilmHolding(id: string) {
   z.uuid().parse(id);
   return (await loadHoldings(eq(filmHoldings.id, id)))[0] ?? null;
 }
@@ -618,6 +622,7 @@ export async function createFilm(input: CreateFilmInput) {
     }
   }
   changedCatalogue();
+  await recordWorkEvents(id, [{ eventKey: "work.created", metadata: { newValue: v.title } }]);
   return (await getFilm(id))!;
 }
 
@@ -632,6 +637,8 @@ export async function updateFilm(
 ) {
   z.uuid().parse(id);
   const v = updateFilmSchema.parse(input);
+  // The history compares the work before and after this edit
+  const before = await workSnapshot(id);
   const expected = fingerprintSchema.parse(fingerprint);
   const details = await db.query.filmDetails.findFirst({
     where: eq(filmDetails.workId, id),
@@ -749,6 +756,7 @@ export async function updateFilm(
       : []),
   ]);
   changedCatalogue();
+  await recordWorkChanges(id, before, await workSnapshot(id));
   return (await getFilm(id))!;
 }
 

@@ -19,6 +19,8 @@ export interface VenueListItemProps {
   personalRating?: number | null;
   website?: string | null;
   thumbnailUrl?: string | null;
+  /** Archived venues show only when the list asks for them */
+  archived?: boolean;
 }
 
 export function VenueListItem({
@@ -31,6 +33,7 @@ export function VenueListItem({
   personalRating,
   website,
   thumbnailUrl,
+  archived = false,
 }: VenueListItemProps) {
   const location = formattedAddress ?? placeName ?? null;
 
@@ -78,6 +81,7 @@ export function VenueListItem({
         {/* Meta */}
         <div className="flex flex-shrink-0 items-center gap-3">
           <Badge variant="muted">{VENUE_TYPE_LABELS[type]}</Badge>
+          {archived && <Badge variant="muted">Archived</Badge>}
 
           {personalRating != null && personalRating > 0 && (
             <div className="flex items-center gap-0.5">

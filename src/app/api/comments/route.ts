@@ -4,6 +4,9 @@ import { comments, activityEvents } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { createCommentSchema } from "@/lib/validations/comments";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
+import { isUuid } from "@/lib/utils/uuid";
+import { isActivityEntityType } from "@/lib/activity/entities";
+import { ownerExists } from "@/lib/activity/owners";
 
 export async function POST(req: NextRequest) {
   let parsed;
@@ -13,6 +16,9 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+  // A comment needs its record: none on a deleted or mistyped one
+  if (!(await ownerExists(parsed.entityType, parsed.entityId)))
+    return NextResponse.json({ error: "That record no longer exists" }, { status: 404 });
   const html = sanitizeCommentHtml(parsed.contentHtml);
 
   const [comment] = await db
@@ -31,7 +37,7 @@ export async function POST(req: NextRequest) {
     const [event] = await db
       .insert(activityEvents)
       .values({
-        entityType: parsed.entityType as "work" | "author",
+        entityType: parsed.entityType,
         entityId: parsed.entityId,
         eventKey: `${parsed.entityType}.comment_added`,
         metadata: { commentId: comment.id },
@@ -52,6 +58,9 @@ export async function GET(req: NextRequest) {
 
   if (!entityType || !entityId) {
     return NextResponse.json({ error: "Missing entityType or entityId" }, { status: 400 });
+  }
+  if (!isActivityEntityType(entityType) || !isUuid(entityId)) {
+    return NextResponse.json({ error: "Invalid entityType or entityId" }, { status: 400 });
   }
 
   const rows = await db.query.comments.findMany({

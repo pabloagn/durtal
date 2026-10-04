@@ -34,7 +34,8 @@ export async function GET(
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("[api/reader/:id/cover] Failed to fetch cover from S3:", err);
     return NextResponse.json(
       { error: "Failed to fetch cover from S3" },
       { status: 500 },

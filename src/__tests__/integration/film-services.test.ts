@@ -82,6 +82,7 @@ import {
 } from "@/lib/actions/organizations";
 import { updateWorkCuration, getWorkCuration } from "@/lib/actions/curation";
 import { STALE_RECORD } from "@/lib/catalogue/work-store";
+import { collectionExportRows } from "@/lib/export/collections";
 import { classificationInput, otherClassificationIds } from "@/lib/catalogue/film-labels";
 import type { CreateFilmInput, FilmQuery } from "@/lib/validations/films";
 
@@ -693,5 +694,24 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     const choices = await getFilmChoices();
     expect(choices.countries.map((x) => x.name)).toEqual(["France", "Japan", "United States"]);
     expect(choices.languages.map((x) => x.name)).toEqual(["English", "French", "Japanese"]);
+  });
+
+  it("exports films one row each, and leaves other kinds out", async () => {
+    const film = await theThing();
+    await c`insert into works(title) values ('The Thing')`;
+    const [row, ...more] = await collectionExportRows("films", null);
+    expect(more).toHaveLength(0);
+    expect(row).toMatchObject({
+      title: "The Thing",
+      directors: "John Carpenter",
+      released: expect.stringContaining("1982"),
+      countries: "United States",
+      genres: "bodyHorror",
+      physical_copies: 0,
+      favourite: "no",
+    });
+    expect(row.cast).toContain("A. Wilford Brimley");
+    // Ids of another kind export nothing
+    expect(await collectionExportRows("paintings", [film.id])).toEqual([]);
   });
 });

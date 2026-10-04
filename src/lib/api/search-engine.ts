@@ -1,4 +1,5 @@
 import type { SearchResult } from "./types";
+import { GOOGLE_BOOKS_QUOTA_MESSAGE, googleBooksOverQuota } from "./google-books-quota";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { reportSearchFailure } from "./search-diagnostics";
 import {
@@ -346,4 +347,12 @@ export async function searchBooks(query: string): Promise<SearchResult[]> {
   const ranked = rankResults(deduped, classified);
 
   return ranked.slice(0, 15);
+}
+
+/**
+ * What the person should know about the last search: a source that is over
+ * its quota returns nothing, which must not read as "no results" (SLN-425).
+ */
+export function searchNotices(): string[] {
+  return googleBooksOverQuota() ? [GOOGLE_BOOKS_QUOTA_MESSAGE] : [];
 }
