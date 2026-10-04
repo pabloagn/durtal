@@ -41,7 +41,7 @@ export const WORK_DOMAINS = {
     label: "Book",
     pluralLabel: "Books",
     basePath: "/library",
-    keys: { go: "l", add: "b" },
+    keys: { go: "b", add: "b" },
     enabled: true,
     capabilities: {
       curation: true,

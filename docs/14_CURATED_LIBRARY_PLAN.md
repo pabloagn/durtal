@@ -416,12 +416,24 @@ the page each has today. The collection lists already filtered and sorted in
 SQL before paging, with the work id as the last tie breaker and counts on the
 same predicate; tests now pin that for every film sort.
 
+Mixed collections (SLN-362, task 0269): `collection_works` holds whole works
+beside edition members, in one order; a book held both ways shows through its
+edition and counts once. Every open collection can be added, removed and
+reordered, with previews, counts, library selection and delete cleanup.
+Migration 0059.
+
+Domain harmonization (SLN-373, task 0276): the scan flags two films, perfumes
+or paintings of one title by one maker, never a remake or a linked work, and a
+merge joins two works of one kind with their profiles, versions, copies,
+formulations, listings and objects. Colliding identities block it with what to
+fix first. Migration 0060.
+
 Typed acquisition targets (SLN-374, task 0277): a film, perfume or painting
 has its own wishes (a formulation and size, a version and medium, an object or a
 reproduction of one) and orders for them. Receiving an order creates its bottle,
 copy or object once, in the order's write; a return disposes of it. Book
 targets and totals are unchanged; museum custody never enters the purchase
-flow. Migration 0059 for now; it regenerates after the open migrations land.
+flow. Migration 0063 once main ends at 0062; 0061 on this branch until then.
 
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

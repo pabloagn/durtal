@@ -1,5 +1,5 @@
 {
-  "id": "ab0fc840-24a6-440f-ba64-0b4cacc75285",
+  "id": "565e1902-df02-4f47-9d14-3bdead15324a",
   "prevId": "e91f3158-4d94-4da9-b8b9-ebb9ae0ce8f1",
   "version": "7",
   "dialect": "postgresql",
@@ -101,66 +101,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "perfume_variant_id": {
-          "name": "perfume_variant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "perfume_container": {
-          "name": "perfume_container",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "perfume_capacity_value": {
-          "name": "perfume_capacity_value",
-          "type": "numeric(15, 6)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "perfume_volume_unit": {
-          "name": "perfume_volume_unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "film_version_id": {
-          "name": "film_version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "film_release_id": {
-          "name": "film_release_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "film_medium": {
-          "name": "film_medium",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "film_format_label": {
-          "name": "film_format_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "art_object_id": {
-          "name": "art_object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "art_reproduces_object_id": {
-          "name": "art_reproduces_object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "is_cancelled": {
           "name": "is_cancelled",
           "type": "boolean",
@@ -177,81 +117,6 @@
         }
       },
       "indexes": {
-        "acquisition_targets_perfume_variant_idx": {
-          "name": "acquisition_targets_perfume_variant_idx",
-          "columns": [
-            {
-              "expression": "perfume_variant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "acquisition_targets_film_version_idx": {
-          "name": "acquisition_targets_film_version_idx",
-          "columns": [
-            {
-              "expression": "film_version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "acquisition_targets_film_release_idx": {
-          "name": "acquisition_targets_film_release_idx",
-          "columns": [
-            {
-              "expression": "film_release_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "acquisition_targets_art_object_idx": {
-          "name": "acquisition_targets_art_object_idx",
-          "columns": [
-            {
-              "expression": "art_object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "acquisition_targets_art_reproduces_idx": {
-          "name": "acquisition_targets_art_reproduces_idx",
-          "columns": [
-            {
-              "expression": "art_reproduces_object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "acquisition_targets_work_idx": {
           "name": "acquisition_targets_work_idx",
           "columns": [
@@ -299,54 +164,6 @@
             },
             {
               "expression": "coalesce(\"publisher_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"perfume_variant_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"perfume_container\", '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"perfume_capacity_value\" * case \"perfume_volume_unit\" when 'l' then 1000 else 1 end, 0)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"film_version_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"film_release_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"film_medium\", '')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"art_object_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "coalesce(\"art_reproduces_object_id\", '00000000-0000-0000-0000-000000000000'::uuid)",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -398,71 +215,6 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
-        },
-        "acquisition_targets_perfume_variant_id_perfume_variants_id_fk": {
-          "name": "acquisition_targets_perfume_variant_id_perfume_variants_id_fk",
-          "tableFrom": "acquisition_targets",
-          "tableTo": "perfume_variants",
-          "columnsFrom": [
-            "perfume_variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "acquisition_targets_film_version_id_film_versions_id_fk": {
-          "name": "acquisition_targets_film_version_id_film_versions_id_fk",
-          "tableFrom": "acquisition_targets",
-          "tableTo": "film_versions",
-          "columnsFrom": [
-            "film_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "acquisition_targets_film_release_id_film_releases_id_fk": {
-          "name": "acquisition_targets_film_release_id_film_releases_id_fk",
-          "tableFrom": "acquisition_targets",
-          "tableTo": "film_releases",
-          "columnsFrom": [
-            "film_release_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "acquisition_targets_art_object_id_art_objects_id_fk": {
-          "name": "acquisition_targets_art_object_id_art_objects_id_fk",
-          "tableFrom": "acquisition_targets",
-          "tableTo": "art_objects",
-          "columnsFrom": [
-            "art_object_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "acquisition_targets_art_reproduces_object_id_art_objects_id_fk": {
-          "name": "acquisition_targets_art_reproduces_object_id_art_objects_id_fk",
-          "tableFrom": "acquisition_targets",
-          "tableTo": "art_objects",
-          "columnsFrom": [
-            "art_reproduces_object_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -472,10 +224,6 @@
         "acquisition_target_kind_check": {
           "name": "acquisition_target_kind_check",
           "value": "\"acquisition_targets\".\"edition_id\" IS NULL OR \"acquisition_targets\".\"publisher_id\" IS NULL"
-        },
-        "acquisition_target_typed_check": {
-          "name": "acquisition_target_typed_check",
-          "value": "num_nonnulls(coalesce(\"acquisition_targets\".\"edition_id\", \"acquisition_targets\".\"publisher_id\"), \"acquisition_targets\".\"perfume_variant_id\", \"acquisition_targets\".\"film_version_id\", coalesce(\"acquisition_targets\".\"art_object_id\", \"acquisition_targets\".\"art_reproduces_object_id\")) <= 1\n        and (\"acquisition_targets\".\"perfume_variant_id\" is null) = (\"acquisition_targets\".\"perfume_container\" is null)\n        and (\"acquisition_targets\".\"perfume_variant_id\" is null) = (\"acquisition_targets\".\"perfume_capacity_value\" is null)\n        and (\"acquisition_targets\".\"perfume_variant_id\" is null) = (\"acquisition_targets\".\"perfume_volume_unit\" is null)\n        and (\"acquisition_targets\".\"perfume_capacity_value\" is null or (\"acquisition_targets\".\"perfume_capacity_value\" > 0 and \"acquisition_targets\".\"perfume_capacity_value\" <= 1000000))\n        and (\"acquisition_targets\".\"perfume_container\" is null or \"acquisition_targets\".\"perfume_container\" in ('bottle','sample','decant'))\n        and (\"acquisition_targets\".\"perfume_volume_unit\" is null or \"acquisition_targets\".\"perfume_volume_unit\" in ('ml','l'))\n        and (\"acquisition_targets\".\"film_version_id\" is null) = (\"acquisition_targets\".\"film_medium\" is null)\n        and (\"acquisition_targets\".\"film_version_id\" is not null or (\"acquisition_targets\".\"film_release_id\" is null and \"acquisition_targets\".\"film_format_label\" is null))\n        and (\"acquisition_targets\".\"film_medium\" is null or \"acquisition_targets\".\"film_medium\" in ('physical','digital'))\n        and (\"acquisition_targets\".\"film_format_label\" is null or length(trim(\"acquisition_targets\".\"film_format_label\")) between 1 and 200)\n        and (\"acquisition_targets\".\"art_object_id\" is null or \"acquisition_targets\".\"art_reproduces_object_id\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -1934,6 +1682,96 @@
           "columns": [
             "collection_id",
             "edition_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.collection_works": {
+      "name": "collection_works",
+      "schema": "",
+      "columns": {
+        "collection_id": {
+          "name": "collection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "work_id": {
+          "name": "work_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "collection_work_work_idx": {
+          "name": "collection_work_work_idx",
+          "columns": [
+            {
+              "expression": "work_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "collection_works_collection_id_collections_id_fk": {
+          "name": "collection_works_collection_id_collections_id_fk",
+          "tableFrom": "collection_works",
+          "tableTo": "collections",
+          "columnsFrom": [
+            "collection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "collection_works_work_id_works_id_fk": {
+          "name": "collection_works_work_id_works_id_fk",
+          "tableFrom": "collection_works",
+          "tableTo": "works",
+          "columnsFrom": [
+            "work_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "collection_works_collection_id_work_id_pk": {
+          "name": "collection_works_collection_id_work_id_pk",
+          "columns": [
+            "collection_id",
+            "work_id"
           ]
         }
       },
@@ -5269,24 +5107,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "film_holding_id": {
-          "name": "film_holding_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "perfume_bottle_id": {
-          "name": "perfume_bottle_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "art_object_id": {
-          "name": "art_object_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "venue_id": {
           "name": "venue_id",
           "type": "uuid",
@@ -5491,51 +5311,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "orders_film_holding_unique": {
-          "name": "orders_film_holding_unique",
-          "columns": [
-            {
-              "expression": "film_holding_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "orders_perfume_bottle_unique": {
-          "name": "orders_perfume_bottle_unique",
-          "columns": [
-            {
-              "expression": "perfume_bottle_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "orders_art_object_unique": {
-          "name": "orders_art_object_unique",
-          "columns": [
-            {
-              "expression": "art_object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -5584,45 +5359,6 @@
           "tableTo": "instances",
           "columnsFrom": [
             "instance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "orders_film_holding_id_film_holdings_id_fk": {
-          "name": "orders_film_holding_id_film_holdings_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "film_holdings",
-          "columnsFrom": [
-            "film_holding_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "orders_perfume_bottle_id_perfume_bottles_id_fk": {
-          "name": "orders_perfume_bottle_id_perfume_bottles_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "perfume_bottles",
-          "columnsFrom": [
-            "perfume_bottle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "orders_art_object_id_art_objects_id_fk": {
-          "name": "orders_art_object_id_art_objects_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "art_objects",
-          "columnsFrom": [
-            "art_object_id"
           ],
           "columnsTo": [
             "id"
@@ -5686,12 +5422,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "orders_received_item_check": {
-          "name": "orders_received_item_check",
-          "value": "num_nonnulls(\"orders\".\"instance_id\", \"orders\".\"film_holding_id\", \"orders\".\"perfume_bottle_id\", \"orders\".\"art_object_id\") <= 1"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.organization_roles": {

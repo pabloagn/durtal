@@ -10,8 +10,11 @@ import {
   getCollectionSelection,
   createCollection,
   bulkAddEditionsToCollection,
+  bulkAddWorksToCollection,
   removeEditionsFromCollection,
+  removeWorksFromCollection,
 } from "@/lib/actions/collections";
+import { collectionCounts, collectionCountLabel } from "@/lib/collections/counts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 
@@ -69,13 +72,21 @@ export function AddToCollectionDialog({
     router.refresh();
     triggerActivityRefresh();
   }
+  // Films, perfumes, paintings and books with no edition join as whole works
+  const wholeWorks = data?.works.map((w) => w.id) ?? [];
+  const chosen = selected.length + wholeWorks.length;
   async function toggle(id: string, remove: boolean) {
-    if (saving.current || !selected.length) return;
+    if (saving.current || !chosen) return;
     saving.current = true;
     setBusy(true);
     try {
-      if (remove) await removeEditionsFromCollection(id, selected);
-      else await bulkAddEditionsToCollection(id, selected);
+      if (remove) {
+        if (selected.length) await removeEditionsFromCollection(id, selected);
+        if (wholeWorks.length) await removeWorksFromCollection(id, wholeWorks);
+      } else {
+        if (selected.length) await bulkAddEditionsToCollection(id, selected);
+        if (wholeWorks.length) await bulkAddWorksToCollection(id, wholeWorks);
+      }
       setData(
         (current) =>
           current && {
@@ -98,7 +109,22 @@ export function AddToCollectionDialog({
                                   (e) => e.editionId === eid,
                                 ),
                             )
-                            .map((editionId) => ({ editionId })),
+                            .map((editionId) => ({
+                              editionId,
+                              edition: {
+                                workId:
+                                  current.editions.find((e) => e.id === editionId)
+                                    ?.workId ?? editionId,
+                              },
+                            })),
+                        ],
+                    collectionWorks: remove
+                      ? c.collectionWorks.filter((w) => !wholeWorks.includes(w.workId))
+                      : [
+                          ...c.collectionWorks,
+                          ...wholeWorks
+                            .filter((wid) => !c.collectionWorks.some((w) => w.workId === wid))
+                            .map((workId) => ({ workId })),
                         ],
                   },
             ),
@@ -115,7 +141,7 @@ export function AddToCollectionDialog({
   }
   async function create(event: React.FormEvent) {
     event.preventDefault();
-    if (saving.current || !query.trim() || !selected.length) return;
+    if (saving.current || !query.trim() || !chosen) return;
     const existing = data?.collections.find(
       (c) =>
         c.name.trim().toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
@@ -131,6 +157,7 @@ export function AddToCollectionDialog({
         { name: query },
         selected,
         request.current,
+        wholeWorks,
       );
       setData(
         (current) =>
@@ -142,7 +169,13 @@ export function AddToCollectionDialog({
                 ...c,
                 collectionEditions: selected.map((editionId) => ({
                   editionId,
+                  edition: {
+                    workId:
+                      current.editions.find((e) => e.id === editionId)?.workId ??
+                      editionId,
+                  },
                 })),
+                collectionWorks: wholeWorks.map((workId) => ({ workId })),
                 media: [],
               },
             ],
@@ -186,14 +219,17 @@ export function AddToCollectionDialog({
           </p>
         ) : (
           <>
-            {data.withoutEditions.length > 0 && (
+            {data.works.some((w) => w.kind === "book") && (
               <p className="text-xs text-fg-secondary">
-                {data.withoutEditions.map((w) => w.title).join(", ")}: add an
-                edition to include{" "}
-                {data.withoutEditions.length === 1
-                  ? "this book"
-                  : "these books"}{" "}
-                in a collection.
+                {data.works
+                  .filter((w) => w.kind === "book")
+                  .map((w) => w.title)
+                  .join(", ")}
+                : no edition yet, so{" "}
+                {data.works.filter((w) => w.kind === "book").length === 1
+                  ? "this book joins"
+                  : "these books join"}{" "}
+                as a whole book.
               </p>
             )}
             {data.editions.length > 1 && (
@@ -255,7 +291,7 @@ export function AddToCollectionDialog({
               </div>
               <Button
                 type="submit"
-                disabled={busy || !query.trim() || !selected.length}
+                disabled={busy || !query.trim() || !chosen}
                 variant="primary"
               >
                 {data.collections.some(
@@ -270,10 +306,14 @@ export function AddToCollectionDialog({
             <div className="max-h-64 space-y-1 overflow-y-auto">
               {filtered.length ? (
                 filtered.map((c) => {
-                  const amount = selected.filter((id) =>
-                    c.collectionEditions.some((e) => e.editionId === id),
-                  ).length;
-                  const all = selected.length > 0 && amount === selected.length;
+                  const amount =
+                    selected.filter((id) =>
+                      c.collectionEditions.some((e) => e.editionId === id),
+                    ).length +
+                    wholeWorks.filter((id) =>
+                      c.collectionWorks.some((w) => w.workId === id),
+                    ).length;
+                  const all = chosen > 0 && amount === chosen;
                   return (
                     <button
                       type="button"
@@ -281,7 +321,7 @@ export function AddToCollectionDialog({
                       role="checkbox"
                       aria-checked={all ? true : amount ? "mixed" : false}
                       aria-label={c.name}
-                      disabled={busy || !selected.length}
+                      disabled={busy || !chosen}
                       onClick={() => toggle(c.id, all)}
                       className="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50"
                     >
@@ -305,7 +345,7 @@ export function AddToCollectionDialog({
                         {c.name}
                       </span>
                       <span className="text-xs text-fg-secondary">
-                        {c.collectionEditions.length}
+                        {collectionCountLabel(collectionCounts(c))}
                       </span>
                     </button>
                   );

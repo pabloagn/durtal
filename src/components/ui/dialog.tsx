@@ -192,8 +192,9 @@ export function Dialog({
       </div>
 
       {/* Body. It scrolls, not the dialog: the glass stays behind every
-          line, and the header stays in view */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
+          line, and the header stays in view. It grows from its content
+          (flex-auto): from a zero basis, Safari gives it no height */}
+      <div className="min-h-0 flex-auto overflow-y-auto px-6 pb-6 pt-5">
         {children}
       </div>
     </dialog>

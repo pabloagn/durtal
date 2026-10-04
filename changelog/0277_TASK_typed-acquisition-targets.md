@@ -18,8 +18,8 @@ purchase.
 
 ## Implementation Details
 
-**Migration** `0059_typed_acquisition_targets` (generated, with a custom part;
-it regenerates after the open migrations land):
+**Migration** `0061_typed_acquisition_targets` (generated, with a custom part;
+it becomes 0063 once main's journal ends at 0062):
 - `acquisition_targets` gains typed columns: a perfume's formulation and
   container size, a film's version, optional release, medium and format, a
   painting's object to buy or object to reproduce. FKs RESTRICT;

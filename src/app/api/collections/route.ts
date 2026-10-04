@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { collectionCounts } from "@/lib/collections/counts";
 import {
   createCollection,
   getCollections,
@@ -18,7 +19,8 @@ export async function GET() {
         name: c.name,
         description: c.description,
         icon: c.icon,
-        editionCount: c.collectionEditions.length,
+        // Book editions, and whole works shown beside them (SLN-362)
+        ...collectionCounts(c),
       })),
     });
   } catch (err) {

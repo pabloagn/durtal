@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { ENTITIES, fieldLabel, type EntityDefinition } from "./registry";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
+import { domainDuplicates } from "./domain-duplicates";
 import {
   closeSpelling,
   displayName,
@@ -22,6 +25,7 @@ import type {
 
 export const RULES = [
   "duplicate-name",
+  "duplicate-work",
   "duplicate-spelling",
   "duplicate-alias",
   "duplicate-identifier",
@@ -84,8 +88,11 @@ export function recordRef(
 ): RecordRef {
   const workFor = (id: unknown) => rowsBy(data, "works", "id")(id)[0];
   let name = String(row[entity.name] || "Untitled record");
-  let href = entity.route;
-  let context = entity.label;
+  // Films, perfumes and paintings open on their own collection's page
+  const domain =
+    entity.key === "works" ? WORK_DOMAINS[row.kind as WorkKind] : undefined;
+  let href = domain?.basePath ?? entity.route;
+  let context = domain && row.kind !== "book" ? domain.pluralLabel : entity.label;
   if (
     [
       "works",
@@ -1087,11 +1094,13 @@ export function scanDataset(data: Dataset): Finding[] {
             60,
           );
       }
+      // A collection of whole works only (films, perfumes...) is not empty
       if (
         entity.key === "collections" &&
         !(data.collection_editions || []).some(
           (e) => e.collection_id === row.id,
-        )
+        ) &&
+        !(data.collection_works || []).some((w) => w.collection_id === row.id)
       )
         add(
           entity,
@@ -1133,6 +1142,21 @@ export function scanDataset(data: Dataset): Finding[] {
         "medium",
         60,
       );
+  // Films, perfumes and paintings: same title, same maker, one kind
+  const works = ENTITIES.find((e) => e.key === "works")!;
+  for (const pair of domainDuplicates(data.domain_works || []))
+    add(
+      { ...works, label: pair.label },
+      pair.rows,
+      "duplicate-work",
+      "duplicates",
+      "Possible duplicate",
+      "Review the evidence, choose the record to keep, and reconcile any differing values before merging.",
+      pair.evidence,
+      { kind: "merge" },
+      pair.confidence,
+      pair.confidence === "high" ? 90 : pair.confidence === "medium" ? 80 : 70,
+    );
   return findings.sort(
     (a, b) => b.priority - a.priority || a.key.localeCompare(b.key),
   );

@@ -375,7 +375,7 @@ export function ImageAdjustButton({
           event.stopPropagation();
           setOpen(true);
         }}
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm border border-glass-border bg-bg-primary/85 text-fg-secondary hover:text-fg-primary ${className}`}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm border glass-chip text-fg-primary hover:glass-chip-lift ${className}`}
       >
         <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
       </button>
