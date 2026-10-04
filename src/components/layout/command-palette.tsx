@@ -162,6 +162,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [trimmed]);
 
   // "This page" shows when the page has its own entries, or when searched
+  const allEditItems = actions.editItems();
+  const editItems = trimmed
+    ? filterBySearch(allEditItems, trimmed, (i) => `Edit ${i.label}`)
+    : allEditItems;
   const allCopyItems = actions.copyItems();
   const copyItems = trimmed
     ? filterBySearch(allCopyItems, trimmed, (i) => `Copy ${i.label}`)
@@ -177,6 +181,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const firstValue =
     (results.works[0] && `work:${results.works[0].id}`) ||
     (results.authors[0] && `author:${results.authors[0].id}`) ||
+    (editItems[0] && `edit:${editItems[0].key}`) ||
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
     (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
@@ -290,8 +295,24 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               </Command.Group>
             )}
 
-            {copyItems.length > 0 && (
+            {(editItems.length > 0 || copyItems.length > 0) && (
               <Command.Group heading="This page" className={GROUP_CLASS}>
+                {editItems.map((item) => (
+                  <PaletteRow
+                    key={`edit:${item.key}`}
+                    item={{
+                      label: `Edit ${item.label.toLowerCase()}`,
+                      icon: item.icon,
+                      keys: ["e", item.key],
+                      then: true,
+                    }}
+                    value={`edit:${item.key}`}
+                    onSelect={() => {
+                      onOpenChange(false);
+                      item.run();
+                    }}
+                  />
+                ))}
                 {copyItems.map((item) => (
                   <PaletteRow
                     key={item.key}

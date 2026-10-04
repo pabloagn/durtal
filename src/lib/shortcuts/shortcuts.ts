@@ -68,12 +68,24 @@ export const COPY_KEYS = {
   link: "l",
 } as const;
 
+/**
+ * E opens the "Edit" menu: the edit actions the open page offers (now the
+ * book page). Pages give their own entries (useEditActions); on a page with
+ * none, E does nothing.
+ */
+export const EDIT_KEYS = {
+  work: "w",
+  media: "m",
+  taxonomy: "t",
+} as const;
+
 export const SHORTCUTS = {
   palette: ["mod", "k"],
   search: ["/"],
   addMenu: ["a"],
   goMenu: ["g"],
   copyMenu: ["y"],
+  editMenu: ["e"],
   help: ["?"],
   pick: ["↑", "↓"],
   confirm: ["enter"],
@@ -94,6 +106,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.addMenu, label: "Add: book, author, publisher..." },
       { keys: SHORTCUTS.goMenu, label: "Go to a section" },
       { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
+      { keys: SHORTCUTS.editMenu, label: "Edit this page" },
       { keys: SHORTCUTS.palette, label: "Search books, authors, commands" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
@@ -123,6 +136,15 @@ export const SHORTCUT_GROUPS: {
       { keys: ["y", COPY_KEYS.isbn], label: "ISBN (a book)", then: true },
       { keys: ["y", COPY_KEYS.address], label: "Address (a place)", then: true },
       { keys: ["y", COPY_KEYS.link], label: "Link to the page", then: true },
+    ],
+  },
+  {
+    title: "Edit",
+    wide: true,
+    items: [
+      { keys: ["e", EDIT_KEYS.work], label: "Work (a book)", then: true },
+      { keys: ["e", EDIT_KEYS.media], label: "Media (a book)", then: true },
+      { keys: ["e", EDIT_KEYS.taxonomy], label: "Taxonomy (a book)", then: true },
     ],
   },
   {

@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Copy, Link2 } from "lucide-react";
+import { Copy, Link2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AuthorCreateDialog } from "@/app/authors/author-create-dialog";
 import { VenueCreateDialog } from "@/app/places/venue-create-dialog";
@@ -40,6 +40,14 @@ interface PageShortcut {
   run: () => void;
 }
 
+/** An edit action the open page offers (E menu): "Work", opens the edit dialog */
+export interface EditItem {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  run: () => void;
+}
+
 /** Something the open page offers to copy (Y menu): "ISBN", "9780099518471" */
 export interface CopyItem {
   key: string;
@@ -50,12 +58,15 @@ export interface CopyItem {
 interface ShortcutsContextValue {
   register: (shortcut: PageShortcut) => () => void;
   registerCopy: (items: CopyItem[]) => () => void;
+  registerEdit: (items: EditItem[]) => () => void;
   openHelp: () => void;
   /** Runs an "Add" entry by its key ("b" adds a book) */
   add: (key: string) => void;
   /** What Y copies on this page, the link last */
   copyItems: () => CopyItem[];
   copy: (item: CopyItem) => void;
+  /** What E edits on this page; empty where the page has no edit actions */
+  editItems: () => EditItem[];
 }
 
 const ShortcutsContext = createContext<ShortcutsContextValue | null>(null);
@@ -68,7 +79,7 @@ export function useShortcutActions() {
 }
 
 /**
- * A single-key shortcut for the page that is open ("E" edits the book). It
+ * A single-key shortcut for the page that is open. It
  * shows in the shortcuts sheet under "This page" while the page is open.
  */
 export function useShortcut(key: string, label: string, run: () => void) {
@@ -96,16 +107,43 @@ export function useCopyItems(items: { key: string; label: string; text?: string 
   }, [context, signature]);
 }
 
+/**
+ * The edit actions of the open page, for the E menu and the palette. The
+ * menu runs the latest `run` of each entry.
+ */
+export function useEditActions(items: EditItem[]) {
+  const context = useContext(ShortcutsContext);
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  });
+  const signature = items.map((i) => `${i.key}:${i.label}`).join("|");
+  useEffect(() => {
+    if (!context) return;
+    return context.registerEdit(
+      itemsRef.current.map((item, i) => ({
+        ...item,
+        run: () => itemsRef.current[i]?.run(),
+      })),
+    );
+  }, [context, signature]);
+}
+
 /** Reader view (/reader/{id}) keeps single keys for its own controls */
 const READER_VIEW_RE = /^\/reader\/\d+/;
 
-type MenuName = "add" | "go" | "copy";
+type MenuName = "add" | "go" | "copy" | "edit";
 
 const STATIC_MENUS = {
   add: ADD.map((a) => ({ key: a.key, label: a.label, icon: SECTION_ICONS[a.section] })),
   go: GO_TO.map((g) => ({ key: g.key, label: g.label, icon: SECTION_ICONS[g.href] })),
 };
-const MENU_TITLES: Record<MenuName, string> = { add: "Add", go: "Go to", copy: "Copy" };
+const MENU_TITLES: Record<MenuName, string> = {
+  add: "Add",
+  go: "Go to",
+  copy: "Copy",
+  edit: "Edit",
+};
 
 /**
  * Puts text on the clipboard. Where the browser refuses the clipboard API
@@ -164,6 +202,7 @@ export function ShortcutsProvider({
   // A ref, not state: menus and the palette read it when they open, and the
   // context stays the same object (a new one would make pages register again)
   const pageCopyItems = useRef<CopyItem[]>([]);
+  const pageEditItems = useRef<EditItem[]>([]);
 
   const register = useCallback((shortcut: PageShortcut) => {
     setPageShortcuts((list) => [...list, shortcut]);
@@ -176,6 +215,15 @@ export function ShortcutsProvider({
       if (pageCopyItems.current === items) pageCopyItems.current = [];
     };
   }, []);
+
+  const registerEdit = useCallback((items: EditItem[]) => {
+    pageEditItems.current = items;
+    return () => {
+      if (pageEditItems.current === items) pageEditItems.current = [];
+    };
+  }, []);
+
+  const editItems = useCallback(() => pageEditItems.current, []);
 
   const copyItems = useCallback(
     (): CopyItem[] => [
@@ -213,12 +261,14 @@ export function ShortcutsProvider({
     () => ({
       register,
       registerCopy,
+      registerEdit,
       openHelp: () => setHelpOpen(true),
       add,
       copyItems,
       copy,
+      editItems,
     }),
-    [register, registerCopy, add, copyItems, copy],
+    [register, registerCopy, registerEdit, add, copyItems, copy, editItems],
   );
 
   const openMenu = (name: MenuName) => {
@@ -235,17 +285,20 @@ export function ShortcutsProvider({
         icon: item.key === COPY_KEYS.link ? Link2 : Copy,
         hint: preview(item.text),
       }));
+    if (menu === "edit")
+      return editItems().map(({ key, label, icon }) => ({ key, label, icon }));
     return [];
-  }, [menu, copyItems]);
+  }, [menu, copyItems, editItems]);
 
   const pickMenuItem = useCallback(
     (name: MenuName, index: number) => {
       setMenu(null);
       if (name === "add") add(ADD[index].key);
       else if (name === "go") router.push(GO_TO[index].href);
+      else if (name === "edit") editItems()[index]?.run();
       else void copy(copyItems()[index]);
     },
-    [add, router, copy, copyItems],
+    [add, router, copy, copyItems, editItems],
   );
 
   // An open menu takes every key first (capture phase)
@@ -392,7 +445,9 @@ export function ShortcutsProvider({
         pageShortcut.run();
         return;
       }
-      const menuKeys: Record<string, MenuName> = { a: "add", g: "go", y: "copy" };
+      const menuKeys: Record<string, MenuName> = { a: "add", g: "go", y: "copy", e: "edit" };
+      // E opens only where the page has edit actions
+      if (menuKeys[key] === "edit" && editItems().length === 0) return;
       if (menuKeys[key]) {
         event.preventDefault();
         openMenu(menuKeys[key]);
@@ -402,7 +457,7 @@ export function ShortcutsProvider({
     // Window, bubble phase: page handlers run first and can take a key
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts]);
+  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts, editItems]);
 
   const closeAddDialog = () => setAddDialog(null);
 
