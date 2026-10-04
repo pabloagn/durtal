@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { IconSprite } from "@/components/ui/sprite-icon";
 import localFont from "next/font/local";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Shell } from "@/components/layout/shell";
@@ -86,6 +87,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
+        <IconSprite />
         <ImageGuard />
         <TooltipLayer />
         <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider><Shell>{children}</Shell></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>

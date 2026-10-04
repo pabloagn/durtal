@@ -250,6 +250,25 @@ dialog::backdrop {
    opaque and the glass itself fades, as a backdrop filter has nothing to
    blur while an ancestor's opacity is under 1 (the blur would pop in at the
    end of the fade). */
+/* FadeImage: the fade-in and the hover zoom, one class instead of a long
+   arbitrary value on every card's image (page weight, SLN-381) */
+@utility fade-image {
+  transition: opacity 150ms ease-out, transform 300ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* An icon drawn from the sprite (IconSprite in the root layout): the Lucide
+   stroke, 1.5px, without repeating its markup on every card */
+@utility sprite-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 @utility hover-reveal-glass {
   & .glass-chip {
     opacity: 0;

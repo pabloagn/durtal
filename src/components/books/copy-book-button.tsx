@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check } from "lucide-react";
+import { SpriteIcon } from "@/components/ui/sprite-icon";
 import { toast } from "sonner";
 import { copyBookText } from "@/lib/utils/copy-book";
 
@@ -35,9 +36,14 @@ export function CopyBookButton({ title, authorNames, authorName, className = "",
   }
 
   const label = copied ? "Copied" : "Copy book title and author";
-  const Icon = copied ? Check : Copy;
+
   return <button type="button" onClick={handleCopy} aria-label={label} data-tooltip={label}
     className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm ${glass ? "border glass-chip text-fg-primary hover:glass-chip-lift" : "text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"} ${className}`}>
-    <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+    {copied ? (
+      <Check className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+    ) : (
+      // From the sprite: this button repeats on every card
+      <SpriteIcon name="copy" className="h-3.5 w-3.5" />
+    )}
   </button>;
 }

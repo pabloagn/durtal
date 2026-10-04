@@ -33,7 +33,7 @@ export function FadeImage({
         setState("loaded");
         onLoad?.(e);
       }}
-      className={`${className} ${state === "loading" ? "opacity-0" : ""} [transition:opacity_150ms_ease-out,transform_300ms_ease] motion-reduce:transition-none`}
+      className={`${className} ${state === "loading" ? "opacity-0" : ""} fade-image`}
     />
   );
 }
