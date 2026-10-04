@@ -17,6 +17,9 @@ import type { PublisherBook, PublisherBookFacets } from "@/lib/publishers/books"
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 const VIEW_KEY = "durtal-publisher-books-view-mode";
 const GRID_KEY = "durtal-publisher-books-grid-columns";
+/** The grid size slider's range */
+const MIN_COLUMNS = 2;
+const MAX_COLUMNS = 8;
 
 const SORT_OPTIONS = [
   { value: "title", label: "Title" },
@@ -32,26 +35,47 @@ const DEFAULT_SORT_ORDERS: Record<string, "asc" | "desc"> = {
 };
 
 /**
- * The grid or list view: the URL's `view` wins, so a shared link shows the
- * same view; without it, the last view chosen on this device. A choice goes
- * to both.
+ * A display choice kept in the URL (`param`) and on the device: the URL wins,
+ * so a shared link shows the same view; without it, the last choice made on
+ * this device. A choice goes to both. The URL changes without a server
+ * request (`history.replaceState`, which `useSearchParams` follows).
  */
-function usePublisherView() {
-  const router = useRouter();
+function useUrlPreference<T extends string | number>(
+  param: string,
+  stored: T,
+  setStored: (value: T) => void,
+  parse: (raw: string) => T | null,
+) {
   const searchParams = useSearchParams();
-  const [stored, setStored] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
-  const fromUrl = searchParams.get("view") as ViewMode | null;
-  const view = fromUrl && VIEW_MODES.includes(fromUrl) ? fromUrl : stored;
-  const setView = useCallback(
-    (next: ViewMode) => {
+  const raw = searchParams.get(param);
+  const fromUrl = raw == null ? null : parse(raw);
+  const set = useCallback(
+    (next: T) => {
       setStored(next);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("view", next);
-      router.replace(`?${params.toString()}`, { scroll: false });
+      const params = new URLSearchParams(window.location.search);
+      params.set(param, String(next));
+      window.history.replaceState(null, "", `?${params.toString()}`);
     },
-    [router, searchParams, setStored],
+    [param, setStored],
   );
-  return [view, setView] as const;
+  return [fromUrl ?? stored, set] as const;
+}
+
+/** The books' grid or list view (`?view=`) */
+function usePublisherView() {
+  const [stored, setStored] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
+  return useUrlPreference<ViewMode>("view", stored, setStored, (raw) =>
+    VIEW_MODES.includes(raw as ViewMode) ? (raw as ViewMode) : null,
+  );
+}
+
+/** The grid's columns (`?cols=`) */
+function usePublisherColumns() {
+  const [stored, setStored] = usePreference(GRID_KEY, 5);
+  return useUrlPreference<number>("cols", stored, setStored, (raw) => {
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= MIN_COLUMNS && n <= MAX_COLUMNS ? n : null;
+  });
 }
 
 /** URL parameters the filters set; "Clear" removes them all */
@@ -68,7 +92,7 @@ export function PublisherBooksFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = usePublisherView();
-  const [gridColumns, setGridColumns] = usePreference(GRID_KEY, 5);
+  const [gridColumns, setGridColumns] = usePublisherColumns();
 
   const values = (key: string) => searchParams.get(key)?.split(",").filter(Boolean) ?? [];
   const legacy = searchParams.get("filter");
@@ -206,7 +230,7 @@ export function PublisherBooksView({
   pagination: PaginationData;
 }) {
   const [viewMode] = usePublisherView();
-  const [gridColumns] = usePreference(GRID_KEY, 5);
+  const [gridColumns] = usePublisherColumns();
   return (
     <>
       <Pagination {...pagination} noun="books" compact />
