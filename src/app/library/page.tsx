@@ -22,6 +22,8 @@ import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { parseMarks } from "@/lib/constants/marks";
 
+export const metadata = { title: "Library" };
+
 interface PageProps {
   searchParams: Promise<{
     q?: string;

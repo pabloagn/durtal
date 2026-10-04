@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { SectionHeading } from "@/components/shared/section-heading";
 import {
@@ -35,7 +37,7 @@ interface PageProps {
 
 
 async function PlaceContent({ slug }: { slug: string }) {
-  const venue = await getVenueBySlug(slug);
+  const venue = await loadVenue(slug);
 
   if (!venue) notFound();
 
@@ -283,6 +285,14 @@ async function PlaceContent({ slug }: { slug: string }) {
       </DetailColumns>
     </>
   );
+}
+
+/** One read per request for the page and its title */
+const loadVenue = cache(getVenueBySlug);
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const venue = await loadVenue((await params).slug);
+  return { title: venue?.name ?? "Place not found" };
 }
 
 export default async function VenueDetailPage({ params }: PageProps) {

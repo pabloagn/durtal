@@ -13,6 +13,8 @@ import { getPublisherNameInbox } from "@/lib/actions/publisher-names";
 import { PublisherNameInbox } from "@/components/publishers/publisher-name-inbox";
 import { PageHeader } from "@/components/layout/page-header";
 
+export const metadata = { title: "Publisher names" };
+
 export default async function ReviewPublisherNames({
   searchParams,
 }: {

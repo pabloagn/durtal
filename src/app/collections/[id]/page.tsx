@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
@@ -31,6 +33,21 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 
+/** One read per request for the page and its title */
+const loadCollection = cache(getCollection);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const collection = z.string().uuid().safeParse(id).success
+    ? await loadCollection(id)
+    : null;
+  return { title: collection?.name ?? "Collection not found" };
+}
+
 export default async function CollectionPage({
   params,
   searchParams,
@@ -40,7 +57,7 @@ export default async function CollectionPage({
 }) {
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
-  const collection = await getCollection(id);
+  const collection = await loadCollection(id);
   if (!collection) notFound();
   const query = await searchParams;
   const { page, perPage, offset } = parsePagination(query);

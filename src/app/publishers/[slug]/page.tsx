@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Library } from "lucide-react";
@@ -33,6 +35,17 @@ import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishe
 
 const imageUrl = (key: string) => `/api/s3/read?key=${encodeURIComponent(key)}`;
 const LINK = "text-accent-rose-text transition-colors hover:text-fg-primary";
+/** One read per request for the page and its title */
+const loadPublisher = cache(getPublisher);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const publisher = await loadPublisher((await params).slug);
+  return { title: publisher?.name ?? "Publisher not found" };
+}
 
 export default async function PublisherPage({
   params,
@@ -43,7 +56,7 @@ export default async function PublisherPage({
 }) {
   const { slug } = await params;
   const raw = await searchParams;
-  const p = await getPublisher(slug);
+  const p = await loadPublisher(slug);
   if (!p) notFound();
   const query = parsePublisherBookQuery(raw);
   const basePath = `/publishers/${p.slug}`;

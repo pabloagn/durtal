@@ -13,6 +13,8 @@ import { PlacesFiltersBar } from "./places-filters-bar";
 import { VenueCreateDialog } from "./venue-create-dialog";
 import { hasListQuery } from "@/lib/utils/list-params";
 
+export const metadata = { title: "Places" };
+
 interface PageProps {
   searchParams: Promise<{
     q?: string;

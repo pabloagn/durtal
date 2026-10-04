@@ -27,6 +27,8 @@ import {
   type ListSearchParams,
 } from "@/lib/utils/pagination";
 
+export const metadata = { title: "Paintings" };
+
 /** One page of the paintings the URL asks for: its search, filters, sort and page. */
 async function PaintingResults({ params }: { params: ListSearchParams }) {
   const query = paintingQueryFromParams(params);

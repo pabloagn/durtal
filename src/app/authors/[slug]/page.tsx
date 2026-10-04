@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { notFound } from "next/navigation";
@@ -30,9 +32,17 @@ interface PageProps {
   searchParams: Promise<ListSearchParams>;
 }
 
+/** One read per request for the page and its title */
+const loadAuthor = cache(getAuthorBySlug);
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const author = await loadAuthor((await params).slug);
+  return { title: author?.name ?? "Author not found" };
+}
+
 export default async function AuthorDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const author = await getAuthorBySlug(slug);
+  const author = await loadAuthor(slug);
 
   if (!author) notFound();
 

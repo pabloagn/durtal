@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
 import {
@@ -91,6 +93,16 @@ function catalogueStatusVariant(
   }
 }
 
+/** One read per request for the page and its title */
+const loadWork = cache(getWorkBySlug);
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const work = await loadWork((await params).slug);
+  if (!work) return { title: "Book not found" };
+  const authors = work.workAuthors.map((wa) => wa.author.name).join(", ");
+  return { title: authors ? `${work.title} by ${authors}` : work.title };
+}
+
 export default async function WorkDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
@@ -111,7 +123,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     allTags,
     allRecommenders,
   ] = await Promise.all([
-    getWorkBySlug(slug),
+    loadWork(slug),
     getSeries(),
     getWorkTypes(),
     getSubjects(),

@@ -16,6 +16,8 @@ import {
 import type { ListSearchParams } from "@/lib/utils/pagination";
 import { PerfumeResults } from "./perfume-results";
 
+export const metadata = { title: "Perfumes" };
+
 /**
  * The perfume home: every fragrance in the catalogue as a contained bottle,
  * with its house and facts; filters by house, perfumer, family, accord, note,

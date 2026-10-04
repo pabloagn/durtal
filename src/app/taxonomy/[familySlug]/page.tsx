@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
@@ -9,7 +11,7 @@ import { TaxonomyFamilyShell } from "./taxonomy-family-shell";
 
 async function FamilyContent({ familySlug }: { familySlug: string }) {
   const [family, items] = await Promise.all([
-    getTaxonomyFamily(familySlug),
+    loadFamily(familySlug),
     getTaxonomyItems(familySlug),
   ]);
 
@@ -22,6 +24,18 @@ async function FamilyContent({ familySlug }: { familySlug: string }) {
   }));
 
   return <TaxonomyFamilyShell family={family} items={normalizedItems} />;
+}
+
+/** One read per request for the page and its title */
+const loadFamily = cache(getTaxonomyFamily);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ familySlug: string }>;
+}): Promise<Metadata> {
+  const family = await loadFamily((await params).familySlug);
+  return { title: family?.name ?? "Taxonomy not found" };
 }
 
 export default async function TaxonomyFamilyPage({

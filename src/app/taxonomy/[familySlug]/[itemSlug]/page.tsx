@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { compareWorks } from "@/lib/utils/title-order";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
@@ -85,8 +87,8 @@ async function ItemContent({
   searchParams: ListSearchParams;
 }) {
   const [family, item] = await Promise.all([
-    getTaxonomyFamily(familySlug),
-    getTaxonomyItem(familySlug, itemSlug),
+    loadFamily(familySlug),
+    loadItem(familySlug, itemSlug),
   ]);
 
   if (!family || !item) notFound();
@@ -234,6 +236,23 @@ async function ItemContent({
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
+
+/** One read per request for the page and its title */
+const loadFamily = cache(getTaxonomyFamily);
+const loadItem = cache(getTaxonomyItem);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ familySlug: string; itemSlug: string }>;
+}): Promise<Metadata> {
+  const { familySlug, itemSlug } = await params;
+  const [family, item] = await Promise.all([
+    loadFamily(familySlug),
+    loadItem(familySlug, itemSlug),
+  ]);
+  return { title: family && item ? `${item.name} · ${family.name}` : "Taxonomy not found" };
+}
 
 export default async function TaxonomyItemPage({
   params,

@@ -27,6 +27,8 @@ import { hasListQuery } from "@/lib/utils/list-params";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 
+export const metadata = { title: "Authors" };
+
 interface PageProps {
   searchParams: Promise<{
     q?: string;

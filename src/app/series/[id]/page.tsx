@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Layers } from "lucide-react";
@@ -18,13 +20,21 @@ interface PageProps {
   searchParams: Promise<{ add?: string }>;
 }
 
+/** One read per request for the page and its title */
+const loadSeries = cache(getSeriesDetail);
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const series = await loadSeries((await params).id);
+  return { title: series?.title ?? "Series not found" };
+}
+
 export default async function SeriesDetailPage({
   params,
   searchParams,
 }: PageProps) {
   const { id } = await params;
   const [s, suggestions, query] = await Promise.all([
-    getSeriesDetail(id),
+    loadSeries(id),
     getSeriesSuggestions(id).catch(() => []),
     searchParams,
   ]);

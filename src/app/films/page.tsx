@@ -20,6 +20,8 @@ import {
   type ListSearchParams,
 } from "@/lib/utils/pagination";
 
+export const metadata = { title: "Films" };
+
 /** One page of the films the URL asks for: its search, filters, sort and page. */
 async function FilmResults({ params }: { params: ListSearchParams }) {
   const query = filmQueryFromParams(params);

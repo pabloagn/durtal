@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { getIdentifyQueue } from "@/lib/actions/identify";
 import { IdentifyQueue } from "@/components/books/identify-queue";
 
+export const metadata = { title: "Identify editions" };
+
 export default async function IdentifyEditionsPage({
   searchParams,
 }: {

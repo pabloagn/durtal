@@ -4,6 +4,8 @@ import { getSeriesSuggestions } from "@/lib/actions/series";
 import { PageHeader } from "@/components/layout/page-header";
 import { SeriesSuggestions } from "@/components/series/series-suggestions";
 
+export const metadata = { title: "Suggested books" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SeriesSuggestionsPage() {

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const metadata = { title: "Page not found" };
+
 export default function NotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center">
