@@ -4,12 +4,13 @@ import { useState, useCallback } from "react";
 import Image from "next/image";
 import { Trash2 } from "lucide-react";
 import type { Media } from "@/lib/types";
+import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { Lightbox } from "./lightbox";
 
 interface MediaGalleryProps {
   media: Media[];
   editable?: boolean;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => void | Promise<void>;
   getImageUrl: (s3Key: string) => string;
 }
 
@@ -20,15 +21,13 @@ export function MediaGallery({
   getImageUrl,
 }: MediaGalleryProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Media | null>(null);
 
-  const handleDelete = useCallback(
-    async (id: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!confirm("Delete this image?")) return;
-      onDelete?.(id);
-    },
-    [onDelete],
-  );
+  const handleDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    await onDelete?.(pendingDelete.id);
+    setPendingDelete(null);
+  }, [onDelete, pendingDelete]);
 
   if (media.length === 0) return null;
 
@@ -53,7 +52,10 @@ export function MediaGallery({
               <button
                 aria-label="Delete image"
                 data-tooltip="Delete image"
-                onClick={(e) => handleDelete(item.id, e)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPendingDelete(item);
+                }}
                 className="absolute right-2 top-2 rounded-sm bg-bg-primary/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <Trash2
@@ -82,6 +84,15 @@ export function MediaGallery({
           onClose={() => setLightboxIndex(null)}
         />
       )}
+
+      <DeleteConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete image"
+        description="This image will be removed from the gallery."
+        itemName={pendingDelete?.caption ?? pendingDelete?.originalFilename ?? "Gallery image"}
+      />
     </>
   );
 }
