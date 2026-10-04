@@ -82,5 +82,4 @@ whole works; work merges carry `collection_works` as a membership link.
   card images' links as unnamed; they now carry the title.)
 - `page-weight.js`: within budget except `/library` (313 KB), which this task
   does not change and which is over budget on the live app too.
-- Linear would not move the issue's status from this thread.
 
