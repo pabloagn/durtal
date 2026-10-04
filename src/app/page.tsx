@@ -41,7 +41,8 @@ import { getAuthorCoverPreviews } from "@/lib/actions/authors";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { displayYear } from "@/lib/utils/years";
 
-export const metadata = { title: "Dashboard" };
+// The root layout's title template skips a page in its own segment
+export const metadata = { title: { absolute: "Dashboard | Durtal" } };
 
 function StatCard({
   label,
