@@ -16,6 +16,7 @@ import { buttonClass } from "@/components/ui/button";
 import type { PublisherItem } from "@/components/publishers/publisher-card";
 import { PublishersFiltersBar } from "./publishers-filters-bar";
 import { PublishersShell } from "./publishers-shell";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export const metadata = { title: "Publishers" };
 
@@ -94,7 +95,7 @@ async function PublishersContent({ params }: { params: Params }) {
       website: p.website,
       isFavourite: p.isFavourite,
       editionCount,
-      logoUrl: logoKey ? `/api/s3/read?key=${encodeURIComponent(logoKey)}` : null,
+      logoUrl: logoKey ? mediaUrl(logoKey) : null,
       createdAt: new Date(p.createdAt).toLocaleDateString(),
     }),
   );

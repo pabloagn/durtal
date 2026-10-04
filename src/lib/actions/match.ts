@@ -19,6 +19,7 @@ import {
 } from "@/lib/match/source";
 import { GoogleBooksQuotaError } from "@/lib/api/google-books-quota";
 import { loadMatchEdition, planRecord, saveMatch } from "@/lib/match/save";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface MatchHouse {
   id: string;
@@ -134,7 +135,7 @@ export async function previewMatch(
     locked: edition.metadataLocked,
     sourceLabel: MATCH_SOURCE_LABEL[source] ?? source,
     currentCoverUrl: coverKey
-      ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
+      ? mediaUrl(coverKey)
       : null,
     current,
   };

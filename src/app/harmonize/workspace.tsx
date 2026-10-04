@@ -48,6 +48,7 @@ import type {
   MergePreview,
   Scan,
 } from "@/lib/harmonization/types";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 const ICONS: Record<Category, LucideIcon> = {
   duplicates: GitMerge,
@@ -897,7 +898,7 @@ function FindingReview({
             {f.resolution.kind === "poster" && (
               <div className="h-artwork-preview">
                 <Image
-                  src={`/api/s3/read?key=${encodeURIComponent(f.resolution.thumbnailS3Key || f.resolution.s3Key)}`}
+                  src={mediaUrl(f.resolution.thumbnailS3Key || f.resolution.s3Key)}
                   alt={`Proposed poster for ${f.records[0].name}`}
                   width={100}
                   height={144}

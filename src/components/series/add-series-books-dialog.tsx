@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addWorksToSeries, searchWorksForSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type Work = Awaited<ReturnType<typeof searchWorksForSeries>>[number];
 
@@ -137,7 +138,7 @@ export function AddSeriesBooksDialog({
                   <div className="flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
                     {w.cover && (
                       <img
-                        src={`/api/s3/read?key=${encodeURIComponent(w.cover)}`}
+                        src={mediaUrl(w.cover)}
                         alt=""
                         className="h-full w-full object-cover"
                       />
