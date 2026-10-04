@@ -17,6 +17,7 @@ import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
+import { setFavourites } from "@/lib/actions/favourites";
 import { MARKS_LABEL, WORK_MARKS, type WorkMark } from "@/lib/constants/marks";
 import { bulkSetPoison } from "@/lib/actions/poison";
 import { toast } from "sonner";
@@ -117,7 +118,9 @@ export function BulkActionToolbar({
                 ? { isRare: true, huntAssessedOn: localToday() }
                 : { isRare: false, huntAssessedOn: null },
             )
-          : await bulkSetPoison(ids, on);
+          : mark.key === "favourite"
+            ? await setFavourites({ entity: "work", ids, favourite: on })
+            : await bulkSetPoison(ids, on);
       toast.success(
         updated === 0
           ? `${mark.label}: no books changed`

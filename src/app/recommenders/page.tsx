@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { favouritesOnly } from "@/lib/constants/favourites";
 import { redirect } from "next/navigation";
 import { ThumbsUp } from "lucide-react";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
@@ -19,6 +20,7 @@ interface SearchParams {
   order?: string;
   page?: string;
   perPage?: string;
+  favourites?: string;
 }
 
 async function RecommendersContent({ params }: { params: SearchParams }) {
@@ -38,6 +40,7 @@ async function RecommendersContent({ params }: { params: SearchParams }) {
     order,
     limit: perPage,
     offset,
+    favourites: favouritesOnly(params.favourites) || undefined,
   });
   if (page > lastPage(total, perPage))
     redirect(pageHref("/recommenders", params, lastPage(total, perPage)));
@@ -65,6 +68,7 @@ async function RecommendersContent({ params }: { params: SearchParams }) {
         name: r.name,
         url: r.url,
         bookCount: r.bookCount,
+        isFavourite: r.isFavourite,
       }))}
       pagination={{ page, perPage, total }}
     />

@@ -49,6 +49,7 @@ export const authors = pgTable("authors", {
   zodiacSign: text("zodiac_sign"),
   metadataSource: text("metadata_source"),
   metadataSourceId: text("metadata_source_id"),
+  isFavourite: boolean("is_favourite").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   // Accent-free, lower-case text of every name form, for author search.

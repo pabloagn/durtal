@@ -432,15 +432,29 @@
     {
       "idx": 61,
       "version": "7",
-      "when": 1791147256840,
-      "tag": "0061_reading_rating_precheck",
+      "when": 1791145778560,
+      "tag": "0061_favourites",
       "breakpoints": true
     },
     {
       "idx": 62,
       "version": "7",
-      "when": 1791147257607,
-      "tag": "0062_reading_data_model",
+      "when": 1791145813066,
+      "tag": "0062_publisher_founding",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1791152974834,
+      "tag": "0063_reading_rating_precheck",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1791152975490,
+      "tag": "0064_reading_data_model",
       "breakpoints": true
     }
   ]

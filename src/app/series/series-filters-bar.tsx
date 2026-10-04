@@ -1,5 +1,6 @@
 "use client";
 
+import { FavouritesFilter } from "@/components/shared/favourites-filter";
 import { useSearchParams } from "next/navigation";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
@@ -46,6 +47,8 @@ export function SeriesFiltersBar() {
       onViewModeChange={setViewMode}
       onGridColumnsChange={setGridColumns}
       availableViewModes={SERIES_VIEW_MODES}
-    />
+    >
+      <FavouritesFilter basePath="/series" />
+    </EntityFilters>
   );
 }

@@ -1,6 +1,6 @@
 {
-  "id": "a8db2316-4b84-4744-bf20-cad0ca53973a",
-  "prevId": "02a045cd-c2dd-4a37-9efd-8933648206d3",
+  "id": "70142979-44a5-4f2c-b4c1-b9c7e1743078",
+  "prevId": "47c09379-8f08-4f48-be8d-c4793d621c17",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -861,6 +861,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "is_favourite": {
+          "name": "is_favourite",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1815,6 +1822,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "is_favourite": {
+          "name": "is_favourite",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -6372,6 +6386,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "founded_year": {
+          "name": "founded_year",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "founded_place_id": {
+          "name": "founded_place_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "search_text": {
           "name": "search_text",
           "type": "text",
@@ -6464,6 +6490,19 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "publishing_houses_founded_place_id_places_id_fk": {
+          "name": "publishing_houses_founded_place_id_places_id_fk",
+          "tableFrom": "publishing_houses",
+          "tableTo": "places",
+          "columnsFrom": [
+            "founded_place_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -6478,6 +6517,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "publisher_founded_year_check": {
+          "name": "publisher_founded_year_check",
+          "value": "\"publishing_houses\".\"founded_year\" is null or \"publishing_houses\".\"founded_year\" between 1000 and 2100"
+        },
         "publisher_kind_parent_check": {
           "name": "publisher_kind_parent_check",
           "value": "case when \"publishing_houses\".\"kind\" is null then \"publishing_houses\".\"parent_id\" is null else (\"publishing_houses\".\"kind\" = 'group' AND \"publishing_houses\".\"parent_id\" IS NULL) OR (\"publishing_houses\".\"kind\" = 'publisher' AND (\"publishing_houses\".\"parent_id\" IS NULL OR \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\")) OR (\"publishing_houses\".\"kind\" = 'imprint' AND \"publishing_houses\".\"parent_id\" IS NOT NULL AND \"publishing_houses\".\"parent_id\" <> \"publishing_houses\".\"id\") end"
@@ -6633,6 +6676,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "is_favourite": {
+          "name": "is_favourite",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6707,6 +6757,13 @@
         },
         "is_complete": {
           "name": "is_complete",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_favourite": {
+          "name": "is_favourite",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -9127,7 +9184,7 @@
         },
         "rating": {
           "name": "rating",
-          "type": "numeric(2, 1)",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": false
         },
@@ -9338,10 +9395,6 @@
         "works_language_domain_check": {
           "name": "works_language_domain_check",
           "value": "(\"works\".\"kind\"='book' and \"works\".\"original_language\" is not null) or (\"works\".\"kind\"<>'book' and \"works\".\"original_language\" is null)"
-        },
-        "works_rating_check": {
-          "name": "works_rating_check",
-          "value": "\"works\".\"rating\" IS NULL OR (\"works\".\"rating\" >= 0.5 AND \"works\".\"rating\" <= 5 AND \"works\".\"rating\" * 2 = trunc(\"works\".\"rating\" * 2))"
         },
         "works_hunt_assessment_check": {
           "name": "works_hunt_assessment_check",
@@ -13128,804 +13181,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.reading_sessions": {
-      "name": "reading_sessions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "reading_id": {
-          "name": "reading_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "edition_id": {
-          "name": "edition_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "read_on": {
-          "name": "read_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ended_at": {
-          "name": "ended_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "duration_seconds": {
-          "name": "duration_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "start_page": {
-          "name": "start_page",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "end_page": {
-          "name": "end_page",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "start_percent": {
-          "name": "start_percent",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "end_percent": {
-          "name": "end_percent",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "start_minutes": {
-          "name": "start_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "end_minutes": {
-          "name": "end_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "end_chapter": {
-          "name": "end_chapter",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pages_total": {
-          "name": "pages_total",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pages_read": {
-          "name": "pages_read",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "case when start_page is not null and end_page is not null then greatest(end_page - start_page, 0) end",
-            "type": "stored"
-          }
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'manual'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "reading_session_timer_unique": {
-          "name": "reading_session_timer_unique",
-          "columns": [
-            {
-              "expression": "(true)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"reading_sessions\".\"source\" = 'timer' and \"reading_sessions\".\"ended_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_session_reading_idx": {
-          "name": "reading_session_reading_idx",
-          "columns": [
-            {
-              "expression": "reading_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "read_on",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_session_day_idx": {
-          "name": "reading_session_day_idx",
-          "columns": [
-            {
-              "expression": "read_on",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_session_edition_idx": {
-          "name": "reading_session_edition_idx",
-          "columns": [
-            {
-              "expression": "edition_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "reading_sessions_reading_id_readings_id_fk": {
-          "name": "reading_sessions_reading_id_readings_id_fk",
-          "tableFrom": "reading_sessions",
-          "tableTo": "readings",
-          "columnsFrom": [
-            "reading_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "reading_sessions_edition_id_editions_id_fk": {
-          "name": "reading_sessions_edition_id_editions_id_fk",
-          "tableFrom": "reading_sessions",
-          "tableTo": "editions",
-          "columnsFrom": [
-            "edition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "reading_session_values_check": {
-          "name": "reading_session_values_check",
-          "value": "\"reading_sessions\".\"format\" in ('print','ebook','audio') and \"reading_sessions\".\"source\" in ('manual','timer','reader','import')\n        and (\"reading_sessions\".\"ended_at\" is null or \"reading_sessions\".\"started_at\" is null or \"reading_sessions\".\"ended_at\" >= \"reading_sessions\".\"started_at\")\n        and (\"reading_sessions\".\"duration_seconds\" is null or \"reading_sessions\".\"duration_seconds\" between 1 and 86400)\n        and (\"reading_sessions\".\"start_page\" is null or \"reading_sessions\".\"start_page\" >= 0) and (\"reading_sessions\".\"end_page\" is null or \"reading_sessions\".\"end_page\" >= 0)\n        and (\"reading_sessions\".\"start_percent\" is null or \"reading_sessions\".\"start_percent\" between 0 and 100)\n        and (\"reading_sessions\".\"end_percent\" is null or \"reading_sessions\".\"end_percent\" between 0 and 100)\n        and (\"reading_sessions\".\"start_minutes\" is null or \"reading_sessions\".\"start_minutes\" >= 0) and (\"reading_sessions\".\"end_minutes\" is null or \"reading_sessions\".\"end_minutes\" >= 0)\n        and (\"reading_sessions\".\"pages_total\" is null or \"reading_sessions\".\"pages_total\" > 0)\n        and (\"reading_sessions\".\"end_chapter\" is null or length(\"reading_sessions\".\"end_chapter\") <= 300)\n        and (\"reading_sessions\".\"note\" is null or length(\"reading_sessions\".\"note\") <= 2000)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.reading_status_history": {
-      "name": "reading_status_history",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "reading_id": {
-          "name": "reading_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from_status": {
-          "name": "from_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to_status": {
-          "name": "to_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "changed_at": {
-          "name": "changed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "reading_status_history_reading_idx": {
-          "name": "reading_status_history_reading_idx",
-          "columns": [
-            {
-              "expression": "reading_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "changed_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "reading_status_history_reading_id_readings_id_fk": {
-          "name": "reading_status_history_reading_id_readings_id_fk",
-          "tableFrom": "reading_status_history",
-          "tableTo": "readings",
-          "columnsFrom": [
-            "reading_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "reading_status_history_values_check": {
-          "name": "reading_status_history_values_check",
-          "value": "(\"reading_status_history\".\"from_status\" is null or \"reading_status_history\".\"from_status\" in ('reading','paused','finished','abandoned')) and \"reading_status_history\".\"to_status\" in ('reading','paused','finished','abandoned')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.readings": {
-      "name": "readings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "edition_id": {
-          "name": "edition_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "instance_id": {
-          "name": "instance_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "location_id": {
-          "name": "location_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'print'"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'reading'"
-        },
-        "started_on": {
-          "name": "started_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "started_precision": {
-          "name": "started_precision",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "finished_on": {
-          "name": "finished_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "finished_precision": {
-          "name": "finished_precision",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
-        },
-        "unit": {
-          "name": "unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pages'"
-        },
-        "total_pages": {
-          "name": "total_pages",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "total_minutes": {
-          "name": "total_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "start_page": {
-          "name": "start_page",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "start_percent": {
-          "name": "start_percent",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "start_minutes": {
-          "name": "start_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_page": {
-          "name": "current_page",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_percent": {
-          "name": "current_percent",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_minutes": {
-          "name": "current_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_chapter": {
-          "name": "current_chapter",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_read_at": {
-          "name": "last_read_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rating": {
-          "name": "rating",
-          "type": "numeric(2, 1)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "review_html": {
-          "name": "review_html",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "review_json": {
-          "name": "review_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "abandon_reason": {
-          "name": "abandon_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "abandon_note": {
-          "name": "abandon_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'manual'"
-        },
-        "import_id": {
-          "name": "import_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_key": {
-          "name": "source_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "reading_open_unique": {
-          "name": "reading_open_unique",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"readings\".\"status\" in ('reading','paused')",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_work_idx": {
-          "name": "reading_work_idx",
-          "columns": [
-            {
-              "expression": "work_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_status_idx": {
-          "name": "reading_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_finished_idx": {
-          "name": "reading_finished_idx",
-          "columns": [
-            {
-              "expression": "finished_on",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_last_read_idx": {
-          "name": "reading_last_read_idx",
-          "columns": [
-            {
-              "expression": "last_read_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_import_idx": {
-          "name": "reading_import_idx",
-          "columns": [
-            {
-              "expression": "import_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_edition_idx": {
-          "name": "reading_edition_idx",
-          "columns": [
-            {
-              "expression": "edition_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_instance_idx": {
-          "name": "reading_instance_idx",
-          "columns": [
-            {
-              "expression": "instance_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reading_location_idx": {
-          "name": "reading_location_idx",
-          "columns": [
-            {
-              "expression": "location_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "readings_work_id_works_id_fk": {
-          "name": "readings_work_id_works_id_fk",
-          "tableFrom": "readings",
-          "tableTo": "works",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "readings_edition_id_editions_id_fk": {
-          "name": "readings_edition_id_editions_id_fk",
-          "tableFrom": "readings",
-          "tableTo": "editions",
-          "columnsFrom": [
-            "edition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "readings_instance_id_instances_id_fk": {
-          "name": "readings_instance_id_instances_id_fk",
-          "tableFrom": "readings",
-          "tableTo": "instances",
-          "columnsFrom": [
-            "instance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "readings_location_id_locations_id_fk": {
-          "name": "readings_location_id_locations_id_fk",
-          "tableFrom": "readings",
-          "tableTo": "locations",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "readings_import_id_imports_id_fk": {
-          "name": "readings_import_id_imports_id_fk",
-          "tableFrom": "readings",
-          "tableTo": "imports",
-          "columnsFrom": [
-            "import_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "readings_source_key_unique": {
-          "name": "readings_source_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "source_key"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "reading_values_check": {
-          "name": "reading_values_check",
-          "value": "\"readings\".\"format\" in ('print','ebook','audio') and \"readings\".\"status\" in ('reading','paused','finished','abandoned')\n        and \"readings\".\"started_precision\" in ('day','month','year','unknown') and \"readings\".\"finished_precision\" in ('day','month','year','unknown')\n        and \"readings\".\"unit\" in ('pages','percent','minutes') and \"readings\".\"source\" in ('manual','reader','import','backfill')\n        and (\"readings\".\"abandon_reason\" is null or \"readings\".\"abandon_reason\" in ('lost_interest','prose','content','edition','translation','superseded','other'))"
-        },
-        "reading_precision_check": {
-          "name": "reading_precision_check",
-          "value": "(\"readings\".\"started_on\" is null) = (\"readings\".\"started_precision\" = 'unknown') and (\"readings\".\"finished_on\" is null) = (\"readings\".\"finished_precision\" = 'unknown')"
-        },
-        "reading_status_dates_check": {
-          "name": "reading_status_dates_check",
-          "value": "\"readings\".\"status\" not in ('reading','paused') or (\"readings\".\"finished_on\" is null and \"readings\".\"finished_precision\" = 'unknown')"
-        },
-        "reading_abandon_check": {
-          "name": "reading_abandon_check",
-          "value": "\"readings\".\"status\" = 'abandoned' or (\"readings\".\"abandon_reason\" is null and \"readings\".\"abandon_note\" is null)"
-        },
-        "reading_position_check": {
-          "name": "reading_position_check",
-          "value": "(\"readings\".\"total_pages\" is null or \"readings\".\"total_pages\" > 0) and (\"readings\".\"total_minutes\" is null or \"readings\".\"total_minutes\" > 0)\n        and (\"readings\".\"start_page\" is null or (\"readings\".\"start_page\" >= 0 and (\"readings\".\"total_pages\" is null or \"readings\".\"start_page\" <= \"readings\".\"total_pages\")))\n        and (\"readings\".\"current_page\" is null or (\"readings\".\"current_page\" >= 0 and (\"readings\".\"total_pages\" is null or \"readings\".\"current_page\" <= \"readings\".\"total_pages\")))\n        and (\"readings\".\"start_minutes\" is null or (\"readings\".\"start_minutes\" >= 0 and (\"readings\".\"total_minutes\" is null or \"readings\".\"start_minutes\" <= \"readings\".\"total_minutes\")))\n        and (\"readings\".\"current_minutes\" is null or (\"readings\".\"current_minutes\" >= 0 and (\"readings\".\"total_minutes\" is null or \"readings\".\"current_minutes\" <= \"readings\".\"total_minutes\")))\n        and (\"readings\".\"start_percent\" is null or \"readings\".\"start_percent\" between 0 and 100)\n        and (\"readings\".\"current_percent\" is null or \"readings\".\"current_percent\" between 0 and 100)\n        and (\"readings\".\"current_chapter\" is null or length(\"readings\".\"current_chapter\") between 1 and 300)"
-        },
-        "reading_rating_check": {
-          "name": "reading_rating_check",
-          "value": "\"readings\".\"rating\" is null or (\"readings\".\"rating\" >= 0.5 and \"readings\".\"rating\" <= 5 and \"readings\".\"rating\" * 2 = trunc(\"readings\".\"rating\" * 2))"
-        },
-        "reading_note_check": {
-          "name": "reading_note_check",
-          "value": "\"readings\".\"abandon_note\" is null or length(\"readings\".\"abandon_note\") <= 2000"
-        }
-      },
       "isRLSEnabled": false
     }
   },

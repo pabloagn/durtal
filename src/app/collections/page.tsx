@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { FavouritesFilter } from "@/components/shared/favourites-filter";
+import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import { collectionCounts } from "@/lib/collections/counts";
 import {
   parsePagination,
@@ -24,13 +26,15 @@ export const metadata = { title: "Collections" };
 
 async function CollectionsContent({ params }: { params: ListSearchParams }) {
   const { page, perPage, offset } = parsePagination(params);
+  const favourites = favouritesOnly(params[FAVOURITES_PARAM]);
   const [collections, total] = await Promise.all([
     getCollections({
       limit: perPage,
       offset,
       query: typeof params.q === "string" ? params.q : undefined,
+      favourites,
     }),
-    getCollectionCount(typeof params.q === "string" ? params.q : ""),
+    getCollectionCount(typeof params.q === "string" ? params.q : "", favourites),
   ]);
   if (page > lastPage(total, perPage))
     redirect(pageHref("/collections", params, lastPage(total, perPage)));
@@ -39,10 +43,12 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
     return (
       <EmptyState
         icon={FolderOpen}
-        title={params.q ? "No matching collections" : "No collections yet"}
+        title={
+          params.q || favourites ? "No matching collections" : "No collections yet"
+        }
         description={
-          params.q
-            ? "Try another collection name."
+          params.q || favourites
+            ? "Try another collection name or filter."
             : "Create collections to organize your books into curated groups"
         }
         action={<CreateCollectionDialog />}
@@ -88,21 +94,28 @@ export default async function CollectionsPage({
         description="Curated groups of books"
         actions={<CreateCollectionDialog />}
       />
-      <form className="mb-5 flex max-w-md gap-2" action="/collections">
-        <input
-          name="q"
-          defaultValue={typeof params.q === "string" ? params.q : ""}
-          aria-label="Find collections"
-          placeholder="Find collections…"
-          className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm"
-        />
-        <button
-          type="submit"
-          className="rounded-sm border border-glass-border px-3 text-sm"
-        >
-          Search
-        </button>
-      </form>
+      <div className="mb-5 flex items-center gap-2">
+        <form className="flex min-w-0 max-w-md flex-1 gap-2" action="/collections">
+          {/* A search keeps the favourites filter */}
+          {favouritesOnly(params[FAVOURITES_PARAM]) && (
+            <input type="hidden" name={FAVOURITES_PARAM} value="true" />
+          )}
+          <input
+            name="q"
+            defaultValue={typeof params.q === "string" ? params.q : ""}
+            aria-label="Find collections"
+            placeholder="Find collections…"
+            className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-sm border border-glass-border px-3 text-sm"
+          >
+            Search
+          </button>
+        </form>
+        <FavouritesFilter basePath="/collections" />
+      </div>
       <Suspense
         key={JSON.stringify(params)}
         fallback={

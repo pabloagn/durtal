@@ -86,13 +86,9 @@ export function EditionPublishers({
             {p.name}
           </Link>
         ))}
-        <button
-          type="button"
-          onClick={open}
-          className="text-xs text-fg-secondary hover:text-fg-primary"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={open}>
           {linked.length ? "Edit publisher links" : "Link publisher"}
-        </button>
+        </Button>
         {confirmed && <span className="text-xs text-fg-secondary">Confirmed</span>}
       </div>
       {editing && (

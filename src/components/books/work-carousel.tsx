@@ -57,6 +57,7 @@ export function WorkCarousel<T extends WorkCardData>({
               isRare={work.isRare}
               huntAssessedOn={work.huntAssessedOn}
               isPoison={work.isPoison}
+              isFavourite={work.isFavourite}
             />
             {caption?.(work)}
           </div>

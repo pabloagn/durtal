@@ -19,6 +19,8 @@ const SAGE = "var(--color-accent-sage)";
 export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.hunt_assessment_changed": { icon: "Settings2", color: GOLD, category: "update" },
   "work.poison_changed": { icon: "Skull", color: RED, category: "update" },
+  "work.favourite_changed": { icon: "Star", color: GOLD, category: "update" },
+  "author.favourite_changed": { icon: "Star", color: GOLD, category: "update" },
   // ── Work events ──────────────────────────────────────────────────────────
   "work.created":                    { icon: "Plus",         color: SAGE,      category: "create" },
   "work.deleted":                    { icon: "Trash2",       color: RED,       category: "delete" },
@@ -150,6 +152,12 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.poison_changed": (m) => m?.newValue
     ? [text("Marked as "), label(MARKS.poison.label)]
     : [text("Removed the "), label(MARKS.poison.label), text(" mark")],
+  "work.favourite_changed": (m) => m?.newValue
+    ? [text("Marked as "), label(MARKS.favourite.label)]
+    : [text("Removed the "), label(MARKS.favourite.label), text(" mark")],
+  "author.favourite_changed": (m) => m?.newValue
+    ? [text("Marked as "), label(MARKS.favourite.label)]
+    : [text("Removed the "), label(MARKS.favourite.label), text(" mark")],
   "work.created":                    () => [text("Created this work")],
   "work.deleted":                    () => [text("Deleted this work")],
   "work.title_changed":             (m) => fieldChanged("title", m),

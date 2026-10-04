@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { favouritesOnly } from "@/lib/constants/favourites";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Layers, Sparkles } from "lucide-react";
@@ -21,6 +22,7 @@ interface SearchParams {
   order?: string;
   page?: string;
   perPage?: string;
+  favourites?: string;
 }
 
 async function SeriesContent({ params }: { params: SearchParams }) {
@@ -40,6 +42,7 @@ async function SeriesContent({ params }: { params: SearchParams }) {
     order,
     limit: perPage,
     offset,
+    favourites: favouritesOnly(params.favourites) || undefined,
   });
   if (page > lastPage(total, perPage))
     redirect(pageHref("/series", params, lastPage(total, perPage)));

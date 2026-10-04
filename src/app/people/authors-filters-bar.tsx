@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_FILTER_GROUP, FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -76,6 +77,7 @@ export function AuthorsFiltersBar({
     gender: searchParams.get("gender")?.split(",").filter(Boolean) ?? [],
     zodiac: searchParams.get("zodiac")?.split(",").filter(Boolean) ?? [],
     alive: searchParams.get("alive") ? [searchParams.get("alive")!] : [],
+    [FAVOURITES_PARAM]: favouritesOnly(searchParams.get(FAVOURITES_PARAM)) ? ["true"] : [],
   };
 
   // Birth year range from URL
@@ -142,6 +144,7 @@ export function AuthorsFiltersBar({
           } satisfies AnyFilterGroup,
         ]
       : []),
+    FAVOURITES_FILTER_GROUP,
     {
       key: "nationality",
       label: "Nationality",
@@ -256,6 +259,7 @@ export function AuthorsFiltersBar({
     params.delete("gender");
     params.delete("zodiac");
     params.delete("alive");
+    params.delete(FAVOURITES_PARAM);
     params.delete("birthYearMin");
     params.delete("birthYearMax");
     params.delete("deathYearMin");
