@@ -34,17 +34,6 @@ export const getLocations = cached(
   [CACHE_TAGS.locations],
 );
 
-export async function getLocation(id: string) {
-  return db.query.locations.findFirst({
-    where: eq(locations.id, id),
-    with: {
-      subLocations: {
-        orderBy: asc(subLocations.sortOrder),
-      },
-    },
-  });
-}
-
 export async function createLocation(input: CreateLocationInput) {
   const [location] = await db
     .insert(locations)

@@ -51,9 +51,6 @@ export async function getVenueBySlug(slug: string) {
   z.string().min(1).max(1000).parse(slug);
   return db.query.venues.findFirst({ where: eq(venues.slug, slug), with: { place: true } });
 }
-export async function getFavoriteVenues() {
-  return getVenues({ filters: { favorite: true }, limit: 200 });
-}
 export async function searchVenues(query: string) {
   return getVenues({ search: query, limit: 20 });
 }

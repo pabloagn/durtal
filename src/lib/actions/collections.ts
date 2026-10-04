@@ -165,13 +165,6 @@ export async function bulkAddEditionsToCollection(
   changed();
   return rows<{ changed: number }>(result[1])[0];
 }
-export async function addEditionToCollection(
-  collectionId: string,
-  editionId: string,
-  _sortOrder = 0,
-) {
-  return bulkAddEditionsToCollection(collectionId, [editionId]);
-}
 export async function removeEditionsFromCollection(
   collectionId: string,
   editionIds: string[],
