@@ -178,7 +178,7 @@ export function mergeBlockers(
     }));
   const identities = new Set<string>();
   for (const r of transformed) {
-    const key = `${r.work_id}:${r.edition_id || ""}:${r.publisher_id || ""}`;
+    const key = targetIdentity(r);
     if (identities.has(key))
       blockers.push(
         "Both records have the same active acquisition target. Reconcile or cancel one target before merging; existing orders and copies must retain their provenance.",
@@ -187,6 +187,30 @@ export function mergeBlockers(
   }
   // A gallery layout is derived from media; it will be regenerated. All source data is archived.
   return [...new Set(blockers)];
+}
+/**
+ * An active acquisition target's identity, as `acquisition_targets_active_unique`
+ * keys it: the work, the edition and publisher of a book target, and the typed
+ * columns of a film, perfume or painting target (a size in millilitres).
+ */
+function targetIdentity(r: Row) {
+  const ml =
+    r.perfume_capacity_value == null
+      ? 0
+      : Math.round(Number(r.perfume_capacity_value) * (r.perfume_volume_unit === "l" ? 1000 : 1) * 1e6) / 1e6;
+  return JSON.stringify([
+    r.work_id,
+    r.edition_id ?? null,
+    r.publisher_id ?? null,
+    r.perfume_variant_id ?? null,
+    r.perfume_container ?? "",
+    ml,
+    r.film_version_id ?? null,
+    r.film_release_id ?? null,
+    r.film_medium ?? "",
+    r.art_object_id ?? null,
+    r.art_reproduces_object_id ?? null,
+  ]);
 }
 /** Shows a referenced record by its name, and a date as text, not as an id */
 async function describeReferences(table: string, fields: MergeField[]) {

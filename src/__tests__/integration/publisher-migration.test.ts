@@ -84,6 +84,10 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
       expect((await c`select * from orders where id=${order.id}`)[0]).toEqual({
         ...order,
         acquisition_target_id: null,
+        // Later columns (SLN-374) start empty
+        film_holding_id: null,
+        perfume_bottle_id: null,
+        art_object_id: null,
       });
       expect(
         (await c`select * from publishing_houses where id=${p.id}`)[0],

@@ -428,5 +428,12 @@ merge joins two works of one kind with their profiles, versions, copies,
 formulations, listings and objects. Colliding identities block it with what to
 fix first. Migration 0060.
 
+Typed acquisition targets (SLN-374, task 0277): a film, perfume or painting
+has its own wishes (a formulation and size, a version and medium, an object or a
+reproduction of one) and orders for them. Receiving an order creates its bottle,
+copy or object once, in the order's write; a return disposes of it. Book
+targets and totals are unchanged; museum custody never enters the purchase
+flow. Migration 0063.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

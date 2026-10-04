@@ -235,7 +235,8 @@ base, then "Other"; edited in place); Families and accords; Formulations (each
 concentration as sold, with its own dates, perfumers, notes, families, accords
 and image; `?formulation=` chooses one and the facts and notes above show its
 own values); Bottles and samples (formulation, size, what is left, status,
-storage place, acquisition); Retailers (listings with recorded prices);
+storage place, acquisition); Wanted (see below); Retailers (listings with
+recorded prices);
 Gallery; Sources (cited sources, and sources a reader adds); Your notes;
 related perfumes ("More from {house}", "More by {perfumer}", "Shared notes").
 
@@ -291,7 +292,7 @@ personal rating.
 `DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
 order, characters, credited names; the first twelve until "Show all"), Crew by
 role, Linked works, Versions (each cut with its runtime and releases: territory,
-format, date, distributor), Copies, Sources and Your notes. The record column holds
+format, date, distributor), Copies, Wanted (see below), Sources and Your notes. The record column holds
 Details (original title, first release, countries, languages, production,
 added), Genres (edited in place) and Media counts. Then the gallery and related
 films ("More by {director}", "Shared cast", "Shared genres").
@@ -349,7 +350,8 @@ since when, and how long ago it was checked; past a year: "check again"), what
 you own of it and the personal rating.
 
 `DetailColumns`: the reading column holds the description (`Prose`), the
-original and its versions, reproductions, Sources and Your notes. Each object
+original and its versions, reproductions, Wanted (see below), Sources and Your
+notes. Each object
 lists its size, date and own attribution, its owner (institution with
 collection and accession number, a private collection, you, or unknown), what
 you hold, where it is now, and its location history (newest first; probable and
@@ -668,6 +670,21 @@ A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 - **Bought here**: perfume bottles, film copies and art objects whose acquisition names this venue, with the date bought and their status.
 - Specialties and tags, notes, and the record column (contact, opening hours, visits).
 - Each part lists up to 100 rows (orders 50) and says when there are more.
+
+### Wanted (films, perfumes, paintings)
+
+`WantedSection` (`src/components/catalogue/wanted-section.tsx`) lists what the
+collector wants to buy of the work (SLN-374): a formulation in a container size
+("Eau de Parfum · Bottle · 50 ml"), a film version (and release) on a medium,
+or an original or version in private or unknown hands, or a reproduction of
+one. Each shows its state (Wanted, On order, Received) and its orders (status,
+date, price, "in the collection" once received, a link to Provenance). "Add"
+opens the wish dialog; each wish's menu has Order (method, status, date, shop,
+price, shipping and currency, where it will be kept) and Remove. A wish needs
+a formulation, a version or an object first; the part says so when there is
+none. An order bought in a shop or received as a gift arrives at once; any
+other arrives when Provenance marks it delivered, purchased or received, and
+the bottle, copy or object then appears in its part.
 
 ### Provenance (`/provenance`)
 
