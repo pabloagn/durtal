@@ -348,7 +348,7 @@ export function EditionDetailCard({
                     {i > 0 && ", "}
                     {c.author.slug ? (
                       <Link
-                        href={`/authors/${c.author.slug}`}
+                        href={`/people/${c.author.slug}`}
                         className="text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
                       >
                         {c.author.name}

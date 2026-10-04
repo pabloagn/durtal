@@ -170,10 +170,13 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
   return rows
     .flatMap((row) => {
       const held = PERSON_ROLES.filter((r) => open.has(r.kind) && row.roles?.includes(r.role));
-      // A book person has their author page; anyone else, their collection's list
-      const href =
-        row.isBook && row.slug && open.has("book")
-          ? `/authors/${row.slug}`
+      // Every person in an open collection has their page (SLN-419); one
+      // without a slug falls back to their collection's list
+      const visible = held.length > 0 || (row.isBook && open.has("book"));
+      const href = !visible
+        ? null
+        : row.slug
+          ? `/people/${row.slug}`
           : held.find((r) => r.filter)?.filter?.concat(row.id);
       if (!href) return [];
       // A translator or editor of an edition: their most frequent edition role

@@ -11,7 +11,12 @@ import {
   getDistinctZodiacSigns,
   getAuthorBirthYearRange,
   getAuthorDeathYearRange,
+  getPeopleFilterOptions,
+  getPersonRoles,
+  getPersonWorkCounts,
 } from "@/lib/actions/authors";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { resolveLegacyNationalityParam } from "@/lib/actions/utils/author-filters";
 import {
   formatNationalityParam,
@@ -28,7 +33,7 @@ import { mediaCrop } from "@/lib/utils/media-style";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { countryDisplayName } from "@/lib/utils/labels";
 
-export const metadata = { title: "Authors" };
+export const metadata = { title: "People" };
 
 interface PageProps {
   searchParams: Promise<{
@@ -45,6 +50,8 @@ interface PageProps {
     deathYearMin?: string;
     deathYearMax?: string;
     alive?: string;
+    collection?: string;
+    role?: string;
   }>;
 }
 
@@ -65,6 +72,8 @@ async function AuthorsContent({
     deathYearMin?: string;
     deathYearMax?: string;
     alive?: string;
+    collection?: string;
+    role?: string;
   };
 }) {
   const search = searchParams.q;
@@ -89,7 +98,11 @@ async function AuthorsContent({
 
   const { page, perPage: limit, offset } = parsePagination(searchParams);
 
+  const collections = searchParams.collection?.split(",").filter(Boolean);
+  const roles = searchParams.role?.split(",").filter(Boolean);
   const filters = {
+    collections: collections?.length ? collections : undefined,
+    roles: roles?.length ? roles : undefined,
     nationalities: nationalityFilter.length ? nationalityFilter : undefined,
     genders: genderFilter?.length ? genderFilter : undefined,
     zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
@@ -102,6 +115,8 @@ async function AuthorsContent({
 
   // getAuthorsForTimeline uses alive as a string ("true"|"false"), not boolean
   const timelineFilters = {
+    collections: filters.collections,
+    roles: filters.roles,
     nationalities: nationalityFilter.length ? nationalityFilter : undefined,
     genders: genderFilter?.length ? genderFilter : undefined,
     zodiacSigns: zodiacFilter?.length ? zodiacFilter : undefined,
@@ -117,7 +132,7 @@ async function AuthorsContent({
     getAuthorCount({ search, filters }),
   ]);
 
-  if (page > lastPage(total, limit)) redirect(pageHref("/authors", searchParams, lastPage(total, limit)));
+  if (page > lastPage(total, limit)) redirect(pageHref("/people", searchParams, lastPage(total, limit)));
 
   // Full-page empty state only when the catalogue has no authors at all.
   // A search or filter with no match is handled by the shell, below the
@@ -131,8 +146,8 @@ async function AuthorsContent({
     return (
       <EmptyState
         icon={Users}
-        title="No authors yet"
-        description="Authors are created when you add books"
+        title="No people yet"
+        description="People are added with books, films, perfumes and paintings"
       />
     );
   }
@@ -167,22 +182,42 @@ async function AuthorsContent({
       // Bios are stored as HTML; the list shows a one-line text preview
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
+      roles: [] as PersonRole[],
+      booksCount: a.workAuthors.length,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
     };
   });
 
   // Authors with no portrait show some of their book covers instead
-  const previews = await getAuthorCoverPreviews(
-    authors.filter((a) => !a.photoUrl && a.worksCount > 0).map((a) => a.id),
-  );
-  for (const a of authors) a.coverPreviews = previews[a.id] ?? [];
+  // Cover previews, every card's roles and the Works column's counts: one
+  // query each, never one per card
+  const [previews, rolesById, workCounts] = await Promise.all([
+    getAuthorCoverPreviews(
+      authors.filter((a) => !a.photoUrl && a.booksCount > 0).map((a) => a.id),
+    ),
+    getPersonRoles(authors.map((a) => a.id)),
+    // The Works column counts every collection's works, not only books
+    getPersonWorkCounts(authors.map((a) => a.id)),
+  ]);
+  for (const a of authors) {
+    a.coverPreviews = previews[a.id] ?? [];
+    a.roles = rolesById[a.id] ?? [];
+    a.worksCount = workCounts[a.id] ?? 0;
+  }
+  // Filtered to one collection: its roles come first on the cards
+  const preferKind =
+    collections?.length === 1 && (WORK_KINDS as readonly string[]).includes(collections[0])
+      ? (collections[0] as WorkKind)
+      : null;
 
 
   return (
     <>
       <AuthorsShell
         authors={authors}
+        preferKind={preferKind}
+        preferRoles={roles?.length ? roles : null}
         mapQuery={{ search, filters }}
         timelineQuery={{ search, filters: timelineFilters }}
         pagination={{
@@ -200,8 +235,9 @@ async function AuthorsContent({
  * so the toolbar stays mounted (and keeps focus) while results reload.
  */
 async function AuthorsToolbar() {
-  const [nationalities, genders, zodiacSigns, birthYearRange, deathYearRange] =
+  const [people, nationalities, genders, zodiacSigns, birthYearRange, deathYearRange] =
     await Promise.all([
+      getPeopleFilterOptions(),
       getDistinctNationalities(),
       getDistinctGenders(),
       getDistinctZodiacSigns(),
@@ -211,6 +247,8 @@ async function AuthorsToolbar() {
 
   return (
     <AuthorsFiltersBar
+      collections={people.collections}
+      roles={people.roles}
       nationalities={nationalities}
       genders={genders}
       zodiacSigns={zodiacSigns}
@@ -235,14 +273,14 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
     } else {
       next.delete("nationality");
     }
-    redirect(`/authors?${next.toString()}`);
+    redirect(`/people?${next.toString()}`);
   }
 
   return (
     <>
       <PageHeader
-        title="Authors"
-        description="Browse all authors in your catalogue"
+        title="People"
+        description="Writers, translators, directors, actors, perfumers, painters and everyone else in your catalogue"
         actions={<AuthorCreateDialog />}
       />
 

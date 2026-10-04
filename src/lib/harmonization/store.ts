@@ -97,18 +97,41 @@ function scanTableSql(name: string, shape: "arrays" | "objects"): SQL {
 }
 /** The rows of one table exactly as `loadDataset` returns them, for assertions. */
 export const scannedRowsSql = (name: string) => scanTableSql(name, "objects");
+/** The scan's films, perfumes and paintings: title, year, makers and links */
+const domainWorksSql = sql`coalesce((select jsonb_agg(jsonb_build_object(
+    'id', w.id, 'kind', w.kind, 'title', w.title, 'slug', w.slug,
+    'year', coalesce(fdd.start_year, pdd.start_year, adt.start_year),
+    'makers', coalesce((select jsonb_agg(distinct jsonb_build_object(
+        'key', coalesce(c.person_id::text, 'name:' || lower(btrim(c.credited_as))),
+        'name', coalesce(a.name, btrim(c.credited_as))))
+      from work_credits c left join authors a on a.id = c.person_id
+      where c.work_id = w.id and c.role_id in ('film.director', 'painting.painter')
+      and (c.person_id is not null or nullif(btrim(c.credited_as), '') is not null)), '[]'::jsonb)
+      || coalesce((select jsonb_agg(distinct jsonb_build_object('key', o.organization_id::text, 'name', p.name))
+      from perfume_organizations o join publishing_houses p on p.id = o.organization_id
+      where o.work_id = w.id and o.role in ('perfume_house', 'brand')), '[]'::jsonb),
+    'related', coalesce((select jsonb_agg(case when r.from_work_id = w.id then r.to_work_id else r.from_work_id end)
+      from work_relations r where r.from_work_id = w.id or r.to_work_id = w.id), '[]'::jsonb)
+  ) order by w.id)
+  from works w
+  left join film_details fd on fd.work_id = w.id left join catalogue_dates fdd on fdd.id = fd.release_date_id
+  left join perfume_details pd on pd.work_id = w.id left join catalogue_dates pdd on pdd.id = pd.release_date_id
+  left join painting_details ad on ad.work_id = w.id left join catalogue_dates adt on adt.id = ad.creation_date_id
+  where w.kind in ('film', 'perfume', 'painting')), '[]'::jsonb)`;
 export async function loadDataset(): Promise<Dataset> {
   const pairs = SCAN_TABLES.flatMap((name) => [
     sql`${name}::text`,
     scanTableSql(name, "arrays"),
   ]);
-  const rows = resultRows<{ data: Record<string, unknown[][]> }>(
+  const rows = resultRows<{ data: Record<string, unknown[][]>; domain_works: Row[] }>(
     await db.execute(
-      sql`select jsonb_build_object(${sql.join(pairs, sql`, `)}) as data`,
+      sql`select jsonb_build_object(${sql.join(pairs, sql`, `)}) as data, ${domainWorksSql} as domain_works`,
     ),
   );
-  return Object.fromEntries(
-    SCAN_TABLES.map((name) => {
+  return Object.fromEntries([
+    // Films, perfumes and paintings, for their duplicate check only
+    ["domain_works", rows[0].domain_works],
+    ...SCAN_TABLES.map((name) => {
       const { keys } = scanFields(name);
       return [
         name,
@@ -118,7 +141,7 @@ export async function loadDataset(): Promise<Dataset> {
         ),
       ];
     }),
-  );
+  ]);
 }
 export interface Reference {
   table: string;
@@ -159,6 +182,34 @@ export function referencesTo(tableName: string): Reference[] {
       refs.push({ table: name, columns: ["entity_id"], polymorphic: type });
   return refs.sort((a, b) => a.table.localeCompare(b.table));
 }
+/** The profile tables of the collections other than books: one row per work */
+export const DETAIL_TABLE_NAMES = ["film_details", "perfume_details", "painting_details"];
+/**
+ * The tables keyed to a profile table's `work_id`: a film's versions,
+ * copies and companies, a perfume's formulations and listings, a painting's
+ * objects. A merge of two works moves them with the work.
+ */
+export function referencesToDetail(detailTable: string): Reference[] {
+  const refs: Reference[] = [];
+  for (const [name] of TABLES) {
+    const cols = config(name).foreignKeys.flatMap((fk) => {
+      const ref = fk.reference();
+      if (getTableConfig(ref.foreignTable).name !== detailTable) return [];
+      if (ref.columns.length !== 1 || ref.foreignColumns[0].name !== "work_id")
+        throw new Error("This relationship needs a dedicated merge strategy");
+      return [ref.columns[0].name];
+    });
+    if (cols.length) refs.push({ table: name, columns: cols });
+  }
+  return refs.sort((a, b) => a.table.localeCompare(b.table));
+}
+/** Every table a merge of this table reads and moves: works add their profiles' tables */
+export function mergeReferences(table: string): Reference[] {
+  return [
+    ...referencesTo(table),
+    ...(table === "works" ? DETAIL_TABLE_NAMES.flatMap(referencesToDetail) : []),
+  ];
+}
 export function referenceWhere(ref: Reference, ids: string[]): SQL {
   const list = sql.join(
     ids.map((id) => sql`${id}::uuid`),
@@ -175,7 +226,7 @@ export interface Snapshot {
   references: Record<string, Row[]>;
 }
 export function snapshotQuery(table: string, ids: string[]): SQL {
-  const refs = referencesTo(table);
+  const refs = mergeReferences(table);
   const pairs = refs.flatMap((ref) => [
     sql`${ref.table}::text`,
     sql`coalesce((select jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text) from ${ident(ref.table)} r where ${referenceWhere(ref, ids)}), '[]'::jsonb)`,

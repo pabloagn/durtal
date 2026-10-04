@@ -169,7 +169,7 @@ describe("withNationalityFilter", () => {
   it("sets the nationality and keeps other filters", () => {
     const href = withNationalityFilter(new URLSearchParams("gender=female&q=a&page=3"), "hu");
     const url = new URL(href, "http://localhost");
-    expect(url.pathname).toBe("/authors");
+    expect(url.pathname).toBe("/people");
     expect(url.searchParams.get("nationality")).toBe("HU");
     expect(url.searchParams.get("gender")).toBe("female");
     expect(url.searchParams.get("q")).toBe("a");

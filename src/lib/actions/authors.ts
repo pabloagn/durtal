@@ -1,9 +1,12 @@
 "use server";
 
-import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { PERSON_CREDITS, bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { resultRows } from "@/lib/publishers/resolution";
+import type { WorkKind } from "@/lib/catalogue/kinds";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
 import { atomic } from "@/lib/db/atomic";
 import { uniqueSlug } from "@/lib/catalogue/slugs";
-import { getPersonMergePreview, mergePeople } from "./people";
+import { deletePerson, getPersonMergePreview, mergePeople } from "./people";
 
 import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, withReadableErrors } from "@/lib/db/errors";
@@ -51,6 +54,8 @@ export async function getAuthors(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: boolean;
+    collections?: string[];
+    roles?: string[];
   };
 }) {
   const { search, limit = 48, offset = 0, order, filters } = opts ?? {};
@@ -60,7 +65,8 @@ export async function getAuthors(opts?: {
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return [];
 
-  const conditions: SQL[] = [bookPersonCondition, ...filterConditions];
+  // People of every collection; the collection filter narrows them
+  const conditions: SQL[] = [...filterConditions];
   const searchCondition = search ? authorSearchCondition(search) : undefined;
   if (searchCondition) conditions.push(searchCondition);
 
@@ -218,6 +224,8 @@ export async function getAuthorCount(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: boolean;
+    collections?: string[];
+    roles?: string[];
   };
 }) {
   const { search, filters } = opts ?? {};
@@ -225,7 +233,8 @@ export async function getAuthorCount(opts?: {
   const filterConditions = await buildAuthorFilterConditions(filters);
   if (filterConditions === null) return 0;
 
-  const conditions: SQL[] = [bookPersonCondition, ...filterConditions];
+  // People of every collection; the collection filter narrows them
+  const conditions: SQL[] = [...filterConditions];
   const searchCondition = search ? authorSearchCondition(search) : undefined;
   if (searchCondition) conditions.push(searchCondition);
 
@@ -238,12 +247,136 @@ export async function getAuthorCount(opts?: {
   return result.count;
 }
 
+/**
+ * The roles of many people, in one grouped query (a card never asks for its
+ * own): each person's roles with how many credits they hold in each.
+ */
+export async function getPersonRoles(
+  personIds: string[],
+): Promise<Record<string, PersonRole[]>> {
+  const ids = [...new Set(personIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return {};
+  const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = resultRows<{ personId: string; roleId: string; kind: WorkKind; label: string; count: number }>(
+    await db.execute(sql`
+      select c.person_id as "personId", r.id as "roleId", r.kind::text as kind, r.label, count(*)::int as count
+      from (
+        select wa.author_id as person_id, r.id as role_id from work_authors wa
+          join credit_roles r on r.kind = 'book' and r.level = 'work' and r.legacy_role = wa.role
+          where wa.author_id in (${list})
+        union all
+        select ec.author_id, r.id from edition_contributors ec
+          join credit_roles r on r.kind = 'book' and r.level = 'edition' and r.legacy_role = ec.role
+          where ec.author_id in (${list})
+        union all
+        select wc.person_id, wc.role_id from work_credits wc where wc.person_id in (${list})
+        union all
+        select p.person_id, 'perfume.perfumer' from perfume_variant_perfumers p where p.person_id in (${list})
+      ) c
+      join credit_roles r on r.id = c.role_id
+      group by c.person_id, r.id, r.kind, r.label
+    `),
+  );
+  const roles: Record<string, PersonRole[]> = {};
+  for (const { personId, ...role } of rows) (roles[personId] ??= []).push(role);
+  return roles;
+}
+
+/**
+ * How many works each person is credited on, in every collection, in one
+ * grouped query: books written or contributed to, films, perfumes and
+ * paintings. Each work counts once.
+ */
+export async function getPersonWorkCounts(personIds: string[]): Promise<Record<string, number>> {
+  const ids = [...new Set(personIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return {};
+  const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = resultRows<{ personId: string; works: number }>(
+    await db.execute(sql`
+      select person_id as "personId", count(distinct work_id)::int as works from (
+        select wa.author_id as person_id, wa.work_id from work_authors wa where wa.author_id in (${list})
+        union all
+        select ec.author_id, e.work_id from edition_contributors ec join editions e on e.id = ec.edition_id
+          where ec.author_id in (${list})
+        union all
+        select wc.person_id, wc.work_id from work_credits wc where wc.person_id in (${list})
+        union all
+        select p.person_id, v.work_id from perfume_variant_perfumers p join perfume_variants v on v.id = p.variant_id
+          where p.person_id in (${list})
+      ) credits group by person_id
+    `),
+  );
+  return Object.fromEntries(rows.map((r) => [r.personId, r.works]));
+}
+
+/** One work a person is credited on, with one of their roles on it */
+export interface PersonWorkCredit {
+  kind: WorkKind;
+  roleId: string;
+  role: string;
+  workId: string;
+  title: string;
+  slug: string | null;
+}
+
+/**
+ * Every work a person is credited on, in every collection, one row per work
+ * and role: books they wrote or contributed to, films, perfumes (a variant's
+ * own perfumers too) and paintings.
+ */
+export async function getPersonWorkCredits(personId: string): Promise<PersonWorkCredit[]> {
+  return resultRows<PersonWorkCredit>(
+    await db.execute(sql`
+      select * from (
+        select distinct w.kind::text as kind, r.id as "roleId", r.label as role, w.id as "workId", w.title, w.slug
+      from (
+        select c.work_id, c.role_id from work_credits c where c.person_id = ${personId}::uuid
+        union
+        select wa.work_id, r.id from work_authors wa
+          join credit_roles r on r.kind = 'book' and r.level = 'work' and r.legacy_role = wa.role
+          where wa.author_id = ${personId}::uuid
+        union
+        select e.work_id, r.id from edition_contributors ec join editions e on e.id = ec.edition_id
+          join credit_roles r on r.kind = 'book' and r.level = 'edition' and r.legacy_role = ec.role
+          where ec.author_id = ${personId}::uuid
+        union
+        select v.work_id, 'perfume.perfumer' from perfume_variant_perfumers p
+          join perfume_variants v on v.id = p.variant_id where p.person_id = ${personId}::uuid
+      ) c
+      join works w on w.id = c.work_id
+      join credit_roles r on r.id = c.role_id
+      ) credits
+      order by kind, lower(title), "workId", role
+    `),
+  );
+}
+
+/**
+ * The People filters' choices, with how many people each holds: the
+ * collections people belong to, and every role someone is credited with.
+ */
+export async function getPeopleFilterOptions() {
+  const [collections, roles] = await Promise.all([
+    db.execute(
+      sql`select kind::text as kind, count(*)::int as count from person_domains group by kind order by kind`,
+    ),
+    db.execute(
+      sql`select c.role_id as "roleId", cr.kind::text as kind, cr.label, count(distinct c.person_id)::int as count
+        from ${PERSON_CREDITS} c join credit_roles cr on cr.id = c.role_id
+        group by c.role_id, cr.kind, cr.label order by cr.kind, count(distinct c.person_id) desc, cr.label`,
+    ),
+  ]);
+  return {
+    collections: resultRows<{ kind: WorkKind; count: number }>(collections),
+    roles: resultRows<{ roleId: string; kind: WorkKind; label: string; count: number }>(roles),
+  };
+}
+
 export async function getDistinctNationalities(): Promise<NationalityOption[]> {
   return db
     .selectDistinct({ code: countries.alpha2, name: countries.name })
     .from(countries)
     .innerJoin(authors, eq(authors.nationalityId, countries.id))
-    .where(bookPersonCondition)
     .orderBy(asc(countries.name));
 }
 
@@ -251,7 +384,7 @@ export async function getDistinctGenders(): Promise<string[]> {
   const result = await db
     .selectDistinct({ gender: authors.gender })
     .from(authors)
-    .where(and(bookPersonCondition, isNotNull(authors.gender)))
+    .where(isNotNull(authors.gender))
     .orderBy(asc(authors.gender));
   return result
     .map((r) => r.gender)
@@ -263,7 +396,7 @@ export async function getDistinctZodiacSigns(): Promise<string[]> {
   const result = await db
     .selectDistinct({ zodiacSign: authors.zodiacSign })
     .from(authors)
-    .where(and(bookPersonCondition, isNotNull(authors.zodiacSign)))
+    .where(isNotNull(authors.zodiacSign))
     .orderBy(asc(authors.zodiacSign));
   return result.map((r) => r.zodiacSign).filter((z): z is string => z !== null);
 }
@@ -275,7 +408,7 @@ export async function getAuthorBirthYearRange(): Promise<{ min: number | null; m
       max: max(authors.birthYear),
     })
     .from(authors)
-    .where(and(bookPersonCondition, isNotNull(authors.birthYear)));
+    .where(isNotNull(authors.birthYear));
   return { min: result?.min ?? null, max: result?.max ?? null };
 }
 
@@ -286,7 +419,7 @@ export async function getAuthorDeathYearRange(): Promise<{ min: number | null; m
       max: max(authors.deathYear),
     })
     .from(authors)
-    .where(and(bookPersonCondition, isNotNull(authors.deathYear)));
+    .where(isNotNull(authors.deathYear));
   return { min: result?.min ?? null, max: result?.max ?? null };
 }
 
@@ -302,7 +435,7 @@ function withSafeBio<T extends { bio: string | null } | undefined>(author: T): T
 
 export async function getAuthor(id: string) {
   const author = await db.query.authors.findFirst({
-    where: and(bookPersonCondition, eq(authors.id, id)),
+    where: eq(authors.id, id),
     with: {
       country: { columns: { name: true, alpha2: true } },
       birthPlace: { columns: { id: true, name: true, fullName: true } },
@@ -346,7 +479,7 @@ export async function getAuthor(id: string) {
 
 export async function getAuthorBySlug(slug: string) {
   const author = await db.query.authors.findFirst({
-    where: and(bookPersonCondition, eq(authors.slug, slug)),
+    where: eq(authors.slug, slug),
     with: {
       country: { columns: { id: true, name: true, alpha2: true } },
       workAuthors: {
@@ -543,6 +676,16 @@ export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
 }
 
 export async function deleteAuthor(id: string) {
+  // A person with no books (a director, a perfumer) goes through the shared
+  // deletion, which refuses while they still have credits
+  const [book] = await db
+    .select({ id: authors.id })
+    .from(authors)
+    .where(and(bookPersonCondition, eq(authors.id, id)));
+  if (!book) {
+    await deletePerson(id);
+    return { id, cleanupPending: false };
+  }
   // Read the file keys first: the cascade removes the rows that name them.
   const stored = await authorObjects(id);
   // Keep the historical book deletion behavior, but a shared non-book credit

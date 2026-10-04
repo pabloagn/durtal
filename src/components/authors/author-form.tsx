@@ -352,7 +352,7 @@ export function AuthorForm({
               value={values.bio}
               onChange={(bio) => set("bio", bio)}
               rows={6}
-              placeholder="Author biography"
+              placeholder="Biography"
               disabled={pending}
             />
           </section>
@@ -405,7 +405,7 @@ export function AuthorForm({
               {mode === "create" ? "Creating" : "Saving"}
             </>
           ) : mode === "create" ? (
-            "Create Author"
+            "Add person"
           ) : (
             "Save Changes"
           )}

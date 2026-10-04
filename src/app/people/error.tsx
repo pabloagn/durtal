@@ -6,5 +6,5 @@ export default function AuthorsError(props: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <SectionError {...props} backHref="/authors" backLabel="Back to authors" />;
+  return <SectionError {...props} backHref="/people" backLabel="Back to people" />;
 }

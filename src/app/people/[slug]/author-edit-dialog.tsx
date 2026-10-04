@@ -43,7 +43,7 @@ export function AuthorEditDialog({
       ]);
 
       if (!author) {
-        toast.error("Author not found");
+        toast.error("Person not found");
         onClose();
         return;
       }
@@ -55,7 +55,7 @@ export function AuthorEditDialog({
       setValues(authorFormValues(author));
       setLoaded(true);
     } catch {
-      toast.error("Failed to load author data");
+      toast.error("Could not load the person");
     } finally {
       setLoading(false);
     }
@@ -82,13 +82,13 @@ export function AuthorEditDialog({
     startTransition(async () => {
       try {
         await updateAuthor(authorId, authorPayload(values));
-        toast.success("Author updated");
+        toast.success("Person updated");
         onClose();
         router.refresh();
         triggerActivityRefresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update author",
+          err instanceof Error ? err.message : "Could not update the person",
         );
       }
     });
@@ -100,7 +100,7 @@ export function AuthorEditDialog({
       onClose={() => {
         if (!isPending) onClose();
       }}
-      title="Edit Author"
+      title="Edit person"
     >
       {loading || !loaded ? (
         <div className="flex items-center justify-center py-12">
