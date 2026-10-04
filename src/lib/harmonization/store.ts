@@ -28,6 +28,7 @@ const SCAN_TABLES = [
     "edition_publishers",
     "ignored_publisher_names",
     "collection_editions",
+    "collection_works",
     "taxonomy_families",
   ]),
 ];

@@ -19,8 +19,9 @@ refused.
 
 ## Implementation Details
 
-**Migration** `0059_domain_work_merges` (custom SQL; it regenerates after the
-open migrations land, expected 0062). It replaces six guard functions at
+**Migration** `0060_domain_work_merges` (custom SQL; generated as 0059 first,
+regenerated on main once `0059_collection_works` landed, with the same SQL;
+no migration in between touched these functions). It replaces six guard functions at
 their latest definitions, changing only the move checks:
 `guard_catalogue_source_owner` (0042) maps film, perfume and painting sources
 to the `works` merge; `guard_film_record`, `guard_film_holding` (0046),

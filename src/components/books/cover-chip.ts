@@ -3,13 +3,15 @@
  * background, radius and corner inset, so the corners line up. Sizes follow
  * the card width, with the card's 220px container query.
  *
- * The backdrop is opaque (the page background at 85%), not a blur: a chip
- * keeps its contrast on a white cover as on a black one. Book covers carry
+ * Each chip is glass on the image (`glass-chip`): the cover shows through,
+ * blurred and dimmed, and an icon keeps 3:1 and a label 4.5:1 even on a
+ * white cover. Labels are `fg-primary`; a tone colors the icon only. Book
+ * covers carry
  * only the marks that make a copy special (rare, poison, digital edition);
  * status and rating sit in the card's info row (`CardStatus`).
  */
 export const COVER_CHIP =
-  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[2px] border border-white/10 bg-bg-primary/85 @[220px]:h-5 @[220px]:min-w-5";
+  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-[2px] border glass-chip [--glass-chip-blur:3px] @[220px]:h-5 @[220px]:min-w-5 @[220px]:[--glass-chip-blur:4px]";
 
 /** Text chips (status, rating): side padding and small type */
 export const COVER_CHIP_TEXT =
@@ -34,12 +36,12 @@ export const COVER_CORNER = {
     "absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2",
 } as const;
 
-/** Text color per badge variant; the chip background stays the same */
+/** Icon color per badge variant: the accent lit for glass (`--color-chip-*`) */
 export const COVER_CHIP_TONE = {
-  muted: "text-fg-secondary",
-  blue: "text-accent-blue",
-  gold: "text-accent-gold",
-  rose: "text-accent-rose-text",
-  sage: "text-accent-sage",
-  red: "text-accent-red-text",
+  muted: "text-fg-primary",
+  blue: "text-chip-blue",
+  gold: "text-chip-gold",
+  rose: "text-chip-rose",
+  sage: "text-chip-sage",
+  red: "text-chip-red",
 } as const;

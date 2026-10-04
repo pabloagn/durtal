@@ -38,6 +38,8 @@ function changed() {
 const searchSchema = z.object({
   query: z.string().trim().max(200).default(""),
   role: z.enum(ORGANIZATION_ROLES).optional(),
+  /** Only organizations with at least one of these roles (a picker's kinds) */
+  roles: z.array(z.enum(ORGANIZATION_ROLES)).min(1).max(ORGANIZATION_ROLES.length).optional(),
   limit: z.number().int().min(1).max(100).default(30),
   offset: z.number().int().min(0).default(0),
 });
@@ -45,13 +47,14 @@ export async function getOrganizations(
   input: z.input<typeof searchSchema> = {},
 ) {
   const options = searchSchema.parse(input);
-  const role = options.role;
-  const where = and(
+  // Publisher and imprint are the book profile's kind; the others are roles
+  const hasRole = (role: OrganizationRole) =>
     role === "publisher" || role === "imprint"
       ? eq(identities.kind, role)
-      : role
-        ? sql`exists (select 1 from organization_roles r where r.organization_id=${identities.id} and r.role=${role})`
-        : undefined,
+      : sql`exists (select 1 from organization_roles r where r.organization_id=${identities.id} and r.role=${role})`;
+  const where = and(
+    options.role ? hasRole(options.role) : undefined,
+    options.roles ? or(...options.roles.map(hasRole)) : undefined,
     options.query
       ? or(
           textSearchCondition(sql`${identities.searchText}`, options.query),

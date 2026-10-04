@@ -910,6 +910,29 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 
 **PK**: `(collection_id, edition_id)`
 
+### `collection_works`
+
+Whole works in a collection (SLN-362, migration `0059_collection_works`): a
+film, perfume or painting, or a book collected with no edition chosen. No
+placeholder edition is ever made.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `collection_id` | UUID | FK → `collections.id`, CASCADE |
+| `work_id` | UUID | FK → `works.id`, CASCADE |
+| `sort_order` | INTEGER | NOT NULL, default `0` |
+| `added_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+**PK**: `(collection_id, work_id)`. Index on `work_id`.
+
+A collection has one order across both member tables: `sort_order` runs over
+editions and whole works together, and ties go by `added_at`
+(`shownMembers`, `src/lib/collections/members.ts`). A book can be in a
+collection as a whole book and through editions; the page then shows its
+editions (the edition choice stays) and counts the book once
+(`collectionCounts`, `src/lib/collections/counts.ts`). Removing the last such
+edition shows the whole book again. Existing edition members are unchanged.
+
 ### `work_categories`
 
 | Column | Type |
@@ -1922,6 +1945,8 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | `tags` | `edition_tags` | CASCADE |
 | `collections` | `collection_editions` | CASCADE |
 | `editions` | `collection_editions` | CASCADE |
+| `collections` | `collection_works` | CASCADE |
+| `works` | `collection_works` | CASCADE |
 | `works` | `media` | CASCADE |
 | `authors` | `media` | CASCADE |
 | `locations` | `sub_locations` | CASCADE |
@@ -2237,8 +2262,8 @@ Merges discover inbound foreign keys from the Drizzle schema and explicitly incl
 
 The transaction takes ordered table locks, verifies the preview fingerprint, records its audit, transfers references, removes the source, reconciles survivor fields, validates acquisition compatibility and saves the resulting snapshot. `harmonization_allows_move` recognizes only the exact audited identity move in the current transaction. Existing edition, target, publisher and order guard functions retain their checks outside that path, including cancelled acquisition history. Lock and statement timeouts bound contention. Merges have no automatic undo; before/after records can be inspected and downloaded.
 
-Films, perfumes and paintings (SLN-373, migration `0059_domain_work_merges`;
-it takes the next free number when it lands). A merge joins two works of one
+Films, perfumes and paintings (SLN-373, migration `0060_domain_work_merges`).
+A merge joins two works of one
 kind; a film and a book are never merged. Each of these works has one profile
 row (`film_details`, `perfume_details`, `painting_details`) that its other rows
 hang from. The merge keeps the kept work's profile (or gives it a copy of the

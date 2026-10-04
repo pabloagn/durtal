@@ -61,7 +61,14 @@ import {
   searchEditionsForPicker,
   deleteCollection,
   getCollectionCoverPreviews,
+  bulkAddWorksToCollection,
+  removeWorksFromCollection,
+  moveCollectionMember,
+  getCollectionsForWork,
+  searchWorksForCollection,
 } from "@/lib/actions/collections";
+import { collectionCounts } from "@/lib/collections/counts";
+import { shownMembers } from "@/lib/collections/members";
 
 describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
   const db = testDb!;
@@ -94,6 +101,21 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
   }
   const members = async (id: string) =>
     (await getCollection(id))!.collectionEditions.map((e) => e.editionId);
+  /** A film, perfume, painting or a book with no edition */
+  async function work(title: string, kind: "book" | "film" | "perfume" | "painting") {
+    const [row] = await db
+      .insert(schema.works)
+      .values({ title, kind, originalLanguage: kind === "book" ? "en" : null })
+      .returning();
+    return row;
+  }
+  /** The members the page shows, in order, as [kind, id] */
+  async function shown(id: string) {
+    const rows = await db.execute(shownMembers(id));
+    return (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows).map(
+      (r) => [(r as { kind: string }).kind, (r as { id: string }).id],
+    );
+  }
   it("creates with a name only and preserves existing artwork when renaming", async () => {
     const c = await createCollection({ name: "  Strange tales  " });
     expect(c.name).toBe("Strange tales");
@@ -258,8 +280,9 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     ]);
     const selection = await getCollectionSelection([b.work.id, empty.id]);
     expect(selection.editions).toHaveLength(2);
-    expect(selection.withoutEditions).toEqual([
-      { id: empty.id, title: "No edition" },
+    // A book with no edition joins as a whole book, never a placeholder edition
+    expect(selection.works).toEqual([
+      { id: empty.id, title: "No edition", kind: "book" },
     ]);
     expect(selection.collections[0].collectionEditions).toHaveLength(1);
     expect(
@@ -322,5 +345,109 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
         sql`alter table activity_events drop constraint collection_test_failure`,
       );
     }
+  });
+  it("collects a painting, a perfume, a film and a book edition in one order, kept across reloads", async () => {
+    const b = await book("Against Nature", 2);
+    const film = await work("Le Samouraï", "film");
+    const perfume = await work("Shalimar", "perfume");
+    const painting = await work("The Night Watch", "painting");
+    const c = await createCollection({ name: "Mixed" }, [b.editions[1].id]);
+    expect(
+      await bulkAddWorksToCollection(c.id, [painting.id, perfume.id, film.id]),
+    ).toEqual({ changed: 3 });
+    // Adding again changes nothing
+    expect(await bulkAddWorksToCollection(c.id, [film.id])).toEqual({ changed: 0 });
+    expect(await shown(c.id)).toEqual([
+      ["edition", b.editions[1].id],
+      ["work", painting.id],
+      ["work", perfume.id],
+      ["work", film.id],
+    ]);
+    await moveCollectionMember(c.id, { kind: "work", id: film.id }, -1);
+    await moveCollectionMember(c.id, { kind: "work", id: film.id }, -1);
+    await moveCollectionMember(c.id, { kind: "edition", id: b.editions[1].id }, 1);
+    const order = [
+      ["work", film.id],
+      ["edition", b.editions[1].id],
+      ["work", painting.id],
+      ["work", perfume.id],
+    ];
+    expect(await shown(c.id)).toEqual(order);
+    // A reload reads the same order from both tables
+    const saved = (await getCollection(c.id))!;
+    const rows = [
+      ...saved.collectionEditions.map((m) => [m.sortOrder, "edition", m.editionId]),
+      ...saved.collectionWorks.map((m) => [m.sortOrder, "work", m.workId]),
+    ].sort((x, y) => Number(x[0]) - Number(y[0]));
+    expect(rows.map(([, kind, id]) => [kind, id])).toEqual(order);
+    expect(collectionCounts(saved)).toEqual({ editionCount: 1, workCount: 3 });
+    expect(
+      (await getCollections()).map((x) => collectionCounts(x)),
+    ).toEqual([{ editionCount: 1, workCount: 3 }]);
+    // An older move API still moves an edition within the one order
+    await moveCollectionEdition(c.id, b.editions[1].id, -1);
+    expect((await shown(c.id))[0]).toEqual(["edition", b.editions[1].id]);
+  });
+
+  it("shows a book collected both ways once, through its chosen edition", async () => {
+    const b = await book("Là-bas", 2);
+    const other = await book("En route", 1);
+    const c = await createCollection({ name: "Durtal" }, [b.editions[0].id]);
+    await bulkAddWorksToCollection(c.id, [b.work.id, other.work.id]);
+    // The edition stands for its book; the other book shows whole
+    expect(await shown(c.id)).toEqual([
+      ["edition", b.editions[0].id],
+      ["work", other.work.id],
+    ]);
+    const saved = (await getCollection(c.id))!;
+    expect(collectionCounts(saved)).toEqual({ editionCount: 1, workCount: 1 });
+    // The edition choice is never collapsed into the book
+    expect(saved.collectionEditions.map((m) => m.editionId)).toEqual([b.editions[0].id]);
+    const [held] = await getCollectionsForWork(b.work.id);
+    expect(held).toMatchObject({ holdsWork: true, heldEditions: [{ editionId: b.editions[0].id }] });
+    // Removing the edition leaves the whole book, which then shows
+    await removeEditionsFromCollection(c.id, [b.editions[0].id]);
+    expect((await shown(c.id)).map(([kind, id]) => `${kind}:${id}`).sort()).toEqual(
+      [`work:${b.work.id}`, `work:${other.work.id}`].sort(),
+    );
+    // Previews take a whole book's poster when no edition stands for it
+    await db.insert(schema.media).values({ workId: other.work.id, type: "poster", s3Key: "en-route.jpg", isActive: true });
+    expect(await getCollectionCoverPreviews([c.id])).toEqual([
+      { collectionId: c.id, s3Key: "en-route.jpg" },
+    ]);
+  });
+
+  it("removes whole works, drops them with a deleted work, and records the activity", async () => {
+    const film = await work("Persona", "film");
+    const painting = await work("Saturn", "painting");
+    const c = await createCollection({ name: "Bergman" }, [], undefined, [film.id, painting.id]);
+    expect(collectionCounts((await getCollection(c.id))!)).toEqual({ editionCount: 0, workCount: 2 });
+    expect(await removeWorksFromCollection(c.id, [film.id])).toEqual({ changed: 1 });
+    await db.delete(schema.works).where(eq(schema.works.id, painting.id));
+    expect((await getCollection(c.id))!.collectionWorks).toEqual([]);
+    const events = await db.select().from(schema.activityEvents);
+    expect(events.map((e) => [e.entityId, e.eventKey]).sort()).toEqual(
+      [
+        [film.id, "work.collection_added"],
+        [painting.id, "work.collection_added"],
+        [film.id, "work.collection_removed"],
+      ].sort(),
+    );
+    const again = await createCollection({ name: "Again" }, [], undefined, [film.id]);
+    await deleteCollection(again.id);
+    expect(
+      (await db.select().from(schema.activityEvents)).filter(
+        (e) => e.entityId === film.id && e.eventKey === "work.collection_removed",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("selects any open kind of work as a whole work and finds works by title", async () => {
+    const film = await work("The Thing", "film");
+    const selection = await getCollectionSelection([film.id]);
+    expect(selection.editions).toEqual([]);
+    expect(selection.works).toEqual([{ id: film.id, title: "The Thing", kind: "film" }]);
+    expect((await searchWorksForCollection("thing", "film")).map((w) => w.workId)).toEqual([film.id]);
+    expect(await searchWorksForCollection("thing", "perfume")).toEqual([]);
   });
 });

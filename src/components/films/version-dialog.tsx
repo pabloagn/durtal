@@ -138,7 +138,7 @@ function ReleaseFields({
   onRemove: () => void;
 }) {
   const searchCountries = useListSearch(countries);
-  const distributors = useOrganizationSearch("distribution_company");
+  const distributors = useOrganizationSearch("distribution_company", ["distribution_company"]);
   const label = `Release ${index + 1}`;
   return (
     <li className="space-y-3 rounded-sm border border-glass-border bg-bg-secondary/40 p-3">

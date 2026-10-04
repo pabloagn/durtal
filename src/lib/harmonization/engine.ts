@@ -1094,11 +1094,13 @@ export function scanDataset(data: Dataset): Finding[] {
             60,
           );
       }
+      // A collection of whole works only (films, perfumes...) is not empty
       if (
         entity.key === "collections" &&
         !(data.collection_editions || []).some(
           (e) => e.collection_id === row.id,
-        )
+        ) &&
+        !(data.collection_works || []).some((w) => w.collection_id === row.id)
       )
         add(
           entity,
