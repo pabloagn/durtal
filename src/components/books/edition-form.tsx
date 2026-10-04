@@ -156,6 +156,62 @@ function Section({
 
 // ── Main form ──────────────────────────────────────────────────────────────
 
+/**
+ * The form's values as createEdition and updateEdition take them. A
+ * contributor without an id is found by name, or created with the edition
+ * in the same write. An empty language falls back to `defaultLanguage`; the
+ * cover URL goes only when one was entered.
+ */
+export function editionPayload(values: EditionFormValues, defaultLanguage: string) {
+  const contributorIds = values.contributors.map((c) =>
+    c.authorId
+      ? { authorId: c.authorId, role: c.role }
+      : { authorName: c.authorName, role: c.role },
+  );
+  const int = (value: string) => (value ? parseInt(value, 10) : null);
+  return {
+    title: values.title,
+    subtitle: values.subtitle || null,
+    isbn13: values.isbn13 || null,
+    isbn10: values.isbn10 || null,
+    asin: values.asin || null,
+    lccn: values.lccn || null,
+    oclc: values.oclc || null,
+    openLibraryKey: values.openLibraryKey || null,
+    googleBooksId: values.googleBooksId || null,
+    goodreadsId: values.goodreadsId || null,
+    publisherIds: values.publishers?.map((p) => p.id),
+    publisher: values.publisher || null,
+    imprint: values.imprint || null,
+    publicationYear: int(values.publicationYear),
+    publicationDate: values.publicationDate || null,
+    publicationCountry: values.publicationCountry || null,
+    editionName: values.editionName || null,
+    editionNumber: int(values.editionNumber),
+    printingNumber: int(values.printingNumber),
+    isFirstEdition: values.isFirstEdition,
+    isLimitedEdition: values.isLimitedEdition,
+    limitedEditionCount: int(values.limitedEditionCount),
+    language: values.language || defaultLanguage,
+    isTranslated: values.isTranslated,
+    pageCount: int(values.pageCount),
+    binding: values.binding || null,
+    heightMm: int(values.heightMm),
+    widthMm: int(values.widthMm),
+    depthMm: int(values.depthMm),
+    weightGrams: int(values.weightGrams),
+    illustrationType: values.illustrationType || null,
+    description: values.description || null,
+    tableOfContents: values.tableOfContents || null,
+    notes: values.notes || null,
+    ...(values.coverSourceUrl ? { coverSourceUrl: values.coverSourceUrl } : {}),
+    metadataLocked: values.metadataLocked,
+    contributorIds,
+    genreIds: values.genreIds,
+    tagIds: values.tagIds,
+  };
+}
+
 export function EditionForm({
   initialValues,
   availableGenres,

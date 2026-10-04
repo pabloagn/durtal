@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Droplet, Heart } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { Droplet } from "lucide-react";
 import type { getPerfumes } from "@/lib/actions/perfumes";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { formulationName, holdingsSummary } from "@/lib/catalogue/perfume-labels";
@@ -61,26 +63,16 @@ export function PerfumeCard({
   const count =
     perfume.holdings.bottles + perfume.holdings.samples + perfume.holdings.decants;
   return (
-    <Link
-      href={perfumeHref(perfume)}
-      className="@container group block rounded-sm border border-glass-border bg-bg-secondary card-interactive"
-    >
+    <div className="@container group relative block rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+      <Link
+        href={perfumeHref(perfume)}
+        aria-label={perfume.title}
+        className="absolute inset-0 z-10 rounded-sm"
+      />
       <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
         <PerfumeImage image={perfume.poster} title={perfume.title} />
-        {perfume.isFavourite && (
-          <div className={COVER_CORNER.topLeft}>
-            <span
-              role="img"
-              aria-label="Favourite"
-              className={`${COVER_CHIP} ${COVER_CHIP_TONE.rose}`}
-              data-tooltip="Favourite"
-            >
-              <Heart className={COVER_CHIP_ICON} strokeWidth={1.5} fill="currentColor" />
-            </span>
-          </div>
-        )}
         {held && (
-          <div className={COVER_CORNER.topRight}>
+          <div className={`${COVER_CORNER.topRight} z-20` /* above the card's link, so its tooltip opens */}>
             <span
               role="img"
               aria-label={`In the collection: ${held}`}
@@ -94,7 +86,18 @@ export function PerfumeCard({
         )}
       </div>
       <div className="p-3">
-        <h3 className="type-item-title lines-2">{perfume.title}</h3>
+        {/* The row carries the title's type: the star sits on the
+            cap-height center of the title's first line */}
+        <div className="type-item-title flex items-start gap-2">
+          <h3 className="type-item-title lines-2 min-w-0 flex-1">{perfume.title}</h3>
+          <CapAligned height={32} className="relative z-20 -mr-2">
+            <FavouriteToggle
+              favourite={perfume.isFavourite}
+              target={{ entity: "work", id: perfume.id }}
+              name={perfume.title}
+            />
+          </CapAligned>
+        </div>
         <p className="mt-1 lines-1 text-sm text-fg-secondary">
           {perfumeMakers(perfume) ?? "Unknown house"}
         </p>
@@ -102,7 +105,7 @@ export function PerfumeCard({
           {caption ?? perfumeFacts(perfume)}
         </p>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -113,30 +116,34 @@ export function PerfumeCard({
 export function PerfumeRow({ perfume }: { perfume: PerfumeCardData }) {
   const held = holdingsSummary(heldCounts(perfume));
   return (
-    <Link
-      href={perfumeHref(perfume)}
-      className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60"
-    >
-      <PerfumeImage
-        image={perfume.poster}
-        title={perfume.title}
-        small
-        className="h-12 w-12 shrink-0 rounded-sm"
+    <div className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60">
+      <Link href={perfumeHref(perfume)} className="flex min-w-0 flex-1 items-center gap-3">
+        <PerfumeImage
+          image={perfume.poster}
+          title={perfume.title}
+          small
+          className="h-12 w-12 shrink-0 rounded-sm"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="type-item-title truncate">{perfume.title}</p>
+          <p className="truncate text-sm text-fg-secondary">
+            {[perfumeMakers(perfume) ?? "Unknown house", perfumeFacts(perfume)]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {held && <p className="truncate text-xs text-fg-secondary sm:hidden">{held}</p>}
+        </div>
+        {held && (
+          <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
+            {held}
+          </span>
+        )}
+      </Link>
+      <FavouriteToggle
+        favourite={perfume.isFavourite}
+        target={{ entity: "work", id: perfume.id }}
+        name={perfume.title}
       />
-      <div className="min-w-0 flex-1">
-        <p className="type-item-title truncate">{perfume.title}</p>
-        <p className="truncate text-sm text-fg-secondary">
-          {[perfumeMakers(perfume) ?? "Unknown house", perfumeFacts(perfume)]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {held && <p className="truncate text-xs text-fg-secondary sm:hidden">{held}</p>}
-      </div>
-      {held && (
-        <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
-          {held}
-        </span>
-      )}
-    </Link>
+    </div>
   );
 }

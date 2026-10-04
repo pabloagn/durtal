@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import dynamic from "next/dynamic";
@@ -76,6 +77,7 @@ export interface AuthorItem {
   roles: PersonRole[];
   /** Books written: the cards' "N books" */
   booksCount: number;
+  isFavourite: boolean;
   createdAt: string;
 }
 
@@ -188,6 +190,7 @@ const AUTHOR_FILTER_PARAMS = [
   "gender",
   "zodiac",
   "alive",
+  FAVOURITES_PARAM,
   "birthYearMin",
   "birthYearMax",
   "deathYearMin",
@@ -319,6 +322,7 @@ export function AuthorsShell({
                 roles={a.roles}
                 preferKind={preferKind}
                 preferRoles={preferRoles}
+                isFavourite={a.isFavourite}
                 isSelecting={selection.isSelecting}
                 isSelected={selection.isSelected(a.id)}
                 onSelect={selection.toggleSelection}
@@ -347,6 +351,7 @@ export function AuthorsShell({
               roles={a.roles}
               preferKind={preferKind}
               preferRoles={preferRoles}
+              isFavourite={a.isFavourite}
               isSelecting={selection.isSelecting}
               isSelected={selection.isSelected(a.id)}
               onSelect={selection.toggleSelection}

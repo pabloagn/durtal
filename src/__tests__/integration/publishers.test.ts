@@ -44,6 +44,7 @@ vi.mock("@/lib/s3/covers", () => ({ processAndUploadCover: vi.fn() }));
 import {
   fulfilTargetWithCopy,
   getPublishers,
+  getPublisher,
   savePublisher,
   getPublisherCatalogue,
   getEditionPublisherLinks,
@@ -526,6 +527,25 @@ describe.skipIf(!url)(
       expect(await getEditionPublisherLinks(a.id)).toEqual([]);
       expect(await db.select().from(schema.publisherAliases)).toHaveLength(0);
       expect(nyrb.id).toBeTruthy();
+    });
+    it("saves and shows when and where a house was founded", async () => {
+      const [city] = await db
+        .insert(schema.places)
+        .values({ name: "New York", fullName: "New York, United States", type: "city" })
+        .returning();
+      const house = await savePublisher({
+        name: "New Directions",
+        foundedYear: 1936,
+        foundedPlaceId: city.id,
+      });
+      expect(await getPublisher(house.slug)).toMatchObject({
+        foundedYear: 1936,
+        foundedPlace: { id: city.id, name: "New York", fullName: "New York, United States" },
+      });
+      await savePublisher({ name: "New Directions", foundedYear: null, foundedPlaceId: null }, house.id);
+      expect(await getPublisher(house.slug)).toMatchObject({ foundedYear: null, foundedPlace: null });
+      await expect(savePublisher({ name: "Too old", foundedYear: 999 })).rejects.toThrow();
+      await expect(savePublisher({ name: "Bad place", foundedPlaceId: "x" })).rejects.toThrow();
     });
     it("keeps group → publisher → imprint, logs moves, and rolls pages up through every level", async () => {
       const group = await savePublisher({ name: "Test Group", kind: "group" });

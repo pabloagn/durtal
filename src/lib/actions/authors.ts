@@ -56,6 +56,7 @@ export async function getAuthors(opts?: {
     alive?: boolean;
     collections?: string[];
     roles?: string[];
+    favourites?: boolean;
   };
 }) {
   const { search, limit = 48, offset = 0, order, filters } = opts ?? {};
@@ -226,6 +227,7 @@ export async function getAuthorCount(opts?: {
     alive?: boolean;
     collections?: string[];
     roles?: string[];
+    favourites?: boolean;
   };
 }) {
   const { search, filters } = opts ?? {};

@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   primaryKey,
+  smallint,
   boolean,
   check,
   index,
@@ -11,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { countries } from "./countries";
+import { places } from "./places";
 import { organizationRoles, organizationVenues } from "./organizations";
 
 export const publishingHouses = pgTable(
@@ -37,6 +39,11 @@ export const publishingHouses = pgTable(
     notes: text("notes"),
     description: text("description"),
     website: text("website"),
+    // When and where the house was founded (SLN-427)
+    foundedYear: smallint("founded_year"),
+    foundedPlaceId: uuid("founded_place_id").references(() => places.id, {
+      onDelete: "set null",
+    }),
     searchText: text("search_text").generatedAlwaysAs(
       sql`search_normalize(name)`,
     ),
@@ -50,6 +57,10 @@ export const publishingHouses = pgTable(
     index("organization_search_idx").using(
       "gin",
       t.searchText.op("gin_trgm_ops"),
+    ),
+    check(
+      "publisher_founded_year_check",
+      sql`${t.foundedYear} is null or ${t.foundedYear} between 1000 and 2100`,
     ),
     check(
       "publisher_kind_parent_check",

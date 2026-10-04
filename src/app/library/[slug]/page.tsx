@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
@@ -306,6 +307,12 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </h1>
                 {/* On the cap-height center of the title's first line */}
                 <CapAlignedControls height={32} className="type-page-title">
+                  <FavouriteToggle
+                    favourite={work.isFavourite}
+                    target={{ entity: "work", id: work.id }}
+                    name={work.title}
+                    shortcut
+                  />
                   <CollectionButton workId={work.id} title={work.title} />
                   <CopyBookButton
                     title={work.title}

@@ -1,4 +1,5 @@
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
+import { favouritesOnly } from "@/lib/constants/favourites";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
@@ -52,6 +53,7 @@ interface PageProps {
     alive?: string;
     collection?: string;
     role?: string;
+    favourites?: string;
   }>;
 }
 
@@ -74,6 +76,7 @@ async function AuthorsContent({
     alive?: string;
     collection?: string;
     role?: string;
+    favourites?: string;
   };
 }) {
   const search = searchParams.q;
@@ -111,6 +114,7 @@ async function AuthorsContent({
     deathYearMin,
     deathYearMax,
     alive,
+    favourites: favouritesOnly(searchParams.favourites) || undefined,
   };
 
   // getAuthorsForTimeline uses alive as a string ("true"|"false"), not boolean
@@ -125,6 +129,7 @@ async function AuthorsContent({
     deathYearMin,
     deathYearMax,
     alive: aliveParam,
+    favourites: favouritesOnly(searchParams.favourites) || undefined,
   };
 
   const [rawAuthors, total] = await Promise.all([
@@ -184,6 +189,7 @@ async function AuthorsContent({
       worksCount: a.workAuthors.length,
       roles: [] as PersonRole[],
       booksCount: a.workAuthors.length,
+      isFavourite: a.isFavourite,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
       coverPreviews: [] as string[],
     };

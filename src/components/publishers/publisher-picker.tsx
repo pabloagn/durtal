@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { Input } from "@/components/ui/input";
 import { usePublisherSearch } from "@/hooks/use-publisher-search";
 import {
   createPublisherFromName,
@@ -13,8 +14,6 @@ export type PublisherOption = Omit<
   Awaited<ReturnType<typeof getPublisherOptions>>[number],
   "parentName" | "groupName"
 > & { parentName?: string | null; groupName?: string | null };
-export const fieldClass =
-  "w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary focus:outline-none focus:ring-1 focus:ring-accent-rose";
 /** The house and the houses above it: "Penguin Classics · Penguin Books · Penguin Random House" */
 export function publisherLabel(p: PublisherOption) {
   const path = [p.name, p.parentName, p.groupName].filter(Boolean);
@@ -115,10 +114,8 @@ export function PublisherSearch({
   const optionId = (i: number) => `${listId}-${i}`;
   return (
     <div className="space-y-1">
-      <label className="block space-y-1 text-xs text-fg-secondary">
-        <span>{label}</span>
-        <input
-          className={fieldClass}
+      <Input
+          label={label}
           role="combobox"
           aria-expanded={open}
           aria-controls={listId}
@@ -136,7 +133,6 @@ export function PublisherSearch({
           disabled={disabled || creating}
           autoFocus={autoFocus}
         />
-      </label>
       {open && (
         <div
           id={listId}
@@ -259,8 +255,8 @@ export function PublisherChoice({
       />
     );
   return (
-    <div className="space-y-1 text-xs text-fg-secondary">
-      <span className="block">{label}</span>
+    <div className="space-y-1.5">
+      <span className="type-label block">{label}</span>
       <PublisherChip
         publisher={value}
         onRemove={() => onChange(null)}
