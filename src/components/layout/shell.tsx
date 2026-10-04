@@ -9,6 +9,7 @@ import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
 import { Toaster } from "sonner";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { SIDEBAR, sidebarWidth } from "@/lib/preferences";
+import { lockPageScroll } from "@/lib/utils/scroll-lock";
 
 /** Reader view: /reader/{calibreId} (numeric) — full viewport, no sidebar */
 const READER_VIEW_RE = /^\/reader\/\d+/;
@@ -67,7 +68,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     setCommandOpen(true);
   }, []);
 
-  // While the drawer is open: Escape closes it and the page behind it does not scroll.
+  // While the drawer is open: Escape closes it and the page behind it does not scroll
+  // (the lock goes on html, which scrolls the page; the position stays).
   // The menu button is inert until the drawer closes, so it takes focus after that.
   useEffect(() => {
     if (!navOpen) {
@@ -78,11 +80,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeNav();
     };
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScroll = lockPageScroll(document.documentElement);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previous;
+      releaseScroll();
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [navOpen, closeNav]);
