@@ -102,7 +102,7 @@ export function DatePicker({
         </button>
 
         {open && (
-          <div className="absolute z-50 mt-1 rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+          <div className="glass absolute z-50 mt-1">
             <DayPicker
               mode="single"
               selected={selected}

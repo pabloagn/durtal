@@ -671,86 +671,89 @@ export function AddBookWizard() {
             {/* Autocomplete dropdown */}
             {searchQuery.trim().length >= 2 &&
               (searchResults.length > 0 || isSearching) && (
-                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-[420px] overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
-                  {searchResults.map((result, i) => (
-                    <button
-                      key={`${result.source}-${result.sourceId}-${i}`}
-                      className={`flex w-full items-start gap-3 border-b border-glass-border/50 px-3 py-2.5 text-left transition-colors last:border-0 ${
-                        highlightedIndex === i
-                          ? "bg-bg-tertiary"
-                          : "hover:bg-bg-tertiary"
-                      }`}
-                      onClick={() => selectResult(result)}
-                      onMouseEnter={() => setHighlightedIndex(i)}
-                    >
-                      {/* Cover thumbnail */}
-                      <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
-                        {result.coverUrl ? (
-                          <img
-                            src={result.coverUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <ImageIcon
-                              className="h-3 w-3 text-fg-muted/40"
-                              strokeWidth={1.5}
+                // The glass never scrolls: its list does, inside it
+                <div className="glass absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden">
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {searchResults.map((result, i) => (
+                      <button
+                        key={`${result.source}-${result.sourceId}-${i}`}
+                        className={`flex w-full items-start gap-3 border-b border-glass-border/50 px-3 py-2.5 text-left transition-colors last:border-0 ${
+                          highlightedIndex === i
+                            ? "bg-bg-tertiary"
+                            : "hover:bg-bg-tertiary"
+                        }`}
+                        onClick={() => selectResult(result)}
+                        onMouseEnter={() => setHighlightedIndex(i)}
+                      >
+                        {/* Cover thumbnail */}
+                        <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
+                          {result.coverUrl ? (
+                            <img
+                              src={result.coverUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
                             />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Details */}
-                      <div className="min-w-0 flex-1">
-                        <h3 className="type-item-title line-clamp-1">
-                          {result.title}
-                        </h3>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-fg-secondary">
-                          {result.authors.join(", ") || "Unknown author"}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2">
-                          {result.publicationYear && (
-                            <span className="font-mono text-micro text-fg-secondary">
-                              {result.publicationYear}
-                            </span>
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <ImageIcon
+                                className="h-3 w-3 text-fg-muted/40"
+                                strokeWidth={1.5}
+                              />
+                            </div>
                           )}
-                          {result.publisher && (
-                            <span className="line-clamp-1 text-micro text-fg-secondary">
-                              {result.publisher}
-                            </span>
-                          )}
-                          <Badge variant="muted">
-                            {result.source === "isbndb"
-                              ? "ISBNdb"
-                              : result.source.replace("_", " ")}
-                          </Badge>
                         </div>
-                      </div>
 
-                      <ArrowRight
-                        className="mt-2 h-3.5 w-3.5 flex-shrink-0 text-fg-muted"
-                        strokeWidth={1.5}
-                      />
-                    </button>
-                  ))}
+                        {/* Details */}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="type-item-title line-clamp-1">
+                            {result.title}
+                          </h3>
+                          <p className="mt-0.5 line-clamp-1 text-xs text-fg-secondary">
+                            {result.authors.join(", ") || "Unknown author"}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2">
+                            {result.publicationYear && (
+                              <span className="font-mono text-micro text-fg-secondary">
+                                {result.publicationYear}
+                              </span>
+                            )}
+                            {result.publisher && (
+                              <span className="line-clamp-1 text-micro text-fg-secondary">
+                                {result.publisher}
+                              </span>
+                            )}
+                            <Badge variant="muted">
+                              {result.source === "isbndb"
+                                ? "ISBNdb"
+                                : result.source.replace("_", " ")}
+                            </Badge>
+                          </div>
+                        </div>
 
-                  {isSearching && searchResults.length === 0 && (
-                    <div className="flex items-center gap-2 px-3 py-4">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" />
-                      <span className="text-xs text-fg-secondary">
-                        Searching...
-                      </span>
-                    </div>
-                  )}
+                        <ArrowRight
+                          className="mt-2 h-3.5 w-3.5 flex-shrink-0 text-fg-muted"
+                          strokeWidth={1.5}
+                        />
+                      </button>
+                    ))}
 
-                  {!isSearching && searchResults.length === 0 &&
-                    searchQuery.trim().length >= 2 && (
-                      <div className="px-3 py-4 text-xs text-fg-secondary">
-                        No books found. Try a different search or enter details
-                        manually.
+                    {isSearching && searchResults.length === 0 && (
+                      <div className="flex items-center gap-2 px-3 py-4">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" />
+                        <span className="text-xs text-fg-secondary">
+                          Searching...
+                        </span>
                       </div>
                     )}
+
+                    {!isSearching && searchResults.length === 0 &&
+                      searchQuery.trim().length >= 2 && (
+                        <div className="px-3 py-4 text-xs text-fg-secondary">
+                          No books found. Try a different search or enter details
+                          manually.
+                        </div>
+                      )}
+                  </div>
                 </div>
               )}
           </div>

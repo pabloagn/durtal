@@ -146,13 +146,40 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 
 The default is squared, not rounded. Everything feels precise and angular. No `rounded-full` or pill shapes.
 
-### Glassmorphism
+### Glass
 
-Used **exclusively** on two elements:
-1. **Navigation bar** — Subtle backdrop blur
-2. **Command palette** — Backdrop blur overlay
+One glass material, for surfaces that float above the page. Subtle and controlled, in the spirit of Linear: it reads first as a dark panel. The view behind it only tints it, and its edge catches a faint light from above. It is never a frosted card on the page itself.
 
-Nowhere else. No frosted glass cards, no blurred panels.
+**The material** (`glass` in `src/styles/globals.css`):
+
+| Layer | Value |
+|---|---|
+| Tint | `--color-glass-tint`: `bg-secondary` at 88% |
+| What lies behind | blurred 24px, saturation 150%, brightness 30% |
+| Light from above | `--color-glass-sheen`: a 2% white wash over the top 56px |
+| Edge | a 1px hairline (`--color-glass-edge`, 10%), its top line lit (`--color-glass-edge-lit`) |
+| Corners | 4px (`--radius-md`) |
+| Depth | three soft shadows: 1px contact, 32px float, 64px ambient |
+
+The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over any image: 4.64:1 at the lit top edge over pure white, measured on the screen. `design-audit.js` cannot see through glass, so check text on a glass surface by its pixels.
+
+**Where it goes:**
+
+| Surface | Utility |
+|---|---|
+| Command palette, leader menu, dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
+| Menus, select lists, date picker, filter panels, pickers, hover cards | `glass` |
+| Tooltips | `glass` |
+| Selection toolbars | `glass` |
+| A bar fixed to a screen edge (navigation on a phone) | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
+
+`glass-veil` is the layer behind a modal surface: the page at 62% black, blurred 6px, so it stays in view but steps back.
+
+**How to use it.** Add the `glass` class to the floating element itself (`glass-bar` for a bar fixed to a screen edge), also on a native `<dialog>` or a cmdk list. The element needs a position and no background or border of its own; a `<dialog>` also takes `border-0 bg-transparent` against the browser's defaults. The material sits on a `::before` layer: a backdrop filter on the element itself would trap its `position: fixed` children, such as a picker inside a dialog.
+
+**A glass surface never scrolls.** The `::before` layer would scroll away with the first screenful and leave the rest of a long list on the bare page. The glass element takes `overflow-hidden`; an element inside it scrolls (`max-h-56 overflow-y-auto` on a select's list). A dialog's body scrolls, not the dialog, so its header stays in view. `src/__tests__/glass-surfaces.test.ts` checks it.
+
+**Never** on page content: cards, panels, sections, tables and the record column stay opaque (`bg-secondary`). Controls on top of an image use an opaque backdrop instead (cover chips, `src/components/books/cover-chip.ts`).
 
 ---
 
@@ -201,9 +228,9 @@ Three sizes: `sm`, `md` (default), `lg`. All squared (2px radius). Focus ring us
 ### Modals (Dialogs)
 
 - Centered on screen
-- Dark overlay with slight blur
-- Squared corners (4px max)
-- No drop shadow — use border instead
+- Glass (`glass`), over the veil (`glass-veil`): the page stays in view, dimmed and softly blurred
+- 4px corners, the glass edge and its shadow
+- The header stays in view; the body scrolls when the dialog reaches 90% of the screen height
 - Backdrop clicks close the modal
 
 ### Badges
@@ -258,7 +285,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then l"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
-- Style: `bg-secondary`, 1px glass border, 2px radius, 14px text, 6px from the control. It renders in the top layer, above dialogs.
+- Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
 
 ---
 

@@ -37,7 +37,7 @@ export function LeaderMenu({
         role="menu"
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
-        className="absolute left-1/2 top-[20%] w-80 -translate-x-1/2 overflow-hidden rounded-sm border border-glass-border bg-bg-secondary shadow-[0_24px_48px_-12px_rgba(0,0,0,0.7)]"
+        className="glass absolute left-1/2 top-[20%] w-80 -translate-x-1/2 overflow-hidden"
       >
         <div className="flex items-center justify-between border-b border-glass-border px-3 py-2 text-xs text-fg-secondary">
           <span className="font-medium">{title}</span>

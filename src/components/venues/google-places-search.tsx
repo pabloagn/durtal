@@ -220,49 +220,52 @@ export function GooglePlacesSearch({
 
       {/* Dropdown */}
       {isOpen && results.length > 0 && (
-        <ul
-          ref={listRef}
-          role="listbox"
-          className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]"
-        >
-          {results.map((place, i) => (
-            <li
-              key={place.placeId}
-              role="option"
-              aria-selected={i === activeIndex}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent blur on input
-                handleSelect(place);
-              }}
-              onMouseEnter={() => setActiveIndex(i)}
-              className={`flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors duration-100 ${
-                i === activeIndex
-                  ? "bg-bg-tertiary/80"
-                  : "hover:bg-bg-tertiary/50"
-              } ${i > 0 ? "border-t border-glass-border" : ""}`}
-            >
-              <MapPin
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-muted"
-                strokeWidth={1.5}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-fg-primary">
-                  {place.name}
-                </p>
-                {place.formattedAddress && (
-                  <p className="truncate text-xs text-fg-secondary">
-                    {place.formattedAddress}
+        // The glass never scrolls: its list does, inside it
+        <div className="glass absolute z-50 mt-1 w-full overflow-hidden">
+          <ul
+            ref={listRef}
+            role="listbox"
+            className="max-h-72 overflow-y-auto"
+          >
+            {results.map((place, i) => (
+              <li
+                key={place.placeId}
+                role="option"
+                aria-selected={i === activeIndex}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent blur on input
+                  handleSelect(place);
+                }}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors duration-100 ${
+                  i === activeIndex
+                    ? "bg-bg-tertiary/80"
+                    : "hover:bg-bg-tertiary/50"
+                } ${i > 0 ? "border-t border-glass-border" : ""}`}
+              >
+                <MapPin
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-muted"
+                  strokeWidth={1.5}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-fg-primary">
+                    {place.name}
                   </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+                  {place.formattedAddress && (
+                    <p className="truncate text-xs text-fg-secondary">
+                      {place.formattedAddress}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* No results */}
       {isOpen && !isLoading && results.length === 0 && query.length >= MIN_QUERY_LENGTH && (
-        <div className="absolute z-50 mt-1 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 py-3 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]">
+        <div className="glass absolute z-50 mt-1 w-full px-3 py-3">
           <p className="text-xs text-fg-secondary">No results for &ldquo;{query}&rdquo;</p>
         </div>
       )}

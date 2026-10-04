@@ -892,7 +892,7 @@ function OrderDetailPanel({
                 </Button>
 
                 {statusDropdownOpen && (
-                  <div className="absolute bottom-full right-0 mb-1 w-48 rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+                  <div className="glass absolute bottom-full right-0 mb-1 w-48">
                     {validTransitions.map((s) => {
                       const isDestructive =
                         s === "cancelled" || s === "returned";
