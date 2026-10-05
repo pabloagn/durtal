@@ -37,3 +37,12 @@ export function addBookParams(params: { q?: string | string[]; isbn?: string | s
     then: then === "start" || then === "past" ? (then as PickerPurpose) : null,
   };
 }
+
+/** "Reading 44%", "Paused", "Read 2 times"; nothing for an unread book */
+export function pickerReadingState(book: { state: string; reads: number; percent: number | null }): string | null {
+  if (book.state === "reading") return book.percent != null ? `Reading ${Math.round(book.percent)}%` : "Reading";
+  if (book.state === "paused") return "Paused";
+  if (book.state === "abandoned") return "Abandoned";
+  if (book.state === "read") return book.reads > 1 ? `Read ${book.reads} times` : "Read";
+  return null;
+}

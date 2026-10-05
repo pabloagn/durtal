@@ -6,7 +6,7 @@ import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { searchBooksToRead, type BookToRead } from "@/lib/actions/reading";
-import { bookPickerAddHref, type PickerPurpose } from "@/lib/reading/book-picker";
+import { bookPickerAddHref, pickerReadingState, type PickerPurpose } from "@/lib/reading/book-picker";
 import { catalogueStatusLabel } from "@/lib/utils/labels";
 import { useReadingDialogs } from "./reading-dialogs-provider";
 
@@ -15,15 +15,6 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
  * first, matched without accents; a book that is not in Durtal is one link
  * away from being added.
  */
-
-/** "Reading 44%", "Paused", "Read 2 times"; nothing for an unread book */
-export function pickerReadingState(book: Pick<BookToRead, "state" | "reads" | "percent">): string | null {
-  if (book.state === "reading") return book.percent != null ? `Reading ${Math.round(book.percent)}%` : "Reading";
-  if (book.state === "paused") return "Paused";
-  if (book.state === "abandoned") return "Abandoned";
-  if (book.state === "read") return book.reads > 1 ? `Read ${book.reads} times` : "Read";
-  return null;
-}
 
 const TITLES: Record<PickerPurpose, string> = { start: "Start a book", past: "Log a past read" };
 

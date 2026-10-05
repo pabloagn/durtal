@@ -39,6 +39,13 @@ export function progressWords(input: ProgressInput): string | null {
   return null;
 }
 
+/** A position this reading can take: a page needs pages, a time needs an audio length or unit */
+function fits(input: ProgressInput, r: PaletteOpenReading["reading"]) {
+  if (input.kind === "page" || input.kind === "addPages") return r.unit === "pages" || r.totalPages !== null;
+  if (input.kind === "minutes" || input.kind === "addMinutes") return r.unit === "minutes" || r.totalMinutes !== null;
+  return true;
+}
+
 /**
  * The palette's reading items. `smart`: when the query is a position ("212",
  * "44%", "+20", "3:12") that fits a reading, one "Log p. 212 · Title" per such
@@ -57,7 +64,7 @@ export function paletteReadingItems(query: string, openReadings: PaletteOpenRead
     // Only what starts like a position: a digit, "+", or "p 212" / "page 212"
     if (!/^[+\d]|^p(?:age|g|\.)?\s?\d/i.test(typed)) continue;
     const parsed = parseProgressInput(typed, { unit: r.unit, totalPages: r.totalPages, totalMinutes: r.totalMinutes });
-    if (!parsed.ok) continue;
+    if (!parsed.ok || !fits(parsed.value, r)) continue;
     const words = progressWords(parsed.value);
     if (!words) continue;
     smart.push({
