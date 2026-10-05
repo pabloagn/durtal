@@ -13,14 +13,14 @@ export const COLOR_BUCKETS = [
   // `swatch`: the filter's swatch, muted like the rest of the interface
   { key: "red", label: "Red", swatch: "#a23b3b" },
   { key: "orange", label: "Orange", swatch: "#bf6a2e" },
-  { key: "yellow", label: "Yellow", swatch: "#c9a43a" },
+  { key: "yellow", label: "Yellow", swatch: "#cdb043" },
   { key: "green", label: "Green", swatch: "#4f7a4c" },
   { key: "blue", label: "Blue", swatch: "#3e5f8e" },
   { key: "purple", label: "Purple", swatch: "#6c4f8c" },
   { key: "pink", label: "Pink", swatch: "#c07a96" },
   { key: "brown", label: "Brown", swatch: "#6f4c33" },
   { key: "beige", label: "Beige", swatch: "#d4c6a2" },
-  { key: "white", label: "White", swatch: "#ebe7df" },
+  { key: "white", label: "White", swatch: "#efece6" },
   { key: "grey", label: "Grey", swatch: "#85858a" },
   { key: "black", label: "Black", swatch: "#141414" },
 ] as const;
@@ -45,9 +45,9 @@ export function colorBucketOf(rgb: readonly [number, number, number]): ColorBuck
   const c = ((Math.max(...rgb) - Math.min(...rgb)) / 255) * 100;
 
   if (l < 14 || (l < 22 && c < 10)) return "black";
-  if (l > 95 || (l > 90 && c < 16)) return "white";
-  // Dark and nearly grey (charcoal, slate) reads as grey, not as its hue
-  if (c < 6 || s < 15 || (l < 35 && c < 14)) return "grey";
+  if (l > 95 || (l > 88 && c < 16)) return "white";
+  // Dark, nearly grey and cool (charcoal, slate) reads as grey; warm reads as brown
+  if (c < 6 || s < 15 || (l < 35 && c < 14 && h >= 60 && h < 330)) return "grey";
 
   // Red: either side of 0°
   if (h < 12 || h >= 345) {
@@ -56,9 +56,9 @@ export function colorBucketOf(rgb: readonly [number, number, number]): ColorBuck
     return "red";
   }
   // Orange, with its dark (brown) and light, dull (beige) tones
-  if (h < 45) {
+  if (h < 42) {
     if (l >= 70) return c < 30 || s < 60 ? "beige" : "orange";
-    if (l < 32 || (l < 50 && s < 75)) return "brown";
+    if (l < 32 || (l < 45 && s < 70)) return "brown";
     if (s < 45) return l >= 55 ? "beige" : "brown";
     return "orange";
   }
