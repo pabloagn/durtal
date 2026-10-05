@@ -151,10 +151,11 @@ the page offers it; any other value shows the grid.
 
 **View modes** (togglable):
 - **Grid**: Book cards in a responsive grid (adjustable columns via slider)
+- **Mosaic**: The covers alone, in justified rows (`<Mosaic>`, see `docs/03_DESIGN_LANGUAGE.md`, Mosaic). The same view is offered on people, films, perfumes, paintings and collections
 - **List**: Compact card list
 - **Table**: High-density data table with configurable columns
 
-**Grid size slider**: Adjusts the number of columns in grid view.
+**Grid size slider**: Adjusts the number of columns in grid view, and the pictures per row in mosaic view (two more than the grid's).
 
 **Column configuration** (table view): Dialog to select which columns are visible.
 
