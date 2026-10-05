@@ -2,6 +2,8 @@
 
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { FileIcon } from "lucide-react";
+import { mediaUrl } from "@/lib/s3/media-url";
+import { formatFileSize } from "@/lib/utils/format";
 
 interface CommentAttachment {
   id: string;
@@ -15,14 +17,6 @@ interface CommentAttachment {
 
 interface CommentAttachmentListProps {
   attachments: CommentAttachment[];
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  return `${mb.toFixed(1)} MB`;
 }
 
 export function CommentAttachmentList({
@@ -42,12 +36,12 @@ export function CommentAttachmentList({
             className="block overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary"
           >
             <img
-              src={`/api/s3/read?key=${encodeURIComponent(attachment.s3Key)}`}
+              src={mediaUrl(attachment.s3Key)}
               alt={attachment.fileName}
               className="h-16 w-16 object-cover"
             />
           </a>
-          <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent(attachment.s3Key)}`} className="absolute bottom-0.5 right-0.5" />
+          <ImageAdjustButton source={mediaUrl(attachment.s3Key)} className="absolute bottom-0.5 right-0.5" />
           </div>
         ) : (
           <div

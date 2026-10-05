@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { usePreference } from "@/lib/hooks/use-preference";
 import {
@@ -44,7 +45,7 @@ export function RecommendersShell({
       <NoResults
         noun="recommenders"
         search={searchParams.get("q")}
-        hasFilters={false}
+        hasFilters={favouritesOnly(searchParams.get(FAVOURITES_PARAM))}
         clearHref={clearedListHref("/recommenders", searchParams)}
       />
     );

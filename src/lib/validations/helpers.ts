@@ -1,5 +1,14 @@
 import { z } from "zod/v4";
 
+/** A work's rating: 0.5 to 5 in half steps, or none (SLN-446). Venue ratings keep their own scale. */
+export const RATING_SCHEMA = z
+  .number()
+  .min(0.5, "Rate from 0.5 to 5")
+  .max(5, "Rate from 0.5 to 5")
+  .multipleOf(0.5, "Rate in half steps")
+  .nullable()
+  .optional();
+
 /** Record ids are UUIDs; a bad id gets a clear validation error, not a database error. */
 export const idSchema = z.string().uuid("Invalid id");
 

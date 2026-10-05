@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Disc3, Heart } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { Disc3 } from "lucide-react";
 import type { getFilms } from "@/lib/actions/films";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { filmHoldingsText, formatRuntime } from "@/lib/catalogue/film-labels";
@@ -51,30 +53,20 @@ export function FilmCard({
   const held = filmHoldingsText(film.holdings);
   const count = film.holdings.physical + film.holdings.digital;
   return (
-    <Link
-      href={filmHref(film)}
-      className="@container group block rounded-sm border border-glass-border bg-bg-secondary card-interactive"
-    >
+    <div className="@container group relative block rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+      <Link
+        href={filmHref(film)}
+        aria-label={film.title}
+        className="absolute inset-0 z-10 rounded-sm"
+      />
       <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
         <FilmPoster
           image={film.poster}
           title={film.title}
           year={catalogueDateYears(film.releaseDate)}
         />
-        {film.isFavourite && (
-          <div className={COVER_CORNER.topLeft}>
-            <span
-              role="img"
-              aria-label="Favourite"
-              className={`${COVER_CHIP} ${COVER_CHIP_TONE.rose}`}
-              data-tooltip="Favourite"
-            >
-              <Heart className={COVER_CHIP_ICON} strokeWidth={1.5} fill="currentColor" />
-            </span>
-          </div>
-        )}
         {held && (
-          <div className={COVER_CORNER.topRight}>
+          <div className={`${COVER_CORNER.topRight} z-20` /* above the card's link, so its tooltip opens */}>
             <span
               role="img"
               aria-label={`In the collection: ${held}`}
@@ -88,7 +80,18 @@ export function FilmCard({
         )}
       </div>
       <div className="p-3">
-        <h3 className="type-item-title lines-2">{film.title}</h3>
+        {/* The row carries the title's type: the star sits on the
+            cap-height center of the title's first line */}
+        <div className="type-item-title flex items-start gap-2">
+          <h3 className="type-item-title lines-2 min-w-0 flex-1">{film.title}</h3>
+          <CapAligned height={32} className="relative z-20 -mr-2">
+            <FavouriteToggle
+              favourite={film.isFavourite}
+              target={{ entity: "work", id: film.id }}
+              name={film.title}
+            />
+          </CapAligned>
+        </div>
         <p className="mt-1 lines-1 text-sm text-fg-secondary">
           {filmDirectors(film) ?? "Director unknown"}
         </p>
@@ -96,7 +99,7 @@ export function FilmCard({
           {caption ?? filmFacts(film)}
         </p>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -107,30 +110,34 @@ export function FilmCard({
 export function FilmRow({ film }: { film: FilmCardData }) {
   const held = filmHoldingsText(film.holdings);
   return (
-    <Link
-      href={filmHref(film)}
-      className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60"
-    >
-      <FilmPoster
-        image={film.poster}
-        title={film.title}
-        small
-        className="w-8 shrink-0 rounded-sm"
+    <div className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60">
+      <Link href={filmHref(film)} className="flex min-w-0 flex-1 items-center gap-3">
+        <FilmPoster
+          image={film.poster}
+          title={film.title}
+          small
+          className="w-8 shrink-0 rounded-sm"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="type-item-title truncate">{film.title}</p>
+          <p className="truncate text-sm text-fg-secondary">
+            {[filmDirectors(film) ?? "Director unknown", filmFacts(film)]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {held && <p className="truncate text-xs text-fg-secondary sm:hidden">{held}</p>}
+        </div>
+        {held && (
+          <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
+            {held}
+          </span>
+        )}
+      </Link>
+      <FavouriteToggle
+        favourite={film.isFavourite}
+        target={{ entity: "work", id: film.id }}
+        name={film.title}
       />
-      <div className="min-w-0 flex-1">
-        <p className="type-item-title truncate">{film.title}</p>
-        <p className="truncate text-sm text-fg-secondary">
-          {[filmDirectors(film) ?? "Director unknown", filmFacts(film)]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {held && <p className="truncate text-xs text-fg-secondary sm:hidden">{held}</p>}
-      </div>
-      {held && (
-        <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
-          {held}
-        </span>
-      )}
-    </Link>
+    </div>
   );
 }

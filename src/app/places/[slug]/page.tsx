@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -145,14 +146,21 @@ async function PlaceContent({ slug }: { slug: string }) {
 
         {/* Title block */}
         <div className="min-w-0 flex-1">
+          {/* The row carries the name's type: the star sits on the
+              cap-height center of the name's first line */}
           <div className="mb-2 flex items-start gap-3">
-            <div className="flex min-w-0 flex-1 items-start gap-3 font-serif text-4xl tracking-tight">
+            <div className="type-page-title flex min-w-0 flex-1 items-start gap-3">
               <h1 className="type-page-title min-w-0 break-words">
                 {venue.name}
               </h1>
-              {venue.isFavorite && (
-                <CapAligned height={16}><Star className="h-4 w-4 shrink-0 fill-accent-gold text-accent-gold" strokeWidth={1.5} /></CapAligned>
-              )}
+              <CapAligned height={32}>
+                <FavouriteToggle
+                  favourite={venue.isFavorite}
+                  target={{ entity: "venue", id: venue.id }}
+                  name={venue.name}
+                  shortcut
+                />
+              </CapAligned>
             </div>
             <VenueActions
               venue={{

@@ -25,6 +25,7 @@ import {
 } from "@/lib/export/collections";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
+import { formatRating } from "@/lib/utils/rating";
 
 const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet"];
 const VALID_ENTITIES = ["works", "authors", "perfumes", "films", "paintings"] as const;
@@ -73,7 +74,7 @@ async function fetchWorksForExport(ids: string[] | null) {
       original_year: w.originalYear ?? "",
       catalogue_status: w.catalogueStatus,
       acquisition_priority: w.acquisitionPriority,
-      rating: w.rating ?? "",
+      rating: formatRating(w.rating),
       is_anthology: w.isAnthology ? "yes" : "no",
       isbn_13: primaryEdition?.isbn13 ?? "",
       isbn_10: primaryEdition?.isbn10 ?? "",

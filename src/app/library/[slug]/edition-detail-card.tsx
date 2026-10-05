@@ -29,6 +29,7 @@ import type {
 import type { InferSelectModel } from "drizzle-orm";
 import type { editionContributors } from "@/lib/db/schema";
 import type { LocationWithSubLocations } from "@/lib/types/index";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type Contributor = InferSelectModel<typeof editionContributors> & {
   author: Author;
@@ -190,7 +191,7 @@ export function EditionDetailCard({
                   />
                   {(edition.coverS3Key || edition.thumbnailS3Key) && (
                     <ImageAdjustButton
-                      source={`/api/s3/read?key=${encodeURIComponent((edition.coverS3Key || edition.thumbnailS3Key)!)}`}
+                      source={mediaUrl((edition.coverS3Key || edition.thumbnailS3Key)!)}
                       label="Adjust edition cover"
                     />
                   )}
@@ -348,7 +349,7 @@ export function EditionDetailCard({
                     {i > 0 && ", "}
                     {c.author.slug ? (
                       <Link
-                        href={`/authors/${c.author.slug}`}
+                        href={`/people/${c.author.slug}`}
                         className="text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
                       >
                         {c.author.name}

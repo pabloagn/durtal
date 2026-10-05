@@ -96,8 +96,8 @@ export default async function DataSettingsPage() {
         />
         <ExportRow
           entity="authors"
-          label="Authors"
-          description="Every author of a book: names, dates, nationality, biography and the number of books."
+          label="People"
+          description="Every person: names, dates, nationality, biography and the number of books."
         />
         {WORK_DOMAINS.perfume.enabled && (
           <ExportRow

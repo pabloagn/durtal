@@ -428,5 +428,18 @@ merge joins two works of one kind with their profiles, versions, copies,
 formulations, listings and objects. Colliding identities block it with what to
 fix first. Migration 0060.
 
+Typed acquisition targets (SLN-374, task 0277): a film, perfume or painting
+has its own wishes (a formulation and size, a version and medium, an object or a
+reproduction of one) and orders for them. Receiving an order creates its bottle,
+copy or object once, in the order's write; a return disposes of it. Book
+targets and totals are unchanged; museum custody never enters the purchase
+flow. Migration 0063.
+
+Reading tracker data model (SLN-444, task 0302): reading is book-only
+consumption state, gated by the `reading` capability. A reading is one
+read-through with its own dates, edition, copy, sessions and rating; it never
+reuses `catalogue_status`, which is about buying. The book's rating becomes
+half-step. Migrations 0064 and 0065.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

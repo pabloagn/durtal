@@ -25,6 +25,7 @@ import {
   type MonochromeParams,
 } from "@/lib/validations/media";
 import { toast } from "sonner";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type TabType = "poster" | "background" | "gallery";
 
@@ -73,7 +74,7 @@ const ASPECT_CLASSES: Record<TabType, string> = {
 
 function thumbnailUrl(item: MediaItem): string {
   const key = item.thumbnailS3Key ?? item.s3Key;
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
+  return mediaUrl(key);
 }
 
 export function AuthorMediaManagerDialog({
@@ -288,7 +289,7 @@ export function AuthorMediaManagerDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Manage author media"
+      title="Manage media"
       description={authorName}
       className="max-w-3xl"
     >
@@ -323,7 +324,7 @@ export function AuthorMediaManagerDialog({
                 {activeItem ? (
                   <ImageAdjustmentEditor
                     key={`${activeItem.id}-${adjustmentVersion}`}
-                    source={`/api/s3/read?key=${encodeURIComponent(activeItem.s3Key)}`}
+                    source={mediaUrl(activeItem.s3Key)}
                     onSaved={() => { void fetchItems(); router.refresh(); triggerActivityRefresh(); }}
                   />
                 ) : (
@@ -360,7 +361,7 @@ export function AuthorMediaManagerDialog({
 
                     return (
                       <div key={item.id} className="group relative">
-                        <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent(item.s3Key)}`} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
+                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
                           aria-label={isSelected ? "Deselect image" : "Select image"}

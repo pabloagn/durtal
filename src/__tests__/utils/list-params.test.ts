@@ -8,14 +8,14 @@ const params = (qs: string) => new URLSearchParams(qs);
 describe("clearedListHref", () => {
   it("removes the search, filters and page", () => {
     expect(
-      clearedListHref("/authors", params("q=zzz&nationality=HU&gender=male&page=3")),
-    ).toBe("/authors");
+      clearedListHref("/people", params("q=zzz&nationality=HU&gender=male&page=3")),
+    ).toBe("/people");
   });
 
   it("keeps sort and order", () => {
     expect(
-      clearedListHref("/authors", params("q=zzz&sort=birth&order=desc&alive=true")),
-    ).toBe("/authors?sort=birth&order=desc");
+      clearedListHref("/people", params("q=zzz&sort=birth&order=desc&alive=true")),
+    ).toBe("/people?sort=birth&order=desc");
   });
 
   it("returns the bare path when nothing is set", () => {
@@ -27,13 +27,13 @@ describe("clearedListHref", () => {
 
 describe("firstPageHref", () => {
   it("removes only the page", () => {
-    expect(firstPageHref("/authors", params("q=bor&page=9&sort=name"))).toBe(
-      "/authors?q=bor&sort=name",
+    expect(firstPageHref("/people", params("q=bor&page=9&sort=name"))).toBe(
+      "/people?q=bor&sort=name",
     );
   });
 
   it("returns the bare path when page was the only param", () => {
-    expect(firstPageHref("/authors", params("page=2"))).toBe("/authors");
+    expect(firstPageHref("/people", params("page=2"))).toBe("/people");
   });
 });
 

@@ -6,6 +6,7 @@ import {
 } from "@/lib/utils/edition-image";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 const SIZES = { md: "h-24 w-16", sm: "h-12 w-8" } as const;
 
@@ -27,7 +28,7 @@ export function EditionImageBox({
     <div className={`${SIZES[size]} shrink-0 overflow-hidden bg-bg-tertiary`}>
       {image ? (
         <FadeImage
-          src={`/api/s3/read?key=${encodeURIComponent(image.key)}`}
+          src={mediaUrl(image.key)}
           alt={
             image.source === "edition" ? `${title} cover` : `${title} poster`
           }

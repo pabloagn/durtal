@@ -13,7 +13,6 @@ import {
   works,
 } from "@/lib/db/schema";
 import { bookCondition } from "@/lib/catalogue/book-boundary";
-import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 import { PLACEHOLDER_SOURCE } from "@/lib/match/identify";
 import { getSeriesSuggestions } from "@/lib/actions/series";
 
@@ -24,14 +23,15 @@ export interface CatalogueCount {
   value: number;
 }
 
-/** How many records of each kind: books and their authors, as the dashboard counts them. */
+/** How many records of each kind: books, their editions and copies, people, and the rest. */
 export async function catalogueCounts(): Promise<CatalogueCount[]> {
   const total = async (query: Promise<{ n: number }[]>) => (await query)[0]?.n ?? 0;
   const counts = await Promise.all([
     total(db.select({ n: count() }).from(works).where(bookCondition)),
     total(db.select({ n: count() }).from(editions)),
     total(db.select({ n: count() }).from(instances)),
-    total(db.select({ n: count() }).from(authors).where(bookPersonCondition)),
+    // Every person, in every collection (SLN-419)
+    total(db.select({ n: count() }).from(authors)),
     total(db.select({ n: count() }).from(publishingHouses)),
     total(db.select({ n: count() }).from(series)),
     total(db.select({ n: count() }).from(collections)),
@@ -43,7 +43,7 @@ export async function catalogueCounts(): Promise<CatalogueCount[]> {
     "Books",
     "Editions",
     "Copies",
-    "Authors",
+    "People",
     "Publishers",
     "Series",
     "Collections",

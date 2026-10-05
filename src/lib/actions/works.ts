@@ -279,7 +279,8 @@ export async function getWorks(opts?: {
     title: orderFn(works.title),
     recent: orderFn(works.createdAt),
     year: orderFn(works.originalYear),
-    rating: orderFn(works.rating),
+    // Unrated works last in either direction
+    rating: resolvedOrder === "asc" ? sql`${works.rating} asc nulls last` : sql`${works.rating} desc nulls last`,
     authorFirstName: orderFn(works.createdAt), // page membership is selected below
     authorLastName: orderFn(works.createdAt), // page membership is selected below
   }[sort];
@@ -827,7 +828,7 @@ export async function getLibraryStats() {
     // Top rated
     db.query.works.findMany({
       where: and(bookCondition, isNotNull(works.rating)),
-      orderBy: [desc(works.rating), desc(works.createdAt)],
+      orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
       limit: 8,
       with: worksWith,
     }),

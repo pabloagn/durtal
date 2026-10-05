@@ -162,8 +162,8 @@ export function EntityFilters({
       {/* View mode */}
       <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} availableModes={availableViewModes} />
 
-      {/* Grid size slider (only in grid mode) */}
-      {viewMode === "grid" && (
+      {/* Size slider: cards per row in the grid, pictures per row in the mosaic */}
+      {(viewMode === "grid" || viewMode === "mosaic") && (
         <GridSizeSlider value={gridColumns} onChange={onGridColumnsChange} />
       )}
     </div>

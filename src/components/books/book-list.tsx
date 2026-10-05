@@ -1,5 +1,6 @@
 "use client";
 
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CopyBookButton } from "./copy-book-button";
 
 import Image from "next/image";
@@ -12,6 +13,7 @@ import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { formatRating } from "@/lib/utils/rating";
 
 interface BookListItem {
   workId: string;
@@ -29,6 +31,7 @@ interface BookListItem {
   isRare?: boolean;
   huntAssessedOn?: string | null;
   isPoison?: boolean;
+  isFavourite?: boolean;
   acquisitionPriority?: string | null;
 }
 
@@ -144,7 +147,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                   />
                 )}
                 {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
-                {book.rating && <Badge variant="gold">{book.rating}/5</Badge>}
+                {book.rating != null && <Badge variant="gold">{formatRating(book.rating)}/5</Badge>}
               </CapAlignedControls>
             </div>
             {/* Second line: the author, then the year and the copies */}
@@ -164,9 +167,16 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           </div>
           </Link>
           {/* On the title's cap-height center, beside the first line */}
-          {!isSelecting && (
-            <CapAlignedControls height={28} className="type-item-title">
-              <CopyBookButton {...book} />
+          {(book.isFavourite !== undefined || !isSelecting) && (
+            <CapAlignedControls height={32} className="type-item-title">
+              {book.isFavourite !== undefined && (
+                <FavouriteToggle
+                  favourite={book.isFavourite}
+                  target={{ entity: "work", id: book.workId }}
+                  name={book.title}
+                />
+              )}
+              {!isSelecting && <CopyBookButton {...book} />}
             </CapAlignedControls>
           )}
         </div>

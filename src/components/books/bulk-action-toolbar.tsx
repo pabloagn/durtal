@@ -1,6 +1,7 @@
 "use client";
 
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
+import { BULK_DELETE_CASCADE } from "./delete-cascade";
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus } from "lucide-react";
@@ -16,6 +17,7 @@ import { ExportMenu } from "@/components/shared/export-menu";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
+import { setFavourites } from "@/lib/actions/favourites";
 import { MARKS_LABEL, WORK_MARKS, type WorkMark } from "@/lib/constants/marks";
 import { bulkSetPoison } from "@/lib/actions/poison";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ import {
   PRIORITY_CONFIG,
 } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
+import { formatRating, HALF_STEPS } from "@/lib/utils/rating";
 
 interface BulkActionToolbarProps {
   selectedCount: number;
@@ -116,7 +119,9 @@ export function BulkActionToolbar({
                 ? { isRare: true, huntAssessedOn: localToday() }
                 : { isRare: false, huntAssessedOn: null },
             )
-          : await bulkSetPoison(ids, on);
+          : mark.key === "favourite"
+            ? await setFavourites({ entity: "work", ids, favourite: on })
+            : await bulkSetPoison(ids, on);
       toast.success(
         updated === 0
           ? `${mark.label}: no books changed`
@@ -140,7 +145,6 @@ export function BulkActionToolbar({
     (typeof PRIORITY_CONFIG)[AcquisitionPriority],
   ][];
 
-  const ratings = [1, 2, 3, 4, 5] as const;
 
   return (
     <>
@@ -253,15 +257,18 @@ export function BulkActionToolbar({
           }
         >
           <DropdownMenuLabel>Set rating</DropdownMenuLabel>
-          {ratings.map((value) => (
-            <DropdownMenuItem
-              key={value}
-              onClick={() => bulkUpdate("rating", value)}
-              disabled={isUpdating}
-            >
-              {value} {value === 1 ? "star" : "stars"}
-            </DropdownMenuItem>
-          ))}
+          {/* Two columns keep the ten half steps short on a phone */}
+          <div className="grid grid-cols-2">
+            {HALF_STEPS.map((value) => (
+              <DropdownMenuItem
+                key={value}
+                onClick={() => bulkUpdate("rating", value)}
+                disabled={isUpdating}
+              >
+                {formatRating(value)} {value === 1 ? "star" : "stars"}
+              </DropdownMenuItem>
+            ))}
+          </div>
           <DropdownMenuItem
             onClick={() => bulkUpdate("rating", null)}
             disabled={isUpdating}
@@ -318,7 +325,7 @@ export function BulkActionToolbar({
         title={`Delete ${selectedCount} ${selectedCount === 1 ? "work" : "works"}`}
         description="Are you sure you want to delete the selected works? This action cannot be undone."
         itemName={displayName}
-        cascade="This will permanently delete all editions, instances, and media associated with the selected works."
+        cascade={BULK_DELETE_CASCADE}
       />
     </>
   );
