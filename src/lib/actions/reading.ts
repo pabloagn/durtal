@@ -24,8 +24,19 @@ import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingStatus } from "@/lib/reading/constants";
 import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
+import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { percentOf, remapPosition } from "@/lib/reading/positions";
 import { readingOrdinalSql } from "@/lib/reading/summary";
+import { TIMER_GONE } from "@/lib/reading/timer";
+import {
+  discardTimerRow,
+  pauseTimerRow,
+  refuseWhileTiming,
+  resumeTimerRow,
+  runningTimer,
+  startTimerOn,
+  undoStop,
+} from "@/lib/reading/timer-service";
 import {
   STALE_READING,
   checkWithinTotals,
@@ -49,18 +60,26 @@ import {
 import {
   abandonReadingSchema,
   addPastReadingSchema,
+  addSessionSchema,
   deleteSessionSchema,
   finishReadingSchema,
   logProgressSchema,
   reopenReadingSchema,
   sessionPatchSchema,
+  restoreSessionSchema,
   startReadingSchema,
+  startTimerSchema,
   statusChangeSchema,
+  stopTimerSchema,
+  timerSessionSchema,
   undoProgressSchema,
+  undoStopTimerSchema,
   updateReadingSchema,
   type AddPastReadingInput,
   type LogProgressInput,
   type SessionPatchInput,
+  type StopTimerInput,
+  type AddSessionInput,
   type StartReadingInput,
   type UpdateReadingInput,
 } from "@/lib/validations/reading";
@@ -121,7 +140,8 @@ export async function startReading(input: StartReadingInput) {
  */
 export async function logProgress(input: LogProgressInput) {
   const data = logProgressSchema.parse(input);
-  const { fingerprint, editionId, format, ...progress } = data;
+  // A timer stops through stopTimer only
+  const { fingerprint, editionId, format, timerSessionId: _timer, ...progress } = data;
   const before = await loadReading(data.readingId);
   if (!before) throw new Error("This reading no longer exists");
   await requireBookWork(before.workId);
@@ -145,6 +165,75 @@ async function progressEvent(reading: Reading, day: string) {
     pages: await pagesOnDay(reading.id, day),
     percent: reading.currentPercent,
   });
+}
+
+/* ── The reading timer (SLN-451) ── */
+
+/** The running timer with its book, position and fingerprint, or null: the chip loads it after mount */
+export async function getRunningTimer() {
+  return runningTimer();
+}
+
+/** Starts the one timer on an open reading; a paused reading resumes first */
+export async function startTimer(input: z.input<typeof startTimerSchema>) {
+  const data = startTimerSchema.parse(input);
+  const reading = await loadReading(data.readingId);
+  if (!reading) throw new Error("This reading no longer exists");
+  await requireBookWork(reading.workId);
+  const result = await startTimerOn(reading.id, data.timeZone);
+  if (result.resumed) event(reading.workId, "work.reading_resumed", result.reading);
+  changed();
+  return { sessionId: result.sessionId, reading: result.reading };
+}
+
+/** Pauses the timer; pausing a paused one changes nothing */
+export async function pauseTimer(input: z.input<typeof timerSessionSchema>) {
+  await pauseTimerRow(timerSessionSchema.parse(input).sessionId);
+  return runningTimer();
+}
+
+/** Resumes the timer; its pause joins the paused time */
+export async function resumeTimer(input: z.input<typeof timerSessionSchema>) {
+  await resumeTimerRow(timerSessionSchema.parse(input).sessionId);
+  return runningTimer();
+}
+
+/**
+ * Stops the timer: its running row completes with the end given (or where it
+ * started), at `endedAt` or now, through the progress writer, which reads the
+ * reading fresh and retries once. A forgotten timer needs `endedAt`.
+ */
+export async function stopTimer(input: StopTimerInput) {
+  const { sessionId, editionId, format, ...rest } = stopTimerSchema.parse(input);
+  const [row] = await db.select({ readingId: readingSessions.readingId }).from(readingSessions).where(eq(readingSessions.id, sessionId));
+  if (!row) throw new Error(TIMER_GONE);
+  const before = await loadReading(row.readingId);
+  if (!before) throw new Error("This reading no longer exists");
+  await requireBookWork(before.workId);
+  const result = await recordProgress({ readingId: row.readingId, ...rest, timerSessionId: sessionId }, { source: "timer", editionId, format });
+  if (result.resumed) event(before.workId, "work.reading_resumed", result.reading);
+  await progressEvent(result.reading, result.session.readOn);
+  changed();
+  return result;
+}
+
+/** The 10-second Undo of a stop: the timer runs again and the position follows the other sessions */
+export async function undoStopTimer(input: z.input<typeof undoStopTimerSchema>) {
+  const data = undoStopTimerSchema.parse(input);
+  const end = data.undo.restoreEnd;
+  const reading = await undoStop(data.sessionId, data.fingerprint, {
+    ...data.undo,
+    restoreEnd: end ? { page: end.page ?? null, percent: end.percent ?? null, minutes: end.minutes ?? null, chapter: end.chapter ?? null } : null,
+  });
+  changed();
+  return reading;
+}
+
+/** Deletes the running timer after the page asked; the position does not change */
+export async function discardTimer(input: z.input<typeof timerSessionSchema>) {
+  const result = await discardTimerRow(timerSessionSchema.parse(input).sessionId);
+  changed();
+  return result;
 }
 
 /** Undoes a progress save: deletes the session it wrote or puts back the end it replaced */
@@ -217,6 +306,7 @@ async function changeStatus(readingId: string, fingerprint: string, from: Readin
 
 export async function pauseReading(input: z.input<typeof statusChangeSchema>) {
   const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
   return changeStatus(readingId, fingerprint, ["reading"], "paused", "work.reading_paused");
 }
 
@@ -259,12 +349,14 @@ function closingSession(reading: Reading, sessions: Session[], end: { page: numb
 /** Finishes a reading: the end, the date, a rating and review, and the book's rating */
 export async function finishReading(input: z.input<typeof finishReadingSchema>) {
   const data = finishReadingSchema.parse(input);
+  await refuseWhileTiming(data.readingId);
   const reading = await readingFor(data.readingId, data.fingerprint);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new Error("Only an open reading can be finished");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.finishedPrecision ?? "day";
-  const finishedOn = precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone), precision);
+  const finishedOn =
+    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
   const end = {
     page: reading.totalPages ?? reading.currentPage,
     percent: 100,
@@ -317,12 +409,14 @@ export async function finishReading(input: z.input<typeof finishReadingSchema>) 
 /** Abandons a reading: when, why, and the page reached */
 export async function abandonReading(input: z.input<typeof abandonReadingSchema>) {
   const data = abandonReadingSchema.parse(input);
+  await refuseWhileTiming(data.readingId);
   const reading = await readingFor(data.readingId, data.fingerprint);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new Error("Only an open reading can be abandoned");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.stoppedPrecision ?? "day";
-  const stoppedOn = precision === "unknown" ? null : readingPeriodStart(data.stoppedOn ?? readingDay(new Date(), timeZone), precision);
+  const stoppedOn =
+    precision === "unknown" ? null : readingPeriodStart(data.stoppedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
   const given = { page: data.page, percent: data.percent, minutes: data.minutes };
   const reached = [given.page, given.percent, given.minutes].some((v) => v != null);
   if (reached) checkWithinTotals(given, reading);
@@ -604,6 +698,7 @@ export async function updateReading(input: UpdateReadingInput) {
 /** Deletes a reading with its sessions and history; the snapshot lets the page undo it */
 export async function deleteReading(input: z.input<typeof statusChangeSchema>) {
   const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
   const reading = await readingFor(readingId, fingerprint);
   const [sessions, history] = await Promise.all([
     loadSessions(reading.id),
@@ -749,7 +844,76 @@ export async function updateSession(input: SessionPatchInput) {
   return (await loadReading(reading.id))!;
 }
 
-/** Removes one session; with none left, the position returns to the start */
+/**
+ * Adds a session by hand (SLN-451): always one new session, in its place in
+ * the session order. The next session's start follows; the position moves
+ * only when it is the newest, so a backdated session never moves it back.
+ */
+export async function addSession(input: AddSessionInput) {
+  const data = addSessionSchema.parse(input);
+  const before = await readingFor(data.readingId, data.fingerprint);
+  await requireBookWork(before.workId);
+  const hour = await readingDayStartHour();
+  for (const at of [data.startedAt, data.endedAt])
+    if (at && readingDay(at, data.timeZone, hour) !== data.readOn) throw new Error("The start and end times must fall on the session's day");
+  const durationSeconds =
+    data.durationSeconds ?? (data.startedAt && data.endedAt ? Math.max(1, Math.round((data.endedAt.getTime() - data.startedAt.getTime()) / 1000)) : null);
+  const result = await recordProgress(
+    {
+      readingId: data.readingId,
+      ...data.to,
+      chapter: data.chapter ?? undefined,
+      readOn: data.readOn,
+      startedAt: data.startedAt ?? undefined,
+      endedAt: data.endedAt ?? undefined,
+      durationSeconds: durationSeconds ?? undefined,
+      note: data.note,
+      goingBack: "went_back",
+      timeZone: data.timeZone,
+    },
+    { fingerprint: data.fingerprint, source: "manual", editionId: data.editionId, format: data.format },
+  );
+  if (result.resumed) event(before.workId, "work.reading_resumed", result.reading);
+  await progressEvent(result.reading, result.session.readOn);
+  changed();
+  return result;
+}
+
+/** Puts a deleted session back with its id and source (the Undo of a delete); refused for a running timer */
+export async function restoreSession(input: z.input<typeof restoreSessionSchema>) {
+  const data = restoreSessionSchema.parse(input);
+  const snap = data.snapshot as unknown as Session;
+  if (snap.readingId !== data.readingId) throw new Error("This session belongs to another reading");
+  if (snap.source === "timer" && !snap.endedAt) throw new Error("A running timer cannot be put back");
+  const reading = await readingFor(data.readingId, data.fingerprint);
+  await requireBookWork(reading.workId);
+  const sessions = await loadSessions(reading.id);
+  if (sessions.some((s) => s.id === snap.id)) throw new Error("This session is already there");
+  const editionOk = snap.editionId ? (await editionPages(snap.editionId))?.workId === reading.workId : true;
+  const { pagesRead: _p, ...values } = snap;
+  const row: Session = {
+    ...snap,
+    editionId: editionOk ? snap.editionId : null,
+    startedAt: asDate(snap.startedAt),
+    endedAt: asDate(snap.endedAt),
+    pausedAt: null,
+    pausedSeconds: snap.pausedSeconds ?? 0,
+    createdAt: asDate(snap.createdAt) ?? new Date(),
+    updatedAt: new Date(),
+  };
+  const now = new Date();
+  await withReadableErrors(() =>
+    atomic((d) => [
+      ...guardReading(d, reading.id, data.fingerprint),
+      d.insert(readingSessions).values({ ...values, ...row, pagesRead: undefined } as typeof readingSessions.$inferInsert),
+      ...recomputeQueries(d, reading, [...sessions, row], now),
+    ]),
+  );
+  changed();
+  return (await loadReading(reading.id))!;
+}
+
+/** Removes one session; with none left, the position returns to the start. Returns the row, for Undo */
 export async function deleteSession(input: z.input<typeof deleteSessionSchema>) {
   const { sessionId, fingerprint } = deleteSessionSchema.parse(input);
   const [session] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
@@ -766,7 +930,7 @@ export async function deleteSession(input: z.input<typeof deleteSessionSchema>) 
     ]),
   );
   changed();
-  return (await loadReading(reading.id))!;
+  return { reading: (await loadReading(reading.id))!, session };
 }
 
 /**
@@ -885,7 +1049,7 @@ export async function getNextInSeries(workId: string, homeId: string | null) {
     title: next.title,
     slug: next.slug ?? null,
     seriesTitle: named?.title ?? null,
-    whereabouts: copy ? copyWhereabouts(copy, { today: readingDay(new Date(), appTimeZone()) }) : "Not owned",
+    whereabouts: copy ? copyWhereabouts(copy, { today: await readingToday() }) : "Not owned",
   };
 }
 
@@ -977,12 +1141,13 @@ export async function getReadingDialogData(workId: string, homeId: string | null
   const [work, locations] = await Promise.all([getWork(id), getLocations()]);
   if (!work) throw new Error("Book not found");
   const zone = appTimeZone();
-  const today = readingDay(new Date(), zone);
+  const dayStartHour = await readingDayStartHour();
+  const today = readingDay(new Date(), zone, dayStartHour);
   return {
     workId: work.id,
     workTitle: work.title,
     bookRating: work.rating ?? null,
-    dayStartHour: 4,
+    dayStartHour,
     rows,
     editions: readingEditions(work.editions, { today, homeId: home }),
     homes: readingHomes(locations),
@@ -1069,7 +1234,7 @@ export async function getSeriesNextToRead(seriesId: string) {
     slug: next.slug ?? null,
     position: next.position ?? null,
     whereabouts: copy
-      ? copyWhereabouts(copy, { today: readingDay(new Date(), appTimeZone()) })
+      ? copyWhereabouts(copy, { today: await readingToday() })
       : ["Not owned", work ? catalogueStatusLabel(work.catalogueStatus) : null].filter(Boolean).join(" · "),
   };
 }

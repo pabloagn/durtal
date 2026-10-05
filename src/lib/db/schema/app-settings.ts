@@ -1,4 +1,4 @@
-import { pgTable, boolean, uuid, text, timestamp, check } from "drizzle-orm/pg-core";
+import { pgTable, boolean, uuid, text, timestamp, smallint, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { catalogueStatusEnum } from "./enums";
 import { locations } from "./locations";
@@ -26,6 +26,12 @@ export const appSettings = pgTable(
     newCopyCondition: text("new_copy_condition").default("mint"),
     /** ISO 4217 code: new orders start in it, and spending totals list it first */
     homeCurrency: text("home_currency").notNull().default("EUR"),
+    /** A session before this hour (0 to 6) counts for the day before; stored days never change (SLN-451) */
+    readingDayStartHour: smallint("reading_day_start_hour").notNull().default(4),
+    /** The first day of a reading week: 1 Monday or 7 Sunday */
+    readingWeekStart: smallint("reading_week_start").notNull().default(1),
+    /** Minutes of running time after which a timer asks "Still reading?" (15 to 480) */
+    readingTimerCheckMinutes: smallint("reading_timer_check_minutes").notNull().default(90),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -33,5 +39,8 @@ export const appSettings = pgTable(
     check("app_settings_new_book_status_check", sql`${t.newBookStatus} <> 'deaccessioned'`),
     check("app_settings_new_book_language_check", sql`${t.newBookLanguage} ~ '^[a-z]{2,3}$'`),
     check("app_settings_home_currency_check", sql`${t.homeCurrency} ~ '^[A-Z]{3}$'`),
+    check("app_settings_reading_day_start_hour_check", sql`${t.readingDayStartHour} between 0 and 6`),
+    check("app_settings_reading_week_start_check", sql`${t.readingWeekStart} in (1, 7)`),
+    check("app_settings_reading_timer_check_minutes_check", sql`${t.readingTimerCheckMinutes} between 15 and 480`),
   ],
 );

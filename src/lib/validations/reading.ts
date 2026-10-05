@@ -110,11 +110,14 @@ export const progressSchema = z
     note: z.string().trim().max(2000).optional(),
     goingBack: goingBackSchema.optional(),
     timeZone: timeZoneSchema.optional(),
+    /** Stops this running timer instead of writing a new session (SLN-451) */
+    timerSessionId: z.uuid().optional(),
   })
   .refine(
     (r) =>
       [r.page, r.percent, r.minutes, r.addPages, r.addMinutes].filter((v) => v != null).length <= 1 &&
-      [r.page, r.percent, r.minutes, r.addPages, r.addMinutes, r.chapter].some((v) => v != null),
+      // A timer may stop where it started: its time still counts
+      (r.timerSessionId !== undefined || [r.page, r.percent, r.minutes, r.addPages, r.addMinutes, r.chapter].some((v) => v != null)),
     "Give one position: a page, a percent, a time, pages or minutes on, or a chapter",
   )
   .refine((r) => !r.startedAt || !r.endedAt || r.endedAt >= r.startedAt, "The session ends before it starts");
@@ -131,6 +134,10 @@ export const undoSchema = z.object({
   sessionId: z.uuid(),
   restoreEnd: positionSchema.nullable(),
   repause: z.boolean(),
+  timer: z
+    .object({ pausedAt: z.string().nullable(), pausedSeconds: z.number().int().min(0).max(86_400), fixedSessionId: z.uuid().nullable() })
+    .nullable()
+    .optional(),
 });
 export const undoProgressSchema = z.object({
   readingId: readingIdSchema,
@@ -289,3 +296,52 @@ export const sessionPatchSchema = z
 export type SessionPatchInput = z.input<typeof sessionPatchSchema>;
 
 export const deleteSessionSchema = z.object({ sessionId: z.uuid(), fingerprint: fingerprintSchema });
+
+/* The reading timer and sessions by hand (SLN-451) */
+
+export const startTimerSchema = z.object({ readingId: readingIdSchema, timeZone: timeZoneSchema.optional() });
+export const timerSessionSchema = z.object({ sessionId: z.uuid() });
+
+export const stopTimerSchema = z
+  .object({
+    sessionId: z.uuid(),
+    endedAt: z.coerce.date().optional(),
+    page: page.nullable().optional(),
+    percent: percent.nullable().optional(),
+    minutes: minutes.nullable().optional(),
+    addPages: z.number().int().positive().max(100_000).optional(),
+    chapter: chapter.nullable().optional(),
+    editionId: z.uuid().nullable().optional(),
+    format: z.enum(READING_FORMATS).optional(),
+    goingBack: goingBackSchema.optional(),
+    note: z.string().trim().max(2000).optional(),
+  })
+  .refine((r) => [r.page, r.percent, r.minutes, r.addPages].filter((v) => v != null).length <= 1, "Give one position: a page, a percent, a time or pages on");
+export type StopTimerInput = z.input<typeof stopTimerSchema>;
+
+export const undoStopTimerSchema = z.object({ sessionId: z.uuid(), fingerprint: fingerprintSchema, undo: undoSchema });
+
+export const addSessionSchema = z
+  .object({
+    readingId: readingIdSchema,
+    fingerprint: fingerprintSchema,
+    readOn: day,
+    startedAt: z.coerce.date().nullable().optional(),
+    endedAt: z.coerce.date().nullable().optional(),
+    durationSeconds: z.number().int().min(1).max(86_400).nullable().optional(),
+    to: z.object({ page: page.nullable().optional(), percent: percent.nullable().optional(), minutes: minutes.nullable().optional() }),
+    chapter: chapter.nullable().optional(),
+    editionId: z.uuid().nullable().optional(),
+    format: z.enum(READING_FORMATS).optional(),
+    note: z.string().trim().max(2000).optional(),
+    timeZone: timeZoneSchema,
+  })
+  .refine((r) => [r.to.page, r.to.percent, r.to.minutes].filter((v) => v != null).length === 1, "Give where the session ended: a page, a percent or a time")
+  .refine((r) => !r.startedAt || !r.endedAt || r.endedAt >= r.startedAt, "The session ends before it starts");
+export type AddSessionInput = z.input<typeof addSessionSchema>;
+
+export const restoreSessionSchema = z.object({
+  readingId: readingIdSchema,
+  fingerprint: fingerprintSchema,
+  snapshot: z.record(z.string(), z.unknown()),
+});

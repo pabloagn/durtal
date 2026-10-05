@@ -13,24 +13,24 @@ import { canTransition, READING_TRANSITIONS, formatOfCopy } from "@/lib/reading/
 
 describe("readingDay", () => {
   it("counts the hours before 04:00 for the evening before", () => {
-    expect(readingDay(new Date("2026-10-04T01:30:00+02:00"), "Europe/Amsterdam")).toBe("2026-10-03");
-    expect(readingDay(new Date("2026-10-04T03:59:00+02:00"), "Europe/Amsterdam")).toBe("2026-10-03");
-    expect(readingDay(new Date("2026-10-04T04:00:00+02:00"), "Europe/Amsterdam")).toBe("2026-10-04");
+    expect(readingDay(new Date("2026-10-04T01:30:00+02:00"), "Europe/Amsterdam", 4)).toBe("2026-10-03");
+    expect(readingDay(new Date("2026-10-04T03:59:00+02:00"), "Europe/Amsterdam", 4)).toBe("2026-10-03");
+    expect(readingDay(new Date("2026-10-04T04:00:00+02:00"), "Europe/Amsterdam", 4)).toBe("2026-10-04");
   });
   it("follows the local clock across daylight-saving changes in Amsterdam", () => {
     // 29 Mar 2026: 02:00 becomes 03:00; 03:30 local is still before 04:00
-    expect(readingDay(new Date("2026-03-29T01:30:00Z"), "Europe/Amsterdam")).toBe("2026-03-28");
-    expect(readingDay(new Date("2026-03-29T02:30:00Z"), "Europe/Amsterdam")).toBe("2026-03-29");
+    expect(readingDay(new Date("2026-03-29T01:30:00Z"), "Europe/Amsterdam", 4)).toBe("2026-03-28");
+    expect(readingDay(new Date("2026-03-29T02:30:00Z"), "Europe/Amsterdam", 4)).toBe("2026-03-29");
     // 25 Oct 2026: 03:00 becomes 02:00; 03:30 local, both times, is before 04:00
-    expect(readingDay(new Date("2026-10-25T00:30:00Z"), "Europe/Amsterdam")).toBe("2026-10-24");
-    expect(readingDay(new Date("2026-10-25T01:30:00Z"), "Europe/Amsterdam")).toBe("2026-10-24");
-    expect(readingDay(new Date("2026-10-25T03:00:00Z"), "Europe/Amsterdam")).toBe("2026-10-25");
+    expect(readingDay(new Date("2026-10-25T00:30:00Z"), "Europe/Amsterdam", 4)).toBe("2026-10-24");
+    expect(readingDay(new Date("2026-10-25T01:30:00Z"), "Europe/Amsterdam", 4)).toBe("2026-10-24");
+    expect(readingDay(new Date("2026-10-25T03:00:00Z"), "Europe/Amsterdam", 4)).toBe("2026-10-25");
   });
   it("uses the zone, not the server's clock", () => {
     // 21:30 in Mexico City on 3 March is 03:30 UTC on 4 March
-    expect(readingDay(new Date("2026-03-04T03:30:00Z"), "America/Mexico_City")).toBe("2026-03-03");
-    expect(readingDay(new Date("2026-03-04T03:30:00Z"), "UTC")).toBe("2026-03-03");
-    expect(readingDay(new Date("2026-03-04T07:30:00Z"), "America/Mexico_City")).toBe("2026-03-03");
+    expect(readingDay(new Date("2026-03-04T03:30:00Z"), "America/Mexico_City", 4)).toBe("2026-03-03");
+    expect(readingDay(new Date("2026-03-04T03:30:00Z"), "UTC", 4)).toBe("2026-03-03");
+    expect(readingDay(new Date("2026-03-04T07:30:00Z"), "America/Mexico_City", 4)).toBe("2026-03-03");
     expect(readingDay(new Date("2026-03-04T12:00:00Z"), "UTC", 0)).toBe("2026-03-04");
   });
   it("knows a time zone", () => {

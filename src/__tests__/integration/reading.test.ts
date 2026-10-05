@@ -323,7 +323,7 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       const { session } = await log(reading.id, { page: 170 });
       expect(session).toMatchObject({ startPage: 150, endPage: 170, pagesRead: 20 });
       expect(await counted(workId)).toBe(20);
-      const after = await deleteSession({ sessionId: session.id, fingerprint: await fp(reading.id) });
+      const { reading: after } = await deleteSession({ sessionId: session.id, fingerprint: await fp(reading.id) });
       expect(after.currentPage).toBe(150);
     });
 
@@ -485,7 +485,7 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       const switched = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), editionId: other });
       expect(switched).toMatchObject({ editionId: other, totalPages: 448, currentPage: 198 });
       const later = await log(reading.id, { page: 250, readOn: "2026-09-03" });
-      const back = await deleteSession({ sessionId: later.session.id, fingerprint: await fp(reading.id) });
+      const { reading: back } = await deleteSession({ sessionId: later.session.id, fingerprint: await fp(reading.id) });
       expect(back).toMatchObject({ currentPage: 198, totalPages: 448 });
       const none = await edition(workId, null);
       const noCount = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), editionId: none });

@@ -9,6 +9,7 @@ import { ReadingSection } from "@/components/reading/reading-section";
 import { readingEditions, readingHomes } from "@/lib/reading/page-data";
 import { readingRecord } from "@/lib/reading/labels";
 import { readingDay } from "@/lib/reading/dates";
+import { readingDayStartHour } from "@/lib/reading/day";
 import { canUseWorkCapability } from "@/lib/catalogue/domains";
 import { appTimeZone } from "@/lib/utils/date";
 import { READING_HOME_KEY } from "@/lib/preferences";
@@ -207,7 +208,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   // The reading control, section and dialogs (SLN-447)
   const canRead = canUseWorkCapability(work.kind, "reading");
   const zone = appTimeZone();
-  const today = readingDay(new Date(), zone);
+  const dayStartHour = await readingDayStartHour();
+  const today = readingDay(new Date(), zone, dayStartHour);
   let homeCookie: string | null = null;
   try {
     const raw = (await cookies()).get(READING_HOME_KEY)?.value;
@@ -219,7 +221,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     workId: work.id,
     workTitle: work.title,
     bookRating: work.rating ?? null,
-    dayStartHour: 4,
+    dayStartHour,
     rows: readingRows,
     editions: readingEditions(work.editions, { today, homeId: homeCookie && homeCookie !== "none" ? homeCookie : null }),
     homes: readingHomes(allLocations),

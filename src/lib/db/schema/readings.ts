@@ -160,6 +160,10 @@ export const readingSessions = pgTable(
     ),
     note: text("note"),
     source: text("source", { enum: SESSION_SOURCES }).notNull().default("manual"),
+    /** Set while a running timer is paused (SLN-451) */
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    /** A timer's paused time so far, left out of its duration */
+    pausedSeconds: integer("paused_seconds").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -184,6 +188,8 @@ export const readingSessions = pgTable(
         and (${t.endChapter} is null or length(${t.endChapter}) <= 300)
         and (${t.note} is null or length(${t.note}) <= 2000)`,
     ),
+    check("reading_session_paused_check", sql`${t.pausedAt} is null or (${t.source} = 'timer' and ${t.endedAt} is null)`),
+    check("reading_session_paused_seconds_check", sql`${t.pausedSeconds} between 0 and 86400`),
   ],
 );
 

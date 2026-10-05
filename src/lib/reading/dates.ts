@@ -37,11 +37,12 @@ function dayBefore(day: string) {
 
 /**
  * The reading day of an instant in a time zone: the calendar day there,
- * except that the hours before `dayStartHour` (4 by default) count for the
- * evening before. Uses the local clock, so daylight-saving changes move the
+ * except that the hours before `dayStartHour` count for the evening before.
+ * The hour is the `reading_day_start_hour` setting (SLN-451): every caller
+ * passes it. Uses the local clock, so daylight-saving changes move the
  * boundary with it.
  */
-export function readingDay(at: Date, timeZone: string = appTimeZone(), dayStartHour = 4): string {
+export function readingDay(at: Date, timeZone: string, dayStartHour: number): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -102,7 +103,7 @@ export interface ReadingSpanInput {
  * 2019", "Finished 2009", "Started 2 Oct" (the year left out when it is this
  * year), "Dates unknown".
  */
-export function formatReadingSpan(r: ReadingSpanInput, today: string = readingDay(new Date())): string {
+export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
   const thisYear = today.slice(0, 4);
   const started = r.startedOn && r.startedPrecision !== "unknown";
   const finished = r.finishedOn && r.finishedPrecision !== "unknown";
