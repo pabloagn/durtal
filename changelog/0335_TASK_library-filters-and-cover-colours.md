@@ -76,6 +76,10 @@ section, a chip for each chosen filter, and a filter by cover colour.
   window in all three (Firefox's and WebKit's scrollbars included); a real
   click on a swatch, a chip and Clear all each change the URL and the list.
   The people, places and journal panels stay on screen at 390.
+- `python3 scripts/qa/test-local.py`: 209 files, 2,342 tests. The first run
+  failed 5 older files that compare whole rows or answers (four migration
+  rehearsals and the admin route test); they now expect the new columns
+  empty, and all 6 files rerun green.
 - Page weight: `/library` 93 KB, 81 ms on a quiet run. A second run on the
   loaded Mac put every route over its time budget, the untouched ones too.
 - After merge: apply `0071_cover_colors`, then run the backfill (dry run
