@@ -3,12 +3,14 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  type GetObjectCommandOutput,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "./client";
 import { goldCoverKey, goldThumbnailKey, bronzeCoverKey } from "./keys";
 import { safeFetchImage } from "@/lib/net/safe-fetch";
+import { previewDelete, previewGet, previewPut, previewS3Dir } from "./preview-dir";
 
 /** Upload a buffer to S3 */
 export async function uploadToS3(
@@ -16,6 +18,8 @@ export async function uploadToS3(
   body: Buffer | Uint8Array,
   contentType: string,
 ) {
+  const dir = previewS3Dir();
+  if (dir) return previewPut(dir, key, body);
   await s3.send(
     new PutObjectCommand({
       Bucket: S3_BUCKET,
@@ -29,6 +33,8 @@ export async function uploadToS3(
 
 /** Delete an object from S3 */
 export async function deleteFromS3(key: string) {
+  const dir = previewS3Dir();
+  if (dir) return previewDelete(dir, key);
   await s3.send(
     new DeleteObjectCommand({
       Bucket: S3_BUCKET,
@@ -38,7 +44,16 @@ export async function deleteFromS3(key: string) {
 }
 
 /** Get an S3 object as a readable stream with metadata */
-export async function getS3Object(key: string) {
+export async function getS3Object(key: string): Promise<{
+  body: GetObjectCommandOutput["Body"];
+  contentType: string | undefined;
+  contentLength: number | undefined;
+}> {
+  const dir = previewS3Dir();
+  if (dir) {
+    const object = await previewGet(dir, key);
+    return { ...object, body: object.body as unknown as GetObjectCommandOutput["Body"] };
+  }
   const response = await s3.send(
     new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
   );

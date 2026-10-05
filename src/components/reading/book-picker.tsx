@@ -18,9 +18,25 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
 
 const TITLES: Record<PickerPurpose, string> = { start: "Start a book", past: "Log a past read" };
 
-export function BookPicker({ purpose, onClose }: { purpose: PickerPurpose; onClose: () => void }) {
+export function BookPicker({
+  purpose,
+  onClose,
+  onPick,
+  title,
+  initialQuery = "",
+  addHref,
+}: {
+  purpose: PickerPurpose;
+  onClose: () => void;
+  /** Another use of the picker (the import's "Choose another book"): the chosen book goes here */
+  onPick?: (book: BookToRead) => void;
+  title?: string;
+  initialQuery?: string;
+  /** The "Not in Durtal?" link for the typed text */
+  addHref?: (typed: string) => string;
+}) {
   const { open } = useReadingDialogs();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [books, setBooks] = useState<BookToRead[] | null>(null);
 
   useEffect(() => {
@@ -40,6 +56,7 @@ export function BookPicker({ purpose, onClose }: { purpose: PickerPurpose; onClo
 
   function choose(book: BookToRead) {
     onClose();
+    if (onPick) return onPick(book);
     if (purpose === "past") return void open({ kind: "past", workId: book.id });
     // Start would be refused while a reading is open: log progress on it instead
     if (book.openReadingId && book.openFingerprint)
@@ -50,8 +67,10 @@ export function BookPicker({ purpose, onClose }: { purpose: PickerPurpose; onClo
   const typed = query.trim();
   const add = typed ? (
     <Link
-      href={bookPickerAddHref(typed, purpose)}
+      href={addHref ? addHref(typed) : bookPickerAddHref(typed, purpose)}
       onClick={onClose}
+      // From the import the book is added in a new tab, and the preview matches it on return
+      {...(addHref ? { target: "_blank", rel: "noopener" } : {})}
       data-picker-add=""
       className="inline-flex h-8 items-center gap-1.5 rounded-sm px-2 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary pointer-coarse:h-11"
     >
@@ -61,7 +80,7 @@ export function BookPicker({ purpose, onClose }: { purpose: PickerPurpose; onClo
   ) : null;
 
   return (
-    <Dialog open onClose={onClose} title={TITLES[purpose]} className="max-w-lg" expandable={false}>
+    <Dialog open onClose={onClose} title={title ?? TITLES[purpose]} className="max-w-lg" expandable={false}>
       <div className="space-y-3">
         <Input
           aria-label="Search books"

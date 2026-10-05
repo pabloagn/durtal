@@ -17,7 +17,7 @@ export const READING_TABS = [
   { href: "/reading/notes", label: "Notes", ready: false },
   { href: "/reading/stats", label: "Stats", ready: false },
   { href: "/reading/suggestions", label: "Suggestions", ready: false },
-  { href: "/reading/import", label: "Import", ready: false },
+  { href: "/reading/import", label: "Import", ready: true },
 ] as const;
 
 /** The tabs to show and which one is current: Now only on /reading itself, the others on their path and below */
