@@ -151,6 +151,12 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           expect(row[column], column).toBeNull();
           delete row[column];
         }
+    // 0066 (SLN-450): an import's file name starts empty
+    for (const row of projected.imports ?? [])
+      if ("file_name" in row) {
+        expect(row.file_name, "imports.file_name").toBeNull();
+        delete row.file_name;
+      }
     // 0065 (SLN-444): works.rating becomes numeric(2,1); a stored 4 reads as
     // the number 4 either way, so only its type is checked
     for (const row of projected.works ?? [])
@@ -209,6 +215,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "readings",
       "reading_sessions",
       "reading_status_history",
+      "reading_import_rows",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -336,6 +343,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       insert into harmonization_redirects(source_id,entity,source_slug,target_id)
       values ('11111111-1111-4111-8111-111111111111','works','old-book-slug',${bookId})
     `;
+    await c`insert into imports(source,status,s3_bronze_key,total_records) values ('csv','completed','bronze/imports/legacy/books.csv',3)`;
     before = legacyRows(await snapshot());
     // Apply and reconcile each expansion migration independently. A later step
     // cannot hide a destructive intermediate change by recreating the data.

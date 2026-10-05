@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, FileText, Database } from "lucide-react";
@@ -12,6 +13,13 @@ export default function ImportPage() {
         title="Import"
         description="Bulk import books from CSV or external sources"
       />
+
+      <p className="mb-6 text-sm text-fg-secondary" data-reading-import-link="">
+        Importing reading history from Goodreads or StoryGraph? Use{" "}
+        <Link href="/reading/import" className="text-fg-primary underline decoration-glass-border underline-offset-2 transition-colors hover:text-accent-rose-text">
+          Reading › Import
+        </Link>
+      </p>
 
       <div className="max-w-2xl space-y-6">
         {/* CSV upload */}

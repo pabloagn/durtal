@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { BookMarked } from "lucide-react";
+import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -33,8 +35,15 @@ export default async function ReadingPage() {
         <EmptyState
           icon={BookMarked}
           title="Nothing read yet"
-          description="Start a book to follow your progress here."
-          action={<StartBookButton />}
+          description="Start a book to follow your progress here, or bring your reading history in."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <StartBookButton />
+              <Link href="/reading/import" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-import="">
+                Import from Goodreads or StoryGraph
+              </Link>
+            </div>
+          }
         />
       ) : (
         <div className="space-y-12">

@@ -28,7 +28,12 @@ its time in ms, its row count and its parameters, to FILE as one JSON line.
 After --from-dump the log holds real catalogue data: keep it out of the
 repository (.gitignore ignores *.jsonl).
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE]
+The preview has no S3: placeholder keys make every S3 call fail. With
+--s3-dir DIR, the app keeps its S3 objects as files under DIR for this run
+(DURTAL_PREVIEW_S3_DIR), so uploads, imports and e-books work. It is never
+set anywhere else.
+
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR]
 """
 
 import argparse
@@ -200,6 +205,8 @@ def main():
                         help="add N perfumes, N films and N paintings (scripts/qa/seed-large.sql)")
     parser.add_argument("--log-sql", type=Path, metavar="FILE",
                         help="append every query the app sends, with its time, to FILE (JSON lines)")
+    parser.add_argument("--s3-dir", type=Path, metavar="DIR",
+                        help="keep S3 objects as files under DIR instead of S3")
     args = parser.parse_args()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
@@ -267,6 +274,9 @@ def main():
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
+        if args.s3_dir:
+            args.s3_dir.resolve().mkdir(parents=True, exist_ok=True)
+            env["DURTAL_PREVIEW_S3_DIR"] = str(args.s3_dir.resolve())
         bridge = workdir / "neon-bridge.mjs"
         bridge.write_text(BRIDGE % {
             "postgres": repr(str(ROOT / "node_modules/postgres/src/index.js")),

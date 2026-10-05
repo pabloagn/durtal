@@ -88,6 +88,15 @@ export default async function DataSettingsPage() {
         />
       </SettingsGroup>
 
+      <SettingsGroup title="Import">
+        <QueueRow
+          id="import-reading"
+          label="Import reading history"
+          description="Readings from a Goodreads or StoryGraph export, or a Durtal reading CSV, with a preview of every row before anything is written."
+          href="/reading/import"
+        />
+      </SettingsGroup>
+
       <SettingsGroup title="Export" description="The whole catalogue as one file. A list's own export takes the records you select.">
         <ExportRow
           entity="works"

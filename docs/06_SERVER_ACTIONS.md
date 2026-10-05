@@ -515,7 +515,32 @@ The series page's "Next to read": `nextToRead`'s volume and where its copy is (a
 ### Internal service (`src/lib/reading/service.ts`, not a server action)
 - `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
 - `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again").
-- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome.
+- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome. `allowPossibleDuplicate` writes a possible duplicate, and an undated read the import's count rule called present ("Import anyway").
+
+---
+
+## Reading import (`src/lib/actions/reading-import.ts`, SLN-450)
+
+Each action parses its input with zod (`src/lib/validations/reading-import.ts`). The upload is the route `POST /api/reading/import`. The work happens in `src/lib/reading/import/store.ts`; matching in `match.ts` and `match-rules.ts`. No activity event: no event type fits an import, and the imports list records it.
+
+### `decideImportRow({ importId, rowNo, decision?, workId?, useFileRating? })`
+One UPDATE of one row: Import, Skip, or "Use the file's rating" (the commit then sends `bookRating: "replace"`). With `workId` ("Choose another book", a candidate): the book must be a book (`requireBookWork`); the row's book is set, its readings and the other rows of the same books are checked again against the duplicate rule, and the decision becomes import (skip when every read is already there). Refused on a row already written ("This row was imported; undo the import to change it"), and Import on a row that cannot be imported, has no book, or whose reads are all present except through the undated count.
+
+### `decideImportSection({ importId, section, decision })`
+`section` is `likely` ("Accept all likely matches") or `none` ("Skip all not in Durtal"): one UPDATE over the section's pending rows not yet written. Returns `{ changed }`.
+
+### `rematchImport({ importId })`
+"Match again": matching and the duplicate check again for the rows still without a book, after a book was added. A row that now matches moves to its section with that section's default decision. Returns `{ matched }`.
+
+### `commitReadingImport({ importId })`
+Locks the import (`select ... for update`, status pending, completed or undone), checks every matched row's readings again against what Durtal holds now, and writes the rows decided import and not yet written through `writeReadings(rows, { source: "import", importId })`. `source`, `sourceKey` and `importId` come from the server, never from the page. A book's rows go in one call, so the count rule sees them together, in chunks of at most 100 readings; after each chunk, each row's outcome goes to `written` in one UPDATE. Totals: the file's Durtal value, else the edition's `page_count`, else Goodreads' `Number of Pages`, never below the position. An edition matched by ISBN that has no `goodreads_id` gets a `catalogue_identifiers` row (provider `goodreads`, kind `edition`) when the file has a Book Id and that id is free; its id goes into `written`. Then the import's counts, `error_log` (row and reason only), status `completed` and `completed_at`. A commit stopped half way finishes when run again. Returns `{ written, present, refused, rows }`.
+
+### `undoReadingImport({ importId })`
+Deletes the import's readings not edited since (their `updated_at` equals their `created_at` and they have no sessions), any reading with this `import_id` included, in chunks of 100. Puts each book rating back to `before` only while `works.rating` still equals `after`; removes the identifiers it added; keeps in `written` only the readings it kept; status `undone`. Returns `{ removed, kept }`. Can be run again; an undone import keeps its decisions and can be committed again.
+
+### Import queries (`src/lib/reading/import/page-data.ts`, not server actions)
+- `listReadingImports(limit)`: the reading imports, newest first, with their counts, readings and whether the raw file was kept.
+- `getImportPreview(importId, limits)`: the import, the section counts and the summary (rows, want to read, private notes, kept extras, pending, ratings that differ, readings to import, identifiers to record), and each section's first rows (50 by default) with the matched book and the To choose candidates. Reviews and private notes stay in the database.
 
 ---
 
