@@ -9,8 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { BookPicker } from "@/components/reading/book-picker";
 import { Cover } from "@/components/reading/reading-tiles";
-import { commitReadingImport, decideImportRow, decideImportSection, rematchImport, undoReadingImport } from "@/lib/actions/reading-import";
+import {
+  commitReadingImport,
+  decideAllImportNotes,
+  decideImportNote,
+  decideImportRow,
+  decideImportSection,
+  rematchImport,
+  undoReadingImport,
+} from "@/lib/actions/reading-import";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
+import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
 
 /*
@@ -251,6 +260,114 @@ export function ImportRows({ importId, rows }: { importId: string; rows: RowView
   );
 }
 
+const NOTE_STATE: Partial<Record<ImportNoteView["state"], string>> = {
+  imported: "Imported",
+  present: "Already in Durtal (Same source)",
+  no_book: "Choose this row's book first",
+};
+
+/** One private note's Import and Skip (SLN-453) */
+function NoteActions({ importId, rowNo, decision }: { importId: string; rowNo: number; decision: ImportDecision }) {
+  const { pending, run } = useAction();
+  const [current, setCurrent] = useState(decision);
+  const [seen, setSeen] = useState(decision);
+  if (seen !== decision) {
+    setSeen(decision);
+    setCurrent(decision);
+  }
+  const toggle = (label: string, value: ImportDecision) => (
+    <button
+      type="button"
+      className="row-chip"
+      data-on={current === value ? "" : undefined}
+      aria-pressed={current === value}
+      disabled={pending}
+      onClick={() => {
+        if (current === value) return;
+        setCurrent(value);
+        run(() => decideImportNote({ importId, rowNo, decision: value }));
+      }}
+      data-import-note-decide={value}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1">
+      {toggle("Import", "import")}
+      {toggle("Skip", "skip")}
+    </div>
+  );
+}
+
+/** The preview's private notes (SLN-453): the note's first lines, the row's book, and Import or Skip */
+export function ImportNoteRows({ importId, rows }: { importId: string; rows: ImportNoteView[] }) {
+  return (
+    <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
+      {rows.map((row) => {
+        const state = row.state === "too_long" ? row.reason : NOTE_STATE[row.state];
+        const open = row.state === "import" || row.state === "skip" || row.state === "pending";
+        return (
+          <li key={row.rowNo} className="grid gap-x-6 gap-y-2 px-4 py-3 lg:grid-cols-3" data-import-note={row.rowNo}>
+            <div className="min-w-0">
+              <p className="lines-1 text-sm text-fg-primary">{row.title}</p>
+              <p className="lines-1 text-xs text-fg-secondary">{[row.author, `Row ${row.rowNo}`].filter(Boolean).join(" · ")}</p>
+            </div>
+            <div className="min-w-0">
+              {row.book ? (
+                <>
+                  <Link href={row.book.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+                    {row.book.title}
+                  </Link>
+                  <p className="lines-1 text-xs text-fg-secondary">{row.book.author ?? "Unknown author"}</p>
+                </>
+              ) : (
+                <p className="text-xs text-fg-secondary">Choose this row&rsquo;s book first</p>
+              )}
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="whitespace-pre-line break-words text-xs text-fg-primary" data-import-note-text="">
+                {row.preview}
+              </p>
+              {state && row.book && (
+                <p className="text-xs text-fg-secondary" data-import-note-state={row.state}>
+                  {state}
+                </p>
+              )}
+              {open && row.book && <NoteActions importId={importId} rowNo={row.rowNo} decision={row.state as ImportDecision} />}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** "Import all private notes": every note with a book (SLN-453) */
+export function NotesSectionAction({ importId }: { importId: string }) {
+  const { pending, run } = useAction();
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={pending}
+      className={coarse}
+      data-import-bulk="notes"
+      onClick={() =>
+        run(
+          () => decideAllImportNotes({ importId }),
+          (r) => {
+            const changed = (r as { changed: number }).changed;
+            toast.success(`${changed} ${changed === 1 ? "note" : "notes"} to import`);
+          },
+        )
+      }
+    >
+      Import all private notes
+    </Button>
+  );
+}
+
 /** "Accept all likely matches" and "Skip all not in Durtal" */
 export function SectionAction({ importId, section, label }: { importId: string; section: "likely" | "none"; label: string }) {
   const { pending, run } = useAction();
@@ -324,13 +441,14 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
         run(
           () => commitReadingImport({ importId }),
           (r) => {
-            const { written, present, refused, queued } = r as { written: number; present: number; refused: number; queued: number };
+            const { written, present, refused, queued, notes } = r as { written: number; present: number; refused: number; queued: number; notes: number };
             toast.success(
               [
                 `${written} ${written === 1 ? "reading" : "readings"} written`,
                 present ? `${present} already in Durtal` : null,
                 refused ? `${refused} refused` : null,
                 queued ? `${queued} ${queued === 1 ? "book" : "books"} added to Up Next` : null,
+                notes ? `${notes} ${notes === 1 ? "note" : "notes"} imported` : null,
               ]
                 .filter(Boolean)
                 .join(" · "),
@@ -345,7 +463,19 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
 }
 
 /** Undo, after saying what it removes */
-export function UndoImport({ importId, readings, queued = 0, size = "md" }: { importId: string; readings: number; queued?: number; size?: "sm" | "md" }) {
+export function UndoImport({
+  importId,
+  readings,
+  queued = 0,
+  notes = 0,
+  size = "md",
+}: {
+  importId: string;
+  readings: number;
+  queued?: number;
+  notes?: number;
+  size?: "sm" | "md";
+}) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
   return (
@@ -357,8 +487,10 @@ export function UndoImport({ importId, readings, queued = 0, size = "md" }: { im
         <Dialog open onClose={() => setAsking(false)} title="Undo this import" className="max-w-md" expandable={false}>
           <p className="text-sm text-fg-secondary">
             This removes the {readings === 1 ? "reading" : `${readings} readings`} it wrote
-            {queued ? `, the ${queued === 1 ? "book" : `${queued} books`} it added to Up Next` : ""}, the book ratings it set while they are unchanged, and the
-            Goodreads ids it recorded. Readings you edited since, and Up Next items you moved or edited, are kept. You can import it again later.
+            {queued ? `, the ${queued === 1 ? "book" : `${queued} books`} it added to Up Next` : ""}
+            {notes ? `, the ${notes === 1 ? "note" : `${notes} notes`} it imported` : ""}, the book ratings it set while they are unchanged, and the
+            Goodreads ids it recorded. Readings{notes ? " and notes" : ""} you edited since, and Up Next items you moved or edited, are kept. You can import it
+            again later.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => setAsking(false)} className={coarse}>
@@ -375,13 +507,22 @@ export function UndoImport({ importId, readings, queued = 0, size = "md" }: { im
                   () => undoReadingImport({ importId }),
                   (r) => {
                     setAsking(false);
-                    const { removed, kept, queueRemoved, queueKept } = r as { removed: number; kept: number; queueRemoved: number; queueKept: number };
+                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept } = r as {
+                      removed: number;
+                      kept: number;
+                      queueRemoved: number;
+                      queueKept: number;
+                      notesRemoved: number;
+                      notesKept: number;
+                    };
                     toast.success(
                       [
                         `${removed} ${removed === 1 ? "reading" : "readings"} removed`,
                         kept ? `${kept} edited after the import and kept` : null,
                         queueRemoved ? `${queueRemoved} ${queueRemoved === 1 ? "book" : "books"} taken off Up Next` : null,
                         queueKept ? `${queueKept} Up Next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
+                        notesRemoved ? `${notesRemoved} ${notesRemoved === 1 ? "note" : "notes"} removed` : null,
+                        notesKept ? `${notesKept} ${notesKept === 1 ? "note was" : "notes were"} edited after the import and ${notesKept === 1 ? "was" : "were"} kept` : null,
                       ]
                         .filter(Boolean)
                         .join(" · "),

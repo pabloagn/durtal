@@ -9,7 +9,7 @@ export default async function AddBookPage({
 }: {
   searchParams?: Promise<{ q?: string | string[]; isbn?: string | string[]; then?: string | string[] }>;
 }) {
-  // From the reading book picker (SLN-448): ?q= or ?isbn=, and &then=start or past
+  // From the reading book picker (SLN-448): ?q= or ?isbn=, and &then=start, past or quote
   const { initialQuery, initialIsbn, then } = addBookParams((await searchParams) ?? {});
   return (
     <>

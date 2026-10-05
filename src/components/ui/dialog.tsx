@@ -160,7 +160,8 @@ export function Dialog({
             <p className="mt-1 text-sm text-fg-secondary">{description}</p>
           )}
         </div>
-        <CapAligned height={28} className="ml-4">
+        {/* 44px targets on touch */}
+        <CapAligned height={28} coarseHeight={44} className="ml-4">
           <div className="flex items-center gap-1">
             {expandable && (
               <button
@@ -168,7 +169,7 @@ export function Dialog({
                 onClick={() => setExpanded((prev) => !prev)}
                 aria-label={expanded ? "Collapse" : "Expand"}
                 data-tooltip={expanded ? "Collapse" : "Expand"}
-                className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+                className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
               >
                 {expanded ? (
                   <Minimize2 className="h-4 w-4" strokeWidth={1.5} />
@@ -183,7 +184,7 @@ export function Dialog({
               aria-label={`Close ${title}`}
               data-tooltip="Close"
               data-tooltip-keys="esc"
-              className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary"
+              className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />
             </button>

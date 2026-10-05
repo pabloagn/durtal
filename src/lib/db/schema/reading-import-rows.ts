@@ -22,17 +22,20 @@ export const readingImportRows = pgTable(
     /** Section, reason, candidates with scores, and one duplicate verdict per reading */
     match: jsonb("match"),
     decision: text("decision", { enum: ["pending", "import", "skip"] }).notNull().default("pending"),
+    /** His choice for the row's Goodreads private note, apart from its readings (SLN-453) */
+    noteDecision: text("note_decision", { enum: ["pending", "import", "skip"] }).notNull().default("pending"),
     /** Replace the book's different rating with the file's */
     useFileRating: boolean("use_file_rating").notNull().default(false),
     /** The matched or chosen book */
     workId: uuid("work_id").references(() => works.id, { onDelete: "set null" }),
-    /** What the commit wrote: reading ids, the book rating before and after, identifier ids */
+    /** What the commit wrote: reading ids, the book rating before and after, identifier ids, note ids */
     written: jsonb("written"),
   },
   (t) => [
     primaryKey({ columns: [t.importId, t.rowNo] }),
     index("reading_import_rows_work_idx").on(t.workId),
     check("reading_import_rows_decision_check", sql`${t.decision} in ('pending','import','skip')`),
+    check("reading_import_rows_note_decision_check", sql`${t.noteDecision} in ('pending','import','skip')`),
   ],
 );
 

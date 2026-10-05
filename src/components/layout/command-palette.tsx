@@ -16,6 +16,8 @@ import {
   BookPlus,
   CalendarClock,
   ListOrdered,
+  NotebookText,
+  Quote,
   Square,
   Timer,
   type LucideIcon,
@@ -245,6 +247,15 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         : []),
     { value: "reading:start", label: "Start reading...", icon: BookPlus, run: () => reading.pick("start") },
     { value: "reading:past", label: "Log a past read...", icon: CalendarClock, run: () => reading.pick("past") },
+    // Quotes (SLN-453): one per open reading, then any book through the picker
+    ...openReadings.map((o) => ({
+      value: `reading:quote:${o.reading.id}`,
+      label: `Add a quote · ${o.work.title}`,
+      icon: Quote,
+      run: () => void reading.open({ kind: "note", workId: o.work.id, readingId: o.reading.id, noteKind: "quote" }),
+    })),
+    { value: "reading:quote", label: "Add a quote...", icon: Quote, run: () => reading.pick("quote") },
+    { value: "reading:notes", label: "Go to Notes", icon: NotebookText, run: () => router.push("/reading/notes") },
     // Up Next (SLN-452); "Add to Up Next" on a book page comes from its R menu under "This page"
     { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => router.push("/reading/next") },
   ];

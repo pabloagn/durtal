@@ -36,6 +36,7 @@ import {
   ArrowLeftRight,
   ListPlus,
   ListMinus,
+  Quote,
   type LucideIcon,
 } from "lucide-react";
 import { EVENT_CONFIG } from "@/lib/activity/event-config";
@@ -76,6 +77,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ArrowLeftRight,
   ListPlus,
   ListMinus,
+  Quote,
 };
 
 interface ActivityEventIconProps {

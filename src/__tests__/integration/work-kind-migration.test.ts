@@ -164,6 +164,11 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       delete row.paused_at;
       delete row.paused_seconds;
     }
+    // 0069 (SLN-453): every import row's private note waits for his choice
+    for (const row of projected.reading_import_rows ?? []) {
+      if ("note_decision" in row) expect(row.note_decision, "reading_import_rows.note_decision").toBe("pending");
+      delete row.note_decision;
+    }
     // 0065 (SLN-444): works.rating becomes numeric(2,1); a stored 4 reads as
     // the number 4 either way, so only its type is checked
     for (const row of projected.works ?? [])
@@ -228,6 +233,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "reading_status_history",
       "reading_import_rows",
       "reading_queue",
+      "reading_notes",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical

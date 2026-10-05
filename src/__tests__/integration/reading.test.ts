@@ -659,11 +659,11 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       const { workId, editionId, reading } = await started({ title: "Restore" });
       await log(reading.id, { page: 50 });
       const snap = await deleteReading({ readingId: reading.id, fingerprint: await fp(reading.id) });
-      expect(await getReadingCounts(workId)).toEqual({ readings: 0, sessions: 0 });
+      expect(await getReadingCounts(workId)).toEqual({ readings: 0, sessions: 0, quotes: 0, notes: 0 });
       await deleteEdition(editionId);
       const back = await restoreReading(JSON.parse(JSON.stringify(snap)));
       expect(back).toMatchObject({ id: reading.id, editionId: null });
-      expect(await getReadingCounts(workId)).toEqual({ readings: 1, sessions: 1 });
+      expect(await getReadingCounts(workId)).toEqual({ readings: 1, sessions: 1, quotes: 0, notes: 0 });
       const again = await deleteReading({ readingId: reading.id, fingerprint: await fp(reading.id) });
       await startReading({ workId });
       await expect(restoreReading(JSON.parse(JSON.stringify(again)))).rejects.toThrow("This book is already being read");
