@@ -4,14 +4,15 @@ import { useEffect, useId, useRef } from "react";
 import { Info } from "lucide-react";
 
 /*
- * The info button beside an estimate (SLN-451): a glass popover that says
- * what the estimate is based on. A native popover, so it sits above cards
- * that clip, closes on Escape and on a click outside.
+ * The info button beside an estimate (SLN-451) or a goal (SLN-455): a glass
+ * popover that says what the number is based on, one line per paragraph. A
+ * native popover, so it sits above cards that clip, closes on Escape and on
+ * a click outside.
  */
 
 const LABEL = "How this estimate is made";
 
-export function EstimateInfo({ text }: { text: string }) {
+export function EstimateInfo({ text, label = LABEL }: { text: string; label?: string }) {
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
@@ -39,8 +40,8 @@ export function EstimateInfo({ text }: { text: string }) {
         ref={button}
         type="button"
         popoverTarget={id}
-        aria-label={LABEL}
-        data-tooltip={LABEL}
+        aria-label={label}
+        data-tooltip={label}
         data-estimate-info=""
         className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11"
       >
@@ -50,7 +51,7 @@ export function EstimateInfo({ text }: { text: string }) {
         ref={pop}
         id={id}
         popover="auto"
-        className="glass fixed inset-auto m-0 overflow-hidden border-0 p-3 text-xs leading-relaxed text-fg-primary"
+        className="glass fixed inset-auto m-0 overflow-hidden border-0 p-3 text-xs leading-relaxed whitespace-pre-line text-fg-primary"
         data-estimate-popover=""
       >
         {text}

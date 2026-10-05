@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   integer,
+  smallint,
   numeric,
   date,
   timestamp,
@@ -29,6 +30,7 @@ import {
   QUEUE_SOURCES,
   NOTE_KINDS,
   NOTE_SOURCES,
+  GOAL_METRICS,
 } from "@/lib/reading/constants";
 
 /** A list of allowed values for a CHECK: ('a','b') */
@@ -304,6 +306,34 @@ export const readingNotes = pgTable(
     ),
     // Only quotes carry a thought
     check("reading_note_comment_check", sql`${t.kind} = 'quote' or (${t.commentHtml} is null and ${t.commentJson} is null)`),
+  ],
+);
+
+/**
+ * Reading goals (SLN-455): optional, at most one per metric per year (a
+ * books goal and an hours goal can sit side by side). No book: no
+ * book_parent_required trigger. Progress is computed per request.
+ */
+export const readingGoals = pgTable(
+  "reading_goals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    year: smallint("year").notNull(),
+    metric: text("metric", { enum: GOAL_METRICS }).notNull(),
+    target: integer("target").notNull(),
+    /** With it off, a re-read adds no books, pages or hours */
+    countRereads: boolean("count_rereads").notNull().default(true),
+    /** Work types left out (reference books); ids that no longer exist are ignored */
+    excludedWorkTypeIds: uuid("excluded_work_type_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("reading_goal_year_metric_unique").on(t.year, t.metric),
+    check(
+      "reading_goal_values_check",
+      sql`${t.year} between 1900 and 2200 and ${t.metric} in ${list(GOAL_METRICS)} and ${t.target} between 1 and 100000`,
+    ),
   ],
 );
 

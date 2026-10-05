@@ -38,6 +38,7 @@ export const appSettingsInputSchema = z
       .int()
       .min(15, "Ask after 15 minutes to 8 hours")
       .max(480, "Ask after 15 minutes to 8 hours"),
+    readingRhythmDays: z.number().int().min(1, "Pick 1 to 7 days").max(7, "Pick 1 to 7 days").nullable(),
   })
   .partial();
 
