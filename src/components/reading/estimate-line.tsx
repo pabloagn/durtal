@@ -20,12 +20,13 @@ export function EstimateLine({
   lines?: string;
   onAddLength?: () => void;
 }) {
-  // A line breaks between its parts, never inside "Around 25 Oct"
+  // A line breaks between its parts, never inside "Around 25 Oct"; a long part
+  // ("Log a few sessions for an estimate") may wrap, so a narrow card never widens
   const parts = estimate.text.split(" · ");
   const text = parts.map((part, i) => (
     <Fragment key={i}>
       {i > 0 && " "}
-      <span className="whitespace-nowrap">
+      <span className={part.length <= 24 ? "whitespace-nowrap" : undefined}>
         {part}
         {i < parts.length - 1 ? " ·" : ""}
       </span>
