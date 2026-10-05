@@ -36,6 +36,7 @@ import {
   yearNumbers,
 } from "@/lib/reading/stats";
 import { languageName } from "@/lib/utils/language";
+import { nationalityFilterHref, shortCountryName } from "@/lib/utils/nationality-param";
 import { formatRating } from "@/lib/utils/rating";
 
 export const metadata = { title: "Reading stats" };
@@ -158,7 +159,9 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
           <StatsSection title={year === null ? "Over the years" : "Over the year"} id="over-time">
             <div className="grid gap-8 lg:grid-cols-2">
               {(["books", "pages"] as const).map((metric) => {
-                const bars = [...months.bars, ...(months.unknown ? [months.unknown] : [])].map((b) => ({
+                // The Month unknown bar only for a metric it holds something of
+                const unknown = months.unknown && months.unknown[metric] > 0 ? months.unknown : null;
+                const bars = [...months.bars, ...(unknown ? [unknown] : [])].map((b) => ({
                   label: b.key === null ? "?" : year === null ? String(b.key) : MONTHS_SHORT[b.key - 1],
                   value: b[metric],
                   text: `${b.key === null ? `Month unknown, ${year}` : year === null ? b.key : `${MONTHS[b.key - 1]} ${year}`}: ${count(b[metric], metric === "books" ? "book" : "page")}`,
@@ -172,7 +175,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                     tone={metric === "books" ? "sage" : "blue"}
                     columns={[year === null ? "Year" : "Month", metric === "books" ? "Books" : "Pages"]}
                     footnote={[
-                      months.unknown ? "“?” holds the readings dated only by the year." : null,
+                      unknown ? "“?” holds the readings dated only by the year." : null,
                       months.undated ? `${count(months.undated, "reading")} with unknown dates ${months.undated === 1 ? "is" : "are"} not shown.` : null,
                       metric === "pages" ? audioNote(numbers.audioWithoutPages) : null,
                     ]
@@ -361,7 +364,8 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
               <RankList
                 title="Where they come from"
                 items={authors.countries.slice(0, 10).map((c) => ({
-                  label: c.country,
+                  label: shortCountryName(c.country),
+                  href: nationalityFilterHref(c.code),
                   value: c.authors,
                   text: count(c.authors, "author"),
                 }))}

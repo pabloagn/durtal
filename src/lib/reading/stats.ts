@@ -330,7 +330,8 @@ export interface AuthorStats {
   byPages: { authorId: string; name: string; slug: string; books: number; pages: number }[];
   /** A year: authors whose first finished book is in it */
   newAuthors: { authorId: string; name: string; slug: string }[];
-  countries: { country: string; authors: number }[];
+  /** The country's full name and its alpha-2 code */
+  countries: { country: string; code: string; authors: number }[];
   /** Distinct authors by recorded gender; null is "not recorded" */
   genders: { gender: string | null; authors: number }[];
 }
@@ -351,10 +352,10 @@ export async function authorStats(year: StatsYear): Promise<AuthorStats> {
           join work_authors wa on wa.author_id = a.id and wa.role = 'author' join rr on rr.work_id = wa.work_id
           where rr.status = 'finished' and rr.finished_precision <> 'unknown'
           group by a.id, a.name, a.slug having extract(year from min(rr.finished_on)) = ${year} order by a.name`),
-    rows<{ country: string; authors: number }>(sql`with ${BASE}
-      select c.name as country, count(distinct a.id)::float8 as authors from authors a
+    rows<{ country: string; code: string; authors: number }>(sql`with ${BASE}
+      select c.name as country, c.alpha_2 as code, count(distinct a.id)::float8 as authors from authors a
       join countries c on c.id = a.nationality_id join work_authors wa on wa.author_id = a.id and wa.role = 'author'
-      join rr on rr.work_id = wa.work_id where ${finishedIn(year)} group by 1 order by 2 desc, 1`),
+      join rr on rr.work_id = wa.work_id where ${finishedIn(year)} group by 1, 2 order by 3 desc, 1`),
     rows<{ gender: string | null; authors: number }>(sql`with ${BASE}
       select a.gender::text as gender, count(distinct a.id)::float8 as authors from authors a
       join work_authors wa on wa.author_id = a.id and wa.role = 'author' join rr on rr.work_id = wa.work_id
@@ -673,11 +674,10 @@ export async function onThisDay(days: string[]): Promise<OnThisDay[]> {
       from d join rr on rr.started_precision = 'day'
         and to_char(rr.started_on, 'MM-DD') = to_char(d.day, 'MM-DD') and rr.started_on < date_trunc('year', d.day)
     )
-    select day::text as day, year, kind, work_id::text as "workId", w.title, w.slug, rating::float8 as rating from (
+    select h.day::text as day, h.year, h.kind, h.work_id::text as "workId", w.title, w.slug, h.rating::float8 as rating from (
       select h.*, row_number() over (partition by h.day order by h.o, h.year desc, h.work_id) as n from hits h
-    ) h join works w on w.id = h.work_id where h.n <= 3 order by day, h.o, year desc`);
+    ) h join works w on w.id = h.work_id where h.n <= 3 order by h.day, h.o, h.year desc`);
 }
-
 
 /* ── Year in review ─────────────────────────────────────────────────────── */
 

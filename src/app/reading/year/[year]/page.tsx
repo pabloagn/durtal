@@ -15,6 +15,7 @@ import { MONTHS, finishText, n, yearRhythm } from "@/lib/reading/charts";
 import { pastGoalText, reachedText } from "@/lib/reading/goals";
 import { authorStats, finishedYears, languages, readingDays, yearReview, type ReviewBook } from "@/lib/reading/stats";
 import { languageName } from "@/lib/utils/language";
+import { nationalityFilterHref, shortCountryName } from "@/lib/utils/nationality-param";
 import { formatRating } from "@/lib/utils/rating";
 
 export async function generateMetadata({ params }: { params: Promise<{ year: string }> }) {
@@ -89,7 +90,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
           id="numbers"
           action={
             <Link href={journal} className={evidence}>
-              The journal for {year}
+              The journal
             </Link>
           }
         >
@@ -121,10 +122,10 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
         <StatsSection title="The books, month by month" id="books">
           <div className="space-y-4" data-review-wall="">
             {months.map(({ month, books }) => (
-              <div key={month ?? "unknown"} id={month ? `month-${month}` : "month-unknown"} className="grid scroll-mt-24 grid-cols-[6rem_1fr] gap-x-4 break-inside-avoid">
+              <div key={month ?? "unknown"} id={month ? `month-${month}` : "month-unknown"} className="grid scroll-mt-24 gap-x-4 gap-y-2 break-inside-avoid sm:grid-cols-[6rem_1fr]">
                 <p className="text-xs text-fg-secondary">
                   {month ? MONTHS[month - 1] : "Month unknown"}
-                  <span className="block tabular-nums">{n(books.length)}</span>
+                  <span className="ml-2 tabular-nums sm:ml-0 sm:block">{n(books.length)}</span>
                 </p>
                 <ul className="flex flex-wrap gap-2">
                   {books.map((b) => (
@@ -199,7 +200,16 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
               )}
               {authors.countries.length > 0 && (
                 <p data-review-countries="">
-                  Books from {n(authors.countries.length)} {authors.countries.length === 1 ? "country" : "countries"}: {authors.countries.map((c) => c.country).join(", ")}.
+                  Books from {n(authors.countries.length)} {authors.countries.length === 1 ? "country" : "countries"}:{" "}
+                  {authors.countries.map((c, i) => (
+                    <span key={c.code}>
+                      {i > 0 && ", "}
+                      <Link href={nationalityFilterHref(c.code)} className={link}>
+                        {shortCountryName(c.country)}
+                      </Link>
+                    </span>
+                  ))}
+                  .
                 </p>
               )}
               {langs.known > 0 && (

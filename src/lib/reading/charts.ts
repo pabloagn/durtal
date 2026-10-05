@@ -10,22 +10,24 @@ export const MONTHS = ["January", "February", "March", "April", "May", "June", "
 export const MONTHS_SHORT = MONTHS.map((m) => m.slice(0, 3));
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-/** The top of a scale: max rounded up to 1, 2 or 5 times a power of ten; 1 for nothing */
+/** The top of a scale: max rounded up to 1, 2, 2.5 (from 25) or 5 times a power of ten; 1 for nothing or less */
 export function niceMax(max: number): number {
-  if (!(max > 0)) return 1;
+  if (!(max > 1)) return 1;
   const power = 10 ** Math.floor(Math.log10(max));
-  const step = [1, 2, 5, 10].find((s) => s * power >= max)!;
+  const step = [1, 2, 2.5, 5, 10].find((s) => Number.isInteger(s * power) && s * power >= max)!;
   return step * power;
 }
 
-/** Evenly spaced ticks from 0 to niceMax(max), whole numbers only */
-export function ticks(max: number, count = 4): number[] {
+/** Ticks from 0 to niceMax(max): whole steps of 1, 2, 2.5 or 5 times a power of ten that end on the top, `count` steps at most */
+export function ticks(max: number, count = 5): number[] {
   const top = niceMax(max);
-  const step = top / count;
-  const whole = Number.isInteger(step) ? step : top <= count ? 1 : Math.ceil(step);
-  const out: number[] = [];
-  for (let v = 0; v <= top + 1e-9; v += whole) out.push(Math.round(v));
-  return out;
+  let step = top;
+  for (let power = 1; power <= top; power *= 10)
+    for (const m of [1, 2, 2.5, 5]) {
+      const s = m * power;
+      if (Number.isInteger(s) && s >= top / count && top % s === 0 && s < step) step = s;
+    }
+  return Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
 }
 
 /* ── The calendar ──────────────────────────────────────────────────────── */
