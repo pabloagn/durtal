@@ -34,3 +34,11 @@ opened on a homelab that does not run Durtal.
 
 - Docs only. The rest of SLN-382 (rehearsal, recovery build, rollback drill,
   backup checks) is on main from task 0267.
+
+### Review fixes (PR #112)
+
+- Step 7 named `scripts/maintenance/backfill-cover-colors.ts`, which is not
+  on main. It now names a data step main has: a reading import's preview at
+  `/reading/import/<id>` before its commit.
+- Step 3 named only the database backup. It now also says to refresh the S3
+  bucket's copy before a step that deletes or overwrites files.
