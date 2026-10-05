@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, ChevronDown, ChevronRight, Download, MoreHorizontal, PenLine, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { deleteSession, getReadingSessions, restoreSession, type SessionRow } from "@/lib/actions/reading";
 import type { ReadingFormat, SessionSource } from "@/lib/reading/constants";
 import { formatReadingDate } from "@/lib/reading/dates";
@@ -153,7 +153,7 @@ export function SessionList({ row, current }: { row: ReadingRow; current: boolea
             <li key={s.id} className="flex items-start gap-3 border-t border-glass-border py-2 first:border-t-0" data-session={s.id}>
               <SourceIcon source={s.source} />
               <SessionLine s={s} row={row} today={data.today} />
-              <CapAligned height={32} coarseHeight={44} className="text-xs">
+              <CapAlignedControls height={32} coarseHeight={44} className="text-xs">
                 <DropdownMenu
                   label="Session actions"
                   align="end"
@@ -175,7 +175,7 @@ export function SessionList({ row, current }: { row: ReadingRow; current: boolea
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenu>
-              </CapAligned>
+              </CapAlignedControls>
             </li>
           ))}
           {list && !list.sessions.length && !running && <li className="py-2 text-fg-secondary">No sessions yet</li>}

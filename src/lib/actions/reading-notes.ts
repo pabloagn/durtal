@@ -183,7 +183,7 @@ export async function createReadingNote(input: z.input<typeof createReadingNoteS
   return (await loadNote(id))!;
 }
 
-/** Edits a quote or note; a note that becomes a note loses its thought */
+/** Edits a quote or note; a quote that becomes a note loses its thought, and a thought not sent stays as it is */
 export async function updateReadingNote(input: z.input<typeof updateReadingNoteSchema>): Promise<NoteItem> {
   const { id, ...patch } = updateReadingNoteSchema.parse(input);
   const note = await noteOrThrow(id);

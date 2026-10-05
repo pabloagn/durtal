@@ -28,7 +28,11 @@ vi.mock("next/dynamic", () => ({
     },
 }));
 
+// EB Garamond loads through next/font, which needs the Next compiler
+vi.mock("next/font/google", () => ({ EB_Garamond: () => ({ variable: "font-prose" }) }));
+
 import { NoteDialog } from "@/components/reading/dialogs/note-dialog";
+import { NoteItemView } from "@/components/reading/note-item";
 import { LogProgressDialog } from "@/components/reading/dialogs/log-progress-dialog";
 import type { ReadingDialogProps } from "@/components/reading/reading-provider";
 
@@ -190,7 +194,54 @@ describe("the note dialog", () => {
       noteKind: "quote",
       readingId: "r1",
       page: 230,
-      back: { kind: "progress", readingId: "r1", prefill: "230", timer: undefined },
+      back: {
+        kind: "progress",
+        readingId: "r1",
+        prefill: "230",
+        timer: undefined,
+        draft: { segment: "page", fields: { page: "", percent: "", hours: "", minutes: "", chapter: "" }, readOn: expect.any(String), minutesRead: "", otherId: "" },
+      },
     });
+  });
+
+  it("keeps the page and the minutes typed on a touch screen when Add a quote comes back to Log progress", async () => {
+    coarse = true;
+    const field = (label: string) => doc().getElementById([...doc().querySelectorAll("label")].find((l) => l.textContent === label)!.htmlFor) as HTMLInputElement;
+    act(() => root.render(createElement(LogProgressDialog, props({ request: { kind: "progress", readingId: "r1" } }))));
+    write(field("Page"), "230");
+    write(field("Minutes read (optional)"), "25");
+    act(() => (doc().querySelector("[data-log-quote]") as HTMLButtonElement).click());
+    const back = (opened.at(-1) as { back: ReadingDialogProps["request"] }).back;
+    act(() => root.unmount());
+    root = createRoot(host);
+    act(() => root.render(createElement(LogProgressDialog, props({ request: back }))));
+    expect([field("Page").value, field("Minutes read (optional)").value]).toEqual(["230", "25"]);
+  });
+
+  it("keeps a quote's thought on a page-only edit, and sends it once the editor changes it", async () => {
+    const note = { id: "n1", workId: "w1", kind: "quote" as const, body: "Beauty", commentHtml: "<p>Why</p>", page: 12, chapter: null, percent: 2.5, isFavourite: false, readingId: "r1", readingOrdinal: 1 };
+    act(() => root.render(createElement(NoteDialog, props({ request: { kind: "note", readingId: "r1", note } }))));
+    write(doc().querySelector("[data-note-position]") as HTMLInputElement, "14");
+    await submit();
+    const sent = actions.updateReadingNote.mock.calls[0][0];
+    expect(sent).toMatchObject({ id: "n1", page: 14 });
+    expect(["commentHtml", "commentJson"].filter((k) => k in sent)).toEqual([]);
+    act(() => root.unmount());
+    root = createRoot(host);
+    act(() => root.render(createElement(NoteDialog, props({ request: { kind: "note", readingId: "r1", note } }))));
+    act(() => (doc().querySelector('[data-editor="Your thought"]') as HTMLButtonElement).click());
+    await submit();
+    expect(actions.updateReadingNote.mock.calls[1][0]).toMatchObject({ commentHtml: "<p><strong>Why</strong></p>", commentJson: { type: "doc" } });
+  });
+});
+
+describe("a quote or note", () => {
+  it("puts its controls outside any clipping CapAligned box, so a menu opens in full", () => {
+    const note = { id: "n1", kind: "quote" as const, body: "Beauty", commentHtml: null };
+    act(() => root.render(createElement(NoteItemView, { note, meta: "p. 12", controls: createElement("button", { type: "button", "data-trigger": "" }, "More") })));
+    const trigger = doc().querySelector("[data-trigger]")!;
+    expect(trigger.closest(".cap-box")).toBeNull();
+    // It still sits on the meta line's cap-height center, in CapAlignedControls
+    expect(trigger.closest(".align-\\[0\\.5cap\\]")).not.toBeNull();
   });
 });

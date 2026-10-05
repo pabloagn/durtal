@@ -8,7 +8,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { RatingStars } from "@/components/shared/rating";
 import { Prose } from "@/components/shared/prose";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ABANDON_REASON_LABELS, type AbandonReason, type ReadingFormat } from "@/lib/reading/constants";
 import { formatReadingDate, formatReadingSpan } from "@/lib/reading/dates";
 import { lastReadText, ordinalRead, positionText } from "@/lib/reading/labels";
@@ -200,14 +200,14 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: ReadingRow |
           )}
         </div>
         {/* On the cap-height center of the row's first line */}
-        <CapAligned height={32} coarseHeight={44} className="text-sm">
+        <CapAlignedControls height={32} coarseHeight={44} className="text-sm">
           <RowMenu
             row={row}
             label={`${ordinalRead(row.ordinal)}: actions`}
             onEdit={() => open({ kind: "edit", readingId: r.id })}
             onDelete={() => open({ kind: "delete", readingId: r.id })}
           />
-        </CapAligned>
+        </CapAlignedControls>
       </div>
     </li>
   );

@@ -19,7 +19,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { moveQueueItem, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { showError, undoToast } from "./reading-client";
@@ -110,7 +110,7 @@ function Row({
         {row.note && <p className="text-xs italic text-fg-secondary">{row.note}</p>}
         <p className="text-xs text-fg-secondary">{row.added}</p>
       </div>
-      <CapAligned height={32} coarseHeight={44} className="text-sm">
+      <CapAlignedControls height={32} coarseHeight={44} className="text-sm">
         <span className="flex items-center gap-1">
           <Button
             size="sm"
@@ -144,7 +144,7 @@ function Row({
             </DropdownMenuItem>
           </DropdownMenu>
         </span>
-      </CapAligned>
+      </CapAlignedControls>
     </li>
   );
 }

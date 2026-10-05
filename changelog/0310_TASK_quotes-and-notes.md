@@ -120,3 +120,32 @@ and `reading_import_rows.note_decision`.
   private note imported with its row, on its book page, gone after Undo, back
   after the second commit, and "Already in Durtal (Same source)" on a second
   upload).
+
+## Review fixes (PR #108)
+
+- Row menus opened as a sliver whose items could not be clicked:
+  `CapAligned`'s box clips, and `DropdownMenu` draws its panel inside the
+  trigger's wrapper. `CapAlignedControls` gains `coarseHeight` (44 px on
+  touch), and the five menus beside text move to it: the note item, the Up
+  Next row, the session list, the timer chip's phone time menu and the book
+  page's reading rows (live since SLN-448). The new
+  `src/__tests__/cap-aligned-menus.test.ts` reads every `CapAligned` block in
+  `src` (73) and fails on a menu inside one; before the fix it named those five
+  files.
+- Log progress on a touch screen lost the page and minutes typed there when
+  "Add a quote" came back to it (on desktop, the minutes): the way back now
+  carries a `LogDraft` (the segment, the fields, the date, the minutes read
+  and the other edition), and the dialog starts from it.
+- Editing a quote from the book page or `/reading/notes` cleared its
+  `comment_json` (the lists send no `commentJson`): the note dialog sends the
+  thought only once the editor changed it, and a page-only edit leaves both
+  fields alone.
+- On touch, "Show all" made the meta line 44 px tall and moved the star and
+  the menu 11.58 px off its cap height: it now takes its 48 px target with
+  negative margins (`pointer-coarse:-my-3.5 pointer-coarse:py-3.5`), here and
+  in the passage of the day.
+- Tests: the menu test, a `NoteItemView` test (no `.cap-box` around the
+  controls), the touch draft round trip and the page-only edit; each fails
+  without its fix. Docs 03: a menu beside text goes in `CapAlignedControls`.
+
+RESULTS
