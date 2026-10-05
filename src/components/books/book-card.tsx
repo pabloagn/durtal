@@ -7,17 +7,15 @@ import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
 import { COVER_CORNER } from "./cover-chip";
-import { CardRating, CardReading, CardStatus } from "./card-status";
 import type { CardReadingValue } from "@/lib/reading/card";
-import { Badge } from "@/components/ui/badge";
 import { CardHeading } from "@/components/shared/card-heading";
+import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
 import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { MEDIA_WIDTHS, withMediaWidth } from "@/lib/s3/media-url";
-import { languageName } from "@/lib/utils/language";
 
 export type CoverCrop = MediaCrop;
 
@@ -154,7 +152,7 @@ export function BookCard({
 
   return (
     <div
-      className={`@container group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive ${selectionRing}`}
+      className={`${WORK_CARD} ${selectionRing}`}
       onClick={handleCardClick}
     >
       {/* Cover area — relative wrapper so the dropdown menu escapes overflow-hidden */}
@@ -250,7 +248,7 @@ export function BookCard({
           className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={-1}
         />
-        <div className="p-3.5">
+        <div className={WORK_CARD_BODY}>
           {/* Two title lines and one author line, always: every book card
               has the same height, and the author sits under the title */}
           <CardHeading
@@ -266,46 +264,15 @@ export function BookCard({
               )
             }
           />
-          <div className="mt-2.5 flex h-5 items-center gap-2">
-            {reading ? (
-              <CardReading
-                reading={reading}
-                status={catalogueStatus}
-                priority={acquisitionPriority}
-                copies={instanceCount}
-              />
-            ) : (
-              <CardStatus
-                status={catalogueStatus}
-                priority={acquisitionPriority}
-                copies={instanceCount}
-              />
-            )}
-            {/* The status keeps the row: the rating shows from 160px of card
-                width, the language from 200px, the year from 160px (220px
-                beside a rating) */}
-            {language && language !== "en" && (
-              <span className="hidden @[200px]:contents">
-                {/* A long name ("Norwegian Bokmål") shrinks first and cuts
-                    off; the status never does */}
-                <Badge variant="blue" className="min-w-0 shrink-[999]">
-                  <span className="truncate">{languageName(language)}</span>
-                </Badge>
-              </span>
-            )}
-            <span className="ml-auto flex shrink-0 items-center gap-2">
-              <span className="hidden @[160px]:contents">
-                <CardRating rating={rating} />
-              </span>
-              {publicationYear && (
-                <span
-                  className={`hidden font-mono text-micro text-fg-secondary ${rating ? "@[220px]:inline" : "@[160px]:inline"}`}
-                >
-                  {publicationYear}
-                </span>
-              )}
-            </span>
-          </div>
+          <WorkCardInfo
+            status={catalogueStatus}
+            priority={acquisitionPriority}
+            copies={instanceCount}
+            reading={reading}
+            language={language}
+            rating={rating}
+            year={publicationYear}
+          />
         </div>
       </div>
     </div>

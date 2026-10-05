@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { CapAligned } from "@/components/shared/cap-aligned";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { CardHeading } from "@/components/shared/card-heading";
+import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
 import { Frame } from "lucide-react";
 import type { getPaintings } from "@/lib/actions/paintings";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
@@ -56,27 +57,24 @@ function objectSize(painting: PaintingCardData) {
 }
 
 /**
- * A painting in a gallery: the whole picture in a fixed frame, title,
- * painters and facts, each on fixed lines so every card of a grid has one
- * height. Chips mark a favourite and the objects you own of it.
+ * A painting in a gallery: the whole picture in a fixed frame, then a book
+ * card's heading and info row (SLN-478): title, painters, status, rating and
+ * date, on fixed lines. A chip marks the objects you own of it.
  */
 export function PaintingCard({
   painting,
-  caption,
 }: {
   painting: PaintingCardData;
-  /** Replaces the facts line: why the card is shown ("Also by Goya") */
-  caption?: string;
 }) {
   const owned = painting.personalCount;
   return (
-    <div className="@container group relative block rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className={WORK_CARD}>
       <Link
         href={paintingHref(painting)}
         aria-label={painting.title}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+      <div className="relative cover-shadow">
         <PaintingImage
           image={painting.poster}
           title={painting.title}
@@ -97,25 +95,26 @@ export function PaintingCard({
           </div>
         )}
       </div>
-      <div className="p-3">
-        {/* The row carries the title's type: the star sits on the
-            cap-height center of the title's first line */}
-        <div className="type-item-title flex items-start gap-2">
-          <h3 className="type-item-title lines-2 min-w-0 flex-1">{painting.title}</h3>
-          <CapAligned height={32} className="relative z-20 -mr-2">
+      <div className={WORK_CARD_BODY}>
+        {/* As on a book's card: two title lines and one line of painters,
+            then the info row, so cards of every collection line up */}
+        <CardHeading
+          title={painting.title}
+          subtitle={paintingPainters(painting) ?? "Painter unknown"}
+          action={
             <FavouriteToggle
               favourite={painting.isFavourite}
               target={{ entity: "work", id: painting.id }}
               name={painting.title}
             />
-          </CapAligned>
-        </div>
-        <p className="mt-1 lines-1 text-sm text-fg-secondary">
-          {paintingPainters(painting) ?? "Painter unknown"}
-        </p>
-        <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
-          {caption ?? paintingFacts(painting)}
-        </p>
+          }
+        />
+        <WorkCardInfo
+          status={painting.catalogueStatus}
+          copies={owned}
+          rating={painting.rating}
+          year={catalogueDateYears(painting.creationDate)}
+        />
       </div>
     </div>
   );
