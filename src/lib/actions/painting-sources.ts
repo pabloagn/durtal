@@ -429,7 +429,8 @@ export async function applyPaintingSource(input: z.input<typeof applySchema>): P
     const workPatch: Parameters<typeof updatePainting>[1] = {};
     if (v.work.includes("creationDate") && review.work.find((f) => f.field === "creationDate")?.verdict === "fill") {
       workPatch.creationDate = proposals.work.creationDate ?? null;
-      workPatch.sourceRecordId = sourceRecordId;
+      // The date's source, unless the person already cited one
+      if (!painting.sourceRecordId) workPatch.sourceRecordId = sourceRecordId;
       added.push("Date");
     }
     if (v.painter && review.painter && !review.painter.here) {
@@ -461,6 +462,8 @@ export async function applyPaintingSource(input: z.input<typeof applySchema>): P
       v.object.includes(field) && review.objectFields.find((f) => f.field === field)?.verdict === "fill";
     const size = proposals.art_object.dimensions;
     let objectId = review.object?.id ?? null;
+    if (!review.object && v.createObject && painting.objects.some((o) => o.kind === "original"))
+      return { error: "This painting has an original already: choose it, then look it up again" };
     if (!review.object && v.createObject) {
       const created = await createArtObject({
         workId: painting.id,
@@ -488,7 +491,9 @@ export async function applyPaintingSource(input: z.input<typeof applySchema>): P
         Object.assign(patch, { height: size.height, width: size.width, depth: size.depth, dimensionUnit: "cm" });
         added.push("Size");
       }
-      if (Object.keys(patch).length) await updateArtObject(review.object.id, { ...patch, sourceRecordId }, review.object.fingerprint);
+      const cited = painting.objects.find((o) => o.id === review.object!.id)?.sourceRecordId;
+      if (Object.keys(patch).length)
+        await updateArtObject(review.object.id, { ...patch, ...(!cited && { sourceRecordId }) }, review.object.fingerprint);
     }
 
     // Where it is shown: the museum's dated answer, through the history's own rules
@@ -499,9 +504,14 @@ export async function applyPaintingSource(input: z.input<typeof applySchema>): P
       const verifiedAt = found.retrievedAt.toISOString();
       const action = review.object ? review.location.action : "record";
       if (action === "verify" && history.current) {
+        // A check, not a new record: its own source stays, and only an unknown display is filled
         await updateWhereabouts(
           history.current.id,
-          { verifiedAt, sourceRecordId, ...(history.current.displayStatus === "unknown" && { displayStatus: "on_display" as const }) },
+          {
+            verifiedAt,
+            ...(!history.current.sourceRecordId && { sourceRecordId }),
+            ...(history.current.displayStatus === "unknown" && { displayStatus: "on_display" as const }),
+          },
           history.fingerprint,
         );
         added.push("Location checked");
@@ -517,7 +527,7 @@ export async function applyPaintingSource(input: z.input<typeof applySchema>): P
             // A move starts the day the museum said so; a first record since an unknown day
             startsOn: action === "move" ? { precision: "day", start: { year: day[0], month: day[1], day: day[2] } } : null,
             verifiedAt,
-            occasionLabel: review.location.says,
+            notes: review.location.says,
             sourceRecordId,
           },
           history.fingerprint,
