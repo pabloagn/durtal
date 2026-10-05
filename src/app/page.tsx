@@ -11,8 +11,6 @@ import {
   Star,
   ShoppingCart,
   FolderOpen,
-  BookMarked,
-  BookCheck,
 } from "lucide-react";
 import { getLibraryStats } from "@/lib/actions/works";
 import {
@@ -37,15 +35,13 @@ import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { DomainTileCard } from "@/components/domains/domain-tile";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
-import { coverToneStyle, mediaCrop } from "@/lib/utils/media-style";
-import { FadeImage } from "@/components/shared/fade-image";
-import { CoverFan, Monogram } from "@/components/shared/no-photo";
+import { mediaCrop } from "@/lib/utils/media-style";
 import { getAuthorCoverPreviews, getPersonRoles } from "@/lib/actions/authors";
-import { PersonRoles } from "@/components/people/person-roles";
+import { RecentPeopleGrid } from "@/components/people/recent-people-grid";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { displayYear } from "@/lib/utils/years";
 import { languageName } from "@/lib/utils/language";
-import { DashboardReadingTile, FinishedCover } from "@/components/reading/hub-cards";
+import { finishedItem, tileItem } from "@/components/reading/hub-cards";
+import { DashboardReading } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getRecentlyFinished } from "@/lib/reading/journal";
 
@@ -266,27 +262,8 @@ async function DashboardContent() {
         </div>
       </section>
 
-      {/* Reading (SLN-448): light tiles, no book cards */}
-      {currentReads.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader title="Currently reading" icon={BookMarked} href="/reading" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {currentReads.map((open) => (
-              <DashboardReadingTile key={open.reading.id} open={open} />
-            ))}
-          </div>
-        </section>
-      )}
-      {finishedReads.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader title="Recently finished" icon={BookCheck} href="/reading/journal" />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {finishedReads.map((read) => (
-              <FinishedCover key={read.id} read={read} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Reading (SLN-448): light tiles with small props, no book cards */}
+      <DashboardReading tiles={currentReads.map(tileItem)} finished={finishedReads.map(finishedItem)} />
 
       {/* Each other open collection: its counts and its add action */}
       {others.map(({ kind, counts }) => (
@@ -373,53 +350,11 @@ async function DashboardContent() {
             icon={Users}
             href="/people?sort=recent"
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {stats.recentAuthors.map((author) => (
-              <Link
-                key={author.id}
-                href={`/people/${author.slug ?? ""}`}
-                className="group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
-              >
-                {/* While the photo loads, the frame shows its main color */}
-                <div
-                  className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
-                  style={coverToneStyle(author.photoTone)}
-                >
-                  {author.photoS3Key ? (
-                    <FadeImage
-                      src={`/api/s3/read?key=${encodeURIComponent(author.photoS3Key)}`}
-                      alt={author.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
-                    />
-                  ) : authorCovers[author.id]?.length ? (
-                    <CoverFan covers={authorCovers[author.id]} />
-                  ) : (
-                    <Monogram name={author.name} />
-                  )}
-                </div>
-                <div className="p-3.5">
-                  {/* The author card's layout: two name lines, one
-                      nationality line, then years and the book count */}
-                  <CardHeading title={author.name} subtitle={author.nationality} />
-                  <PersonRoles roles={personRoles[author.id]} className="mt-1" />
-                  <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
-                    {author.birthYear && (
-                      <span>
-                        {`${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`}
-                      </span>
-                    )}
-                    {author.worksCount > 0 && (
-                      <span className="ml-auto shrink-0">
-                        {author.worksCount} {author.worksCount === 1 ? "book" : "books"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <RecentPeopleGrid
+            people={stats.recentAuthors}
+            covers={Object.fromEntries(stats.recentAuthors.filter((a) => authorCovers[a.id]?.length).map((a) => [a.id, authorCovers[a.id]]))}
+            roles={personRoles}
+          />
         </section>
       )}
 

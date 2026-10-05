@@ -58,7 +58,7 @@ describe("AddBookWizard from the book picker", () => {
   });
 
   it("searches nothing without a query", async () => {
-    act(() => root.render(createElement(AddBookWizard)));
+    act(() => root.render(createElement(AddBookWizard, {})));
     expect(searchField().value).toBe("");
     await settle();
     expect(fetchMock).not.toHaveBeenCalled();

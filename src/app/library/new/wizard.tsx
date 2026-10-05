@@ -156,7 +156,7 @@ export function AddBookWizard({
   initialIsbn?: string | null;
   /** The reading dialog the new book's page opens */
   then?: PickerPurpose | null;
-} = {}) {
+}) {
   const router = useRouter();
   // The book page opens the reading dialog it was added for
   const bookHref = (slug: string) => `/library/${slug}${then ? `?then=${then}` : ""}`;

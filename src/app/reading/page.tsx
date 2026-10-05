@@ -4,7 +4,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { HubActions, StartBookButton } from "@/components/reading/hub-actions";
-import { CurrentReadingCard, FinishedCover, PausedRow } from "@/components/reading/hub-cards";
+import { CurrentReadingCard, PausedRow, finishedItem } from "@/components/reading/hub-cards";
+import { FinishedCovers } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getRecentlyFinished } from "@/lib/reading/journal";
 import { readingDay } from "@/lib/reading/dates";
@@ -60,11 +61,7 @@ export default async function ReadingPage() {
           {finished.length > 0 && (
             <section>
               <SectionHeading title="Recently finished" />
-              <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
-                {finished.map((read) => (
-                  <FinishedCover key={read.id} read={read} />
-                ))}
-              </div>
+              <FinishedCovers reads={finished.map(finishedItem)} className="grid grid-cols-3 gap-4 sm:grid-cols-6" />
             </section>
           )}
         </div>
