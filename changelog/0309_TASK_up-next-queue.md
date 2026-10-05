@@ -110,3 +110,22 @@ changes `catalogue_status`. Migration 0068 adds `reading_queue`.
   started and gone from Up Next) and `import` passes (a to-read book in Want
   to read, committed into Up Next, gone after Undo, back after the second
   commit, and "Already in Up Next" on a second upload).
+
+## Review fixes (PR #107)
+
+- Up Next showed every queued book: with 412 (a Goodreads to-read shelf) the
+  page weighed 1,771 KB against its 300 KB budget. It now shows 50 at a time
+  (At hand first, then the first 50), with "Show 50 more" (`?show=100`,
+  `hand=1` kept, no scroll jump); the summary still counts every book.
+- Under At hand, rows were numbered 1, 2, 3 among the books shown, and Move
+  to top put a book just above the first one shown (2nd overall). Each row now
+  carries its place in all of Up Next (`QueueRow.place`), a filtered list
+  shows it, and Move to top sends no neighbours, so the server puts the book
+  above every other one. Move up, Move down and dragging still name the
+  neighbours shown.
+- `LIBRARY_SORTS`' comment says the API takes the first six sorts.
+- Tests: `up-next` gains a filtered list (places 2, 5, 9, Move up's
+  neighbours, Move to top with none) and the page with 60 books (50 rows, "60
+  books", "Show 10 more" to `?show=100`; all 60 with `show=100`); both fail on
+  the code before this fix. The Move to top expectation is both null.
+

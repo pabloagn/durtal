@@ -23,7 +23,7 @@ export type ReadingFilterValue = WorkReadingState | "queued";
 export const HOLDINGS = ["owned", "not_owned"] as const;
 export type Holding = (typeof HOLDINGS)[number];
 
-/** The library page's sorts; the API takes the first five */
+/** The library page's sorts; the API takes the first six (API_SORTS) */
 export const LIBRARY_SORTS = ["title", "recent", "year", "rating", "lastRead", "queue", "authorFirstName", "authorLastName"] as const;
 export type LibrarySort = (typeof LIBRARY_SORTS)[number];
 export const API_SORTS = ["title", "recent", "year", "rating", "lastRead", "queue"] as const satisfies readonly LibrarySort[];

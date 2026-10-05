@@ -59,8 +59,9 @@ afterEach(() => {
   host.remove();
 });
 
-const row = (workId: string, title: string): QueueRow => ({
+const row = (workId: string, title: string, place = 1): QueueRow => ({
   workId,
+  place,
   title,
   href: `/library/${workId}`,
   author: "Someone",
@@ -70,7 +71,7 @@ const row = (workId: string, title: string): QueueRow => ({
   note: null,
   added: "Added 3 Oct",
 });
-const rows = [row("a", "Nadja"), row("b", "Watt"), row("c", "La Curée")];
+const rows = [row("a", "Nadja", 1), row("b", "Watt", 2), row("c", "La Curée", 3)];
 const order = () => [...host.querySelectorAll("[data-queue-row]")].map((r) => r.getAttribute("data-queue-row"));
 const flush = () => act(async () => new Promise((r) => setTimeout(r, 0)));
 async function menu(workId: string, item: string) {
@@ -95,8 +96,20 @@ describe("the Up Next list", () => {
     expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "a", afterWorkId: "c", beforeWorkId: "b" });
     await menu("b", "Move to top");
     expect(order()).toEqual(["b", "c", "a"]);
-    expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "b", afterWorkId: null, beforeWorkId: "c" });
+    // The top of all of Up Next: no neighbours
+    expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "b", afterWorkId: null, beforeWorkId: null });
     expect(host.querySelector("[data-queue-said]")!.textContent).toBe("Watt moved to position 1 of 3");
+  });
+
+  it("under a filter, shows each book's place in all of Up Next and sends Move to top with no neighbours", async () => {
+    const some = [row("a", "Nadja", 2), row("b", "Watt", 5), row("c", "La Curée", 9)];
+    act(() => root.render(createElement(QueueList, { rows: some, filtered: true })));
+    expect([...host.querySelectorAll("[data-queue-place]")].map((p) => p.textContent)).toEqual(["2", "5", "9"]);
+    await menu("c", "Move up");
+    expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "c", afterWorkId: "a", beforeWorkId: "b" });
+    // The first row shown is 2nd in Up Next: it can still go to the top
+    await menu("a", "Move to top");
+    expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "a", afterWorkId: null, beforeWorkId: null });
   });
 
   it("puts a row back when the server refuses the move", async () => {
@@ -138,6 +151,40 @@ describe("the Up Next list", () => {
 });
 
 describe("the Up Next page", () => {
+  const queued = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      workId: `w${i}`,
+      title: `Book ${i + 1}`,
+      slug: null,
+      author: null,
+      workCover: null,
+      editionId: null,
+      editions: [],
+      note: null,
+      addedAt: "2026-10-01T10:00:00Z",
+      atHandCopyId: null,
+      readCount: 0,
+      lastFinishedOn: null,
+      owned: false,
+    }));
+
+  it("shows 50 books at a time, counts them all, and offers the rest", async () => {
+    actions.getQueue.mockResolvedValueOnce(queued(60));
+    const html = renderToStaticMarkup(await UpNextPage({ searchParams: Promise.resolve({}) }));
+    expect(html.match(/data-queue-row=/g)).toHaveLength(50);
+    expect(html).toContain("60 books");
+    const more = html.match(/<a[^>]*data-queue-more[^>]*>.*?<\/a>/)?.[0] ?? "";
+    expect(more).toContain('href="/reading/next?show=100"');
+    expect(more.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, "")).toBe("Show 10 more");
+  });
+
+  it("shows every book when asked for more", async () => {
+    actions.getQueue.mockResolvedValueOnce(queued(60));
+    const html = renderToStaticMarkup(await UpNextPage({ searchParams: Promise.resolve({ show: "100" }) }));
+    expect(html.match(/data-queue-row=/g)).toHaveLength(60);
+    expect(html).not.toContain("data-queue-more");
+  });
+
   it("shows an empty state that adds from the unread books he owns", async () => {
     const html = renderToStaticMarkup(await UpNextPage({ searchParams: Promise.resolve({}) }));
     expect(html).toContain("Nothing in Up Next");
