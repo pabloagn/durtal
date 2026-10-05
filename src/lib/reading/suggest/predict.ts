@@ -45,10 +45,22 @@ function taxonomyLikeness(a: SuggestBook, b: SuggestBook, ctx: Pick<SuggestConte
 /** How alike two books are for a prediction, 0 to 1. No author gender or nationality */
 export function similarity(a: SuggestBook, b: SuggestBook, ctx: Pick<SuggestContext, "idf">): number {
   let sim = 0;
-  if (shares(a.authors.map((x) => x.id), b.authors.map((x) => x.id))) sim += PARTS.author;
+  if (
+    shares(
+      a.authors.map((x) => x.id),
+      b.authors.map((x) => x.id),
+    )
+  )
+    sim += PARTS.author;
   if (a.seriesId && a.seriesId === b.seriesId) sim += PARTS.series;
   if (shares(a.translatorIds, b.translatorIds)) sim += PARTS.translator;
-  if (shares(a.recommenders.map((r) => r.id), b.recommenders.map((r) => r.id))) sim += PARTS.recommender;
+  if (
+    shares(
+      a.recommenders.map((r) => r.id),
+      b.recommenders.map((r) => r.id),
+    )
+  )
+    sim += PARTS.recommender;
   sim += PARTS.taxonomy * taxonomyLikeness(a, b, ctx);
   if (a.originalLanguage && a.originalLanguage === b.originalLanguage) sim += PARTS.language;
   const ca = termOf(a, "cy:");
@@ -143,7 +155,7 @@ export function passesGate(e: Evaluation): boolean {
 /** The gate after today's check: on after one pass; once on, off only after two failing checks in a row */
 export function nextGate(previous: PredictionGate | null, e: Evaluation, now: Date): PredictionGate {
   const pass = passesGate(e);
-  const failures = pass ? 0 : (previous?.on ? previous.failures + 1 : 0);
+  const failures = pass ? 0 : previous?.on ? previous.failures + 1 : 0;
   const on = pass || (!!previous?.on && failures < 2);
   return { checkedAt: now.toISOString(), on, failures: on ? failures : 0, n: e.n, coverage: e.coverage, mae: e.mae, baselineMae: e.baselineMae };
 }

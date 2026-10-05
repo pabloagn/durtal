@@ -23,7 +23,7 @@ export function rowsOf<T>(result: unknown): T[] {
 /** "19th century" */
 export function centuryName(century: number): string {
   const tens = century % 100;
-  const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[century % 10] ?? "th";
+  const suffix = tens >= 11 && tens <= 13 ? "th" : (({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[century % 10] ?? "th");
   return `${century}${suffix} century`;
 }
 
@@ -113,7 +113,6 @@ export function termsOf(row: Row): SuggestTerm[] {
   }
   return terms;
 }
-
 
 /** The rows as the engine's books, with the homes where a copy is at hand */
 export function toBooks(rows: Row[], homes: SuggestHome[]): SuggestBook[] {

@@ -18,7 +18,15 @@ export function PickOne({ top, initiallyOpen = false }: { top: SuggestionRow[]; 
   const { open } = useReadingDialogs();
   const [shown, setShown] = useState<string[]>([]);
   // Opened from the palette: the first draw is fixed, so the server and the browser draw the same book; Another draws at random
-  const [current, setCurrent] = useState<SuggestionRow | null>(() => (initiallyOpen ? pickOne(top, (r) => r.workId, () => 0.37) : null));
+  const [current, setCurrent] = useState<SuggestionRow | null>(() =>
+    initiallyOpen
+      ? pickOne(
+          top,
+          (r) => r.workId,
+          () => 0.37,
+        )
+      : null,
+  );
 
   function draw() {
     const next = pickOne(top, (r) => r.workId, Math.random, current ? [...shown, current.workId] : shown);

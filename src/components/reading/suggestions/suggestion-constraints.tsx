@@ -77,12 +77,6 @@ export function SuggestionConstraints({
   return (
     <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3" data-suggestion-constraints="">
       <SegmentedControl options={[...SCOPES]} value={params.scope} onChange={(scope) => go({ scope })} ariaLabel="Which books" />
-      <FilterDropdown
-        groups={groups}
-        activeFilters={active}
-        onFilterChange={change}
-        onClearAll={() => go({ length: "any", about: undefined, lang: undefined, home: undefined, skipTypes: [], noNewSeries: false })}
-      />
       <label className="flex items-center gap-2 text-xs text-fg-secondary">
         About
         <input
@@ -103,6 +97,15 @@ export function SuggestionConstraints({
         />
         pages
       </label>
+      {/* At the right end, so its panel (anchored right) opens over the bar, also on a phone */}
+      <div className="ml-auto">
+        <FilterDropdown
+          groups={groups}
+          activeFilters={active}
+          onFilterChange={change}
+          onClearAll={() => go({ length: "any", about: undefined, lang: undefined, home: undefined, skipTypes: [], noNewSeries: false })}
+        />
+      </div>
     </div>
   );
 }

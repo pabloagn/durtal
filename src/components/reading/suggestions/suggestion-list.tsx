@@ -53,7 +53,13 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
       <Button size="sm" variant="ghost" onClick={() => void give(row.workId, row.title, "not_now")} className="pointer-coarse:h-11" data-suggestion-not-now="">
         Not now
       </Button>
-      {!compact && <WhyThis title={row.title} parts={row.why} prediction={row.prediction ? `You would ${row.prediction.replace("likely", "likely rate it")}, ${row.predictionSource}` : null} />}
+      {!compact && (
+        <WhyThis
+          title={row.title}
+          parts={row.why}
+          prediction={row.prediction ? `You would ${row.prediction.replace("likely", "likely rate it")}, ${row.predictionSource}` : null}
+        />
+      )}
       <DropdownMenu
         label={`More for ${row.title}`}
         align="end"

@@ -98,12 +98,7 @@ export function pausedAuthors(ctx: SuggestContext): Map<string, { name: string; 
 export function candidates(ctx: SuggestContext): SuggestBook[] {
   const paused = pausedAuthors(ctx);
   return ctx.books.filter(
-    (b) =>
-      b.finishedCount === 0 &&
-      !b.open &&
-      !hiddenByFeedback(b, ctx.today) &&
-      !b.authors.some((a) => paused.has(a.id)) &&
-      !(ctx.hideAnathema && b.isPoison),
+    (b) => b.finishedCount === 0 && !b.open && !hiddenByFeedback(b, ctx.today) && !b.authors.some((a) => paused.has(a.id)) && !(ctx.hideAnathema && b.isPoison),
   );
 }
 

@@ -40,7 +40,11 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
     .filter((b) => b.finishedCount === 0 && b.feedback && hiddenByFeedback(b, ctx.today))
     .sort((a, b) => b.feedback!.updatedAt.localeCompare(a.feedback!.updatedAt));
   const hiddenLink = (
-    <Link href={`/reading/suggestions${suggestionQuery({ ...params, page: 1, pick: undefined, view: params.view ? undefined : "hidden" })}`} className="text-xs text-fg-secondary transition-colors hover:text-fg-primary" data-suggestions-view="">
+    <Link
+      href={`/reading/suggestions${suggestionQuery({ ...params, page: 1, pick: undefined, view: params.view ? undefined : "hidden" })}`}
+      className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+      data-suggestions-view=""
+    >
       {params.view ? "Back to suggestions" : `Hidden (${n(hidden.length)})`}
     </Link>
   );
@@ -49,11 +53,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
     const rows: HiddenRow[] = hidden.map((b) => {
       const f = b.feedback!;
       const verdict =
-        f.verdict === "not_now"
-          ? `Not now, until ${day(f.until!)}`
-          : f.verdict === "never"
-            ? "Never"
-            : `Not for me: ${f.reasons.map((r) => FEEDBACK_REASON_LABELS[r]).join(", ")}`;
+        f.verdict === "not_now" ? `Not now, until ${day(f.until!)}` : f.verdict === "never" ? "Never" : `Not for me: ${f.reasons.map((r) => FEEDBACK_REASON_LABELS[r]).join(", ")}`;
       return {
         workId: b.id,
         title: b.title,

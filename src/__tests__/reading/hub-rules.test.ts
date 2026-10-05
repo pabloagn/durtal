@@ -164,25 +164,29 @@ describe("queryNamesATitle", () => {
 describe("readingTabs", () => {
   it("holds the final order and shows only the tabs whose pages exist", () => {
     expect(READING_TABS.map((t) => t.label)).toEqual(["Now", "Up next", "Journal", "Notes", "Stats", "Suggestions", "Import"]);
-    expect(readingTabs("/reading").map((t) => t.label)).toEqual(["Now", "Up next", "Journal", "Notes", "Stats", "Import"]);
+    expect(readingTabs("/reading").map((t) => t.label)).toEqual(["Now", "Up next", "Journal", "Notes", "Stats", "Suggestions", "Import"]);
   });
 
   it("lights Now on /reading only, and Journal on its path and below", () => {
-    expect(readingTabs("/reading").map((t) => t.current)).toEqual([true, false, false, false, false, false]);
-    expect(readingTabs("/reading/next").map((t) => t.current)).toEqual([false, true, false, false, false, false]);
+    expect(readingTabs("/reading").map((t) => t.current)).toEqual([true, false, false, false, false, false, false]);
+    expect(readingTabs("/reading/next").map((t) => t.current)).toEqual([false, true, false, false, false, false, false]);
     // The search string is not part of the path: /reading/journal?year=2024
-    expect(readingTabs("/reading/journal").map((t) => t.current)).toEqual([false, false, true, false, false, false]);
-    expect(readingTabs("/reading/journal/2024").map((t) => t.current)).toEqual([false, false, true, false, false, false]);
-    expect(readingTabs("/reading/journalism").map((t) => t.current)).toEqual([false, false, false, false, false, false]);
-    expect(readingTabs("/reading/notes").map((t) => t.current)).toEqual([false, false, false, true, false, false]);
-    expect(readingTabs("/reading/import/0b5f2f48-3d43-4c1e-9e43-3c1f6d1b2a10").map((t) => t.current)).toEqual([false, false, false, false, false, true]);
+    expect(readingTabs("/reading/journal").map((t) => t.current)).toEqual([false, false, true, false, false, false, false]);
+    expect(readingTabs("/reading/journal/2024").map((t) => t.current)).toEqual([false, false, true, false, false, false, false]);
+    expect(readingTabs("/reading/journalism").map((t) => t.current)).toEqual([false, false, false, false, false, false, false]);
+    expect(readingTabs("/reading/notes").map((t) => t.current)).toEqual([false, false, false, true, false, false, false]);
+    expect(readingTabs("/reading/import/0b5f2f48-3d43-4c1e-9e43-3c1f6d1b2a10").map((t) => t.current)).toEqual([false, false, false, false, false, false, true]);
+  });
+
+  it("lights Suggestions on its page and its Hidden view (SLN-457)", () => {
+    expect(readingTabs("/reading/suggestions").map((t) => t.current)).toEqual([false, false, false, false, false, true, false]);
   });
 
   it("lights Stats on the stats page and on the Year in review (SLN-456)", () => {
-    expect(readingTabs("/reading/stats").map((t) => t.current)).toEqual([false, false, false, false, true, false]);
-    expect(readingTabs("/reading/year").map((t) => t.current)).toEqual([false, false, false, false, true, false]);
-    expect(readingTabs("/reading/year/2025").map((t) => t.current)).toEqual([false, false, false, false, true, false]);
-    expect(readingTabs("/reading/yearly").map((t) => t.current)).toEqual([false, false, false, false, false, false]);
+    expect(readingTabs("/reading/stats").map((t) => t.current)).toEqual([false, false, false, false, true, false, false]);
+    expect(readingTabs("/reading/year").map((t) => t.current)).toEqual([false, false, false, false, true, false, false]);
+    expect(readingTabs("/reading/year/2025").map((t) => t.current)).toEqual([false, false, false, false, true, false, false]);
+    expect(readingTabs("/reading/yearly").map((t) => t.current)).toEqual([false, false, false, false, false, false, false]);
   });
 });
 

@@ -14,7 +14,12 @@ export const SUGGESTIONS_PER_PAGE = 24;
 
 const uuidList = z
   .string()
-  .transform((v) => v.split(",").map((s) => s.trim()).filter(Boolean))
+  .transform((v) =>
+    v
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
   .pipe(z.array(z.uuid()).max(50));
 
 const FIELDS = {
@@ -54,9 +59,7 @@ export const DEFAULT_SUGGESTION_PARAMS: SuggestionParams = { scope: "owned", len
 type Raw = URLSearchParams | Record<string, string | string[] | undefined>;
 
 const entries = (raw: Raw): [string, string][] =>
-  raw instanceof URLSearchParams
-    ? [...raw.entries()]
-    : Object.entries(raw).flatMap(([k, v]) => (v === undefined ? [] : [[k, Array.isArray(v) ? v[0] : v] as [string, string]]));
+  raw instanceof URLSearchParams ? [...raw.entries()] : Object.entries(raw).flatMap(([k, v]) => (v === undefined ? [] : [[k, Array.isArray(v) ? v[0] : v] as [string, string]]));
 
 /**
  * The constraints and the problems: an unknown key or a bad value is an

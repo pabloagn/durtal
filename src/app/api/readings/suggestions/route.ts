@@ -23,7 +23,12 @@ export async function GET(req: NextRequest) {
   if (issues.length || params.view || params.pick)
     return errorResponse(
       new z.ZodError(
-        (issues.length ? issues : [{ path: params.view ? "view" : "pick", message: "Not an API parameter" }]).map((i) => ({ code: "custom" as const, path: [i.path], message: i.message, input: undefined })),
+        (issues.length ? issues : [{ path: params.view ? "view" : "pick", message: "Not an API parameter" }]).map((i) => ({
+          code: "custom" as const,
+          path: [i.path],
+          message: i.message,
+          input: undefined,
+        })),
       ),
       "Invalid suggestion constraints",
     );

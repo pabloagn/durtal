@@ -137,7 +137,10 @@ const recommender: Feature = {
         score: clamp(0.5 + (trust - ctx.baseLiked)),
         reason: `${r.name} recommended it; you rated ${n(liked)} of their ${n(rated)} picks 4 or more`,
         meets: rated >= 3 && trust > ctx.baseLiked,
-        evidence: [{ label: r.name, href: `/recommenders/${r.id}`, id: r.id }, ...picks.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b), id: b.id }))],
+        evidence: [
+          { label: r.name, href: `/recommenders/${r.id}`, id: r.id },
+          ...picks.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b), id: b.id })),
+        ],
       };
       if (!best || result.score > best.score) best = result;
     }
@@ -262,10 +265,21 @@ const feedback: Feature = {
     const longer = rejected.filter((r) => pages > r.pages);
     if (longer.length) {
       const r = longer[0];
-      return { score: 0, reason: `Longer than ${r.book.title}, which you passed on as too long`, meets: false, evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }], factor: 0.5 };
+      return {
+        score: 0,
+        reason: `Longer than ${r.book.title}, which you passed on as too long`,
+        meets: false,
+        evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }],
+        factor: 0.5,
+      };
     }
     const r = [...rejected].sort((a, b) => a.pages - b.pages)[0];
-    return { score: 1, reason: `Shorter than ${r.book.title}, which you passed on as too long`, meets: true, evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }] };
+    return {
+      score: 1,
+      reason: `Shorter than ${r.book.title}, which you passed on as too long`,
+      meets: true,
+      evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }],
+    };
   },
 };
 

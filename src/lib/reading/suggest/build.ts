@@ -17,8 +17,7 @@ export function buildContext(load: SuggestLoad): SuggestContext {
   const n = load.books.length;
   const idf = new Map([...df].map(([key, count]) => [key, Math.log((n + 1) / (count + 1))]));
   const profile = new Map<string, number>();
-  if (meanTaste !== null)
-    for (const b of rated) for (const key of new Set(b.terms.map((t) => t.key))) profile.set(key, (profile.get(key) ?? 0) + (b.taste! - meanTaste));
+  if (meanTaste !== null) for (const b of rated) for (const key of new Set(b.terms.map((t) => t.key))) profile.set(key, (profile.get(key) ?? 0) + (b.taste! - meanTaste));
   const series = new Map<string, NonNullable<ReturnType<SuggestContext["series"]["get"]>>>();
   for (const b of load.books)
     if (b.seriesId) {

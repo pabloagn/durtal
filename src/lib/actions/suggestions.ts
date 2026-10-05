@@ -11,12 +11,7 @@ import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { readingToday } from "@/lib/reading/day";
 import { addDays } from "@/lib/reading/goals";
 import { NOT_NOW_DAYS } from "@/lib/reading/suggest/score";
-import {
-  setSuggestionFeedbackSchema,
-  suggestionFeedbackSnapshotSchema,
-  suggestionWorkSchema,
-  type SuggestionFeedbackSnapshot,
-} from "@/lib/validations/suggestions";
+import { setSuggestionFeedbackSchema, suggestionFeedbackSnapshotSchema, suggestionWorkSchema, type SuggestionFeedbackSnapshot } from "@/lib/validations/suggestions";
 
 /*
  * Suggestion feedback (SLN-457): Not now, Never and Not for me, in
