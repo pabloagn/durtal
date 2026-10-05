@@ -27,6 +27,7 @@ import {
   countries,
   publisherIsbnPrefixes,
   publisherAutoDecisions,
+  places,
 } from "@/lib/db/schema";
 import {
   publisherSchema,
@@ -183,6 +184,8 @@ export async function getPublishers(options: PublisherListOptions = {}) {
         logoKey: sql<
           string | null
         >`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.organization_id = "publishing_houses"."id" and m.type = 'poster' and m.is_active limit 1)`,
+        // A logo card (SLN-441) fills its tile; a plain logo sits whole inside it
+        logoCard: sql<boolean>`coalesce((select m.processing_params ? 'logoCard' from media m where m.organization_id = "publishing_houses"."id" and m.type = 'poster' and m.is_active limit 1), false)`,
       })
       .from(houses)
       .where(where)
@@ -217,7 +220,7 @@ export async function getPublisher(slug: string) {
     .from(houses)
     .where(and(publisherCondition, eq(houses.slug, slug)));
   if (!publisher) return null;
-  const [aliases, specialties, children, parent, prefixes, automatic] = await Promise.all([
+  const [aliases, specialties, children, parent, prefixes, automatic, foundedPlace] = await Promise.all([
     db
       .select()
       .from(publisherAliases)
@@ -254,6 +257,12 @@ export async function getPublisher(slug: string) {
           sql`${publisherAutoDecisions.undoneAt} is null`,
         ),
       ),
+    publisher.foundedPlaceId
+      ? db
+          .select({ id: places.id, name: places.name, fullName: places.fullName })
+          .from(places)
+          .where(eq(places.id, publisher.foundedPlaceId))
+      : Promise.resolve([]),
   ]);
   return {
     ...publisher,
@@ -266,6 +275,8 @@ export async function getPublisher(slug: string) {
     specialties,
     children,
     parent: parent[0] ?? null,
+    /** The city where the house was founded */
+    foundedPlace: foundedPlace[0] ?? null,
     /** The group above this house's publisher (imprints only) */
     group: parent[0]?.parentId
       ? ((
@@ -386,16 +397,6 @@ export async function savePublisher(input: PublisherInput, id?: string) {
   ]);
   changed();
   return (await db.select().from(houses).where(eq(houses.id, publisherId)))[0];
-}
-
-export async function setPublisherFavourite(id: string, favourite: boolean) {
-  const [row] = await db
-    .update(houses)
-    .set({ isFavourite: z.boolean().parse(favourite) })
-    .where(and(publisherCondition, eq(houses.id, z.uuid().parse(id))))
-    .returning({ id: houses.id });
-  if (!row) throw new Error("Publisher not found");
-  changed();
 }
 
 export async function getEditionPublisherLinks(editionId: string) {

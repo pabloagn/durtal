@@ -159,7 +159,7 @@ Fetch a single work with all relations loaded.
 
 ### `PATCH /api/works/[id]`
 
-Change a work's title or catalogue status (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
+Change a work's title, catalogue status or rating (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
 
 **Body** (all optional):
 
@@ -168,8 +168,9 @@ Change a work's title or catalogue status (as the Edit dialog does, with the act
 | `title` | string | New title |
 | `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
 | `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
+| `rating` | number or null | 0.5 to 5 in half steps; `null` clears the rating |
 
-**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug. An unknown recommender id returns `404` (`"Recommender not found"`), and nothing in the request is written.
+**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "rating", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug. An unknown recommender id returns `404` (`"Recommender not found"`), and nothing in the request is written.
 
 ### `POST /api/works/refresh-slugs`
 
@@ -470,6 +471,10 @@ After the client uploads the raw file to S3, trigger server-side processing (res
   }
 }
 ```
+
+### `POST /api/media/logo-card`
+
+An organization's logo card (SLN-441): one 1200×800 black card with the logo in one light ink. Multipart fields: `organizationId` (uuid), `options` (JSON: `invert`, `keepColours`, `emblemOnly`, `badge`, `size` of -1, 0 or 1), and either `file` (SVG, PNG, JPEG or WebP) or `mediaId` (a saved card, whose kept original runs again). With `preview=1` the answer is the card as `image/png` and nothing is stored; otherwise the card becomes the active logo and the answer is `{ "media" }`. `400` for a bad id, file, JSON or an image with no logo; `404` for an unknown organization or a card with no original.
 
 ### `POST /api/media/upload`
 

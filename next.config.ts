@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
     // the rest is room for the other multipart fields.
     proxyClientMaxBodySize: "55mb",
   },
+  // People were "authors" before SLN-419: every old link and bookmark lands
+  // on the same person or list, with its query (308, permanent)
+  async redirects() {
+    return [
+      { source: "/authors", destination: "/people", permanent: true },
+      { source: "/authors/:path*", destination: "/people/:path*", permanent: true },
+    ];
+  },
   images: {
     qualities: [85],
     formats: ["image/avif", "image/webp"],

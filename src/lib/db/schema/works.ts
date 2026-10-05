@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, smallint, boolean, timestamp, index, date, check, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, smallint, boolean, timestamp, index, date, check, unique, numeric } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import {
   catalogueStatusEnum,
@@ -46,7 +46,8 @@ export const works = pgTable("works", {
 
   // Personal
   notes: text("notes"),
-  rating: smallint("rating"),
+  /** 0.5 to 5.0 in half steps (SLN-444): the book's rating, Joris's current verdict */
+  rating: numeric("rating", { precision: 2, scale: 1, mode: "number" }),
   isFavourite: boolean("is_favourite").notNull().default(false),
 
   // Catalogue lifecycle
@@ -88,6 +89,7 @@ export const works = pgTable("works", {
   index("works_series_id_idx").on(t.seriesId),
   index("works_created_at_idx").on(t.createdAt),
   index("works_rating_idx").on(t.rating),
+  check("works_rating_check", sql`${t.rating} IS NULL OR (${t.rating} >= 0.5 AND ${t.rating} <= 5 AND ${t.rating} * 2 = trunc(${t.rating} * 2))`),
   check("works_hunt_assessment_check", sql`(
     (NOT ${t.isRare} AND ${t.huntAssessedOn} IS NULL)
     OR (${t.isRare} AND ${t.huntAssessedOn} IS NOT NULL)

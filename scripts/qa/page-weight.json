@@ -4,8 +4,8 @@
     { "path": "/", "maxKB": 300, "maxMs": 1000 },
     { "path": "/library", "maxKB": 300, "maxMs": 1000 },
     { "path": "/library/*", "maxKB": 400, "maxMs": 1000, "skip": ["identify", "import"] },
-    { "path": "/authors", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/authors/*", "maxKB": 400, "maxMs": 1000 },
+    { "path": "/people", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/people/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/collections", "maxKB": 300, "maxMs": 1000 },
     { "path": "/places", "maxKB": 300, "maxMs": 1000 },
     { "path": "/places/*", "maxKB": 400, "maxMs": 1000 },
@@ -17,6 +17,8 @@
     { "path": "/harmonize", "maxKB": 300, "maxMs": 1000 },
     { "path": "/perfumes", "maxKB": 300, "maxMs": 1000 },
     { "path": "/films", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/paintings", "maxKB": 300, "maxMs": 1000 }
+    { "path": "/paintings", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/reading", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/reading/journal", "maxKB": 300, "maxMs": 1000 }
   ]
 }

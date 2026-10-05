@@ -12,6 +12,9 @@ import {
   Loader2,
   Copy,
   Link2,
+  BookMarked,
+  BookPlus,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
@@ -24,6 +27,9 @@ import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
 import { monogramTint } from "@/components/shared/no-photo";
+import { useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
+import { getOpenReadings } from "@/lib/actions/reading";
+import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -38,7 +44,8 @@ interface PaletteItem {
   href?: string;
   /** An "Add" entry's key: "b" adds a book */
   add?: string;
-  run?: "help";
+  /** The shortcut sheet, or any action (the reading dialogs) */
+  run?: "help" | (() => void);
 }
 
 const NAVIGATION_ITEMS: PaletteItem[] = NAV_SECTIONS.map((item) => {
@@ -141,13 +148,25 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     onOpenChange(false);
     if (item.add) actions.add(item.add);
     if (item.run === "help") actions.openHelp();
+    else if (typeof item.run === "function") item.run();
   }
 
+  // The open readings, fetched each time the palette opens, never with the page
+  const reading = useReadingDialogs();
+  const [openReadings, setOpenReadings] = useState<PaletteOpenReading[]>([]);
   useEffect(() => {
     if (!open) {
       setQuery("");
       setResults(NO_RESULTS);
+      return;
     }
+    let live = true;
+    getOpenReadings()
+      .then((rows) => live && setOpenReadings(rows))
+      .catch(() => live && setOpenReadings([]));
+    return () => {
+      live = false;
+    };
   }, [open]);
 
   // Works of every open collection, people, organizations and places; an
@@ -178,10 +197,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [trimmed]);
 
   // "This page" shows when the page has its own entries, or when searched
-  const allEditItems = actions.editItems();
-  const editItems = trimmed
-    ? filterBySearch(allEditItems, trimmed, (i) => `Edit ${i.label}`)
-    : allEditItems;
+  // The page's E and R entries, each with its full label ("Edit work", "Log progress")
+  const allPageActions = [
+    ...actions.editItems().map((i) => ({ ...i, value: `edit:${i.key}`, phrase: `Edit ${i.label.toLowerCase()}`, keys: ["e", i.key] })),
+    ...actions.readingItems().map((i) => ({ ...i, value: `reading:${i.key}`, phrase: i.label, keys: ["r", i.key] })),
+  ];
+  const pageActions = trimmed ? filterBySearch(allPageActions, trimmed, (i) => i.phrase) : allPageActions;
   const allCopyItems = actions.copyItems();
   const copyItems = trimmed
     ? filterBySearch(allCopyItems, trimmed, (i) => `Copy ${i.label}`)
@@ -194,13 +215,30 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigationItems = trimmed
     ? filterBySearch([...NAVIGATION_ITEMS, ...SETTINGS_ITEMS], trimmed, (i) => i.label)
     : NAVIGATION_ITEMS;
+  // "212" logs page 212: those items come first; then the Reading group.
+  // "451" opens Fahrenheit 451 first: a found title with the number as a word
+  // puts the books before the log items
+  const { smart: smartItems, log: logItems } = paletteReadingItems(trimmed, openReadings);
+  const smartFirst = !queryNamesATitle(
+    trimmed,
+    results.works.map((work) => work.title),
+  );
+  const allReadingItems: (PaletteItem & { value: string })[] = [
+    ...logItems.map((item) => ({ value: item.value, label: item.label, icon: BookMarked, run: () => void reading.open(item.request) })),
+    { value: "reading:start", label: "Start reading...", icon: BookPlus, run: () => reading.pick("start") },
+    { value: "reading:past", label: "Log a past read...", icon: CalendarClock, run: () => reading.pick("past") },
+  ];
+  const readingItems = trimmed ? filterBySearch(allReadingItems, trimmed, (i) => i.label) : allReadingItems;
   const firstValue =
+    (smartFirst && smartItems[0] && smartItems[0].value) ||
     (results.works[0] && `work:${results.works[0].id}`) ||
+    (smartItems[0] && smartItems[0].value) ||
     (results.people[0] && `person:${results.people[0].id}`) ||
     (results.organizations[0] && `org:${results.organizations[0].id}`) ||
     (results.venues[0] && `venue:${results.venues[0].id}`) ||
-    (editItems[0] && `edit:${editItems[0].key}`) ||
+    (pageActions[0] && pageActions[0].value) ||
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
+    (readingItems[0] && readingItems[0].value) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
     (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
     (trimmed && DOMAIN_SECTIONS[0] && `search:${DOMAIN_SECTIONS[0].href}`) ||
@@ -212,6 +250,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [firstValue]);
 
   if (!open) return null;
+
+  const smartGroup = smartItems.length > 0 && (
+    <Command.Group heading="Log progress" className={GROUP_CLASS}>
+      {smartItems.map((item) => (
+        <PaletteRow
+          key={item.value}
+          item={{ label: item.label, icon: BookMarked }}
+          value={item.value}
+          onSelect={() => {
+            onOpenChange(false);
+            void reading.open(item.request);
+          }}
+        />
+      ))}
+    </Command.Group>
+  );
 
   return (
     <div className="fixed inset-0 z-50">
@@ -248,6 +302,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </div>
 
           <Command.List className="max-h-96 overflow-y-auto p-2">
+            {smartFirst && smartGroup}
+
             {RESULT_KINDS.map((kind) => {
               const works = results.works.filter((work) => work.kind === kind);
               if (!works.length) return null;
@@ -280,6 +336,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 </Command.Group>
               );
             })}
+
+            {!smartFirst && smartGroup}
 
             {results.people.length > 0 && (
               <Command.Group heading="People" className={GROUP_CLASS}>
@@ -371,18 +429,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               </Command.Group>
             )}
 
-            {(editItems.length > 0 || copyItems.length > 0) && (
+            {(pageActions.length > 0 || copyItems.length > 0) && (
               <Command.Group heading="This page" className={GROUP_CLASS}>
-                {editItems.map((item) => (
+                {pageActions.map((item) => (
                   <PaletteRow
-                    key={`edit:${item.key}`}
+                    key={item.value}
                     item={{
-                      label: `Edit ${item.label.toLowerCase()}`,
+                      label: item.phrase,
                       icon: item.icon,
-                      keys: ["e", item.key],
+                      keys: item.keys,
                       then: true,
                     }}
-                    value={`edit:${item.key}`}
+                    value={item.value}
                     onSelect={() => {
                       onOpenChange(false);
                       item.run();
@@ -404,6 +462,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                       void actions.copy(item);
                     }}
                   />
+                ))}
+              </Command.Group>
+            )}
+
+            {readingItems.length > 0 && (
+              <Command.Group heading="Reading" className={GROUP_CLASS}>
+                {readingItems.map((item) => (
+                  <PaletteRow key={item.value} item={item} value={item.value} onSelect={() => runItem(item)} />
                 ))}
               </Command.Group>
             )}

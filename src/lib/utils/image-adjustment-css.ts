@@ -3,6 +3,8 @@
  * module so the validation library stays out of the shared browser bundle.
  */
 
+import { mediaUrl } from "@/lib/s3/media-url";
+
 export interface ImageAdjustments {
   exposure: number;
   brightness: number;
@@ -45,7 +47,7 @@ export function imageAdjustmentFilter(
 }
 
 export function s3ImageSource(key: string): string {
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
+  return mediaUrl(key);
 }
 
 /** Only app-owned image routes are editable. Never fetch an arbitrary supplied URL. */

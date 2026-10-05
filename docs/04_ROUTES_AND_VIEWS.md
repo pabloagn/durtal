@@ -6,11 +6,12 @@
 /                           Dashboard
 /library                    Books: the book collection's home (title "Books")
 /library/[slug]             Work detail page (slug format: {title}-by-{author})
-/library/new                Add new book (wizard)
+/library/new                Add new book (wizard); ?q= or ?isbn= searches at once,
+                            &then=start or past opens that reading dialog on the new book
 /library/import             Bulk import interface
 /library/identify           Identify placeholder editions (one at a time)
-/authors                    Author index
-/authors/[slug]             Author detail (slug format: {author-name})
+/people                     People index (every collection; /authors redirects here, 308)
+/people/[slug]              Person detail (slug format: {name}; /authors/[slug] redirects here)
 /publishers                 Publisher index
 /publishers/new             Add a publisher
 /publishers/review          Review publisher names on editions
@@ -21,6 +22,8 @@
 /organizations/[slug]       Organization detail (same slug as its publisher page)
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
+/reading                    Reading: what is being read now, paused, recently finished
+/reading/journal            Every reading, by year of finish, filtered and sorted
 /reader                     Calibre e-book library
 /reader/[calibreId]         E-book reader for one Calibre book
 /series                     Series index
@@ -78,7 +81,7 @@ Structure from top to bottom:
 3. **Navigation links**: `NAV_SECTIONS` in `src/lib/navigation.ts`, the one
    list the sidebar and the command palette read. Dashboard, then one entry per
    open collection in the order Books, Perfumes, Films, Paintings
-   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Organizations, Recommenders, Series,
+   (`DOMAIN_ORDER`), then Reading, Reader, Authors, Publishers, Organizations, Recommenders, Series,
    Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
    Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
    (`src/components/shortcuts/section-icons.ts`).
@@ -93,11 +96,13 @@ Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmd
 Groups:
 - One group per open collection (**Books**, **Perfumes**, **Films**, **Paintings**, in `DOMAIN_ORDER`): up to five matches each, by title, series, the names the work is credited to (authors; directors and writers; perfumers and houses; painters) or ISBN. Each opens the work in its own collection (`/library/…`, `/films/…`, `/perfumes/…`, `/paintings/…`) and shows its picture (the active poster, else, for a book, an edition's cover), its makers and year. A book and a film of the same title stay two results
 - **People**: matches by any name or other name, with what they are (Writer, Translator or another edition role, Director, Cast, Perfumer, Painter). A person with books opens their author page; anyone else opens their collection's list filtered to them (`/films?director=`, `/perfumes?perfumer=`, `/paintings?painter=`). A person with no credit has no page yet and is left out
-- **Organizations**: a publishing profile opens the publisher page; a perfume house or brand opens `/perfumes?house=`; a museum or gallery opens `/paintings?institution=`. An organization with none of these is left out until organizations have pages
+- **Organizations**: a publishing profile opens the publisher page; a perfume house or brand opens `/perfumes?house=`; a museum or gallery opens `/paintings?institution=`; any other (a retailer, manufacturer, production company or distributor) opens its page in the organization directory, `/organizations/<slug>`
 - **Places**: venues by name or address, archived ones left out
 - Pictures: a work's cover or poster, 24x36 like a small card, or a person's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. They load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
 - **Search**: one "Search books for …" entry per open collection
-- **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
+- **Log progress** (SLN-448), first: when the query is a position ("212", "44%", "+20", "3:12", "p 212") that fits an open reading, one "Log p. 212 · Title" per such reading. When a book found for the query has it as a word of its title ("451", "84", "Catch-22"), the books come first and this group follows them (`queryNamesATitle`). It opens Log progress with what was typed; "+20" stays relative (the server adds it to the row it checks). Services: `paletteReadingItems` in `src/lib/reading/palette.ts`
+- **This page**: the page's Edit menu entries ("Edit work", `E W`), Reading menu entries ("Log progress", `R P`) and Copy menu entries
+- **Reading**: "Log progress · Title" for each open reading, "Start reading..." and "Log a past read..." (the book picker). The open readings load each time the palette opens (`getOpenReadings`), never with the page; every item sends its reading's fingerprint
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
 
@@ -112,8 +117,9 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), `R` → the Reading menu (a book page's reading actions, given with `useReadingActions`), `G R` → Reading (`/reading`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
+- Wraps the page and the palette in `ReadingDialogsProvider` (`src/components/reading/reading-dialogs-provider.tsx`), in both branches (the reader view at `/reader/[calibreId]` too): `useReadingDialogs()` opens Start reading, Log progress, Finish, Abandon, Log a past read, Edit and Delete for any book from any page, and the book picker. A dialog loads its book's data when it opens (`getReadingDialogData`) and each dialog's code on first use; a dialog on a reading sends the fingerprint its caller holds, so a reading changed elsewhere gets the server's "This reading changed elsewhere; reload before saving", then the page refreshes
 
 ---
 
@@ -136,6 +142,8 @@ first. A book shows as its book card; other records as a `DomainTileCard`.
 
 **Collections**: the first 4 collections in their curated order, with "View all".
 
+**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
+
 **Highest rated**, **Recent authors** and **Wanted**: book sections.
 
 ---
@@ -151,10 +159,11 @@ the page offers it; any other value shows the grid.
 
 **View modes** (togglable):
 - **Grid**: Book cards in a responsive grid (adjustable columns via slider)
+- **Mosaic**: The covers alone, in justified rows (`<Mosaic>`, see `docs/03_DESIGN_LANGUAGE.md`, Mosaic). The same view is offered on people, films, perfumes, paintings and collections
 - **List**: Compact card list
 - **Table**: High-density data table with configurable columns
 
-**Grid size slider**: Adjusts the number of columns in grid view.
+**Grid size slider**: Adjusts the number of columns in grid view, and the pictures per row in mosaic view (two more than the grid's).
 
 **Column configuration** (table view): Dialog to select which columns are visible.
 
@@ -171,6 +180,7 @@ the page offers it; any other value shows the grid.
 - Tags: Multi-select
 - Format: Hardcover, Paperback, Digital
 - Language: Multi-select
+- Min Rating (`rating`): 5, 4.5+, 4+, 3.5+, 3+; any other value is ignored
 
 **Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status).
 
@@ -235,7 +245,8 @@ base, then "Other"; edited in place); Families and accords; Formulations (each
 concentration as sold, with its own dates, perfumers, notes, families, accords
 and image; `?formulation=` chooses one and the facts and notes above show its
 own values); Bottles and samples (formulation, size, what is left, status,
-storage place, acquisition); Retailers (listings with recorded prices);
+storage place, acquisition); Wanted (see below); Retailers (listings with
+recorded prices);
 Gallery; Sources (cited sources, and sources a reader adds); Your notes;
 related perfumes ("More from {house}", "More by {perfumer}", "Shared notes").
 
@@ -291,7 +302,7 @@ personal rating.
 `DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
 order, characters, credited names; the first twelve until "Show all"), Crew by
 role, Linked works, Versions (each cut with its runtime and releases: territory,
-format, date, distributor), Copies, Sources and Your notes. The record column holds
+format, date, distributor), Copies, Wanted (see below), Sources and Your notes. The record column holds
 Details (original title, first release, countries, languages, production,
 added), Genres (edited in place) and Media counts. Then the gallery and related
 films ("More by {director}", "Shared cast", "Shared genres").
@@ -349,7 +360,8 @@ since when, and how long ago it was checked; past a year: "check again"), what
 you own of it and the personal rating.
 
 `DetailColumns`: the reading column holds the description (`Prose`), the
-original and its versions, reproductions, Sources and Your notes. Each object
+original and its versions, reproductions, Wanted (see below), Sources and Your
+notes. Each object
 lists its size, date and own attribution, its owner (institution with
 collection and accession number, a private collection, you, or unknown), what
 you hold, where it is now, and its location history (newest first; probable and
@@ -396,7 +408,7 @@ The detail page for a single work. Displays the work and all its editions and in
 - Canonical title (serif, large)
 - Primary author(s) with role labels
 - Original year and language
-- Rating (1-5)
+- Rating (0.5 to 5 in half steps: the stars and the number)
 - Catalogue status badge
 - Series name and position (if applicable)
 
@@ -426,6 +438,14 @@ The detail page for a single work. Displays the work and all its editions and in
 **Actions**: Edit work metadata, add edition, add instance, re-fetch metadata, manage collections, delete work.
 
 **Edit menu** (`E`): `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy. The actions menu shows these keys. Plain `E` and `T` open no dialog.
+
+**Reading** (SLN-447):
+- *Header control*: under the title, one button whose label is the book's reading state ("Start reading", "Reading · p. 212 of 480 · 44%", "Paused at 44%", "Read · 14 Apr 2024", "Read 3 times · 2024", "Abandoned at p. 120"), with a menu of the actions that make sense now (start, log progress, pause or resume, finish, abandon, edit, re-read, resume an abandoned read, start again, log a past read), each with its `R` key. The Read button for digital editions follows it.
+- *Reading section*, after Notes: the current reading (edition, copy and where it is, a progress bar, "Started 2 Oct in Amsterdam · last read yesterday", the chapter, Log progress, Pause or Resume, Finish, and a menu with Abandon, Edit and Delete), then one row per earlier read, newest first (its number among all reads, dates, outcome, format, the edition when it changed, the read's rating, the review's first lines), and "Your ratings: 4 (2012), 5 (2024)" with two rated reads or more. With no readings the section is left out and "Start reading" and "Log a past read" are in the actions menu.
+- *Record group* "Reading": first read, last finished, times read (finished reads) and time spent once sessions have durations.
+- *Dialogs* (loaded when opened): Start reading ("I'm at", remembered per device; edition and copy with the smart default; format; pages to read with "Find page count"; audio length; start date, exact or not; already at), Log progress (one field, or Page / % / Time with keypad fields on touch; quick steps; another edition or format; a move back asks "Fix my last log" or "I went back"; the last page opens Finish), Finish (date, rating, the book's rating, review; then the series' next volume), Abandon, Log a past read (dates at any precision), Edit reading and Delete. Log progress, Finish, Abandon and Delete have a 10-second Undo. `?then=start` opens Start reading on arrival (Log progress when the book is being read) and `?then=past` opens Log a past read, once: `ReadingThen` (`src/components/reading/reading-then.tsx`) opens the dialog through `useReadingDialogs()`, then takes `then` out of the address with `router.replace`, so a refresh or Back does not open it again. The Finish dialog's next volume and the add-a-book page link here.
+
+**Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
 
 **External links**: Open Library, Google Books, Calibre-Web (if digital instance with calibre_url exists).
 
@@ -465,6 +485,8 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 **Step 6 — Confirm**:
 - Summary of everything about to be created
 - Single "Add to catalogue" action
+
+**From the reading book picker** (SLN-448): `?q=` (trimmed, at most 200 characters) or `?isbn=` (an ISBN-10 or ISBN-13; anything else is ignored) fills the search and runs it; an ISBN also fills the ISBN field, as an ISBN-13. `&then=start` or `&then=past` sends both ways out to a book page (a new book, or an edition added to a book) with `?then=`, so the new book opens with Start reading or Log a past read. `bookPickerAddHref` (`src/lib/reading/book-picker.ts`) builds the link; `addBookParams` reads it.
 
 **Fast Track and leaving** (SLN-320, SLN-437, SLN-438):
 - The Details step (title, author, status) has Fast Track: it saves the work and one edition at once, without copies or categorization. Enter in a one-line field runs it, and the title takes the focus when the step opens, so a search result picked with Enter is one more Enter from saved. Enter still adds a line in the description and picks in open lists. When Fast Track is not shown (an edition for an existing work), Enter goes to the next step.
@@ -507,34 +529,25 @@ The old import created one edition per book with no ISBN, publisher or cover (me
 
 ---
 
-### Authors (`/authors`)
+### People (`/people`)
 
-Table view of all authors in the database.
+Everyone in the catalogue, in every collection: writers, translators, directors, actors, perfumers, painters (SLN-419). Every old `/authors` and `/authors/[slug]` URL redirects permanently (308) to the matching `/people` URL; slugs did not change. The REST API keeps `/api/authors`.
 
-**Columns**: Name, Nationality, Birth-Death years, Works count.
+**Views**: grid, list, map and timeline (the map and timeline show book people, who carry places and dates).
 
-**Features**:
-- Search by name
-- Alphabetical ordering by sort name
-- Click row to navigate to author detail
+**Filters**: Collection (the collections a person belongs to, `person_domains`) and Role (any credited role, such as "Films: Director" or "Books: Translator"; each choice shows how many people hold it), plus nationality, gender, zodiac sign, status and birth and death years. Search, sort and pagination as before.
 
 ---
 
-### Author Detail (`/authors/[slug]`)
+### Person Detail (`/people/[slug]`)
 
-Full author profile page.
+**Header**: optional portrait, name, nationality, birth and death years.
 
-**Author header**:
-- Optional poster image (from media)
-- Name, nationality
-- Birth and death years
-- Bio text
+**Record**: a Credits group sums up each collection's roles ("Books: Author 12, Translator 3", "Films: Director 2"), then details and links.
 
-**Media section**: Upload and gallery for author images.
+**Books**: works written, as book cards, and edition contributions (translator, editor, illustrator…). A person with no books has neither section.
 
-**Works authored**: List of works with role badges (author, co-author).
-
-**Edition contributions**: List of editions where this author is a contributor (translator, editor, illustrator, etc.).
+**Films, Perfumes, Paintings**: each collection the person is credited in lists its works, linked, with the person's roles.
 
 **External links**: Website, Open Library, Goodreads.
 
@@ -546,10 +559,10 @@ Full author profile page.
 
 ### Publisher Detail (`/publishers/[slug]`)
 
-- Header like the author page: the house's background banner and backdrop, its logo (shown whole, never cropped), the name, what it is (imprint of, group) and where, the favourite star, Edit and an actions menu (Copy name, Edit, Manage media, View in library). Manage media opens the shared media manager with a Logo and a Background tab (owner `organization`).
-- Reading column: About (`<Prose>`), notes, then the books as a catalogue: one card per book with this house's edition cover (owned edition first, then one with a cover, then the earliest), in grid or list view. The house's imprints count as the house.
-- Search, filters (status: owned, wanted, on order; marks; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
-- Record column: the counts (books, editions, owned, wanted, on order), details (country, group, imprints, other names, specialties, ISBN prefixes) and the website.
+- Header like the author page: the house's background banner and backdrop, its logo (shown whole, never cropped), the name, what it is (imprint of, group) and where, when and where it was founded ("Founded 1936 in New York"), the favourite star, Edit and an actions menu (Copy name, Edit, Manage media, View in library). Manage media opens the shared media manager with a Logo and a Background tab (owner `organization`).
+- Reading column: About (`<Prose>`), notes, then the books as a catalogue: one card per book with this house's edition cover (owned edition first, then one with a cover, then the earliest), in grid or list view. The view is in the URL (`?view=grid` or `?view=list`), so a shared link opens the same view; without it, the last view chosen on this device. The house's imprints count as the house.
+- Search, filters (status: owned, wanted, on order; marks: Rare, Anathema, Favourite; imprint; language; publication years as a range; binding; author), sort (title, author, year, recent) and pagination run on the server (`src/lib/publishers/books.ts`) and live in the URL. The old `?filter=` tab links still open the same view.
+- Record column: the counts (books, editions, owned, wanted, on order), details (country, founded, founded in, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
 - The record's Links group opens the house's organization page, where its roles in the other collections show.
 
@@ -640,6 +653,28 @@ perfume and painting pages have "Collections" in their actions menu.
 
 ---
 
+### Reading (`/reading`)
+
+The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "Start a book" (both open the book picker) and `ReadingTabs`.
+- **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), Log progress and a menu (Pause, Finish, Abandon, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
+- **Paused**: one line each with "paused 3 weeks ago" and Resume.
+- **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision.
+- With no reading at all: `EmptyState` with Start a book. Later steps add the timer, Up next, a passage of the day, the goal, On this day and suggestions here.
+
+**Book picker** (`src/components/reading/book-picker.tsx`): opened by "Start a book", "Log a past read" and the palette. Books only, matched without accents on title and authors as you type, owned books first (`ownedBookCondition`), then by title, at most 20 (`searchBooksToRead`). Each row: cover, title, author, "Owned" or the catalogue status, and the reading state ("Reading 44%", "Paused", "Read 2 times"). Choosing a book opens the dialog the picker was opened for; Start on a book being read opens Log progress instead. The empty result and the footer read 'Not in Durtal? Add "<query>"', a link to `/library/new?q=<query>&then=start` (`?isbn=` for an ISBN, `&then=past` for a past read).
+
+**Tabs**: `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the one tab row of every reading page, in its final order: Now (`/reading`), Up next (`/reading/next`), Journal (`/reading/journal`), Notes, Stats, Suggestions, Import. A tab shows only once its page exists; this step shows Now and Journal. Now is current on `/reading` only; any other tab on its path and below. The e-book reader's pages have no tab row.
+
+### Reading journal (`/reading/journal`)
+
+Every reading (SLN-448), from `parseJournalQuery` (`src/lib/reading/journal-params.ts`) and `queryJournal` (`src/lib/reading/journal.ts`).
+- A summary of the filtered readings: "212 readings · 187 finished · 9 abandoned · 4 re-reads".
+- With the Finished sort, rows sit in groups: "In progress", then each year of finish (the stop date of an abandoned read; a month or year date sits in its year), then "Date unknown".
+- Each row: cover, title, author, dates (`formatReadingSpan`), outcome ("Finished · re-read"), the edition's language when it is a translation, the format, the read's rating, and a menu with Edit and Delete (with Undo).
+- Filters in the URL: Status (`status`), Year range (`yearMin`, `yearMax`, on the finish or stop date), Format (`format`), Minimum rating (`minRating`, half stars), Re-reads only (`rereads=1`), and the search (`q`, title and author, accents ignored). Sorts (`sort`, `order`): Finished (newest first, unknown dates last), Started, Rating (unrated last), Title (accents ignored). Ties on the reading's id. 48 per page.
+- **The read's rating** everywhere on the hub (the journal's stars, filter and sort, the Now page, the dashboard): `readingRatingSql`, the read's own rating, else the book's when it is the book's only finished read. A book rated 5 whose 2012 read was rated 3 shows 3 on that row.
+- **Re-reads**: a reading is a re-read when its book has a finished reading before it in the order `getReadingsForWork` numbers by (`rereadSql`, one window over all readings). An abandoned first attempt does not make the next read a re-read.
+
 ### Reader (`/reader`)
 
 Library of Calibre e-books (`calibre_books` table): recently read books (6), then a paginated grid of all books.
@@ -677,6 +712,21 @@ A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 - **Bought here**: perfume bottles, film copies and art objects whose acquisition names this venue, with the date bought and their status.
 - Specialties and tags, notes, and the record column (contact, opening hours, visits).
 - Each part lists up to 100 rows (orders 50) and says when there are more.
+
+### Wanted (films, perfumes, paintings)
+
+`WantedSection` (`src/components/catalogue/wanted-section.tsx`) lists what the
+collector wants to buy of the work (SLN-374): a formulation in a container size
+("Eau de Parfum · Bottle · 50 ml"), a film version (and release) on a medium,
+or an original or version in private or unknown hands, or a reproduction of
+one. Each shows its state (Wanted, On order, Received) and its orders (status,
+date, price, "in the collection" once received, a link to Provenance). "Add"
+opens the wish dialog; each wish's menu has Order (method, status, date, shop,
+price, shipping and currency, where it will be kept) and Remove. A wish needs
+a formulation, a version or an object first; the part says so when there is
+none. An order bought in a shop or received as a gift arrives at once; any
+other arrives when Provenance marks it delivered, purchased or received, and
+the bottle, copy or object then appears in its part.
 
 ### Provenance (`/provenance`)
 

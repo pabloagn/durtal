@@ -110,7 +110,7 @@ describe("update schemas", () => {
       authorIds: [{ authorId: UUID, role: "author" }],
     } as const;
     expect(updateWorkSchema.parse(work)).toEqual(work);
-    // Author edit dialog (src/app/authors/[slug]/author-edit-dialog.tsx)
+    // Author edit dialog (src/app/people/[slug]/author-edit-dialog.tsx)
     const author = {
       name: "Joris-Karl Huysmans",
       sortName: "Huysmans, Joris-Karl",

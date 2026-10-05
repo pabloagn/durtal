@@ -13,10 +13,13 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
+import { isbn10To13, validIsbn10 } from "@/lib/match/plan";
+import type { PickerPurpose } from "@/lib/reading/book-picker";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { AuthorNameInput } from "@/components/shared/author-name-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -32,6 +35,7 @@ import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { languageName, normalizeLanguage } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
+import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
 import { BINDING_TYPES } from "@/lib/types/index";
 import { findDuplicateWork } from "@/lib/actions/works";
 import { createBookFromWizard, isIsbnInUse } from "@/lib/actions/wizard";
@@ -143,8 +147,20 @@ function cameFromApp(): boolean {
 
 // ── Wizard ───────────────────────────────────────────────────────────────────
 
-export function AddBookWizard() {
+export function AddBookWizard({
+  initialQuery = null,
+  initialIsbn = null,
+  then = null,
+}: {
+  /** From the reading book picker's "Not in Durtal?" link (SLN-448) */
+  initialQuery?: string | null;
+  initialIsbn?: string | null;
+  /** The reading dialog the new book's page opens */
+  then?: PickerPurpose | null;
+}) {
   const router = useRouter();
+  // The book page opens the reading dialog it was added for
+  const bookHref = (slug: string) => `/library/${slug}${then ? `?then=${then}` : ""}`;
   // Defaults for the new book and its copies (Settings, General)
   const appSettings = useAppSettings();
   const [isPending, startTransition] = useTransition();
@@ -164,6 +180,12 @@ export function AddBookWizard() {
   } = useDebouncedSearch(300);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // A query or an ISBN from the link: search for it at once
+  useEffect(() => {
+    const first = initialIsbn ?? initialQuery;
+    if (first) setSearchQuery(first);
+  }, [initialIsbn, initialQuery, setSearchQuery]);
 
   // Reset highlight when results change
   useEffect(() => {
@@ -205,7 +227,12 @@ export function AddBookWizard() {
   const isWishlistStatus = ["tracked", "shortlisted", "wanted"].includes(catalogueStatus);
 
   // Edition fields
-  const [isbn13, setIsbn13] = useState("");
+  // An ISBN from the link also fills the field, for details entered by hand
+  const [isbn13, setIsbn13] = useState(() => {
+    if (!initialIsbn) return "";
+    const ten = initialIsbn.length === 10 ? validIsbn10(initialIsbn) : null;
+    return ten ? isbn10To13(ten) : initialIsbn;
+  });
   const [isbnClash, setIsbnClash] = useState<string | null>(null);
   const [publisher, setPublisher] = useState("");
   const [publicationYear, setPublicationYear] = useState("");
@@ -471,7 +498,7 @@ export function AddBookWizard() {
             "The cover could not be downloaded. Its source URL was saved.",
           );
         // Keep the guard until navigation completes, including no-ISBN books.
-        router.push(`/library/${result.slug}`);
+        router.push(bookHref(result.slug));
       } catch {
         setFastTrackError("Could not add the book. Please try again.");
         fastTrackInFlight.current = false;
@@ -543,7 +570,7 @@ export function AddBookWizard() {
         toast.warning(
           "The cover could not be downloaded. Its source URL was saved.",
         );
-      router.push(`/library/${result.slug ?? ""}`);
+      router.push(bookHref(result.slug ?? ""));
     });
   }
 
@@ -786,10 +813,13 @@ export function AddBookWizard() {
                           </div>
                         </div>
 
-                        <ArrowRight
-                          className="mt-2 h-3.5 w-3.5 flex-shrink-0 text-fg-muted"
-                          strokeWidth={1.5}
-                        />
+                        {/* On the cap-height center of the title's first line */}
+                        <CapAligned height={14} className="type-item-title">
+                          <ArrowRight
+                            className="h-3.5 w-3.5 text-fg-muted"
+                            strokeWidth={1.5}
+                          />
+                        </CapAligned>
                       </button>
                     ))}
 
@@ -1370,10 +1400,10 @@ export function AddBookWizard() {
                             : "muted"
                       }
                     >
-                      {catalogueStatus}
+                      {catalogueStatusLabel(catalogueStatus)}
                     </Badge>
                     {acquisitionPriority !== "none" && (
-                      <Badge variant="blue">{acquisitionPriority} priority</Badge>
+                      <Badge variant="blue">{priorityLabel(acquisitionPriority)} priority</Badge>
                     )}
                     {existingWorkId && (
                       <Badge variant="gold">Existing work</Badge>
@@ -1458,11 +1488,11 @@ export function AddBookWizard() {
                               {loc?.name ?? "Unknown"}
                             </span>
                             {d.format && (
-                              <Badge variant="muted">{d.format}</Badge>
+                              <Badge variant="muted">{enumLabel(d.format)}</Badge>
                             )}
                             {d.condition && (
                               <Badge variant="sage">
-                                {d.condition.replace(/_/g, " ")}
+                                {enumLabel(d.condition)}
                               </Badge>
                             )}
                             {d.isSigned && (

@@ -27,7 +27,7 @@ Search matches against work title using `ilike`. Sort options:
 - `recent`: `createdAt` descending
 - `title`: alphabetical ascending
 - `year`: `originalYear` descending (nulls last)
-- `rating`: `rating` descending (nulls last)
+- `rating`: `rating` descending, or ascending with `order: "asc"`; unrated works last either way
 
 ### `getWorkCount(search?, filters?)`
 
@@ -66,7 +66,7 @@ Validated against `createWorkSchema` (Zod). Gives the book its id and slug first
 updateWork(id: string, input: Partial<CreateWorkInput>): Promise<Work>
 ```
 
-Updates work metadata in one transaction: the work row, its personal curation (`rating`, `notes`, `recommenderIds` through the shared `curationQueries`, which every domain uses), `authorIds` (through `bookAuthorQueries`, which keeps credit ids) and `subjectIds`. A failure in any part changes nothing. A repeated recommender is stored once. Returns `{ id }`, plus `slug` when a new title or primary author changed the book's address; the book page goes to that address.
+Updates work metadata in one transaction: the work row, its personal curation (`rating`, 0.5 to 5 in half steps through `RATING_SCHEMA` in `src/lib/validations/helpers.ts`, as in `createWorkSchema` and `curationPatchSchema`; `notes`, `recommenderIds` through the shared `curationQueries`, which every domain uses), `authorIds` (through `bookAuthorQueries`, which keeps credit ids) and `subjectIds`. A failure in any part changes nothing. A repeated recommender is stored once. Returns `{ id }`, plus `slug` when a new title or primary author changed the book's address; the book page goes to that address.
 
 ### `deleteWork(id)`
 
@@ -435,6 +435,73 @@ Orders a book the library does not have yet. The author (found by name or create
 ### `updateOrderStatus(id, status, notes?)` / `deleteOrder(id)`
 
 Each status change writes the order and its history row in one transaction. It is refused with "The order changed; reload before changing its status" when another change moved the order first. A delete removes the order with its history rows (they cascade); the book's own status history records the change.
+
+---
+
+## Reading (`src/lib/actions/reading.ts`, SLN-444)
+
+Every write parses its input (`src/lib/validations/reading.ts`), checks the book (`requireBookWork`), reads the reading and its fingerprint, then runs one atomic write that locks the reading and asserts the fingerprint; a stale one gives "This reading changed elsewhere; reload before saving". Each returns the reading with its new fingerprint, records its history entry after the write, and invalidates `works` and `reading`. Ratings are 0.5 to 5.0 in half steps. Times and default dates use the browser's `timeZone` when given, else `APP_TIMEZONE`, and the reading day (hours before 04:00 count for the evening before).
+
+### `startReading(input)`
+Starts a book: copy, edition, home, format (from the copy: e-book files are `ebook`, audiobooks `audio`), unit, totals (pages from the edition), start date (today's reading day, or unknown) and at most one start position. Refused while the book has an open reading ("This book is already being read", or "This book has a paused reading; resume it"). `work.reading_started`.
+
+### `logProgress(input)`
+A page, percent, minutes, pages or minutes on, or a chapter, in the reading's edition or another of the book's. A paused reading resumes first. A new session starts where the session order says and ends at the new place; going back follows `goingBack` (`fix_last_log` replaces the latest session's end, `went_back` writes a session that counts nothing; without it, a log on the latest session's day fixes it). Past the last page or the end is refused with the page or time. Returns `{ reading, session, reachedEnd, wentBack, undo }`. `work.reading_progress` at most once per reading per day.
+
+### `undoProgress({ readingId, fingerprint, undo })`
+Deletes the session a log wrote, or puts back the end it replaced, recomputes the position, and pauses the reading again when the log had resumed it.
+
+### `pauseReading(input)` / `resumeReading(input)`
+Status changes with a history row; `work.reading_paused`, `work.reading_resumed`.
+
+### `finishReading(input)`
+From reading or paused: the end (100%, last page and minutes), the date (default today, day precision), rating and review; with a rating it also sets the book's rating unless `setBookRating` is false (`work.rating_changed`). When the end is ahead and the reading has sessions, a closing session carries the last pages (on the finish day, or the latest session's day for an imprecise finish). Returns `{ reading, undo }` for the Undo toast.
+
+### `abandonReading(input)`
+From reading or paused: when, why (`ABANDON_REASONS`), a note and the page reached, with a closing session as for a finish. `work.reading_abandoned`.
+
+### `reopenReading(input)`
+Finished or abandoned back to reading or paused: clears the finish date and reason, restores the position and deletes the closing session when given (the Undo of finish and abandon), and puts the book's rating back only while it still has the value the finish set ("The book's rating was changed since; it was kept"). Refused while another reading of the book is open.
+
+### `addPastReading(input)`
+A finished or abandoned read from the past in one step, through `writeReadings` (`source: "manual"`, the book's rating set only if it has none). Returns written, already present ("You already logged this read: finished 14 Apr 2019"), or a possible duplicate, written only with `allowPossibleDuplicate`.
+
+### `updateReading(input)`
+Edition or copy (the start and current positions are mapped by share; with no page count, page null and unit percent; `work.reading_edition_changed`), format, unit, home (physical only), totals (never below the position: "You are on p. 212; the book cannot have 200 pages"), dates (the finish only on a finished or abandoned read, after the start), rating, review, reason and note.
+
+### `deleteReading(input)` / `restoreReading(snapshot)`
+Deletes a reading with its sessions and history and returns the snapshot; restore puts it back with the same ids, an edition, copy or place deleted meanwhile coming back empty, and is refused if it would make a second open reading. `work.reading_deleted`.
+
+### `updateSession(input)` / `deleteSession(input)`
+Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. With no session left, the position returns to the start.
+
+### `getReadingsForWork(workId)`, `getOpenReadings()`, `getReadingCounts(workId)`
+A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author, cover and when it was paused, most recently read first (the hub, the dashboard, and the command palette, which calls it each time it opens); the readings and sessions a book delete removes.
+
+### What the book page calls (SLN-447)
+The header control, the Reading section and its dialogs call `startReading`, `logProgress` and `undoProgress`, `pauseReading`, `resumeReading`, `finishReading`, `abandonReading`, `reopenReading` (the Undo of finish and abandon, and "Resume this reading" with `toStatus: "reading"`), `addPastReading`, `updateReading`, `deleteReading` and `restoreReading`. Every write sends the browser's `timeZone` and, on an existing reading, the fingerprint from `getReadingsForWork` or the last write. A "212/480" log first sets the page count with `updateReading`.
+
+### `getNextInSeries(workId, homeId)`
+After a finish: the series' next volume to read (`nextToRead` in `src/lib/reading/series.ts`: the first volume in series order not finished, after the last finished one) with where its copy is (the copy at hand at the home, else its first copy in the collection, else "Not owned"). Null when the book is in no series or every later volume is read.
+
+### `findPageCount(editionId)`
+An edition's page count from ISBNdb (by ISBN-13), then Open Library (by its edition key), or null. It writes nothing: saving it to the edition is the match flow's job.
+
+### `searchBooksToRead(query)` (SLN-448)
+The book picker: books only, matched without accents on title and authors (`textSearchCondition`, no typos), owned books first (`ownedBookCondition` in `src/lib/catalogue/holdings.ts`: a copy that is not deaccessioned), then by title without accents, at most 20. Each with its first author, a cover, the catalogue status, the reading state, the finished reads, the open reading's share, and the open reading's id and fingerprint (Start on a book being read logs progress on it). An empty query lists the first 20.
+
+### `getReadingDialogData(workId, homeId)` (SLN-448)
+What a reading dialog needs for a book opened away from its page (the hub, the dashboard, the palette, `?then=`): its readings (as `getReadingsForWork`), its editions with their copies ranked by the "I'm at" home, the homes, its rating, today's reading day and the zone. `ReadingDialogsProvider` calls it when a dialog opens and after each write.
+
+### Hub queries (`src/lib/reading/journal.ts`, not server actions)
+- `queryJournal(query)`: one page of readings for `/reading/journal` with the filtered summary (readings, finished, abandoned, re-reads). Each row has the read's rating (`readingRatingSql`), whether it is a re-read (`rereadSql` in `src/lib/reading/summary.ts`), its book, author, cover, edition language and fingerprint.
+- `getJournalFacets()`: the years of finish and the formats, for the filters.
+- `getRecentlyFinished(limit)`: the latest finished reads with the read's rating, unknown dates last.
+
+### Internal service (`src/lib/reading/service.ts`, not a server action)
+- `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
+- `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again").
+- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome.
 
 ---
 

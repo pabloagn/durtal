@@ -7,6 +7,7 @@ import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { assertSql } from "@/lib/harmonization/store";
+import { withReadableErrors } from "@/lib/db/errors";
 import {
   orders,
   orderStatusHistory,
@@ -63,6 +64,15 @@ import {
 } from "@/lib/catalogue/book-store";
 import { sortCurrencyTotals } from "@/lib/utils/money";
 import { getAppSettings } from "@/lib/actions/settings";
+import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
+import {
+  checkDestination,
+  getTarget,
+  notYetReceived,
+  receiptQueries,
+  returnQueries,
+  typedKind,
+} from "@/lib/catalogue/acquisition-receipt";
 import {
   nextCatalogueStatus,
   type CatalogueStatus,
@@ -157,7 +167,7 @@ export async function getOrder(id: string) {
     where: eq(orders.id, id),
     with: {
       work: {
-        columns: { id: true, title: true, slug: true },
+        columns: { id: true, title: true, slug: true, kind: true },
         with: {
           workAuthors: {
             with: { author: { columns: { id: true, name: true } } },
@@ -257,7 +267,7 @@ export async function getActiveOrders(filters?: {
     orderBy: asc(orders.orderDate),
     with: {
       work: {
-        columns: { id: true, title: true, slug: true },
+        columns: { id: true, title: true, slug: true, kind: true },
         with: {
           workAuthors: {
             with: { author: { columns: { id: true, name: true } } },
@@ -330,7 +340,7 @@ export async function getOrderTimeline(
       offset,
       with: {
         work: {
-          columns: { id: true, title: true, slug: true },
+          columns: { id: true, title: true, slug: true, kind: true },
           with: {
             workAuthors: {
               with: { author: { columns: { id: true, name: true } } },
@@ -366,8 +376,14 @@ export async function getOrderTimeline(
 export async function getProvenanceStats(dateRange?: {
   from?: string;
   to?: string;
+  /** One collection's orders only: a book's totals stay a book's */
+  kind?: WorkKind;
 }) {
   const conditions: SQL[] = [];
+  if (dateRange?.kind)
+    conditions.push(
+      sql`exists (select 1 from works w where w.id = ${orders.workId} and w.kind = ${z.enum(WORK_KINDS).parse(dateRange.kind)})`,
+    );
 
   if (dateRange?.from) {
     conditions.push(gte(orders.orderDate, dateRange.from));
@@ -472,6 +488,7 @@ function newOrderQueries(
   workId: string,
   validated: OrderFields,
   status: OrderStatus,
+  received: Partial<typeof orders.$inferInsert> = {},
 ) {
   return [
     d
@@ -503,6 +520,7 @@ function newOrderQueries(
         destinationLocationId: validated.destinationLocationId ?? null,
         destinationSubLocationId: validated.destinationSubLocationId ?? null,
         notes: validated.notes ?? null,
+        ...received,
       })
       .returning(),
     d.insert(orderStatusHistory).values({
@@ -516,14 +534,35 @@ function newOrderQueries(
 
 export async function createOrder(input: CreateOrderInput) {
   const validated = createOrderSchema.parse(input);
-  await requireBookWork(validated.workId);
+  // A film, perfume or painting is ordered through a target that names what
+  // it brings in; anything else is a book order
+  const target = await getTarget(validated.acquisitionTargetId);
+  const kind =
+    target && target.workId === validated.workId ? typedKind(target) : null;
+  if (!kind) await requireBookWork(validated.workId);
   const status: OrderStatus = validated.status ?? "placed";
+  // Bought in a shop or received as a gift: it arrives with the order
+  const receiving = !!kind && BOOK_IN_HAND_STATUSES.includes(status);
+  const receivedOn = validated.actualDeliveryDate ?? todayLocal();
+  const fields = receiving
+    ? { ...validated, actualDeliveryDate: receivedOn }
+    : validated;
+  if (receiving)
+    await checkDestination(target!, receiptOrder(validated.workId, fields));
 
-  // The order and its first history row are one write
-  const [inserted] = await atomic((d) =>
-    newOrderQueries(d, randomUUID(), validated.workId, validated, status),
-  );
-  const [order] = inserted as (typeof orders.$inferSelect)[];
+  // The holding (if it arrives now), the order and its first history row are one write
+  let at = 0;
+  const results = await withReadableErrors(() => atomic((d) => {
+    const receipt = receiving
+      ? receiptQueries(d, target!, receiptOrder(validated.workId, fields), receivedOn)
+      : null;
+    at = receipt?.queries.length ?? 0;
+    return [
+      ...(receipt?.queries ?? []),
+      ...newOrderQueries(d, randomUUID(), validated.workId, fields, status, receipt?.link),
+    ];
+  }));
+  const [order] = results[at] as (typeof orders.$inferSelect)[];
 
   // Sync work catalogue status from all orders for this work
   await syncWorkCatalogueStatusFromAllOrders(
@@ -531,8 +570,34 @@ export async function createOrder(input: CreateOrderInput) {
     `Order created with status "${status}"`,
   );
 
-  invalidate(CACHE_TAGS.orders);
+  invalidate(CACHE_TAGS.orders, ...(receiving ? [CACHE_TAGS.works, CACHE_TAGS.locations] : []));
   return order;
+}
+
+/** The parts of an order a receipt reads */
+function receiptOrder(
+  workId: string,
+  o: Pick<
+    OrderFields,
+    | "venueId"
+    | "price"
+    | "totalCost"
+    | "currency"
+    | "actualDeliveryDate"
+    | "destinationLocationId"
+    | "destinationSubLocationId"
+  >,
+) {
+  return {
+    workId,
+    venueId: o.venueId ?? null,
+    price: o.price ?? null,
+    totalCost: o.totalCost ?? null,
+    currency: o.currency ?? null,
+    actualDeliveryDate: o.actualDeliveryDate ?? null,
+    destinationLocationId: o.destinationLocationId ?? null,
+    destinationSubLocationId: o.destinationSubLocationId ?? null,
+  };
 }
 
 const newBookSchema = z.object({
@@ -678,6 +743,16 @@ export async function updateOrderStatus(
       shippedDate: true,
       actualDeliveryDate: true,
       workId: true,
+      acquisitionTargetId: true,
+      venueId: true,
+      price: true,
+      totalCost: true,
+      currency: true,
+      destinationLocationId: true,
+      destinationSubLocationId: true,
+      filmHoldingId: true,
+      perfumeBottleId: true,
+      artObjectId: true,
     },
   });
 
@@ -714,29 +789,65 @@ export async function updateOrderStatus(
     additionalFields.actualDeliveryDate = today;
   }
 
-  // The change, checked against the status it was validated from, and its
-  // history row are one write: a concurrent change makes this one fail
-  const results = await atomic((d) => [
-    d.execute(sql`select id from orders where id=${id}::uuid for update`),
-    d.execute(
-      assertSql(
-        sql`exists(select 1 from orders where id=${id}::uuid and status=${fromStatus})`,
-        "The order changed; reload before changing its status",
+  // A film, perfume or painting order brings in its holding when received,
+  // once, and disposes of it when returned
+  const target = await getTarget(current.acquisitionTargetId);
+  const kind = target ? typedKind(target) : null;
+  const receiving =
+    !!kind &&
+    BOOK_IN_HAND_STATUSES.includes(newStatus) &&
+    !current.filmHoldingId &&
+    !current.perfumeBottleId &&
+    !current.artObjectId;
+  const returning = !!kind && newStatus === "returned";
+  const receivedOn =
+    (additionalFields.actualDeliveryDate as string | undefined) ??
+    current.actualDeliveryDate ??
+    today;
+  if (receiving)
+    await checkDestination(target!, receiptOrder(current.workId, current));
+
+  // The change, checked against the status it was validated from, what it
+  // brings in or sends back, and its history row are one write: a concurrent
+  // change makes this one fail
+  let at = 0;
+  const results = await withReadableErrors(() => atomic((d) => {
+    const receipt = receiving
+      ? receiptQueries(d, target!, receiptOrder(current.workId, current), receivedOn)
+      : null;
+    const queries: unknown[] = [
+      d.execute(sql`select id from orders where id=${id}::uuid for update`),
+      d.execute(
+        assertSql(
+          sql`exists(select 1 from orders where id=${id}::uuid and status=${fromStatus})`,
+          "The order changed; reload before changing its status",
+        ),
       ),
-    ),
-    d
-      .update(orders)
-      .set({ status: newStatus, ...additionalFields, updatedAt: new Date() })
-      .where(eq(orders.id, id))
-      .returning(),
-    d.insert(orderStatusHistory).values({
-      orderId: id,
-      fromStatus,
-      toStatus: newStatus,
-      notes: notes ?? null,
-    }),
-  ]);
-  const [updated] = results[2] as (typeof orders.$inferSelect)[];
+      ...(receipt ? [notYetReceived(d, id), ...receipt.queries] : []),
+      ...(returning ? returnQueries(d, current, today) : []),
+    ];
+    at = queries.length;
+    return [
+      ...queries,
+      d
+        .update(orders)
+        .set({
+          status: newStatus,
+          ...additionalFields,
+          ...(receipt?.link ?? {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, id))
+        .returning(),
+      d.insert(orderStatusHistory).values({
+        orderId: id,
+        fromStatus,
+        toStatus: newStatus,
+        notes: notes ?? null,
+      }),
+    ];
+  }));
+  const [updated] = results[at] as (typeof orders.$inferSelect)[];
 
   // C1: always sync work status from all orders (handles cancel, return, delivery)
   await syncWorkCatalogueStatusFromAllOrders(
@@ -744,7 +855,10 @@ export async function updateOrderStatus(
     `Order status changed to "${newStatus}"`,
   );
 
-  invalidate(CACHE_TAGS.orders);
+  invalidate(
+    CACHE_TAGS.orders,
+    ...(receiving || returning ? [CACHE_TAGS.works, CACHE_TAGS.locations] : []),
+  );
   return updated;
 }
 

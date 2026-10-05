@@ -14,6 +14,7 @@ import type { SQL } from "drizzle-orm";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 import { marksCondition } from "@/lib/actions/utils/work-marks";
 import type { WorkMarkKey } from "@/lib/constants/marks";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface WorkEditionTimelineItem {
   id: string;
@@ -163,7 +164,7 @@ export async function getWorksForTimeline(opts?: {
       originalYear,
       authorName,
       coverUrl: coverKey
-        ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
+        ? mediaUrl(coverKey)
         : null,
       coverCrop,
       catalogueStatus: row.catalogueStatus,

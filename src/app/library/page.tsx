@@ -21,6 +21,7 @@ import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { parseMarks } from "@/lib/constants/marks";
+import { parseRatingParam } from "@/lib/utils/rating";
 
 export const metadata = { title: "Library" };
 
@@ -79,7 +80,7 @@ async function LibraryContent({
     [searchParams.mark, searchParams.rare === "true" ? "rare" : ""].join(","),
   );
   const ratingParam = searchParams.rating;
-  const minRating = ratingParam ? parseInt(ratingParam, 10) : undefined;
+  const minRating = parseRatingParam(ratingParam);
   const locationId = searchParams.location || undefined;
   const posterParam = searchParams.poster;
   const hasPoster =
@@ -206,6 +207,7 @@ async function LibraryContent({
       isRare: work.isRare,
       huntAssessedOn: work.huntAssessedOn,
       isPoison: work.isPoison,
+      isFavourite: work.isFavourite,
       primaryEditionId: firstEdition?.id ?? null,
       hasDigitalEdition: digitalWorkIds.has(work.id),
     };

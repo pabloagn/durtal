@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Star } from "lucide-react";
 import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
 import {
@@ -15,6 +14,7 @@ import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaImageStyle } from "@/lib/utils/media-style";
+import { RatingStars } from "@/components/shared/rating";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -99,24 +99,6 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── Stars ────────────────────────────────────────────────────────────────────
 
-function RatingStars({ rating }: { rating: number }) {
-  return (
-    <div style={{ display: "flex", gap: 2 }}>
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star
-          key={i}
-          size={10}
-          strokeWidth={1.5}
-          fill={i < rating ? "var(--color-accent-gold)" : "none"}
-          color={
-            i < rating ? "var(--color-accent-gold)" : "var(--color-fg-muted)"
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
 // ── Tooltip content ──────────────────────────────────────────────────────────
 
 function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
@@ -188,7 +170,7 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
         </span>
 
         {/* Rating */}
-        {work.rating != null && <RatingStars rating={work.rating} />}
+        {work.rating != null && <RatingStars value={work.rating} size={12} />}
 
         {/* Status */}
         <StatusBadge status={work.catalogueStatus} />

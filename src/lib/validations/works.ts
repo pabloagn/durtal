@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { bookLinksSchema } from "./book-links";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { RATING_SCHEMA } from "./helpers";
 
 export const createWorkSchema = z.object({
   // This is the legacy book entry point. Do not silently strip another kind.
@@ -15,7 +16,7 @@ export const createWorkSchema = z.object({
   workTypeId: z.string().uuid().nullable().optional(),
   seriesId: z.string().uuid().nullable().optional(),
   notes: z.string().max(10000).nullable().optional(),
-  rating: z.number().int().min(1).max(5).nullable().optional(),
+  rating: RATING_SCHEMA,
   recommenderIds: z.array(z.string().uuid()).optional(),
   catalogueStatus: z
     .enum([

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 /**
  * Centers a fixed-height box (an icon, a small button or button group) on the
@@ -19,19 +19,33 @@ import type { ReactNode } from "react";
  */
 export function CapAligned({
   height,
+  coarseHeight,
   className = "",
   children,
 }: {
   /** Height of the box in px */
   height: number;
+  /** Height on a coarse pointer (touch), when the box grows there */
+  coarseHeight?: number;
   className?: string;
   children: ReactNode;
 }) {
+  if (coarseHeight === undefined)
+    return (
+      <span className={`block h-[1lh] shrink-0 ${className}`}>
+        <span
+          className="cap-box"
+          style={{ height, marginBlock: -height / 2 }}
+        >
+          {children}
+        </span>
+      </span>
+    );
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="inline-block overflow-hidden align-[0.5cap] [&_:focus-visible]:-outline-offset-1"
-        style={{ height, marginBlock: -height / 2 }}
+        className="cap-box h-(--cap-box) [margin-block:calc(var(--cap-box)/-2)] pointer-coarse:h-(--cap-box-coarse) pointer-coarse:[margin-block:calc(var(--cap-box-coarse)/-2)]"
+        style={{ "--cap-box": `${height}px`, "--cap-box-coarse": `${coarseHeight}px` } as CSSProperties}
       >
         {children}
       </span>

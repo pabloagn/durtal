@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { usePreference } from "@/lib/hooks/use-preference";
 import {
@@ -43,7 +44,7 @@ export function SeriesShell({
       <NoResults
         noun="series"
         search={searchParams.get("q")}
-        hasFilters={false}
+        hasFilters={favouritesOnly(searchParams.get(FAVOURITES_PARAM))}
         clearHref={clearedListHref("/series", searchParams)}
       />
     );

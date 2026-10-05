@@ -19,7 +19,7 @@ describe("CACHE_TAGS", () => {
   it("has tags for all entity data", () => {
     const expectedDataTags = [
       "works", "editions", "series", "collections",
-      "media", "activity", "comments", "orders",
+      "media", "activity", "comments", "orders", "reading",
     ];
     for (const tag of expectedDataTags) {
       expect(CACHE_TAGS).toHaveProperty(tag);
@@ -41,7 +41,7 @@ describe("CACHE_TAGS", () => {
   it("entity tags use data: prefix", () => {
     const dataKeys = [
       "works", "editions", "series", "collections",
-      "media", "activity", "comments", "orders",
+      "media", "activity", "comments", "orders", "reading",
     ] as const;
     for (const key of dataKeys) {
       expect((CACHE_TAGS as Record<string, string>)[key]).toMatch(/^data:/);

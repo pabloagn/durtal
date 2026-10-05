@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { UploadZone } from "@/components/media/upload-zone";
+import { LogoCardUpload, type LogoSource } from "@/components/media/logo-card-upload";
+import { isLogoCard, parseLogoCardOptions } from "@/lib/media/logo-card-options";
 import {
   getMediaByType,
   setActiveMedia,
@@ -20,6 +22,7 @@ import { ImageDetailsEditor } from "@/components/media/image-details-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { toast } from "sonner";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type TabType = "poster" | "background" | "gallery";
 
@@ -44,6 +47,8 @@ interface MediaItem {
   cropX: number;
   cropY: number;
   cropZoom: number;
+  /** A logo card's switches live here (SLN-441) */
+  processingParams?: unknown;
   brightness: number;
   contrast: number;
   createdAt: Date;
@@ -97,7 +102,7 @@ const ASPECT_CLASSES: Record<TabType, string> = {
 
 function thumbnailUrl(item: MediaItem): string {
   const key = item.thumbnailS3Key ?? item.s3Key;
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
+  return mediaUrl(key);
 }
 
 export function MediaManagerDialog({
@@ -137,6 +142,9 @@ export function MediaManagerDialog({
   const [urlLoading, setUrlLoading] = useState(false);
 
   const [adjustmentVersion, setAdjustmentVersion] = useState(0);
+  // An organization's logo tab makes logo cards; a saved card can be adjusted
+  const logoCards = entityType === "organization" && activeTab === "poster";
+  const [adjusting, setAdjusting] = useState<LogoSource | null>(null);
   // Gallery images have no active one; clicking an image opens its details.
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const isGallery = activeTab === "gallery";
@@ -352,7 +360,7 @@ export function MediaManagerDialog({
                   <>
                     <ImageAdjustmentEditor
                       key={`${activeItem.id}-${adjustmentVersion}`}
-                      source={`/api/s3/read?key=${encodeURIComponent(activeItem.s3Key)}`}
+                      source={mediaUrl(activeItem.s3Key)}
                       onSaved={() => { void fetchItems(); router.refresh(); triggerActivityRefresh(); }}
                     />
                     <ImageDetailsEditor
@@ -395,7 +403,7 @@ export function MediaManagerDialog({
 
                     return (
                       <div key={item.id} className="group relative">
-                        <ImageAdjustButton source={`/api/s3/read?key=${encodeURIComponent(item.s3Key)}`} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
+                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
                           aria-label={isSelected ? "Deselect image" : "Select image"}
@@ -487,6 +495,22 @@ export function MediaManagerDialog({
                               {item.width}x{item.height}
                             </span>
                           )}
+                          {logoCards && isLogoCard(item.processingParams) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdjusting({
+                                  mediaId: item.id,
+                                  options: parseLogoCardOptions(
+                                    (item.processingParams as { logoCard?: unknown }).logoCard,
+                                  ),
+                                })
+                              }
+                              className="self-start text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                            >
+                              Adjust
+                            </button>
+                          )}
                           {isGallery && item.caption && (
                             <span className="truncate text-micro text-fg-secondary">
                               {item.caption}
@@ -515,7 +539,19 @@ export function MediaManagerDialog({
               </p>
             )}
 
-            {/* Upload section */}
+            {/* Upload section: an organization's logo becomes its card (SLN-441) */}
+            {logoCards ? (
+              <div className="border-t border-glass-border pt-4">
+                <LogoCardUpload
+                  organizationId={entityId}
+                  source={adjusting}
+                  onSaved={() => {
+                    setAdjusting(null);
+                    handleUploadComplete();
+                  }}
+                />
+              </div>
+            ) : (
             <div className="border-t border-glass-border pt-4">
               <UploadZone
                 entityType={entityType}
@@ -566,6 +602,7 @@ export function MediaManagerDialog({
                 </form>
               )}
             </div>
+            )}
 
             {/* Bulk actions bar */}
             {selected.size > 0 && (

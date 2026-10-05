@@ -35,12 +35,15 @@ import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { DomainTileCard } from "@/components/domains/domain-tile";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
-import { coverToneStyle, mediaCrop } from "@/lib/utils/media-style";
-import { FadeImage } from "@/components/shared/fade-image";
-import { CoverFan, Monogram } from "@/components/shared/no-photo";
-import { getAuthorCoverPreviews } from "@/lib/actions/authors";
+import { mediaCrop } from "@/lib/utils/media-style";
+import { getAuthorCoverPreviews, getPersonRoles } from "@/lib/actions/authors";
+import { RecentPeopleGrid } from "@/components/people/recent-people-grid";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { displayYear } from "@/lib/utils/years";
+import { languageName } from "@/lib/utils/language";
+import { finishedItem, tileItem } from "@/components/reading/hub-cards";
+import { DashboardReading } from "@/components/reading/reading-tiles";
+import { getOpenReadings } from "@/lib/actions/reading";
+import { getRecentlyFinished } from "@/lib/reading/journal";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -193,17 +196,25 @@ const CREATOR_LABELS: Record<HomeKind, string> = {
 };
 
 async function DashboardContent() {
-  const [stats, others, collections] = await Promise.all([
+  const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
     getLibraryStats(),
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
+    getOpenReadings(),
+    getRecentlyFinished(4),
   ]);
-  const [covers, authorCovers] = await Promise.all([
+  // Books being read before paused ones; three at most
+  const currentReads = [...openReadings]
+    .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
+    .slice(0, 3);
+  const [covers, authorCovers, personRoles] = await Promise.all([
     getCollectionCoverPreviews(collections.map((collection) => collection.id)),
     // Recent authors with no portrait show some of their book covers
     getAuthorCoverPreviews(
       stats.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id),
     ),
+    // Every card's roles, in one query
+    getPersonRoles(stats.recentAuthors.map((a) => a.id)),
   ]);
   // Newest first across the open collections
   const recent = [
@@ -237,7 +248,7 @@ async function DashboardContent() {
           <StatCard label="Books" value={stats.works} icon={BookOpen} />
           <StatCard label="Editions" value={stats.editions} icon={Layers} />
           <StatCard label="Instances" value={stats.instances} icon={Copy} />
-          <StatCard label="Authors" value={stats.authors} icon={Users} />
+          <StatCard label="People" value={stats.authors} icon={Users} />
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <DomainAddLink kind="book" />
@@ -250,6 +261,9 @@ async function DashboardContent() {
           </Link>
         </div>
       </section>
+
+      {/* Reading (SLN-448): light tiles with small props, no book cards */}
+      <DashboardReading tiles={currentReads.map(tileItem)} finished={finishedReads.map(finishedItem)} />
 
       {/* Each other open collection: its counts and its add action */}
       {others.map(({ kind, counts }) => (
@@ -332,56 +346,15 @@ async function DashboardContent() {
       {stats.recentAuthors.length > 0 && (
         <section className="mt-12">
           <SectionHeader
-            title="Recent authors"
+            title="Recent people"
             icon={Users}
-            href="/authors?sort=recent"
+            href="/people?sort=recent"
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {stats.recentAuthors.map((author) => (
-              <Link
-                key={author.id}
-                href={`/authors/${author.slug ?? ""}`}
-                className="group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
-              >
-                {/* While the photo loads, the frame shows its main color */}
-                <div
-                  className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
-                  style={coverToneStyle(author.photoTone)}
-                >
-                  {author.photoS3Key ? (
-                    <FadeImage
-                      src={`/api/s3/read?key=${encodeURIComponent(author.photoS3Key)}`}
-                      alt={author.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
-                    />
-                  ) : authorCovers[author.id]?.length ? (
-                    <CoverFan covers={authorCovers[author.id]} />
-                  ) : (
-                    <Monogram name={author.name} />
-                  )}
-                </div>
-                <div className="p-3.5">
-                  {/* The author card's layout: two name lines, one
-                      nationality line, then years and the book count */}
-                  <CardHeading title={author.name} subtitle={author.nationality} />
-                  <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
-                    {author.birthYear && (
-                      <span>
-                        {`${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`}
-                      </span>
-                    )}
-                    {author.worksCount > 0 && (
-                      <span className="ml-auto shrink-0">
-                        {author.worksCount} {author.worksCount === 1 ? "book" : "books"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <RecentPeopleGrid
+            people={stats.recentAuthors}
+            covers={Object.fromEntries(stats.recentAuthors.filter((a) => authorCovers[a.id]?.length).map((a) => [a.id, authorCovers[a.id]]))}
+            roles={personRoles}
+          />
         </section>
       )}
 
@@ -411,7 +384,7 @@ async function DashboardContent() {
                       priority={work.acquisitionPriority}
                     />
                     {edition?.language && edition.language !== "en" && (
-                      <Badge variant="blue">{edition.language}</Badge>
+                      <Badge variant="blue">{languageName(edition.language)}</Badge>
                     )}
                     {edition?.publicationYear && (
                       <span className="ml-auto shrink-0 font-mono text-micro text-fg-secondary">

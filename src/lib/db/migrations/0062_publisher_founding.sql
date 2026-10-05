@@ -1,0 +1,4 @@
+ALTER TABLE "publishing_houses" ADD COLUMN "founded_year" smallint;--> statement-breakpoint
+ALTER TABLE "publishing_houses" ADD COLUMN "founded_place_id" uuid;--> statement-breakpoint
+ALTER TABLE "publishing_houses" ADD CONSTRAINT "publishing_houses_founded_place_id_places_id_fk" FOREIGN KEY ("founded_place_id") REFERENCES "public"."places"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "publishing_houses" ADD CONSTRAINT "publisher_founded_year_check" CHECK ("publishing_houses"."founded_year" is null or "publishing_houses"."founded_year" between 1000 and 2100);

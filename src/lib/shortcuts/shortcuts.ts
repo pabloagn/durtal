@@ -20,7 +20,7 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
     label: WORK_DOMAINS[kind].pluralLabel,
     href: WORK_DOMAINS[kind].basePath,
   })),
-  { key: "a", label: "Authors", href: "/authors" },
+  { key: "a", label: "People", href: "/people" },
   { key: "p", label: "Publishers", href: "/publishers" },
   { key: "s", label: "Series", href: "/series" },
   { key: "c", label: "Collections", href: "/collections" },
@@ -28,7 +28,8 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: "m", label: "Places", href: "/places" },
   { key: "t", label: "Taxonomy", href: "/taxonomy" },
   { key: "h", label: "Harmonize", href: "/harmonize" },
-  { key: "r", label: "Reader", href: "/reader" },
+  // Reading progress has R; the e-book reader gets its own key in its epic
+  { key: "r", label: "Reading", href: "/reading" },
   { key: ",", label: "Settings", href: "/settings" },
 ];
 
@@ -46,7 +47,7 @@ export const ADD: ({ key: string; label: string; section: string } & (
     section: WORK_DOMAINS[kind].basePath,
     href: `${WORK_DOMAINS[kind].basePath}/new`,
   })),
-  { key: "a", label: "Author", section: "/authors", dialog: "author" },
+  { key: "a", label: "Person", section: "/people", dialog: "author" },
   { key: "p", label: "Publisher", section: "/publishers", href: "/publishers/new" },
   { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
   { key: "s", label: "Series", section: "/series", dialog: "series" },
@@ -68,6 +69,17 @@ export const COPY_KEYS = {
   link: "l",
 } as const;
 
+/** The R menu on a book page (SLN-447) */
+export const READING_KEYS = {
+  start: "s",
+  progress: "p",
+  pause: "u",
+  finish: "f",
+  abandon: "a",
+  past: "l",
+  history: "h",
+} as const;
+
 /**
  * E opens the "Edit" menu: the edit actions the open page offers (now the
  * book page). Pages give their own entries (useEditActions); on a page with
@@ -86,6 +98,7 @@ export const SHORTCUTS = {
   goMenu: ["g"],
   copyMenu: ["y"],
   editMenu: ["e"],
+  readingMenu: ["r"],
   help: ["?"],
   pick: ["↑", "↓"],
   confirm: ["enter"],
@@ -103,11 +116,12 @@ export const SHORTCUT_GROUPS: {
   {
     title: "Menus",
     items: [
-      { keys: SHORTCUTS.addMenu, label: "Add: book, author, publisher..." },
+      { keys: SHORTCUTS.addMenu, label: "Add: book, person, publisher..." },
       { keys: SHORTCUTS.goMenu, label: "Go to a section" },
       { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
       { keys: SHORTCUTS.editMenu, label: "Edit this page" },
-      { keys: SHORTCUTS.palette, label: "Search books, authors, commands" },
+      { keys: SHORTCUTS.readingMenu, label: "Reading (a book)" },
+      { keys: SHORTCUTS.palette, label: "Search books, people, commands" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
     ],
@@ -145,6 +159,19 @@ export const SHORTCUT_GROUPS: {
       { keys: ["e", EDIT_KEYS.work], label: "Work (a book)", then: true },
       { keys: ["e", EDIT_KEYS.media], label: "Media (a book)", then: true },
       { keys: ["e", EDIT_KEYS.taxonomy], label: "Taxonomy (a book)", then: true },
+    ],
+  },
+  {
+    title: "Reading",
+    wide: true,
+    items: [
+      { keys: ["r", READING_KEYS.start], label: "Start reading, or re-read", then: true },
+      { keys: ["r", READING_KEYS.progress], label: "Log progress", then: true },
+      { keys: ["r", READING_KEYS.pause], label: "Pause or resume", then: true },
+      { keys: ["r", READING_KEYS.finish], label: "Finish", then: true },
+      { keys: ["r", READING_KEYS.abandon], label: "Abandon", then: true },
+      { keys: ["r", READING_KEYS.past], label: "Log a past read", then: true },
+      { keys: ["r", READING_KEYS.history], label: "Go to the Reading section", then: true },
     ],
   },
   {
@@ -337,7 +364,7 @@ export function shortcutButton(
   return null;
 }
 
-/** The list search box on this page ("Search authors...") */
+/** The list search box on this page ("Search people...") */
 export function pageSearchField(): HTMLInputElement | null {
   return (
     [...document.querySelectorAll<HTMLInputElement>("[data-shortcut-search]")]

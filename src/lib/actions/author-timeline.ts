@@ -3,6 +3,7 @@
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import { db } from "@/lib/db";
+import { getPersonWorkCounts } from "@/lib/actions/authors";
 import { authors } from "@/lib/db/schema";
 import { and, asc, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -34,6 +35,9 @@ export async function getAuthorsForTimeline(opts?: {
     deathYearMin?: number;
     deathYearMax?: number;
     alive?: string;
+    collections?: string[];
+    roles?: string[];
+    favourites?: boolean;
   };
 }): Promise<AuthorTimelineItem[]> {
   const { search, filters } = opts ?? {};
@@ -54,9 +58,6 @@ export async function getAuthorsForTimeline(opts?: {
     with: {
       country: {
         columns: { name: true, alpha2: true },
-      },
-      workAuthors: {
-        columns: { workId: true },
       },
       media: {
         columns: {
@@ -106,9 +107,14 @@ export async function getAuthorsForTimeline(opts?: {
         ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
         : null,
       posterCrop,
-      worksCount: row.workAuthors?.length ?? 0,
+      worksCount: 0,
     });
   }
+
+  // "N works" counts every collection's works, as the People table does: one
+  // grouped query for the whole timeline
+  const counts = await getPersonWorkCounts(items.map((item) => item.id));
+  for (const item of items) item.worksCount = counts[item.id] ?? 0;
 
   return items;
 }

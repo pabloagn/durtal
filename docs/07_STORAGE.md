@@ -190,6 +190,29 @@ Output format: WebP for all processed images. `* original` is stored only when t
 
 ---
 
+## Logo Cards
+
+An organization's logo becomes one uniform card (SLN-441):
+`POST /api/media/logo-card` with the organization, the switches and a file
+(SVG, PNG, JPG or WebP) or the `mediaId` of a saved card. `preview=1` answers
+the card as a PNG and stores nothing; without it the card becomes the active
+logo (`media.type = 'poster'`).
+
+- The card: 1200×800 (3:2), black, the logo in one light ink, every logo at
+  the same visual size (its ink area, capped by a 74%×56% box) and centred on
+  its ink's centre of mass. `src/lib/media/logo-card.ts`, plain sharp, no
+  generative model.
+- The background is read from the border: an opaque logo's border median, or,
+  for a transparent logo, white behind a dark logo and black behind a light
+  one. Every pixel unlike it is ink; parts that match it are cut out.
+- Switches: invert, keep colours, emblem only, smaller or bigger, and badge (a
+  disc-shaped logo shows its drawing; the disc and its soft edge go).
+- An SVG is rasterized and never stored or served as SVG. The logo is kept
+  beside the card as `original_s3_key` (lossless WebP), and the switches go in
+  `processing_params.logoCard`, so a saved card can be adjusted again.
+- Shown full-bleed in the publisher card and header (`isLogoCard`); a plain
+  logo still sits whole inside its tile.
+
 ## Pre-Signed URLs
 
 Credentials never reach the client: uploads go through the app or through a pre-signed upload URL, and reads through the app.

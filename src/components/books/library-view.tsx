@@ -11,6 +11,8 @@ import {
 import type { ViewMode } from "./view-mode-switcher";
 import type { CoverCrop } from "./book-card";
 import { LIST_PREFERENCES } from "@/lib/preferences";
+import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
+import { TitleCard } from "@/components/shared/no-photo";
 
 interface BookItem {
   workId: string;
@@ -29,6 +31,7 @@ interface BookItem {
   isRare?: boolean;
   huntAssessedOn?: string | null;
   isPoison?: boolean;
+  isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   hasDigitalEdition?: boolean;
@@ -72,6 +75,31 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
           isSelecting={isSelecting}
           selectedIds={selectedIds}
           onSelect={onSelect}
+        />
+      );
+    case "mosaic":
+      return (
+        <Mosaic
+          aspect={2 / 3}
+          perRow={mosaicPerRow(gridColumns)}
+          isSelecting={isSelecting}
+          selectedIds={selectedIds}
+          onSelect={onSelect}
+          items={books.map((book) => ({
+            key: book.workId,
+            href: `/library/${book.slug}`,
+            title: book.title,
+            subtitle: book.authorNames?.join(", ") || book.authorName || null,
+            aspect: 2 / 3,
+            media: (
+              <MosaicImage
+                src={book.coverUrl}
+                crop={book.coverCrop}
+                tone={book.coverTone}
+                fallback={<TitleCard title={book.title} year={book.publicationYear ? String(book.publicationYear) : null} />}
+              />
+            ),
+          }))}
         />
       );
     case "list":

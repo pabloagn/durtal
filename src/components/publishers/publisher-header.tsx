@@ -8,7 +8,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
-import { PublisherFavourite } from "./favourite-button";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 
 /**
  * The head of a publisher page: the house's logo, shown whole on a dark
@@ -20,6 +20,7 @@ export function PublisherHeader({
   slug,
   name,
   logoUrl,
+  logoIsCard = false,
   facts,
   favourite,
 }: {
@@ -27,6 +28,8 @@ export function PublisherHeader({
   slug: string;
   name: string;
   logoUrl: string | null;
+  /** A logo card (SLN-441): a 3:2 tile it fills */
+  logoIsCard?: boolean;
   /** What the house is and where, in reading order: "Imprint of Penguin", "United Kingdom" */
   facts: React.ReactNode[];
   favourite: boolean;
@@ -53,13 +56,16 @@ export function PublisherHeader({
   return (
     <>
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:gap-8">
-        {/* A logo is never cut: it sits whole, centered, on its tile */}
-        <div className="relative flex size-40 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary">
+        {/* A logo is never cut: it sits whole, centered, on its tile; a logo
+            card fills its own 3:2 tile */}
+        <div
+          className={`relative flex ${logoIsCard ? "h-40 w-60" : "size-40"} shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary`}
+        >
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={`${name} logo`}
-              className="protected-image max-h-[85%] max-w-[85%] object-contain"
+              className={`protected-image ${logoIsCard ? "h-full w-full object-cover" : "max-h-[85%] max-w-[85%] object-contain"}`}
             />
           ) : (
             <Monogram name={name} />
@@ -71,7 +77,12 @@ export function PublisherHeader({
             <h1 className="type-page-title min-w-0 flex-1 break-words">{name}</h1>
             {/* On the cap-height center of the name's first line */}
             <CapAlignedControls height={32} className="type-page-title">
-              <PublisherFavourite id={id} favourite={favourite} />
+              <FavouriteToggle
+                favourite={favourite}
+                target={{ entity: "publisher", id }}
+                name={name}
+                shortcut
+              />
               <Link
                 href={`/publishers/${slug}/edit`}
                 className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"

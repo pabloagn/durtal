@@ -7,6 +7,7 @@ import { ExternalLink, Star, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { VenueType } from "@/lib/catalogue/venues";
 import { FadeImage } from "@/components/shared/fade-image";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { PlacePlate } from "@/components/shared/no-photo";
 import { cityFromAddress, streetFromAddress } from "@/lib/utils/address";
 
@@ -29,6 +30,7 @@ export interface VenueCardProps {
 }
 
 export function VenueCard({
+  id,
   slug,
   name,
   type,
@@ -71,16 +73,6 @@ export function VenueCard({
                 tone={color ? undefined : badgeVariant}
               />
             )}
-
-            {/* Favorite star — top-right */}
-            {isFavorite && (
-              <div className="absolute right-2 top-2">
-                <Star
-                  className="h-3.5 w-3.5 fill-accent-gold text-accent-gold"
-                  strokeWidth={1.5}
-                />
-              </div>
-            )}
           </div>
         </div>
       </Link>
@@ -88,8 +80,10 @@ export function VenueCard({
       {/* Meta */}
       <div className="p-3.5">
           {/* Fixed rows: every place card has the same height */}
-          <div className="mb-1.5 flex items-start justify-between gap-2">
-            <h3 className="type-item-title lines-2 min-w-0">
+          {/* The row carries the name's type: the star sits on the
+              cap-height center of the name's first line */}
+          <div className="type-item-title mb-1.5 flex items-start gap-2">
+            <h3 className="type-item-title lines-2 min-w-0 flex-1">
               {/* Same link as the image above: one Tab stop per card */}
               <Link href={href} tabIndex={-1}>
                 {name}
@@ -101,6 +95,13 @@ export function VenueCard({
                 {VENUE_TYPE_LABELS[type]}
               </Badge>
             </span>
+            <CapAligned height={32} className="-mr-2">
+              <FavouriteToggle
+                favourite={isFavorite}
+                target={{ entity: "venue", id }}
+                name={name}
+              />
+            </CapAligned>
           </div>
 
           <p className="mb-2 flex h-4 items-start gap-1 text-xs text-fg-secondary">

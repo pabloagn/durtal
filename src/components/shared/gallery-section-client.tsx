@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useCallback, useEffect } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { Shuffle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { CollageGrid } from "./collage-grid";
@@ -9,6 +9,7 @@ import { Lightbox } from "@/components/media/lightbox";
 import { randomizeLayout } from "@/lib/actions/gallery-layouts";
 import type { CollageLayoutData } from "@/lib/utils/collage-layout";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface SerializedMedia {
   id: string;
@@ -47,10 +48,7 @@ export function GallerySectionClient({
     .map((id) => mediaItems.find((m) => m.id === id))
     .filter((m): m is SerializedMedia => m !== undefined);
 
-  const getImageUrl = useCallback(
-    (s3Key: string) => `/api/s3/read?key=${encodeURIComponent(s3Key)}`,
-    [],
-  );
+  const getImageUrl = mediaUrl;
 
   function handleRandomize() {
     startTransition(async () => {

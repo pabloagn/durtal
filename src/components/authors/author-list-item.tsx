@@ -5,7 +5,11 @@ import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
+import { PersonRoles } from "@/components/people/person-roles";
+import type { PersonRole } from "@/lib/catalogue/person-roles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RowCheckbox } from "@/components/books/book-list";
 
 type PosterCrop = MediaCrop;
@@ -22,6 +26,14 @@ interface AuthorListItemProps {
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
   worksCount: number;
+  /** Roles with credit counts; the line stays, empty, without them */
+  roles?: PersonRole[];
+  /** On a collection's list, that collection's roles come first */
+  preferKind?: WorkKind | null;
+  /** Roles the list is filtered by: they lead the role line */
+  preferRoles?: string[] | null;
+  /** The favourite star shows when this is given */
+  isFavourite?: boolean;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -39,6 +51,10 @@ export function AuthorListItem({
   photoUrl,
   posterCrop,
   worksCount,
+  roles,
+  preferKind,
+  preferRoles,
+  isFavourite,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -62,7 +78,7 @@ export function AuthorListItem({
       onClick={handleRowClick}
     >
       <Link
-        href={`/authors/${slug}`}
+        href={`/people/${slug}`}
         className={`flex min-w-0 flex-1 items-center gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
         tabIndex={isSelecting ? -1 : undefined}
       >
@@ -88,7 +104,7 @@ export function AuthorListItem({
           {isSelecting && <RowCheckbox checked={isSelected} />}
         </div>
 
-        {/* Two lines, like a book row: name and years, then nationality and the book count */}
+        {/* Name and years, nationality and the book count, then the roles */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-rose-text">
@@ -103,11 +119,25 @@ export function AuthorListItem({
               {nationality ?? "Unknown nationality"}
             </p>
             <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
-              {worksCount} {worksCount === 1 ? "book" : "books"}
+              {/* A director or a perfumer has no books: no "0 books" */}
+              {worksCount > 0 && `${worksCount} ${worksCount === 1 ? "book" : "books"}`}
             </span>
           </div>
+          {/* What the person is: one line, reserved when empty */}
+          <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} />
         </div>
       </Link>
+
+      {/* On the name's cap-height center, like the actions menu */}
+      {isFavourite !== undefined && (
+        <CapAlignedControls height={32} className="type-item-title">
+          <FavouriteToggle
+            favourite={isFavourite}
+            target={{ entity: "author", id }}
+            name={name}
+          />
+        </CapAlignedControls>
+      )}
 
       {/* Actions menu, on the name's cap-height center; visible on hover */}
       {!isSelecting && (

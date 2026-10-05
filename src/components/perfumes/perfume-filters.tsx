@@ -15,7 +15,7 @@ import { PERFUME_FILTER_KEYS } from "@/lib/catalogue/perfume-params";
 import { getPerfumeFilterOptions } from "@/lib/actions/perfumes";
 import { useLazyOptions } from "@/hooks/use-lazy-options";
 
-const VIEW_MODES: ViewMode[] = ["grid", "list"];
+const VIEW_MODES: ViewMode[] = ["grid", "mosaic", "list"];
 
 const SORT_OPTIONS = [
   { value: "title", label: "Title" },

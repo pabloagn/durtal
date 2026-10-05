@@ -33,8 +33,10 @@ adds people, organizations and places with the page each has today.
   them yet.
 - Organizations: by name or other name; a publishing profile opens
   `/publishers/[slug]`, a perfume house or brand `/perfumes?house=`, a museum
-  or gallery `/paintings?institution=`. Others are left out until the
-  organization pages (SLN-369) are on main.
+  or gallery `/paintings?institution=`. Any other (a retailer,
+  manufacturer, production company or distributor) opens its page in the
+  organization directory, `/organizations/[slug]` (follow-up after SLN-369
+  landed; until then those were left out).
 - Places: by name or address, archived venues left out.
 - No new SQL pattern: every match goes through `textSearchCondition`, whose
   words are `search_normalize`d letters and digits, so `%` and `_` are never
