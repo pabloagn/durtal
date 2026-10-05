@@ -534,11 +534,33 @@ The series page's "Next to read": `nextToRead`'s volume and where its copy is (a
 - `getRecentlyFinished(limit)`: the latest finished reads with the read's rating, unknown dates last.
 
 ### Internal service (`src/lib/reading/service.ts`, not a server action)
-- `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
+- `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged. It takes the book off Up Next in the same write and says so (`unqueued: true`, SLN-452).
 - `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again"). With `timerSessionId` (SLN-451) it completes that running timer row instead of inserting a session, keeping its zone and day, and asserts in the same atomic that the row still runs.
-- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome. `allowPossibleDuplicate` writes a possible duplicate, and an undated read the import's count rule called present ("Import anyway").
+- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome. `allowPossibleDuplicate` writes a possible duplicate, and an undated read the import's count rule called present ("Import anyway"). An open or paused row takes its book off Up Next in the same write (`unqueued: true` in its outcome, SLN-452).
 
 ---
+
+## Up Next (`src/lib/actions/reading-queue.ts`, SLN-452)
+
+Each action parses its input with zod (`src/lib/validations/reading-queue.ts`), writes books only (`requireBookWork`), runs one `atomic` inside `withReadableErrors`, and invalidates `works` and `reading` (the library's filter and sort read the queue). `work.queued` and `work.unqueued` are recorded after the write, at most one each per book per reading day; items an import adds record none. Up Next never changes `catalogue_status`. Position arithmetic, the edition he means, where the copy is and time to read are pure, in `src/lib/reading/queue.ts`.
+
+### `addToQueue({ workId, editionId?, note?, at?: "top" | "bottom", from?: "suggestion" })`
+At the bottom unless `at: "top"`; `from: "suggestion"` stores `source = 'suggestion'`, else `manual`. Refused for a queued book ("Already in Up Next, at 3"), a book being read ("Nadja is being read", "Nadja has a paused reading") and an edition of another book. Returns `{ workId, place }`.
+
+### `addManyToQueue({ workIds })`
+The bulk toolbar's: appended in the given order in one write; queued books and books being read are skipped and counted. Returns `{ added, alreadyQueued, beingRead }`.
+
+### `removeFromQueue({ workId })` / `restoreQueueItem(snapshot)`
+Remove returns the deleted row, for its Undo. Restore puts it back with its id at its old position, or the next free one after it; an edition deleted or moved meanwhile comes back empty. Refused when the book was queued again ("Nadja is in Up Next again") or started meanwhile.
+
+### `moveQueueItem({ workId, beforeWorkId?, afterWorkId? })`
+Places the item after `afterWorkId` (the item above) and before `beforeWorkId` (the item below): the middle of the gap, or, with no gap left, every position renumbered in steps of 1024 in the same write. Returns `{ workId, place, total }`.
+
+### `updateQueueItem({ workId, editionId?, note? })`
+The edition he means to read and the note.
+
+### `getQueue({ homeId? })`, `getQueueHead(limit)`, `getQueuePlace(workId)`
+The whole list in one query, in order: each book with its author, covers, editions and copies (for the edition he means: the queued one, else `pickDefaultEdition` for the home; and where the copy is, through `copyWhereabouts`), each edition's last known audio length (`total_minutes` of its latest reading that has one), ownership (`ownedBookCondition`), the copy at hand at the home (`atHandCopySql`) and the reading history (`readCountSql`, `lastFinishedOnSql`). The hub's strip reads the first five; the book page reads its place.
 
 ## Reading import (`src/lib/actions/reading-import.ts`, SLN-450)
 
@@ -554,10 +576,10 @@ One UPDATE of one row: Import, Skip, or "Use the file's rating" (the commit then
 "Match again": matching and the duplicate check again for the rows still without a book, after a book was added. A row that now matches moves to its section with that section's default decision. Returns `{ matched }`.
 
 ### `commitReadingImport({ importId })`
-Locks the import (`select ... for update`, status pending, completed or undone), checks every matched row's readings again against what Durtal holds now, and writes the rows decided import and not yet written through `writeReadings(rows, { source: "import", importId })`. `source`, `sourceKey` and `importId` come from the server, never from the page. A book's rows go in one call, so the count rule sees them together, in chunks of at most 100 readings; after each chunk, each row's outcome goes to `written` in one UPDATE. Totals: the file's Durtal value, else the edition's `page_count`, else Goodreads' `Number of Pages`, never below the position. An edition matched by ISBN that has no `goodreads_id` gets a `catalogue_identifiers` row (provider `goodreads`, kind `edition`) when the file has a Book Id and that id is free; its id goes into `written`. Then the import's counts, `error_log` (row and reason only), status `completed` and `completed_at`. A commit stopped half way finishes when run again. Returns `{ written, present, refused, rows }`.
+Locks the import (`select ... for update`, status pending, completed or undone), checks every matched row's readings again against what Durtal holds now, and writes the rows decided import and not yet written through `writeReadings(rows, { source: "import", importId })`. `source`, `sourceKey` and `importId` come from the server, never from the page. A book's rows go in one call, so the count rule sees them together, in chunks of at most 100 readings; after each chunk, each row's outcome goes to `written` in one UPDATE. Totals: the file's Durtal value, else the edition's `page_count`, else Goodreads' `Number of Pages`, never below the position. An edition matched by ISBN that has no `goodreads_id` gets a `catalogue_identifiers` row (provider `goodreads`, kind `edition`) when the file has a Book Id and that id is free; its id goes into `written`. Then the import's counts, `error_log` (row and reason only), status `completed` and `completed_at`. A commit stopped half way finishes when run again. Then the to-read rows decided import (SLN-452): Up Next items at the bottom, in the file's Date Added order, oldest first (file order without it), in chunks of 100, `source` `import` with `import_id` and the row's `source_key`; a key already in Up Next writes nothing, and a book queued by hand or started meanwhile is skipped with its reason. Each written item goes into `written.queueItem` (`{ id, workId, position, editionId, note }`). Returns `{ written, present, refused, rows, queued, queuePresent, queueSkipped }`.
 
 ### `undoReadingImport({ importId })`
-Deletes the import's readings not edited since (their `updated_at` equals their `created_at` and they have no sessions), any reading with this `import_id` included, in chunks of 100. Puts each book rating back to `before` only while `works.rating` still equals `after`; removes the identifiers it added; keeps in `written` only the readings it kept; status `undone`. Returns `{ removed, kept }`. Can be run again; an undone import keeps its decisions and can be committed again.
+Deletes the import's readings not edited since (their `updated_at` equals their `created_at` and they have no sessions), any reading with this `import_id` included, in chunks of 100. Puts each book rating back to `before` only while `works.rating` still equals `after`; removes the identifiers it added; keeps in `written` only the readings it kept; status `undone`. Up Next items (SLN-452) go when their position, edition and note still equal what was written; moved or edited ones stay. Returns `{ removed, kept, queueRemoved, queueKept }`. Can be run again; an undone import keeps its decisions and can be committed again.
 
 ### Import queries (`src/lib/reading/import/page-data.ts`, not server actions)
 - `listReadingImports(limit)`: the reading imports, newest first, with their counts, readings and whether the raw file was kept.

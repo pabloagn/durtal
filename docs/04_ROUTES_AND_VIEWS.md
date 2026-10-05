@@ -23,6 +23,7 @@
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
 /reading                    Reading: what is being read now, paused, recently finished
+/reading/next               Up Next: the books to read next, in order
 /reading/journal            Every reading, by year of finish, filtered and sorted
 /reading/import             Import reading history: upload, past imports
 /reading/import/[id]        One import's preview, decisions, commit and undo
@@ -174,19 +175,19 @@ the page offers it; any other value shows the grid.
 
 **Controls**:
 - Search (`q`): work title, series, author names, publisher and ISBN
-- Sort (`sort`, `order`): Recent, Title, Year, Rating (the book's rating, unrated last), Author (first), Author (last), Last read (SLN-449: the later of the last progress and the last finish, never-read books last)
+- Sort (`sort`, `order`): Recent, Title, Year, Rating (the book's rating, unrated last), Author (first), Author (last), Last read (SLN-449: the later of the last progress and the last finish, never-read books last), Up Next order (`sort=queue`, SLN-452: the queue position, books not queued last, ties on the id)
 - Pagination: 48 items per page by default
 
 **Filters** (the Filters panel; every one is in the URL and read by `parseReadingFilters`, `src/lib/reading/filter-params.ts`, for the page and `GET /api/works`; an unknown value is dropped here and answered 400 by the API):
 - Marks (`mark`): Rare, Poison, Favourite; the old `rare=true` still selects Rare
-- Reading (`reading`, SLN-449): Unread, Reading, Paused, Read, Abandoned (`readingStateSql`); several match any of them
+- Reading (`reading`, SLN-449): Unread, Reading, Paused, Read, Abandoned (`readingStateSql`), and In Up Next (`queued`, SLN-452; not a reading state: a queued book can be read or unread); several match any of them
 - Holding (`holding`): Owned or Not owned. Owned is a copy that is not deaccessioned (`ownedBookCondition`); both values, or neither, is no holding filter. "Unread I own" is `/library?reading=unread&holding=owned`
 - Re-read (`reread=true`): two finished readings or more
 - Read in (`readFrom`, `readTo`): a year range on the finish date of a finished reading, at any precision; reversed years are swapped
 - Status (`status`): the catalogue status (Accessioned, Wanted, Shortlisted, Tracked, On Order, Deaccessioned), checked against the enum. There is no `status=owned`: Owned is the Holding filter
 - Priority (`priority`), Min Rating (`rating`: 5, 4.5+, 4+, 3.5+, 3+; the book's rating), Media (`poster`), Publisher (`publisher`), Location (`location`)
 
-**Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status).
+**Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status). "Add to Up Next" (SLN-452) appends the selected books in their page order and says what it skipped: "Added 5 · 2 already in Up Next · 1 being read".
 
 **Empty state**: Displayed when no works match the current filter/search. Provides a link to add the first book.
 
@@ -450,7 +451,7 @@ The detail page for a single work. Displays the work and all its editions and in
 - *Sessions* (SLN-451, `src/components/reading/session-list.tsx`): a disclosure under the current reading, "12 sessions · 9 h 40 min", with Add a session. It loads the sessions when opened (`getReadingSessions`), newest first in the session order. A row: the date; the time in the session's own zone, with the zone's city when it differs from the browser's ("21:30 Mexico City"); the duration; the pages; the pace ("36 p. an hour"); the edition or format when it differs from the reading's; and a source icon (Logged by hand, Timed, From the e-book reader, Imported). The running timer is the top row, "Running · 12 min", with no menu. Each other row has Edit and Delete, each with a 10-second Undo. Earlier reads show their totals and the same list, collapsed.
 - *Add a session* and *Edit session*: date, optional start time, time read (hours and minutes), where it ended (one field, or Page / % / Time keypad fields on touch), the edition or format, a note. The start is shown, not asked: "From p. 180, where the session before ended". An end below it says "This session ends before the one before it (p. 212); it adds no pages".
 
-**Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R T` starts or stops the timer, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
+**Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R T` starts or stops the timer, `R N` adds the book to Up Next or takes it off, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
 
 **External links**: Open Library, Google Books, Calibre-Web (if digital instance with calibre_url exists).
 
@@ -673,13 +674,25 @@ perfume and painting pages have "Collections" in their actions menu.
 
 The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "Start a book" (both open the book picker) and `ReadingTabs`.
 - **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), the estimate with its info button (SLN-451), Log progress, Start timer or Stop timer, and a menu (Pause, Finish, Abandon, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
+- **Up next** (SLN-452): the first five covers of Up Next, each with Start (the Start dialog with the queued edition), and View all.
 - **Paused**: one line each with "paused 3 weeks ago" and Resume.
 - **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision.
 - With no reading at all: `EmptyState` with Start a book and "Import from Goodreads or StoryGraph" (a link to `/reading/import`). Later steps add the timer, Up next, a passage of the day, the goal, On this day and suggestions here.
 
 **Book picker** (`src/components/reading/book-picker.tsx`): opened by "Start a book", "Log a past read" and the palette. Books only, matched without accents on title and authors as you type, owned books first (`ownedBookCondition`), then by title, at most 20 (`searchBooksToRead`). Each row: cover, title, author, "Owned" or the catalogue status, and the reading state ("Reading 44%", "Paused", "Read 2 times"). Choosing a book opens the dialog the picker was opened for; Start on a book being read opens Log progress instead. The empty result and the footer read 'Not in Durtal? Add "<query>"', a link to `/library/new?q=<query>&then=start` (`?isbn=` for an ISBN, `&then=past` for a past read).
 
-**Tabs**: `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the one tab row of every reading page, in its final order: Now (`/reading`), Up next (`/reading/next`), Journal (`/reading/journal`), Notes, Stats, Suggestions, Import. A tab shows only once its page exists; Now, Journal and Import show today. Now is current on `/reading` only; any other tab on its path and below. The e-book reader's pages have no tab row.
+**Tabs**: `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the one tab row of every reading page, in its final order: Now (`/reading`), Up next (`/reading/next`), Journal (`/reading/journal`), Notes, Stats, Suggestions, Import. A tab shows only once its page exists; Now, Up next, Journal and Import show today. Now is current on `/reading` only; any other tab on its path and below. The e-book reader's pages have no tab row.
+
+### Up Next (`/reading/next`)
+
+The books he wants to read next, in his order (SLN-452), from `getQueue` (one query for the whole list) and the pure `src/lib/reading/queue.ts`.
+- A summary: "14 books · about 96 hours at your pace · 2 without a length". Time to read is a print or e-book's pages at his pages an hour for its language and format (`getPaceContext([])`'s prior), or an audio edition's last known length. With no timed session yet it shows pages only: "14 books · 4,210 pages".
+- Rows: position, cover, title and author, pages (or audio length), where the copy is (`copyWhereabouts` of the copy at hand at the remembered home, else the first copy held, else "Not owned"; a lent copy reads "Lent to M. since 3 May"), time to read, the note, the added date and the reading history ("Read in 2012"). Start reading opens the Start dialog with the queued edition (else the default one); the row menu has Move to top, Move up, Move down and Remove from Up Next (10-second Undo).
+- Reordering with `@dnd-kit/sortable`: drag a row by its handle (44 px on touch), or focus the handle and press Space, the arrows and Space. Each move saves at once and a live region says "Nadja moved to position 2 of 14". A refused move puts the row back.
+- "At hand in Amsterdam" (`?hand=1`) shows only the books with a copy at hand at the "I'm at" home (an available copy there or at a digital location), in the same order. With no home remembered it offers the "I'm at" select.
+- Empty: "Nothing in Up Next" with "Add from your library" (`/library?reading=unread&holding=owned`).
+
+**Up Next elsewhere**: the book page's reading control (unread and read books) and actions menu ("Add to Up Next", or "In Up Next, 3rd · Remove"), the R menu key **N**, the library's bulk toolbar, the hub's strip, the palette ("Go to Up next"; "Add to Up Next" under "This page" on a book page). Starting a book takes it off Up Next: "Started Nadja · removed from Up Next".
 
 ### Reading journal (`/reading/journal`)
 
@@ -699,11 +712,11 @@ The Import tab (SLN-450). An upload area for one CSV of at most 10 MB, chosen or
 
 What an import will do, before anything is written (SLN-450), from `getImportPreview` (`src/lib/reading/import/page-data.ts`).
 - The file name, the source and the upload date, then a summary: "1,204 rows · 980 exact · 120 likely · 60 to choose · 44 not in Durtal · 412 want to read · 18 already in Durtal · 6 book ratings differ".
-- The commit button says what it writes ("Import 1,142 readings"), with "60 rows not decided yet are left out" when some are pending. Beside it: Match again (while rows have no book), Undo (while the import has readings) and All imports.
-- A box "What this file cannot carry", written for the format: Goodreads' missing start dates and earlier read dates, StoryGraph's quarter stars, what is kept but not imported (want-to-read books, private notes, moods and tags), and any missing column.
-- Sections in this order, each a `SectionHeading` with its count: To choose, Likely, Not in Durtal, Exact, Already in Durtal, Cannot import, Not imported. Each shows 50 rows; "Show 50 more" raises that section's count in the URL (`?likely=100`). Likely has "Accept all likely matches"; Not in Durtal has "Skip all not in Durtal": one UPDATE each over the section's undecided rows.
+- The commit button says what it writes ("Import 1,142 readings", "Import 12 readings and add 4 books to Up Next", or "Add 412 books to Up Next" for a file whose readings are already in), with "60 rows not decided yet are left out" when some are pending. Beside it: Match again (while rows have no book), Undo (while the import has readings) and All imports.
+- A box "What this file cannot carry", written for the format: Goodreads' missing start dates and earlier read dates, StoryGraph's quarter stars, what is kept but not imported (books on shelves that are neither read nor to-read, private notes, moods and tags), and any missing column.
+- Sections in this order, each a `SectionHeading` with its count: To choose, Likely, Not in Durtal, Exact, Want to read, Already in Durtal, Cannot import, Not imported. Want to read (SLN-452) holds the matched books of the to-read shelf (Goodreads `Exclusive Shelf`, StoryGraph `Read Status`), each noting "Already in Up Next, at 3", "Being read now" or "Read in 2019"; an unmatched one waits under Not in Durtal or To choose like any row. Imported, they go to the bottom of Up Next oldest added first; a row whose key is already there writes nothing, and a book queued by hand or started meanwhile is skipped with its reason. Undo removes the items still where the commit put them and keeps the moved or edited ones. Each shows 50 rows; "Show 50 more" raises that section's count in the URL (`?likely=100`). Likely has "Accept all likely matches"; Not in Durtal has "Skip all not in Durtal": one UPDATE each over the section's undecided rows.
 - Each row: what the file says (title, author, latest read, rating), the Durtal book (cover, title, author, a link), the reason ("Same ISBN", "Same Goodreads id", "Same Goodreads link", "Same Durtal book", "Same source" for a book an earlier import of the file wrote to, "Title and author, 92%", "Chosen by you"), what will be written ("Finished 14 Apr 2019 · 4 stars · review · +2 earlier reads, dates unknown"), the book rating line ("Book rating set to 4: the book has none", or "Book rating 3 kept (the file says 4)" with "Use the file's rating"), and Import, Skip and Choose another book (the book picker). To choose rows show their candidates as buttons. Not in Durtal rows have "Add this book" (`/library/new?isbn=` or `?q=`, in a new tab); the page matches again when it becomes visible after that. A row already in Durtal only through the undated count offers "Import anyway". After the commit each row shows its outcome.
-- Decisions are saved at once, one row each. Defaults: Exact rows import; Already in Durtal, Cannot import and Not imported rows skip; the rest wait.
+- Decisions are saved at once, one row each. Defaults: Exact rows import, and Want to read rows whose book is neither queued nor being read; Already in Durtal, Cannot import and Not imported rows skip; the rest wait.
 
 ### Reader (`/reader`)
 

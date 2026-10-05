@@ -125,16 +125,16 @@ List works with pagination, search and the library's reading filters (SLN-449). 
 | Param | Type | Default | Description |
 |---|---|---|---|
 | `q` | string | — | Search term (title, author, ISBN) |
-| `reading` | list | — | `unread`, `reading`, `paused`, `read`, `abandoned`: any of them |
+| `reading` | list | — | `unread`, `reading`, `paused`, `read`, `abandoned`, and `queued` (in Up Next, SLN-452; a queued book can be read or unread): any of them |
 | `holding` | string | — | `owned` (a copy not deaccessioned) or `not_owned`; both is no filter |
 | `readFrom`, `readTo` | year | — | A finished reading in these years, at any precision; reversed years are swapped |
 | `reread` | `true` | — | Two finished readings or more |
 | `status` | list | — | The catalogue status: `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
-| `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last) |
+| `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last), `queue` (Up Next order, SLN-452: books not queued last, ties on the id) |
 | `limit` | number | `50` | Results per page (at most 200) |
 | `offset` | number | `0` | Pagination offset |
 
-"Unread books I own": `GET /api/works?reading=unread&holding=owned&sort=lastRead`. `total` counts the works the filters keep.
+"Unread books I own": `GET /api/works?reading=unread&holding=owned&sort=lastRead`. Up Next in its order: `GET /api/works?reading=queued&sort=queue`. `total` counts the works the filters keep.
 
 **Response** `400`: any unknown value of `reading`, `holding`, `readFrom`, `readTo`, `reread`, `status` or `sort` (`status=owned`, `sort=pages`) answers `{ "error": "Invalid input", "issues": [...] }` with the zod issues; each issue's `path` starts with the parameter.
 
