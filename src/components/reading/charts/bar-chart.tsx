@@ -19,6 +19,8 @@ export interface Bar {
 
 const NARROW = 480;
 const ROW = 18;
+/** Half the cap height of 12px Inter: a label's baseline this far below a mark's center puts its capitals on that center */
+export const CAP_HALF = 4.36;
 
 export function barChartHeight(count: number) {
   return Math.max(160, count * ROW + 8);
@@ -31,6 +33,7 @@ export function BarChart({
   tone = "sage",
   footnote,
   columns,
+  minRows = 0,
 }: {
   label: string;
   bars: Bar[];
@@ -40,10 +43,12 @@ export function BarChart({
   footnote?: React.ReactNode;
   /** The table's two column names */
   columns: [string, string];
+  /** Charts side by side take the height of the one with the most bars */
+  minRows?: number;
 }) {
   const max = Math.max(0, ...bars.map((b) => b.value));
   const top = niceMax(max);
-  const height = barChartHeight(bars.length);
+  const height = barChartHeight(Math.max(bars.length, minRows));
   const summary = `${label}: ${bars.map((b) => `${b.label} ${b.value.toLocaleString("en-US")}`).join(", ")} ${summaryUnit}`;
   const fill = tone === "sage" ? "fill-accent-sage" : "fill-accent-blue";
   return (
@@ -65,7 +70,7 @@ export function BarChart({
               const y = 4 + i * ROW;
               return (
                 <g key={i}>
-                  <text x={labelWidth - 6} y={y + 12} textAnchor="end" className="fill-fg-secondary text-micro">
+                  <text x={labelWidth - 6} y={y + ROW / 2 + CAP_HALF} textAnchor="end" className="fill-fg-secondary text-micro">
                     {b.label}
                   </text>
                   <rect x={labelWidth} y={y + 3} width={room} height={ROW - 6} rx={2} className="fill-bg-tertiary" />
@@ -77,11 +82,9 @@ export function BarChart({
                     rx={2}
                     className={fill}
                     data-tooltip={b.text}
-                    stroke={focus === i ? "var(--color-accent-rose)" : "none"}
-                    strokeWidth={focus === i ? 2 : 0}
                   />
                   {focus === i && <rect x={labelWidth - 2} y={y + 1} width={room + 4} height={ROW - 2} rx={2} fill="none" stroke="var(--color-accent-rose)" strokeWidth={1.5} />}
-                  <text x={labelWidth + w + 6} y={y + 12} className="fill-fg-secondary text-micro tabular-nums">
+                  <text x={labelWidth + w + 6} y={y + ROW / 2 + CAP_HALF} className="fill-fg-secondary text-micro tabular-nums">
                     {b.value.toLocaleString("en-US")}
                   </text>
                 </g>
@@ -103,7 +106,7 @@ export function BarChart({
                     return (
                       <g key={t}>
                         <line x1={left} x2={width} y1={y} y2={y} className="stroke-glass-border" strokeWidth={1} />
-                        <text x={left - 6} y={y + 4} textAnchor="end" className="fill-fg-secondary text-micro tabular-nums">
+                        <text x={left - 6} y={y + CAP_HALF} textAnchor="end" className="fill-fg-secondary text-micro tabular-nums">
                           {t.toLocaleString("en-US")}
                         </text>
                       </g>

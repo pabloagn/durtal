@@ -43,6 +43,8 @@ export function ChartFrame({
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [focus, setFocus] = useState<number | null>(null);
+  // Keys can come faster than renders: each moves from the last key's point
+  const at = useRef<number | null>(null);
   const [said, setSaid] = useState("");
   const [showTable, setShowTable] = useState(false);
   const captionId = useId();
@@ -59,9 +61,10 @@ export function ChartFrame({
   }, []);
 
   function onKeyDown(e: React.KeyboardEvent) {
-    const next = moveFocus(focus, e.key, points.length, step);
+    const next = moveFocus(at.current, e.key, points.length, step);
     if (next === null) return;
     e.preventDefault();
+    at.current = next;
     setFocus(next);
     setSaid(points[next].text);
   }
@@ -76,7 +79,10 @@ export function ChartFrame({
         aria-label={label}
         aria-describedby={captionId}
         onKeyDown={onKeyDown}
-        onBlur={() => setFocus(null)}
+        onBlur={() => {
+          at.current = null;
+          setFocus(null);
+        }}
         className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-accent-rose/60"
         style={{ height }}
         data-chart-frame=""

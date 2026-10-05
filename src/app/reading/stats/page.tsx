@@ -17,6 +17,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { ABANDON_REASON_LABELS, type AbandonReason } from "@/lib/reading/constants";
 import { MONTHS, MONTHS_SHORT, WEEKDAYS, dayLabel, durationWords, minutesLabel, n, parseStatsYear, peakWords } from "@/lib/reading/charts";
 import { insights } from "@/lib/reading/insights";
+import { pastGoalText, reachedText } from "@/lib/reading/goals";
 import {
   abandoned,
   authorStats,
@@ -151,7 +152,18 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
               .map((t) => (
                 <Footnote key={t}>{t}</Footnote>
               ))}
-            {goals.length > 0 && <GoalCards goals={goals} serverToday={today} dayStartHour={settings.readingDayStartHour} />}
+            {/* This year's goals as cards; a past year's as its results */}
+            {goals.length > 0 && year === current && <GoalCards goals={goals} serverToday={today} dayStartHour={settings.readingDayStartHour} />}
+            {goals.length > 0 && year !== current && (
+              <div className="space-y-1 text-sm text-fg-primary" data-stats-goals="">
+                {goals.map((g) => (
+                  <p key={g.metric}>
+                    {pastGoalText(g)}
+                    {g.count >= g.target && g.reachedOn ? `. ${reachedText(g.reachedOn, g.reachedPrecision ?? "day")}.` : "."}
+                  </p>
+                ))}
+              </div>
+            )}
           </StatsSection>
         )}
 
@@ -174,6 +186,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                     summaryUnit={metric}
                     tone={metric === "books" ? "sage" : "blue"}
                     columns={[year === null ? "Year" : "Month", metric === "books" ? "Books" : "Pages"]}
+                    minRows={months.bars.length + (months.unknown ? 1 : 0)}
                     footnote={[
                       unknown ? "“?” holds the readings dated only by the year." : null,
                       months.undated ? `${count(months.undated, "reading")} with unknown dates ${months.undated === 1 ? "is" : "are"} not shown.` : null,

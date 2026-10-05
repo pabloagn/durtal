@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { calendarBlocks, calendarCells, dayLabel, minutesLabel, MONTHS_SHORT, shade, WEEKDAYS } from "@/lib/reading/charts";
+import { CAP_HALF } from "./bar-chart";
 import { ChartFrame } from "./chart-frame";
 
 /*
@@ -114,7 +115,7 @@ function Grid({
           return (
             <g key={c.day}>
               {first && (
-                <text x={k * (blockWidth + BLOCK_GAP)} y={y + 10} className="fill-fg-secondary text-micro">
+                <text x={k * (blockWidth + BLOCK_GAP)} y={y + CELL / 2 + CAP_HALF} className="fill-fg-secondary text-micro">
                   {MONTHS_SHORT[Number(c.day.slice(5, 7)) - 1]}
                 </text>
               )}
