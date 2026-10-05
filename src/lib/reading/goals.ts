@@ -70,7 +70,7 @@ export function reachedText(on: string, precision: ReadingDatePrecision): string
 function paceText(metric: GoalMetric, remaining: number, daysLeft: number): string {
   if (metric === "books") {
     const every = daysLeft / remaining;
-    if (every >= 10.5) return Math.round(every / 7) === 1 ? "about one a week" : `about one every ${Math.round(every / 7)} weeks`;
+    if (every >= 13.5) return `about one every ${Math.round(every / 7)} weeks`;
     if (every >= 1.5) return Math.round(every) === 7 ? "about one a week" : `about one every ${Math.round(every)} days`;
     if (every >= 0.75) return "about one a day";
     return `about ${Math.round(1 / every)} a day`;
@@ -96,30 +96,43 @@ export interface GoalState {
  * books ahead", "18 to go: about one every 2 weeks from now", or "Goal
  * reached on 14 Oct". Never a word of NEVER_SAID.
  */
+/**
+ * Where the count stands against the share of the year gone: ahead by whole
+ * units, on pace (within one book, or 1% of a pages or hours goal), or with
+ * some to go
+ */
+function standing(goal: GoalState, today: string): { ahead: number } | { onPace: true } | { remaining: number } {
+  const expected = goal.target * expectedShare(goal.year, today);
+  const diff = goal.count - expected;
+  if (diff >= 1) return { ahead: Math.floor(diff) };
+  const tolerance = goal.metric === "books" ? 1 : Math.max(1, goal.target / 100);
+  if (diff > -tolerance) return { onPace: true };
+  return { remaining: goal.target - goal.count };
+}
+
+/**
+ * The goal's one neutral line for `today` (a reading day): "On pace", "2
+ * books ahead", "18 to go: about one every 2 weeks from now", or "Goal
+ * reached on 14 Oct". Never a word of NEVER_SAID.
+ */
 export function goalLine(goal: GoalState, today: string): string {
   if (goal.count >= goal.target && goal.reachedOn) return reachedText(goal.reachedOn, goal.reachedPrecision ?? "day");
   if (goal.count >= goal.target) return "Goal reached";
-  const expected = goal.target * expectedShare(goal.year, today);
-  if (goal.count >= expected) {
-    const ahead = Math.floor(goal.count - expected);
-    return ahead >= 1 ? `${amountText(goal.metric, ahead)} ahead` : "On pace";
-  }
-  const remaining = goal.target - goal.count;
+  const where = standing(goal, today);
+  if ("ahead" in where) return `${amountText(goal.metric, where.ahead)} ahead`;
+  if ("onPace" in where) return "On pace";
   const current = Number(today.slice(0, 4));
   const daysLeft = current < goal.year ? daysInYear(goal.year) : daysInYear(goal.year) - dayOfYear(today) + 1;
-  const left = goal.metric === "hours" ? amountText("hours", Math.ceil(remaining * 10) / 10) : amountText(goal.metric, Math.ceil(remaining));
-  return `${left} to go: ${paceText(goal.metric, remaining, Math.max(1, daysLeft))} from now`;
+  return `${n(Math.ceil(where.remaining))} to go: ${paceText(goal.metric, where.remaining, Math.max(1, daysLeft))} from now`;
 }
 
 /** The dashboard's short words: "on pace", "2 books ahead", "18 to go", "goal reached" */
 export function goalShortLine(goal: GoalState, today: string): string {
   if (goal.count >= goal.target) return "goal reached";
-  const expected = goal.target * expectedShare(goal.year, today);
-  if (goal.count >= expected) {
-    const ahead = Math.floor(goal.count - expected);
-    return ahead >= 1 ? `${amountText(goal.metric, ahead)} ahead` : "on pace";
-  }
-  return `${goal.metric === "hours" ? amountText("hours", Math.ceil((goal.target - goal.count) * 10) / 10) : n(Math.ceil(goal.target - goal.count))} to go`;
+  const where = standing(goal, today);
+  if ("ahead" in where) return `${amountText(goal.metric, where.ahead)} ahead`;
+  if ("onPace" in where) return "on pace";
+  return `${n(Math.ceil(where.remaining))} to go`;
 }
 
 /** A past year's result, plainly: "28 of 30 books in 2025" */
