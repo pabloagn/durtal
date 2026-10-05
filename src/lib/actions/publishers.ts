@@ -184,6 +184,8 @@ export async function getPublishers(options: PublisherListOptions = {}) {
         logoKey: sql<
           string | null
         >`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.organization_id = "publishing_houses"."id" and m.type = 'poster' and m.is_active limit 1)`,
+        // A logo card (SLN-441) fills its tile; a plain logo sits whole inside it
+        logoCard: sql<boolean>`coalesce((select m.processing_params ? 'logoCard' from media m where m.organization_id = "publishing_houses"."id" and m.type = 'poster' and m.is_active limit 1), false)`,
       })
       .from(houses)
       .where(where)
