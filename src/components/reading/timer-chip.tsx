@@ -73,7 +73,8 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
   );
   const stopIcon = <Square className="h-4 w-4" strokeWidth={1.5} />;
   const menu = (trigger: React.ReactElement<{ className?: string }>, side: "top" | "bottom", align: "start" | "end") => (
-    <DropdownMenu trigger={trigger as never} side={side} align={align} label={`Timer for ${timer.title}`}>
+    // No menu label: the trigger keeps its own name ("Timer for Nadja, 12 minutes") and tooltip
+    <DropdownMenu trigger={trigger as never} side={side} align={align}>
       <DropdownMenuLabel>{ask ? `Still reading ${timer.title}?` : timer.title}</DropdownMenuLabel>
       <DropdownMenuItem onClick={() => void (paused ? resume() : pause())}>{paused ? "Resume" : "Pause"}</DropdownMenuItem>
       <DropdownMenuItem onClick={() => setDiscarding(true)}>Discard</DropdownMenuItem>
