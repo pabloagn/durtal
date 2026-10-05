@@ -91,7 +91,7 @@ function OptionRow({
   const empty = swatch && option.count === 0 && !checked;
   return (
     <label
-      className={`flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs transition-colors ${
+      className={`flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
         empty
           ? "cursor-default text-fg-muted"
           : "cursor-pointer text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
@@ -101,7 +101,7 @@ function OptionRow({
         <span
           aria-hidden
           className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
-            checked ? "border-fg-primary" : "border-glass-border"
+            checked ? "border-fg-primary" : "border-fg-muted/60"
           } ${empty ? "opacity-40" : ""}`}
           style={{ backgroundColor: option.swatch }}
         >
@@ -127,9 +127,10 @@ function OptionRow({
         </span>
       )}
       <input type="checkbox" checked={checked} disabled={empty} onChange={onToggle} className="sr-only" />
-      <span className="min-w-0 flex-1">{option.label}</span>
+      {/* The label and its count share a baseline; the box stays centred */}
+      <span className="min-w-0 flex-1 self-baseline">{option.label}</span>
       {option.count !== undefined && (
-        <span className="shrink-0 pl-2 font-mono text-micro tabular-nums text-fg-secondary">
+        <span className="shrink-0 self-baseline pl-2 font-mono text-micro tabular-nums text-fg-secondary">
           {option.count.toLocaleString("en")}
         </span>
       )}
@@ -224,15 +225,20 @@ export function FilterDropdown({
   }, [open]);
 
   // The panel hangs from the button's right edge; on a narrow window it
-  // moves sideways to stay EDGE px inside it
+  // moves sideways to stay EDGE px inside it, and the page scrolls to show
+  // all of it when it reaches below the window
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!open || !panel) return;
+    // The window's width without its scrollbar: 100vw counts a classic scrollbar
+    const width = document.documentElement.clientWidth;
     panel.style.translate = "";
+    panel.style.maxWidth = `${width - 2 * EDGE}px`;
     const rect = panel.getBoundingClientRect();
-    const right = document.documentElement.clientWidth - EDGE;
+    const right = width - EDGE;
     const shift = rect.left < EDGE ? EDGE - rect.left : rect.right > right ? right - rect.right : 0;
-    if (shift) panel.style.translate = `${Math.round(shift)}px 0`;
+    if (shift) panel.style.translate = `${shift}px 0`;
+    if (rect.bottom > window.innerHeight) panel.scrollIntoView({ block: "nearest" });
   }, [open]);
 
   /** A checkbox or swatch group's rows, with a search when the list is long */
@@ -340,7 +346,7 @@ export function FilterDropdown({
         <div
           ref={panelRef}
           className={`glass absolute right-0 top-full z-50 mt-1.5 ${
-            sections ? "w-[34rem] max-w-[calc(100vw-2rem)] overflow-hidden" : "min-w-56"
+            sections ? "w-[34rem] overflow-hidden" : "min-w-56"
           }`}
         >
           {/* Header with clear all */}
@@ -379,7 +385,7 @@ export function FilterDropdown({
                       role="tab"
                       aria-selected={selected}
                       onClick={() => setSection(name)}
-                      className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors pointer-coarse:min-h-11 ${
                         selected
                           ? "bg-bg-tertiary text-fg-primary"
                           : "text-fg-secondary hover:bg-bg-tertiary/60 hover:text-fg-primary"

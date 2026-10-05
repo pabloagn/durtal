@@ -94,9 +94,9 @@ describe("ActiveFilters", () => {
     ];
     act(() => root.render(createElement(ActiveFilters, { chips, onRemove, onClearAll })));
     const buttons = [...host.querySelectorAll("button")];
-    expect(buttons.map((b) => b.textContent)).toEqual([
-      "Remove filter: LanguageFrench",
-      "Remove filter: ColourRed",
+    expect(buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
+      "Remove filter: Language French",
+      "Remove filter: Colour Red",
       "Clear all",
     ]);
     click(buttons[1]);

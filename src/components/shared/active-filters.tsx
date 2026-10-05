@@ -37,13 +37,13 @@ export function ActiveFilters({
           key={`${chip.key}:${chip.value ?? ""}`}
           type="button"
           onClick={() => onRemove(chip)}
+          aria-label={`Remove filter: ${chip.group} ${chip.label}`}
           className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border border-glass-border bg-bg-secondary pl-2 pr-1.5 text-xs transition-colors hover:bg-bg-tertiary pointer-coarse:h-11"
         >
-          <span className="sr-only">Remove filter: </span>
           {chip.swatch && (
             <span
               aria-hidden
-              className="h-2.5 w-2.5 shrink-0 rounded-sm border border-glass-border"
+              className="h-2.5 w-2.5 shrink-0 rounded-sm border border-fg-muted/60"
               style={{ backgroundColor: chip.swatch }}
             />
           )}

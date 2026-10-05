@@ -191,7 +191,7 @@ export function LibraryFilters({
   };
 
   const formatCounts = options?.formats;
-  const groups: AnyFilterGroup[] = [
+  const allGroups: AnyFilterGroup[] = [
     { section: "Collection", key: "status", label: "Status", options: STATUS_OPTIONS },
     { section: "Collection", key: "holding", label: "Holding", options: HOLDING_OPTIONS },
     { section: "Collection", key: "priority", label: "Priority", options: PRIORITY_OPTIONS },
@@ -256,6 +256,9 @@ export function LibraryFilters({
     { section: "Cover", key: "poster", label: "Picture", options: [...POSTER_FILTERS] },
   ];
 
+  // A group with nothing to choose is left out (a list loads with the options)
+  const groups = allGroups.filter((g) => "type" in g || g.options.length > 0);
+
   const handleFilterChange = useCallback(
     (key: string, values: string[]) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -282,7 +285,7 @@ export function LibraryFilters({
   // One chip per chosen value, in the panel's order; a range is one chip,
   // shown from the URL before its span loads
   const chips: ActiveFilterChip[] = [];
-  for (const group of groups) {
+  for (const group of allGroups) {
     if ("type" in group) continue;
     for (const value of activeFilters[group.key] ?? []) {
       const option = group.options.find((o) => o.value === value);
