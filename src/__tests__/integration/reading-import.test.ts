@@ -433,9 +433,11 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       const ids = await q(`select id, edition_id, external_id from catalogue_identifiers where provider = 'goodreads'`);
       expect(ids.map((r) => [r.edition_id, r.external_id])).toEqual([[editionId, "777"]]);
       expect((await rows(importId))[0].written!.identifiers).toEqual([ids[0].id]);
-      // The next import matches it exactly and records nothing
+      // Without the readings, the next import matches by that id and records nothing
+      await q(`delete from readings where import_id = $1`, [importId]);
       const next = await upload(file);
       expect((await rows(next.importId))[0].match.reason).toBe("Same Goodreads id");
+      expect((await getImportPreview(next.importId))!.summary.identifiers).toBe(0);
       await undoReadingImport({ importId });
       expect(Number(await value(`select count(*) from catalogue_identifiers`))).toBe(0);
     });
