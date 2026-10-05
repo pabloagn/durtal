@@ -64,7 +64,8 @@ describe.skipIf(!url)("image adjustment migration", () => {
       expect((await c`select * from authors`)[0]).toMatchObject(author);
       // Later migrations may add media columns; every existing value must survive.
       expect((await c`select * from media`)[0]).toMatchObject(media);
-      expect((await c`select * from editions`)[0]).toEqual(edition);
+      // A cover's palette and colour (0071, SLN-405) start empty
+      expect((await c`select * from editions`)[0]).toEqual({ ...edition, cover_palette: null, cover_color_bucket: null });
       expect(await c`select * from image_adjustments`).toHaveLength(0);
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
       expect(await c`select * from image_adjustments`).toHaveLength(0);

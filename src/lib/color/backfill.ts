@@ -122,6 +122,6 @@ export async function backfillCoverColors({
     db.select({ n: count() }).from(media).where(posterWithout),
     db.select({ n: count() }).from(editions).where(coverWithout),
   ]);
-  result.remaining = { posters: postersLeft.n, covers: coversLeft.n };
+  result.remaining = { posters: postersLeft?.n ?? 0, covers: coversLeft?.n ?? 0 };
   return result;
 }
