@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openReadings, requireReadingsToken, spoken, spokenError, titles } from "@/lib/api/readings";
+import { openReadings, requireReadingsToken, spokenError, titles } from "@/lib/api/readings";
 import { runningTimer } from "@/lib/reading/timer-service";
 import { durationWords, elapsedSeconds } from "@/lib/reading/timer";
 
