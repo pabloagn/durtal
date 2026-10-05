@@ -123,7 +123,12 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
   const { pending, run } = useAction();
   const [current, setCurrent] = useState(actions.decision);
   const [picking, setPicking] = useState(false);
-  useEffect(() => setCurrent(actions.decision), [actions.decision]);
+  // The page refreshed with another decision: follow it
+  const [seen, setSeen] = useState(actions.decision);
+  if (seen !== actions.decision) {
+    setSeen(actions.decision);
+    setCurrent(actions.decision);
+  }
   const decide = (next: ImportDecision) => {
     setCurrent(next);
     run(() => decideImportRow({ importId, rowNo, decision: next }));
@@ -280,7 +285,9 @@ export function MatchAgain({ importId, show }: { importId: string; show: boolean
       },
     );
   const latest = useRef(again);
-  latest.current = again;
+  useEffect(() => {
+    latest.current = again;
+  });
   // Back from "Add this book": in this tab (the page loads again) or from another (it becomes visible)
   useEffect(() => {
     const onVisible = () => {

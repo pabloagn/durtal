@@ -56,7 +56,6 @@ const json = (value: unknown) => JSON.stringify(value);
 /** A file name to show: the base name, no control characters, at most 255 characters */
 export function displayFileName(name: string) {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex
   return base.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 255) || "import.csv";
 }
 
