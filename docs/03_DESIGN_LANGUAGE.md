@@ -346,6 +346,24 @@ Goals and the rhythm never nag (SLN-455): no word says "behind", "lost" or "fail
 - **The rhythm** (`src/components/reading/rhythm.tsx`): seven 16px squares in the week's order, filled sage on a reading day, outlined otherwise, today with an outline 2px out; the day's initial under each; "4 of 5 days this week". Under it, 12 bars 8px wide, 4 to 32px tall by reading days, sage when the week reached the target, `bg-tertiary` otherwise, and "kept 9 of the last 12 weeks".
 - Both are drawn on the server with its reading day and redrawn in the browser with the browser's, at the same height.
 
+### Charts
+
+The reading charts (SLN-456, `src/components/reading/charts/`) are hand-drawn SVG, no chart library: bars (`BarChart`), the calendar (`CalendarHeatmap`), and ranked lists in HTML (`RankList`, a thin sage bar under each row's text).
+
+- **One tab stop.** Each chart sits in `ChartFrame`: an HTML wrapper with `tabIndex={0}`, `role="group"`, an `aria-label` naming the chart and `aria-describedby` pointing at its caption line. Its only other control is "Show as table".
+- **Arrow keys** move a focus point: Left and Right by one bar or day, Up and Down by a week in the calendar (by one in a bar chart), Home and End to the first and last (`moveFocus`, `src/lib/reading/charts.ts`). The focused mark has a rose outline. Focus leaving the chart clears it.
+- **Caption line and live region.** Under the chart, a 14px `fg-secondary` line says the focused value ("March 2025: 4 books"), or the whole chart in words before a point is chosen; a polite live region says the same as the focus moves.
+- **The SVG** inside has `role="img"` with the summary as its `aria-label`, and nothing focusable in it. Hover shows a mark's exact value through `data-tooltip` on the mark; the keyboard value is the caption line, never a tooltip.
+- **"Show as table"** (a button with `aria-expanded`) shows the same numbers as a table under the chart.
+- **Never scaled.** No text is scaled through `viewBox`: the SVG's width is measured with a `ResizeObserver` and its height is fixed per chart, so nothing moves when it measures. Labels are 12px (`text-micro`) or 14px (`text-xs`) in `fg-secondary`.
+- **Colors**: sage and blue fills, `bg-tertiary` tracks, `glass-border` grid lines; never color alone, since every value is also text. Calendar shades are sage at 30, 55, 80 and 100%, against the year's busiest day.
+- **Narrow screens**: under 480px of width a bar chart turns into horizontal bars; the calendar (four blocks of week rows) scrolls inside its own box under 600px, never the page.
+- Dates in labels use fixed English month and weekday names (no `Intl`), so the server and the browser write the same text.
+
+### Print
+
+Every page prints light and without the app around it (SLN-456, `@media print` in `globals.css`): the colour tokens switch to dark text on white, the sidebar and the phone bar are `print:hidden`, the page takes the full width, and colours print as drawn. A page hides its own controls with `print:hidden` and keeps blocks whole with `break-inside-avoid` (the Year in review).
+
 ### Quotes and notes
 
 A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453) looks the same on the book page, on `/reading/notes` and on the hub.

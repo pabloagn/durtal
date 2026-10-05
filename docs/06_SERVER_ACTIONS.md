@@ -578,6 +578,30 @@ Every past year's goals with their results, in one query; and what the goal dial
 ### `getRhythm()`
 `{ target, weekStart, today, days }`: the days he would like to read each week (null: off), the week start, the server's reading day, and his reading days over the last 13 weeks with a day to spare on each side: days with an ended session (by `read_on`; the running timer never counts) or a finish at day precision. The browser builds this week and the 12 before it with `rhythmView`.
 
+## Reading stats (`src/lib/reading/stats.ts`, SLN-456)
+
+Server functions for `/reading/stats`, the Year in review and On this day: not server actions (no page calls them from the browser), and never cached. Each takes a year, or `null` for all time, and returns plain numbers (every numeric column and average cast to `float8`), from a handful of aggregate queries, never one per book. The rules every section follows:
+- **Pages** come only from `countedPagesSql`, filtered by its day and precision, summed, then rounded. An audiobook without a page count counts none, and each section that shows pages says how many it leaves out.
+- **Hours and reading days** come from ended sessions; the running timer never counts. A reading day has an ended session (by `read_on`) or a finish at day precision.
+- **Ratings** are the read's (`readingRatingSql`) everywhere but the recommenders, which use taste evidence (`tasteRatingSql`). A rating on a book with no finished read appears nowhere.
+- **Dates**: a year's charts take day and month precision; a reading dated only by the year counts in the totals and in a "Month unknown" bar; an unknown date counts in the all-time totals only. Day charts use sessions only, by `read_on`; weekday and time of day use each session's local start (`started_at at time zone time_zone`).
+- **Where** groups by the reading's home (`readings.location_id`), never by a copy's place now. **Owned** is `ownedBookCondition`.
+
+### `yearNumbers(year)`, `overTheYear(year)`, `readingDays(year)`, `ratings(year)`, `lengthAndPace(year)`, `languages(year)`, `authorStats(year)`, `eras(year)`, `whereAndHow(year)`, `shelfTime(year)`, `recommenderStats(year)`, `abandoned(year)`, `insightInputs(year)`
+The stats page's sections, one function each. Shelf time counts a book when its first reading's start has day or month precision and is on or after the earliest acquisition date of its copies that are not deaccessioned; the others are counted for the footnote. Formats count per session, so a session in an audiobook edition of a print reading is audio; a finished reading without sessions counts under its own format. Insights (`src/lib/reading/insights.ts`) speak only with at least 5 books in each group and a difference of half a star or 20%.
+
+### `unreadPile(today)`
+Always all time: the owned books whose reading state is unread (the library's `reading=unread&holding=owned`, same count), their pages (the edition of the first copy that is not deaccessioned, else the largest edition), those without a page count, the pages a year over the last three years, the years the pile would take at that pace, and the books with a copy at hand per home (`atHandCopySql` for each of `homeOptions`).
+
+### `statsYears()` / `finishedYears()`
+The years the stats page offers (any reading or session with a known date), and the years with finished books with their counts (the Year in review list).
+
+### `onThisDay(days)`
+Books finished or started on these days' calendar dates in earlier years, day precision only, at most three a day, finishes first, with the read's rating.
+
+### `yearReview(year)`
+The year's numbers, its finished books in finish order with their covers and month (null when dated only by the year), the first and last book (day or month precision), the longest, the highest rated, the most re-read, the busiest month and the favourite passage.
+
 ## Quotes and notes (`src/lib/actions/reading-notes.ts`, SLN-453)
 
 The commonplace book. Each write parses its input with zod (`src/lib/validations/reading-notes.ts`), writes books only (`requireBookWork`), reads and checks the reading and edition against the book ("This reading belongs to another book", "This edition belongs to another book"), runs one `atomic` inside `withReadableErrors`, then records activity and invalidates `works` and `reading`. `source`, `sourceKey` and `importId` are never taken from a page: page actions write `source: "manual"`. No event per note: at most one `work.notes_added` per book per reading day ("Added 3 quotes and 1 note"), recorded after the write; the first note of the day records it and later ones add to its counts. Notes an import writes record none. Pure rules: `src/lib/reading/notes-text.ts` (`joinHyphenatedLines`, `formatNoteForCopy`), `src/lib/reading/notes-params.ts` (`parseNotesQuery`) and `src/lib/reading/passage.ts` (`choosePassage`).
