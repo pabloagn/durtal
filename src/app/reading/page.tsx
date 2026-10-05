@@ -11,6 +11,8 @@ import { FinishedCovers } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getRecentlyFinished } from "@/lib/reading/journal";
 import { readingDay } from "@/lib/reading/dates";
+import { readingDayStartHour } from "@/lib/reading/day";
+import { readingEstimates } from "@/lib/reading/estimates";
 import { appTimeZone } from "@/lib/utils/date";
 
 export const metadata = { title: "Reading" };
@@ -23,8 +25,13 @@ export const metadata = { title: "Reading" };
 export default async function ReadingPage() {
   const [open, finished] = await Promise.all([getOpenReadings(), getRecentlyFinished(6)]);
   const zone = appTimeZone();
-  const day = { today: readingDay(new Date(), zone), zone, dayStartHour: 4 };
+  const dayStartHour = await readingDayStartHour();
+  const day = { today: readingDay(new Date(), zone, dayStartHour), zone, dayStartHour };
   const reading = open.filter((o) => o.reading.status === "reading");
+  const estimates = await readingEstimates(
+    reading.map((o) => o.reading.id),
+    day.today,
+  );
   const paused = open.filter((o) => o.reading.status === "paused");
   const empty = open.length === 0 && finished.length === 0;
 
@@ -52,7 +59,7 @@ export default async function ReadingPage() {
               <SectionHeading title="Currently reading" count={reading.length} />
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {reading.map((o) => (
-                  <CurrentReadingCard key={o.reading.id} open={o} day={day} />
+                  <CurrentReadingCard key={o.reading.id} open={o} day={day} estimate={estimates[o.reading.id]} />
                 ))}
               </div>
             </section>

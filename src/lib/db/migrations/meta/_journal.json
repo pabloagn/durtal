@@ -470,6 +470,13 @@
       "when": 1791182324212,
       "tag": "0066_reading_import",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1791197076522,
+      "tag": "0067_reading_sessions_timer",
+      "breakpoints": true
     }
   ]
 }

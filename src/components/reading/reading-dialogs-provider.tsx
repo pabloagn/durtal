@@ -9,7 +9,7 @@ import { READING_HOME_KEY } from "@/lib/preferences";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { getReadingDialogData, pauseReading, resumeReading } from "@/lib/actions/reading";
 import { showError, type ReadingPageData } from "./reading-client";
-import { ReadingDialogSwitch, type DialogRequest, type ReadingDialog, type ReadingDialogProps } from "./reading-provider";
+import { ReadingDialogSwitch, type DialogRequest, type ReadingDialog, type ReadingDialogProps, type StopRequest } from "./reading-provider";
 import type { PickerPurpose } from "@/lib/reading/book-picker";
 
 /*
@@ -30,7 +30,7 @@ export interface ReadingRef {
 
 export type ReadingDialogsRequest =
   | { kind: "start" | "past"; workId: string }
-  | ({ kind: Exclude<ReadingDialog, "start" | "past">; prefill?: string } & ReadingRef);
+  | ({ kind: Exclude<ReadingDialog, "start" | "past">; prefill?: string; timer?: StopRequest } & ReadingRef);
 
 interface ReadingDialogsValue {
   /** Opens a dialog for a book, once its data has loaded */
@@ -89,7 +89,7 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
         }
         // The caller's fingerprint, not the fresh one: a stale page must not save
         const rows = data.rows.map((r) => (r === row ? { ...r, fingerprint: request.fingerprint } : r));
-        setOpened({ data: { ...data, rows }, request: { kind: request.kind, readingId: request.readingId, prefill: request.prefill } });
+        setOpened({ data: { ...data, rows }, request: { kind: request.kind, readingId: request.readingId, prefill: request.prefill, timer: request.timer } });
       } catch (err) {
         showError(err, () => router.refresh());
       }

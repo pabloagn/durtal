@@ -11,6 +11,9 @@ const AppSettingsContext = createContext<AppSettings>({
   newCopyFormat: "paperback",
   newCopyCondition: "mint",
   homeCurrency: DEFAULT_CURRENCY,
+  readingDayStartHour: 4,
+  readingWeekStart: 1,
+  readingTimerCheckMinutes: 90,
 });
 
 /** The app-wide settings, read once per request by the root layout. */

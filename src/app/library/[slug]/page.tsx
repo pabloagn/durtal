@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getReadingsForWork } from "@/lib/actions/reading";
+import { readingEstimates } from "@/lib/reading/estimates";
 import { ReadingProvider } from "@/components/reading/reading-provider";
 import { ReadingThen } from "@/components/reading/reading-then";
 import { addBookParams } from "@/lib/reading/book-picker";
@@ -9,6 +10,7 @@ import { ReadingSection } from "@/components/reading/reading-section";
 import { readingEditions, readingHomes } from "@/lib/reading/page-data";
 import { readingRecord } from "@/lib/reading/labels";
 import { readingDay } from "@/lib/reading/dates";
+import { readingDayStartHour } from "@/lib/reading/day";
 import { canUseWorkCapability } from "@/lib/catalogue/domains";
 import { appTimeZone } from "@/lib/utils/date";
 import { READING_HOME_KEY } from "@/lib/preferences";
@@ -207,7 +209,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   // The reading control, section and dialogs (SLN-447)
   const canRead = canUseWorkCapability(work.kind, "reading");
   const zone = appTimeZone();
-  const today = readingDay(new Date(), zone);
+  const dayStartHour = await readingDayStartHour();
+  const today = readingDay(new Date(), zone, dayStartHour);
   let homeCookie: string | null = null;
   try {
     const raw = (await cookies()).get(READING_HOME_KEY)?.value;
@@ -219,12 +222,17 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     workId: work.id,
     workTitle: work.title,
     bookRating: work.rating ?? null,
-    dayStartHour: 4,
+    dayStartHour,
     rows: readingRows,
     editions: readingEditions(work.editions, { today, homeId: homeCookie && homeCookie !== "none" ? homeCookie : null }),
     homes: readingHomes(allLocations),
     today,
     zone,
+    // Time left and the finish date of the open reading (SLN-451)
+    estimates: await readingEstimates(
+      readingRows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
+      today,
+    ),
   };
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(

@@ -31,6 +31,13 @@ export const appSettingsInputSchema = z
     homeCurrency: z
       .string()
       .refine((code) => isSupportedCurrency(code), "Pick a currency from the list"),
+    readingDayStartHour: z.number().int().min(0, "Pick an hour from midnight to 06:00").max(6, "Pick an hour from midnight to 06:00"),
+    readingWeekStart: z.union([z.literal(1), z.literal(7)], "A week starts on Monday or Sunday"),
+    readingTimerCheckMinutes: z
+      .number()
+      .int()
+      .min(15, "Ask after 15 minutes to 8 hours")
+      .max(480, "Ask after 15 minutes to 8 hours"),
   })
   .partial();
 

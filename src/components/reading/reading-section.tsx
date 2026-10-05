@@ -16,6 +16,10 @@ import { formatRating } from "@/lib/utils/rating";
 import { languageName } from "@/lib/utils/language";
 import type { ReadingPageData, ReadingRow } from "./reading-client";
 import { useReading } from "./reading-provider";
+import { useOptionalTimer } from "./timer-provider";
+import { SessionList } from "./session-list";
+import { EstimateLine } from "./estimate-line";
+import { clockText } from "@/lib/reading/timer";
 
 const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, ebook: Tablet, audio: Headphones };
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "E-book", audio: "Audiobook" };
@@ -37,7 +41,9 @@ function editionLine(row: ReadingRow, data: ReadingPageData) {
 }
 
 function CurrentReading({ row }: { row: ReadingRow }) {
-  const { data, run, open } = useReading();
+  const { data, run, open, toggleTimer } = useReading();
+  const timer = useOptionalTimer();
+  const timing = timer?.timer?.readingId === row.reading.id;
   const r = row.reading;
   const edition = data.editions.find((e) => e.id === r.editionId);
   const copy = edition?.copies.find((c) => c.id === r.instanceId);
@@ -66,6 +72,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
         <p className="font-mono text-xs text-fg-secondary">
           {r.status === "paused" ? `Paused · ${position}` : position}
         </p>
+        {data.estimates?.[r.id] && <EstimateLine estimate={data.estimates[r.id]} onAddLength={() => open({ kind: "edit", readingId: r.id })} />}
         <p className="text-xs text-fg-secondary">
           {started}
           {home}
@@ -76,6 +83,17 @@ function CurrentReading({ row }: { row: ReadingRow }) {
           <Button size="sm" variant="primary" onClick={() => run("progress", row)} className="pointer-coarse:h-11">
             Log progress
           </Button>
+          {timer && (
+            <Button size="sm" variant="ghost" onClick={toggleTimer} className="pointer-coarse:h-11" data-reading-timer="">
+              {timing ? (
+                <>
+                  Stop timer <span className="tabular-nums text-fg-secondary">{clockText(timer.elapsed)}</span>
+                </>
+              ) : (
+                "Start timer"
+              )}
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => run(r.status === "paused" ? "resume" : "pause", row)} className="pointer-coarse:h-11">
             {r.status === "paused" ? "Resume" : "Pause"}
           </Button>
@@ -86,12 +104,16 @@ function CurrentReading({ row }: { row: ReadingRow }) {
             row={row}
             label="More reading actions"
             extra={
-              <DropdownMenuItem onClick={() => run("abandon", row)}>Abandon</DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => open({ kind: "session", readingId: r.id })}>Add a session</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => run("abandon", row)}>Abandon</DropdownMenuItem>
+              </>
             }
             onEdit={() => open({ kind: "edit", readingId: r.id })}
             onDelete={() => open({ kind: "delete", readingId: r.id })}
           />
         </div>
+        <SessionList row={row} current />
       </div>
     </div>
   );
@@ -163,6 +185,7 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: ReadingRow |
             {editionChanged && <span className="truncate">· {editionLine(row, data)}</span>}
           </p>
           {rating != null && <RatingStars value={rating} size={12} />}
+          {row.sessionCount > 0 && <SessionList row={row} current={false} />}
           {r.reviewHtml && (
             <div>
               <Prose html={r.reviewHtml} className={showReview ? "" : "line-clamp-3"} />

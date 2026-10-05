@@ -7,6 +7,8 @@ import { MobileNavBar } from "./mobile-nav-bar";
 import { CommandPalette } from "./command-palette";
 import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
 import { ReadingDialogsProvider } from "@/components/reading/reading-dialogs-provider";
+import { TimerProvider } from "@/components/reading/timer-provider";
+import { TimerAlerts } from "@/components/reading/timer-chip";
 import { Toaster } from "sonner";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { SIDEBAR, sidebarWidth } from "@/lib/preferences";
@@ -93,10 +95,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (isReaderView) {
     return (
       <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
-        <ReadingDialogsProvider>
-          {children}
-          <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
-        </ReadingDialogsProvider>
+        <TimerProvider>
+          <ReadingDialogsProvider>
+            {children}
+            <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+            <TimerAlerts />
+          </ReadingDialogsProvider>
+        </TimerProvider>
         <Toaster
           position="bottom-right"
           toastOptions={{
@@ -116,7 +121,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
-      {/* Reading dialogs from any page: the palette, the hub, the dashboard (SLN-448) */}
+      {/* Reading dialogs from any page: the palette, the hub, the dashboard (SLN-448); the timer (SLN-451) */}
+      <TimerProvider>
       <ReadingDialogsProvider>
         <MobileNavBar
           ref={menuButtonRef}
@@ -148,7 +154,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">{children}</div>
         </main>
         <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+        <TimerAlerts />
       </ReadingDialogsProvider>
+      </TimerProvider>
       <Toaster
         position="bottom-right"
         toastOptions={{

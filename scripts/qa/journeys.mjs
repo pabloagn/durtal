@@ -18,7 +18,9 @@
  * year. Then the reading hub (SLN-448): log from /reading, log "212" from the
  * command palette, filter the journal by year, and add a book that is not in
  * Durtal from the book picker's link, landing on its page with Start reading
- * open.
+ * open. On the way, the timer (SLN-451): start one, reload, pause, resume,
+ * stop with a page, Undo, stop again; add and edit a session by hand; and
+ * change the day start hour in /settings/reading.
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
@@ -449,6 +451,77 @@ async function readingJourney() {
       await waitFor(`${DIALOG}?.querySelector('form') && ${field("Where are you?")}.value === '212'`, "Log progress with 212");
       await save("Log");
       await waitFor(`${card}.querySelector('[data-hub-position]').textContent.startsWith('p. 212 of')`, "the card at p. 212");
+    });
+    // The reading timer and sessions by hand (SLN-451), on the book page
+    const chip = "[...document.querySelectorAll('[data-timer-chip]')].find((c) => c.getClientRects().length)";
+    const stopTo = async (page) => {
+      await evaluate("document.querySelector('[data-reading-timer]').click()");
+      await waitFor(`${DIALOG}?.textContent.includes('Stop the timer')`, "stop mode");
+      await fill("Where are you?", page);
+      await save("Stop timer");
+    };
+    await step("start a timer, reload, see it run", async () => {
+      await go(path);
+      await waitFor("document.querySelector('[data-reading-timer]')", "Start timer");
+      await evaluate("document.querySelector('[data-reading-timer]').click()");
+      await waitFor(chip, "the timer chip");
+      await go(path);
+      await waitFor(`/^\\d+:\\d\\d$/.test(${chip}?.querySelector('.tabular-nums')?.textContent.trim() ?? '')`, "the running timer after a reload");
+    });
+    await step("pause, resume", async () => {
+      const pause = `${chip}.querySelector('[data-timer-pause]')`;
+      await evaluate(`${pause}.click()`);
+      await waitFor(`${pause}?.getAttribute('aria-label') === 'Resume timer'`, "the paused timer");
+      await evaluate(`${pause}.click()`);
+      await waitFor(`${pause}?.getAttribute('aria-label') === 'Pause timer'`, "the running timer");
+    });
+    await step("stop at p. 230, undo, stop again", async () => {
+      await stopTo("230");
+      await waitFor(`!${chip}`, "the chip to go");
+      await expectLabel("p\\. 230 of");
+      await undo("Saved");
+      await waitFor(chip, "the timer running again");
+      await go(path);
+      await expectLabel("p\\. 212 of");
+      await stopTo("230");
+      await waitFor(`!${chip}`, "the chip to go");
+      await expectLabel("p\\. 230 of");
+    });
+    await step("add and edit a session by hand", async () => {
+      await go(path);
+      await evaluate("document.querySelector('[data-reading=current] [data-session-add]').click()");
+      await waitFor(`${DIALOG}?.querySelector('[data-session-from]')?.textContent === 'From p. 230, where the session before ended'`, "Add a session from p. 230");
+      await fill("Where did it end?", "240");
+      await fill("Minutes", "25");
+      await save("Add session");
+      await expectLabel("p\\. 240 of");
+      await evaluate("document.querySelector('[data-reading=current] [data-sessions-toggle]').click()");
+      const added = "[...document.querySelectorAll('[data-reading=current] [data-session]')].find((r) => r.textContent.includes('25 min · 10 p.'))";
+      await waitFor(added, "the added session in the list");
+      await evaluate(`${added}.querySelector('[data-session-menu]').click()`);
+      await sleep(300);
+      await click("Edit", "[...document.querySelectorAll('[role=menu]')].pop()");
+      await waitFor(`${DIALOG}?.textContent.includes('Edit session')`, "Edit session");
+      await fill("Where did it end?", "245");
+      await save("Save");
+      await expectLabel("p\\. 245 of");
+    });
+    await step("change the day start hour", async () => {
+      const box = "document.getElementById('reading-day-start-hour')";
+      const pick = async (option) => {
+        await evaluate(`${box}.click(), true`);
+        await waitFor(`${box}.parentElement.querySelector('[role=listbox]')`, "the hour list");
+        await evaluate(`[...${box}.parentElement.querySelectorAll('[role=option]')].find((o) => o.textContent.trim().replace(/^✓\\s*/, '') === ${JSON.stringify(option)}).click(), true`);
+        await sleep(800);
+      };
+      await go("/settings/reading");
+      await waitFor(box, "the reading settings");
+      await pick("02:00");
+      await go("/settings/reading");
+      await waitFor(`${box}.textContent.includes('02:00')`, "02:00 after a reload");
+      await pick("04:00");
+      await go("/settings/reading");
+      await waitFor(`${box}.textContent.includes('04:00')`, "04:00 back");
     });
     await step("filter the journal by year", async () => {
       await go("/reading/journal?yearMin=2009&yearMax=2009");

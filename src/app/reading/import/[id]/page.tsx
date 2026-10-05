@@ -10,7 +10,8 @@ import { getImportPreview, SECTION_PAGE } from "@/lib/reading/import/page-data";
 import { IMPORT_SECTION_LABELS, IMPORT_SECTIONS, type ImportSection } from "@/lib/reading/import/match-rules";
 import { cannotCarry, commitWords, SOURCE_LABELS, summaryLine } from "@/lib/reading/import/preview-text";
 import { rowView } from "@/lib/reading/import/row-view";
-import { formatReadingDate, readingDay } from "@/lib/reading/dates";
+import { formatReadingDate } from "@/lib/reading/dates";
+import { readingToday } from "@/lib/reading/day";
 import { appTimeZone, calendarDate } from "@/lib/utils/date";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -54,7 +55,7 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
   const preview = await getImportPreview(id, limits);
   if (!preview) notFound();
   const { header, summary, sections } = preview;
-  const today = readingDay(new Date());
+  const today = await readingToday();
   const commit = commitWords(summary.toImport, summary.pending);
   const carry = cannotCarry(header.source, summary, header.errorLog?.missing ?? []);
   const errors = header.errorLog?.errors ?? [];

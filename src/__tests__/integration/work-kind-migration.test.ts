@@ -157,6 +157,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         expect(row.file_name, "imports.file_name").toBeNull();
         delete row.file_name;
       }
+    // 0067 (SLN-451): no session is a paused timer, and none has paused time
+    for (const row of projected.reading_sessions ?? []) {
+      if ("paused_at" in row) expect(row.paused_at, "reading_sessions.paused_at").toBeNull();
+      if ("paused_seconds" in row) expect(row.paused_seconds, "reading_sessions.paused_seconds").toBe(0);
+      delete row.paused_at;
+      delete row.paused_seconds;
+    }
     // 0065 (SLN-444): works.rating becomes numeric(2,1); a stored 4 reads as
     // the number 4 either way, so only its type is checked
     for (const row of projected.works ?? [])
@@ -175,6 +182,10 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           home_currency: "EUR",
         }),
       ]);
+    // 0067 (SLN-451): the reading day ends at 04:00, weeks start on Monday, a timer asks after 90 minutes
+    for (const row of projected.app_settings ?? [])
+      if ("reading_day_start_hour" in row)
+        expect([row.reading_day_start_hour, row.reading_week_start, row.reading_timer_check_minutes], "app_settings reading defaults").toEqual([4, 1, 90]);
     for (const table of [
       "app_settings",
       "credit_roles",

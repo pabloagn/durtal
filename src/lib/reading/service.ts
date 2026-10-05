@@ -24,6 +24,9 @@ import {
   type SessionSource,
 } from "./constants";
 import { readingDay, readingPeriodStart } from "./dates";
+import { readingDayStartHour } from "./day";
+import { stopProblem, stopTimes, TIMER_GONE } from "./timer";
+import { getAppSettings } from "@/lib/actions/settings";
 import { formatMinutes, percentOf, remapPosition } from "./positions";
 import { duplicateVerdicts, type ExistingReading } from "./duplicates";
 import {
@@ -51,6 +54,8 @@ type Db = typeof db;
 
 export const STALE_READING = "This reading changed elsewhere; reload before saving";
 const STALE_RETRY = "This reading changed elsewhere; try again";
+/** A session dated after today would hold the position until that day comes */
+export const FUTURE_SESSION = "This session is in the future";
 
 /** The md5 of the readings row, as the curation snapshot is fingerprinted */
 export function readingFingerprintSql(readingId: SQL | string) {
@@ -262,7 +267,8 @@ export async function createReading(
   const totals = { totalPages: input.totalPages ?? edition?.pageCount ?? null, totalMinutes: input.totalMinutes ?? null };
   const timeZone = input.timeZone ?? appTimeZone();
   const precision = input.startedPrecision ?? "day";
-  const startedOn = precision === "unknown" ? null : readingPeriodStart(input.startedOn ?? readingDay(new Date(), timeZone), precision);
+  const startedOn =
+    precision === "unknown" ? null : readingPeriodStart(input.startedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
   const given = { page: input.startPage, percent: input.startPercent, minutes: input.startMinutes };
   const anyStart = [given.page, given.percent, given.minutes].some((v) => v != null);
   checkWithinTotals(given, totals);
@@ -303,6 +309,12 @@ export interface UndoProgress {
   sessionId: string;
   restoreEnd: { page: number | null; percent: number | null; minutes: number | null; chapter: string | null } | null;
   repause: boolean;
+  /** A stopped timer (SLN-451): how it was running, and the session a "fix my last log" changed */
+  timer?: {
+    pausedAt: string | null;
+    pausedSeconds: number;
+    fixedSessionId: string | null;
+  } | null;
 }
 
 export interface ProgressResult {
@@ -339,6 +351,9 @@ export async function recordProgress(
     if (!isOpenStatus(reading.status)) throw new Error("Reopen this reading to log progress");
     const sessions = await loadSessions(reading.id);
     const ordered = sessionOrder(sessions);
+    // Stopping a timer completes its running row (SLN-451)
+    const timer = input.timerSessionId ? (sessions.find((s) => s.id === input.timerSessionId) ?? null) : null;
+    if (input.timerSessionId && (!timer || !isRunningTimer(timer))) throw new Error(TIMER_GONE);
     const sessionEditionId = opts.editionId === undefined ? reading.editionId : opts.editionId;
     let sessionPagesTotal = reading.totalPages;
     if (sessionEditionId && sessionEditionId !== reading.editionId) {
@@ -366,9 +381,23 @@ export async function recordProgress(
     checkWithinTotals(given, sessionTotals);
     const end = completePosition(given, sessionTotals);
     const chapter = input.chapter ?? null;
-    const timeZone = input.timeZone ?? appTimeZone();
     const now = new Date();
-    const readOn = input.readOn ?? readingDay(input.startedAt ?? now, timeZone);
+    // A timer keeps the zone and the reading day it started with
+    const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
+    const readOn = timer ? timer.readOn : (input.readOn ?? readingDay(input.startedAt ?? now, timeZone, await readingDayStartHour()));
+    // A session after today is the latest in the order and would hold the position until that day
+    if (!timer) {
+      const ahead = (at: Date | undefined) => !!at && at.getTime() - now.getTime() > 60_000;
+      if (readOn > readingDay(now, timeZone, 0) || ahead(input.startedAt) || ahead(input.endedAt)) throw new Error(FUTURE_SESSION);
+    }
+    let stop: ReturnType<typeof stopTimes> | null = null;
+    if (timer) {
+      const clock = { startedAt: timer.startedAt ?? timer.createdAt, pausedAt: timer.pausedAt, pausedSeconds: timer.pausedSeconds };
+      const [work] = await db.select({ title: works.title }).from(works).where(eq(works.id, reading.workId));
+      const problem = stopProblem({ ...clock, title: work?.title ?? "this book" }, input.endedAt ?? null, (await getAppSettings()).readingTimerCheckMinutes, now);
+      if (problem) throw new Error(problem);
+      stop = stopTimes(clock, input.endedAt ?? null, now);
+    }
     const latest = ordered.at(-1) ?? null;
     const behind = end.percent != null && current.percent != null && end.percent < current.percent;
     let mode: "new" | "fix" | "went_back" | "reader_behind" = "new";
@@ -382,6 +411,26 @@ export async function recordProgress(
     let session: Session;
     let next: Session[];
     let undo: UndoProgress;
+    // A stopped timer: its own row completes, after the fix of the latest log when there is one
+    let timerRow: Session | null = null;
+    if (timer) {
+      timerRow = {
+        ...timer,
+        editionId: sessionEditionId ?? null,
+        format: opts.format ?? timer.format,
+        pagesTotal: sessionPagesTotal,
+        endedAt: stop!.endedAt,
+        durationSeconds: stop!.durationSeconds,
+        pausedAt: null,
+        pausedSeconds: stop!.pausedSeconds,
+        endPage: end.page,
+        endPercent: end.percent,
+        endMinutes: end.minutes,
+        endChapter: chapter,
+        note: input.note ?? timer.note,
+        updatedAt: now,
+      };
+    }
     if (mode === "fix") {
       session = {
         ...latest!,
@@ -396,6 +445,20 @@ export async function recordProgress(
         sessionId: latest!.id,
         restoreEnd: { page: latest!.endPage, percent: latest!.endPercent, minutes: latest!.endMinutes, chapter: latest!.endChapter },
         repause: resumed,
+      };
+      if (timerRow) {
+        // The timer starts and ends at the corrected position: 0 pages, its time still counts
+        next = sessionOrder([...next, timerRow]);
+        undo = { ...undo, sessionId: timerRow.id, timer: { pausedAt: timer!.pausedAt?.toISOString() ?? null, pausedSeconds: timer!.pausedSeconds, fixedSessionId: latest!.id } };
+      }
+    } else if (timerRow) {
+      session = timerRow;
+      next = sessionOrder([...ordered, session]);
+      undo = {
+        sessionId: session.id,
+        restoreEnd: null,
+        repause: resumed,
+        timer: { pausedAt: timer!.pausedAt?.toISOString() ?? null, pausedSeconds: timer!.pausedSeconds, fixedSessionId: null },
       };
     } else {
       session = {
@@ -419,6 +482,8 @@ export async function recordProgress(
         pagesRead: null,
         note: input.note ?? null,
         source: opts.source,
+        pausedAt: null,
+        pausedSeconds: 0,
         createdAt: now,
         updatedAt: now,
       };
@@ -429,7 +494,34 @@ export async function recordProgress(
     const start = plan.starts.get(session.id)!;
     const queries = (d: Db) => [
       ...guardReading(d, reading.id, reading.fingerprint, opts.fingerprint ? STALE_READING : STALE_RETRY),
-      mode === "fix"
+      // The timer is still running: another device did not stop it meanwhile
+      ...(timerRow
+        ? [
+            d.execute(assertSql(sql`exists (select 1 from reading_sessions where id = ${timerRow.id}::uuid and ended_at is null)`, TIMER_GONE)),
+            d
+              .update(readingSessions)
+              .set({
+                editionId: timerRow.editionId,
+                format: timerRow.format,
+                pagesTotal: timerRow.pagesTotal,
+                endedAt: timerRow.endedAt,
+                durationSeconds: timerRow.durationSeconds,
+                pausedAt: null,
+                pausedSeconds: timerRow.pausedSeconds,
+                endPage: timerRow.endPage,
+                endPercent: timerRow.endPercent,
+                endMinutes: timerRow.endMinutes,
+                endChapter: timerRow.endChapter,
+                note: timerRow.note,
+                ...plan.starts.get(timerRow.id)!,
+                updatedAt: now,
+              })
+              .where(eq(readingSessions.id, timerRow.id)),
+          ]
+        : []),
+      timerRow && mode !== "fix"
+        ? d.execute(sql`select 1`)
+        : mode === "fix"
         ? d
             .update(readingSessions)
             .set({ endPage: session.endPage, endPercent: session.endPercent, endMinutes: session.endMinutes, endChapter: session.endChapter, ...start, updatedAt: now })
@@ -441,7 +533,7 @@ export async function recordProgress(
           } as typeof readingSessions.$inferInsert),
       ...startUpdates(
         d,
-        next.filter((s) => s.id !== session.id),
+        next.filter((s) => s.id !== session.id && s.id !== timerRow?.id),
         plan.starts,
       ),
       d
@@ -449,7 +541,8 @@ export async function recordProgress(
         .set({
           ...positionValues(plan.position),
           status: "reading",
-          lastReadAt: now,
+          // A backdated session does not make the book read today
+          lastReadAt: next.at(-1)?.id === (timerRow?.id ?? session.id) || mode === "fix" ? now : reading.lastReadAt,
           updatedAt: now,
         })
         .where(eq(readings.id, reading.id)),
@@ -459,7 +552,7 @@ export async function recordProgress(
     ];
     await withReadableErrors(() => atomic((d) => queries(d)));
     const fresh = (await loadReading(reading.id))!;
-    const [stored] = await db.select().from(readingSessions).where(eq(readingSessions.id, session.id));
+    const [stored] = await db.select().from(readingSessions).where(eq(readingSessions.id, timerRow?.id ?? session.id));
     return {
       reading: fresh,
       session: stored,

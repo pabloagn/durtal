@@ -78,6 +78,7 @@ export const READING_KEYS = {
   abandon: "a",
   past: "l",
   history: "h",
+  timer: "t",
 } as const;
 
 /**
@@ -171,6 +172,7 @@ export const SHORTCUT_GROUPS: {
       { keys: ["r", READING_KEYS.finish], label: "Finish", then: true },
       { keys: ["r", READING_KEYS.abandon], label: "Abandon", then: true },
       { keys: ["r", READING_KEYS.past], label: "Log a past read", then: true },
+      { keys: ["r", READING_KEYS.timer], label: "Start or stop the timer", then: true },
       { keys: ["r", READING_KEYS.history], label: "Go to the Reading section", then: true },
     ],
   },
