@@ -135,7 +135,7 @@ function OptionRow({
       <span className="flex min-w-0 flex-1 items-baseline">
         <span className="min-w-0 flex-1">{option.label}</span>
         {option.count !== undefined && (
-          <span className="shrink-0 pl-2 font-mono text-micro tabular-nums text-fg-secondary">
+          <span className="shrink-0 pl-2 font-mono text-micro leading-none tabular-nums text-fg-secondary">
             {option.count.toLocaleString("en")}
           </span>
         )}
