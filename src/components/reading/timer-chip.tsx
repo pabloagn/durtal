@@ -149,16 +149,26 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
 
   return (
     <div className="px-3 pb-2" data-timer-chip="expanded">
-      <div role="group" aria-label={name} className="flex items-center gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-2 py-1.5">
+      <div role="group" aria-label="Reading timer" className="flex items-center gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-2 py-1.5">
         <Cover s3Key={timer.cover} className="h-9 w-6" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm leading-5" data-timer-time="">
-            {time}
-            {paused && <span className="sr-only">Paused</span>}
-          </p>
-          <p className="lines-1 text-xs text-fg-secondary" data-timer-title="">
-            {ask ? "Still reading?" : timer.title}
-          </p>
+        {/* The time and title open the menu with Discard, as the time does in the rail and the phone bar */}
+        <div className="flex min-w-0 flex-1 [&>div]:min-w-0 [&>div]:flex-1">
+          {menu(
+            <button
+              type="button"
+              aria-label={name}
+              data-tooltip={ask ? "Still reading?" : `Timer for ${timer.title}`}
+              className="min-w-0 flex-1 rounded-sm text-left transition-colors hover:bg-bg-tertiary/50"
+              data-timer-time=""
+            >
+              <span className="block text-sm leading-5">{time}</span>
+              <span className="lines-1 text-xs text-fg-secondary" data-timer-title="">
+                {ask ? "Still reading?" : timer.title}
+              </span>
+            </button>,
+            "top",
+            "start",
+          )}
         </div>
         {pauseButton}
         <button type="button" onClick={() => stop()} aria-label="Stop timer" data-tooltip="Stop timer" className={ICON_BUTTON} data-timer-stop="">

@@ -50,8 +50,6 @@ export function EstimateInfo({ text }: { text: string }) {
         ref={pop}
         id={id}
         popover="auto"
-        role="dialog"
-        aria-label={LABEL}
         className="glass fixed inset-auto m-0 overflow-hidden border-0 p-3 text-xs leading-relaxed text-fg-primary"
         data-estimate-popover=""
       >
