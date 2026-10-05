@@ -44,6 +44,7 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
   const coarse = useCoarsePointer();
   const form = useRef<HTMLFormElement>(null);
   const favouriteLabel = useId();
+  const favouriteId = useId();
   const bodyId = useId();
   const hintId = useId();
   const openRow = data.rows.find((r) => r.reading.status === "reading" || r.reading.status === "paused") ?? null;
@@ -192,11 +193,12 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
         {kind === "quote" && (
           <TiptapEditor label="Your thought" value={thought} onChange={setThought} placeholder="Why it stayed with you" />
         )}
-        <div className="flex items-center gap-2 pointer-coarse:min-h-11">
-          <Switch checked={favourite} onCheckedChange={setFavourite} aria-labelledby={favouriteLabel} />
-          <span id={favouriteLabel} className="text-sm text-fg-secondary">
+        {/* The words toggle the switch too: a 44px row on touch */}
+        <div className="flex items-center gap-2">
+          <Switch id={favouriteId} checked={favourite} onCheckedChange={setFavourite} aria-labelledby={favouriteLabel} />
+          <label id={favouriteLabel} htmlFor={favouriteId} className="flex cursor-pointer items-center text-sm text-fg-secondary pointer-coarse:min-h-11">
             Favourite
-          </span>
+          </label>
         </div>
         <DialogFooter onCancel={close} saving={saving} saveLabel={editing ? "Save" : "Add"} disabled={!body.trim() || !!positionError} />
       </form>
