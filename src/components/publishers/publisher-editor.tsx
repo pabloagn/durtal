@@ -1,4 +1,5 @@
 "use client";
+import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -6,17 +7,27 @@ import { savePublisher } from "@/lib/actions/publishers";
 import type { PublisherInput } from "@/lib/validations/publishers";
 import { PARENT_KIND, type HouseKind } from "@/lib/publishers/kinds";
 import { Button } from "@/components/ui/button";
-import {
-  PublisherChoice,
-  fieldClass,
-  type PublisherOption,
-} from "./publisher-picker";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { MultiSelectSection } from "@/components/shared/multi-select-section";
+import { PublisherChoice, type PublisherOption } from "./publisher-picker";
+
+const KIND_OPTIONS = [
+  { value: "group", label: "Group: owns publishers" },
+  { value: "publisher", label: "Publisher: owns imprints" },
+  { value: "imprint", label: "Imprint: the brand on the book" },
+];
 export function PublisherEditor({
   publisher,
   parent: initialParent = null,
   specialties,
 }: {
-  publisher?: PublisherInput & { id: string };
+  publisher?: PublisherInput & {
+    id: string;
+    /** The city where the house was founded */
+    foundedPlace?: PlaceValue | null;
+  };
   /** The current parent house of an imprint */
   parent?: PublisherOption | null;
   specialties: { id: string; name: string }[];
@@ -26,7 +37,9 @@ export function PublisherEditor({
   const [kind, setKind] = useState<HouseKind>(publisher?.kind ?? "publisher");
   const [parent, setParent] = useState<PublisherOption | null>(initialParent);
   const [chosen, setChosen] = useState(publisher?.specialtyIds ?? []);
-  const [specialtySearch, setSpecialtySearch] = useState("");
+  const [foundedPlace, setFoundedPlace] = useState<PlaceValue | null>(
+    publisher?.foundedPlace ?? null,
+  );
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -40,6 +53,8 @@ export function PublisherEditor({
             website: text("website") || null,
             description: text("description") || null,
             notes: text("notes") || null,
+            foundedYear: text("foundedYear") ? Number(text("foundedYear")) : null,
+            foundedPlaceId: foundedPlace?.id ?? null,
             kind,
             parentId: PARENT_KIND[kind] ? (parent?.id ?? null) : null,
             aliases: text("aliases")
@@ -68,42 +83,49 @@ export function PublisherEditor({
     <form onSubmit={submit} className="max-w-2xl space-y-5">
       <fieldset disabled={pending} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            ["name", "Name", publisher?.name],
-            ["country", "Country", publisher?.country],
-            ["website", "Website", publisher?.website],
-          ].map(([name, label, value]) => (
-            <label
-              key={name}
-              className="block space-y-1 text-sm text-fg-secondary"
-            >
-              <span>{label}</span>
-              <input
-                name={name!}
-                aria-label={label!}
-                className={fieldClass}
-                defaultValue={value ?? ""}
-                required={name === "name"}
-                type={name === "website" ? "url" : "text"}
-              />
-            </label>
-          ))}
-          <label className="block space-y-1 text-sm text-fg-secondary">
-            <span>Type</span>
-            <select
-              className={fieldClass}
-              value={kind}
-              onChange={(e) => {
-                setKind(e.target.value as HouseKind);
-                // The parent's type depends on this type
-                setParent(null);
-              }}
-            >
-              <option value="group">Group: owns publishers</option>
-              <option value="publisher">Publisher: owns imprints</option>
-              <option value="imprint">Imprint: the brand on the book</option>
-            </select>
-          </label>
+          <Input
+            name="name"
+            label="Name"
+            defaultValue={publisher?.name ?? ""}
+            required
+          />
+          <Input
+            name="country"
+            label="Country"
+            defaultValue={publisher?.country ?? ""}
+          />
+          <Input
+            name="website"
+            label="Website"
+            type="url"
+            defaultValue={publisher?.website ?? ""}
+          />
+          <Select
+            label="Type"
+            value={kind}
+            options={KIND_OPTIONS}
+            onChange={(e) => {
+              setKind(e.target.value as HouseKind);
+              // The parent's type depends on this type
+              setParent(null);
+            }}
+          />
+          <Input
+            name="foundedYear"
+            label="Founded (year)"
+            type="number"
+            inputMode="numeric"
+            min={1000}
+            max={2100}
+            defaultValue={publisher?.foundedYear ?? ""}
+          />
+          {/* The shared place search, as in the author dialogs */}
+          <PlacePicker
+            label="Founded in (city)"
+            value={foundedPlace}
+            onChange={setFoundedPlace}
+            disabled={pending}
+          />
         </div>
         {PARENT_KIND[kind] && (
           <PublisherChoice
@@ -114,73 +136,36 @@ export function PublisherEditor({
             onChange={setParent}
           />
         )}
-        {[
-          ["description", "About", publisher?.description],
-          ["notes", "My notes", publisher?.notes],
-          [
-            "aliases",
-            "Alternative names (one per line)",
-            publisher?.aliases?.join("\n"),
-          ],
-          [
-            "isbnPrefixes",
-            "ISBN prefixes (one per line): books with them and no known publisher name link here",
-            publisher?.isbnPrefixes?.join("\n"),
-          ],
-        ].map(([name, label, value]) => (
-          <label
-            key={name}
-            className="block space-y-1 text-sm text-fg-secondary"
-          >
-            <span>{label}</span>
-            <textarea
-              name={name!}
-              aria-label={label!}
-              className={fieldClass}
-              rows={3}
-              defaultValue={value ?? ""}
-            />
-          </label>
-        ))}
-        <div className="space-y-2">
-          <label className="text-sm text-fg-secondary">
-            Specialties
-            <input
-              className={`${fieldClass} mt-1`}
-              aria-label="Search specialties"
-              placeholder="Search specialties…"
-              value={specialtySearch}
-              onChange={(e) => setSpecialtySearch(e.target.value)}
-            />
-          </label>
-          <div className="max-h-40 overflow-auto space-y-1">
-            {specialties
-              .filter(
-                (s) =>
-                  chosen.includes(s.id) ||
-                  s.name.toLowerCase().includes(specialtySearch.toLowerCase()),
-              )
-              .map((s) => (
-                <label
-                  key={s.id}
-                  className="flex items-center gap-2 text-sm text-fg-secondary"
-                >
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(s.id)}
-                    onChange={(e) =>
-                      setChosen(
-                        e.target.checked
-                          ? [...chosen, s.id]
-                          : chosen.filter((id) => id !== s.id),
-                      )
-                    }
-                  />
-                  {s.name}
-                </label>
-              ))}
-          </div>
-        </div>
+        <Textarea
+          name="description"
+          label="About"
+          rows={3}
+          defaultValue={publisher?.description ?? ""}
+        />
+        <Textarea
+          name="notes"
+          label="My notes"
+          rows={3}
+          defaultValue={publisher?.notes ?? ""}
+        />
+        <Textarea
+          name="aliases"
+          label="Alternative names (one per line)"
+          rows={3}
+          defaultValue={publisher?.aliases?.join("\n") ?? ""}
+        />
+        <Textarea
+          name="isbnPrefixes"
+          label="ISBN prefixes (one per line): books with them and no known publisher name link here"
+          rows={3}
+          defaultValue={publisher?.isbnPrefixes?.join("\n") ?? ""}
+        />
+        <MultiSelectSection
+          title="Specialties"
+          items={specialties}
+          selectedIds={chosen}
+          onChange={setChosen}
+        />
         <p className="text-xs text-fg-secondary">
           Alternative names help match imported editions. Shared or ambiguous
           names stay unresolved for review.

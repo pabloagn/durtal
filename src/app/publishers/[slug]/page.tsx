@@ -48,6 +48,21 @@ export async function generateMetadata({
   return { title: publisher?.name ?? "Publisher not found" };
 }
 
+/** URL parameters for how the books show (`publisher-books.tsx`), not which */
+const BOOK_VIEW_PARAMS = ["view", "cols"];
+
+/** "Founded 1963 in New York", "Founded 1963", "Founded in New York" */
+function founded(p: { foundedYear: number | null; foundedPlace: { name: string } | null }) {
+  if (p.foundedYear == null && !p.foundedPlace) return null;
+  return [
+    "Founded",
+    p.foundedYear,
+    p.foundedPlace && `in ${p.foundedPlace.name}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default async function PublisherPage({
   params,
   searchParams,
@@ -85,13 +100,19 @@ export default async function PublisherPage({
       </span>
     ),
     p.country,
+    founded(p),
     `${counts.books} ${counts.books === 1 ? "book" : "books"}`,
   ].filter(Boolean) as React.ReactNode[];
 
   const website = p.website && /^https?:\/\//i.test(p.website) ? p.website : null;
   const urlParams = toSearchParams(raw);
+  // The books' view and columns are how the list shows, not what it holds
+  const filterParams = new URLSearchParams(urlParams);
+  for (const key of BOOK_VIEW_PARAMS) filterParams.delete(key);
   const hasDetails =
     !!p.country ||
+    p.foundedYear != null ||
+    !!p.foundedPlace ||
     !!p.group ||
     p.children.length > 0 ||
     p.aliases.length > 0 ||
@@ -113,6 +134,14 @@ export default async function PublisherPage({
         <RecordGroup title="Details">
           <RecordFields>
             {p.country && <RecordField label="Country">{p.country}</RecordField>}
+            {p.foundedYear != null && (
+              <RecordField label="Founded">{p.foundedYear}</RecordField>
+            )}
+            {p.foundedPlace && (
+              <RecordField label="Founded in">
+                {p.foundedPlace.fullName ?? p.foundedPlace.name}
+              </RecordField>
+            )}
             {p.group && (
               <RecordField label="Group">
                 <Link href={`/publishers/${p.group.slug}`} className={LINK}>
@@ -255,11 +284,11 @@ export default async function PublisherPage({
           {counts.books > 0 && <PublisherBooksFilters basePath={basePath} facets={facets} />}
           {books.length > 0 ? (
             <PublisherBooksView books={books} pagination={{ page: query.page, perPage: query.perPage, total }} />
-          ) : counts.books > 0 && hasListQuery(urlParams) ? (
+          ) : counts.books > 0 && hasListQuery(filterParams) ? (
             <NoResults
               noun="books"
               search={query.q}
-              hasFilters={[...urlParams.keys()].some((k) => k !== "q" && hasListQuery(new URLSearchParams([[k, urlParams.get(k)!]])))}
+              hasFilters={[...filterParams.keys()].some((k) => k !== "q" && hasListQuery(new URLSearchParams([[k, filterParams.get(k)!]])))}
               clearHref={clearedListHref(basePath, urlParams)}
             />
           ) : (

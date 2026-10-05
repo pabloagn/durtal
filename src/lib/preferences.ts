@@ -23,11 +23,15 @@ export function sidebarWidth(stored: unknown): number {
     : SIDEBAR.expanded;
 }
 
+/** The reading tracker's "I'm at" home on this device: a location id, or "none" (SLN-447). */
+export const READING_HOME_KEY = "durtal-reading-home";
+
 /** The reader's typography (font, size, line height, margins, alignment). */
 export const READER_SETTINGS_KEY = "durtal-reader-settings";
 
 export const VIEW_MODE_LABELS: Record<ViewMode, string> = {
   grid: "Grid",
+  mosaic: "Mosaic",
   list: "List",
   detailed: "Detailed",
   map: "Map",
@@ -54,17 +58,17 @@ export const LIST_PREFERENCES = {
   library: {
     label: "Books",
     path: "/library",
-    view: { key: "durtal-view-mode", modes: ["grid", "list", "detailed", "timeline"], fallback: "grid" },
+    view: { key: "durtal-view-mode", modes: ["grid", "mosaic", "list", "detailed", "timeline"], fallback: "grid" },
     grid: { key: "durtal-grid-columns", fallback: 6 },
     columns: { key: "durtal-column-config" },
   },
   reader: { label: "Reader", path: "/reader" },
   authors: {
-    label: "Authors",
-    path: "/authors",
+    label: "People",
+    path: "/people",
     view: {
       key: "durtal-authors-view-mode",
-      modes: ["grid", "list", "detailed", "map", "timeline"],
+      modes: ["grid", "mosaic", "list", "detailed", "map", "timeline"],
       fallback: "grid",
     },
     grid: { key: "durtal-authors-grid-columns", fallback: 5 },
@@ -96,5 +100,10 @@ export const LIST_PREFERENCES = {
     grid: { key: "durtal-places-grid-columns", fallback: 4 },
   },
   provenance: { label: "Provenance", path: "/provenance" },
-  collections: { label: "Collections", path: "/collections" },
+  collections: {
+    label: "Collections",
+    path: "/collections",
+    view: { key: "durtal-collections-view-mode", modes: ["grid", "mosaic"], fallback: "grid" },
+    grid: { key: "durtal-collections-grid-columns", fallback: 5 },
+  },
 } satisfies Record<string, ListPreference>;

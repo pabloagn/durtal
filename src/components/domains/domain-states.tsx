@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import Link from "next/link";
-import { AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Button, buttonClass } from "@/components/ui/button";
+import { SectionError } from "@/components/shared/section-error";
 import { Spinner } from "@/components/ui/spinner";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
@@ -37,22 +33,13 @@ export function DomainError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
   return (
-    <EmptyState
-      icon={AlertCircle}
-      title="Something went wrong"
+    <SectionError
+      error={error}
+      reset={reset}
       description={`${WORK_DOMAINS[kind].pluralLabel} could not be loaded.`}
-      action={
-        <div className="flex gap-3">
-          <Button onClick={reset}>Try again</Button>
-          <Link href="/" className={buttonClass("ghost")}>
-            Go to the dashboard
-          </Link>
-        </div>
-      }
+      backHref="/"
+      backLabel="Go to the dashboard"
     />
   );
 }

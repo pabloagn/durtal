@@ -49,7 +49,7 @@ async function readEntity(type: ActivityEntityType, id: string): Promise<Resolve
         ? row.slug && `/library/${row.slug}`
         : `${WORK_DOMAINS[row.kind as WorkKind].basePath}/${row.slug ?? id}`
       : type === "author"
-        ? row.slug && `/authors/${row.slug}`
+        ? row.slug && `/people/${row.slug}`
         : type === "organization"
           ? row.kind && `/publishers/${row.slug}`
           : row.slug && `/places/${row.slug}`;

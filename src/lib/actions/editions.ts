@@ -100,6 +100,16 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   try {
     await atomic((d) => [
       ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
+      // An edition moved to another book leaves the old book's readings: they
+      // keep their page totals, without this edition or its copy
+      ...(editionData.workId !== undefined
+        ? [
+            d.execute(sql`update reading_sessions s set edition_id = null, updated_at = now() from readings r
+              where s.reading_id = r.id and s.edition_id = ${id}::uuid and r.work_id <> ${editionData.workId}::uuid`),
+            d.execute(sql`update readings set edition_id = null, instance_id = null, updated_at = now()
+              where edition_id = ${id}::uuid and work_id <> ${editionData.workId}::uuid`),
+          ]
+        : []),
       d.update(editions).set(updates).where(eq(editions.id, id)),
       ...(publisherIds !== undefined
         ? [

@@ -5,6 +5,7 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import Link from "next/link";
 import { Star, MapPin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import type { VenueType } from "@/lib/catalogue/venues";
 
 
@@ -24,6 +25,7 @@ export interface VenueListItemProps {
 }
 
 export function VenueListItem({
+  id,
   slug,
   name,
   type,
@@ -66,9 +68,6 @@ export function VenueListItem({
             <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
               {name}
             </h3>
-            {isFavorite && (
-              <CapAligned height={12}><Star className="h-3 w-3 shrink-0 fill-accent-gold text-accent-gold" strokeWidth={1.5} /></CapAligned>
-            )}
           </div>
           {location && (
             <p className="flex items-start gap-1 truncate text-xs text-fg-secondary">
@@ -97,11 +96,13 @@ export function VenueListItem({
                 />
               ))}
             </div>
-          )}
-
-
-        </div>
+          )}        </div>
       </Link>
+      <FavouriteToggle
+        favourite={isFavorite}
+        target={{ entity: "venue", id }}
+        name={name}
+      />
           {website && (
             <a
               href={website}

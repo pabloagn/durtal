@@ -6,9 +6,13 @@ import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { useHomeView } from "@/components/domains/domain-home-shell";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
-import { PaintingCard, PaintingRow, type PaintingCardData } from "./painting-card";
+import { PaintingCard, PaintingRow, paintingHref, paintingPainters, type PaintingCardData } from "./painting-card";
+import { PaintingImage } from "./painting-image";
+import { Mosaic, mosaicPerRow } from "@/components/shared/mosaic";
+import { paintingRatio } from "@/lib/catalogue/painting-labels";
+import { catalogueDateYears } from "@/lib/catalogue/dates";
 
-/** The paintings of the home in the saved view (grid or list), with paging. */
+/** The paintings of the home in the saved view (grid, mosaic or list), with paging. */
 export function PaintingGrid({
   paintings,
   pagination,
@@ -36,7 +40,33 @@ export function PaintingGrid({
   return (
     <>
       <Pagination {...pagination} noun="paintings" compact />
-      {viewMode === "grid" ? (
+      {viewMode === "mosaic" ? (
+        <Mosaic
+          aspect={4 / 5}
+          perRow={mosaicPerRow(gridColumns)}
+          items={paintings.map((painting) => {
+            const size = painting.primaryObject
+              ? { widthCm: painting.primaryObject.widthCm, heightCm: painting.primaryObject.heightCm }
+              : null;
+            return {
+              key: painting.id,
+              href: paintingHref(painting),
+              title: painting.title,
+              subtitle: paintingPainters(painting),
+              aspect: paintingRatio(painting.poster, size),
+              media: (
+                <PaintingImage
+                  image={painting.poster}
+                  title={painting.title}
+                  year={catalogueDateYears(painting.creationDate)}
+                  size={size}
+                  frame="native"
+                />
+              ),
+            };
+          })}
+        />
+      ) : viewMode === "grid" ? (
         <div className="@container">
           <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {paintings.map((painting) => (

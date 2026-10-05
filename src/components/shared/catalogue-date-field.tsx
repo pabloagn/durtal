@@ -34,12 +34,17 @@ export function CatalogueDateField({
   value,
   onChange,
   allowBce = false,
+  kinds = DATE_DRAFT_KINDS,
+  allowApproximate = true,
 }: {
   label: string;
   value: CatalogueDateInput | null;
   onChange: (value: CatalogueDateInput | null, error: string | null) => void;
   /** Offer BC years (paintings); perfumes and films start at year 1 */
   allowBce?: boolean;
+  /** The precisions offered; readings take unknown, year, month and day */
+  kinds?: readonly DateDraftKind[];
+  allowApproximate?: boolean;
 }) {
   const id = useId();
   const [draft, setDraft] = useState<DateDraft>(() => dateDraft(value));
@@ -70,7 +75,7 @@ export function CatalogueDateField({
             onChange={(e) =>
               update({ kind: e.target.value as DateDraftKind })
             }
-            options={DATE_DRAFT_KINDS.map((k) => ({
+            options={kinds.map((k) => ({
               value: k,
               label: DATE_DRAFT_LABELS[k],
             }))}
@@ -150,7 +155,7 @@ export function CatalogueDateField({
             )}
           </div>
         )}
-        {dated && (
+        {dated && allowApproximate && (
           <label className="flex h-8 items-center gap-2 text-xs text-fg-secondary">
             <input
               type="checkbox"

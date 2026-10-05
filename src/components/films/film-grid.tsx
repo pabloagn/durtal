@@ -6,9 +6,12 @@ import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { useHomeView } from "@/components/domains/domain-home-shell";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
-import { FilmCard, FilmRow, type FilmCardData } from "./film-card";
+import { FilmCard, FilmRow, filmDirectors, filmHref, type FilmCardData } from "./film-card";
+import { FilmPoster } from "./film-poster";
+import { Mosaic, mosaicPerRow } from "@/components/shared/mosaic";
+import { catalogueDateYears } from "@/lib/catalogue/dates";
 
-/** The films of the home in the saved view (grid or list), with paging. */
+/** The films of the home in the saved view (grid, mosaic or list), with paging. */
 export function FilmGrid({
   films,
   pagination,
@@ -36,7 +39,20 @@ export function FilmGrid({
   return (
     <>
       <Pagination {...pagination} noun="films" compact />
-      {viewMode === "grid" ? (
+      {viewMode === "mosaic" ? (
+        <Mosaic
+          aspect={2 / 3}
+          perRow={mosaicPerRow(gridColumns)}
+          items={films.map((film) => ({
+            key: film.id,
+            href: filmHref(film),
+            title: film.title,
+            subtitle: filmDirectors(film),
+            aspect: 2 / 3,
+            media: <FilmPoster image={film.poster} title={film.title} year={catalogueDateYears(film.releaseDate)} />,
+          }))}
+        />
+      ) : viewMode === "grid" ? (
         <div className="@container">
           <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {films.map((film) => (

@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/actions/perfumes", () => mocks);
 vi.mock("@/components/perfumes/perfume-grid", () => ({ PerfumeGrid: () => null }));
 
-import { PerfumeResults } from "@/app/perfumes/perfume-results";
+import { PerfumeResults } from "@/app/perfumes/(list)/perfume-results";
 
 describe("the perfume home's results", () => {
   beforeEach(() => vi.clearAllMocks());

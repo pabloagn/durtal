@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { WORK_DOMAINS } from "./domains";
 import type { WorkKind } from "./kinds";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /** One record on a collection home, whatever its collection. */
 export interface DomainTile {
@@ -34,7 +35,7 @@ function names(people: { name: string | null }[]) {
 
 function imageUrl(poster: { s3Key: string; thumbnailS3Key: string | null } | null) {
   const key = poster?.thumbnailS3Key ?? poster?.s3Key;
-  return key ? `/api/s3/read?key=${encodeURIComponent(key)}` : null;
+  return key ? mediaUrl(key) : null;
 }
 
 function tile(

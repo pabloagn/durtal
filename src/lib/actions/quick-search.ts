@@ -170,10 +170,13 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
   return rows
     .flatMap((row) => {
       const held = PERSON_ROLES.filter((r) => open.has(r.kind) && row.roles?.includes(r.role));
-      // A book person has their author page; anyone else, their collection's list
-      const href =
-        row.isBook && row.slug && open.has("book")
-          ? `/authors/${row.slug}`
+      // Every person in an open collection has their page (SLN-419); one
+      // without a slug falls back to their collection's list
+      const visible = held.length > 0 || (row.isBook && open.has("book"));
+      const href = !visible
+        ? null
+        : row.slug
+          ? `/people/${row.slug}`
           : held.find((r) => r.filter)?.filter?.concat(row.id);
       if (!href) return [];
       // A translator or editor of an edition: their most frequent edition role
@@ -187,7 +190,7 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
     .slice(0, PER_KIND);
 }
 
-/** The roles an organization can hold outside publishing, and the list each leads */
+/** The roles an organization can hold outside publishing, and the list each leads to, if any */
 const ORGANIZATION_ROLES: { role: string; label: string; kind?: WorkKind; href?: (id: string) => string }[] = [
   { role: "perfume_house", label: "Perfume house", kind: "perfume", href: (id) => `/perfumes?house=${id}` },
   { role: "brand", label: "Brand", kind: "perfume", href: (id) => `/perfumes?house=${id}` },
@@ -220,12 +223,13 @@ async function searchOrganizations(q: string, kinds: WorkKind[]) {
   return rows
     .flatMap((row) => {
       const roles = ORGANIZATION_ROLES.filter((r) => row.roles.includes(r.role));
-      // Its publisher page, else the list of the collection it leads
+      // Its publisher page, else the list of the collection it leads, else
+      // its own page in the organization directory
       const href =
         row.kind && open.has("book")
           ? `/publishers/${row.slug}`
-          : roles.find((r) => r.href && r.kind && open.has(r.kind))?.href?.(row.id);
-      if (!href) return [];
+          : (roles.find((r) => r.href && r.kind && open.has(r.kind))?.href?.(row.id) ??
+            `/organizations/${row.slug}`);
       const labels = [...(row.kind ? [PUBLISHING_LABELS[row.kind]] : []), ...roles.map((r) => r.label)];
       return [{ id: row.id, name: row.name, href, roles: labels.join(" · ") }];
     })

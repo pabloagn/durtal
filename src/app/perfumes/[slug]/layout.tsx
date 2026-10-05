@@ -1,4 +1,6 @@
+import { notFound } from "next/navigation";
 import { redirectMergedRecord } from "@/lib/harmonization/redirect";
+import { workRecordExists } from "@/lib/catalogue/record-exists";
 
 export default async function RecordLayout({
   children,
@@ -7,6 +9,9 @@ export default async function RecordLayout({
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  await redirectMergedRecord("works", (await params).slug);
+  const { slug } = await params;
+  await redirectMergedRecord("works", slug);
+  // Before the loading screen starts the response, so a missing perfume answers 404
+  if (!(await workRecordExists("perfume", slug))) notFound();
   return children;
 }

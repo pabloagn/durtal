@@ -1,9 +1,9 @@
 "use client";
 
-import { Grid2X2, List, Table2, Map, GanttChart } from "lucide-react";
+import { Grid2X2, Images, List, Table2, Map, GanttChart } from "lucide-react";
 import { VIEW_MODE_LABELS } from "@/lib/preferences";
 
-export type ViewMode = "grid" | "list" | "detailed" | "map" | "timeline";
+export type ViewMode = "grid" | "mosaic" | "list" | "detailed" | "map" | "timeline";
 
 interface ViewModeSwitcherProps {
   value: ViewMode;
@@ -13,6 +13,7 @@ interface ViewModeSwitcherProps {
 
 const ALL_MODES: { value: ViewMode; icon: typeof Grid2X2; label: string }[] = [
   { value: "grid", icon: Grid2X2, label: VIEW_MODE_LABELS.grid },
+  { value: "mosaic", icon: Images, label: VIEW_MODE_LABELS.mosaic },
   { value: "list", icon: List, label: VIEW_MODE_LABELS.list },
   { value: "detailed", icon: Table2, label: VIEW_MODE_LABELS.detailed },
   { value: "map", icon: Map, label: VIEW_MODE_LABELS.map },
@@ -22,7 +23,7 @@ const ALL_MODES: { value: ViewMode; icon: typeof Grid2X2; label: string }[] = [
 export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSwitcherProps) {
   const MODES = availableModes
     ? ALL_MODES.filter((m) => availableModes.includes(m.value))
-    : ALL_MODES.filter((m) => m.value !== "map" && m.value !== "timeline");
+    : ALL_MODES.filter((m) => m.value === "grid" || m.value === "list" || m.value === "detailed");
 
   return (
     <div className="flex items-center rounded-sm border border-glass-border">

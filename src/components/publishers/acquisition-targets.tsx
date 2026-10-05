@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  PublisherChoice,
-  fieldClass,
-  type PublisherOption,
-} from "./publisher-picker";
+import { Select } from "@/components/ui/select";
+import { PublisherChoice, type PublisherOption } from "./publisher-picker";
 import { languageName } from "@/lib/utils/language";
 import { updateOrderStatus } from "@/lib/actions/orders";
 import {
@@ -106,9 +103,9 @@ export function AcquisitionTargets({
               </Link>
             )}
             {state === "wanted" && copies.length > 0 && (
-              <select
-                className={`${fieldClass} max-w-xs`}
-                aria-label="Fulfil target with owned copy"
+              <Select
+                className="max-w-xs"
+                ariaLabel="Fulfil target with owned copy"
                 value=""
                 disabled={pending}
                 onChange={(event) => {
@@ -124,14 +121,14 @@ export function AcquisitionTargets({
                       }
                     });
                 }}
-              >
-                <option value="">Acquired? Choose your copy…</option>
-                {copies.map((c) => (
-                  <option key={c.instanceId} value={c.instanceId}>
-                    {c.publisher ?? c.title} · {c.location}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "Acquired? Choose your copy…" },
+                  ...copies.map((c) => ({
+                    value: c.instanceId,
+                    label: `${c.publisher ?? c.title} · ${c.location}`,
+                  })),
+                ]}
+              />
             )}
             {orders.length > 0 && (
               <details className="w-full text-xs text-fg-secondary">
@@ -144,8 +141,9 @@ export function AcquisitionTargets({
                     {["delivered", "received", "purchased"].includes(
                       o.status,
                     ) && (
-                      <button
-                        className="text-accent-blue"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         disabled={pending}
                         onClick={() =>
                           start(async () => {
@@ -160,14 +158,17 @@ export function AcquisitionTargets({
                         }
                       >
                         Record return
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ))}
               </details>
             )}
             {state === "wanted" && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-7 px-0"
                 data-tooltip="Remove target"
                 aria-label="Remove target"
                 disabled={pending}
@@ -186,26 +187,24 @@ export function AcquisitionTargets({
                   })
                 }
               >
-                <X className="h-4 w-4" />
-              </button>
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </Button>
             )}
           </div>
         ),
       )}
       {open && (
         <div className="max-w-lg space-y-3 rounded-sm border border-glass-border p-3">
-          <label className="block space-y-1 text-xs text-fg-secondary">
-            <span>Edition preference</span>
-            <select
-              className={fieldClass}
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-            >
-              <option value="any">Any edition</option>
-              <option value="publisher">From a publisher</option>
-              <option value="edition">Exact edition</option>
-            </select>
-          </label>
+          <Select
+            label="Edition preference"
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+            options={[
+              { value: "any", label: "Any edition" },
+              { value: "publisher", label: "From a publisher" },
+              { value: "edition", label: "Exact edition" },
+            ]}
+          />
           {kind === "publisher" && (
             <PublisherChoice
               value={publisher}
@@ -214,22 +213,18 @@ export function AcquisitionTargets({
             />
           )}{" "}
           {kind === "edition" && (
-            <label className="block text-xs text-fg-secondary">
-              Edition
-              <select
-                className={fieldClass}
-                value={edition}
-                onChange={(e) => setEdition(e.target.value)}
-              >
-                <option value="">Choose an edition…</option>
-                {editions.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.title} · {e.publisher ?? "Unspecified publisher"} ·{" "}
-                    {e.isbn13 ?? languageName(e.language)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              label="Edition"
+              value={edition}
+              onChange={(e) => setEdition(e.target.value)}
+              options={[
+                { value: "", label: "Choose an edition…" },
+                ...editions.map((e) => ({
+                  value: e.id,
+                  label: `${e.title} · ${e.publisher ?? "Unspecified publisher"} · ${e.isbn13 ?? languageName(e.language)}`,
+                })),
+              ]}
+            />
           )}
           <div className="flex gap-2">
             <Button

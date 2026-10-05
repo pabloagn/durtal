@@ -8,7 +8,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
-import { PublisherFavourite } from "./favourite-button";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 
 /**
  * The head of a publisher page: the house's logo, shown whole on a dark
@@ -77,7 +77,12 @@ export function PublisherHeader({
             <h1 className="type-page-title min-w-0 flex-1 break-words">{name}</h1>
             {/* On the cap-height center of the name's first line */}
             <CapAlignedControls height={32} className="type-page-title">
-              <PublisherFavourite id={id} favourite={favourite} />
+              <FavouriteToggle
+                favourite={favourite}
+                target={{ entity: "publisher", id }}
+                name={name}
+                shortcut
+              />
               <Link
                 href={`/publishers/${slug}/edit`}
                 className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"

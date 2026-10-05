@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { PaginatedSection } from "@/components/shared/pagination";
 import {
   parsePagination,
@@ -36,8 +37,12 @@ export default async function ReviewPublisherNames({
   const names = `${inbox.total} name${inbox.total === 1 ? "" : "s"}`;
   return (
     <>
-      <Link href="/publishers" className="text-sm text-fg-secondary">
-        ← Publishers
+      <Link
+        href="/publishers"
+        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+      >
+        <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
+        Back to publishers
       </Link>
       <PageHeader
         title="Publisher names"
@@ -49,7 +54,10 @@ export default async function ReviewPublisherNames({
       />
       {house && (
         <p className="mb-4 text-sm">
-          <Link href="/publishers/review" className="text-accent-blue">
+          <Link
+            href="/publishers/review"
+            className="text-accent-rose-text transition-colors hover:text-fg-primary"
+          >
             Show every name
           </Link>
         </p>

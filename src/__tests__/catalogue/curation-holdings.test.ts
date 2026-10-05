@@ -49,6 +49,8 @@ describe("curation independent of ownership", () => {
       { watched: true },
       { personallyOwned: true },
       { rating: 6 },
+      { rating: 4.3 },
+      { rating: 0 },
     ])
       expect(curationPatchSchema.safeParse(fields).success).toBe(false);
   });

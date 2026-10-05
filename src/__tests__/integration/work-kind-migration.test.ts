@@ -73,6 +73,21 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         delete work.is_favourite;
       }
     }
+    // Migration 0062 adds a house's founding year and city, empty for every row
+    for (const row of projected.publishing_houses ?? [])
+      for (const column of ["founded_year", "founded_place_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
+    // Migration 0061 stars nothing: every new favourite starts off
+    for (const table of ["authors", "collections", "series", "recommenders"])
+      for (const row of projected[table] ?? []) {
+        if ("is_favourite" in row) {
+          expect(row.is_favourite, table).toBe(false);
+          delete row.is_favourite;
+        }
+      }
     if (projected.taxonomy_applicability) {
       for (const definition of DOMAIN_TAXONOMIES) {
         const family = projected.taxonomy_families.find(
@@ -123,6 +138,23 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     for (const row of projected.venues) {
       if ("archived_at" in row) { expect(row.archived_at).toBeNull(); delete row.archived_at; }
     }
+    // 0059 (SLN-374): typed target columns and received-item links start empty
+    for (const row of projected.acquisition_targets ?? [])
+      for (const column of ["perfume_variant_id", "perfume_container", "perfume_capacity_value", "perfume_volume_unit", "film_version_id", "film_release_id", "film_medium", "film_format_label", "art_object_id", "art_reproduces_object_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
+    for (const row of projected.orders ?? [])
+      for (const column of ["film_holding_id", "perfume_bottle_id", "art_object_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
+    // 0065 (SLN-444): works.rating becomes numeric(2,1); a stored 4 reads as
+    // the number 4 either way, so only its type is checked
+    for (const row of projected.works ?? [])
+      if (row.rating != null) expect(typeof row.rating, "works.rating").toBe("number");
     // 0052 adds the one settings row with today's defaults. This catalogue has
     // no Amsterdam or Mexico City, so new copies get no default location.
     if (projected.app_settings)
@@ -174,6 +206,9 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "art_object_whereabouts",
       "work_relations",
       "collection_works",
+      "readings",
+      "reading_sessions",
+      "reading_status_history",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -314,6 +349,21 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         join(folder, "meta/_journal.json"),
         JSON.stringify(journal),
       );
+      if (entry.tag.endsWith("_reading_rating_precheck")) {
+        // A rating outside 1 to 5 stops the migration with its title, changing nothing
+        const [odd] =
+          await c`insert into works(title,slug,rating) values ('Nadja','nadja-precheck',0) returning id`;
+        const worksBefore = await c`select id, rating from works order by id`;
+        const failure = await migrate(db!, { migrationsFolder: folder }).then(
+          () => null,
+          (error) => error,
+        );
+        expect(String((failure?.cause ?? failure)?.message)).toMatch(
+          new RegExp(`^Ratings outside 1 to 5; ask Joris before migrating: ${odd.id} Nadja \\(rating 0\\)`),
+        );
+        expect(await c`select id, rating from works order by id`).toEqual(worksBefore);
+        await c`delete from works where id=${odd.id}`;
+      }
       if (entry.tag === "0045_venues_retailer_observations") {
         // Legacy writes skipped validation: stop with a clear error, change nothing.
         const [invalid] =

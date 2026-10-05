@@ -53,7 +53,9 @@ const PRIORITY_OPTIONS = [
 
 const RATING_OPTIONS = [
   { value: "5", label: "5 stars" },
+  { value: "4.5", label: "4.5+ stars" },
   { value: "4", label: "4+ stars" },
+  { value: "3.5", label: "3.5+ stars" },
   { value: "3", label: "3+ stars" },
 ];
 

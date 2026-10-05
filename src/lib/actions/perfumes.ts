@@ -91,6 +91,7 @@ import { generateWorkSlug } from "@/lib/utils/slugify";
 import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { wantedTargetQueries } from "@/lib/catalogue/acquisition-receipt";
 import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
 
 const NOTES_FAMILY = "perfume-notes";
@@ -1051,6 +1052,7 @@ export async function deletePerfumeVariant(id: string) {
         "Delete this formulation's retailer listings first; listings with recorded prices stay as history",
       ),
     ),
+    ...wantedTargetQueries(d, sql`t.perfume_variant_id=${id}::uuid`, "formulation"),
     d.delete(perfumeVariants).where(eq(perfumeVariants.id, id)),
     ...releaseDates(d, [variant.releaseDateId, variant.discontinuedDateId]),
   ]);
