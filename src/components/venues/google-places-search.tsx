@@ -155,7 +155,7 @@ export function GooglePlacesSearch({
       e.preventDefault();
       const place = results[activeIndex];
       if (place) handleSelect(place);
-    } else if (e.key === "Escape" && isOpen) {
+    } else if (e.key === "Escape" && isOpen && !e.nativeEvent.isComposing) {
       // The list closes; the dialog around it stays (one layer per Esc)
       e.preventDefault();
       setIsOpen(false);

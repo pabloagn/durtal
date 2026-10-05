@@ -45,3 +45,12 @@ SLN-477. Joris: "S, so open the search dialogue to search quickly, and Esc to ex
   - Safari: checked in real Safari before Joris asked for no more Safari windows. At 1440, everything passes after the select fix. Before the fix, one Esc closed the list and the dialog. At 390, Safari's WebDriver click sent no events to the select, so the list did not open; a script click opened it. Everything else passes at 390. Headless WebKit was not installed on the Mac, and its installation was not allowed in this session.
 - `page-weight.js`: `/` 242 / 300 KB, `/library` 298 / 300 KB, all routes within budget.
 - `pnpm typecheck` clean, lint 0 errors, `test-local.py` 2,145 tests pass.
+
+Review fixes:
+- Closing the palette did not give focus back: the palette's own effect read the focus after its field had taken it. The shell now reads the opener when the palette opens, before it renders, and gives focus back one frame after it closes, unless a pick moved focus on (a dialog).
+- The new order's author suggestions (`order-create-steps.tsx`): Esc closes the suggestions and keeps the name; typing shows them again. The next Esc reaches the dialog.
+- A held `S` (key auto-repeat) never opens the palette again; no single key runs on a repeat.
+- A focused combobox counts as typing (`isTyping`), so `S` and the other single keys leave it alone.
+- An Esc that ends an input method composition (`isComposing`) is left to the input method in every Esc handler this task touched.
+- Tests: `search-keys.test.ts` (19) and `palette-focus.test.ts` (2).
+- Safari is now checked in headless WebKit (Playwright 1.63, WebKit 26.6), with no window; Joris allowed its install.

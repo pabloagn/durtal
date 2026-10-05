@@ -215,6 +215,8 @@ const NOT_TEXT = new Set([
 export function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   if (el.isContentEditable) return true;
+  // A combobox takes letters itself (type to find an option)
+  if (el.getAttribute("role") === "combobox") return true;
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)
     return true;
   return el instanceof HTMLInputElement && !NOT_TEXT.has(el.type);

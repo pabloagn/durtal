@@ -131,7 +131,7 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
         // Esc closes the list under the field, as the publisher picker's
         // does; the dialog around it stays until the next Esc (SLN-477)
         onKeyDown={(e) => {
-          if (e.key === "Escape" && q) {
+          if (e.key === "Escape" && q && !e.nativeEvent.isComposing) {
             e.preventDefault();
             setQuery("");
           }

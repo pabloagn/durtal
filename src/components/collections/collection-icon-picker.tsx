@@ -78,7 +78,7 @@ export function CollectionIconPicker({
         setPosition(null);
     }
     function escape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.isComposing) return;
       // The panel closes; the dialog around it stays (one layer per Esc)
       event.preventDefault();
       close(true);

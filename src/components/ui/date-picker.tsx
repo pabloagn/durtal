@@ -65,7 +65,7 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.isComposing) return;
       // The calendar closes; the dialog around it stays (one layer per Esc)
       e.preventDefault();
       setOpen(false);

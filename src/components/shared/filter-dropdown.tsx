@@ -124,7 +124,7 @@ export function FilterDropdown({
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
       e.preventDefault();
       setOpen(false);
       triggerRef.current?.focus();

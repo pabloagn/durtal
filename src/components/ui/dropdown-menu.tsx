@@ -95,7 +95,7 @@ export function DropdownMenu({
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !e.isComposing) {
         // The menu closes; the dialog around it stays (one layer per Esc)
         e.preventDefault();
         setOpen(false);

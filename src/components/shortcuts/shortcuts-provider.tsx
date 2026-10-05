@@ -469,8 +469,10 @@ export function ShortcutsProvider({
         return;
       }
 
-      // Single keys: never while typing, in a dialog, or in the reader
+      // Single keys: never while typing, in a dialog, or in the reader; a
+      // held key (auto-repeat) never runs one again (SLN-477)
       if (
+        event.repeat ||
         mod ||
         otherMod ||
         event.altKey ||

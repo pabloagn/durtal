@@ -24,6 +24,11 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("@/lib/actions/places", () => places);
+vi.mock("@/lib/actions/orders", () => ({ searchWorksForOrder: vi.fn(async () => []) }));
+vi.mock("@/lib/actions/authors", () => ({
+  searchAuthorsLite: vi.fn(async () => [{ id: "a1", name: "William Beckford" }]),
+}));
+vi.mock("next/image", () => ({ default: () => null }));
 // The Add dialogs and the sheet are not under test
 vi.mock("@/app/people/author-create-dialog", () => ({ AuthorCreateDialog: () => null }));
 vi.mock("@/app/places/venue-create-dialog", () => ({ VenueCreateDialog: () => null }));
@@ -38,6 +43,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { FilterDropdown } from "@/components/shared/filter-dropdown";
 import { Select } from "@/components/ui/select";
+import { WorkSearchStep } from "@/app/provenance/order-create-steps";
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -125,6 +131,23 @@ describe("S opens the search", () => {
     expect(onPalette).not.toHaveBeenCalled();
   });
 
+  it("does nothing when held down: a repeat never opens it again", () => {
+    const onPalette = renderApp();
+    press("s", { repeat: true });
+    expect(onPalette).not.toHaveBeenCalled();
+  });
+
+  it("does nothing while a combobox has focus (it takes letters to find an option)", () => {
+    const onPalette = renderApp();
+    const box = document.createElement("button");
+    box.setAttribute("role", "combobox");
+    document.body.append(box);
+    box.focus();
+    press("s");
+    expect(onPalette).not.toHaveBeenCalled();
+    box.remove();
+  });
+
   it("does nothing while a dialog is open", () => {
     const onPalette = renderApp();
     const dialog = document.createElement("dialog");
@@ -189,6 +212,14 @@ describe("Esc", () => {
   });
 });
 
+
+const typeInto = (input: HTMLInputElement, value: string) =>
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
+
 describe("Esc closes one layer per press", () => {
   // A popover or list takes the first Esc and prevents its default action,
   // which keeps the dialog around it open; the next Esc reaches the dialog
@@ -208,6 +239,37 @@ describe("Esc closes one layer per press", () => {
     expect(input.value).toBe("");
     expect(document.body.textContent).not.toContain("Paris, France");
     expect(press("Escape", {}, input).defaultPrevented).toBe(false);
+  });
+
+  it("leaves an Esc that ends an input method composition alone", async () => {
+    act(() => root.render(createElement(PlacePicker, { label: "City", value: null, onChange: () => {} })));
+    const input = document.querySelector('input[placeholder="Search a city"]') as HTMLInputElement;
+    typeInto(input, "par");
+    await wait(350);
+    input.focus();
+    expect(press("Escape", { isComposing: true }, input).defaultPrevented).toBe(false);
+    expect(input.value).toBe("par");
+  });
+
+  it("closes the new order's author suggestions only, and keeps the name", async () => {
+    act(() => root.render(createElement(WorkSearchStep, { selectedWork: null, onSelect: () => {} })));
+    typeInto(host.querySelector("input") as HTMLInputElement, "Vathek");
+    await wait(350);
+    const add = [...host.querySelectorAll("button")].find((b) => b.textContent?.includes("Add New Work"))!;
+    act(() => add.click());
+    const author = host.querySelector('input[placeholder="Author name"]') as HTMLInputElement;
+    typeInto(author, "Beck");
+    await wait(350);
+    expect(host.textContent).toContain("William Beckford");
+    author.focus();
+    expect(press("Escape", {}, author).defaultPrevented).toBe(true);
+    expect(host.textContent).not.toContain("William Beckford");
+    expect(host.textContent).not.toContain("will be created");
+    expect(author.value).toBe("Beck");
+    expect(press("Escape", {}, author).defaultPrevented).toBe(false);
+    typeInto(author, "Beckf");
+    await wait(350);
+    expect(host.textContent).toContain("William Beckford");
   });
 
   it("closes a popover (the date picker), then lets the dialog close", () => {

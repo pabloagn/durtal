@@ -88,7 +88,7 @@ export function Select({
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
       e.preventDefault();
       setIsOpen(false);
       setActiveHint(null);
