@@ -32,6 +32,8 @@ export const appSettings = pgTable(
     readingWeekStart: smallint("reading_week_start").notNull().default(1),
     /** Minutes of running time after which a timer asks "Still reading?" (15 to 480) */
     readingTimerCheckMinutes: smallint("reading_timer_check_minutes").notNull().default(90),
+    /** Days he would like to read each week, 1 to 7; null: no rhythm shown (SLN-455) */
+    readingRhythmDays: smallint("reading_rhythm_days"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -42,5 +44,6 @@ export const appSettings = pgTable(
     check("app_settings_reading_day_start_hour_check", sql`${t.readingDayStartHour} between 0 and 6`),
     check("app_settings_reading_week_start_check", sql`${t.readingWeekStart} in (1, 7)`),
     check("app_settings_reading_timer_check_minutes_check", sql`${t.readingTimerCheckMinutes} between 15 and 480`),
+    check("app_settings_reading_rhythm_days_check", sql`${t.readingRhythmDays} is null or ${t.readingRhythmDays} between 1 and 7`),
   ],
 );

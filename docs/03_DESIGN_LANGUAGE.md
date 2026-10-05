@@ -338,6 +338,14 @@ The one running reading timer shows in a chip (`src/components/reading/timer-chi
 - After the check time in Settings → Reading, the chip reads "Still reading?". It never turns red: no estimate or timer scolds.
 - An estimate's info button opens a glass popover (a native `popover`, so cards that clip do not cut it).
 
+### Goals and the reading rhythm
+
+Goals and the rhythm never nag (SLN-455): no word says "behind", "lost" or "failed", nothing is red, nothing counts a streak, and nothing sends a notification. `NEVER_SAID` (`src/lib/reading/goals.ts`) lists the words a test keeps out.
+
+- **A goal card** (`src/components/reading/goal-card.tsx`): "12 of 30 books" in the item title role with an info button at its right (`CapAligned`), a sage `ProgressBar`, and one neutral line in 12px `fg-secondary`, two lines tall so the card never changes height: "On pace", "2 books ahead", "18 to go: about one every 2 weeks from now", "Goal reached on 14 Oct" (or "in October", "in 2026"). The info popover (glass) says how the goal counts, the pace of the last 90 days, the average length this year and last, and what is left out.
+- **The rhythm** (`src/components/reading/rhythm.tsx`): seven 16px squares in the week's order, filled sage on a reading day, outlined otherwise, today with an outline 2px out; the day's initial under each; "4 of 5 days this week". Under it, 12 bars 8px wide, 4 to 32px tall by reading days, sage when the week reached the target, `bg-tertiary` otherwise, and "kept 9 of the last 12 weeks".
+- Both are drawn on the server with its reading day and redrawn in the browser with the browser's, at the same height.
+
 ### Quotes and notes
 
 A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453) looks the same on the book page, on `/reading/notes` and on the hub.

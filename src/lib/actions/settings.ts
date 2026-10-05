@@ -34,6 +34,8 @@ export interface AppSettings {
   readingWeekStart: 1 | 7;
   /** Minutes of running time after which a timer asks "Still reading?" */
   readingTimerCheckMinutes: number;
+  /** Days he would like to read each week, 1 to 7; null: no rhythm (SLN-455) */
+  readingRhythmDays: number | null;
 }
 
 /** The values before migration 0052: the same as its seeded row, without a location. */
@@ -47,6 +49,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   readingDayStartHour: 4,
   readingWeekStart: 1,
   readingTimerCheckMinutes: 90,
+  readingRhythmDays: null,
 };
 
 const SETTINGS_COLUMNS = {
@@ -59,6 +62,7 @@ const SETTINGS_COLUMNS = {
   readingDayStartHour: appSettings.readingDayStartHour,
   readingWeekStart: appSettings.readingWeekStart,
   readingTimerCheckMinutes: appSettings.readingTimerCheckMinutes,
+  readingRhythmDays: appSettings.readingRhythmDays,
 };
 
 /** A stored row as settings: a value the app no longer offers falls back to its default. */

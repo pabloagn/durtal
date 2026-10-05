@@ -5,7 +5,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
-import { HubActions, QueueStartButton, StartBookButton } from "@/components/reading/hub-actions";
+import { HubActions, HubMenu, QueueStartButton, StartBookButton } from "@/components/reading/hub-actions";
+import { GoalCards } from "@/components/reading/goal-card";
+import { Rhythm } from "@/components/reading/rhythm";
+import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
+import { getGoalProgress, getRhythm } from "@/lib/actions/reading-goals";
 import { CurrentReadingCard, PausedRow, finishedItem } from "@/components/reading/hub-cards";
 import { Cover, FinishedCovers } from "@/components/reading/reading-tiles";
 import { getQueueHead } from "@/lib/actions/reading-queue";
@@ -21,20 +25,23 @@ import { appTimeZone } from "@/lib/utils/date";
 export const metadata = { title: "Reading" };
 
 /*
- * The reading hub (SLN-448): what is being read now, Up next, the passage of
- * the day, what is paused, and the latest finished reads. Later steps add
- * their blocks here (the goal, On this day, suggestions).
+ * The reading hub (SLN-448): what is being read now, the goals and the weekly
+ * rhythm (SLN-455), Up next, the passage of the day, what is paused, and the
+ * latest finished reads. Later steps add On this day and suggestions.
  */
 export default async function ReadingPage() {
   const zone = appTimeZone();
   const dayStartHour = await readingDayStartHour();
   const day = { today: readingDay(new Date(), zone, dayStartHour), zone, dayStartHour };
   // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
-  const [open, finished, next, passage] = await Promise.all([
+  // Goals and the rhythm (SLN-455): computed per request, never cached
+  const [open, finished, next, passage, goals, rhythm] = await Promise.all([
     getOpenReadings(),
     getRecentlyFinished(6),
     getQueueHead(5),
     getPassageOfTheDay({ day: day.today }),
+    getGoalProgress(Number(day.today.slice(0, 4))),
+    getRhythm(),
   ]);
   const reading = open.filter((o) => o.reading.status === "reading");
   const estimates = await readingEstimates(
@@ -42,11 +49,20 @@ export default async function ReadingPage() {
     day.today,
   );
   const paused = open.filter((o) => o.reading.status === "paused");
-  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage;
+  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target;
 
   return (
     <>
-      <PageHeader title="Reading" actions={<HubActions />} tabs={<ReadingTabs />} />
+      <PageHeader
+        title="Reading"
+        actions={
+          <>
+            <HubActions />
+            <HubMenu rhythm={!!rhythm.target} />
+          </>
+        }
+        tabs={<ReadingTabs />}
+      />
       {empty ? (
         <EmptyState
           icon={BookMarked}
@@ -73,6 +89,13 @@ export default async function ReadingPage() {
               </div>
             </section>
           )}
+          {goals.length > 0 && (
+            <section data-hub-goals="">
+              <SectionHeading title="Goals this year" action={<GoalDialogButton label="Edit goals" variant="ghost" size="sm" />} />
+              <GoalCards goals={goals} serverToday={day.today} dayStartHour={dayStartHour} />
+            </section>
+          )}
+          {rhythm.target && <Rhythm rhythm={{ ...rhythm, target: rhythm.target }} dayStartHour={dayStartHour} />}
           {next.length > 0 && (
             <section data-hub-next="">
               <SectionHeading

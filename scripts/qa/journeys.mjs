@@ -22,7 +22,10 @@
  * stop with a page, Undo, stop again; add and edit a session by hand; and
  * change the day start hour in /settings/reading. Then quotes (SLN-453): add
  * one from Log progress with a thought in bold, find it on /reading/notes by
- * a misspelled word, star it, and see it as the passage of the day.
+ * a misspelled word, star it, and see it as the passage of the day. Then
+ * goals and the rhythm (SLN-455): set a 30-book goal from the hub's menu,
+ * finish a book and see the count go up by one with a neutral line, then set
+ * a rhythm of 5 days and see today's mark.
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
@@ -596,6 +599,44 @@ async function readingJourney() {
     await step("see it as the passage of the day", async () => {
       await go("/reading");
       await waitFor(`document.querySelector('[data-hub-passage]')?.textContent.includes(${JSON.stringify(PASSAGE)})`, "the passage of the day");
+    });
+    // Goals and the rhythm (SLN-455)
+    const goalCount = "Number(document.querySelector('[data-goal-card=books] [data-goal-title]')?.textContent.split(' ')[0].replace(/,/g, ''))";
+    let before = 0;
+    await step("set a 30-book goal from the hub's menu", async () => {
+      await go("/reading");
+      await evaluate("document.querySelector('[data-hub-menu-open]').click()");
+      await waitFor("document.querySelector('[role=menu]')", "the hub's menu");
+      await click("Set a reading goal", "[...document.querySelectorAll('[role=menu]')].pop()");
+      await waitFor(`${DIALOG}?.querySelector('[data-goal-dialog]')`, "the goal dialog");
+      await fill("Books", "30");
+      await save("Save");
+      await waitFor("/ of 30 books$/.test(document.querySelector('[data-goal-card=books] [data-goal-title]')?.textContent ?? '')", "the books goal card");
+      before = await evaluate(goalCount);
+    });
+    await step("finish a book and see the goal count it, neutrally", async () => {
+      const card = "[...document.querySelectorAll('[data-hub-card]')].find((c) => c.textContent.includes('Queue Journey Two'))";
+      await waitFor(card, "Queue Journey Two's card");
+      await evaluate(`${card}.querySelector('[data-hub-menu]').click()`);
+      await waitFor("document.querySelector('[role=menu]')", "the card's menu");
+      await click("Finish", "[...document.querySelectorAll('[role=menu]')].pop()");
+      await waitFor(`${DIALOG}?.textContent.includes('Finish')`, "the Finish dialog");
+      await save("Finish");
+      await go("/reading");
+      await waitFor(`${goalCount} === ${before + 1}`, `${before + 1} of 30 books`);
+      const line = await evaluate("document.querySelector('[data-goal-card=books] [data-goal-line]').textContent");
+      if (!line || /behind|streak|lost|fail/i.test(line)) throw new Error(`The goal line reads "${line}"`);
+    });
+    await step("set a rhythm of 5 days and see today's mark", async () => {
+      const box = "document.getElementById('reading-rhythm-days')";
+      await go("/settings/reading");
+      await waitFor(box, "the rhythm setting");
+      await evaluate(`${box}.click(), true`);
+      await waitFor(`${box}.parentElement.querySelector('[role=listbox]')`, "the rhythm list");
+      await evaluate(`[...${box}.parentElement.querySelectorAll('[role=option]')].find((o) => o.textContent.trim().replace(/^✓\\s*/, '') === '5 days a week').click(), true`);
+      await sleep(800);
+      await go("/reading");
+      await waitFor("document.querySelector('[data-hub-rhythm] [data-today][data-read]') && /of 5 days this week/.test(document.querySelector('[data-rhythm-week]').textContent)", "today marked as a reading day, of 5");
     });
     await step("filter the journal by year", async () => {
       await go("/reading/journal?yearMin=2009&yearMax=2009");
