@@ -270,8 +270,6 @@ export async function loadPaintingCards(ids: string[]) {
     title: string;
     rating: number | null;
     isFavourite: boolean;
-    /** Always "tracked" outside books (works_nonbook_lifecycle_check) */
-    catalogueStatus: string;
     createdAt: string;
     creationDate: Parameters<typeof dateFromColumns>[0] | null;
     painters: { id: string | null; name: string | null }[];
@@ -293,7 +291,7 @@ export async function loadPaintingCards(ids: string[]) {
       tone: string | null;
     } | null;
   }>(
-    await db.execute(sql`select w.id,w.slug,w.title,w.rating::float8 as rating,w.is_favourite as "isFavourite",w.catalogue_status as "catalogueStatus",w.created_at as "createdAt",
+    await db.execute(sql`select w.id,w.slug,w.title,w.rating::float8 as rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
       case when cd.id is null then null else jsonb_build_object('precision',cd.precision,'startYear',cd.start_year,'startMonth',cd.start_month,'startDay',cd.start_day,
         'endYear',cd.end_year,'endMonth',cd.end_month,'endDay',cd.end_day,'approximate',cd.approximate,'label',cd.label) end as "creationDate",
       coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'name',coalesce(c.credited_as,a.name)) order by c.sort_order,c.id)

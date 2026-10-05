@@ -17,7 +17,7 @@ const NO_CREATORS: Record<WorkKind, string> = {
  * A record of any collection in a grid, cut like a book's card (SLN-478), so
  * a row that mixes books, films, perfumes and paintings reads as one: the
  * picture whole in the cover's 2:3 frame, the title and the people on the
- * card heading's fixed lines, and the info row (status, rating, date).
+ * card heading's fixed lines, and the info row (rating, date).
  */
 export function DomainTileCard({
   kind,
@@ -42,12 +42,7 @@ export function DomainTileCard({
       />
       <div className={WORK_CARD_BODY}>
         <CardHeading title={tile.title} subtitle={tile.creators ?? NO_CREATORS[kind]} />
-        <WorkCardInfo
-          status={tile.status}
-          copies={tile.copies}
-          rating={tile.rating}
-          year={tile.date}
-        />
+        <WorkCardInfo rating={tile.rating} year={tile.date} />
       </div>
     </div>
   );

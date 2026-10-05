@@ -69,7 +69,7 @@ export function WorkCardInfo({
         </span>
         {year != null && year !== "" && (
           <span
-            className={`hidden whitespace-nowrap font-mono text-micro text-fg-secondary ${rating ? "@[220px]:inline" : "@[160px]:inline"}`}
+            className={`hidden font-mono text-micro text-fg-secondary ${rating ? "@[220px]:inline" : "@[160px]:inline"}`}
           >
             {year}
           </span>

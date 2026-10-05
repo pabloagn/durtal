@@ -40,7 +40,7 @@ export function filmFacts(film: FilmCardData) {
 
 /**
  * A film in a grid: its poster, then a book card's heading and info row
- * (SLN-478): title, directors, status, rating and release year, on fixed
+ * (SLN-478): title, directors, rating and release year, on fixed
  * lines. A chip marks the copies held.
  */
 export function FilmCard({
@@ -92,8 +92,6 @@ export function FilmCard({
           }
         />
         <WorkCardInfo
-          status={film.catalogueStatus}
-          copies={count}
           rating={film.rating}
           year={catalogueDateYears(film.releaseDate)}
         />

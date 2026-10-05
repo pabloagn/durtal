@@ -24,11 +24,8 @@ export interface DomainTile {
   imageUrl: string | null;
   /** The picture's main color, for its frame while it loads */
   tone: string | null;
-  /** For the card's info row, as on a book's card */
-  status: string;
+  /** For the card's info row: films, perfumes and paintings have no status yet */
   rating: number | null;
-  /** Bottles, copies or objects held: the status tooltip names them */
-  copies: number;
   createdAt: Date;
 }
 
@@ -48,13 +45,11 @@ function imageUrl(poster: { s3Key: string; thumbnailS3Key: string | null } | nul
 /** What every card's info row shows, from a collection's card row */
 function cardFields(work: {
   poster: { s3Key: string; thumbnailS3Key: string | null; tone: string | null } | null;
-  catalogueStatus: string;
   rating: number | null;
 }) {
   return {
     imageUrl: imageUrl(work.poster),
     tone: work.poster?.tone ?? null,
-    status: work.catalogueStatus,
     rating: work.rating,
   };
 }
@@ -101,8 +96,6 @@ const SOURCES: Record<
         tile("perfume", perfume, {
           creators: names(perfume.organizations) ?? names(perfume.perfumers),
           date: catalogueDateYears(perfume.releaseDate),
-          copies:
-            perfume.holdings.bottles + perfume.holdings.samples + perfume.holdings.decants,
           ...cardFields(perfume),
         }),
       ),
@@ -120,7 +113,6 @@ const SOURCES: Record<
         tile("film", film, {
           creators: names(film.directors),
           date: catalogueDateYears(film.releaseDate),
-          copies: film.holdings.physical + film.holdings.digital,
           ...cardFields(film),
         }),
       ),
@@ -138,7 +130,6 @@ const SOURCES: Record<
         tile("painting", painting, {
           creators: names(painting.painters),
           date: catalogueDateYears(painting.creationDate),
-          copies: painting.personalCount,
           ...cardFields(painting),
         }),
       ),

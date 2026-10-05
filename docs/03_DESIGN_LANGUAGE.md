@@ -213,7 +213,7 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 
 ### Work cards
 
-Every work card, whatever its collection, is cut like a book's card (`src/components/shared/work-card.tsx`): the picture's frame, then `CardHeading` (two title lines, one line of people), then the info row (`WorkCardInfo`): the status on the left, the rating and the year, or the collection's own date, on the right. So a row that mixes collections reads as one family: titles, people and info rows sit at the same heights.
+Every work card, whatever its collection, is cut like a book's card (`src/components/shared/work-card.tsx`): the picture's frame, then `CardHeading` (two title lines, one line of people), then the info row (`WorkCardInfo`): the status on the left, the rating and the year, or the collection's own date, on the right. The status is a book's: films, perfumes and paintings have none yet, so their row holds the rating and the date. So a row that mixes collections reads as one family: titles, people and info rows sit at the same heights.
 
 - Film, perfume and painting cards keep their collection's frame in their own grids and rows: the poster, the bottle's square, the picture's frame. A chip on the frame counts what is held.
 - Where collections mix in one row (the dashboard's recent additions), every card has the book cover's 2:3 frame. `WorkCardArt` contains the picture whole and centered; a blurred, dimmed copy of it fills the bands, like frosted glass behind it. Without a picture, the collection's stand-in (a flacon, a monogram) fills the frame.

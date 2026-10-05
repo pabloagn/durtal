@@ -49,8 +49,8 @@ function heldCounts(perfume: PerfumeCardData) {
 
 /**
  * A perfume in a grid: its bottle in its square frame, then a book card's
- * heading and info row (SLN-478): title, house, status, rating and release
- * year, on fixed lines. A chip marks what is in the collection.
+ * heading and info row (SLN-478): title, house, rating and release year,
+ * on fixed lines. A chip marks what is in the collection.
  */
 export function PerfumeCard({
   perfume,
@@ -98,8 +98,6 @@ export function PerfumeCard({
           }
         />
         <WorkCardInfo
-          status={perfume.catalogueStatus}
-          copies={count}
           rating={perfume.rating}
           year={catalogueDateYears(perfume.releaseDate)}
         />

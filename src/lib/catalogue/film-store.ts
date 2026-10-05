@@ -222,8 +222,6 @@ export async function loadFilmCards(ids: string[]) {
     originalTitle: string | null;
     rating: number | null;
     isFavourite: boolean;
-    /** Always "tracked" outside books (works_nonbook_lifecycle_check) */
-    catalogueStatus: string;
     createdAt: string;
     releaseDate: Parameters<typeof dateFromColumns>[0] | null;
     runtimeSeconds: number | null;
@@ -240,7 +238,7 @@ export async function loadFilmCards(ids: string[]) {
       tone: string | null;
     } | null;
   }>(
-    await db.execute(sql`select w.id,w.slug,w.title,d.original_title as "originalTitle",w.rating::float8 as rating,w.is_favourite as "isFavourite",w.catalogue_status as "catalogueStatus",w.created_at as "createdAt",
+    await db.execute(sql`select w.id,w.slug,w.title,d.original_title as "originalTitle",w.rating::float8 as rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
       case when rd.id is null then null else jsonb_build_object('precision',rd.precision,'startYear',rd.start_year,'startMonth',rd.start_month,'startDay',rd.start_day,
         'endYear',rd.end_year,'endMonth',rd.end_month,'endDay',rd.end_day,'approximate',rd.approximate,'label',rd.label) end as "releaseDate",
       (select fv.runtime_seconds from film_versions fv where fv.work_id=w.id and fv.runtime_seconds is not null order by fv.sort_order,fv.id limit 1) as "runtimeSeconds",

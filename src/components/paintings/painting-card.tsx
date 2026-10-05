@@ -58,8 +58,8 @@ function objectSize(painting: PaintingCardData) {
 
 /**
  * A painting in a gallery: the whole picture in a fixed frame, then a book
- * card's heading and info row (SLN-478): title, painters, status, rating and
- * date, on fixed lines. A chip marks the objects you own of it.
+ * card's heading and info row (SLN-478): title, painters, rating and date,
+ * on fixed lines. A chip marks the objects you own of it.
  */
 export function PaintingCard({
   painting,
@@ -110,8 +110,6 @@ export function PaintingCard({
           }
         />
         <WorkCardInfo
-          status={painting.catalogueStatus}
-          copies={owned}
           rating={painting.rating}
           year={catalogueDateYears(painting.creationDate)}
         />
