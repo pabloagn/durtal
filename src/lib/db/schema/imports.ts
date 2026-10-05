@@ -13,6 +13,8 @@ export const imports = pgTable("imports", {
   status: text("status").notNull().default("pending"),
   s3BronzeKey: text("s3_bronze_key"),
   s3SilverKey: text("s3_silver_key"),
+  /** The uploaded file's sanitized base name (SLN-450): the S3 key is best effort */
+  fileName: text("file_name"),
   totalRecords: integer("total_records"),
   processedRecords: integer("processed_records").notNull().default(0),
   skippedRecords: integer("skipped_records").notNull().default(0),
