@@ -954,7 +954,7 @@ export async function searchBooksToRead(query: string) {
         (select r.id from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openReadingId",
         (select md5(to_jsonb(r)::text) from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openFingerprint"
       from works w where w.kind = 'book' ${match ? sql`and ${match}` : sql``}
-      order by ${ownedBookCondition(sql`w.id`)} desc, lower(w.title), w.id limit 20`),
+      order by ${ownedBookCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
   );
 }
 

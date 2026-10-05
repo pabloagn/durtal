@@ -78,12 +78,13 @@ function orderBy(q: JournalQuery): SQL {
     const group = desc
       ? sql`case when ${open} then 0 when b.finish_year is not null then 1 else 2 end`
       : sql`case when b.finish_year is not null then 0 when ${open} then 1 else 2 end`;
-    return sql`${group} asc, b.finished_on ${dir} nulls last, b.last_read_at desc nulls last, b.id asc`;
+    return sql`${group} asc, b.finished_on ${dir} nulls last, b.last_read_at desc nulls last, b.started_on desc nulls last, b.id asc`;
   }
   if (q.sort === "started")
     return sql`(b.started_precision = 'unknown' or b.started_on is null) asc, b.started_on ${dir} nulls last, b.id asc`;
   if (q.sort === "rating") return sql`b.read_rating ${dir} nulls last, b.id asc`;
-  return sql`lower(w.title) ${dir}, b.id asc`;
+  // Accents aside, whatever the database's collation: Árbol sorts with Arbol
+  return sql`search_normalize(w.title) ${dir}, b.id asc`;
 }
 
 export async function queryJournal(q: JournalQuery) {

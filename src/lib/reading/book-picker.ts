@@ -5,8 +5,6 @@
 
 export type PickerPurpose = "start" | "past";
 
-export const PICKER_PURPOSES: readonly PickerPurpose[] = ["start", "past"];
-
 /** The digits of an ISBN-10 or ISBN-13 once spaces and hyphens go; null when it is not one */
 export function isbnOf(text: string): string | null {
   const s = text.replace(/[\s-]/g, "").toUpperCase();
