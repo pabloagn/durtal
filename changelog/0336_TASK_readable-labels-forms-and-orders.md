@@ -39,3 +39,13 @@ This task gives them the app's words.
   copy labels equal to `enumLabel`'s.
 - `src/__tests__/ui/copy-form-labels.test.ts`: the copy form's format,
   condition, status and disposition selects list words, no stored key.
+- Chrome, Firefox and WebKit, headless, at 1440 and 390 on a preview with a
+  sold copy and two orders (in transit, a bid): the book page shows "Sold"
+  and "In transit", the provenance and place pages "In transit" and "Bid
+  placed". No new alignment or contrast finding. One audit hit on
+  `/provenance` is older than this change: the order row's chevron is
+  measured against the cover's placeholder letter.
+- SLN-402 checked on the same preview: a search with no result on
+  `/library`, `/people` and `/publishers` shows "No results" with a clear
+  action and no pagination; `/reader` with no books shows its empty state
+  alone.
