@@ -94,6 +94,15 @@ format, and see the book's whole reading history. No migration.
   44 px, Log progress shows Page, % and Time with numeric keypads, no page
   overflow. With the zone set to America/Mexico_City, the default date is the
   Mexico City reading day. A comment posts and edits on the book page.
+- Review fixes (#95): posting a comment no longer breaks the activity section
+  (a collapse destroys the editor; the keyboard shortcuts skip a destroyed
+  one; a test posts twice in a row with the section rendering again); the
+  current reading's Log progress, Pause and Finish buttons are 44 px on touch;
+  Edit reading refuses a page count that is not a whole number above 0 and an
+  audio length it cannot read, with an error under the field, instead of
+  clearing them. Checked in Chrome (two comments, Escape, 44 px buttons at
+  390 px with touch), Firefox and Safari (two comments, the page count error);
+  `test-local.py`: 174 files, 1955 tests.
 - Not run: the iOS Simulator keypads and VoiceOver by hand. Edit reading has
   no start or current position fields: the update action from task 0302 does
   not take them; Log progress and its move-back choice change the position.

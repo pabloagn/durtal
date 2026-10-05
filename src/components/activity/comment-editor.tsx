@@ -114,9 +114,10 @@ export function CommentEditor({
     onSaved,
   ]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts. A collapse unmounts the editor and destroys it, so
+  // `editor` can be a destroyed one until the next expand hands a new one
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {

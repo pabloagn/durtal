@@ -31,6 +31,7 @@ import { LogProgressDialog } from "@/components/reading/dialogs/log-progress-dia
 import { FinishReadingDialog } from "@/components/reading/dialogs/finish-reading-dialog";
 import { AbandonReadingDialog } from "@/components/reading/dialogs/abandon-reading-dialog";
 import { StartReadingDialog } from "@/components/reading/dialogs/start-reading-dialog";
+import { EditReadingDialog } from "@/components/reading/dialogs/edit-reading-dialog";
 import type { ReadingDialogProps } from "@/components/reading/reading-provider";
 
 let coarse = false;
@@ -268,5 +269,31 @@ describe("Start reading", () => {
     expect(text()).toContain("Reading in Mexico City");
     await submit();
     expect(actions.startReading.mock.calls[0][0]).toMatchObject({ instanceId: "c-shelf", locationId: "mex" });
+  });
+});
+
+describe("Edit reading", () => {
+  it("refuses a page count that is not a whole number instead of clearing it", async () => {
+    actions.updateReading.mockResolvedValue({ fingerprint: "g".repeat(32) });
+    act(() => root.render(createElement(EditReadingDialog, props({ request: { kind: "edit", readingId: "r1" } }))));
+    for (const bad of ["abc", "12.5", "0"]) {
+      type(field("Pages to read"), bad);
+      expect(text()).toContain("Enter the number of pages as a whole number above 0");
+      await submit();
+      expect(actions.updateReading).not.toHaveBeenCalled();
+    }
+    type(field("Pages to read"), "500");
+    expect(text()).not.toContain("Enter the number of pages");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(expect.objectContaining({ readingId: "r1", fingerprint: FP, totalPages: 500 }));
+  });
+
+  it("refuses an audio length it cannot read", async () => {
+    const audio = { ...row, reading: { ...reading, format: "audio", unit: "minutes", totalMinutes: 580 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: audio as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Audio length"), "soon");
+    expect(text()).toContain("Enter a length such as 9:40");
+    await submit();
+    expect(actions.updateReading).not.toHaveBeenCalled();
   });
 });

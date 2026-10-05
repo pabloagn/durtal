@@ -84,13 +84,13 @@ function CurrentReading({ row }: { row: ReadingRow }) {
         </p>
         {r.currentChapter && <p className="text-xs text-fg-secondary">Chapter {r.currentChapter}</p>}
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button size="sm" variant="primary" onClick={() => run("progress", row)}>
+          <Button size="sm" variant="primary" onClick={() => run("progress", row)} className="pointer-coarse:h-11">
             Log progress
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => run(r.status === "paused" ? "resume" : "pause", row)}>
+          <Button size="sm" variant="ghost" onClick={() => run(r.status === "paused" ? "resume" : "pause", row)} className="pointer-coarse:h-11">
             {r.status === "paused" ? "Resume" : "Pause"}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => run("finish", row)}>
+          <Button size="sm" variant="ghost" onClick={() => run("finish", row)} className="pointer-coarse:h-11">
             Finish
           </Button>
           <RowMenu
@@ -217,7 +217,7 @@ export function ReadingSection() {
         title="Reading"
         count={data.rows.length}
         action={
-          <Button variant="ghost" size="sm" onClick={() => run(openRow ? "progress" : "reread")}>
+          <Button variant="ghost" size="sm" onClick={() => run(openRow ? "progress" : "reread")} className="pointer-coarse:h-11">
             {openRow ? "Log progress" : "Re-read"}
           </Button>
         }

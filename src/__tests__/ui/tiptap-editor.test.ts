@@ -77,4 +77,32 @@ describe("CommentEditor", () => {
     expect(body).toMatchObject({ entityType: "work", entityId: "w1", contentHtml: expect.stringContaining("Hello"), contentJson: { type: "doc" } });
     vi.unstubAllGlobals();
   });
+
+  it("posts twice in a row: the collapse after a post destroys the editor without breaking the section", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ id: "c1", eventId: "e1" }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const errors: unknown[] = [];
+    const onError = (event: ErrorEvent) => errors.push(event.error);
+    window.addEventListener("error", onError);
+    const content = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hello" }] }] };
+    // The activity section renders again with the new comment, with new callbacks
+    const render = () =>
+      root.render(createElement(CommentEditor, { entityType: "work", entityId: "w1", initialContent: content, commentId: undefined, onCommentAdded: () => undefined }));
+    act(render);
+    for (let n = 1; n <= 2; n++) {
+      await act(async () => (host.querySelector("button") as HTMLButtonElement).click());
+      await settle();
+      await act(async () => (host.querySelector('button[aria-label="Post comment"]') as HTMLButtonElement).click());
+      await settle();
+      await act(async () => render());
+      await settle();
+      // Collapsed again, with the button that opens it
+      expect(host.querySelector('button[aria-label="Post comment"]')).toBeNull();
+      expect(host.textContent).toContain("Leave a comment");
+      expect(fetchMock).toHaveBeenCalledTimes(n);
+    }
+    window.removeEventListener("error", onError);
+    expect(errors).toEqual([]);
+    vi.unstubAllGlobals();
+  });
 });

@@ -59,10 +59,14 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
   const editionSwitched = (editionId || null) !== r.editionId;
   const newTotal = readNumber(pages);
   const dateError = done ? finishDateError({ startedOn: start.date, startedPrecision: start.precision }, finish) : null;
+  // A page count that is not a whole number above 0 is an error, never a cleared count
   const totalError =
-    !editionSwitched && newTotal !== null && r.currentPage !== null && newTotal < r.currentPage
-      ? `You are on p. ${r.currentPage}; the book cannot have ${newTotal} pages`
-      : null;
+    pages.trim() && (newTotal === null || !Number.isInteger(newTotal) || newTotal <= 0)
+      ? "Enter the number of pages as a whole number above 0"
+      : !editionSwitched && newTotal !== null && r.currentPage !== null && newTotal < r.currentPage
+        ? `You are on p. ${r.currentPage}; the book cannot have ${newTotal} pages`
+        : null;
+  const lengthError = format === "audio" && length.trim() && parseLength(length) === null ? "Enter a length such as 9:40" : null;
   const totalLine =
     !editionSwitched && newTotal && newTotal !== r.totalPages && r.currentPage !== null
       ? `p. ${r.currentPage} of ${newTotal} · ${Math.round(percentOf({ page: r.currentPage }, { totalPages: newTotal }) ?? 0)}%`
@@ -70,7 +74,7 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (dateError || totalError) return;
+    if (dateError || totalError || lengthError) return;
     const patch: Parameters<typeof updateReading>[0] = { readingId: r.id, fingerprint: row!.fingerprint };
     if (editionSwitched) patch.editionId = editionId || null;
     if ((instanceId || null) !== r.instanceId) patch.instanceId = instanceId || null;
@@ -86,7 +90,7 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
     }
     if (!editionSwitched && newTotal !== r.totalPages) patch.totalPages = newTotal;
     const minutes = parseLength(length);
-    if (minutes !== r.totalMinutes && (minutes !== null || !length.trim())) patch.totalMinutes = minutes;
+    if (format === "audio" && minutes !== r.totalMinutes) patch.totalMinutes = minutes;
     if (rating !== (r.rating != null ? Number(r.rating) : null)) patch.rating = rating;
     if (reviewChanged) {
       patch.reviewHtml = review?.html ?? null;
@@ -161,7 +165,14 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
             </div>
           )}
           {format === "audio" && (
-            <Input label="Audio length (h:mm)" placeholder="9:40" value={length} onChange={(e) => setLength(e.target.value)} className="w-32" />
+            <Input
+              label="Audio length (h:mm)"
+              placeholder="9:40"
+              value={length}
+              onChange={(e) => setLength(e.target.value)}
+              error={lengthError ?? undefined}
+              className="w-32"
+            />
           )}
         </div>
         <div className="space-y-1.5">
@@ -189,7 +200,7 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
             setReviewChanged(true);
           }}
         />
-        <DialogFooter onCancel={onClose} saving={saving} disabled={!!dateError || !!totalError} />
+        <DialogFooter onCancel={onClose} saving={saving} disabled={!!dateError || !!totalError || !!lengthError} />
       </form>
     </Dialog>
   );
