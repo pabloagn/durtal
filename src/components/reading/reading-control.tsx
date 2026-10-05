@@ -42,6 +42,7 @@ export function ReadingControl() {
       trigger={
         <button
           type="button"
+          data-reading-control
           className={`inline-flex h-8 max-w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary px-3 text-xs transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 ${
             state === "read" ? "text-accent-sage" : "text-fg-secondary"
           }`}
