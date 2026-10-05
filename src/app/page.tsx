@@ -11,6 +11,8 @@ import {
   Star,
   ShoppingCart,
   FolderOpen,
+  BookMarked,
+  BookCheck,
 } from "lucide-react";
 import { getLibraryStats } from "@/lib/actions/works";
 import {
@@ -43,6 +45,9 @@ import { PersonRoles } from "@/components/people/person-roles";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { displayYear } from "@/lib/utils/years";
 import { languageName } from "@/lib/utils/language";
+import { DashboardReadingTile, FinishedCover } from "@/components/reading/hub-cards";
+import { getOpenReadings } from "@/lib/actions/reading";
+import { getRecentlyFinished } from "@/lib/reading/journal";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -195,11 +200,17 @@ const CREATOR_LABELS: Record<HomeKind, string> = {
 };
 
 async function DashboardContent() {
-  const [stats, others, collections] = await Promise.all([
+  const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
     getLibraryStats(),
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
+    getOpenReadings(),
+    getRecentlyFinished(4),
   ]);
+  // Books being read before paused ones; three at most
+  const currentReads = [...openReadings]
+    .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
+    .slice(0, 3);
   const [covers, authorCovers, personRoles] = await Promise.all([
     getCollectionCoverPreviews(collections.map((collection) => collection.id)),
     // Recent authors with no portrait show some of their book covers
@@ -254,6 +265,28 @@ async function DashboardContent() {
           </Link>
         </div>
       </section>
+
+      {/* Reading (SLN-448): light tiles, no book cards */}
+      {currentReads.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader title="Currently reading" icon={BookMarked} href="/reading" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {currentReads.map((open) => (
+              <DashboardReadingTile key={open.reading.id} open={open} />
+            ))}
+          </div>
+        </section>
+      )}
+      {finishedReads.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader title="Recently finished" icon={BookCheck} href="/reading/journal" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {finishedReads.map((read) => (
+              <FinishedCover key={read.id} read={read} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Each other open collection: its counts and its add action */}
       {others.map(({ kind, counts }) => (

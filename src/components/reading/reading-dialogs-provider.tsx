@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -54,54 +54,47 @@ const homeIdOf = (stored: string | null) => (stored && stored !== "none" ? store
 
 interface Opened {
   data: ReadingPageData;
-  request: DialogRequest;
+  /** The open dialog; null once it closed */
+  request: DialogRequest | null;
 }
 
 export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  // The book stays loaded after its dialog closes, so a dialog can open the next one
   const [opened, setOpened] = useState<Opened | null>(null);
   const [picking, setPicking] = useState<PickerPurpose | null>(null);
   const [storedHome, setStoredHome] = usePreference<string | null>(READING_HOME_KEY, null);
-  const workRef = useRef<string | null>(null);
-  const homeRef = useRef(storedHome);
-  useEffect(() => {
-    homeRef.current = storedHome;
-  }, [storedHome]);
+  const workId = opened?.data.workId ?? null;
+  const homeId = homeIdOf(storedHome);
 
-  // After a write: the page, the activity timeline, and the open dialog's book
+  // After a write: the page, the activity timeline, and the loaded book
   const changed = useCallback(() => {
     router.refresh();
     triggerActivityRefresh();
-    const workId = workRef.current;
     if (!workId) return;
-    getReadingDialogData(workId, homeIdOf(homeRef.current))
+    getReadingDialogData(workId, homeId)
       .then((data) => setOpened((now) => (now && now.data.workId === workId ? { ...now, data } : now)))
       .catch(() => undefined);
-  }, [router]);
+  }, [router, workId, homeId]);
 
   const open = useCallback(
     async (request: ReadingDialogsRequest) => {
       try {
-        const data = await getReadingDialogData(request.workId, homeIdOf(homeRef.current));
-        if (!("readingId" in request)) {
-          workRef.current = request.workId;
-          setOpened({ data, request: { kind: request.kind } });
-          return;
-        }
+        const data = await getReadingDialogData(request.workId, homeId);
+        if (!("readingId" in request)) return setOpened({ data, request: { kind: request.kind } });
         const row = data.rows.find((r) => r.reading.id === request.readingId);
         if (!row) {
           toast.error("This reading no longer exists");
-          return changed();
+          return router.refresh();
         }
         // The caller's fingerprint, not the fresh one: a stale page must not save
         const rows = data.rows.map((r) => (r === row ? { ...r, fingerprint: request.fingerprint } : r));
-        workRef.current = request.workId;
         setOpened({ data: { ...data, rows }, request: { kind: request.kind, readingId: request.readingId, prefill: request.prefill } });
       } catch (err) {
-        showError(err, changed);
+        showError(err, () => router.refresh());
       }
     },
-    [changed],
+    [router, homeId],
   );
 
   const setPaused = useCallback(
@@ -111,37 +104,36 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
         if (paused) await pauseReading(input);
         else await resumeReading(input);
         toast.success(paused ? "Paused" : "Resumed");
-        changed();
+        router.refresh();
+        triggerActivityRefresh();
       } catch (err) {
-        showError(err, changed);
+        showError(err, () => router.refresh());
       }
     },
-    [changed],
+    [router],
   );
 
   const pick = useCallback((purpose: PickerPurpose) => setPicking(purpose), []);
 
   const value = useMemo(() => ({ open, pick, setPaused }), [open, pick, setPaused]);
 
-  const close = () => {
-    workRef.current = null;
-    setOpened(null);
-  };
+  const request = opened?.request ?? null;
   const home =
     storedHome && opened && (storedHome === "none" || opened.data.homes.some((h) => h.id === storedHome)) ? storedHome : null;
-  const props: ReadingDialogProps | null = opened
-    ? {
-        data: opened.data,
-        row: opened.request.readingId ? (opened.data.rows.find((r) => r.reading.id === opened.request.readingId) ?? null) : null,
-        request: opened.request,
-        home,
-        setHome: (next) => setStoredHome(next),
-        onClose: close,
-        changed,
-        // A dialog that opens the next one (the last page opens Finish) stays on its book
-        open: (next) => setOpened((now) => (now ? { ...now, request: next } : now)),
-      }
-    : null;
+  const props: ReadingDialogProps | null =
+    opened && request
+      ? {
+          data: opened.data,
+          row: request.readingId ? (opened.data.rows.find((r) => r.reading.id === request.readingId) ?? null) : null,
+          request,
+          home,
+          setHome: (next) => setStoredHome(next),
+          onClose: () => setOpened((now) => (now ? { ...now, request: null } : now)),
+          changed,
+          // A dialog that opens the next one (the last page opens Finish) stays on its book
+          open: (next) => setOpened((now) => (now ? { ...now, request: next } : now)),
+        }
+      : null;
 
   return (
     <ReadingDialogsContext.Provider value={value}>
