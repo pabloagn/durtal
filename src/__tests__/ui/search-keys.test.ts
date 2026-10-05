@@ -330,10 +330,11 @@ describe("Esc closes one layer per press", () => {
       ),
     );
     const trigger = host.querySelector("button") as HTMLButtonElement;
+    const panel = () => host.querySelector(".glass");
     act(() => trigger.click());
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(panel()).not.toBeNull();
     expect(press("Escape", {}, document.body).defaultPrevented).toBe(true);
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(panel()).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 

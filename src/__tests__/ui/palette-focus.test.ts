@@ -20,6 +20,11 @@ vi.mock("@/components/layout/mobile-nav-bar", () => ({ MobileNavBar: () => null 
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({
   ReadingDialogsProvider: ({ children }: { children: unknown }) => children,
 }));
+// The reading timer is not under test
+vi.mock("@/components/reading/timer-provider", () => ({
+  TimerProvider: ({ children }: { children: unknown }) => children,
+}));
+vi.mock("@/components/reading/timer-chip", () => ({ TimerAlerts: () => null }));
 // The provider hands the shell's palette switch to the test
 vi.mock("@/components/shortcuts/shortcuts-provider", () => ({
   ShortcutsProvider: ({ children, onPaletteOpenChange }: { children: unknown; onPaletteOpenChange: (open: boolean) => void }) => {

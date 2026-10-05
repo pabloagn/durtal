@@ -139,7 +139,6 @@ export function FilterDropdown({
       {/* Trigger button */}
       <button
         ref={triggerRef}
-        aria-expanded={open}
         onClick={() => {
           onIntent?.();
           setOpen((prev) => !prev);
