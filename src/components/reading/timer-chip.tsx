@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { clockText, durationSpoken, durationWords, isForgotten, shouldAsk, suggestedStop } from "@/lib/reading/timer";
 import { Cover } from "./reading-tiles";
 import { useReadingDialogs } from "./reading-dialogs-provider";
@@ -84,7 +84,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
   if (layout === "phone")
     return (
       <div className="flex" data-timer-chip="phone">
-        <CapAligned height={44}>
+        <CapAlignedControls height={44}>
           {menu(
             <button
               type="button"
@@ -99,7 +99,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
             "bottom",
             "end",
           )}
-        </CapAligned>
+        </CapAlignedControls>
         <CapAligned height={44}>
           <button
             type="button"

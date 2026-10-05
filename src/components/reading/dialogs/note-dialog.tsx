@@ -66,6 +66,8 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
   const [thought, setThought] = useState<RichValue | null>(
     editing?.commentHtml ? { html: editing.commentHtml, json: editing.commentJson ?? null } : null,
   );
+  // An edit sends the thought only once the editor changed it: the lists send no commentJson, and a page-only edit must keep it
+  const [thoughtEdited, setThoughtEdited] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const number = position.trim() ? readNumber(position) : null;
@@ -94,7 +96,7 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
           ...where,
           chapter: chapter.trim() || null,
           isFavourite: favourite,
-          ...comment,
+          ...(thoughtEdited ? comment : {}),
         });
         toast.success("Saved");
       } else {
@@ -191,7 +193,15 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
           />
         )}
         {kind === "quote" && (
-          <TiptapEditor label="Your thought" value={thought} onChange={setThought} placeholder="Why it stayed with you" />
+          <TiptapEditor
+            label="Your thought"
+            value={thought}
+            onChange={(value) => {
+              setThought(value);
+              setThoughtEdited(true);
+            }}
+            placeholder="Why it stayed with you"
+          />
         )}
         {/* The words toggle the switch too: a 44px row on touch */}
         <div className="flex items-center gap-2">
