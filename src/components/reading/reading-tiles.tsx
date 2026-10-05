@@ -48,10 +48,11 @@ export function FinishedCovers({ reads, className }: { reads: FinishedItem[]; cl
         <Link key={read.id} href={read.href} className="group block min-w-0" data-hub-finished={read.id}>
           <Cover s3Key={read.cover} className="aspect-[2/3] w-full" />
           <span className="lines-1 mt-2 block text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{read.title}</span>
-          <span className="mt-1 flex h-5 items-center justify-between gap-2">
+          {/* Stars, then the date: a narrow cover (six to a row) has no room for both on one line */}
+          <span className="mt-1 flex h-5 items-center">
             <RatingStars value={read.rating} />
-            <span className="shrink-0 font-mono text-micro text-fg-secondary">{read.date}</span>
           </span>
+          <span className="lines-1 block font-mono text-micro text-fg-secondary">{read.date}</span>
         </Link>
       ))}
     </div>

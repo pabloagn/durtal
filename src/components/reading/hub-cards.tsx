@@ -30,9 +30,7 @@ export function CurrentReadingCard({ open, day }: { open: OpenReading; day: DayC
   const last = lastReadText(r.lastReadAt, day);
   return (
     <article className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4" data-hub-card={r.id}>
-      <Link href={href} tabIndex={-1} aria-hidden className="self-start">
-        <Cover s3Key={open.cover} className="h-24 w-16" />
-      </Link>
+      <Cover s3Key={open.cover} className="h-24 w-16" />
       <div className="min-w-0 flex-1">
         <CardHeading
           title={

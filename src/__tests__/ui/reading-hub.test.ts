@@ -125,14 +125,14 @@ describe("a book page opened with ?then=", () => {
   it("opens the dialog once and takes then out of the address", async () => {
     window.history.replaceState(null, "", "/library/watt?tab=1&then=start#reading");
     const props = { workId: "w1", then: "start" as const, openReading: null };
-    act(() => root.render(createElement(ReadingThen, props)));
-    act(() => root.render(createElement(ReadingThen, { ...props })));
+    await act(async () => root.render(createElement(ReadingThen, props)));
+    await act(async () => root.render(createElement(ReadingThen, { ...props })));
     expect(dialogs.open).toHaveBeenCalledTimes(1);
     expect(dialogs.open).toHaveBeenCalledWith({ kind: "start", workId: "w1" });
     expect(nav.replace).toHaveBeenCalledWith("/library/watt?tab=1#reading", { scroll: false });
   });
 
-  it("logs progress instead of starting a book that is being read, and opens Log a past read for then=past", () => {
+  it("logs progress instead of starting a book that is being read, and opens Log a past read for then=past", async () => {
     window.history.replaceState(null, "", "/library/watt?then=start");
     const reading = { workId: "w1", readingId: "r1", fingerprint: "fp1" };
     act(() => root.render(createElement(ReadingThen, { workId: "w1", then: "start", openReading: reading })));

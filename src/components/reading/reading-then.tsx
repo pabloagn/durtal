@@ -20,9 +20,10 @@ export function ReadingThen({ workId, then, openReading }: { workId: string; the
     done.current = true;
     const url = new URL(window.location.href);
     url.searchParams.delete("then");
-    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
-    if (then === "start" && openReading) void open({ kind: "progress", ...openReading });
-    else void open({ kind: then, workId });
+    // The dialog first: a navigation while its data loads would let the
+    // data's answer bring the old address (and this island) back
+    const opening = then === "start" && openReading ? open({ kind: "progress", ...openReading }) : open({ kind: then, workId });
+    void opening.finally(() => router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false }));
   }, [open, router, then, workId, openReading]);
   return null;
 }

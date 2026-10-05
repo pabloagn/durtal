@@ -6,7 +6,8 @@
 /                           Dashboard
 /library                    Books: the book collection's home (title "Books")
 /library/[slug]             Work detail page (slug format: {title}-by-{author})
-/library/new                Add new book (wizard)
+/library/new                Add new book (wizard); ?q= or ?isbn= searches at once,
+                            &then=start or past opens that reading dialog on the new book
 /library/import             Bulk import interface
 /library/identify           Identify placeholder editions (one at a time)
 /people                     People index (every collection; /authors redirects here, 308)
@@ -21,6 +22,8 @@
 /organizations/[slug]       Organization detail (same slug as its publisher page)
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
+/reading                    Reading: what is being read now, paused, recently finished
+/reading/journal            Every reading, by year of finish, filtered and sorted
 /reader                     Calibre e-book library
 /reader/[calibreId]         E-book reader for one Calibre book
 /series                     Series index
@@ -78,7 +81,7 @@ Structure from top to bottom:
 3. **Navigation links**: `NAV_SECTIONS` in `src/lib/navigation.ts`, the one
    list the sidebar and the command palette read. Dashboard, then one entry per
    open collection in the order Books, Perfumes, Films, Paintings
-   (`DOMAIN_ORDER`), then Reader, Authors, Publishers, Organizations, Recommenders, Series,
+   (`DOMAIN_ORDER`), then Reading, Reader, Authors, Publishers, Organizations, Recommenders, Series,
    Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
    Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
    (`src/components/shortcuts/section-icons.ts`).
@@ -97,7 +100,9 @@ Groups:
 - **Places**: venues by name or address, archived ones left out
 - Pictures: a work's cover or poster, 24x36 like a small card, or a person's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. They load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
 - **Search**: one "Search books for …" entry per open collection
+- **Log progress** (SLN-448), first: when the query is a position ("212", "44%", "+20", "3:12", "p 212") that fits an open reading, one "Log p. 212 · Title" per such reading. It opens Log progress with what was typed; "+20" stays relative (the server adds it to the row it checks). Services: `paletteReadingItems` in `src/lib/reading/palette.ts`
 - **This page**: the page's Edit menu entries ("Edit work", `E W`), Reading menu entries ("Log progress", `R P`) and Copy menu entries
+- **Reading**: "Log progress · Title" for each open reading, "Start reading..." and "Log a past read..." (the book picker). The open readings load each time the palette opens (`getOpenReadings`), never with the page; every item sends its reading's fingerprint
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
 
@@ -112,8 +117,9 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), `R` → the Reading menu (a book page's reading actions, given with `useReadingActions`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), `R` → the Reading menu (a book page's reading actions, given with `useReadingActions`), `G R` → Reading (`/reading`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
+- Wraps the page and the palette in `ReadingDialogsProvider` (`src/components/reading/reading-dialogs-provider.tsx`), in both branches (the reader view at `/reader/[calibreId]` too): `useReadingDialogs()` opens Start reading, Log progress, Finish, Abandon, Log a past read, Edit and Delete for any book from any page, and the book picker. A dialog loads its book's data when it opens (`getReadingDialogData`) and each dialog's code on first use; a dialog on a reading sends the fingerprint its caller holds, so a reading changed elsewhere gets the server's "This reading changed elsewhere; reload before saving", then the page refreshes
 
 ---
 
@@ -135,6 +141,8 @@ The landing page: each open collection, then what is new and curated across them
 first. A book shows as its book card; other records as a `DomainTileCard`.
 
 **Collections**: the first 4 collections in their curated order, with "View all".
+
+**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
 
 **Highest rated**, **Recent authors** and **Wanted**: book sections.
 
@@ -435,7 +443,7 @@ The detail page for a single work. Displays the work and all its editions and in
 - *Header control*: under the title, one button whose label is the book's reading state ("Start reading", "Reading · p. 212 of 480 · 44%", "Paused at 44%", "Read · 14 Apr 2024", "Read 3 times · 2024", "Abandoned at p. 120"), with a menu of the actions that make sense now (start, log progress, pause or resume, finish, abandon, edit, re-read, resume an abandoned read, start again, log a past read), each with its `R` key. The Read button for digital editions follows it.
 - *Reading section*, after Notes: the current reading (edition, copy and where it is, a progress bar, "Started 2 Oct in Amsterdam · last read yesterday", the chapter, Log progress, Pause or Resume, Finish, and a menu with Abandon, Edit and Delete), then one row per earlier read, newest first (its number among all reads, dates, outcome, format, the edition when it changed, the read's rating, the review's first lines), and "Your ratings: 4 (2012), 5 (2024)" with two rated reads or more. With no readings the section is left out and "Start reading" and "Log a past read" are in the actions menu.
 - *Record group* "Reading": first read, last finished, times read (finished reads) and time spent once sessions have durations.
-- *Dialogs* (loaded when opened): Start reading ("I'm at", remembered per device; edition and copy with the smart default; format; pages to read with "Find page count"; audio length; start date, exact or not; already at), Log progress (one field, or Page / % / Time with keypad fields on touch; quick steps; another edition or format; a move back asks "Fix my last log" or "I went back"; the last page opens Finish), Finish (date, rating, the book's rating, review; then the series' next volume), Abandon, Log a past read (dates at any precision), Edit reading and Delete. Log progress, Finish, Abandon and Delete have a 10-second Undo. `?reading=start` opens Start reading on arrival.
+- *Dialogs* (loaded when opened): Start reading ("I'm at", remembered per device; edition and copy with the smart default; format; pages to read with "Find page count"; audio length; start date, exact or not; already at), Log progress (one field, or Page / % / Time with keypad fields on touch; quick steps; another edition or format; a move back asks "Fix my last log" or "I went back"; the last page opens Finish), Finish (date, rating, the book's rating, review; then the series' next volume), Abandon, Log a past read (dates at any precision), Edit reading and Delete. Log progress, Finish, Abandon and Delete have a 10-second Undo. `?then=start` opens Start reading on arrival (Log progress when the book is being read) and `?then=past` opens Log a past read, once: `ReadingThen` (`src/components/reading/reading-then.tsx`) opens the dialog through `useReadingDialogs()`, then takes `then` out of the address with `router.replace`, so a refresh or Back does not open it again. The Finish dialog's next volume and the add-a-book page link here.
 
 **Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
 
@@ -477,6 +485,8 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 **Step 6 — Confirm**:
 - Summary of everything about to be created
 - Single "Add to catalogue" action
+
+**From the reading book picker** (SLN-448): `?q=` (trimmed, at most 200 characters) or `?isbn=` (an ISBN-10 or ISBN-13; anything else is ignored) fills the search and runs it; an ISBN also fills the ISBN field, as an ISBN-13. `&then=start` or `&then=past` sends both ways out to a book page (a new book, or an edition added to a book) with `?then=`, so the new book opens with Start reading or Log a past read. `bookPickerAddHref` (`src/lib/reading/book-picker.ts`) builds the link; `addBookParams` reads it.
 
 **Fast Track and leaving** (SLN-320, SLN-437, SLN-438):
 - The Details step (title, author, status) has Fast Track: it saves the work and one edition at once, without copies or categorization. Enter in a one-line field runs it, and the title takes the focus when the step opens, so a search result picked with Enter is one more Enter from saved. Enter still adds a line in the description and picks in open lists. When Fast Track is not shown (an edition for an existing work), Enter goes to the next step.
@@ -642,6 +652,28 @@ library's selection dialog adds a book with no edition as a whole book; film,
 perfume and painting pages have "Collections" in their actions menu.
 
 ---
+
+### Reading (`/reading`)
+
+The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "Start a book" (both open the book picker) and `ReadingTabs`.
+- **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), Log progress and a menu (Pause, Finish, Abandon, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
+- **Paused**: one line each with "paused 3 weeks ago" and Resume.
+- **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision.
+- With no reading at all: `EmptyState` with Start a book. Later steps add the timer, Up next, a passage of the day, the goal, On this day and suggestions here.
+
+**Book picker** (`src/components/reading/book-picker.tsx`): opened by "Start a book", "Log a past read" and the palette. Books only, matched without accents on title and authors as you type, owned books first (`ownedBookCondition`), then by title, at most 20 (`searchBooksToRead`). Each row: cover, title, author, "Owned" or the catalogue status, and the reading state ("Reading 44%", "Paused", "Read 2 times"). Choosing a book opens the dialog the picker was opened for; Start on a book being read opens Log progress instead. The empty result and the footer read 'Not in Durtal? Add "<query>"', a link to `/library/new?q=<query>&then=start` (`?isbn=` for an ISBN, `&then=past` for a past read).
+
+**Tabs**: `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the one tab row of every reading page, in its final order: Now (`/reading`), Up next (`/reading/next`), Journal (`/reading/journal`), Notes, Stats, Suggestions, Import. A tab shows only once its page exists; this step shows Now and Journal. Now is current on `/reading` only; any other tab on its path and below. The e-book reader's pages have no tab row.
+
+### Reading journal (`/reading/journal`)
+
+Every reading (SLN-448), from `parseJournalQuery` (`src/lib/reading/journal-params.ts`) and `queryJournal` (`src/lib/reading/journal.ts`).
+- A summary of the filtered readings: "212 readings · 187 finished · 9 abandoned · 4 re-reads".
+- With the Finished sort, rows sit in groups: "In progress", then each year of finish (the stop date of an abandoned read; a month or year date sits in its year), then "Date unknown".
+- Each row: cover, title, author, dates (`formatReadingSpan`), outcome ("Finished · re-read"), the edition's language when it is a translation, the format, the read's rating, and a menu with Edit and Delete (with Undo).
+- Filters in the URL: Status (`status`), Year range (`yearMin`, `yearMax`, on the finish or stop date), Format (`format`), Minimum rating (`minRating`, half stars), Re-reads only (`rereads=1`), and the search (`q`, title and author, accents ignored). Sorts (`sort`, `order`): Finished (newest first, unknown dates last), Started, Rating (unrated last), Title (accents ignored). Ties on the reading's id. 48 per page.
+- **The read's rating** everywhere on the hub (the journal's stars, filter and sort, the Now page, the dashboard): `readingRatingSql`, the read's own rating, else the book's when it is the book's only finished read. A book rated 5 whose 2012 read was rated 3 shows 3 on that row.
+- **Re-reads**: a reading is a re-read when its book has a finished reading before it in the order `getReadingsForWork` numbers by (`rereadSql`, one window over all readings). An abandoned first attempt does not make the next read a re-read.
 
 ### Reader (`/reader`)
 

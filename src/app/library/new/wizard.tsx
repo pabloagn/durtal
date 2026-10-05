@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { AuthorNameInput } from "@/components/shared/author-name-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -812,10 +813,13 @@ export function AddBookWizard({
                           </div>
                         </div>
 
-                        <ArrowRight
-                          className="mt-2 h-3.5 w-3.5 flex-shrink-0 text-fg-muted"
-                          strokeWidth={1.5}
-                        />
+                        {/* On the cap-height center of the title's first line */}
+                        <CapAligned height={14} className="type-item-title">
+                          <ArrowRight
+                            className="h-3.5 w-3.5 text-fg-muted"
+                            strokeWidth={1.5}
+                          />
+                        </CapAligned>
                       </button>
                     ))}
 
