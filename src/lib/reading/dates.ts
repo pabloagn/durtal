@@ -131,3 +131,33 @@ export function daysToFinish(r: Pick<ReadingSpanInput, "startedOn" | "startedPre
   const ms = Date.parse(`${r.finishedOn}T00:00:00Z`) - Date.parse(`${r.startedOn}T00:00:00Z`);
   return Math.round(ms / 86_400_000) + 1;
 }
+
+/** The precisions a reading date takes in `CatalogueDateField` */
+export const READING_DATE_KINDS = ["unknown", "year", "month", "day"] as const;
+
+/**
+ * A partial date from `CatalogueDateField` as a reading stores it: the first
+ * day of its period and its precision ("2019" is 2019-01-01, year).
+ */
+export function readingDateOf(value: {
+  precision: string;
+  start?: { year: number; month?: number | null; day?: number | null } | null;
+} | null): { date: string | null; precision: ReadingDatePrecision } {
+  const start = value?.start;
+  if (!value || !start || !["year", "month", "day"].includes(value.precision)) return { date: null, precision: "unknown" };
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const precision = value.precision as "year" | "month" | "day";
+  const month = precision === "year" ? 1 : (start.month ?? 1);
+  const day = precision === "day" ? (start.day ?? 1) : 1;
+  return { date: `${String(start.year).padStart(4, "0")}-${pad(month)}-${pad(day)}`, precision };
+}
+
+/** The `CatalogueDateField` value of a reading date */
+export function catalogueDateOf(date: string | null, precision: ReadingDatePrecision) {
+  if (!date || precision === "unknown") return { precision: "unknown" as const };
+  const [year, month, day] = date.split("-").map(Number);
+  return {
+    precision,
+    start: { year, month: precision === "year" ? null : month, day: precision === "day" ? day : null },
+  };
+}

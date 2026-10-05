@@ -179,7 +179,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 
 | Surface | Utility |
 |---|---|
-| Command palette, leader menu, dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
+| Command palette, leader menus (A, G, Y, E, R), dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
 | Menus, select lists, date picker, filter panels, pickers (also films' search picker), hover cards | `glass` |
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
@@ -381,6 +381,12 @@ Selection uses the plum accent as background with primary foreground text:
 The application is designed desktop-first but must be usable on all screen sizes. No separate mobile app — responsive web only. PWA if needed later.
 
 A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
+
+### Progress bars and rich text
+
+- `ProgressBar` (`src/components/shared/progress-bar.tsx`): 4px tall, 2px radius, `accent-blue` while reading and `accent-sage` when finished, on a `bg-tertiary` track. It is a `progressbar` whose `aria-valuetext` says the number in words ("44 percent, page 212 of 480"); the number is always shown as text nearby too.
+- `TiptapEditor` (`src/components/shared/tiptap-editor.tsx`) is the rich text field for reviews and notes: bold, italic, link, bulleted and numbered lists and quote, each an icon button with `aria-label` and a tooltip (44px on touch). It saves HTML and Tiptap JSON and opens an imported review from its HTML. `CommentEditor` is built on it with its own extra tools. `rich-text-editor.tsx` stays for author bios. A dialog that uses it loads it on opening, so a page ships no editor until then.
+- The book page's header row under the title holds the reading control first, then the Read button: both 32px tall (44px on touch) with an 8px gap.
 
 ### Keyboard, touch and motion
 

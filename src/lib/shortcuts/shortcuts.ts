@@ -68,6 +68,17 @@ export const COPY_KEYS = {
   link: "l",
 } as const;
 
+/** The R menu on a book page (SLN-447) */
+export const READING_KEYS = {
+  start: "s",
+  progress: "p",
+  pause: "u",
+  finish: "f",
+  abandon: "a",
+  past: "l",
+  history: "h",
+} as const;
+
 /**
  * E opens the "Edit" menu: the edit actions the open page offers (now the
  * book page). Pages give their own entries (useEditActions); on a page with
@@ -86,6 +97,7 @@ export const SHORTCUTS = {
   goMenu: ["g"],
   copyMenu: ["y"],
   editMenu: ["e"],
+  readingMenu: ["r"],
   help: ["?"],
   pick: ["↑", "↓"],
   confirm: ["enter"],
@@ -107,6 +119,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.goMenu, label: "Go to a section" },
       { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
       { keys: SHORTCUTS.editMenu, label: "Edit this page" },
+      { keys: SHORTCUTS.readingMenu, label: "Reading (a book)" },
       { keys: SHORTCUTS.palette, label: "Search books, people, commands" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
@@ -145,6 +158,19 @@ export const SHORTCUT_GROUPS: {
       { keys: ["e", EDIT_KEYS.work], label: "Work (a book)", then: true },
       { keys: ["e", EDIT_KEYS.media], label: "Media (a book)", then: true },
       { keys: ["e", EDIT_KEYS.taxonomy], label: "Taxonomy (a book)", then: true },
+    ],
+  },
+  {
+    title: "Reading",
+    wide: true,
+    items: [
+      { keys: ["r", READING_KEYS.start], label: "Start reading, or re-read", then: true },
+      { keys: ["r", READING_KEYS.progress], label: "Log progress", then: true },
+      { keys: ["r", READING_KEYS.pause], label: "Pause or resume", then: true },
+      { keys: ["r", READING_KEYS.finish], label: "Finish", then: true },
+      { keys: ["r", READING_KEYS.abandon], label: "Abandon", then: true },
+      { keys: ["r", READING_KEYS.past], label: "Log a past read", then: true },
+      { keys: ["r", READING_KEYS.history], label: "Go to the Reading section", then: true },
     ],
   },
   {

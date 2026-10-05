@@ -12,7 +12,10 @@ import {
   Link2,
   Plus,
   Trash2,
+  BookPlus,
+  CalendarClock,
 } from "lucide-react";
+import { useOptionalReading } from "@/components/reading/reading-provider";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
@@ -161,6 +164,7 @@ export function WorkActionsMenu({
     });
   }
 
+  const reading = useOptionalReading();
   const actionItems = [
     {
       label: copied ? "Copied!" : "Copy",
@@ -185,6 +189,13 @@ export function WorkActionsMenu({
       onClick: () => setMediaOpen(true),
       shortcut: "E M",
     },
+    // With no readings yet, the Reading section is not shown: its first steps are here
+    ...(reading && reading.data.rows.length === 0
+      ? [
+          { label: "Start reading", icon: BookPlus, onClick: () => reading.run("start"), shortcut: "R S" },
+          { label: "Log a past read", icon: CalendarClock, onClick: () => reading.run("past"), shortcut: "R L" },
+        ]
+      : []),
     {
       label: "Add Edition",
       icon: Plus,

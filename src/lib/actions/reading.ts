@@ -839,3 +839,78 @@ export async function getReadingCounts(workId: string) {
   );
   return row ?? { readings: 0, sessions: 0 };
 }
+
+/**
+ * The series' next volume to read after this book, with where its copy is:
+ * the copy at hand at the "I'm at" home, else its first copy in the
+ * collection, else "Not owned" (the Finish dialog's panel).
+ */
+export async function getNextInSeries(workId: string, homeId: string | null) {
+  const id = z.uuid().parse(workId);
+  const home = homeId === null ? null : z.uuid().parse(homeId);
+  const [work] = await db
+    .select({ seriesId: works.seriesId })
+    .from(works)
+    .where(eq(works.id, id));
+  if (!work?.seriesId) return null;
+  const { nextToRead } = await import("@/lib/reading/series");
+  const next = await nextToRead(work.seriesId);
+  if (!next || next.id === id) return null;
+  const { atHandCopySql, copyWhereabouts } = await import("@/lib/reading/at-hand");
+  const [copy] = resultRows<{
+    status: string;
+    locationId: string;
+    locationType: string | null;
+    locationName: string | null;
+    subLocationName: string | null;
+    lentTo: string | null;
+    lentDate: string | null;
+  }>(
+    await db.execute(sql`select i.status, i.location_id as "locationId", l.type as "locationType", l.name as "locationName",
+        sl.name as "subLocationName", i.lent_to as "lentTo", i.lent_date::text as "lentDate"
+      from instances i join locations l on l.id = i.location_id left join sub_locations sl on sl.id = i.sub_location_id
+      where i.id = coalesce((${atHandCopySql(next.id, home)} limit 1),
+        (select i2.id from instances i2 join editions e2 on e2.id = i2.edition_id
+          where e2.work_id = ${next.id}::uuid and i2.status <> 'deaccessioned'
+          order by (i2.status = 'available') desc, i2.created_at, i2.id limit 1))`),
+  );
+  const [named] = resultRows<{ title: string }>(
+    await db.execute(sql`select title from series where id = ${work.seriesId}::uuid`),
+  );
+  return {
+    id: next.id,
+    title: next.title,
+    slug: next.slug ?? null,
+    seriesTitle: named?.title ?? null,
+    whereabouts: copy ? copyWhereabouts(copy, { today: readingDay(new Date(), appTimeZone()) }) : "Not owned",
+  };
+}
+
+/**
+ * An edition's page count from the configured sources (ISBNdb by ISBN, then
+ * Open Library by its edition key), for the Start dialog. Writes nothing:
+ * saving it to the edition is the match flow's job.
+ */
+export async function findPageCount(editionId: string) {
+  const id = z.uuid().parse(editionId);
+  const [edition] = await db
+    .select({ isbn13: editions.isbn13, openLibraryKey: editions.openLibraryKey })
+    .from(editions)
+    .where(eq(editions.id, id));
+  if (!edition) throw new Error("This edition no longer exists");
+  const { fetchSourceRecord } = await import("@/lib/match/source");
+  const tries: [string, string | null][] = [
+    ["isbndb", edition.isbn13],
+    ["open_library", edition.openLibraryKey?.includes("/books/") ? edition.openLibraryKey : null],
+  ];
+  for (const [source, key] of tries) {
+    if (!key) continue;
+    try {
+      const record = await fetchSourceRecord(source, key);
+      if (record.pageCount && record.pageCount > 0) return { pageCount: record.pageCount, source };
+    } catch {
+      // The next source
+    }
+  }
+  return null;
+}

@@ -23,6 +23,9 @@ export function sidebarWidth(stored: unknown): number {
     : SIDEBAR.expanded;
 }
 
+/** The reading tracker's "I'm at" home on this device: a location id, or "none" (SLN-447). */
+export const READING_HOME_KEY = "durtal-reading-home";
+
 /** The reader's typography (font, size, line height, margins, alignment). */
 export const READER_SETTINGS_KEY = "durtal-reader-settings";
 

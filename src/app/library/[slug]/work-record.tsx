@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { WorkWithRelations } from "@/lib/types";
 import type { getOrdersForWork } from "@/lib/actions/orders";
 import { Badge } from "@/components/ui/badge";
-import { RecordGroup, RecordPanel } from "@/components/shared/detail-layout";
+import { RecordField, RecordFields, RecordGroup, RecordPanel } from "@/components/shared/detail-layout";
+import type { readingRecord } from "@/lib/reading/labels";
 import { WorkDetails } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
 import { enumLabel, metadataSourceLabel } from "@/lib/utils/labels";
@@ -37,11 +38,14 @@ export function WorkRecord({
   orders,
   media,
   links,
+  reading,
 }: {
   work: WorkWithRelations;
   orders: Order[];
   media: { posters: number; backgrounds: number; gallery: number };
   links: { label: string; href: string }[];
+  /** The book's readings in brief; null with none */
+  reading?: ReturnType<typeof readingRecord> | null;
 }) {
   const mediaParts = (
     [
@@ -57,6 +61,17 @@ export function WorkRecord({
     <RecordPanel>
       <WorkDetails work={work} />
       <WorkTaxonomySection work={work} />
+
+      {reading && (
+        <RecordGroup title="Reading">
+          <RecordFields>
+            {reading.firstRead && <RecordField label="First read">{reading.firstRead}</RecordField>}
+            {reading.lastFinished && <RecordField label="Last finished">{reading.lastFinished}</RecordField>}
+            <RecordField label="Times read">{reading.timesRead}</RecordField>
+            {reading.timeSpent && <RecordField label="Time spent">{reading.timeSpent}</RecordField>}
+          </RecordFields>
+        </RecordGroup>
+      )}
 
       {mediaParts.length > 0 && (
         <RecordGroup title="Media">

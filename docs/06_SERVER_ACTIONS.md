@@ -478,6 +478,15 @@ Edit or remove one session (not the running timer); the next session's start and
 ### `getReadingsForWork(workId)`, `getOpenReadings()`, `getReadingCounts(workId)`
 A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author and cover; the readings and sessions a book delete removes.
 
+### What the book page calls (SLN-447)
+The header control, the Reading section and its dialogs call `startReading`, `logProgress` and `undoProgress`, `pauseReading`, `resumeReading`, `finishReading`, `abandonReading`, `reopenReading` (the Undo of finish and abandon, and "Resume this reading" with `toStatus: "reading"`), `addPastReading`, `updateReading`, `deleteReading` and `restoreReading`. Every write sends the browser's `timeZone` and, on an existing reading, the fingerprint from `getReadingsForWork` or the last write. A "212/480" log first sets the page count with `updateReading`.
+
+### `getNextInSeries(workId, homeId)`
+After a finish: the series' next volume to read (`nextToRead` in `src/lib/reading/series.ts`: the first volume in series order not finished, after the last finished one) with where its copy is (the copy at hand at the home, else its first copy in the collection, else "Not owned"). Null when the book is in no series or every later volume is read.
+
+### `findPageCount(editionId)`
+An edition's page count from ISBNdb (by ISBN-13), then Open Library (by its edition key), or null. It writes nothing: saving it to the edition is the match flow's job.
+
 ### Internal service (`src/lib/reading/service.ts`, not a server action)
 - `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
 - `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again").
