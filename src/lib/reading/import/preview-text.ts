@@ -118,24 +118,22 @@ export function summaryLine(s: SummaryCounts): string {
     .join(" · ");
 }
 
-/** The commit button and the line under it: readings, books for Up Next (SLN-452), or both */
-export function commitWords(toImport: number, pending: number, toQueue = 0): { label: string; note: string | null } {
-  const books = plural(toQueue, "book");
+/** The commit button and the line under it: readings, private notes (SLN-453), books for Up Next (SLN-452) */
+export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0): { label: string; note: string | null } {
+  const imported = [toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null].filter(Boolean);
+  const queue = toQueue ? `add ${plural(toQueue, "book")} to Up Next` : null;
   return {
-    label:
-      toImport && toQueue
-        ? `Import ${plural(toImport, "reading")} and add ${books} to Up Next`
-        : toImport
-          ? `Import ${plural(toImport, "reading")}`
-          : toQueue
-            ? `Add ${books} to Up Next`
-            : "Nothing to import",
+    label: imported.length
+      ? `Import ${imported.join(" and ")}${queue ? `${imported.length > 1 ? "," : ""} and ${queue}` : ""}`
+      : queue
+        ? `Add ${plural(toQueue, "book")} to Up Next`
+        : "Nothing to import",
     note: pending ? `${plural(pending, "row")} not decided yet ${pending === 1 ? "is" : "are"} left out` : null,
   };
 }
 
 /** "What this file cannot carry", for the detected format */
-export function cannotCarry(source: ImportSource, counts: { otherShelves: number; privateNotes: number; extras: number }, missing: string[]): string[] {
+export function cannotCarry(source: ImportSource, counts: { otherShelves: number; extras: number }, missing: string[]): string[] {
   const lines: string[] = [];
   if (source === "goodreads") {
     lines.push("Goodreads keeps no start dates: imported reads start on an unknown date.");
@@ -145,7 +143,6 @@ export function cannotCarry(source: ImportSource, counts: { otherShelves: number
   if (source === "durtal") lines.push("A reading CSV holds readings only: no sessions, notes or quotes.");
   if (counts.otherShelves)
     lines.push(`${plural(counts.otherShelves, "book")} on ${counts.otherShelves === 1 ? "a shelf that is" : "shelves that are"} neither read nor to-read ${counts.otherShelves === 1 ? "is" : "are"} kept but not imported.`);
-  if (counts.privateNotes) lines.push(`${plural(counts.privateNotes, "private note")} ${counts.privateNotes === 1 ? "is" : "are"} kept but not imported yet: notes will take them.`);
   if (counts.extras) lines.push(`Moods, pace, character questions, content warnings and tags of ${plural(counts.extras, "book")} are kept but not imported.`);
   return [...lines, ...missing];
 }

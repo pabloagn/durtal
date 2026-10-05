@@ -4,6 +4,7 @@ import { resultRows } from "@/lib/harmonization/store";
 import { IMPORT_SECTIONS, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
 import type { ImportErrorLog, ImportStatus, Written } from "./store";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
+import { readingsCommitted, readingsUncommittedSql } from "./notes";
 
 /*
  * What the import pages read (SLN-450). The preview reads each section's
@@ -31,6 +32,8 @@ export interface ImportListItem {
   readings: number;
   /** Up Next items it added (SLN-452) */
   queued: number;
+  /** Notes it wrote from private notes (SLN-453) */
+  notes: number;
 }
 
 /** The reading imports, newest first */
@@ -42,7 +45,8 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
-        (select count(*) from reading_queue q where q.import_id = i.id)::int as queued
+        (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
+        (select count(*) from reading_notes n where n.import_id = i.id)::int as notes
       from imports i
       where i.source in ${IMPORT_SOURCES}
       order by i.created_at desc, i.id
@@ -58,6 +62,7 @@ export interface ImportSummary {
   rows: number;
   sections: Record<ImportSection, number>;
   wantToRead: number;
+  /** Rows with a Goodreads private note (SLN-453) */
   privateNotes: number;
   extras: number;
   /** Rows still pending in the sections that need a decision */
@@ -124,10 +129,13 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept", i.error_log as "errorLog",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
-        (select count(*) from reading_queue q where q.import_id = i.id)::int as queued
+        (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
+        (select count(*) from reading_notes n where n.import_id = i.id)::int as notes
       from imports i where i.id = ${importId}::uuid and i.source in ${IMPORT_SOURCES}`),
   );
   if (!header) return null;
+  // A row whose readings are not committed; its private note may be (SLN-453)
+  const open = readingsUncommittedSql("r");
   const caps = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, Math.min(SECTION_MAX, Math.max(SECTION_PAGE, limits[s] ?? SECTION_PAGE))]));
 
   const [counts, totalsResult, rows] = await Promise.all([
@@ -139,18 +147,18 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.data->>'kind' = 'to_read')::int as "wantToRead",
         count(*) filter (where r.data->>'privateNotes' is not null)::int as "privateNotes",
         count(*) filter (where r.data->'extras' <> '{}'::jsonb)::int as extras,
-        count(*) filter (where r.decision = 'pending' and r.written is null and r.match->>'section' in ('choose', 'likely', 'none', 'exact', 'to_read'))::int as pending,
-        count(*) filter (where r.decision = 'import' and r.written is null and r.work_id is not null and r.match->>'section' = 'to_read')::int as "toQueue",
+        count(*) filter (where r.decision = 'pending' and ${open} and r.match->>'section' in ('choose', 'likely', 'none', 'exact', 'to_read'))::int as pending,
+        count(*) filter (where r.decision = 'import' and ${open} and r.work_id is not null and r.match->>'section' = 'to_read')::int as "toQueue",
         count(*) filter (where r.data->>'kind' = 'to_read' and r.data->>'queueKey' is null)::int as "otherShelves",
-        count(*) filter (where r.written is not null)::int as written,
-        count(*) filter (where r.work_id is null and r.written is null and r.match->>'section' in ('choose', 'none'))::int as "noBook",
-        count(*) filter (where r.written is null and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
+        count(*) filter (where not ${open})::int as written,
+        count(*) filter (where r.work_id is null and ${open} and r.match->>'section' in ('choose', 'none'))::int as "noBook",
+        count(*) filter (where ${open} and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
           and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "ratingsDiffer",
-        coalesce(sum(case when r.decision = 'import' and r.written is null and r.work_id is not null then
+        coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null then
           (select count(*) from jsonb_array_elements(r.match->'verdicts') v
             where v->>'verdict' = 'new' or (r.match->>'section' = 'present' and v->>'reason' = 'Undated read'))
           else 0 end), 0)::int as "toImport",
-        count(*) filter (where r.decision = 'import' and r.written is null and r.match->>'reason' = 'Same ISBN'
+        count(*) filter (where r.decision = 'import' and ${open} and r.match->>'reason' = 'Same ISBN'
           and r.data->>'sourceBookId' is not null and e.goodreads_id is null)::int as identifiers
       from reading_import_rows r
       left join works w on w.id = r.work_id
@@ -183,7 +191,8 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
   const [totals] = resultRows<Omit<ImportSummary, "sections">>(totalsResult);
   const sections = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, 0])) as Record<ImportSection, number>;
   for (const c of resultRows<{ section: ImportSection; n: number }>(counts)) if (c.section in sections) sections[c.section] = c.n;
-  const shown = resultRows<Omit<PreviewRow, "candidates">>(rows);
+  // A row with only its note written shows as not committed: its readings can still be
+  const shown = resultRows<Omit<PreviewRow, "candidates">>(rows).map((r) => (readingsCommitted(r.written) ? r : { ...r, written: null }));
 
   // The candidates of the "To choose" rows shown, in one query
   const candidateIds = [...new Set(shown.flatMap((r) => (r.section === "choose" ? r.match.candidates.map((c) => c.workId) : [])))];

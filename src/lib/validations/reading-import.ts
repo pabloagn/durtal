@@ -33,3 +33,6 @@ export const decideImportSectionSchema = z.object({
 });
 
 export const importIdSchema = z.object({ importId });
+
+/** One row's private note (SLN-453): import or skip */
+export const decideImportNoteSchema = z.object({ importId, rowNo, decision: z.enum(IMPORT_DECISIONS) });

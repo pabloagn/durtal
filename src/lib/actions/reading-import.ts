@@ -2,7 +2,9 @@
 
 import { z } from "zod/v4";
 import { chooseBook, commitImport, decideRow, decideSection, rematch, undoImport } from "@/lib/reading/import/store";
+import { decideAllNotes, decideNote } from "@/lib/reading/import/notes";
 import {
+  decideImportNoteSchema,
   decideImportRowSchema,
   decideImportSectionSchema,
   importIdSchema,
@@ -42,4 +44,14 @@ export async function commitReadingImport(input: z.input<typeof importIdSchema>)
 /** Removes what the import wrote, keeping readings edited since */
 export async function undoReadingImport(input: z.input<typeof importIdSchema>) {
   return undoImport(importIdSchema.parse(input).importId);
+}
+
+/** Import or skip one row's Goodreads private note (SLN-453): one UPDATE, refused once the note is in */
+export async function decideImportNote(input: z.input<typeof decideImportNoteSchema>) {
+  await decideNote(decideImportNoteSchema.parse(input));
+}
+
+/** "Import all private notes": every note of the import with a book (SLN-453) */
+export async function decideAllImportNotes(input: z.input<typeof importIdSchema>) {
+  return decideAllNotes(importIdSchema.parse(input).importId);
 }

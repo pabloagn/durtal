@@ -162,16 +162,21 @@ describe("the preview's words", () => {
     // To-read rows go to Up Next (SLN-452); a re-imported file offers only them
     expect(commitWords(0, 0, 412).label).toBe("Add 412 books to Up Next");
     expect(commitWords(3, 0, 1).label).toBe("Import 3 readings and add 1 book to Up Next");
+    // Private notes (SLN-453): named beside the readings
+    expect(commitWords(1142, 0, 0, 23).label).toBe("Import 1,142 readings and 23 notes");
+    expect(commitWords(0, 0, 0, 1).label).toBe("Import 1 note");
+    expect(commitWords(3, 0, 2, 1).label).toBe("Import 3 readings and 1 note, and add 2 books to Up Next");
+    expect(commitWords(0, 0, 2, 4).label).toBe("Import 4 notes and add 2 books to Up Next");
   });
   it("says what each format cannot carry", () => {
-    expect(cannotCarry("goodreads", { otherShelves: 2, privateNotes: 1, extras: 0 }, ["This file has no Date Read column; reads will have no finish date"])).toEqual([
+    // Private notes are imported now (SLN-453): the box no longer counts them
+    expect(cannotCarry("goodreads", { otherShelves: 2, extras: 0 }, ["This file has no Date Read column; reads will have no finish date"])).toEqual([
       "Goodreads keeps no start dates: imported reads start on an unknown date.",
       "Goodreads keeps only the last read date: earlier reads have no dates.",
       "2 books on shelves that are neither read nor to-read are kept but not imported.",
-      "1 private note is kept but not imported yet: notes will take them.",
       "This file has no Date Read column; reads will have no finish date",
     ]);
-    expect(cannotCarry("storygraph", { otherShelves: 0, privateNotes: 0, extras: 3 }, [])[1]).toBe(
+    expect(cannotCarry("storygraph", { otherShelves: 0, extras: 3 }, [])[1]).toBe(
       "Moods, pace, character questions, content warnings and tags of 3 books are kept but not imported.",
     );
   });
