@@ -119,6 +119,9 @@ export function EditionDetailCard({
   // Actions show where the card sits on a work page
   const hasActionProps =
     workId !== undefined || availableLocations.length > 0;
+  // The ISBN and the first and limited edition marks, above the actions
+  const hasIsbnRow =
+    !!edition.isbn13 || !!edition.isFirstEdition || !!edition.isLimitedEdition;
 
   return (
     <Card>
@@ -129,7 +132,7 @@ export function EditionDetailCard({
             poster={poster}
             title={edition.title}
           />
-          <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
+          <div className="@container flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <h3 className="type-item-title">
                 {edition.title}
@@ -168,23 +171,28 @@ export function EditionDetailCard({
             </div>
 
             {/* Right side: ISBN badges + action buttons */}
-            <div className="flex flex-col items-end gap-1.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {edition.isbn13 && (
-                  <span className="font-mono text-xs text-fg-secondary">
-                    {edition.isbn13}
-                  </span>
-                )}
-                {edition.isFirstEdition && (
-                  <Badge variant="gold">1st ed.</Badge>
-                )}
-                {edition.isLimitedEdition && (
-                  <Badge variant="rose">Limited</Badge>
-                )}
-              </div>
+            <div
+              className={`flex flex-col items-end gap-1.5 ${
+                hasIsbnRow ? "" : "basis-full @[460px]:basis-auto"
+              }`}
+            >
+              {hasIsbnRow && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {edition.isbn13 && (
+                    <span className="font-mono text-xs text-fg-secondary">
+                      {edition.isbn13}
+                    </span>
+                  )}
+                  {edition.isFirstEdition && (
+                    <Badge variant="gold">1st ed.</Badge>
+                  )}
+                  {edition.isLimitedEdition && (
+                    <Badge variant="rose">Limited</Badge>
+                  )}
+                </div>
+              )}
               {hasActionProps && (
-                // On a phone the actions wrap; each label stays on one line
-                <div className="flex flex-wrap items-center gap-1">
+                <TitleLineActions onTitleLine={!hasIsbnRow}>
                   <CollectionButton
                     editionId={edition.id}
                     title={edition.title}
@@ -219,7 +227,7 @@ export function EditionDetailCard({
                     editionTitle={edition.title}
                     instanceCount={edition.instances.length}
                   />
-                </div>
+                </TitleLineActions>
               )}
             </div>
           </div>
@@ -391,5 +399,34 @@ export function EditionDetailCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * The edition's actions. On the title's line (no ISBN row above them, and
+ * room beside the title) they sit on the title's cap-height center, in one
+ * row, as `CapAlignedControls` does. Where the header is narrower than 460px
+ * they take their own line under the title and wrap; each label stays on one
+ * line. Under an ISBN row they are a plain row on its second line.
+ */
+function TitleLineActions({
+  onTitleLine,
+  children,
+}: {
+  onTitleLine: boolean;
+  children: React.ReactNode;
+}) {
+  if (!onTitleLine)
+    return <div className="flex flex-wrap items-center gap-1">{children}</div>;
+  return (
+    // The slot is one title line tall and carries the title's type, so
+    // 0.5cap resolves against it; the row inside takes the body type again
+    <div className="type-item-title @[460px]:h-[1lh]">
+      <div className="@[460px]:-my-3.5 @[460px]:inline-block @[460px]:h-7 @[460px]:align-[0.5cap]">
+        <div className="flex flex-wrap items-center gap-1 font-sans text-sm font-normal not-italic tracking-normal @[460px]:float-left @[460px]:h-7 @[460px]:flex-nowrap">
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
