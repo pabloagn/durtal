@@ -4,7 +4,7 @@ import { z } from "zod";
 import { inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { works } from "@/lib/db/schema";
-import { workCardWith } from "@/lib/actions/utils/work-card-query";
+import { workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
 
 /** Why a work counts as similar: one row per shared source. */
 export interface SimilarityReason {
@@ -83,6 +83,7 @@ export async function getSimilarWorks(workId: string, limit = 12) {
       works.id,
       ranked.map((r) => r.workId),
     ),
+    extras: workCardExtras,
     with: workCardWith,
   });
   const byId = new Map(found.map((w) => [w.id, w]));

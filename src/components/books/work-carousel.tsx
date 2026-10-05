@@ -3,6 +3,7 @@ import type { getWorksByAuthorId } from "@/lib/actions/works";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
+import { cardReadingOf } from "@/lib/reading/card";
 
 /** A work loaded with `workCardWith` */
 export type WorkCardData = Awaited<
@@ -58,6 +59,7 @@ export function WorkCarousel<T extends WorkCardData>({
               huntAssessedOn={work.huntAssessedOn}
               isPoison={work.isPoison}
               isFavourite={work.isFavourite}
+              reading={cardReadingOf(work)}
             />
             {caption?.(work)}
           </div>

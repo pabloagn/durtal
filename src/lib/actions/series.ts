@@ -2,7 +2,7 @@
 
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
 
-import { workCardWith } from "@/lib/actions/utils/work-card-query";
+import { workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, uniqueConstraint } from "@/lib/db/errors";
@@ -498,6 +498,7 @@ export async function getOtherWorksInSeries(seriesId: string, workId: string) {
       asc(works.title),
       asc(works.id),
     ],
+    extras: workCardExtras,
     with: workCardWith,
   });
 }

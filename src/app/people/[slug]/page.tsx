@@ -28,6 +28,11 @@ import {
 import { Prose } from "@/components/shared/prose";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { displayYear } from "@/lib/utils/years";
+import { formatRating } from "@/lib/utils/rating";
+import { formatReadingDate } from "@/lib/reading/dates";
+import { cardReadingOf } from "@/lib/reading/card";
+import { authorReadingTabOf, inReadingTab, readOfText, readingRecordOf } from "@/lib/reading/record";
+import { ReadingTabSwitch } from "@/components/reading/reading-tab-switch";
 import {
   countryDisplayName,
   enumLabel,
@@ -89,7 +94,14 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     role: wa.role,
   }));
 
-  const paging = paginateItems(works, await searchParams);
+  // Reading (SLN-449): "Read 7 of 12", the Reading record, and All / Unread / Reading / Read
+  const query = await searchParams;
+  const record = readingRecordOf(works);
+  const readingTab = authorReadingTabOf(query.reading);
+  const paging = paginateItems(
+    works.filter((w) => inReadingTab(readingTab, w.readingState)),
+    query,
+  );
 
   const contributions = author.editionContributors.map((ec) => ({
     ...ec.edition,
@@ -155,8 +167,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       href: `https://www.goodreads.com/author/show/${author.goodreadsId}`,
     },
   ].filter((link): link is { label: string; href: string } => !!link);
+  const hasReadingRecord = record.read > 0;
   const hasRecord =
-    metadataFields.length > 0 || links.length > 0 || creditSummary.length > 0;
+    metadataFields.length > 0 || links.length > 0 || creditSummary.length > 0 || hasReadingRecord;
   const hasReading =
     !!author.bio ||
     works.length > 0 ||
@@ -235,6 +248,20 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </RecordFields>
                 </RecordGroup>
               )}
+              {hasReadingRecord && (
+                <RecordGroup title="Reading">
+                  <RecordFields>
+                    <RecordField label="Read">{`${record.read} of ${record.total}`}</RecordField>
+                    {record.rereads > 0 && (
+                      <RecordField label="Re-read">{`${record.rereads} ${record.rereads === 1 ? "book" : "books"}`}</RecordField>
+                    )}
+                    {record.average !== null && <RecordField label="Your average">{formatRating(record.average)}</RecordField>}
+                    {record.lastReadAt && (
+                      <RecordField label="Last read">{formatReadingDate(record.lastReadAt.slice(0, 10), "day")}</RecordField>
+                    )}
+                  </RecordFields>
+                </RecordGroup>
+              )}
               {metadataFields.length > 0 && (
                 <RecordGroup title="Details">
                   <RecordFields>
@@ -282,7 +309,12 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {/* Works as author */}
             {works.length > 0 && (
               <section className="mb-8">
-                <SectionHeading title="Books" count={works.length} />
+                <SectionHeading title="Books" count={works.length} description={readOfText(record)} />
+                {record.read > 0 && (
+                  <div className="mb-4">
+                    <ReadingTabSwitch value={readingTab} />
+                  </div>
+                )}
                 <PaginatedSection {...paging} noun="books">
                 <div
                   className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${hasRecord ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
@@ -331,6 +363,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                         isPoison={work.isPoison}
                         isFavourite={work.isFavourite}
                         primaryEditionId={work.editions[0]?.id}
+                        reading={cardReadingOf(work)}
                       />
                     );
                   })}

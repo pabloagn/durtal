@@ -62,20 +62,18 @@ import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { authorOrderedBookIds } from "@/lib/actions/utils/author-ordered-books";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
-import { posterTone, workCardWith } from "@/lib/actions/utils/work-card-query";
+import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
-import type { SQL } from "drizzle-orm";
+import type { AnyColumn, SQL } from "drizzle-orm";
 import { countryDisplayName } from "@/lib/utils/labels";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
 import {
   lastFinishedOnSql,
   lastFinishedPrecisionSql,
   lastReadAtSql,
-  openReadingPercentSql,
   readCountSql,
-  readingStateSql,
 } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 
@@ -175,13 +173,12 @@ export type WorkFilters = ReadingFilterParams & {
 };
 
 /** The library cards' and the API's reading data, one correlated subquery each over the root work (SLN-449) */
-const readingExtras = {
-  readingState: readingStateSql(works.id).as("reading_state"),
-  readingPercent: sql<number | null>`${openReadingPercentSql(works.id)}`.mapWith(Number).as("reading_percent"),
-  timesRead: readCountSql(works.id).as("times_read"),
-  lastFinishedOn: lastFinishedOnSql(works.id).as("last_finished_on"),
-  lastFinishedPrecision: lastFinishedPrecisionSql(works.id).as("last_finished_precision"),
-};
+const readingExtras = (work: { id: AnyColumn }) => ({
+  ...workCardExtras(work),
+  timesRead: readCountSql(work.id).as("times_read"),
+  lastFinishedOn: lastFinishedOnSql(work.id).as("last_finished_on"),
+  lastFinishedPrecision: lastFinishedPrecisionSql(work.id).as("last_finished_precision"),
+});
 
 /**
  * The where clause of the library list and its count, so both apply the same
@@ -755,6 +752,7 @@ export async function getWorksByAuthorId(
   if (!ids.length) return [];
   const results = await db.query.works.findMany({
     where: inArray(works.id, ids),
+    extras: workCardExtras,
     with: workCardWith,
   });
   return results.sort(compareWorks);
@@ -776,6 +774,7 @@ export async function getWorksWithMark(
   if (!ids.length) return [];
   const results = await db.query.works.findMany({
     where: inArray(works.id, ids),
+    extras: workCardExtras,
     with: workCardWith,
   });
   return results.sort(compareWorks);
