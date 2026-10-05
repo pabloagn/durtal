@@ -340,7 +340,7 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
 }
 
 /** Undo, after saying what it removes */
-export function UndoImport({ importId, readings, size = "md" }: { importId: string; readings: number; size?: "sm" | "md" }) {
+export function UndoImport({ importId, readings, queued = 0, size = "md" }: { importId: string; readings: number; queued?: number; size?: "sm" | "md" }) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
   return (
@@ -351,8 +351,9 @@ export function UndoImport({ importId, readings, size = "md" }: { importId: stri
       {asking && (
         <Dialog open onClose={() => setAsking(false)} title="Undo this import" className="max-w-md" expandable={false}>
           <p className="text-sm text-fg-secondary">
-            This removes the {readings === 1 ? "reading" : `${readings} readings`} it wrote, the book ratings it set while they are unchanged, and the
-            Goodreads ids it recorded. Readings you edited since are kept. You can import it again later.
+            This removes the {readings === 1 ? "reading" : `${readings} readings`} it wrote
+            {queued ? `, the ${queued === 1 ? "book" : `${queued} books`} it added to Up Next` : ""}, the book ratings it set while they are unchanged, and the
+            Goodreads ids it recorded. Readings you edited since, and Up Next items you moved or edited, are kept. You can import it again later.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => setAsking(false)} className={coarse}>
@@ -369,9 +370,16 @@ export function UndoImport({ importId, readings, size = "md" }: { importId: stri
                   () => undoReadingImport({ importId }),
                   (r) => {
                     setAsking(false);
-                    const { removed, kept } = r as { removed: number; kept: number };
+                    const { removed, kept, queueRemoved, queueKept } = r as { removed: number; kept: number; queueRemoved: number; queueKept: number };
                     toast.success(
-                      [`${removed} ${removed === 1 ? "reading" : "readings"} removed`, kept ? `${kept} edited after the import and kept` : null].filter(Boolean).join(" · "),
+                      [
+                        `${removed} ${removed === 1 ? "reading" : "readings"} removed`,
+                        kept ? `${kept} edited after the import and kept` : null,
+                        queueRemoved ? `${queueRemoved} ${queueRemoved === 1 ? "book" : "books"} taken off Up Next` : null,
+                        queueKept ? `${queueKept} Up Next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · "),
                     );
                   },
                 )

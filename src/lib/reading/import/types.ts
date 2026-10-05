@@ -3,7 +3,8 @@ import type { AbandonReason, ReadingDatePrecision, ReadingFormat, ReadingStatus,
 /*
  * One data row of a reading history file, mapped from any format (SLN-450).
  * Stored whole in `reading_import_rows.data`: what is not imported today
- * (private notes, to-read rows, StoryGraph moods) stays for later steps.
+ * (private notes, StoryGraph moods) stays for later steps. To-read rows go to
+ * Up Next (SLN-452).
  */
 
 export type ImportSource = "goodreads" | "storygraph" | "durtal";
@@ -56,6 +57,10 @@ export interface ImportRow {
   editionId: string | null;
   instanceId: string | null;
   readings: ImportReading[];
+  /** A to-read row (SLN-452): its Up Next key, built by goodreadsToReadKey or storygraphToReadKey */
+  queueKey?: string | null;
+  /** A to-read row's Date Added: Up Next takes the rows oldest first */
+  addedOn?: string | null;
   warnings: string[];
   /** Why the row cannot be imported at all (a date rule broken, a bad value) */
   error: string | null;

@@ -79,7 +79,7 @@ export function ratingLine(input: {
 }): { text: string; choice: boolean } | null {
   const { section, fileRating, bookRating, useFileRating, writes } = input;
   if (fileRating === null || bookRating === undefined || !writes) return null;
-  if (section === "present" || section === "cannot" || section === "not_imported") return null;
+  if (section === "present" || section === "cannot" || section === "not_imported" || section === "to_read") return null;
   if (bookRating === null) return { text: `Book rating set to ${fileRating}: the book has none`, choice: false };
   if (bookRating === fileRating) return null;
   return useFileRating
@@ -118,16 +118,24 @@ export function summaryLine(s: SummaryCounts): string {
     .join(" · ");
 }
 
-/** The commit button and the line under it */
-export function commitWords(toImport: number, pending: number): { label: string; note: string | null } {
+/** The commit button and the line under it: readings, books for Up Next (SLN-452), or both */
+export function commitWords(toImport: number, pending: number, toQueue = 0): { label: string; note: string | null } {
+  const books = plural(toQueue, "book");
   return {
-    label: toImport ? `Import ${plural(toImport, "reading")}` : "Nothing to import",
+    label:
+      toImport && toQueue
+        ? `Import ${plural(toImport, "reading")} and add ${books} to Up Next`
+        : toImport
+          ? `Import ${plural(toImport, "reading")}`
+          : toQueue
+            ? `Add ${books} to Up Next`
+            : "Nothing to import",
     note: pending ? `${plural(pending, "row")} not decided yet ${pending === 1 ? "is" : "are"} left out` : null,
   };
 }
 
 /** "What this file cannot carry", for the detected format */
-export function cannotCarry(source: ImportSource, counts: { wantToRead: number; privateNotes: number; extras: number }, missing: string[]): string[] {
+export function cannotCarry(source: ImportSource, counts: { otherShelves: number; privateNotes: number; extras: number }, missing: string[]): string[] {
   const lines: string[] = [];
   if (source === "goodreads") {
     lines.push("Goodreads keeps no start dates: imported reads start on an unknown date.");
@@ -135,7 +143,8 @@ export function cannotCarry(source: ImportSource, counts: { wantToRead: number; 
   }
   if (source === "storygraph") lines.push("Quarter stars are rounded to the nearest half: 3.75 is saved as 4, 3.25 as 3.5.");
   if (source === "durtal") lines.push("A reading CSV holds readings only: no sessions, notes or quotes.");
-  if (counts.wantToRead) lines.push(`${plural(counts.wantToRead, "want-to-read book")} ${counts.wantToRead === 1 ? "is" : "are"} kept but not imported yet: Up next will take them.`);
+  if (counts.otherShelves)
+    lines.push(`${plural(counts.otherShelves, "book")} on ${counts.otherShelves === 1 ? "a shelf that is" : "shelves that are"} neither read nor to-read ${counts.otherShelves === 1 ? "is" : "are"} kept but not imported.`);
   if (counts.privateNotes) lines.push(`${plural(counts.privateNotes, "private note")} ${counts.privateNotes === 1 ? "is" : "are"} kept but not imported yet: notes will take them.`);
   if (counts.extras) lines.push(`Moods, pace, character questions, content warnings and tags of ${plural(counts.extras, "book")} are kept but not imported.`);
   return [...lines, ...missing];
@@ -152,6 +161,8 @@ export function outcomeWords(outcome: "written" | "already_present" | "possible_
 /** The reason a row shows: "Same ISBN", "Title and author, 92%", "Chosen by you" */
 export function reasonWords(match: Pick<ImportMatch, "reason" | "chosen" | "section" | "note">): string | null {
   if (match.section === "cannot" || match.section === "present") return match.note;
+  // A to-read book: how it was found, and where it stands in Up Next (SLN-452)
+  if (match.section === "to_read") return [match.chosen ? "Chosen by you" : match.reason, match.note].filter(Boolean).join(" · ") || null;
   if (match.chosen) return "Chosen by you";
   return match.reason;
 }

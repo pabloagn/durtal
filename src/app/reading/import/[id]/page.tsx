@@ -26,7 +26,8 @@ const SECTION_NOTES: Partial<Record<ImportSection, string>> = {
   exact: "The same Durtal book, Goodreads id or link, or ISBN.",
   present: "Every read of these rows is already in Durtal. Nothing is written for them.",
   cannot: "A rule of the reading tracker is broken. The reason is on each row.",
-  not_imported: "Want-to-read books stay with the import: Up next will take them.",
+  to_read: "Books on the to-read shelf. Imported, they go to the bottom of Up Next, oldest added first.",
+  not_imported: "Books on shelves that are neither read nor to-read stay with the import.",
 };
 
 const STATUS_LABEL = { completed: "Imported", pending: "To review", undone: "Undone" } as const;
@@ -56,7 +57,7 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
   if (!preview) notFound();
   const { header, summary, sections } = preview;
   const today = await readingToday();
-  const commit = commitWords(summary.toImport, summary.pending);
+  const commit = commitWords(summary.toImport, summary.pending, summary.toQueue);
   const carry = cannotCarry(header.source, summary, header.errorLog?.missing ?? []);
   const errors = header.errorLog?.errors ?? [];
   const uploaded = formatReadingDate(calendarDate(new Date(header.createdAt), appTimeZone()), "day");
@@ -75,9 +76,9 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
             {summaryLine(summary)}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0} />
+            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0} />
             <MatchAgain importId={id} show={summary.noBook > 0} />
-            {header.readings > 0 && <UndoImport importId={id} readings={header.readings} />}
+            {(header.readings > 0 || header.queued > 0) && <UndoImport importId={id} readings={header.readings} queued={header.queued} />}
             <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary">
               All imports
             </Link>

@@ -154,21 +154,24 @@ describe("the preview's words", () => {
         rows: 1204,
         wantToRead: 412,
         ratingsDiffer: 6,
-        sections: { exact: 980, likely: 120, choose: 60, none: 44, present: 18, cannot: 0, not_imported: 412 },
+        sections: { exact: 980, likely: 120, choose: 60, none: 44, to_read: 412, present: 18, cannot: 0, not_imported: 0 },
       }),
     ).toBe("1,204 rows · 980 exact · 120 likely · 60 to choose · 44 not in Durtal · 412 want to read · 18 already in Durtal · 6 book ratings differ");
     expect(commitWords(1142, 60)).toEqual({ label: "Import 1,142 readings", note: "60 rows not decided yet are left out" });
     expect(commitWords(1, 0)).toEqual({ label: "Import 1 reading", note: null });
+    // To-read rows go to Up Next (SLN-452); a re-imported file offers only them
+    expect(commitWords(0, 0, 412).label).toBe("Add 412 books to Up Next");
+    expect(commitWords(3, 0, 1).label).toBe("Import 3 readings and add 1 book to Up Next");
   });
   it("says what each format cannot carry", () => {
-    expect(cannotCarry("goodreads", { wantToRead: 2, privateNotes: 1, extras: 0 }, ["This file has no Date Read column; reads will have no finish date"])).toEqual([
+    expect(cannotCarry("goodreads", { otherShelves: 2, privateNotes: 1, extras: 0 }, ["This file has no Date Read column; reads will have no finish date"])).toEqual([
       "Goodreads keeps no start dates: imported reads start on an unknown date.",
       "Goodreads keeps only the last read date: earlier reads have no dates.",
-      "2 want-to-read books are kept but not imported yet: Up next will take them.",
+      "2 books on shelves that are neither read nor to-read are kept but not imported.",
       "1 private note is kept but not imported yet: notes will take them.",
       "This file has no Date Read column; reads will have no finish date",
     ]);
-    expect(cannotCarry("storygraph", { wantToRead: 0, privateNotes: 0, extras: 3 }, [])[1]).toBe(
+    expect(cannotCarry("storygraph", { otherShelves: 0, privateNotes: 0, extras: 3 }, [])[1]).toBe(
       "Moods, pace, character questions, content warnings and tags of 3 books are kept but not imported.",
     );
   });

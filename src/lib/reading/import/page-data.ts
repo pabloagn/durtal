@@ -29,6 +29,8 @@ export interface ImportListItem {
   errorRecords: number;
   rawKept: boolean;
   readings: number;
+  /** Up Next items it added (SLN-452) */
+  queued: number;
 }
 
 /** The reading imports, newest first */
@@ -39,7 +41,8 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         coalesce(i.total_records, 0) as "totalRecords", i.processed_records as "processedRecords",
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept",
-        (select count(*) from readings r where r.import_id = i.id)::int as readings
+        (select count(*) from readings r where r.import_id = i.id)::int as readings,
+        (select count(*) from reading_queue q where q.import_id = i.id)::int as queued
       from imports i
       where i.source in ${IMPORT_SOURCES}
       order by i.created_at desc, i.id
@@ -65,6 +68,10 @@ export interface ImportSummary {
   ratingsDiffer: number;
   /** Readings the commit button would write */
   toImport: number;
+  /** To-read rows the commit would add to Up Next (SLN-452) */
+  toQueue: number;
+  /** To-read rows on shelves that are not imported */
+  otherShelves: number;
   /** Goodreads ids the commit would record on editions matched by ISBN */
   identifiers: number;
 }
@@ -116,7 +123,8 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         coalesce(i.total_records, 0) as "totalRecords", i.processed_records as "processedRecords",
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept", i.error_log as "errorLog",
-        (select count(*) from readings r where r.import_id = i.id)::int as readings
+        (select count(*) from readings r where r.import_id = i.id)::int as readings,
+        (select count(*) from reading_queue q where q.import_id = i.id)::int as queued
       from imports i where i.id = ${importId}::uuid and i.source in ${IMPORT_SOURCES}`),
   );
   if (!header) return null;
@@ -131,11 +139,13 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.data->>'kind' = 'to_read')::int as "wantToRead",
         count(*) filter (where r.data->>'privateNotes' is not null)::int as "privateNotes",
         count(*) filter (where r.data->'extras' <> '{}'::jsonb)::int as extras,
-        count(*) filter (where r.decision = 'pending' and r.written is null and r.match->>'section' in ('choose', 'likely', 'none', 'exact'))::int as pending,
+        count(*) filter (where r.decision = 'pending' and r.written is null and r.match->>'section' in ('choose', 'likely', 'none', 'exact', 'to_read'))::int as pending,
+        count(*) filter (where r.decision = 'import' and r.written is null and r.work_id is not null and r.match->>'section' = 'to_read')::int as "toQueue",
+        count(*) filter (where r.data->>'kind' = 'to_read' and r.data->>'queueKey' is null)::int as "otherShelves",
         count(*) filter (where r.written is not null)::int as written,
         count(*) filter (where r.work_id is null and r.written is null and r.match->>'section' in ('choose', 'none'))::int as "noBook",
         count(*) filter (where r.written is null and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
-          and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported'))::int as "ratingsDiffer",
+          and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "ratingsDiffer",
         coalesce(sum(case when r.decision = 'import' and r.written is null and r.work_id is not null then
           (select count(*) from jsonb_array_elements(r.match->'verdicts') v
             where v->>'verdict' = 'new' or (r.match->>'section' = 'present' and v->>'reason' = 'Undated read'))
