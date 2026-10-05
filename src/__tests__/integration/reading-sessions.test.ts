@@ -38,6 +38,7 @@ import {
   deleteSession,
   discardTimer,
   finishReading,
+  getPaceContext,
   getRunningTimer,
   logProgress,
   pauseReading,
@@ -280,6 +281,44 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       const restored = await restoreSession({ readingId: a.reading.id, fingerprint: reading.fingerprint, snapshot: JSON.parse(JSON.stringify(session)) });
       expect(restored.currentPage).toBe(200);
       expect((await sessionsOf(a.reading.id)).map((r) => ({ ...r }))).toEqual(before);
+    });
+  });
+
+  describe("pace", () => {
+    it("counts pages with countedPagesSql, leaves out the running timer and closing sessions, gives numbers", async () => {
+      const workId = await value(`insert into works(title, slug) values ('Zero', 'zero-${++serial}') returning id`);
+      const editionId = await value(`insert into editions(work_id, title, language, page_count) values ($1, 'Zero', 'fr', 480) returning id`, [workId]);
+      const r = await startReading({ workId, editionId, startedOn: "2026-09-01", startedPrecision: "day", timeZone: "Europe/Amsterdam" });
+      // p. 400 by mistake, then p. 212 the same day: the last log is corrected
+      await log(r.id, { page: 400, readOn: "2026-09-02", durationSeconds: 3600 });
+      await log(r.id, { page: 212, readOn: "2026-09-02" });
+      const { sessionId } = await startTimer({ readingId: r.id });
+      await backdate(sessionId, 30);
+      const ctx = await getPaceContext([r.id]);
+      const pace = ctx.readings[r.id];
+      // countedPagesSql counts by share of the page total: 212 pages, give or take a rounding of the percent
+      expect(pace.sessions.map((x) => [x.readOn, Math.round(x.pages), x.durationSeconds])).toEqual([["2026-09-02", 212, 3600]]);
+      expect(typeof pace.currentPercent).toBe("number");
+      expect(pace).toMatchObject({ format: "print", unit: "pages", language: "fr", totalPages: 480 });
+      await discardTimer({ sessionId });
+      // A finish writes a closing session without a duration: it counts pages but no time
+      await finishReading({ readingId: r.id, fingerprint: await fp(r.id) });
+      const after = await getPaceContext([r.id]);
+      expect(after.readings[r.id].sessions.filter((x) => x.durationSeconds).length).toBe(1);
+    });
+
+    it("gives his priors by language and format, by format and overall, also with no reading", async () => {
+      const fr = await started("Nadja");
+      await log(fr.reading.id, { page: 160, readOn: "2026-09-02", durationSeconds: 7200 });
+      const enWork = await value(`insert into works(title, slug) values ('Watt', 'watt-${++serial}') returning id`);
+      const enEdition = await value(`insert into editions(work_id, title, language, page_count) values ($1, 'Watt', 'en', 300) returning id`, [enWork]);
+      const en = await startReading({ workId: enWork, editionId: enEdition, startedOn: "2026-09-01", startedPrecision: "day", timeZone: "Europe/Amsterdam" });
+      await log(en.id, { page: 120, readOn: "2026-09-03", durationSeconds: 3600 });
+      const { priors } = await getPaceContext([]);
+      expect(priors.byLanguageFormat["fr|print"]).toBeCloseTo(30, 1);
+      expect(priors.byLanguageFormat["en|print"]).toBeCloseTo(120, 1);
+      expect(priors.byFormat.print).toBeCloseTo(60, 1);
+      expect(priors.overall).toBeCloseTo(60, 1);
     });
   });
 

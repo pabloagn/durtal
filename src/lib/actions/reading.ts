@@ -22,11 +22,12 @@ import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { appTimeZone } from "@/lib/utils/date";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
-import { isOpenStatus, type ReadingStatus } from "@/lib/reading/constants";
+import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
 import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { percentOf, remapPosition } from "@/lib/reading/positions";
-import { readingOrdinalSql } from "@/lib/reading/summary";
+import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
+import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
 import { TIMER_GONE } from "@/lib/reading/timer";
 import {
   discardTimerRow,
@@ -165,6 +166,81 @@ async function progressEvent(reading: Reading, day: string) {
     pages: await pagesOnDay(reading.id, day),
     percent: reading.currentPercent,
   });
+}
+
+/* ── Pace (SLN-451) ── */
+
+export interface PaceContext {
+  readings: Record<string, PaceReading>;
+  priors: PacePriors;
+}
+
+/**
+ * Everything the estimates need for these readings, in one query: their
+ * ended sessions with countedPagesSql pages (the running timer left out),
+ * their paused intervals, and his priors over the last two years by
+ * language and format, by format and overall. `getPaceContext([])` gives
+ * the priors alone. Computed per request, never cached.
+ */
+export async function getPaceContext(readingIds: string[]): Promise<PaceContext> {
+  const ids = z.array(z.uuid()).max(500).parse(readingIds);
+  const zone = appTimeZone();
+  const [row] = resultRows<{
+    data: {
+      readings: (Omit<PaceReading, "sessions" | "pauses"> & { readingId: string })[] | null;
+      sessions: (PaceSession & { readingId: string })[] | null;
+      pauses: { readingId: string; from: string; to: string | null }[] | null;
+      priors: { language: string | null; format: ReadingFormat | null; level: number; pages: number; hours: number }[] | null;
+    };
+  }>(
+    await db.execute(sql`
+      with ids as (select value::uuid as id from jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)),
+      counted as (select c.session_id, c.pages from ${countedPagesSql()} c where c.session_id is not null),
+      priors as (
+        select e.language, s.format, grouping(e.language, s.format)::int as level,
+          sum(c.pages)::float8 as pages, (sum(s.duration_seconds) / 3600.0)::float8 as hours
+        from reading_sessions s
+        join counted c on c.session_id = s.id
+        left join editions e on e.id = s.edition_id
+        where s.duration_seconds > 0 and c.pages > 0 and s.format in ('print', 'ebook')
+          and s.read_on >= (current_date - interval '2 years')
+        group by grouping sets ((e.language, s.format), (s.format), ())
+      )
+      select jsonb_build_object(
+        'readings', (select jsonb_agg(jsonb_build_object(
+            'readingId', r.id, 'format', r.format, 'unit', r.unit, 'language', e.language,
+            'totalPages', r.total_pages, 'totalMinutes', r.total_minutes,
+            'currentPercent', r.current_percent::float8, 'currentMinutes', r.current_minutes))
+          from readings r left join editions e on e.id = r.edition_id where r.id in (select id from ids)),
+        'sessions', (select jsonb_agg(jsonb_build_object(
+            'readingId', s.reading_id, 'readOn', s.read_on::text, 'durationSeconds', s.duration_seconds, 'format', s.format,
+            'pages', coalesce(c.pages, 0)::float8,
+            'minutesAdvanced', case when s.end_minutes > coalesce(s.start_minutes, 0) then s.end_minutes - coalesce(s.start_minutes, 0) end)
+            order by s.read_on)
+          from reading_sessions s left join counted c on c.session_id = s.id
+          where s.reading_id in (select id from ids) and not (s.source = 'timer' and s.ended_at is null)),
+        'pauses', (select jsonb_agg(jsonb_build_object('readingId', p.reading_id, 'from', p.from_day, 'to', p.to_day))
+          from (select h.reading_id, h.to_status, (h.changed_at at time zone ${zone})::date::text as from_day,
+              (lead(h.changed_at) over (partition by h.reading_id order by h.changed_at) at time zone ${zone})::date::text as to_day
+            from reading_status_history h where h.reading_id in (select id from ids)) p
+          where p.to_status = 'paused'),
+        'priors', (select jsonb_agg(jsonb_build_object('language', language, 'format', format, 'level', level, 'pages', pages, 'hours', hours)) from priors)
+      ) as data`),
+  );
+  const data = row?.data ?? { readings: null, sessions: null, pauses: null, priors: null };
+  const priors: PacePriors = { byLanguageFormat: {}, byFormat: {}, overall: null };
+  for (const p of data.priors ?? []) {
+    if (!p.hours) continue;
+    const pace = p.pages / p.hours;
+    if (p.level === 0 && p.language && p.format) priors.byLanguageFormat[`${p.language}|${p.format}`] = pace;
+    else if (p.level === 2 && p.format) priors.byFormat[p.format] = pace;
+    else if (p.level === 3) priors.overall = pace;
+  }
+  const readings: Record<string, PaceReading> = {};
+  for (const r of data.readings ?? []) readings[r.readingId] = { ...r, sessions: [], pauses: [] };
+  for (const { readingId, ...session } of data.sessions ?? []) readings[readingId]?.sessions.push(session);
+  for (const { readingId, ...pause } of data.pauses ?? []) readings[readingId]?.pauses.push(pause);
+  return { readings, priors };
 }
 
 /* ── The reading timer (SLN-451) ── */
