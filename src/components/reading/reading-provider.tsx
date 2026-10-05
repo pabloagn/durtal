@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, Pause, Play } from "lucide-react";
+import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, Pause, Play, Square, Timer } from "lucide-react";
 import { useReadingActions, type EditItem } from "@/components/shortcuts/shortcuts-provider";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
@@ -13,6 +13,7 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/reading";
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { showError, type ReadingPageData, type ReadingRow } from "./reading-client";
+import { useOptionalTimer } from "./timer-provider";
 
 /*
  * The book page's reading actions in one place (SLN-447): the header control,
@@ -30,9 +31,15 @@ const DeleteReadingDialog = dynamic(() => import("./dialogs/delete-reading-dialo
 
 export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete";
 
+const TimerBlockDialog = dynamic(() => import("./timer-chip").then((m) => m.TimerBlockDialog));
+
 /** The dialog a request asks for; a dialog on a reading needs that reading */
 export function ReadingDialogSwitch(props: ReadingDialogProps) {
   const { request, row } = props;
+  // A reading being timed is not closed or deleted: its dialogs offer Stop and Discard (SLN-451)
+  const timer = useOptionalTimer();
+  if (row && timer?.timer?.readingId === row.reading.id && (request.kind === "finish" || request.kind === "abandon" || request.kind === "delete"))
+    return <TimerBlockDialog {...props} />;
   if (request.kind === "start") return <StartReadingDialog {...props} />;
   if (request.kind === "past") return <PastReadDialog {...props} />;
   if (!row) return null;
@@ -51,6 +58,17 @@ export interface DialogRequest {
   reachedEnd?: boolean;
   /** Log progress opened from the palette with what was typed ("212") */
   prefill?: string;
+  /** Log progress in stop mode: saving stops this running timer (SLN-451) */
+  timer?: StopRequest;
+}
+
+/** The running timer a stop saves, and the end time a forgotten timer was given */
+export interface StopRequest {
+  sessionId: string;
+  startedAt: string;
+  pausedAt: string | null;
+  pausedSeconds: number;
+  endedAt?: string;
 }
 
 /** What every dialog receives */
@@ -71,6 +89,8 @@ interface ReadingContextValue {
   openRow: ReadingRow | null;
   open: (request: DialogRequest) => void;
   run: (action: ReadingMenuAction, row?: ReadingRow | null) => void;
+  /** Starts the timer on the open reading, or stops it when it runs on this book (SLN-451) */
+  toggleTimer: () => void;
 }
 
 const ReadingContext = createContext<ReadingContextValue | null>(null);
@@ -132,6 +152,21 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     [openRow, open, changed, data.rows],
   );
 
+  // The timer (SLN-451): start it on the open reading, or stop it in stop mode when it runs here
+  const timer = useOptionalTimer();
+  const timing = !!openRow && timer?.timer?.readingId === openRow.reading.id;
+  const toggleTimer = useCallback(() => {
+    if (!openRow || !timer) return;
+    const running = timer.timer;
+    if (running && running.readingId === openRow.reading.id)
+      return open({
+        kind: "progress",
+        readingId: openRow.reading.id,
+        timer: { sessionId: running.sessionId, startedAt: running.startedAt, pausedAt: running.pausedAt, pausedSeconds: running.pausedSeconds },
+      });
+    void timer.start({ readingId: openRow.reading.id, workId: data.workId, title: data.workTitle });
+  }, [openRow, timer, open, data.workId, data.workTitle]);
+
   // The R menu and the palette: the actions that make sense now
   const state = bookReadingState(data.rows.map((r) => r.reading));
   const menu = readingMenu(state);
@@ -147,6 +182,12 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     );
     items.push({ key: READING_KEYS.finish, label: "Finish", icon: BookCheck, run: () => run("finish") });
     items.push({ key: READING_KEYS.abandon, label: "Abandon", icon: BookX, run: () => run("abandon") });
+    if (timer)
+      items.push(
+        timing
+          ? { key: READING_KEYS.timer, label: "Stop timer", icon: Square, run: toggleTimer }
+          : { key: READING_KEYS.timer, label: "Start timer", icon: Timer, run: toggleTimer },
+      );
   }
   items.push({ key: READING_KEYS.past, label: "Log a past read", icon: CalendarClock, run: () => run("past") });
   if (data.rows.length)
@@ -158,7 +199,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     });
   useReadingActions(items);
 
-  const context = useMemo(() => ({ data, openRow, open, run }), [data, openRow, open, run]);
+  const context = useMemo(() => ({ data, openRow, open, run, toggleTimer }), [data, openRow, open, run, toggleTimer]);
   const row = request?.readingId ? (data.rows.find((r) => r.reading.id === request.readingId) ?? null) : null;
   const props: ReadingDialogProps | null = request
     ? {

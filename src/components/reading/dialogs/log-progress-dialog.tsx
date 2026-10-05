@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { logProgress, undoProgress, updateReading } from "@/lib/actions/reading";
+import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/reading";
+import { durationWords, stopTimes } from "@/lib/reading/timer";
+import { useOptionalTimer } from "../timer-provider";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
 import { logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
@@ -44,9 +46,19 @@ export function segmentInput(
   return chapter ? { kind: "chapter", chapter } : null;
 }
 
-/** Log progress: one field, or keypad-friendly fields on a touch screen */
+/**
+ * Log progress: one field, or keypad-friendly fields on a touch screen. In
+ * stop mode (SLN-451) saving stops the running timer: no date (the timer's
+ * day) and no minutes read (the timer's time); no position stops it where
+ * it started, its time still counted.
+ */
 export function LogProgressDialog({ data, row, request, onClose, changed, open }: ReadingDialogProps) {
   const r = row!.reading;
+  const stopping = request.timer ?? null;
+  const timerContext = useOptionalTimer();
+  const [stopSeconds] = useState(() =>
+    stopping ? stopTimes(stopping, stopping.endedAt ? new Date(stopping.endedAt) : null).durationSeconds : 0,
+  );
   // What was typed in the palette ("+20") stays as typed, in the one field
   const coarse = useCoarsePointer() && !request.prefill;
   const [text, setText] = useState(request.prefill ?? "");
@@ -95,8 +107,50 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const steps = unit === "minutes" || (coarse && segment === "time") ? [15, 30, 60] : unit === "percent" || (coarse && segment === "percent") ? [5, 10, 25] : [5, 10, 25];
   const stepLabel = (n: number) => (unit === "minutes" || (coarse && segment === "time") ? `+${n} min` : unit === "percent" || (coarse && segment === "percent") ? `+${n}%` : `+${n}`);
 
+  async function stop() {
+    setSaving(true);
+    try {
+      const result = await stopTimer({
+        sessionId: stopping!.sessionId,
+        ...(stopping!.endedAt ? { endedAt: new Date(stopping!.endedAt) } : {}),
+        ...(preview?.send ?? {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
+        ...(preview?.behind ? { goingBack } : {}),
+        ...(session ? { editionId: session.id, format: otherFormat ?? r.format } : {}),
+      });
+      onClose();
+      changed();
+      await timerContext?.refresh();
+      undoToast(`Saved ${durationWords(result.session.durationSeconds ?? stopSeconds)}${preview ? ` · ${preview.done}` : ""}`, async () => {
+        try {
+          await undoStopTimer({ sessionId: stopping!.sessionId, fingerprint: result.reading.fingerprint, undo: result.undo });
+          changed();
+          await timerContext?.refresh();
+        } catch (err) {
+          showError(err, changed);
+        }
+      });
+      // "Stop it and start this one"
+      const next = timerContext?.pendingStart;
+      if (next) {
+        timerContext!.setPendingStart(null);
+        await timerContext!.start(next);
+      }
+      if (result.reachedEnd) open({ kind: "finish", readingId: r.id, finishedOn: result.session.readOn, reachedEnd: true });
+    } catch (err) {
+      showError(err, changed);
+      if (err instanceof Error && err.message === "This timer was stopped on another device") {
+        onClose();
+        await timerContext?.refresh();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (stopping) return stop();
     if (!preview) return;
     setSaving(true);
     try {
@@ -136,7 +190,13 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   }
 
   return (
-    <Dialog open onClose={onClose} title="Log progress" description={data.workTitle} className="max-w-lg">
+    <Dialog
+      open
+      onClose={onClose}
+      title={stopping ? "Stop the timer" : "Log progress"}
+      description={stopping ? `You read ${durationWords(stopSeconds)}. Where are you now?` : data.workTitle}
+      className="max-w-lg"
+    >
       <form onSubmit={save} className="space-y-4">
         {coarse ? (
           <div className="space-y-3">
@@ -194,10 +254,12 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
             ))}
           </fieldset>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
-          <Input label="Minutes read (optional)" inputMode="numeric" value={minutesRead} onChange={(e) => setMinutesRead(e.target.value)} />
-        </div>
+        {!stopping && (
+          <div className="grid grid-cols-2 gap-3">
+            <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
+            <Input label="Minutes read (optional)" inputMode="numeric" value={minutesRead} onChange={(e) => setMinutesRead(e.target.value)} />
+          </div>
+        )}
         {showNote ? (
           <Textarea aria-label="Note" placeholder="A note on this sitting" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
         ) : (
@@ -218,7 +280,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Log" disabled={!preview || !!error} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error} />
       </form>
     </Dialog>
   );

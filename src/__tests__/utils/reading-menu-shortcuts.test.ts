@@ -9,7 +9,7 @@ describe("Reading menu shortcuts (SLN-447)", () => {
   });
 
   it("gives each reading action its own key", () => {
-    expect(READING_KEYS).toEqual({ start: "s", progress: "p", pause: "u", finish: "f", abandon: "a", past: "l", history: "h" });
+    expect(READING_KEYS).toEqual({ start: "s", progress: "p", pause: "u", finish: "f", abandon: "a", past: "l", history: "h", timer: "t" });
     const keys = Object.values(READING_KEYS);
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -18,6 +18,6 @@ describe("Reading menu shortcuts (SLN-447)", () => {
     const menus = SHORTCUT_GROUPS.find((g) => g.title === "Menus");
     expect(menus?.items.some((i) => i.keys.join() === "r")).toBe(true);
     const reading = SHORTCUT_GROUPS.find((g) => g.title === "Reading");
-    expect(reading?.items.map((i) => i.keys.join(" "))).toEqual(["r s", "r p", "r u", "r f", "r a", "r l", "r h"]);
+    expect(reading?.items.map((i) => i.keys.join(" "))).toEqual(["r s", "r p", "r u", "r f", "r a", "r l", "r t", "r h"]);
   });
 });

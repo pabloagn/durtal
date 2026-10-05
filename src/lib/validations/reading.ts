@@ -310,13 +310,17 @@ export const stopTimerSchema = z
     percent: percent.nullable().optional(),
     minutes: minutes.nullable().optional(),
     addPages: z.number().int().positive().max(100_000).optional(),
+    addMinutes: z.number().int().positive().max(1_000_000).optional(),
     chapter: chapter.nullable().optional(),
     editionId: z.uuid().nullable().optional(),
     format: z.enum(READING_FORMATS).optional(),
     goingBack: goingBackSchema.optional(),
     note: z.string().trim().max(2000).optional(),
   })
-  .refine((r) => [r.page, r.percent, r.minutes, r.addPages].filter((v) => v != null).length <= 1, "Give one position: a page, a percent, a time or pages on");
+  .refine(
+    (r) => [r.page, r.percent, r.minutes, r.addPages, r.addMinutes].filter((v) => v != null).length <= 1,
+    "Give one position: a page, a percent, a time, or pages or minutes on",
+  );
 export type StopTimerInput = z.input<typeof stopTimerSchema>;
 
 export const undoStopTimerSchema = z.object({ sessionId: z.uuid(), fingerprint: fingerprintSchema, undo: undoSchema });
