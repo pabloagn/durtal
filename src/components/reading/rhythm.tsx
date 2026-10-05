@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
 import type { Rhythm as RhythmData } from "@/lib/actions/reading-goals";
-import { readingDay } from "@/lib/reading/dates";
 import { rhythmView } from "@/lib/reading/goals";
-import { browserZone } from "./reading-client";
+import { useBrowserReadingDay } from "./reading-client";
 
 /*
  * The weekly reading rhythm (SLN-455): this week's seven days, filled when he
@@ -15,10 +13,7 @@ import { browserZone } from "./reading-client";
  * with the server's day, then the browser's.
  */
 export function Rhythm({ rhythm, dayStartHour }: { rhythm: RhythmData & { target: number }; dayStartHour: number }) {
-  const [today, setToday] = useState(rhythm.today);
-  useEffect(() => {
-    setToday(readingDay(new Date(), browserZone(), dayStartHour));
-  }, [dayStartHour]);
+  const today = useBrowserReadingDay(dayStartHour) ?? rhythm.today;
   const view = rhythmView(rhythm.days, today, rhythm.weekStart, rhythm.target);
   return (
     <section data-hub-rhythm="">

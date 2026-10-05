@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { getGoalProgress, type GoalProgress } from "@/lib/actions/reading-goals";
-import { readingDay } from "@/lib/reading/dates";
 import { amountText, goalLine, goalShortLine, goalTitle, projection } from "@/lib/reading/goals";
-import { browserZone } from "./reading-client";
+import { useBrowserReadingDay } from "./reading-client";
 import { EstimateInfo } from "./estimate-info";
 
 /*
@@ -16,15 +15,6 @@ import { EstimateInfo } from "./estimate-info";
  * that year differs (late on 31 December in Mexico City). The height never
  * changes.
  */
-
-/** The browser's reading day; null on the server */
-function useBrowserDay(dayStartHour: number) {
-  const [day, setDay] = useState<string | null>(null);
-  useEffect(() => {
-    setDay(readingDay(new Date(), browserZone(), dayStartHour));
-  }, [dayStartHour]);
-  return day;
-}
 
 /** The goals of the browser's reading year: the server's until the two years differ */
 function useBrowserGoals(goals: GoalProgress[], serverToday: string, day: string | null) {
@@ -86,7 +76,7 @@ function Card({ goal, today }: { goal: GoalProgress; today: string }) {
 
 /** The hub's goal cards */
 export function GoalCards({ goals, serverToday, dayStartHour }: { goals: GoalProgress[]; serverToday: string; dayStartHour: number }) {
-  const day = useBrowserDay(dayStartHour);
+  const day = useBrowserReadingDay(dayStartHour);
   const shown = useBrowserGoals(goals, serverToday, day);
   const today = day ?? serverToday;
   return (
@@ -100,7 +90,7 @@ export function GoalCards({ goals, serverToday, dayStartHour }: { goals: GoalPro
 
 /** The dashboard's one line: "12 of 30 books this year · on pace" */
 export function GoalLine({ goal, serverToday, dayStartHour }: { goal: GoalProgress; serverToday: string; dayStartHour: number }) {
-  const day = useBrowserDay(dayStartHour);
+  const day = useBrowserReadingDay(dayStartHour);
   const current = useBrowserGoals([goal], serverToday, day).find((g) => g.metric === goal.metric) ?? goal;
   const today = day ?? serverToday;
   return (

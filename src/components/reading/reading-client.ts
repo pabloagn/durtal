@@ -43,6 +43,20 @@ export function todayReadingDay(dayStartHour: number) {
   return readingDay(new Date(), browserZone(), dayStartHour);
 }
 
+const noChange = () => () => {};
+
+/**
+ * The browser's reading day, null on the server and while hydrating: goals
+ * and the rhythm draw with the server's day first, then this one (SLN-455)
+ */
+export function useBrowserReadingDay(dayStartHour: number): string | null {
+  return useSyncExternalStore(
+    noChange,
+    () => readingDay(new Date(), browserZone(), dayStartHour),
+    () => null,
+  );
+}
+
 function subscribeCoarse(onChange: () => void) {
   const query = window.matchMedia("(pointer: coarse)");
   query.addEventListener("change", onChange);
