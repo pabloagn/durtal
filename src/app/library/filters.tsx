@@ -26,7 +26,7 @@ import {
   COPY_FLAGS,
   POSTER_FILTERS,
   SERIES_FILTERS,
-} from "@/lib/library/filter-params";
+} from "@/lib/library/filter-keys";
 import { COLOR_BUCKETS } from "@/lib/color/color-buckets";
 import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { INSTANCE_FORMATS } from "@/lib/types";

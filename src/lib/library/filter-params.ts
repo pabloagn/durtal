@@ -2,53 +2,28 @@
  * The library's book filters besides reading, holding and status (SLN-405;
  * those are `src/lib/reading/filter-params.ts`), read from the URL. One
  * parser for `/library` and the timeline: it keeps the valid values and
- * reports the rest as zod issues. The conditions are
- * `src/lib/library/filter-conditions.ts`; the panel is
+ * reports the rest as zod issues. The keys and labels are `./filter-keys.ts`;
+ * the conditions are `./filter-conditions.ts`; the panel is
  * `src/app/library/filters.tsx`.
  *
  * Within a group the values are alternatives (any one matches); across groups
  * every group must match. A taxonomy item matches its narrower items too.
  */
 import { z } from "zod/v4";
+import {
+  ACQUISITION_PRIORITIES,
+  TAXONOMY_KEYS,
+  type AcquisitionPriorityFilter,
+  type BookTaxonomyKey,
+  type CopyFlag,
+  type SeriesFilter,
+} from "./filter-keys";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { COLOR_BUCKET_KEYS, type ColorBucket } from "@/lib/color/color-buckets";
 import { INSTANCE_FORMATS, type InstanceFormat } from "@/lib/types";
 import { HALF_STEPS } from "@/lib/utils/rating";
 
-/** The book taxonomies a book can be filtered by: URL key and name */
-export const BOOK_TAXONOMY_FILTERS = [
-  { key: "subject", label: "Subjects" },
-  { key: "category", label: "Categories" },
-  { key: "theme", label: "Themes" },
-  { key: "movement", label: "Literary movements" },
-  { key: "artType", label: "Art types" },
-  { key: "artMovement", label: "Art movements" },
-  { key: "keyword", label: "Keywords" },
-  { key: "attribute", label: "Attributes" },
-] as const;
-export type BookTaxonomyKey = (typeof BOOK_TAXONOMY_FILTERS)[number]["key"];
-const TAXONOMY_KEYS = BOOK_TAXONOMY_FILTERS.map((t) => t.key) as [BookTaxonomyKey, ...BookTaxonomyKey[]];
-
-/** A copy's collector details */
-export const COPY_FLAGS = [
-  { value: "signed", label: "Signed" },
-  { value: "first", label: "First printing" },
-] as const;
-export type CopyFlag = (typeof COPY_FLAGS)[number]["value"];
-
-export const SERIES_FILTERS = [
-  { value: "in", label: "In a series" },
-  { value: "none", label: "Standalone" },
-] as const;
-export type SeriesFilter = (typeof SERIES_FILTERS)[number]["value"];
-
-export const POSTER_FILTERS = [
-  { value: "has", label: "Has a picture" },
-  { value: "missing", label: "No picture" },
-] as const;
-
-export const ACQUISITION_PRIORITIES = ["urgent", "high", "medium", "low"] as const;
-export type AcquisitionPriorityFilter = (typeof ACQUISITION_PRIORITIES)[number];
+export * from "./filter-keys";
 
 export interface BookFilterParams {
   /** Rare, Anathema, Favourite: any one */
@@ -102,26 +77,6 @@ export const bookFiltersSchema = z.object({
   colors: z.array(z.enum(COLOR_BUCKET_KEYS)).optional(),
   hasPoster: z.boolean().optional(),
 });
-
-/** Every URL key a book filter reads: "Clear all" removes these */
-export const BOOK_FILTER_KEYS = [
-  "mark",
-  "rare",
-  "publisher",
-  "priority",
-  "rating",
-  "location",
-  "format",
-  "copy",
-  "lang",
-  "origLang",
-  "yearFrom",
-  "yearTo",
-  "series",
-  ...TAXONOMY_KEYS,
-  "color",
-  "poster",
-] as const;
 
 type Params = URLSearchParams | Record<string, string | string[] | undefined>;
 

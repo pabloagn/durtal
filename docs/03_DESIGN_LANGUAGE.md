@@ -250,6 +250,15 @@ Three sizes: `sm`, `md` (default), `lg`. All squared (2px radius). Focus ring us
 - No rounded corners (2px radius)
 - Optional label displayed above
 
+### Filters
+
+A list's filters open from the Filter button in a `glass` panel (`FilterDropdown`, `src/components/shared/filter-dropdown.tsx`). The panel never scrolls; its parts do.
+
+- **Groups**: a `type-caption` heading with a count badge of its chosen values, then its options. An option is a 14px box (plum when chosen) and its label; a count of books sits at the right in 12px mono, `fg-secondary`. A list of 8 options or more has its own search.
+- **Sections** (the library, SLN-405): many groups go in sections. A rail on the left lists them, each with its count badge; the chosen section's groups show beside it, all open. The panel is 34rem wide (the window less 32px on a phone) and keeps one height, so it does not jump between sections. It hangs from the button and moves sideways to stay 16px inside the window.
+- **Colour swatches**: a colour group shows its options in two columns, each with a 14px swatch (2px radius, `glass-border` edge) in place of the box. A chosen swatch takes a check in the ink that reads better on it (`inkOn`) and an `fg-primary` edge. A colour nothing has stays in its place at 40% and cannot be chosen. Swatch colours are muted like the rest of the palette (`COLOR_BUCKETS`, `src/lib/color/color-buckets.ts`).
+- **Active filters**: under the filter bar, one chip per chosen value (`ActiveFilters`): `bg-secondary`, a `glass-border` edge, 28px high (44px on a touch screen), the group in `fg-secondary`, the value in `fg-primary`, a 12px X. The whole chip removes its filter; "Clear all" in rose text ends the row. These chips are page content, so they are never glass.
+
 ### Ratings
 
 A work's rating is 0.5 to 5 in half steps, the same for books, films, perfumes and paintings (venue ratings are another scale). One component shows and edits it (`src/components/shared/rating.tsx`); the number is written by `formatRating` (`src/lib/utils/rating.ts`): "4" or "4.5", never "4.0".

@@ -118,7 +118,7 @@ Search external book databases for metadata. Queries Google Books and Open Libra
 
 ### `GET /api/works`
 
-List works with pagination, search and the library's reading filters (SLN-449). The library page and this route read them with one parser (`src/lib/reading/filter-params.ts`).
+List works with pagination, search and the library's filters. The library page and this route read them with the same parsers: reading, holding and status with `parseReadingFilters` (`src/lib/reading/filter-params.ts`, SLN-449), every other filter with `parseBookFilters` (`src/lib/library/filter-params.ts`, SLN-405).
 
 **Query parameters**:
 
@@ -130,13 +130,24 @@ List works with pagination, search and the library's reading filters (SLN-449). 
 | `readFrom`, `readTo` | year | — | A finished reading in these years, at any precision; reversed years are swapped |
 | `reread` | `true` | — | Two finished readings or more |
 | `status` | list | — | The catalogue status: `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
+| `mark` | list | — | `rare`, `poison`, `favourite`: any of them |
+| `priority` | list | — | `urgent`, `high`, `medium`, `low` |
+| `rating` | number | — | Rated at least this: a half step from 0.5 to 5 |
+| `publisher` | list of ids | — | An edition or a wanted edition from these houses or the houses below them |
+| `location`, `format`, `copy` | lists | — | A held copy (not deaccessioned) in these places (ids), in these formats (`hardcover`, `paperback`, `ebook`, `audiobook`, `pdf`, `epub`, `other`), with these details (`signed`, `first`); one copy must match all three |
+| `lang`, `origLang` | lists of language codes | — | An edition in these languages; the work's original language |
+| `yearFrom`, `yearTo` | year | — | The work's original year; reversed years are swapped |
+| `series` | string | — | `in` (in a series) or `none` (standalone); both is no filter |
+| `subject`, `category`, `theme`, `movement`, `artType`, `artMovement`, `keyword`, `attribute` | lists of ids | — | Taxonomy items; a broader category, theme or movement matches its narrower items |
+| `color` | list | — | The colour of the cover the card shows: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `brown`, `beige`, `white`, `grey`, `black` |
+| `poster` | string | — | `has` or `missing`: an active poster |
 | `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last), `queue` (Up Next order, SLN-452: books not queued last, ties on the id) |
 | `limit` | number | `50` | Results per page (at most 200) |
 | `offset` | number | `0` | Pagination offset |
 
 "Unread books I own": `GET /api/works?reading=unread&holding=owned&sort=lastRead`. Up Next in its order: `GET /api/works?reading=queued&sort=queue`. `total` counts the works the filters keep.
 
-**Response** `400`: any unknown value of `reading`, `holding`, `readFrom`, `readTo`, `reread`, `status` or `sort` (`status=owned`, `sort=pages`) answers `{ "error": "Invalid input", "issues": [...] }` with the zod issues; each issue's `path` starts with the parameter.
+**Response** `400`: any unknown value of a filter or of `sort` (`status=owned`, `sort=pages`, `color=teal`) answers `{ "error": "Invalid input", "issues": [...] }` with the zod issues; each issue's `path` starts with the parameter.
 
 **Response** `200`:
 ```json
@@ -574,11 +585,11 @@ Admin bulk job. Regenerates the thumbnail of every media record from its full-si
 
 ### `POST /api/media/backfill-palettes`
 
-Admin bulk job. Extracts a color palette for every poster that has none. Requires `x-admin-token` when `ADMIN_TOKEN` is set.
+Admin bulk job (SLN-405, `backfillCoverColors` in `src/lib/color/backfill.ts`). Gives every stored palette its named colour, then reads a palette for posters and edition covers that have none, from their thumbnails: at most `limit` images per call (1 to 500, default 50), posters first. Call again while `remaining` drops; a call that reads nothing is the end. Requires `x-admin-token` when `ADMIN_TOKEN` is set. `scripts/maintenance/backfill-cover-colors.ts` runs the same job over every image at once.
 
 **Response** `200`:
 ```json
-{ "total": 40, "processed": 39, "failed": 1, "errors": ["uuid: message"] }
+{ "colored": 120, "posters": { "processed": 39, "failed": 1 }, "covers": { "processed": 10, "failed": 0 }, "remaining": { "posters": 1, "covers": 1840 }, "errors": ["uuid: message"] }
 ```
 
 **Error** `401`: Wrong admin token.
