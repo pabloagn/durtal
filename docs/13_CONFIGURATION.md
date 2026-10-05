@@ -75,6 +75,10 @@ const nextConfig: NextConfig = {
 | `output` | `"standalone"` | Minimal production build for Docker (no `node_modules` needed at runtime) |
 | `images.remotePatterns` | Google Books, Open Library | Allows `next/image` to optimize remote cover images from these domains |
 
+### `src/lib/catalogue/domains.ts`
+
+The collections and their switches. Each entry of `WORK_DOMAINS` has `enabled`: `false` closes the collection in the app (404 on its pages, no menu, switch or dashboard section) without touching its rows. The database check `works_kind_enabled_check` is changed only by a reviewed activation migration. All four collections are open. See `docs/01_ARCHITECTURE.md`, Collections Open by Switch.
+
 ### `drizzle.config.ts`
 
 ```typescript

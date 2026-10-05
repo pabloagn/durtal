@@ -1,6 +1,24 @@
 # Deployment
 
-Durtal deploys as a single Docker container on a self-hosted homelab (osmium.rh), behind Traefik and Authelia, accessible via Tailscale.
+Durtal runs on one Mac: `next dev` on http://localhost:3100 from the main checkout (`~/personal/durtal`), with the live Neon database and S3. A release is the order below. The Docker image further down is what CI builds on every pull request to prove the Dockerfile works; no host runs it today, and the homelab sections (osmium.rh) describe a setup that is not in use.
+
+---
+
+## Release order
+
+A release takes these steps in this order (SLN-382). A step that fails stops the release.
+
+1. **Merge.** The pull request is green in CI: lint, typecheck, the full test suite with its database suites (`pnpm test:local`) and the Docker image build.
+2. **Update the main checkout.** Fast-forward `~/personal/durtal` to `origin/main`, only when its uncommitted files do not overlap the change.
+3. **Back up.** When the release has a migration or a data step: `pg_dump --format=custom` with pg_dump 16 into `~/personal/durtal-backups/live-before-<what>-<timestamp>.dump` (see Backups, Recovery and Rollback).
+4. **Rehearse.** `python3 scripts/qa/preview-local.py --from-dump FILE` restores the backup strictly, applies the pending migrations and prints the tables whose rows changed. Only the tables the release names may change.
+5. **Check the numbering.** Each new migration's `when` in `src/lib/db/migrations/meta/_journal.json` is later than the last one applied on live (`drizzle.__drizzle_migrations`); the migrator skips an older one silently.
+6. **Migrate.** `pnpm db:migrate` from the up-to-date main checkout, and only from there: an apply from a branch can make a later merge skip another branch's migration.
+7. **Data steps.** The scripts the release names, each with its dry run first (for example `scripts/maintenance/backfill-cover-colors.ts --dry-run`). Catalogue changes go through the REST API, never through SQL.
+8. **Serve.** When `globals.css` or the Tailwind setup changed, restart the dev server with a fresh Turbopack cache (`.next/dev/cache/turbopack` moved aside), then wait for `GET /api/health`. Confirm the new code is served: the page or stylesheet holds the new class or text.
+9. **Verify.** The changed pages in the browser, `node scripts/qa/page-weight.js`, and the release's own checks.
+
+A collection (perfumes, films, paintings, a new one) opens only when its gates pass: its switch in `src/lib/catalogue/domains.ts` (`enabled`) and, for a new kind, the activation migration that widens `works_kind_enabled_check` ship together. Closing one again is a code change only (Rolling back a collection, below).
 
 ---
 
