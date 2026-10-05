@@ -4,7 +4,7 @@ import { AddToCollectionDialog } from "./add-to-collection-dialog";
 import { BULK_DELETE_CASCADE } from "./delete-cascade";
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus } from "lucide-react";
+import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ import { localToday } from "@/lib/constants/hunting";
 import { setFavourites } from "@/lib/actions/favourites";
 import { MARKS_LABEL, WORK_MARKS, type WorkMark } from "@/lib/constants/marks";
 import { bulkSetPoison } from "@/lib/actions/poison";
+import { addManyToQueue } from "@/lib/actions/reading-queue";
 import { toast } from "sonner";
 import {
   STATUS_CONFIG,
@@ -63,6 +64,25 @@ export function BulkActionToolbar({
     titlesList.length < selectedCount
       ? `${titlesList.join(", ")} and ${selectedCount - titlesList.length} more`
       : titlesList.join(", ");
+
+  /** Up Next (SLN-452): appended in the order of the selection */
+  async function queueSelected() {
+    setIsUpdating(true);
+    try {
+      const ids = allIds.filter((id) => selectedIds.has(id));
+      const { added, alreadyQueued, beingRead } = await addManyToQueue({ workIds: ids.length ? ids : Array.from(selectedIds) });
+      toast.success(
+        [`Added ${added}`, alreadyQueued ? `${alreadyQueued} already in Up Next` : null, beingRead ? `${beingRead} being read` : null]
+          .filter(Boolean)
+          .join(" · "),
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add to Up Next");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
 
   async function bulkUpdate(field: string, value: string | number | null) {
     setIsUpdating(true);
@@ -282,6 +302,10 @@ export function BulkActionToolbar({
         <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => setCollectionOpen(true)}>
           <FolderPlus size={14} strokeWidth={1.5} />
           Collections
+        </Button>
+        <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => void queueSelected()} data-bulk-queue="">
+          <ListPlus size={14} strokeWidth={1.5} />
+          Add to Up Next
         </Button>
         {/* Export */}
         <ExportMenu entity="works" ids={selectedIds} />

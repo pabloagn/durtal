@@ -5,8 +5,9 @@
  * what is valid and drops the rest; the route answers 400 with the issues.
  *
  * To add a filter: a key in `ReadingFilterParams`, its check below, and its
- * condition in `buildWorkConditions` (`src/lib/actions/works.ts`). Later
- * steps add the reading value `queued` (Up next) and the enrichment filters.
+ * condition in `buildWorkConditions` (`src/lib/actions/works.ts`). The
+ * reading value `queued` (in Up Next, SLN-452) is not a reading state: a
+ * queued book can be read or unread. The enrichment filters come later.
  */
 import { z } from "zod/v4";
 import { WORK_READING_STATES, type WorkReadingState } from "./constants";
@@ -15,17 +16,21 @@ import { catalogueStatusEnum } from "@/lib/db/schema/enums";
 export type CatalogueStatus = (typeof catalogueStatusEnum.enumValues)[number];
 export const CATALOGUE_STATUSES = catalogueStatusEnum.enumValues;
 
+/** The Reading filter's values: the reading states, and "queued" (in Up Next) */
+export const READING_FILTER_VALUES = [...WORK_READING_STATES, "queued"] as const;
+export type ReadingFilterValue = WorkReadingState | "queued";
+
 export const HOLDINGS = ["owned", "not_owned"] as const;
 export type Holding = (typeof HOLDINGS)[number];
 
 /** The library page's sorts; the API takes the first five */
-export const LIBRARY_SORTS = ["title", "recent", "year", "rating", "lastRead", "authorFirstName", "authorLastName"] as const;
+export const LIBRARY_SORTS = ["title", "recent", "year", "rating", "lastRead", "queue", "authorFirstName", "authorLastName"] as const;
 export type LibrarySort = (typeof LIBRARY_SORTS)[number];
-export const API_SORTS = ["title", "recent", "year", "rating", "lastRead"] as const satisfies readonly LibrarySort[];
+export const API_SORTS = ["title", "recent", "year", "rating", "lastRead", "queue"] as const satisfies readonly LibrarySort[];
 
 export interface ReadingFilterParams {
-  /** Any of these reading states (`readingStateSql`) */
-  reading?: WorkReadingState[];
+  /** Any of these reading states (`readingStateSql`), or in Up Next */
+  reading?: ReadingFilterValue[];
   /** A finished reading in these years, at any precision; reversed years are swapped */
   readFrom?: number;
   readTo?: number;
@@ -39,7 +44,7 @@ export interface ReadingFilterParams {
 
 /** The parsed filters as a server action receives them back from the browser (the timeline) */
 export const readingFiltersSchema = z.object({
-  reading: z.array(z.enum(WORK_READING_STATES)).optional(),
+  reading: z.array(z.enum(READING_FILTER_VALUES)).optional(),
   readFrom: z.number().int().min(1).max(2999).optional(),
   readTo: z.number().int().min(1).max(2999).optional(),
   reread: z.boolean().optional(),
@@ -83,7 +88,7 @@ export function parseReadingFilters<S extends string>(
   const issues: z.core.$ZodIssue[] = [];
   const filters: ReadingFilterParams = {};
 
-  const reading = checkList(z.enum(WORK_READING_STATES), get(params, "reading"), "reading", issues);
+  const reading = checkList(z.enum(READING_FILTER_VALUES), get(params, "reading"), "reading", issues);
   if (reading.length) filters.reading = reading;
 
   const from = get(params, "readFrom");

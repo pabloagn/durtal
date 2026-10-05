@@ -28,6 +28,7 @@ const SORT_OPTIONS = [
   { value: "authorFirstName", label: "Author (first)" },
   { value: "authorLastName", label: "Author (last)" },
   { value: "lastRead", label: "Last read" },
+  { value: "queue", label: "Up Next order" },
 ];
 
 const DEFAULT_SORT_ORDERS: Record<string, "asc" | "desc"> = {
@@ -38,6 +39,7 @@ const DEFAULT_SORT_ORDERS: Record<string, "asc" | "desc"> = {
   authorFirstName: "asc",
   authorLastName: "asc",
   lastRead: "desc",
+  queue: "asc",
 };
 
 const STATUS_OPTIONS = [
@@ -70,7 +72,11 @@ const POSTER_OPTIONS = [
 ];
 
 // Reading (SLN-449): the book's reading state, and whether a copy is held
-const READING_OPTIONS = WORK_READING_STATES.map((s) => ({ value: s, label: WORK_READING_STATE_LABELS[s] }));
+const READING_OPTIONS = [
+  ...WORK_READING_STATES.map((s) => ({ value: s, label: WORK_READING_STATE_LABELS[s] as string })),
+  // Not a reading state: a queued book can be read or unread (SLN-452)
+  { value: "queued", label: "In Up Next" },
+];
 const HOLDING_OPTIONS = [
   { value: "owned", label: "Owned" },
   { value: "not_owned", label: "Not owned" },

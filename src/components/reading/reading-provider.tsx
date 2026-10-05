@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, Pause, Play, Square, Timer } from "lucide-react";
+import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, ListMinus, ListPlus, Pause, Play, Square, Timer } from "lucide-react";
 import { useReadingActions, type EditItem } from "@/components/shortcuts/shortcuts-provider";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
@@ -12,7 +12,9 @@ import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { pauseReading, reopenReading, resumeReading, type SessionRow } from "@/lib/actions/reading";
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
-import { showError, type ReadingPageData, type ReadingRow } from "./reading-client";
+import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
+import { ordinal } from "@/lib/reading/queue";
+import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
 import { useOptionalTimer } from "./timer-provider";
 
 /*
@@ -99,6 +101,10 @@ interface ReadingContextValue {
   toggleTimer: () => void;
   /** After a write: refresh the page and the activity timeline */
   changed: () => void;
+  /** The book can go in Up Next: a book page with no open reading (SLN-452) */
+  queuable: boolean;
+  /** Adds the book to Up Next, or removes it with Undo */
+  toggleQueue: () => Promise<void>;
 }
 
 const ReadingContext = createContext<ReadingContextValue | null>(null);
@@ -175,6 +181,31 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     void timer.start({ readingId: openRow.reading.id, workId: data.workId, title: data.workTitle });
   }, [openRow, timer, open, data.workId, data.workTitle]);
 
+  // Up Next (SLN-452): add the book, or take it off; an open reading is never queued
+  const queuable = data.queuePlace !== undefined && !openRow;
+  const toggleQueue = useCallback(async () => {
+    try {
+      if (data.queuePlace) {
+        const removed = await removeFromQueue({ workId: data.workId });
+        changed();
+        undoToast(`Removed ${data.workTitle} from Up Next`, async () => {
+          try {
+            await restoreQueueItem(removed);
+            changed();
+          } catch (err) {
+            showError(err, changed);
+          }
+        });
+      } else {
+        const { place } = await addToQueue({ workId: data.workId });
+        changed();
+        toast.success(`Added ${data.workTitle} to Up Next, ${ordinal(place)}`);
+      }
+    } catch (err) {
+      showError(err, changed);
+    }
+  }, [data.queuePlace, data.workId, data.workTitle, changed]);
+
   // The R menu and the palette: the actions that make sense now
   const state = bookReadingState(data.rows.map((r) => r.reading));
   const menu = readingMenu(state);
@@ -197,6 +228,12 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
           : { key: READING_KEYS.timer, label: "Start timer", icon: Timer, run: toggleTimer },
       );
   }
+  if (queuable)
+    items.push(
+      data.queuePlace
+        ? { key: READING_KEYS.queue, label: "Remove from Up Next", icon: ListMinus, run: () => void toggleQueue() }
+        : { key: READING_KEYS.queue, label: "Add to Up Next", icon: ListPlus, run: () => void toggleQueue() },
+    );
   items.push({ key: READING_KEYS.past, label: "Log a past read", icon: CalendarClock, run: () => run("past") });
   if (data.rows.length)
     items.push({
@@ -207,7 +244,10 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     });
   useReadingActions(items);
 
-  const context = useMemo(() => ({ data, openRow, open, run, toggleTimer, changed }), [data, openRow, open, run, toggleTimer, changed]);
+  const context = useMemo(
+    () => ({ data, openRow, open, run, toggleTimer, changed, queuable, toggleQueue }),
+    [data, openRow, open, run, toggleTimer, changed, queuable, toggleQueue],
+  );
   const row = request?.readingId ? (data.rows.find((r) => r.reading.id === request.readingId) ?? null) : null;
   const props: ReadingDialogProps | null = request
     ? {

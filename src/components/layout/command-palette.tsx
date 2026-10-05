@@ -15,6 +15,7 @@ import {
   BookMarked,
   BookPlus,
   CalendarClock,
+  ListOrdered,
   Square,
   Timer,
   type LucideIcon,
@@ -244,6 +245,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         : []),
     { value: "reading:start", label: "Start reading...", icon: BookPlus, run: () => reading.pick("start") },
     { value: "reading:past", label: "Log a past read...", icon: CalendarClock, run: () => reading.pick("past") },
+    // Up Next (SLN-452); "Add to Up Next" on a book page comes from its R menu under "This page"
+    { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => router.push("/reading/next") },
   ];
   const readingItems = trimmed ? filterBySearch(allReadingItems, trimmed, (i) => i.label) : allReadingItems;
   const firstValue =

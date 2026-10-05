@@ -97,6 +97,23 @@ export function ResumeButton({ reading }: { reading: ReadingRef }) {
   );
 }
 
+/** Up Next's Start (SLN-452): the Start dialog with the queued edition */
+export function QueueStartButton({ workId, editionId, title }: { workId: string; editionId: string | null; title: string }) {
+  const { open } = useReadingDialogs();
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() => void open({ kind: "start", workId, editionId })}
+      aria-label={`Start reading ${title}`}
+      className="pointer-coarse:h-11"
+      data-hub-queue-start={workId}
+    >
+      Start
+    </Button>
+  );
+}
+
 /** The dashboard tile's small Log button */
 export function LogButton({ reading, title }: { reading: ReadingRef; title: string }) {
   const { open } = useReadingDialogs();

@@ -16,6 +16,7 @@ export const BOOK_SORTS = [
   "authorFirstName",
   "authorLastName",
   "lastRead",
+  "queue",
 ] as const;
 
 /** The query each collection home reads, besides `q`, `sort`, `order`, `page` and `perPage`. */
