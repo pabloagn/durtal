@@ -578,8 +578,8 @@ Delete returns the row, for the page's 10-second Undo. Restore puts it back with
 ### `getNotesForWork(workId)`
 A book's quotes and notes by page (then percent), then the order added, each with its reading's number ("2nd read", `readingOrdinalSql`).
 
-### `searchNotes({ q?, workId?, authorId?, kind?, favourites?, year?, sort, order?, page })`
-The commonplace book: `textSearchCondition` and `textSearchRank` on `reading_notes.search_text` (accents and a one-letter typo forgiven), the book, any author of the book, the kind, the star and the year added (the app's zone). Sorts: `newest`, `book` (title, then page) and `relevance` (a search only). 48 a page. Returns `{ items, total, page, pageCount }`; each item has its book's id, title, slug and first author. `getNotesFacets()` gives the filters' choices: the books, the authors and the years that have notes, and the total.
+### `searchNotes({ q?, workId?, authorId?, kind?, favourites?, year?, sort, order?, page, perPage? })`
+The commonplace book: `textSearchCondition` and `textSearchRank` on `reading_notes.search_text` (accents and a one-letter typo forgiven), the book, any author of the book, the kind, the star and the year added (the app's zone). Sorts: `newest`, `book` (title, then page) and `relevance` (a search only). 48 a page unless `perPage` is another of the page sizes. Returns `{ items, total, page, pageCount }`; each item has its book's id, title, slug and first author. `getNotesFacets()` gives the filters' choices: the books, the authors and the years that have notes, and the total.
 
 ### `getPassageOfTheDay({ day, offset? })`
 The hub's passage: `choosePassage(quotes, day, offset)` over every quote, then that quote with its book. `offset` is "Another", counted in the browser only. Returns `{ note, candidates }`, or null without quotes.
