@@ -66,4 +66,40 @@ books are read; `GET /api/works` answers the same questions. No migration.
 
 ## Completion Notes
 
-RESULTS
+- Tests: unit `library-rules.test.ts` (the parser with every parameter, bad
+  values, both holding values, reversed years, `status=owned` and
+  `status=bogus` dropped; the card's label and tooltip; the list badge; the
+  author and series record; the author tabs; `domainSwitchHref` for books and
+  films; the four columns joining a saved choice hidden; every card mapper
+  passing `reading`); component `card-reading.test.ts`; database suite
+  `reading-library.test.ts` (each filter alone and with `holding=owned`,
+  holding with a deaccessioned copy, read in at day, month and year
+  precision, re-read, the Last read sort with never-read last, the minimum
+  rating and the Rating sort on the book's rating, the extras as numbers,
+  the timeline's filters, `getReadingSummaries`, an author's counts and
+  average with a book being re-read, a series' next to read across a gap, an
+  abandoned volume and a lent copy, and `GET /api/works` with each parameter,
+  400s and `total`); `publisher-books.test.ts` reads the new Read count.
+- `pnpm typecheck` clean; `pnpm deadcode` clean; `pnpm lint` 0 errors, 81
+  warnings, none in the new files; `python3 scripts/qa/test-local.py`: 184
+  files, 2042 tests, 0 failed.
+- Page weight on a preview of `live-before-0064-0065-20261005-013641.dump`
+  with readings, before (main at 79d3d4f, `/library` already under budget
+  after task 0324) and after: `/library` 294 KB to 295 KB (under 2 KB for the
+  card change), `/` 269 KB to 270 KB, `/library/new` 41 KB both, every other
+  route the same and within budget.
+- Browsers, Chrome, Firefox 157 and Safari 26 at 1440, 768 and 390 px: the
+  grid at 2, 4 and 8 columns (CardReading fits at 171 px with the rating,
+  no row overflows), the list with its badges, the table with the four new
+  columns and the server's Last read order, the filter panel open with
+  Reading, Holding, Re-read and Read in, `/library?reading=unread&holding=owned`,
+  an author ("Read 1 of 4"), a series ("Read 2 of 6", "Next to read: 3.
+  Boyhood Island · Not owned · On Order"), a collection ("1 of 14 books
+  read"), a publisher (Read 5), a recommender ("You have read 4 of their 99
+  picks") and the dashboard. Fixed on the way: a series row's reading badge
+  pushed the row 35 px past the screen at 390 px (it moves to the author line
+  under `sm`). Left as they were before this change, and filed: the series
+  rows' titles have no room at 390 px, and the table's copy button sits
+  10 px off its title when a badge is under the title; also Safari's
+  0.55 px title-row icons and the decorative monogram initials.
+- Journey: JOURNEY_RESULT
