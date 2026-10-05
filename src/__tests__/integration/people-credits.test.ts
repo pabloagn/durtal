@@ -74,6 +74,7 @@ import { updateWork, getLibraryStats } from "@/lib/actions/works";
 import { updateEdition } from "@/lib/actions/editions";
 import { loadDataset } from "@/lib/harmonization/store";
 import { getAuthorsForMap } from "@/lib/actions/author-map";
+import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
 
 describe.skipIf(!url)("shared people and domain-scoped credits", () => {
   const c = client!;
@@ -209,6 +210,18 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     await expect(deleteAuthor(director.id)).rejects.toThrow();
     expect((await getPerson(director.id))?.id).toBe(director.id);
   });
+  it("the People timeline counts works in every collection, as the table does", async () => {
+    const cocteau = await person("Jean Cocteau", ["book", "film"]);
+    await replaceWorkCredits(work.book, [{ personId: cocteau.id, roleId: "book.author" }]);
+    await replaceWorkCredits(work.film, [
+      { personId: cocteau.id, roleId: "film.director" },
+      { personId: cocteau.id, roleId: "film.screenwriter" },
+    ]);
+    const row = (await getAuthorsForTimeline()).find((a) => a.id === cocteau.id);
+    // One book and one film: two works, the film once though he holds two roles on it
+    expect(row?.worksCount).toBe(2);
+  });
+
   it("allocates distinct stable URLs for concurrent people with the same name", async () => {
     const people = await Promise.all(
       Array.from({ length: 7 }, () => person("Shared name")),
