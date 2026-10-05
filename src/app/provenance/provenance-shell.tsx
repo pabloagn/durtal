@@ -17,7 +17,7 @@ import { updateOrderStatus } from "@/lib/actions/orders";
 import { todayLocal } from "@/lib/utils/date";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { OrderStatus } from "@/lib/constants/orders";
+import { orderStatusLabel, type OrderStatus } from "@/lib/constants/orders";
 import { BOOK_IN_HAND_STATUSES, getValidTransitions } from "@/lib/constants/orders";
 import { formatMoney } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
@@ -288,7 +288,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       </p>
                     </div>
                     <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
-                      {order.status.replace(/_/g, " ")}
+                      {orderStatusLabel(order.status)}
                     </Badge>
                     <Badge variant="muted">
                       {METHOD_LABELS[order.acquisitionMethod]}
@@ -349,7 +349,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       </p>
                     </div>
                     <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
-                      {order.status.replace(/_/g, " ")}
+                      {orderStatusLabel(order.status)}
                     </Badge>
                     <Badge variant="muted">Auction</Badge>
                     <span className="font-mono text-micro text-fg-secondary">

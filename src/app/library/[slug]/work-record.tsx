@@ -6,7 +6,8 @@ import { RecordField, RecordFields, RecordGroup, RecordPanel } from "@/component
 import type { readingRecord } from "@/lib/reading/labels";
 import { WorkDetails } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
-import { enumLabel, metadataSourceLabel } from "@/lib/utils/labels";
+import { metadataSourceLabel } from "@/lib/utils/labels";
+import { acquisitionMethodLabel, orderStatusLabel } from "@/lib/constants/orders";
 
 type Order = Awaited<ReturnType<typeof getOrdersForWork>>[number];
 
@@ -96,7 +97,7 @@ export function WorkRecord({
               <li key={order.id}>
                 <div className="flex items-baseline justify-between gap-3">
                   <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "muted"}>
-                    {enumLabel(order.status)}
+                    {orderStatusLabel(order.status)}
                   </Badge>
                   <span className="shrink-0 font-mono text-micro text-fg-secondary">
                     {new Date(order.orderDate).toLocaleDateString("en-US", {
@@ -107,7 +108,7 @@ export function WorkRecord({
                   </span>
                 </div>
                 <p className="mt-1 lines-1 text-xs text-fg-secondary">
-                  {order.venue?.name ?? enumLabel(order.acquisitionMethod)}
+                  {order.venue?.name ?? acquisitionMethodLabel(order.acquisitionMethod)}
                 </p>
               </li>
             ))}

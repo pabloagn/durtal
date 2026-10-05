@@ -21,6 +21,7 @@ import {
 import { AVAILABILITY_LABELS } from "@/lib/catalogue/retailers";
 import type { VenueArt, VenuePurchases, VenueRetail } from "@/lib/actions/venue-pages";
 import type { getVenueOrders } from "@/lib/actions/venue-pages";
+import { orderStatusLabel } from "@/lib/constants/orders";
 
 type ArtRow = VenueArt["here"]["rows"][number];
 
@@ -258,11 +259,6 @@ export function VenueRetailPart({ retail }: { retail: VenueRetail }) {
   );
 }
 
-/** "Delivered", "In transit" */
-function statusText(status: string) {
-  const text = status.replace(/_/g, " ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 /** Orders placed at this venue, newest first: the bookshop's history stays here */
 export function VenueOrdersPart({ orders }: { orders: Awaited<ReturnType<typeof getVenueOrders>> }) {
@@ -288,7 +284,7 @@ export function VenueOrdersPart({ orders }: { orders: Awaited<ReturnType<typeof 
             <span className="shrink-0 text-xs text-fg-secondary">
               {[
                 order.orderDate,
-                statusText(order.status),
+                orderStatusLabel(order.status),
                 order.price != null && order.currency ? formatPrice(order.price, order.currency) : null,
               ]
                 .filter(Boolean)
