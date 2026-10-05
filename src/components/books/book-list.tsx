@@ -13,6 +13,7 @@ import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { formatRating } from "@/lib/utils/rating";
 
 interface BookListItem {
   workId: string;
@@ -146,7 +147,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                   />
                 )}
                 {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
-                {book.rating && <Badge variant="gold">{book.rating}/5</Badge>}
+                {book.rating != null && <Badge variant="gold">{formatRating(book.rating)}/5</Badge>}
               </CapAlignedControls>
             </div>
             {/* Second line: the author, then the year and the copies */}

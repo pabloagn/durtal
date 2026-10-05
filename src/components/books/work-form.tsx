@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { RatingInput } from "@/components/shared/rating";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { normalizeSearchText } from "@/lib/utils/search-text";
@@ -41,15 +42,6 @@ const ACQUISITION_PRIORITY_OPTIONS = [
   { value: "medium", label: "Medium" },
   { value: "high", label: "High" },
   { value: "urgent", label: "Urgent" },
-];
-
-const RATING_OPTIONS = [
-  { value: "", label: "No rating" },
-  { value: "1", label: "1" },
-  { value: "2", label: "2" },
-  { value: "3", label: "3" },
-  { value: "4", label: "4" },
-  { value: "5", label: "5" },
 ];
 
 const AUTHOR_ROLE_OPTIONS = [
@@ -177,7 +169,7 @@ export function workPayload(v: WorkFormValues) {
         | "medium"
         | "high"
         | "urgent",
-      rating: v.rating ? parseInt(v.rating, 10) : null,
+      rating: v.rating ? Number(v.rating) : null,
       description: v.description.trim() || null,
       notes: v.notes.trim() || null,
       recommenderIds: v.recommenderIds,
@@ -367,7 +359,7 @@ export function WorkForm({
             <h3 className="type-group-title mb-3">
               Status
             </h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Select
                 id={id("catalogue-status")}
                 label="Catalogue Status"
@@ -382,13 +374,19 @@ export function WorkForm({
                 value={values.acquisitionPriority}
                 onChange={(e) => set("acquisitionPriority", e.target.value)}
               />
-              <Select
-                id={id("rating")}
-                label="Rating"
-                options={RATING_OPTIONS}
-                value={values.rating}
-                onChange={(e) => set("rating", e.target.value)}
-              />
+            </div>
+            {/* Its own row: on touch the five stars are 44px each */}
+            <div className="mt-3 space-y-1.5">
+              <span id={id("rating")} className="type-label block">
+                Rating
+              </span>
+              <div className="text-sm">
+                <RatingInput
+                  label="Rating"
+                  value={values.rating ? Number(values.rating) : null}
+                  onChange={(next) => set("rating", next === null ? "" : String(next))}
+                />
+              </div>
             </div>
           </section>
 

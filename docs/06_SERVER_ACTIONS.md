@@ -27,7 +27,7 @@ Search matches against work title using `ilike`. Sort options:
 - `recent`: `createdAt` descending
 - `title`: alphabetical ascending
 - `year`: `originalYear` descending (nulls last)
-- `rating`: `rating` descending (nulls last)
+- `rating`: `rating` descending, or ascending with `order: "asc"`; unrated works last either way
 
 ### `getWorkCount(search?, filters?)`
 
@@ -66,7 +66,7 @@ Validated against `createWorkSchema` (Zod). Gives the book its id and slug first
 updateWork(id: string, input: Partial<CreateWorkInput>): Promise<Work>
 ```
 
-Updates work metadata in one transaction: the work row, its personal curation (`rating`, `notes`, `recommenderIds` through the shared `curationQueries`, which every domain uses), `authorIds` (through `bookAuthorQueries`, which keeps credit ids) and `subjectIds`. A failure in any part changes nothing. A repeated recommender is stored once. Returns `{ id }`, plus `slug` when a new title or primary author changed the book's address; the book page goes to that address.
+Updates work metadata in one transaction: the work row, its personal curation (`rating`, 0.5 to 5 in half steps through `RATING_SCHEMA` in `src/lib/validations/helpers.ts`, as in `createWorkSchema` and `curationPatchSchema`; `notes`, `recommenderIds` through the shared `curationQueries`, which every domain uses), `authorIds` (through `bookAuthorQueries`, which keeps credit ids) and `subjectIds`. A failure in any part changes nothing. A repeated recommender is stored once. Returns `{ id }`, plus `slug` when a new title or primary author changed the book's address; the book page goes to that address.
 
 ### `deleteWork(id)`
 
