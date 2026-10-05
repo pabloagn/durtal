@@ -9,7 +9,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/reading";
-import { durationWords, stopTimes } from "@/lib/reading/timer";
+import { toast } from "sonner";
+import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
 import { useOptionalTimer } from "../timer-provider";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
@@ -138,11 +139,12 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
       }
       if (result.reachedEnd) open({ kind: "finish", readingId: r.id, finishedOn: result.session.readOn, reachedEnd: true });
     } catch (err) {
-      showError(err, changed);
-      if (err instanceof Error && err.message === "This timer was stopped on another device") {
+      // Stopped or discarded on another device: said in words, since a production build hides the server's message
+      const now = await timerContext?.refresh();
+      if (timerContext && now?.sessionId !== stopping!.sessionId) {
+        toast.error(TIMER_GONE);
         onClose();
-        await timerContext?.refresh();
-      }
+      } else showError(err, changed);
     } finally {
       setSaving(false);
     }

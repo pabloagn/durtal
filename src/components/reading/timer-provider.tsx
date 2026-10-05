@@ -107,12 +107,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     };
   }, [timer]);
 
-  /** A stopped-elsewhere answer refreshes the chip; other errors show */
+  /**
+   * A refused write loads the timer again. When the timer it was about is no
+   * longer running, it was stopped on another device; that is said in words
+   * here, since a production build hides the server's message.
+   */
   const failed = useCallback(
-    (err: unknown) => {
-      const message = err instanceof Error ? err.message : "Could not save";
-      toast.error(message);
-      if (message === TIMER_GONE) void refresh();
+    async (err: unknown, sessionId?: string) => {
+      const next = await refresh();
+      if (sessionId && next?.sessionId !== sessionId) return void toast.error(TIMER_GONE);
+      toast.error(err instanceof Error ? err.message : "Could not save");
     },
     [refresh],
   );
@@ -124,18 +128,18 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(
     async (target: TimerTarget) => {
+      // One timer: a running one, here or on another device, is asked about first
+      const running = await refresh();
+      if (running) return running.readingId === target.readingId ? void toast.message(`The timer is running for ${running.title}`) : setConflict(target);
       try {
         await startTimer({ readingId: target.readingId, timeZone: browserZone() });
         await refresh();
         toast.success(`Timer started for ${target.title}`);
         changed();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "";
-        if (message.startsWith("A timer is running for")) {
-          const running = await refresh();
-          if (running) return setConflict(target);
-        }
-        failed(err);
+        const now = await refresh();
+        if (now && now.readingId !== target.readingId) return setConflict(target);
+        await failed(err);
       }
     },
     [refresh, changed, failed],
@@ -146,7 +150,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     try {
       setTimer(await pauseTimer({ sessionId: timer.sessionId }));
     } catch (err) {
-      failed(err);
+      await failed(err, timer.sessionId);
     }
   }, [timer, failed]);
 
@@ -155,7 +159,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     try {
       setTimer(await resumeTimer({ sessionId: timer.sessionId }));
     } catch (err) {
-      failed(err);
+      await failed(err, timer.sessionId);
     }
   }, [timer, failed]);
 
@@ -167,7 +171,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       toast.success(`Discarded the timer for ${timer.title}`);
       changed();
     } catch (err) {
-      failed(err);
+      await failed(err, timer.sessionId);
     }
   }, [timer, failed, changed]);
 

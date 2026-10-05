@@ -32,7 +32,7 @@ vi.mock("sonner", () => {
   return { toast: Object.assign(push, { success: push, error: push, message: push }) };
 });
 
-import { TimerProvider } from "@/components/reading/timer-provider";
+import { TimerProvider, useTimer } from "@/components/reading/timer-provider";
 import { TimerAlerts, TimerChip, type TimerChipLayout } from "@/components/reading/timer-chip";
 import { LogProgressDialog } from "@/components/reading/dialogs/log-progress-dialog";
 import { SessionDialog } from "@/components/reading/dialogs/session-dialog";
@@ -173,6 +173,33 @@ describe("the timer chip", () => {
     await renderChip("phone", running());
     act(() => (host.querySelector("[data-timer-stop]") as HTMLButtonElement).click());
     expect(opened.list.at(-1)).toMatchObject({ kind: "progress", readingId: "r1", timer: { sessionId: "t1", pausedSeconds: 0 } });
+  });
+});
+
+describe("one timer across devices", () => {
+  it("asks before starting a second timer, without calling the server", async () => {
+    let start: ((t: { readingId: string; workId: string; title: string }) => Promise<void>) | null = null;
+    function Starter() {
+      start = useTimer().start;
+      return null;
+    }
+    actions.getRunningTimer.mockResolvedValue(running());
+    act(() => root.render(createElement(TimerProvider, null, createElement(Starter), createElement(TimerAlerts))));
+    await flush();
+    await act(async () => start!({ readingId: "r2", workId: "w2", title: "La Curée" }));
+    expect(actions.startTimer).not.toHaveBeenCalled();
+    expect(text()).toContain("A timer is running for Nadja");
+    expect(text()).toContain("Stop it and start this one");
+  });
+
+  it("says the timer was stopped on another device when a pause finds it gone, whatever the server's message", async () => {
+    await renderChip("expanded", running());
+    actions.pauseTimer.mockRejectedValue(new Error("An error occurred in the Server Components render"));
+    actions.getRunningTimer.mockResolvedValue(null);
+    await act(async () => (host.querySelector("[data-timer-pause]") as HTMLButtonElement).click());
+    await flush();
+    expect(toasts.list.map((t) => t.message)).toContain("This timer was stopped on another device");
+    expect(host.querySelector("[data-timer-chip]")).toBeNull();
   });
 });
 

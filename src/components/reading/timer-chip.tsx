@@ -149,7 +149,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
 
   return (
     <div className="px-3 pb-2" data-timer-chip="expanded">
-      <div role="group" aria-label="Reading timer" className="flex items-center gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-2 py-1.5">
+      <div role="group" aria-label="Reading timer" className="flex items-start gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-2 py-1.5">
         <Cover s3Key={timer.cover} className="h-9 w-6" />
         {/* The time and title open the menu with Discard, as the time does in the rail and the phone bar */}
         <div className="flex min-w-0 flex-1 [&>div]:min-w-0 [&>div]:flex-1">
@@ -170,10 +170,15 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
             "start",
           )}
         </div>
-        {pauseButton}
-        <button type="button" onClick={() => stop()} aria-label="Stop timer" data-tooltip="Stop timer" className={ICON_BUTTON} data-timer-stop="">
-          {stopIcon}
-        </button>
+        {/* On the cap-height center of the time */}
+        <CapAligned height={28} coarseHeight={44} className="text-sm leading-5">
+          {pauseButton}
+        </CapAligned>
+        <CapAligned height={28} coarseHeight={44} className="text-sm leading-5">
+          <button type="button" onClick={() => stop()} aria-label="Stop timer" data-tooltip="Stop timer" className={ICON_BUTTON} data-timer-stop="">
+            {stopIcon}
+          </button>
+        </CapAligned>
       </div>
     </div>
   );
@@ -350,7 +355,13 @@ export function TimerAlerts() {
         </Dialog>
       )}
       {discarding && (
-        <Dialog open onClose={() => setDiscarding(false)} title={`Discard ${durationWords(elapsed)} of timing for ${timer.title}?`} className="max-w-md" expandable={false}>
+        <Dialog
+          open
+          onClose={() => setDiscarding(false)}
+          title={elapsed < 60 ? `Discard the timer for ${timer.title}?` : `Discard ${durationWords(elapsed)} of timing for ${timer.title}?`}
+          className="max-w-md"
+          expandable={false}
+        >
           <p className="text-sm text-fg-secondary">The time is not saved. Where you are in the book does not change.</p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" className="pointer-coarse:h-11" onClick={() => setDiscarding(false)}>
