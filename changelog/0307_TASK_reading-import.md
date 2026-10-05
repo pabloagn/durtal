@@ -107,7 +107,8 @@ import can be undone. Migration 0066 adds `reading_import_rows` and
   nothing, a failed second chunk finished by a second run; book ratings set,
   kept, replaced and restored only while unchanged; the Goodreads identifier
   recorded once; undo keeping an edited reading and committing again; the
-  decision CHECK, cascades, a merge, a deleted book, a film refused). The
+  decision CHECK, cascades, a merge, a deleted book, a film refused; a
+  StoryGraph file). The
   migration and book-isolation tests know the table. Python
   `test_reading_seed.py`: 10 tests.
 - `pnpm typecheck` clean; `pnpm deadcode` clean; `pnpm lint` 0 errors, 81
@@ -125,9 +126,10 @@ import can be undone. Migration 0066 adds `reading_import_rows` and
   close ones is now likely; the 3 left are books catalogued twice (Solaris,
   Roadside Picnic, Ada or Ardor).
 - Page weight on that preview, main and after: every route within budget
-  except `/harmonize`: 324 ms on main, 1,018 to 3,056 ms in three runs after,
-  while other heavy jobs ran. Its scan reads no table this change adds; it is
-  to be measured again side by side on a quiet preview. `/reading/import` 48 KB; `/reading/import/*` with
+  except `/harmonize` in two runs while other heavy jobs ran (1,018 and 3,056
+  ms; 324 ms on main). Measured again side by side on a quiet preview, six
+  requests each: 145 to 268 ms on main, 159 to 239 ms with this change. Its
+  scan reads no table this change adds. `/reading/import` 48 KB; `/reading/import/*` with
   the 2,000-row import as the newest: 815 KB in the first version, 360 KB and
   237 ms after the rows went to one client list with one button class
   (`row-chip`) and only what each row has.
@@ -141,5 +143,13 @@ import can be undone. Migration 0066 adds `reading_import_rows` and
   mid-row, Match again showed with no row left without a book, and two
   candidates with one title now show their years.
 - Journeys on disposable previews: `import` with `--s3-dir` (the list shows
-  the raw file kept) and without (`--no-s3`: "Raw file not kept"); `reading`
-  still passes with the picker's new options.
+  the raw file kept) and without (`--no-s3`: "Raw file not kept"), and once
+  more with a step that ticks "Use the file's rating" ("Book rating 3
+  replaced by 4") and unticks it; `reading` still passes with the picker's
+  new options.
+- Safari through safaridriver: the 2,000-row file chosen in the upload's file
+  input opens its preview, "Import 759 readings" writes 759 readings, and
+  Undo removes them.
+- The database suite also imports the StoryGraph fixture: two reads from
+  their ranges, the 3.75 saved as 4 on the later one, the inverted range in
+  Cannot import.
