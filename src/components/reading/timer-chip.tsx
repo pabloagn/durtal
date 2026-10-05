@@ -150,7 +150,8 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
   return (
     <div className="px-3 pb-2" data-timer-chip="expanded">
       <div role="group" aria-label="Reading timer" className="flex items-start gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-2 py-1.5">
-        <Cover s3Key={timer.cover} className="h-9 w-6" />
+        {/* No icon on a blank thumb: at this size it reads as a misaligned icon beside the time */}
+        <Cover s3Key={timer.cover} className="h-9 w-6" icon={false} />
         {/* The time and title open the menu with Discard, as the time does in the rail and the phone bar */}
         <div className="flex min-w-0 flex-1 [&>div]:min-w-0 [&>div]:flex-1">
           {menu(
