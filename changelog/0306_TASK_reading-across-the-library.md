@@ -102,4 +102,12 @@ books are read; `GET /api/works` answers the same questions. No migration.
   rows' titles have no room at 390 px, and the table's copy button sits
   10 px off its title when a badge is under the title; also Safari's
   0.55 px title-row icons and the decorative monogram initials.
-- Journey: JOURNEY_RESULT
+- Touch (Chrome, 390 px, coarse pointer): CardReading fits in a 138 px info
+  row beside the rating, no page overflow. After rebasing on main at 108f59b:
+  typecheck clean, 184 files, 2042 tests, 0 failed; the series row and the
+  two-column grid rechecked at 390 px in all three browsers.
+- Journey: `node scripts/qa/journeys.mjs --disposable <preview> reading`
+  passes every earlier step, then `/library?q=journey&reading=unread&holding=owned`
+  lists Journey Sequel and not Journey Reading, and "read in" this year lists
+  Journey Reading and not Journey Sequel.
+- Not run: the iOS Simulator and VoiceOver by hand.
