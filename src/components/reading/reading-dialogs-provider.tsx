@@ -9,8 +9,10 @@ import { READING_HOME_KEY } from "@/lib/preferences";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { getReadingDialogData, pauseReading, resumeReading } from "@/lib/actions/reading";
 import { showError, type ReadingPageData } from "./reading-client";
-import { ReadingDialogSwitch, type DialogRequest, type ReadingDialog, type ReadingDialogProps } from "./reading-provider";
+import { ReadingDialogSwitch, type DialogRequest, type ReadingDialog, type ReadingDialogProps, type StopRequest } from "./reading-provider";
 import type { PickerPurpose } from "@/lib/reading/book-picker";
+import type { NoteEdit } from "@/lib/actions/reading-notes";
+import type { NoteKind } from "@/lib/reading/constants";
 
 /*
  * The reading dialogs from any page (SLN-448): the palette, the hub, the
@@ -29,8 +31,10 @@ export interface ReadingRef {
 }
 
 export type ReadingDialogsRequest =
-  | { kind: "start" | "past"; workId: string }
-  | ({ kind: Exclude<ReadingDialog, "start" | "past">; prefill?: string } & ReadingRef);
+  | { kind: "start" | "past"; workId: string; editionId?: string | null }
+  /** A quote or a note on a book (SLN-453), on its open reading when given */
+  | { kind: "note"; workId: string; readingId?: string | null; noteKind?: NoteKind; note?: NoteEdit }
+  | ({ kind: Exclude<ReadingDialog, "start" | "past" | "note">; prefill?: string; timer?: StopRequest } & ReadingRef);
 
 interface ReadingDialogsValue {
   /** Opens a dialog for a book, once its data has loaded */
@@ -81,7 +85,12 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     async (request: ReadingDialogsRequest) => {
       try {
         const data = await getReadingDialogData(request.workId, homeId);
-        if (!("readingId" in request)) return setOpened({ data, request: { kind: request.kind } });
+        if (request.kind === "note")
+          return setOpened({
+            data,
+            request: { kind: "note", readingId: request.readingId ?? undefined, noteKind: request.noteKind, note: request.note },
+          });
+        if (!("readingId" in request)) return setOpened({ data, request: { kind: request.kind, editionId: request.editionId ?? undefined } });
         const row = data.rows.find((r) => r.reading.id === request.readingId);
         if (!row) {
           toast.error("This reading no longer exists");
@@ -89,7 +98,7 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
         }
         // The caller's fingerprint, not the fresh one: a stale page must not save
         const rows = data.rows.map((r) => (r === row ? { ...r, fingerprint: request.fingerprint } : r));
-        setOpened({ data: { ...data, rows }, request: { kind: request.kind, readingId: request.readingId, prefill: request.prefill } });
+        setOpened({ data: { ...data, rows }, request: { kind: request.kind, readingId: request.readingId, prefill: request.prefill, timer: request.timer } });
       } catch (err) {
         showError(err, () => router.refresh());
       }

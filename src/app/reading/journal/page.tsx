@@ -10,7 +10,8 @@ import { HubActions, StartBookButton } from "@/components/reading/hub-actions";
 import { JournalRows, type JournalItem } from "@/components/reading/reading-tiles";
 import { getJournalFacets, queryJournal, type JournalRow } from "@/lib/reading/journal";
 import { journalGroup, parseJournalQuery } from "@/lib/reading/journal-params";
-import { formatReadingSpan, readingDay } from "@/lib/reading/dates";
+import { formatReadingSpan } from "@/lib/reading/dates";
+import { readingToday } from "@/lib/reading/day";
 import { clearedListHref, firstPageHref, hasListQuery } from "@/lib/utils/list-params";
 import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { languageName } from "@/lib/utils/language";
@@ -57,7 +58,7 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
   const query = parseJournalQuery(params);
   const { rows, summary } = await queryJournal(query);
   const search = toSearchParams(params);
-  const today = readingDay(new Date());
+  const today = await readingToday();
   if (summary.readings === 0) {
     return hasListQuery(search) ? (
       <NoResults

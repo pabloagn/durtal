@@ -14,8 +14,11 @@ import {
   Trash2,
   BookPlus,
   CalendarClock,
+  ListMinus,
+  ListPlus,
 } from "lucide-react";
 import { useOptionalReading } from "@/components/reading/reading-provider";
+import { ordinal } from "@/lib/reading/queue";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
@@ -88,7 +91,7 @@ interface WorkActionsMenuProps {
   editionCount: number;
   instanceCount: number;
   /** The reading history the delete removes */
-  readingCounts?: { readings: number; sessions: number };
+  readingCounts?: { readings: number; sessions: number; quotes?: number; notes?: number };
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
@@ -161,6 +164,8 @@ export function WorkActionsMenu({
       instances: instanceCount,
       readings: readingCounts?.readings ?? 0,
       sessions: readingCounts?.sessions ?? 0,
+      quotes: readingCounts?.quotes ?? 0,
+      notes: readingCounts?.notes ?? 0,
     });
   }
 
@@ -194,6 +199,14 @@ export function WorkActionsMenu({
       ? [
           { label: "Start reading", icon: BookPlus, onClick: () => reading.run("start"), shortcut: "R S" },
           { label: "Log a past read", icon: CalendarClock, onClick: () => reading.run("past"), shortcut: "R L" },
+        ]
+      : []),
+    // Up Next (SLN-452), while no reading is open
+    ...(reading?.queuable
+      ? [
+          reading.data.queuePlace
+            ? { label: `In Up Next, ${ordinal(reading.data.queuePlace)} · Remove`, icon: ListMinus, onClick: () => void reading.toggleQueue(), shortcut: "R N" }
+            : { label: "Add to Up Next", icon: ListPlus, onClick: () => void reading.toggleQueue(), shortcut: "R N" },
         ]
       : []),
     {

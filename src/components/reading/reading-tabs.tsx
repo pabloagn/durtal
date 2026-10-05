@@ -12,9 +12,9 @@ import { usePathname } from "next/navigation";
 
 export const READING_TABS = [
   { href: "/reading", label: "Now", ready: true },
-  { href: "/reading/next", label: "Up next", ready: false },
+  { href: "/reading/next", label: "Up next", ready: true },
   { href: "/reading/journal", label: "Journal", ready: true },
-  { href: "/reading/notes", label: "Notes", ready: false },
+  { href: "/reading/notes", label: "Notes", ready: true },
   { href: "/reading/stats", label: "Stats", ready: false },
   { href: "/reading/suggestions", label: "Suggestions", ready: false },
   { href: "/reading/import", label: "Import", ready: true },

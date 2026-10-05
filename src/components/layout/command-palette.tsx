@@ -15,6 +15,11 @@ import {
   BookMarked,
   BookPlus,
   CalendarClock,
+  ListOrdered,
+  NotebookText,
+  Quote,
+  Square,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
@@ -28,6 +33,8 @@ import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
 import { monogramTint } from "@/components/shared/no-photo";
 import { useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
+import { useOptionalTimer } from "@/components/reading/timer-provider";
+import { useStopTimer } from "@/components/reading/timer-chip";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
 
@@ -153,6 +160,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   // The open readings, fetched each time the palette opens, never with the page
   const reading = useReadingDialogs();
+  const timer = useOptionalTimer();
+  const stopTimer = useStopTimer();
   const [openReadings, setOpenReadings] = useState<PaletteOpenReading[]>([]);
   useEffect(() => {
     if (!open) {
@@ -225,8 +234,30 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   );
   const allReadingItems: (PaletteItem & { value: string })[] = [
     ...logItems.map((item) => ({ value: item.value, label: item.label, icon: BookMarked, run: () => void reading.open(item.request) })),
+    // The timer (SLN-451): Stop while one runs, else Start on each open reading
+    ...(timer?.timer
+      ? [{ value: "reading:timer-stop", label: `Stop timer · ${timer.timer.title}`, icon: Square, run: () => stopTimer() }]
+      : timer
+        ? openReadings.map((o) => ({
+            value: `reading:timer:${o.reading.id}`,
+            label: `Start timer · ${o.work.title}`,
+            icon: Timer,
+            run: () => void timer.start({ readingId: o.reading.id, workId: o.work.id, title: o.work.title }),
+          }))
+        : []),
     { value: "reading:start", label: "Start reading...", icon: BookPlus, run: () => reading.pick("start") },
     { value: "reading:past", label: "Log a past read...", icon: CalendarClock, run: () => reading.pick("past") },
+    // Quotes (SLN-453): one per open reading, then any book through the picker
+    ...openReadings.map((o) => ({
+      value: `reading:quote:${o.reading.id}`,
+      label: `Add a quote · ${o.work.title}`,
+      icon: Quote,
+      run: () => void reading.open({ kind: "note", workId: o.work.id, readingId: o.reading.id, noteKind: "quote" }),
+    })),
+    { value: "reading:quote", label: "Add a quote...", icon: Quote, run: () => reading.pick("quote") },
+    { value: "reading:notes", label: "Go to Notes", icon: NotebookText, run: () => router.push("/reading/notes") },
+    // Up Next (SLN-452); "Add to Up Next" on a book page comes from its R menu under "This page"
+    { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => router.push("/reading/next") },
   ];
   const readingItems = trimmed ? filterBySearch(allReadingItems, trimmed, (i) => i.label) : allReadingItems;
   const firstValue =

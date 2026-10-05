@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { logProgress, undoProgress, updateReading } from "@/lib/actions/reading";
+import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/reading";
+import { toast } from "sonner";
+import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
+import { useOptionalTimer } from "../timer-provider";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
 import { logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
@@ -17,7 +20,16 @@ import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
 
-type Segment = "page" | "percent" | "time";
+export type Segment = "page" | "percent" | "time";
+
+/** What was typed in Log progress, kept while "Add a quote" is open, to fill the dialog again on the way back */
+export interface LogDraft {
+  segment: Segment;
+  fields: { page: string; percent: string; hours: string; minutes: string; chapter: string };
+  readOn: string;
+  minutesRead: string;
+  otherId: string;
+}
 const SEGMENTS = [
   { value: "page", label: "Page" },
   { value: "percent", label: "%" },
@@ -44,20 +56,32 @@ export function segmentInput(
   return chapter ? { kind: "chapter", chapter } : null;
 }
 
-/** Log progress: one field, or keypad-friendly fields on a touch screen */
+/**
+ * Log progress: one field, or keypad-friendly fields on a touch screen. In
+ * stop mode (SLN-451) saving stops the running timer: no date (the timer's
+ * day) and no minutes read (the timer's time); no position stops it where
+ * it started, its time still counted.
+ */
 export function LogProgressDialog({ data, row, request, onClose, changed, open }: ReadingDialogProps) {
   const r = row!.reading;
+  const stopping = request.timer ?? null;
+  const timerContext = useOptionalTimer();
+  const [stopSeconds] = useState(() =>
+    stopping ? stopTimes(stopping, stopping.endedAt ? new Date(stopping.endedAt) : null).durationSeconds : 0,
+  );
   // What was typed in the palette ("+20") stays as typed, in the one field
   const coarse = useCoarsePointer() && !request.prefill;
   const [text, setText] = useState(request.prefill ?? "");
-  const [segment, setSegment] = useState<Segment>(r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page");
-  const [fields, setFields] = useState({ page: "", percent: "", hours: "", minutes: "", chapter: "" });
-  const [readOn, setReadOn] = useState(() => todayReadingDay(data.dayStartHour));
-  const [minutesRead, setMinutesRead] = useState("");
+  // Back from "Add a quote": what was typed before it
+  const draft = request.draft;
+  const [segment, setSegment] = useState<Segment>(draft?.segment ?? (r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page"));
+  const [fields, setFields] = useState(draft?.fields ?? { page: "", percent: "", hours: "", minutes: "", chapter: "" });
+  const [readOn, setReadOn] = useState(() => draft?.readOn ?? todayReadingDay(data.dayStartHour));
+  const [minutesRead, setMinutesRead] = useState(draft?.minutesRead ?? "");
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
-  const [showOther, setShowOther] = useState(false);
-  const [otherId, setOtherId] = useState("");
+  const [showOther, setShowOther] = useState(!!draft?.otherId);
+  const [otherId, setOtherId] = useState(draft?.otherId ?? "");
   const [goingBack, setGoingBack] = useState<"fix_last_log" | "went_back">("fix_last_log");
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +104,9 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const parsed = coarse ? null : text.trim() ? parseProgressInput(text, { unit, ...totals }) : null;
   const input: ProgressInput | null = coarse ? segmentInput(segment, fields) : parsed?.ok ? parsed.value : null;
   const preview = logPreview(r, input, session);
+  // The page a quote added from here starts at: the one typed, else where the reading is
+  const quotePage =
+    !session && input?.kind === "page" ? input.page : !session && input?.kind === "addPages" ? (r.currentPage ?? 0) + input.pages : undefined;
   const error = !coarse && parsed && !parsed.ok ? parsed.error : null;
 
   /** +5 pages (or +5% or +15 min) from where the reading is */
@@ -95,8 +122,51 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const steps = unit === "minutes" || (coarse && segment === "time") ? [15, 30, 60] : unit === "percent" || (coarse && segment === "percent") ? [5, 10, 25] : [5, 10, 25];
   const stepLabel = (n: number) => (unit === "minutes" || (coarse && segment === "time") ? `+${n} min` : unit === "percent" || (coarse && segment === "percent") ? `+${n}%` : `+${n}`);
 
+  async function stop() {
+    setSaving(true);
+    try {
+      const result = await stopTimer({
+        sessionId: stopping!.sessionId,
+        ...(stopping!.endedAt ? { endedAt: new Date(stopping!.endedAt) } : {}),
+        ...(preview?.send ?? {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
+        ...(preview?.behind ? { goingBack } : {}),
+        ...(session ? { editionId: session.id, format: otherFormat ?? r.format } : {}),
+      });
+      onClose();
+      changed();
+      await timerContext?.refresh();
+      undoToast(`Saved ${durationWords(result.session.durationSeconds ?? stopSeconds)}${preview ? ` · ${preview.done}` : ""}`, async () => {
+        try {
+          await undoStopTimer({ sessionId: stopping!.sessionId, fingerprint: result.reading.fingerprint, undo: result.undo });
+          changed();
+          await timerContext?.refresh();
+        } catch (err) {
+          showError(err, changed);
+        }
+      });
+      // "Stop it and start this one"
+      const next = timerContext?.pendingStart;
+      if (next) {
+        timerContext!.setPendingStart(null);
+        await timerContext!.start(next);
+      }
+      if (result.reachedEnd) open({ kind: "finish", readingId: r.id, finishedOn: result.session.readOn, reachedEnd: true });
+    } catch (err) {
+      // Stopped or discarded on another device: said in words, since a production build hides the server's message
+      const now = await timerContext?.refresh();
+      if (timerContext && now?.sessionId !== stopping!.sessionId) {
+        toast.error(TIMER_GONE);
+        onClose();
+      } else showError(err, changed);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (stopping) return stop();
     if (!preview) return;
     setSaving(true);
     try {
@@ -136,7 +206,13 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   }
 
   return (
-    <Dialog open onClose={onClose} title="Log progress" description={data.workTitle} className="max-w-lg">
+    <Dialog
+      open
+      onClose={onClose}
+      title={stopping ? "Stop the timer" : "Log progress"}
+      description={stopping ? `You read ${durationWords(stopSeconds)}. Where are you now?` : data.workTitle}
+      className="max-w-lg"
+    >
       <form onSubmit={save} className="space-y-4">
         {coarse ? (
           <div className="space-y-3">
@@ -194,16 +270,43 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
             ))}
           </fieldset>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
-          <Input label="Minutes read (optional)" inputMode="numeric" value={minutesRead} onChange={(e) => setMinutesRead(e.target.value)} />
-        </div>
+        {!stopping && (
+          <div className="grid grid-cols-2 gap-3">
+            <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
+            <Input label="Minutes read (optional)" inputMode="numeric" value={minutesRead} onChange={(e) => setMinutesRead(e.target.value)} />
+          </div>
+        )}
         {showNote ? (
           <Textarea aria-label="Note" placeholder="A note on this sitting" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
         ) : (
-          <button type="button" onClick={() => setShowNote(true)} className="text-xs text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11">
-            Add a note
-          </button>
+          <div className="flex flex-wrap gap-x-4">
+            <button type="button" onClick={() => setShowNote(true)} className="text-xs text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11">
+              Add a note
+            </button>
+            {/* A quote from this sitting (SLN-453), at the page typed here; closing it comes back to this log */}
+            <button
+              type="button"
+              onClick={() =>
+                open({
+                  kind: "note",
+                  noteKind: "quote",
+                  readingId: r.id,
+                  page: quotePage,
+                  back: {
+                    kind: "progress",
+                    readingId: r.id,
+                    prefill: !coarse && text.trim() ? text : undefined,
+                    timer: request.timer,
+                    draft: { segment, fields, readOn, minutesRead, otherId },
+                  },
+                })
+              }
+              className="text-xs text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
+              data-log-quote=""
+            >
+              Add a quote
+            </button>
+          </div>
         )}
         {others.length > 0 &&
           (showOther ? (
@@ -218,7 +321,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Log" disabled={!preview || !!error} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error} />
       </form>
     </Dialog>
   );

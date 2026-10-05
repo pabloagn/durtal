@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Square, Timer } from "lucide-react";
+import { useOptionalTimer } from "./timer-provider";
+import { useStopTimer } from "./timer-chip";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useReadingDialogs, type ReadingRef } from "./reading-dialogs-provider";
@@ -40,16 +42,42 @@ export function StartBookButton() {
   );
 }
 
-/** A current reading's card: Log progress, and Pause, Finish, Abandon, Open book */
+/** "Add a quote" from the commonplace book (SLN-453): the book picker, then the note dialog */
+export function AddQuoteButton({ variant = "secondary" }: { variant?: "primary" | "secondary" | "ghost" }) {
+  const { pick } = useReadingDialogs();
+  return (
+    <Button variant={variant} onClick={() => pick("quote")} className="pointer-coarse:h-11" data-notes-pick="">
+      Add a quote
+    </Button>
+  );
+}
+
+/** A current reading's card: Log progress, and Pause, Finish, Abandon, Add a quote, Open book */
 export function ReadingCardActions({ reading, href, title }: { reading: ReadingRef; href: string; title: string }) {
   const { open, setPaused } = useReadingDialogs();
   const router = useRouter();
   const label = `More for ${title}`;
+  const timer = useOptionalTimer();
+  const stopTimer = useStopTimer();
+  const timing = timer?.timer?.readingId === reading.readingId;
+  const timerLabel = timing ? "Stop timer" : "Start timer";
   return (
     <div className="flex items-center gap-2">
       <Button size="md" onClick={() => void open({ kind: "progress", ...reading })} className="pointer-coarse:h-11" data-hub-log={reading.readingId}>
         Log progress
       </Button>
+      {timer && (
+        <button
+          type="button"
+          aria-label={`${timerLabel} for ${title}`}
+          data-tooltip={timerLabel}
+          className={menuButton}
+          data-hub-timer={reading.readingId}
+          onClick={() => (timing ? stopTimer() : void timer.start({ readingId: reading.readingId, workId: reading.workId, title }))}
+        >
+          {timing ? <Square className="h-4 w-4" strokeWidth={1.5} /> : <Timer className="h-4 w-4" strokeWidth={1.5} />}
+        </button>
+      )}
       <DropdownMenu
         label={label}
         align="end"
@@ -63,6 +91,9 @@ export function ReadingCardActions({ reading, href, title }: { reading: ReadingR
         <DropdownMenuItem onClick={() => void open({ kind: "finish", ...reading })}>Finish</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void open({ kind: "abandon", ...reading })}>Abandon</DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void open({ kind: "note", workId: reading.workId, readingId: reading.readingId, noteKind: "quote" })}>
+          Add a quote
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push(href)}>Open book</DropdownMenuItem>
       </DropdownMenu>
     </div>
@@ -75,6 +106,23 @@ export function ResumeButton({ reading }: { reading: ReadingRef }) {
   return (
     <Button variant="ghost" onClick={() => void setPaused(false, reading)} className="pointer-coarse:h-11" data-hub-resume={reading.readingId}>
       Resume
+    </Button>
+  );
+}
+
+/** Up Next's Start (SLN-452): the Start dialog with the queued edition */
+export function QueueStartButton({ workId, editionId, title }: { workId: string; editionId: string | null; title: string }) {
+  const { open } = useReadingDialogs();
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() => void open({ kind: "start", workId, editionId })}
+      aria-label={`Start reading ${title}`}
+      className="pointer-coarse:h-11"
+      data-hub-queue-start={workId}
+    >
+      Start
     </Button>
   );
 }

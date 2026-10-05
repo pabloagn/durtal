@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
@@ -15,6 +15,7 @@ import {
   readingStatusHistory,
   readings,
   works,
+  readingNotes,
 } from "@/lib/db/schema";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
@@ -22,22 +23,36 @@ import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { appTimeZone } from "@/lib/utils/date";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
-import { isOpenStatus, type ReadingStatus } from "@/lib/reading/constants";
+import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
 import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
+import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { percentOf, remapPosition } from "@/lib/reading/positions";
-import { readingOrdinalSql } from "@/lib/reading/summary";
+import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
+import { progressEvent, readingEvent } from "@/lib/reading/activity";
+import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
+import { TIMER_GONE } from "@/lib/reading/timer";
 import {
+  discardTimerRow,
+  pauseTimerRow,
+  refuseWhileTiming,
+  resumeTimerRow,
+  runningTimer,
+  startTimerOn,
+  undoStop,
+} from "@/lib/reading/timer-service";
+import {
+  FUTURE_SESSION,
   STALE_READING,
   checkWithinTotals,
   completePosition,
   createReading,
   editionPages,
   guardReading,
+  isRunningTimer,
   loadReading,
   loadSessions,
   openReadingMessage,
   openReadingOf,
-  pagesOnDay,
   positionValues,
   recomputeQueries,
   recordProgress,
@@ -49,18 +64,26 @@ import {
 import {
   abandonReadingSchema,
   addPastReadingSchema,
+  addSessionSchema,
   deleteSessionSchema,
   finishReadingSchema,
   logProgressSchema,
   reopenReadingSchema,
   sessionPatchSchema,
+  restoreSessionSchema,
   startReadingSchema,
+  startTimerSchema,
   statusChangeSchema,
+  stopTimerSchema,
+  timerSessionSchema,
   undoProgressSchema,
+  undoStopTimerSchema,
   updateReadingSchema,
   type AddPastReadingInput,
   type LogProgressInput,
   type SessionPatchInput,
+  type StopTimerInput,
+  type AddSessionInput,
   type StartReadingInput,
   type UpdateReadingInput,
 } from "@/lib/validations/reading";
@@ -84,9 +107,7 @@ async function readingFor(readingId: string, fingerprint: string) {
   return reading;
 }
 
-function event(workId: string, key: string, reading: { id: string }, extra: Record<string, unknown> = {}) {
-  recordActivity("work", workId, key, { extra: { readingId: reading.id, ...extra } });
-}
+const event = readingEvent;
 
 /** The edition's title, for the history entries */
 async function editionTitle(editionId: string | null) {
@@ -121,7 +142,8 @@ export async function startReading(input: StartReadingInput) {
  */
 export async function logProgress(input: LogProgressInput) {
   const data = logProgressSchema.parse(input);
-  const { fingerprint, editionId, format, ...progress } = data;
+  // A timer stops through stopTimer only
+  const { fingerprint, editionId, format, timerSessionId: _timer, ...progress } = data;
   const before = await loadReading(data.readingId);
   if (!before) throw new Error("This reading no longer exists");
   await requireBookWork(before.workId);
@@ -132,19 +154,148 @@ export async function logProgress(input: LogProgressInput) {
   return result;
 }
 
-/** At most one progress entry per reading per reading day */
-async function progressEvent(reading: Reading, day: string) {
-  const [seen] = resultRows<{ n: number }>(
-    await db.execute(sql`select count(*)::int as n from activity_events
-      where entity_type = 'work' and entity_id = ${reading.workId}::uuid and event_key = 'work.reading_progress'
-      and metadata->'extra'->>'readingId' = ${reading.id} and metadata->'extra'->>'day' = ${day}`),
+/* ── Pace (SLN-451) ── */
+
+export interface PaceContext {
+  readings: Record<string, PaceReading>;
+  priors: PacePriors;
+}
+
+/**
+ * Everything the estimates need for these readings, in one query: their
+ * ended sessions with countedPagesSql pages (the running timer left out),
+ * their paused intervals, and his priors over the last two years by
+ * language and format, by format and overall. `getPaceContext([])` gives
+ * the priors alone. Computed per request, never cached.
+ */
+export async function getPaceContext(readingIds: string[]): Promise<PaceContext> {
+  const ids = z.array(z.uuid()).max(500).parse(readingIds);
+  const zone = appTimeZone();
+  const [row] = resultRows<{
+    data: {
+      readings: (Omit<PaceReading, "sessions" | "pauses"> & { readingId: string })[] | null;
+      sessions: (PaceSession & { readingId: string })[] | null;
+      pauses: { readingId: string; from: string; to: string | null }[] | null;
+      priors: { language: string | null; format: ReadingFormat | null; level: number; pages: number; hours: number }[] | null;
+    };
+  }>(
+    await db.execute(sql`
+      with ids as (select value::uuid as id from jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)),
+      counted as (select c.session_id, c.pages from ${countedPagesSql()} c where c.session_id is not null),
+      priors as (
+        select e.language, s.format, grouping(e.language, s.format)::int as level,
+          sum(c.pages)::float8 as pages, (sum(s.duration_seconds) / 3600.0)::float8 as hours
+        from reading_sessions s
+        join counted c on c.session_id = s.id
+        left join editions e on e.id = s.edition_id
+        where s.duration_seconds > 0 and c.pages > 0 and s.format in ('print', 'ebook')
+          and s.read_on >= (current_date - interval '2 years')
+        group by grouping sets ((e.language, s.format), (s.format), ())
+      )
+      select jsonb_build_object(
+        'readings', (select jsonb_agg(jsonb_build_object(
+            'readingId', r.id, 'format', r.format, 'unit', r.unit, 'language', e.language,
+            'totalPages', r.total_pages, 'totalMinutes', r.total_minutes,
+            'currentPercent', r.current_percent::float8, 'currentMinutes', r.current_minutes))
+          from readings r left join editions e on e.id = r.edition_id where r.id in (select id from ids)),
+        'sessions', (select jsonb_agg(jsonb_build_object(
+            'readingId', s.reading_id, 'readOn', s.read_on::text, 'durationSeconds', s.duration_seconds, 'format', s.format,
+            'pages', coalesce(c.pages, 0)::float8,
+            'minutesAdvanced', case when s.end_minutes > coalesce(s.start_minutes, 0) then s.end_minutes - coalesce(s.start_minutes, 0) end)
+            order by s.read_on)
+          from reading_sessions s left join counted c on c.session_id = s.id
+          where s.reading_id in (select id from ids) and not (s.source = 'timer' and s.ended_at is null)),
+        'pauses', (select jsonb_agg(jsonb_build_object('readingId', p.reading_id, 'from', p.from_day, 'to', p.to_day))
+          from (select h.reading_id, h.to_status, (h.changed_at at time zone ${zone})::date::text as from_day,
+              (lead(h.changed_at) over (partition by h.reading_id order by h.changed_at) at time zone ${zone})::date::text as to_day
+            from reading_status_history h where h.reading_id in (select id from ids)) p
+          where p.to_status = 'paused'),
+        'priors', (select jsonb_agg(jsonb_build_object('language', language, 'format', format, 'level', level, 'pages', pages, 'hours', hours)) from priors)
+      ) as data`),
   );
-  if (seen?.n) return;
-  event(reading.workId, "work.reading_progress", reading, {
-    day,
-    pages: await pagesOnDay(reading.id, day),
-    percent: reading.currentPercent,
+  const data = row?.data ?? { readings: null, sessions: null, pauses: null, priors: null };
+  const priors: PacePriors = { byLanguageFormat: {}, byFormat: {}, overall: null };
+  for (const p of data.priors ?? []) {
+    if (!p.hours) continue;
+    const pace = p.pages / p.hours;
+    if (p.level === 0 && p.language && p.format) priors.byLanguageFormat[`${p.language}|${p.format}`] = pace;
+    else if (p.level === 2 && p.format) priors.byFormat[p.format] = pace;
+    else if (p.level === 3) priors.overall = pace;
+  }
+  const readings: Record<string, PaceReading> = {};
+  for (const r of data.readings ?? []) readings[r.readingId] = { ...r, sessions: [], pauses: [] };
+  for (const { readingId, ...session } of data.sessions ?? []) readings[readingId]?.sessions.push(session);
+  for (const { readingId, ...pause } of data.pauses ?? []) readings[readingId]?.pauses.push(pause);
+  return { readings, priors };
+}
+
+/* ── The reading timer (SLN-451) ── */
+
+/** The running timer with its book, position and fingerprint, or null: the chip loads it after mount */
+export async function getRunningTimer() {
+  return runningTimer();
+}
+
+/** Starts the one timer on an open reading; a paused reading resumes first */
+export async function startTimer(input: z.input<typeof startTimerSchema>) {
+  const data = startTimerSchema.parse(input);
+  const reading = await loadReading(data.readingId);
+  if (!reading) throw new Error("This reading no longer exists");
+  await requireBookWork(reading.workId);
+  const result = await startTimerOn(reading.id, data.timeZone);
+  if (result.resumed) event(reading.workId, "work.reading_resumed", result.reading);
+  changed();
+  return { sessionId: result.sessionId, reading: result.reading };
+}
+
+/** Pauses the timer; pausing a paused one changes nothing */
+export async function pauseTimer(input: z.input<typeof timerSessionSchema>) {
+  await pauseTimerRow(timerSessionSchema.parse(input).sessionId);
+  return runningTimer();
+}
+
+/** Resumes the timer; its pause joins the paused time */
+export async function resumeTimer(input: z.input<typeof timerSessionSchema>) {
+  await resumeTimerRow(timerSessionSchema.parse(input).sessionId);
+  return runningTimer();
+}
+
+/**
+ * Stops the timer: its running row completes with the end given (or where it
+ * started), at `endedAt` or now, through the progress writer, which reads the
+ * reading fresh and retries once. A forgotten timer needs `endedAt`.
+ */
+export async function stopTimer(input: StopTimerInput) {
+  const { sessionId, editionId, format, ...rest } = stopTimerSchema.parse(input);
+  const [row] = await db.select({ readingId: readingSessions.readingId }).from(readingSessions).where(eq(readingSessions.id, sessionId));
+  if (!row) throw new Error(TIMER_GONE);
+  const before = await loadReading(row.readingId);
+  if (!before) throw new Error("This reading no longer exists");
+  await requireBookWork(before.workId);
+  const result = await recordProgress({ readingId: row.readingId, ...rest, timerSessionId: sessionId }, { source: "timer", editionId, format });
+  if (result.resumed) event(before.workId, "work.reading_resumed", result.reading);
+  await progressEvent(result.reading, result.session.readOn);
+  changed();
+  return result;
+}
+
+/** The 10-second Undo of a stop: the timer runs again and the position follows the other sessions */
+export async function undoStopTimer(input: z.input<typeof undoStopTimerSchema>) {
+  const data = undoStopTimerSchema.parse(input);
+  const end = data.undo.restoreEnd;
+  const reading = await undoStop(data.sessionId, data.fingerprint, {
+    ...data.undo,
+    restoreEnd: end ? { page: end.page ?? null, percent: end.percent ?? null, minutes: end.minutes ?? null, chapter: end.chapter ?? null } : null,
   });
+  changed();
+  return reading;
+}
+
+/** Deletes the running timer after the page asked; the position does not change */
+export async function discardTimer(input: z.input<typeof timerSessionSchema>) {
+  const result = await discardTimerRow(timerSessionSchema.parse(input).sessionId);
+  changed();
+  return result;
 }
 
 /** Undoes a progress save: deletes the session it wrote or puts back the end it replaced */
@@ -217,6 +368,7 @@ async function changeStatus(readingId: string, fingerprint: string, from: Readin
 
 export async function pauseReading(input: z.input<typeof statusChangeSchema>) {
   const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
   return changeStatus(readingId, fingerprint, ["reading"], "paused", "work.reading_paused");
 }
 
@@ -259,12 +411,14 @@ function closingSession(reading: Reading, sessions: Session[], end: { page: numb
 /** Finishes a reading: the end, the date, a rating and review, and the book's rating */
 export async function finishReading(input: z.input<typeof finishReadingSchema>) {
   const data = finishReadingSchema.parse(input);
+  await refuseWhileTiming(data.readingId);
   const reading = await readingFor(data.readingId, data.fingerprint);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new Error("Only an open reading can be finished");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.finishedPrecision ?? "day";
-  const finishedOn = precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone), precision);
+  const finishedOn =
+    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
   const end = {
     page: reading.totalPages ?? reading.currentPage,
     percent: 100,
@@ -317,12 +471,14 @@ export async function finishReading(input: z.input<typeof finishReadingSchema>) 
 /** Abandons a reading: when, why, and the page reached */
 export async function abandonReading(input: z.input<typeof abandonReadingSchema>) {
   const data = abandonReadingSchema.parse(input);
+  await refuseWhileTiming(data.readingId);
   const reading = await readingFor(data.readingId, data.fingerprint);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new Error("Only an open reading can be abandoned");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.stoppedPrecision ?? "day";
-  const stoppedOn = precision === "unknown" ? null : readingPeriodStart(data.stoppedOn ?? readingDay(new Date(), timeZone), precision);
+  const stoppedOn =
+    precision === "unknown" ? null : readingPeriodStart(data.stoppedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
   const given = { page: data.page, percent: data.percent, minutes: data.minutes };
   const reached = [given.page, given.percent, given.minutes].some((v) => v != null);
   if (reached) checkWithinTotals(given, reading);
@@ -604,10 +760,13 @@ export async function updateReading(input: UpdateReadingInput) {
 /** Deletes a reading with its sessions and history; the snapshot lets the page undo it */
 export async function deleteReading(input: z.input<typeof statusChangeSchema>) {
   const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
   const reading = await readingFor(readingId, fingerprint);
-  const [sessions, history] = await Promise.all([
+  const [sessions, history, notes] = await Promise.all([
     loadSessions(reading.id),
     db.select().from(readingStatusHistory).where(eq(readingStatusHistory.readingId, reading.id)),
+    // Its quotes and notes stay with the book; Undo links them back (SLN-453)
+    db.select({ id: readingNotes.id }).from(readingNotes).where(eq(readingNotes.readingId, reading.id)),
   ]);
   await withReadableErrors(() =>
     atomic((d) => [...guardReading(d, reading.id, fingerprint), d.delete(readings).where(eq(readings.id, reading.id))]),
@@ -615,13 +774,14 @@ export async function deleteReading(input: z.input<typeof statusChangeSchema>) {
   event(reading.workId, "work.reading_deleted", reading);
   changed();
   const { fingerprint: _f, ...row } = reading;
-  return { reading: row, sessions, history };
+  return { reading: row, sessions, history, noteIds: notes.map((n) => n.id) };
 }
 
 const snapshotSchema = z.object({
   reading: z.record(z.string(), z.unknown()),
   sessions: z.array(z.record(z.string(), z.unknown())),
   history: z.array(z.record(z.string(), z.unknown())),
+  noteIds: z.array(z.uuid()).max(100_000).optional(),
 });
 
 const asDate = (v: unknown) => (v == null ? null : new Date(v as string));
@@ -678,6 +838,15 @@ export async function restoreReading(input: z.input<typeof snapshotSchema>) {
             ),
           ]
         : []),
+      // Its notes come back to it where nothing else claimed them and they are still on the book
+      ...(snap.noteIds?.length
+        ? [
+            d
+              .update(readingNotes)
+              .set({ readingId: r.id })
+              .where(and(inArray(readingNotes.id, snap.noteIds), isNull(readingNotes.readingId), eq(readingNotes.workId, r.workId))),
+          ]
+        : []),
     ]),
   );
   changed();
@@ -719,6 +888,9 @@ export async function updateSession(input: SessionPatchInput) {
     endedAt: patch.endedAt !== undefined ? patch.endedAt : session.endedAt,
   } as Session;
   if (updated.startedAt && updated.endedAt && updated.endedAt < updated.startedAt) throw new Error("The session ends before it starts");
+  // A session moved after today would hold the position until that day, as in logProgress
+  const ahead = (at: Date | null | undefined) => !!at && at.getTime() - Date.now() > 60_000;
+  if (updated.readOn > readingDay(new Date(), updated.timeZone, 0) || ahead(patch.startedAt) || ahead(patch.endedAt)) throw new Error(FUTURE_SESSION);
   const now = new Date();
   await withReadableErrors(() =>
     atomic((d) => [
@@ -749,7 +921,76 @@ export async function updateSession(input: SessionPatchInput) {
   return (await loadReading(reading.id))!;
 }
 
-/** Removes one session; with none left, the position returns to the start */
+/**
+ * Adds a session by hand (SLN-451): always one new session, in its place in
+ * the session order. The next session's start follows; the position moves
+ * only when it is the newest, so a backdated session never moves it back.
+ */
+export async function addSession(input: AddSessionInput) {
+  const data = addSessionSchema.parse(input);
+  const before = await readingFor(data.readingId, data.fingerprint);
+  await requireBookWork(before.workId);
+  const hour = await readingDayStartHour();
+  for (const at of [data.startedAt, data.endedAt])
+    if (at && readingDay(at, data.timeZone, hour) !== data.readOn) throw new Error("The start and end times must fall on the session's day");
+  const durationSeconds =
+    data.durationSeconds ?? (data.startedAt && data.endedAt ? Math.max(1, Math.round((data.endedAt.getTime() - data.startedAt.getTime()) / 1000)) : null);
+  const result = await recordProgress(
+    {
+      readingId: data.readingId,
+      ...data.to,
+      chapter: data.chapter ?? undefined,
+      readOn: data.readOn,
+      startedAt: data.startedAt ?? undefined,
+      endedAt: data.endedAt ?? undefined,
+      durationSeconds: durationSeconds ?? undefined,
+      note: data.note,
+      goingBack: "went_back",
+      timeZone: data.timeZone,
+    },
+    { fingerprint: data.fingerprint, source: "manual", editionId: data.editionId, format: data.format },
+  );
+  if (result.resumed) event(before.workId, "work.reading_resumed", result.reading);
+  await progressEvent(result.reading, result.session.readOn);
+  changed();
+  return result;
+}
+
+/** Puts a deleted session back with its id and source (the Undo of a delete); refused for a running timer */
+export async function restoreSession(input: z.input<typeof restoreSessionSchema>) {
+  const data = restoreSessionSchema.parse(input);
+  const snap = data.snapshot as unknown as Session;
+  if (snap.readingId !== data.readingId) throw new Error("This session belongs to another reading");
+  if (snap.source === "timer" && !snap.endedAt) throw new Error("A running timer cannot be put back");
+  const reading = await readingFor(data.readingId, data.fingerprint);
+  await requireBookWork(reading.workId);
+  const sessions = await loadSessions(reading.id);
+  if (sessions.some((s) => s.id === snap.id)) throw new Error("This session is already there");
+  const editionOk = snap.editionId ? (await editionPages(snap.editionId))?.workId === reading.workId : true;
+  const { pagesRead: _p, ...values } = snap;
+  const row: Session = {
+    ...snap,
+    editionId: editionOk ? snap.editionId : null,
+    startedAt: asDate(snap.startedAt),
+    endedAt: asDate(snap.endedAt),
+    pausedAt: null,
+    pausedSeconds: snap.pausedSeconds ?? 0,
+    createdAt: asDate(snap.createdAt) ?? new Date(),
+    updatedAt: new Date(),
+  };
+  const now = new Date();
+  await withReadableErrors(() =>
+    atomic((d) => [
+      ...guardReading(d, reading.id, data.fingerprint),
+      d.insert(readingSessions).values({ ...values, ...row, pagesRead: undefined } as typeof readingSessions.$inferInsert),
+      ...recomputeQueries(d, reading, [...sessions, row], now),
+    ]),
+  );
+  changed();
+  return (await loadReading(reading.id))!;
+}
+
+/** Removes one session; with none left, the position returns to the start. Returns the row, for Undo */
 export async function deleteSession(input: z.input<typeof deleteSessionSchema>) {
   const { sessionId, fingerprint } = deleteSessionSchema.parse(input);
   const [session] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
@@ -766,7 +1007,23 @@ export async function deleteSession(input: z.input<typeof deleteSessionSchema>) 
     ]),
   );
   changed();
-  return (await loadReading(reading.id))!;
+  return { reading: (await loadReading(reading.id))!, session };
+}
+
+export type SessionRow = Session & { editionTitle: string | null };
+
+/** One reading's sessions for its list (SLN-451): newest first in the session order, the running timer apart */
+export async function getReadingSessions(readingId: string): Promise<{ running: SessionRow | null; sessions: SessionRow[] }> {
+  const id = z.uuid().parse(readingId);
+  const rows = await db
+    .select({ session: readingSessions, editionTitle: editions.title })
+    .from(readingSessions)
+    .leftJoin(editions, eq(editions.id, readingSessions.editionId))
+    .where(eq(readingSessions.readingId, id));
+  const withTitle = (s: Session): SessionRow => ({ ...s, editionTitle: rows.find((r) => r.session.id === s.id)?.editionTitle ?? null });
+  const all = rows.map((r) => r.session);
+  const running = all.find(isRunningTimer);
+  return { running: running ? withTitle(running) : null, sessions: sessionOrder(all).reverse().map(withTitle) };
 }
 
 /**
@@ -781,14 +1038,19 @@ export async function getReadingsForWork(workId: string) {
     ordinal: number;
     sessionCount: number;
     totalSeconds: number;
+    /** Its quotes and notes (SLN-453), which a delete leaves with the book */
+    quoteCount: number;
+    noteCount: number;
     edition: { id: string; title: string; coverS3Key: string | null; thumbnailS3Key: string | null; pageCount: number | null; language: string | null; translators: string[] } | null;
     copy: { id: string; location: string | null; shelf: string | null } | null;
     home: { id: string; name: string } | null;
   }>(
     await db.execute(sql`select to_jsonb(r) as reading, md5(to_jsonb(r)::text) as fingerprint,
         ${readingOrdinalSql("r")} as ordinal,
-        (select count(*)::int from reading_sessions s where s.reading_id = r.id) as "sessionCount",
+        (select count(*)::int from reading_sessions s where s.reading_id = r.id and not (s.source = 'timer' and s.ended_at is null)) as "sessionCount",
         (select coalesce(sum(s.duration_seconds), 0)::int from reading_sessions s where s.reading_id = r.id) as "totalSeconds",
+        (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'quote') as "quoteCount",
+        (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'note') as "noteCount",
         (select jsonb_build_object('id', e.id, 'title', e.title, 'coverS3Key', e.cover_s3_key, 'thumbnailS3Key', e.thumbnail_s3_key,
             'pageCount', e.page_count, 'language', e.language,
             'translators', coalesce((select jsonb_agg(a.name order by ec.sort_order) from edition_contributors ec join authors a on a.id = ec.author_id
@@ -833,14 +1095,17 @@ export async function getOpenReadings() {
   ).map((row) => ({ ...row, reading: camelReading(row.reading as unknown as Record<string, unknown>) }));
 }
 
-/** The reading history a book delete removes */
+/** The reading history, quotes and notes a book delete removes */
 export async function getReadingCounts(workId: string) {
   const id = z.uuid().parse(workId);
-  const [row] = resultRows<{ readings: number; sessions: number }>(
+  const [row] = resultRows<{ readings: number; sessions: number; quotes: number; notes: number }>(
     await db.execute(sql`select (select count(*)::int from readings where work_id = ${id}::uuid) as readings,
-      (select count(*)::int from reading_sessions s join readings r on r.id = s.reading_id where r.work_id = ${id}::uuid) as sessions`),
+      (select count(*)::int from reading_sessions s join readings r on r.id = s.reading_id where r.work_id = ${id}::uuid) as sessions,
+      n.quotes, n.notes
+      from (select count(*) filter (where kind = 'quote')::int as quotes, count(*) filter (where kind = 'note')::int as notes
+        from reading_notes where work_id = ${id}::uuid) n`),
   );
-  return row ?? { readings: 0, sessions: 0 };
+  return row ?? { readings: 0, sessions: 0, quotes: 0, notes: 0 };
 }
 
 /**
@@ -885,7 +1150,7 @@ export async function getNextInSeries(workId: string, homeId: string | null) {
     title: next.title,
     slug: next.slug ?? null,
     seriesTitle: named?.title ?? null,
-    whereabouts: copy ? copyWhereabouts(copy, { today: readingDay(new Date(), appTimeZone()) }) : "Not owned",
+    whereabouts: copy ? copyWhereabouts(copy, { today: await readingToday() }) : "Not owned",
   };
 }
 
@@ -977,12 +1242,13 @@ export async function getReadingDialogData(workId: string, homeId: string | null
   const [work, locations] = await Promise.all([getWork(id), getLocations()]);
   if (!work) throw new Error("Book not found");
   const zone = appTimeZone();
-  const today = readingDay(new Date(), zone);
+  const dayStartHour = await readingDayStartHour();
+  const today = readingDay(new Date(), zone, dayStartHour);
   return {
     workId: work.id,
     workTitle: work.title,
     bookRating: work.rating ?? null,
-    dayStartHour: 4,
+    dayStartHour,
     rows,
     editions: readingEditions(work.editions, { today, homeId: home }),
     homes: readingHomes(locations),
@@ -1069,7 +1335,7 @@ export async function getSeriesNextToRead(seriesId: string) {
     slug: next.slug ?? null,
     position: next.position ?? null,
     whereabouts: copy
-      ? copyWhereabouts(copy, { today: readingDay(new Date(), appTimeZone()) })
+      ? copyWhereabouts(copy, { today: await readingToday() })
       : ["Not owned", work ? catalogueStatusLabel(work.catalogueStatus) : null].filter(Boolean).join(" · "),
   };
 }

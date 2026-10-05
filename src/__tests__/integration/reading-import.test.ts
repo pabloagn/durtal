@@ -378,7 +378,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
         { "Book Id": "1", Title: "Watt", Author: "Samuel Beckett", "My Rating": "4", "My Review": "<b>Good</b>", "Exclusive Shelf": "read", "Read Count": "2", "Date Read": "2019/04/14", "Number of Pages": "300" },
       ]);
       const { importId } = await upload(file);
-      expect(await commitReadingImport({ importId })).toEqual({ written: 2, present: 0, refused: 0, rows: 1 });
+      expect(await commitReadingImport({ importId })).toEqual({ written: 2, present: 0, refused: 0, rows: 1, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 });
       const written = await readingsOf(workId);
       expect(written.map((r) => [r.source, r.source_key, r.import_id, r.finished_on, r.rating, r.total_pages])).toEqual([
         ["import", "goodreads:1#1", importId, null, null, 280],
@@ -390,7 +390,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect(row.written!.bookRating).toEqual({ workId, before: null, after: 4 });
       expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(4);
       expect(await value(`select status from imports where id = $1`, [importId])).toBe("completed");
-      expect(await commitReadingImport({ importId })).toEqual({ written: 0, present: 0, refused: 0, rows: 0 });
+      expect(await commitReadingImport({ importId })).toEqual({ written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 });
       const again = await upload(file);
       expect((await rows(again.importId)).map((r) => r.match.section)).toEqual(["present"]);
       expect(await commitReadingImport({ importId: again.importId })).toMatchObject({ written: 0 });
@@ -475,7 +475,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       );
       await commitReadingImport({ importId });
       await q(`update readings set rating = 4, updated_at = now() + interval '1 second' where work_id = $1`, [a]);
-      expect(await undoReadingImport({ importId })).toEqual({ removed: 1, kept: 1 });
+      expect(await undoReadingImport({ importId })).toEqual({ removed: 1, kept: 1, queueRemoved: 0, queueKept: 0, notesRemoved: 0, notesKept: 0 });
       expect((await readingsOf(a)).length).toBe(1);
       expect((await readingsOf(b)).length).toBe(0);
       expect(await value(`select status from imports where id = $1`, [importId])).toBe("undone");

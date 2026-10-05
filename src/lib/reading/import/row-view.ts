@@ -40,17 +40,25 @@ function outcomes(written: NonNullable<PreviewRow["written"]>) {
   return [...counts].map(([w, n]) => (n > 1 ? `${w} (${n})` : w)).join(" · ");
 }
 
+/** A to-read row's commit (SLN-452): "Added to Up Next", "Already in Up Next", or why it was skipped */
+function queueOutcome(written: NonNullable<PreviewRow["written"]>) {
+  if (written.queueOutcome === "written") return "Added to Up Next";
+  if (written.queueOutcome === "already_present") return "Already in Up Next";
+  return `Skipped: ${written.queueReason ?? "not written"}`;
+}
+
 export function rowView(row: PreviewRow, today: string): RowView {
   const { data, match, book, written } = row;
+  const toRead = row.section === "to_read" || (data.kind === "to_read" && !!data.queueKey);
   const anyway = row.section === "present" && onlyUndated(match.verdicts);
   const closed = row.section === "cannot" || row.section === "not_imported";
   const writes = !written && match.verdicts.some((v) => v.verdict === "new");
   const rating = ratingLine({ section: row.section, fileRating: data.rating, bookRating: book?.rating, useFileRating: row.useFileRating, writes });
-  const what = written || closed ? null : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
+  const what = written || closed ? null : toRead ? (book ? "Goes to the bottom of Up Next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
   const reason = reasonWords(match);
   const lines: [RowLineKind, string][] = [];
   if (reason) lines.push(["reason", reason]);
-  if (written) lines.push(["outcome", outcomes(written)]);
+  if (written) lines.push(["outcome", written.queueOutcome ? queueOutcome(written) : outcomes(written)]);
   if (what) lines.push(["writes", what]);
   if (rating) lines.push(["rating", rating.text]);
   if (!written && match.reason === "Same ISBN" && data.sourceBookId && book?.editionWithoutGoodreads)

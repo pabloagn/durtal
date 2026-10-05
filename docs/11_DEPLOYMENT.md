@@ -179,6 +179,24 @@ Internet --> Cloudflare DNS --> Tailscale --> Traefik --> Authelia --> Durtal (:
 - **Tailscale**: Mesh VPN. All traffic between Cloudflare and the host stays on the Tailscale network. The registry is only accessible within the mesh.
 - **Homepage**: Dashboard integration via Docker labels. Durtal appears under "Libraries" group.
 
+### Phone shortcuts
+
+The iPhone Shortcuts of docs/05 (Readings) call `/api/readings` with only the bearer token. A Shortcut has no Authelia session, so behind Authelia it would get the login redirect. One access-control rule lets these paths through, on the Durtal host only, with the host reachable only over Tailscale:
+
+```yaml
+# Authelia configuration.yml, access_control.rules, above the rule that covers the Durtal host
+access_control:
+  rules:
+    - domain: "${SUBDOMAIN_DURTAL}.${DOMAIN}"
+      resources:
+        - "^/api/readings([/?].*)?$"
+      policy: bypass
+```
+
+Every `/api/readings` route checks `DURTAL_API_TOKEN` itself, GETs included, so the token stays their lock: without `DURTAL_API_TOKEN` they answer `503`, with a wrong token `401`. The rule is homelab configuration outside this repo; the app never changes it.
+
+When Durtal runs as `next dev -p 3100` on the Mac (no Traefik, no Authelia), no rule is needed: the server listens on every interface, so a phone on the same network calls `http://<Mac name>.local:3100`, and a phone elsewhere needs the Mac on the same tailnet.
+
 ### Health Check
 
 The container uses `wget` to probe `GET /api/health` every 30 seconds. The endpoint returns:

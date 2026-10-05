@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   Database,
+  Hourglass,
   Info,
   Keyboard,
   LayoutGrid,
@@ -20,6 +21,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { href: "/settings", label: "General", icon: SlidersHorizontal },
   { href: "/settings/display", label: "Display", icon: LayoutGrid },
   { href: "/settings/reader", label: "Reader", icon: BookOpenText },
+  { href: "/settings/reading", label: "Reading", icon: Hourglass },
   { href: "/settings/integrations", label: "Integrations", icon: Plug },
   { href: "/settings/data", label: "Data", icon: Database },
   { href: "/settings/shortcuts", label: "Shortcuts", icon: Keyboard },

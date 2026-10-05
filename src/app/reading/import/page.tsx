@@ -45,6 +45,7 @@ export default async function ReadingImportPage() {
                         SOURCE_LABELS[i.source] ?? i.source,
                         `${n(i.totalRecords)} ${i.totalRecords === 1 ? "row" : "rows"}`,
                         i.readings ? `${n(i.readings)} ${i.readings === 1 ? "reading" : "readings"} imported` : null,
+                        i.notes ? `${n(i.notes)} ${i.notes === 1 ? "note" : "notes"}` : null,
                         i.errorRecords ? `${n(i.errorRecords)} not written` : null,
                         i.rawKept ? null : "Raw file not kept",
                       ]
@@ -54,7 +55,9 @@ export default async function ReadingImportPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <Badge variant={STATUS[i.status]?.variant ?? "muted"}>{STATUS[i.status]?.label ?? i.status}</Badge>
-                    {i.readings > 0 && <UndoImport importId={i.id} readings={i.readings} size="sm" />}
+                    {(i.readings > 0 || i.queued > 0 || i.notes > 0) && (
+                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} size="sm" />
+                    )}
                   </div>
                 </li>
               ))}

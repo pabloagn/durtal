@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { withReadableErrors } from "@/lib/db/errors";
@@ -8,10 +8,12 @@ import { resultRows } from "@/lib/harmonization/store";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { CACHE_TAGS, invalidate } from "@/lib/cache";
 import { writeReadings, type WriteOutcome } from "../service";
+import { QUEUE_GAP } from "../constants";
 import type { WriteReadingRow } from "@/lib/validations/reading";
 import { matchRows, withVerdicts, type MatchedRow } from "./match";
 import { defaultDecision, onlyUndated, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
 import { parseImportFile } from "./parse";
+import { commitNotes, defaultNoteDecision, noteWritten, readingsCommitted, readingsUncommittedSql, undoNotes } from "./notes";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
 
 /*
@@ -30,6 +32,12 @@ export interface Written {
   bookRating: { workId: string; before: number | null; after: number | null } | null;
   /** Goodreads identifiers the commit recorded */
   identifiers: string[];
+  /** A to-read row (SLN-452): the Up Next item the commit wrote, or why it wrote none */
+  queueItem?: { id: string; workId: string; position: number; editionId: string | null; note: string | null } | null;
+  queueOutcome?: "written" | "already_present" | "skipped";
+  queueReason?: string | null;
+  /** The note the commit wrote from the row's private note (SLN-453); its readings' rules ignore it */
+  noteIds?: string[];
 }
 
 export interface StoredRow {
@@ -103,7 +111,8 @@ export async function createReadingImport(input: { text: string; fileName: strin
     rowNo: r.rowNo,
     data: r.data,
     match: full[i],
-    decision: defaultDecision(full[i].section),
+    decision: defaultDecision(full[i].section, full[i].queue),
+    noteDecision: defaultNoteDecision(full[i].section, r.data.privateNotes),
     workId: r.workId,
   }));
   const errorLog: ImportErrorLog = { missing: parsed.missing, errors: [] };
@@ -143,8 +152,8 @@ async function lockedImport(importId: string, allowed: ImportStatus[]) {
 }
 
 /** What changes when a row's section changes: its section's default; otherwise the decision stays */
-function nextDecision(before: ImportSection | undefined, after: ImportSection, decision: ImportDecision): ImportDecision {
-  return before === after ? decision : defaultDecision(after);
+function nextDecision(before: ImportSection | undefined, after: ImportMatch, decision: ImportDecision): ImportDecision {
+  return before === after.section ? decision : defaultDecision(after.section, after.queue);
 }
 
 /**
@@ -160,22 +169,24 @@ async function refreshRows(importId: string, source: ImportSource, workIds: stri
   const full = await withVerdicts(source, rows.map(asMatched));
   const updates = rows
     .map((r, i) => ({ r, match: full[i] }))
-    .filter(({ r }) => !r.written)
+    .filter(({ r }) => !readingsCommitted(r.written))
     .map(({ r, match }) => ({
       row_no: r.rowNo,
       work_id: r.workId,
       match,
-      decision: nextDecision(r.match?.section, match.section, r.decision),
+      decision: nextDecision(r.match?.section, match, r.decision),
     }));
   if (!updates.length) return;
   await db.execute(sql`
     update reading_import_rows r
     set match = v.match, work_id = v.work_id, decision = v.decision
     from jsonb_to_recordset(${json(updates)}::jsonb) as v(row_no int, work_id uuid, match jsonb, decision text)
-    where r.import_id = ${importId}::uuid and r.row_no = v.row_no and r.written is null`);
+    where r.import_id = ${importId}::uuid and r.row_no = v.row_no and ${readingsUncommittedSql("r")}`);
 }
 
 const writtenMessage = "This row was imported; undo the import to change it";
+/** A row whose readings (or Up Next item) are not committed; its note may be (SLN-453) */
+const uncommitted = readingsUncommittedSql("reading_import_rows");
 
 async function oneRow(importId: string, rowNo: number) {
   const [row] = await loadRows(importId, eq(readingImportRows.rowNo, rowNo));
@@ -186,10 +197,10 @@ async function oneRow(importId: string, rowNo: number) {
 /** Import, skip, or the file's rating: one UPDATE of one row */
 export async function decideRow(input: { importId: string; rowNo: number; decision?: ImportDecision; useFileRating?: boolean }) {
   const row = await oneRow(input.importId, input.rowNo);
-  if (row.written) throw new Error(writtenMessage);
+  if (readingsCommitted(row.written)) throw new Error(writtenMessage);
   if (input.decision === "import") {
     if (row.match.section === "cannot") throw new Error("This row cannot be imported");
-    if (row.match.section === "not_imported") throw new Error("Want-to-read books are not imported yet");
+    if (row.match.section === "not_imported") throw new Error("Books on this shelf are not imported");
     if (!row.workId) throw new Error("Choose a book first");
     if (row.match.section === "present" && !onlyUndated(row.match.verdicts)) throw new Error("These reads are already in Durtal");
   }
@@ -199,7 +210,7 @@ export async function decideRow(input: { importId: string; rowNo: number; decisi
       ...(input.decision ? { decision: input.decision } : {}),
       ...(input.useFileRating !== undefined ? { useFileRating: input.useFileRating } : {}),
     })
-    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), isNull(readingImportRows.written)))
+    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), uncommitted))
     .returning({ rowNo: readingImportRows.rowNo });
   if (!updated.length) throw new Error(writtenMessage);
 }
@@ -209,7 +220,9 @@ export async function chooseBook(input: { importId: string; rowNo: number; workI
   const imp = await lockedImport(input.importId, ["pending", "completed", "undone"]);
   await requireBookWork(input.workId);
   const row = await oneRow(input.importId, input.rowNo);
-  if (row.written) throw new Error(writtenMessage);
+  if (readingsCommitted(row.written)) throw new Error(writtenMessage);
+  // Its note is on the book it was imported to (SLN-453)
+  if (noteWritten(row.written)) throw new Error("This row's note was imported; undo the import to choose another book");
   if (row.data.error) throw new Error("This row cannot be imported");
   const previous = row.workId;
   const moved: StoredRow = {
@@ -221,14 +234,19 @@ export async function chooseBook(input: { importId: string; rowNo: number; workI
   await db
     .update(readingImportRows)
     .set({ workId: input.workId, match: moved.match })
-    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), isNull(readingImportRows.written)));
+    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), uncommitted));
   await refreshRows(input.importId, imp.source, [input.workId, previous ?? ""], [moved]);
   const [after] = await loadRows(input.importId, eq(readingImportRows.rowNo, input.rowNo));
-  const decision = after.match.section === "present" || after.match.section === "cannot" ? "skip" : "import";
+  const decision =
+    after.match.section === "to_read"
+      ? defaultDecision("to_read", after.match.queue)
+      : after.match.section === "present" || after.match.section === "cannot"
+        ? "skip"
+        : "import";
   await db
     .update(readingImportRows)
     .set({ decision })
-    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), isNull(readingImportRows.written)));
+    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), uncommitted));
 }
 
 /** "Accept all likely matches" and "Skip all not in Durtal": one UPDATE over the section's undecided rows */
@@ -242,7 +260,7 @@ export async function decideSection(input: { importId: string; section: "likely"
         eq(readingImportRows.importId, input.importId),
         sql`${readingImportRows.match}->>'section' = ${input.section}`,
         eq(readingImportRows.decision, "pending"),
-        isNull(readingImportRows.written),
+        uncommitted,
         input.section === "likely" ? sql`${readingImportRows.workId} is not null` : sql`true`,
       ),
     )
@@ -253,7 +271,7 @@ export async function decideSection(input: { importId: string; section: "likely"
 /** "Match again": matching and the duplicate check, for the rows still without a book */
 export async function rematch(importId: string) {
   const imp = await lockedImport(importId, ["pending", "completed", "undone"]);
-  const rows = (await loadRows(importId, sql`${readingImportRows.workId} is null and ${readingImportRows.written} is null`)).filter(
+  const rows = (await loadRows(importId, sql`${readingImportRows.workId} is null and ${uncommitted}`)).filter(
     (r) => !r.data.error,
   );
   if (!rows.length) return { matched: 0 };
@@ -273,6 +291,13 @@ export interface CommitResult {
   present: number;
   refused: number;
   rows: number;
+  /** Up Next items written, already there from an earlier commit, and skipped (queued by hand or started meanwhile) */
+  queued: number;
+  queuePresent: number;
+  queueSkipped: number;
+  /** Private notes written, and already in Durtal (SLN-453) */
+  notes: number;
+  notesPresent: number;
 }
 
 /** The total a reading is written with: the file's own, else the edition's, else Goodreads' page count; never below the position */
@@ -293,7 +318,7 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   const counted = all.filter((r) => r.workId && !r.data.error && r.data.kind === "readings");
   const fresh = await withVerdicts(imp.source, counted.map(asMatched));
   const now = new Map(counted.map((r, i) => [r.rowNo, fresh[i]]));
-  const todo = counted.filter((r) => r.decision === "import" && !r.written);
+  const todo = counted.filter((r) => r.decision === "import" && !readingsCommitted(r.written));
   const editionIds = [...new Set(todo.map((r) => r.match.editionId).filter((id): id is string => !!id))];
   const editionPages = new Map(
     editionIds.length
@@ -363,7 +388,7 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   }
   if (current.length) chunks.push(current);
 
-  const result: CommitResult = { written: 0, present: 0, refused: 0, rows: 0 };
+  const result: CommitResult = { written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 };
   for (const chunk of chunks) {
     const sends = chunk.flatMap((p) => p.items.filter((x) => x.send));
     const outcomes = sends.length ? await writeReadings(sends.map((x) => x.send!), { source: "import", importId }) : [];
@@ -406,11 +431,25 @@ export async function commitImport(importId: string): Promise<CommitResult> {
         written: { readings, bookRating: rating ? { workId: p.row.workId!, ...rating } : null, identifiers: mine } satisfies Written,
       };
     });
+    // A note imported earlier stays recorded (SLN-453)
     await db.execute(sql`
-      update reading_import_rows r set written = v.written
+      update reading_import_rows r set written = coalesce(r.written, '{}'::jsonb) || v.written
       from jsonb_to_recordset(${json(written)}::jsonb) as v(row_no int, written jsonb)
       where r.import_id = ${importId}::uuid and r.row_no = v.row_no`);
   }
+
+  // To-read rows (SLN-452): Up Next items at the bottom, oldest added first
+  const queued = await commitQueueItems(importId, all);
+  result.queued = queued.written;
+  result.queuePresent = queued.present;
+  result.queueSkipped = queued.skipped;
+  for (const e of queued.errors) errors.push(e);
+
+  // Private notes (SLN-453), after the readings so a note goes on its row's latest read
+  const notes = await commitNotes(importId);
+  result.notes = notes.written;
+  result.notesPresent = notes.present;
+  for (const e of notes.errors) errors.push(e);
 
   // The import's counts, over every commit so far
   const errorLog: ImportErrorLog = { missing: [], errors: errors.slice(0, 1000) };
@@ -430,12 +469,104 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   return result;
 }
 
+/**
+ * Writes the to-read rows decided "import" as Up Next items (SLN-452):
+ * appended at the bottom in the file's Date Added order, oldest first (file
+ * order without it), in chunks of 100. A row whose key is already in Up Next
+ * writes nothing, so a second commit never duplicates; a book queued by hand
+ * or started meanwhile is skipped with its reason.
+ */
+async function commitQueueItems(importId: string, all: StoredRow[]) {
+  const todo = all
+    .filter(
+      (r) =>
+        r.data.kind === "to_read" && r.data.queueKey && r.workId && !r.data.error && r.decision === "import" && !readingsCommitted(r.written) && r.match.section === "to_read",
+    )
+    .sort((a, b) => (a.data.addedOn ?? "9999").localeCompare(b.data.addedOn ?? "9999") || a.rowNo - b.rowNo);
+  const out = { written: 0, present: 0, skipped: 0, errors: [] as ImportErrorLog["errors"] };
+  for (let at = 0; at < todo.length; at += COMMIT_READINGS) {
+    const chunk = todo.slice(at, at + COMMIT_READINGS);
+    const keys = chunk.map((r) => r.data.queueKey!);
+    const workIds = chunk.map((r) => r.workId!);
+    const [present, queuedIds, openIds] = await Promise.all([
+      db.execute(sql`select source_key as key from reading_queue where source_key in (select value from jsonb_array_elements_text(${json(keys)}::jsonb))`),
+      db.execute(sql`select work_id::text as id from reading_queue where work_id in (select value::uuid from jsonb_array_elements_text(${json(workIds)}::jsonb))`),
+      db.execute(sql`select distinct work_id::text as id from readings where status in ('reading', 'paused')
+        and work_id in (select value::uuid from jsonb_array_elements_text(${json(workIds)}::jsonb))`),
+    ]);
+    const presentKeys = new Set(resultRows<{ key: string }>(present).map((r) => r.key));
+    const queuedWorks = new Set(resultRows<{ id: string }>(queuedIds).map((r) => r.id));
+    const openWorks = new Set(resultRows<{ id: string }>(openIds).map((r) => r.id));
+    const seen = new Set<string>();
+    const plan = chunk.map((r) => {
+      const why = presentKeys.has(r.data.queueKey!)
+        ? ({ outcome: "already_present", reason: "Already in Up Next" } as const)
+        : queuedWorks.has(r.workId!) || seen.has(r.workId!)
+          ? ({ outcome: "skipped", reason: "Queued by hand meanwhile" } as const)
+          : openWorks.has(r.workId!)
+            ? ({ outcome: "skipped", reason: "Started meanwhile" } as const)
+            : null;
+      seen.add(r.workId!);
+      return { r, why };
+    });
+    const send = plan.filter((p) => !p.why).map((p, k) => ({ row_no: p.r.rowNo, work_id: p.r.workId, edition_id: p.r.match.editionId, key: p.r.data.queueKey, n: k + 1 }));
+    const inserted = send.length
+      ? resultRows<{ id: string; workId: string; position: number; editionId: string | null; key: string }>(
+          await withReadableErrors(() =>
+            db.execute(sql`
+              insert into reading_queue (work_id, edition_id, position, source, import_id, source_key)
+              select x.work_id, (select e.id from editions e where e.id = x.edition_id and e.work_id = x.work_id),
+                coalesce((select max(position) from reading_queue), 0) + x.n * ${QUEUE_GAP}, 'import', ${importId}::uuid, x.key
+              from jsonb_to_recordset(${json(send)}::jsonb) as x(row_no int, work_id uuid, edition_id uuid, key text, n int)
+              order by x.n
+              on conflict do nothing
+              returning id::text, work_id::text as "workId", position, edition_id::text as "editionId", source_key as key`),
+          ),
+        )
+      : [];
+    const byKey = new Map(inserted.map((q) => [q.key, q]));
+    const written = plan.map(({ r, why }) => {
+      const item = byKey.get(r.data.queueKey!);
+      const outcome = why?.outcome ?? (item ? "written" : "already_present");
+      if (outcome === "written") out.written++;
+      else if (outcome === "already_present") out.present++;
+      else {
+        out.skipped++;
+        out.errors.push({ rowNo: r.rowNo, reason: why?.reason ?? "Not written" });
+      }
+      return {
+        row_no: r.rowNo,
+        written: {
+          readings: [],
+          bookRating: null,
+          identifiers: [],
+          queueItem: item ? { id: item.id, workId: item.workId, position: item.position, editionId: item.editionId, note: null } : null,
+          queueOutcome: outcome,
+          queueReason: why?.reason ?? (item ? null : "Already in Up Next"),
+        } satisfies Written,
+      };
+    });
+    await db.execute(sql`
+      update reading_import_rows r set written = coalesce(r.written, '{}'::jsonb) || v.written
+      from jsonb_to_recordset(${json(written)}::jsonb) as v(row_no int, written jsonb)
+      where r.import_id = ${importId}::uuid and r.row_no = v.row_no`);
+  }
+  if (out.written) invalidate(CACHE_TAGS.works, CACHE_TAGS.reading);
+  return out;
+}
+
 /* ── Undo ───────────────────────────────────────────────────────────────── */
 
 export interface UndoResult {
   removed: number;
   /** Readings edited after the import, kept */
   kept: number;
+  /** Up Next items removed, and kept because they were moved or edited after the import (SLN-452) */
+  queueRemoved: number;
+  queueKept: number;
+  /** Notes removed, and kept because they were edited after the import (SLN-453) */
+  notesRemoved: number;
+  notesKept: number;
 }
 
 /**
@@ -446,6 +577,8 @@ export interface UndoResult {
  */
 export async function undoImport(importId: string): Promise<UndoResult> {
   await lockedImport(importId, ["pending", "completed"]);
+  // Its notes first, while the rows still name them (SLN-453)
+  const notes = await undoNotes(importId);
   const mine = resultRows<{ id: string; removable: boolean }>(
     await db.execute(sql`
       select r.id::text as id,
@@ -464,6 +597,21 @@ export async function undoImport(importId: string): Promise<UndoResult> {
     ]);
   }
   const rows = await loadRows(importId, sql`${readingImportRows.written} is not null`);
+  // Up Next items (SLN-452): each one removed while it still has the place, edition and note it was written with
+  const items = rows.flatMap((r) => (r.written?.queueItem ? [r.written.queueItem] : []));
+  const removedItems = items.length
+    ? resultRows<{ id: string }>(
+        await db.execute(sql`
+          delete from reading_queue q using jsonb_to_recordset(${json(items)}::jsonb) as x(id uuid, "workId" uuid, position int, "editionId" uuid, note text)
+          where q.id = x.id and q.import_id = ${importId}::uuid and q.position = x.position
+            and q.edition_id is not distinct from x."editionId" and q.note is not distinct from x.note
+          returning q.id::text as id`),
+      )
+    : [];
+  const queueRemoved = new Set(removedItems.map((r) => r.id));
+  const keptItems = new Set(
+    resultRows<{ id: string }>(await db.execute(sql`select id::text as id from reading_queue where import_id = ${importId}::uuid`)).map((r) => r.id),
+  );
   // Book ratings, the last change first, only while the book still has the import's rating
   const ratings = [...rows].reverse().flatMap((r) => (r.written?.bookRating ? [r.written.bookRating] : []));
   const identifiers = rows.flatMap((r) => r.written?.identifiers ?? []);
@@ -472,7 +620,14 @@ export async function undoImport(importId: string): Promise<UndoResult> {
   );
   const rewritten = rows.map((r) => {
     const kept = (r.written?.readings ?? []).filter((x) => x.outcome === "written" && x.readingId && left.has(x.readingId));
-    return { row_no: r.rowNo, written: kept.length ? ({ readings: kept, bookRating: null, identifiers: [] } satisfies Written) : null };
+    const item = r.written?.queueItem && keptItems.has(r.written.queueItem.id) ? r.written.queueItem : null;
+    return {
+      row_no: r.rowNo,
+      written:
+        kept.length || item
+          ? ({ readings: kept, bookRating: null, identifiers: [], ...(item ? { queueItem: item, queueOutcome: "written" as const } : {}) } satisfies Written)
+          : null,
+    };
   });
   await atomic((d) => [
     ...ratings.map((b) =>
@@ -492,5 +647,12 @@ export async function undoImport(importId: string): Promise<UndoResult> {
     d.execute(sql`update imports set status = 'undone', processed_records = 0 where id = ${importId}::uuid`),
   ]);
   invalidate(CACHE_TAGS.works, CACHE_TAGS.reading);
-  return { removed: mine.length - left.size, kept: left.size };
+  return {
+    removed: mine.length - left.size,
+    kept: left.size,
+    queueRemoved: queueRemoved.size,
+    queueKept: keptItems.size,
+    notesRemoved: notes.removed,
+    notesKept: notes.kept,
+  };
 }

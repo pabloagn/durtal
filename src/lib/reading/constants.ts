@@ -43,6 +43,21 @@ export type ReadingSource = (typeof READING_SOURCES)[number];
 export const SESSION_SOURCES = ["manual", "timer", "reader", "import"] as const;
 export type SessionSource = (typeof SESSION_SOURCES)[number];
 
+/** Where an Up Next item came from (SLN-452) */
+export const QUEUE_SOURCES = ["manual", "import", "suggestion"] as const;
+export type QueueSource = (typeof QUEUE_SOURCES)[number];
+/** The gap between Up Next positions: a move between two items takes the middle */
+export const QUEUE_GAP = 1024;
+
+/** A passage he keeps, or his own note (SLN-453) */
+export const NOTE_KINDS = ["quote", "note"] as const;
+export type NoteKind = (typeof NOTE_KINDS)[number];
+/** Where a quote or note came from */
+export const NOTE_SOURCES = ["manual", "reader", "import"] as const;
+export type NoteSource = (typeof NOTE_SOURCES)[number];
+/** The longest passage or note, in characters */
+export const NOTE_MAX = 10_000;
+
 /** A book's reading state, derived from its readings */
 export const WORK_READING_STATES = ["unread", "reading", "paused", "read", "abandoned"] as const;
 export type WorkReadingState = (typeof WORK_READING_STATES)[number];

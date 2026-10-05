@@ -387,6 +387,12 @@ export async function moveToExistingEdition(placeholderId: string, editionId: st
       where edition_id = ${placeholderId}::uuid`),
     d.execute(sql`update reading_sessions set edition_id = ${editionId}::uuid, updated_at = now()
       where edition_id = ${placeholderId}::uuid`),
+    // So does the edition he queued in Up Next (SLN-452)
+    d.execute(sql`update reading_queue set edition_id = ${editionId}::uuid
+      where edition_id = ${placeholderId}::uuid`),
+    // And the quotes and notes taken against it (SLN-453)
+    d.execute(sql`update reading_notes set edition_id = ${editionId}::uuid
+      where edition_id = ${placeholderId}::uuid`),
     d.execute(sql`delete from editions where id = ${placeholderId}::uuid
       and metadata_source = ${PLACEHOLDER_SOURCE}`),
   ]);

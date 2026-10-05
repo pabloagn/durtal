@@ -19,13 +19,14 @@ export const MAX_CANDIDATES = 3;
 export type FoundHow = "exact" | "likely" | "possible" | "none";
 
 /** The preview's sections, in page order */
-export const IMPORT_SECTIONS = ["choose", "likely", "none", "exact", "present", "cannot", "not_imported"] as const;
+export const IMPORT_SECTIONS = ["choose", "likely", "none", "exact", "to_read", "present", "cannot", "not_imported"] as const;
 export type ImportSection = (typeof IMPORT_SECTIONS)[number];
 export const IMPORT_SECTION_LABELS: Record<ImportSection, string> = {
   choose: "To choose",
   likely: "Likely",
   none: "Not in Durtal",
   exact: "Exact",
+  to_read: "Want to read",
   present: "Already in Durtal",
   cannot: "Cannot import",
   not_imported: "Not imported",
@@ -68,6 +69,26 @@ export interface ImportMatch {
   note: string | null;
   /** What matching changed: "Edition not in Durtal; the reading is kept without it" */
   warnings: string[];
+  /** A to-read row's book in Up Next and in reading (SLN-452) */
+  queue?: QueueState | null;
+}
+
+/** Where a to-read row's book stands: its place in Up Next, the row's own key there, an open reading, the last finish */
+export interface QueueState {
+  place: number | null;
+  /** The row's own key is in Up Next: an earlier import of the same file */
+  sameKey: boolean;
+  open: "reading" | "paused" | null;
+  readYear: string | null;
+}
+
+/** "Already in Up Next, at 3", "Being read now", "Read in 2019", or null */
+export function queueNote(q: QueueState | null | undefined): string | null {
+  if (!q) return null;
+  if (q.place) return `Already in Up Next, at ${q.place}`;
+  if (q.sameKey) return "Already in Up Next";
+  if (q.open) return q.open === "paused" ? "Being read now, paused" : "Being read now";
+  return q.readYear ? `Read in ${q.readYear}` : null;
 }
 
 /** A title as matching compares it, before search_normalize: no series marker, no subtitle after a colon */
@@ -153,13 +174,19 @@ export function onlyUndated(verdicts: ReadingVerdict[]) {
 
 /** Where a row shows, and why when it cannot be imported or is already there */
 export function sectionOf(
-  row: Pick<ImportRow, "error" | "kind">,
+  row: Pick<ImportRow, "error" | "kind" | "queueKey">,
   found: FoundHow,
   workId: string | null,
   verdicts: ReadingVerdict[],
+  queue: QueueState | null = null,
 ): { section: ImportSection; note: string | null } {
   if (row.error) return { section: "cannot", note: row.error };
-  if (row.kind === "to_read") return { section: "not_imported", note: "Want to read" };
+  if (row.kind === "to_read") {
+    // A shelf that is neither read nor to-read stays out; to-read rows go to Up Next (SLN-452)
+    if (!row.queueKey) return { section: "not_imported", note: "Want to read" };
+    if (!workId) return { section: found === "possible" ? "choose" : "none", note: null };
+    return { section: "to_read", note: queueNote(queue) };
+  }
   const home: ImportSection = found === "exact" ? "exact" : found === "likely" ? "likely" : found === "possible" ? "choose" : "none";
   if (!workId) return { section: home, note: null };
   const refused = verdicts.find((v) => v.verdict === "refused");
@@ -169,9 +196,14 @@ export function sectionOf(
   return { section: home, note: null };
 }
 
-/** The decision a row starts with: exact rows are imported; rows that cannot be, or need not be, are skipped */
-export function defaultDecision(section: ImportSection): ImportDecision {
+/**
+ * The decision a row starts with: exact rows are imported, and to-read books
+ * that are neither queued nor being read; rows that cannot be, or need not
+ * be, are skipped
+ */
+export function defaultDecision(section: ImportSection, queue: QueueState | null = null): ImportDecision {
   if (section === "exact") return "import";
+  if (section === "to_read") return queue?.place || queue?.sameKey || queue?.open ? "skip" : "import";
   if (section === "present" || section === "cannot" || section === "not_imported") return "skip";
   return "pending";
 }

@@ -5,7 +5,9 @@ import { formatReadingDate } from "@/lib/reading/dates";
 import { agoText, lastReadText, positionText, type DayContext } from "@/lib/reading/labels";
 import type { getOpenReadings } from "@/lib/actions/reading";
 import type { FinishedRead } from "@/lib/reading/journal";
+import type { ReadingEstimate } from "@/lib/reading/pace";
 import { ReadingCardActions, ResumeButton } from "./hub-actions";
+import { EstimateLine } from "./estimate-line";
 import { Cover, type FinishedItem, type TileItem } from "./reading-tiles";
 
 /*
@@ -24,7 +26,7 @@ const progressLabel = (o: OpenReading) => {
 };
 
 /** A reading in progress: cover, title, author, progress, last read, Log progress and its menu */
-export function CurrentReadingCard({ open, day }: { open: OpenReading; day: DayContext }) {
+export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading; day: DayContext; estimate?: ReadingEstimate }) {
   const r = open.reading;
   const href = bookHref(open.work);
   const last = lastReadText(r.lastReadAt, day);
@@ -45,6 +47,7 @@ export function CurrentReadingCard({ open, day }: { open: OpenReading; day: DayC
           {positionText(r)}
           {last ? ` · last read ${last}` : ""}
         </p>
+        {estimate && <EstimateLine estimate={estimate} lines="lines-2" className="mt-1" />}
         <div className="mt-3">
           <ReadingCardActions reading={refOf(open)} href={href} title={open.work.title} />
         </div>
@@ -86,8 +89,9 @@ export function finishedItem(read: FinishedRead): FinishedItem {
 }
 
 /** An open reading, as the dashboard's tile takes it */
-export function tileItem(open: OpenReading): TileItem {
+export function tileItem(open: OpenReading, estimate?: ReadingEstimate): TileItem {
   return {
+    estimate,
     reading: refOf(open),
     title: open.work.title,
     href: bookHref(open.work),

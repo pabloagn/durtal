@@ -1,32 +1,48 @@
 import Link from "next/link";
-import { BookMarked } from "lucide-react";
+import { ArrowRight, BookMarked } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
-import { HubActions, StartBookButton } from "@/components/reading/hub-actions";
+import { HubActions, QueueStartButton, StartBookButton } from "@/components/reading/hub-actions";
 import { CurrentReadingCard, PausedRow, finishedItem } from "@/components/reading/hub-cards";
-import { FinishedCovers } from "@/components/reading/reading-tiles";
+import { Cover, FinishedCovers } from "@/components/reading/reading-tiles";
+import { getQueueHead } from "@/lib/actions/reading-queue";
 import { getOpenReadings } from "@/lib/actions/reading";
+import { getPassageOfTheDay } from "@/lib/actions/reading-notes";
+import { PassageOfTheDay } from "@/components/reading/passage-of-the-day";
 import { getRecentlyFinished } from "@/lib/reading/journal";
 import { readingDay } from "@/lib/reading/dates";
+import { readingDayStartHour } from "@/lib/reading/day";
+import { readingEstimates } from "@/lib/reading/estimates";
 import { appTimeZone } from "@/lib/utils/date";
 
 export const metadata = { title: "Reading" };
 
 /*
- * The reading hub (SLN-448): what is being read now, what is paused, and the
- * latest finished reads. Later steps add their blocks here (the timer, Up
- * next, a passage of the day, the goal, On this day, suggestions).
+ * The reading hub (SLN-448): what is being read now, Up next, the passage of
+ * the day, what is paused, and the latest finished reads. Later steps add
+ * their blocks here (the goal, On this day, suggestions).
  */
 export default async function ReadingPage() {
-  const [open, finished] = await Promise.all([getOpenReadings(), getRecentlyFinished(6)]);
   const zone = appTimeZone();
-  const day = { today: readingDay(new Date(), zone), zone, dayStartHour: 4 };
+  const dayStartHour = await readingDayStartHour();
+  const day = { today: readingDay(new Date(), zone, dayStartHour), zone, dayStartHour };
+  // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
+  const [open, finished, next, passage] = await Promise.all([
+    getOpenReadings(),
+    getRecentlyFinished(6),
+    getQueueHead(5),
+    getPassageOfTheDay({ day: day.today }),
+  ]);
   const reading = open.filter((o) => o.reading.status === "reading");
+  const estimates = await readingEstimates(
+    reading.map((o) => o.reading.id),
+    day.today,
+  );
   const paused = open.filter((o) => o.reading.status === "paused");
-  const empty = open.length === 0 && finished.length === 0;
+  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage;
 
   return (
     <>
@@ -52,11 +68,38 @@ export default async function ReadingPage() {
               <SectionHeading title="Currently reading" count={reading.length} />
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {reading.map((o) => (
-                  <CurrentReadingCard key={o.reading.id} open={o} day={day} />
+                  <CurrentReadingCard key={o.reading.id} open={o} day={day} estimate={estimates[o.reading.id]} />
                 ))}
               </div>
             </section>
           )}
+          {next.length > 0 && (
+            <section data-hub-next="">
+              <SectionHeading
+                title="Up next"
+                action={
+                  <Link href="/reading/next" className="flex items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary">
+                    View all
+                    <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+                  </Link>
+                }
+              />
+              <ol className="grid grid-cols-3 gap-4 sm:grid-cols-5">
+                {next.map((item) => (
+                  <li key={item.workId} className="min-w-0" data-hub-next-item={item.workId}>
+                    <Link href={`/library/${item.slug ?? item.workId}`} className="group block">
+                      <Cover s3Key={item.cover} className="aspect-[2/3] w-full" />
+                      <span className="lines-1 mt-2 block text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{item.title}</span>
+                    </Link>
+                    <div className="mt-1">
+                      <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          {passage && <PassageOfTheDay day={day.today} initial={passage.note} candidates={passage.candidates} />}
           {paused.length > 0 && (
             <section>
               <SectionHeading title="Paused" count={paused.length} />

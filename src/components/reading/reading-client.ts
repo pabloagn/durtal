@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { readingDay } from "@/lib/reading/dates";
 import type { getReadingsForWork } from "@/lib/actions/reading";
 import type { EditionOption, HomeOption } from "@/lib/reading/page-data";
+import type { ReadingEstimate } from "@/lib/reading/pace";
 
 /*
  * What the book page's reading pieces share in the browser (SLN-447): the
@@ -26,6 +27,10 @@ export interface ReadingPageData {
   today: string;
   /** The server's zone, so page lines match between server and browser */
   zone: string;
+  /** The open reading's time left and finish date, by reading id (SLN-451); the book page only */
+  estimates?: Record<string, ReadingEstimate>;
+  /** The book's place in Up Next, null when not queued (SLN-452); the book page only */
+  queuePlace?: number | null;
 }
 
 /** The browser's time zone, sent with every write */

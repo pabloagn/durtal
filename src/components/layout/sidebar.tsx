@@ -8,6 +8,7 @@ import { NAV_SECTIONS, isSectionActive } from "@/lib/navigation";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { GO_TO } from "@/lib/shortcuts/shortcuts";
 import { SIDEBAR } from "@/lib/preferences";
+import { TimerChip } from "@/components/reading/timer-chip";
 import { CapAligned } from "@/components/shared/cap-aligned";
 
 /**
@@ -207,6 +208,9 @@ export function Sidebar({
           })}
         </ul>
       </nav>
+
+      {/* The running timer (SLN-451): the phone bar carries it below md */}
+      {!drawer && <TimerChip layout={rail ? "rail" : "expanded"} />}
 
       {/* Footer */}
       <div

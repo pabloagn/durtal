@@ -18,14 +18,19 @@
  * year. Then the reading hub (SLN-448): log from /reading, log "212" from the
  * command palette, filter the journal by year, and add a book that is not in
  * Durtal from the book picker's link, landing on its page with Start reading
- * open.
+ * open. On the way, the timer (SLN-451): start one, reload, pause, resume,
+ * stop with a page, Undo, stop again; add and edit a session by hand; and
+ * change the day start hour in /settings/reading. Then quotes (SLN-453): add
+ * one from Log progress with a thought in bold, find it on /reading/notes by
+ * a misspelled word, star it, and see it as the passage of the day.
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
  * summary and "Book rating 3 kept (the file says 4)", use the file's rating
  * and back, choose a book with the picker, add a missing book and see its row match, commit, check a book
- * page, the journal and the imported review in Edit, undo, commit again, and
- * upload the same file again to see nothing left to import. Run the preview
+ * page, the journal and the imported review in Edit, see the private note
+ * imported on its book page (SLN-453), undo (the note goes too), commit
+ * again, and upload the same file again to see nothing left to import. Run the preview
  * with --s3-dir and the list shows the raw file kept; without, "Raw file not
  * kept" (pass --no-s3).
  *
@@ -450,6 +455,148 @@ async function readingJourney() {
       await save("Log");
       await waitFor(`${card}.querySelector('[data-hub-position]').textContent.startsWith('p. 212 of')`, "the card at p. 212");
     });
+    // The reading timer and sessions by hand (SLN-451), on the book page
+    const chip = "[...document.querySelectorAll('[data-timer-chip]')].find((c) => c.getClientRects().length)";
+    const stopTo = async (page) => {
+      await evaluate("document.querySelector('[data-reading-timer]').click()");
+      await waitFor(`${DIALOG}?.textContent.includes('Stop the timer')`, "stop mode");
+      await fill("Where are you?", page);
+      await save("Stop timer");
+    };
+    await step("start a timer, reload, see it run", async () => {
+      await go(path);
+      await waitFor("document.querySelector('[data-reading-timer]')", "Start timer");
+      await evaluate("document.querySelector('[data-reading-timer]').click()");
+      await waitFor(chip, "the timer chip");
+      await go(path);
+      await waitFor(`/^\\d+:\\d\\d$/.test(${chip}?.querySelector('.tabular-nums')?.textContent.trim() ?? '')`, "the running timer after a reload");
+    });
+    await step("pause, resume", async () => {
+      const pause = `${chip}.querySelector('[data-timer-pause]')`;
+      await evaluate(`${pause}.click()`);
+      await waitFor(`${pause}?.getAttribute('aria-label') === 'Resume timer'`, "the paused timer");
+      await evaluate(`${pause}.click()`);
+      await waitFor(`${pause}?.getAttribute('aria-label') === 'Pause timer'`, "the running timer");
+    });
+    await step("stop at p. 230, undo, stop again", async () => {
+      await stopTo("230");
+      await waitFor(`!${chip}`, "the chip to go");
+      await expectLabel("p\\. 230 of");
+      await undo("Saved");
+      await waitFor(chip, "the timer running again");
+      await go(path);
+      await expectLabel("p\\. 212 of");
+      await stopTo("230");
+      await waitFor(`!${chip}`, "the chip to go");
+      await expectLabel("p\\. 230 of");
+    });
+    await step("add and edit a session by hand", async () => {
+      await go(path);
+      await evaluate("document.querySelector('[data-reading=current] [data-session-add]').click()");
+      await waitFor(`${DIALOG}?.querySelector('[data-session-from]')?.textContent === 'From p. 230, where the session before ended'`, "Add a session from p. 230");
+      await fill("Where did it end?", "240");
+      await fill("Minutes", "25");
+      await save("Add session");
+      await expectLabel("p\\. 240 of");
+      await evaluate("document.querySelector('[data-reading=current] [data-sessions-toggle]').click()");
+      const added = "[...document.querySelectorAll('[data-reading=current] [data-session]')].find((r) => r.textContent.includes('25 min · 10 p.'))";
+      await waitFor(added, "the added session in the list");
+      await evaluate(`${added}.querySelector('[data-session-menu]').click()`);
+      await sleep(300);
+      await click("Edit", "[...document.querySelectorAll('[role=menu]')].pop()");
+      await waitFor(`${DIALOG}?.textContent.includes('Edit session')`, "Edit session");
+      await fill("Where did it end?", "245");
+      await save("Save");
+      await expectLabel("p\\. 245 of");
+    });
+    await step("change the day start hour", async () => {
+      const box = "document.getElementById('reading-day-start-hour')";
+      const pick = async (option) => {
+        await evaluate(`${box}.click(), true`);
+        await waitFor(`${box}.parentElement.querySelector('[role=listbox]')`, "the hour list");
+        await evaluate(`[...${box}.parentElement.querySelectorAll('[role=option]')].find((o) => o.textContent.trim().replace(/^✓\\s*/, '') === ${JSON.stringify(option)}).click(), true`);
+        await sleep(800);
+      };
+      await go("/settings/reading");
+      await waitFor(box, "the reading settings");
+      await pick("02:00");
+      await go("/settings/reading");
+      await waitFor(`${box}.textContent.includes('02:00')`, "02:00 after a reload");
+      await pick("04:00");
+      await go("/settings/reading");
+      await waitFor(`${box}.textContent.includes('04:00')`, "04:00 back");
+    });
+    // Up Next (SLN-452): three books from the library, reordered by keyboard, the top one started
+    const queueOrder = "[...document.querySelectorAll('[data-queue-row]')].map((r) => r.querySelector('a').textContent.trim())";
+    await step("add three books to Up Next from the library", async () => {
+      await go("/library?q=queue+journey&sort=title");
+      await waitFor("[...document.querySelectorAll('main h3')].filter((h) => h.textContent.startsWith('Queue Journey')).length === 3", "the three books");
+      await click("Select", "document.querySelector('main')");
+      await evaluate("[...document.querySelectorAll('main h3')].filter((h) => h.textContent.startsWith('Queue Journey')).forEach((h) => h.click()), true");
+      await waitFor("document.querySelector('[data-bulk-queue]')", "the bulk toolbar");
+      await evaluate("document.querySelector('[data-bulk-queue]').click()");
+      await waitFor("[...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.includes('Added 3'))", "Added 3");
+      await go("/reading/next");
+      await waitFor(`${queueOrder}.join() === 'Queue Journey One,Queue Journey Three,Queue Journey Two'`, "the three in Up Next, in the library's order");
+    });
+    await step("reorder Up Next by keyboard", async () => {
+      // Lift the third with Space, two up, drop with Space
+      await evaluate("[...document.querySelectorAll('[data-queue-handle]')][2].focus(), true");
+      for (const key of [" ", "ArrowUp", "ArrowUp", " "]) {
+        const code = key === " " ? "Space" : key;
+        await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode: key === " " ? 32 : 38 });
+        await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: key === " " ? 32 : 38 });
+        await sleep(400);
+      }
+      await waitFor(`${queueOrder}[0] === 'Queue Journey Two'`, "Queue Journey Two at the top");
+      await go("/reading/next");
+      await waitFor(`${queueOrder}.join() === 'Queue Journey Two,Queue Journey One,Queue Journey Three'`, "the new order after a reload");
+    });
+    await step("start the top book; it leaves Up Next", async () => {
+      await evaluate("document.querySelector('[data-queue-start]').click()");
+      await waitFor(`${DIALOG}?.textContent.includes("I'm at")`, "Start reading");
+      await save("Start reading");
+      await waitFor("[...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.includes('Started Queue Journey Two · removed from Up Next'))", "the toast");
+      await go("/reading/next");
+      await waitFor(`${queueOrder}.join() === 'Queue Journey One,Queue Journey Three'`, "Up Next without the started book");
+    });
+    // Quotes and notes (SLN-453)
+    const PASSAGE = "La beauté sera convulsive ou ne sera pas";
+    const passageItem = `[...document.querySelectorAll('[data-note]')].find((n) => n.textContent.includes(${JSON.stringify(PASSAGE)}))`;
+    await step("add a quote from Log progress, with a thought in bold", async () => {
+      await go(path);
+      await menu("Log progress");
+      await waitFor(`${DIALOG}?.querySelector('[data-log-quote]')`, "Log progress");
+      await fill("Where are you?", "250");
+      await evaluate(`${DIALOG}.querySelector('[data-log-quote]').click()`);
+      await waitFor(`${DIALOG}?.querySelector('[data-note-dialog]') && ${DIALOG}.querySelector('[data-note-position]').value === '250'`, "the note dialog at p. 250");
+      await evaluate(`(() => { const t = ${DIALOG}.querySelector('[data-note-body]'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(t, ${JSON.stringify(PASSAGE)}); t.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+      await waitFor(`${DIALOG}.querySelector('.tiptap-content[contenteditable=true]')`, "the thought's editor");
+      await evaluate(`${DIALOG}.querySelector('.tiptap-content').focus(), true`);
+      await evaluate(`${DIALOG}.querySelector('button[aria-label=Bold]').click(), true`);
+      await send("Input.insertText", { text: "The last line" });
+      await sleep(300);
+      await click("Add", DIALOG);
+      // Closing the quote goes back to Log progress, with what was typed there
+      await waitFor(`${DIALOG}?.querySelector('form') && ${field("Where are you?")}.value === '250'`, "Log progress again, with 250");
+      await evaluate(`[...${DIALOG}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Cancel').click(), true`);
+      await go(path);
+      await waitFor(`${passageItem}?.closest('[data-notes-section]') && ${passageItem}.querySelector('[data-note-thought] strong')?.textContent === 'The last line'`, "the quote and its bold thought on the book page");
+      if (!(await evaluate(`${passageItem}.querySelector('[data-note-meta]').textContent.includes('p. 250')`))) throw new Error("The quote is not at p. 250");
+    });
+    await step("find it on /reading/notes by a misspelled word, and star it", async () => {
+      await go("/reading/notes?q=convulsivo");
+      await waitFor(passageItem, "the quote found by a misspelled word");
+      await evaluate(`${passageItem}.querySelector('button[aria-pressed]').click()`);
+      await waitFor(`${passageItem}.querySelector('button[aria-pressed=true]')`, "the star on");
+      await sleep(800);
+      await go("/reading/notes?fav=1");
+      await waitFor(`${passageItem}?.querySelector('button[aria-pressed=true]')`, "the quote among the favourites");
+    });
+    await step("see it as the passage of the day", async () => {
+      await go("/reading");
+      await waitFor(`document.querySelector('[data-hub-passage]')?.textContent.includes(${JSON.stringify(PASSAGE)})`, "the passage of the day");
+    });
     await step("filter the journal by year", async () => {
       await go("/reading/journal?yearMin=2009&yearMax=2009");
       await waitFor("document.querySelector('[data-journal-summary]')", "the journal");
@@ -509,13 +656,13 @@ async function importJourney() {
   const header = ["Book Id", "Title", "Author", "Author l-f", "Additional Authors", "ISBN", "ISBN13", "My Rating", "Average Rating", "Publisher", "Binding", "Number of Pages", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Bookshelves", "Bookshelves with positions", "Exclusive Shelf", "My Review", "Spoiler", "Private Notes", "Read Count", "Owned Copies"];
   const rows = [
     { "Book Id": "9000001", Title: "Import Journey Reread", Author: "Journey Author", "My Rating": "5", "Date Read": "2020/03/14", "Exclusive Shelf": "read", "My Review": "<b>Bold</b> review", "Read Count": "2" },
-    { "Book Id": "9000002", Title: "Import Journey Rated", Author: "Journey Author", ISBN13: '="9780000000019"', "My Rating": "4", "Date Read": "2021/05/05", "Exclusive Shelf": "read", "Read Count": "1" },
+    { "Book Id": "9000002", Title: "Import Journey Rated", Author: "Journey Author", ISBN13: '="9780000000019"', "My Rating": "4", "Date Read": "2021/05/05", "Exclusive Shelf": "read", "Read Count": "1", "Private Notes": "Lent to Ana<br/>Read it twice" },
     { "Book Id": "9000003", Title: "Import Journey Current", Author: "Journey Author", "Date Read": "2018/08/08", "Exclusive Shelf": "currently-reading", "Read Count": "1" },
     { "Book Id": "9000004", Title: "Import Journey Dropped", Author: "Journey Author", "Date Read": "2022/02/02", Bookshelves: "dnf", "Exclusive Shelf": "read", "Read Count": "1" },
     { "Book Id": "9000005", Title: "Import Journey Twin", Author: "Someone Else", "Exclusive Shelf": "read", "Read Count": "1" },
     { "Book Id": "9000006", Title: "Import Journey Missing", Author: "Journey Newcomer", "Date Read": "2023/07/01", "Exclusive Shelf": "read", "Read Count": "1" },
-    { "Book Id": "9000007", Title: "Import Journey Wanted", Author: "Journey Author", "Exclusive Shelf": "to-read", "Read Count": "0" },
-    { "Book Id": "9000008", Title: "Import Journey Wanted Too", Author: "Journey Author", "Exclusive Shelf": "to-read", "Read Count": "0" },
+    { "Book Id": "9000007", Title: "Import Journey Shelf", Author: "Journey Author", "Exclusive Shelf": "to-read", "Date Added": "2024/01/02", "Read Count": "0" },
+    { "Book Id": "9000008", Title: "Import Journey Wanted Too", Author: "Journey Stranger", "Exclusive Shelf": "to-read", "Read Count": "0" },
   ];
   const cell = (v) => (/[",\n]/.test(v) && !v.startsWith("=") ? `"${v.replace(/"/g, '""')}"` : v);
   const file = join(mkdtempSync(join(tmpdir(), "import-journey-")), "goodreads_library_export.csv");
@@ -536,10 +683,14 @@ async function importJourney() {
     await step("upload a Goodreads file", upload);
     await step("see the summary and the rating kept", async () => {
       const summary = await evaluate("document.querySelector('[data-import-summary]').textContent");
-      if (summary !== "8 rows · 4 exact · 1 to choose · 1 not in Durtal · 2 want to read · 1 book rating differs") throw new Error(`The summary reads "${summary}"`);
+      if (summary !== "8 rows · 4 exact · 1 to choose · 2 not in Durtal · 2 want to read · 1 book rating differs") throw new Error(`The summary reads "${summary}"`);
       await waitFor(`${row(2)}?.textContent.includes('Book rating 3 kept (the file says 4)')`, "the kept rating");
       await waitFor(`${row(1)}?.textContent.includes('+1 earlier read, date unknown') && ${row(1)}.textContent.includes('Book rating set to 5')`, "the re-read's line");
-      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 6 readings'", "Import 6 readings");
+      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 6 readings and 1 note, and add 1 book to Up Next'", "Import 6 readings and 1 note, and add 1 book to Up Next");
+      // The private note waits in its own section, to import with its exact row (SLN-453)
+      await waitFor(`document.querySelector('[data-import-note="2"] [data-import-note-decide=import][aria-pressed=true]') && document.querySelector('[data-import-note="2"]').textContent.includes('Read it twice')`, "the private note, to import");
+      // The to-read book is in the Want to read section, to go to Up Next (SLN-452)
+      await waitFor(`${row(7)}?.closest('[data-import-section]')?.dataset.importSection === 'to_read' && ${row(7)}.textContent.includes('Goes to the bottom of Up Next')`, "the to-read row");
     });
     await step("use the file's rating, then keep the book's", async () => {
       const box = `${row(2)}.querySelector('[data-import-rating] input')`;
@@ -569,12 +720,17 @@ async function importJourney() {
       await go(`/reading/import/${importId}`);
       await waitFor(`${row(6)}?.querySelector('[data-import-book]')`, "the row matched to the new book", 90000);
       await evaluate(`${row(6)}.querySelector('[data-import-decide=import]').click()`);
-      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 8 readings'", "Import 8 readings");
+      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 8 readings and 1 note, and add 1 book to Up Next'", "Import 8 readings and 1 note, and add 1 book to Up Next");
     });
     await step("commit", async () => {
       await evaluate("document.querySelector('[data-import-commit]').click()");
-      await waitFor(toast("8 readings written"), "8 readings written", 60000);
+      await waitFor(toast("8 readings written · 1 book added to Up Next · 1 note imported"), "8 readings written · 1 book added to Up Next · 1 note imported", 60000);
       await waitFor(`${row(1)}?.querySelector('[data-import-outcome]')?.textContent.includes('Written (2)')`, "the re-read's outcome");
+    });
+    const shelfInUpNext = "[...document.querySelectorAll('[data-queue-row]')].some((r) => r.textContent.includes('Import Journey Shelf'))";
+    await step("see the to-read book in Up Next", async () => {
+      await go("/reading/next");
+      await waitFor(shelfInUpNext, "Import Journey Shelf in Up Next");
     });
     await step("check the book page and the journal", async () => {
       await go("/library/import-journey-reread");
@@ -582,7 +738,14 @@ async function importJourney() {
       await go("/reading/journal?q=Import+Journey");
       await waitFor("document.querySelectorAll('[data-journal-row]').length === 8", "8 imported readings in the journal");
     });
+    const importedNote = "[...document.querySelectorAll('[data-notes-section] [data-note]')].some((n) => n.textContent.includes('Lent to Ana'))";
+    await step("see the private note on its book page", async () => {
+      await go("/library/import-journey-rated");
+      await waitFor(importedNote, "the imported note on Import Journey Rated");
+    });
     await step("open the imported review in Edit", async () => {
+      await go("/reading/journal?q=Import+Journey");
+      await waitFor("document.querySelectorAll('[data-journal-row]').length === 8", "the journal");
       const menu = "[...document.querySelectorAll('[data-journal-row]')].find((r) => r.textContent.includes('Import Journey Reread') && r.textContent.includes('2020'))?.querySelector('[data-journal-menu]')";
       await evaluate(`${menu}.click()`);
       await waitFor("document.querySelector('[role=menu]')", "the row's menu");
@@ -596,18 +759,25 @@ async function importJourney() {
       await evaluate(`document.querySelector('[data-import-undo="${importId}"]').click()`);
       await waitFor("document.querySelector('[data-import-undo-confirm]')", "the undo question");
       await evaluate("document.querySelector('[data-import-undo-confirm]').click()");
-      await waitFor(toast("8 readings removed"), "8 readings removed", 60000);
+      await waitFor(toast("8 readings removed · 1 book taken off Up Next · 1 note removed"), "8 readings removed · 1 book taken off Up Next · 1 note removed", 60000);
+      await go("/reading/next");
+      await waitFor(`!(${shelfInUpNext})`, "Up Next without the imported book");
+      await go("/library/import-journey-rated");
+      // The book has no reading left, so its Reading section is gone too: wait for the title
+      await waitFor(`document.querySelector('main h1')?.textContent.includes('Import Journey Rated') && !(${importedNote})`, "the book page without the imported note");
+      await go(`/reading/import/${importId}`);
     });
     await step("commit again", async () => {
-      await waitFor("document.querySelector('[data-import-commit]')?.textContent === 'Import 8 readings'", "Import 8 readings again");
+      await waitFor("document.querySelector('[data-import-commit]')?.textContent === 'Import 8 readings and 1 note, and add 1 book to Up Next'", "Import 8 readings and 1 note, and add 1 book to Up Next again");
       await evaluate("document.querySelector('[data-import-commit]').click()");
       await waitFor(toast("8 readings written"), "8 readings written again", 60000);
     });
     await step("upload the same file again: nothing to import", async () => {
       await upload();
       const summary = await evaluate("document.querySelector('[data-import-summary]').textContent");
-      if (summary !== "8 rows · 2 want to read · 6 already in Durtal") throw new Error(`The second upload's summary reads "${summary}"`);
+      if (summary !== "8 rows · 1 not in Durtal · 2 want to read · 6 already in Durtal") throw new Error(`The second upload's summary reads "${summary}"`);
       await waitFor("document.querySelector('[data-import-commit]').disabled && document.querySelector('[data-import-commit]').textContent === 'Nothing to import'", "Nothing to import");
+      await waitFor(`document.querySelector('[data-import-note="2"] [data-import-note-state=present]')?.textContent === 'Already in Durtal (Same source)'`, "the note already in Durtal");
     });
     await step(noS3 ? "the list says Raw file not kept" : "the list shows the raw file kept", async () => {
       await go("/reading/import");

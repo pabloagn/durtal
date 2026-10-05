@@ -3,7 +3,8 @@
  * the query (or the ISBN) and the dialog to open once the book exists.
  */
 
-export type PickerPurpose = "start" | "past";
+export type PickerPurpose = "start" | "past" | "quote";
+const PURPOSES: readonly string[] = ["start", "past", "quote"];
 
 /** The digits of an ISBN-10 or ISBN-13 once spaces and hyphens go; null when it is not one */
 export function isbnOf(text: string): string | null {
@@ -32,7 +33,7 @@ export function addBookParams(params: { q?: string | string[]; isbn?: string | s
   return {
     initialQuery: q,
     initialIsbn: isbn,
-    then: then === "start" || then === "past" ? (then as PickerPurpose) : null,
+    then: then && PURPOSES.includes(then) ? (then as PickerPurpose) : null,
   };
 }
 

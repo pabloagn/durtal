@@ -28,6 +28,12 @@ export interface AppSettings {
   newCopyCondition: InstanceCondition | null;
   /** New orders start in it; spending totals list it first */
   homeCurrency: string;
+  /** A session before this hour (0 to 6) counts for the day before */
+  readingDayStartHour: number;
+  /** The first day of a reading week: 1 Monday or 7 Sunday */
+  readingWeekStart: 1 | 7;
+  /** Minutes of running time after which a timer asks "Still reading?" */
+  readingTimerCheckMinutes: number;
 }
 
 /** The values before migration 0052: the same as its seeded row, without a location. */
@@ -38,6 +44,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   newCopyFormat: "paperback",
   newCopyCondition: "mint",
   homeCurrency: DEFAULT_CURRENCY,
+  readingDayStartHour: 4,
+  readingWeekStart: 1,
+  readingTimerCheckMinutes: 90,
 };
 
 const SETTINGS_COLUMNS = {
@@ -47,6 +56,9 @@ const SETTINGS_COLUMNS = {
   newCopyFormat: appSettings.newCopyFormat,
   newCopyCondition: appSettings.newCopyCondition,
   homeCurrency: appSettings.homeCurrency,
+  readingDayStartHour: appSettings.readingDayStartHour,
+  readingWeekStart: appSettings.readingWeekStart,
+  readingTimerCheckMinutes: appSettings.readingTimerCheckMinutes,
 };
 
 /** A stored row as settings: a value the app no longer offers falls back to its default. */

@@ -5,12 +5,14 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { Badge } from "@/components/ui/badge";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { HubActions } from "@/components/reading/hub-actions";
-import { CommitImport, ImportRows, MatchAgain, SectionAction, UndoImport } from "@/components/reading/import/import-client";
+import { CommitImport, ImportNoteRows, ImportRows, MatchAgain, NotesSectionAction, SectionAction, UndoImport } from "@/components/reading/import/import-client";
 import { getImportPreview, SECTION_PAGE } from "@/lib/reading/import/page-data";
+import { getImportNotes } from "@/lib/reading/import/notes";
 import { IMPORT_SECTION_LABELS, IMPORT_SECTIONS, type ImportSection } from "@/lib/reading/import/match-rules";
 import { cannotCarry, commitWords, SOURCE_LABELS, summaryLine } from "@/lib/reading/import/preview-text";
 import { rowView } from "@/lib/reading/import/row-view";
-import { formatReadingDate, readingDay } from "@/lib/reading/dates";
+import { formatReadingDate } from "@/lib/reading/dates";
+import { readingToday } from "@/lib/reading/day";
 import { appTimeZone, calendarDate } from "@/lib/utils/date";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -25,7 +27,8 @@ const SECTION_NOTES: Partial<Record<ImportSection, string>> = {
   exact: "The same Durtal book, Goodreads id or link, or ISBN.",
   present: "Every read of these rows is already in Durtal. Nothing is written for them.",
   cannot: "A rule of the reading tracker is broken. The reason is on each row.",
-  not_imported: "Want-to-read books stay with the import: Up next will take them.",
+  to_read: "Books on the to-read shelf. Imported, they go to the bottom of Up Next, oldest added first.",
+  not_imported: "Books on shelves that are neither read nor to-read stay with the import.",
 };
 
 const STATUS_LABEL = { completed: "Imported", pending: "To review", undone: "Undone" } as const;
@@ -34,10 +37,10 @@ function one(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
 }
 
-/** The URL that shows 50 more rows of one section, the other sections as they are */
-function moreHref(id: string, params: Params, section: ImportSection, shown: number) {
+/** The URL that shows 50 more rows of one section (or of the private notes), the other sections as they are */
+function moreHref(id: string, params: Params, section: ImportSection | "notes", shown: number) {
   const next = new URLSearchParams();
-  for (const s of IMPORT_SECTIONS) {
+  for (const s of [...IMPORT_SECTIONS, "notes"]) {
     const v = Number(one(params[s]));
     if (Number.isInteger(v) && v > SECTION_PAGE) next.set(s, String(v));
   }
@@ -54,8 +57,10 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
   const preview = await getImportPreview(id, limits);
   if (!preview) notFound();
   const { header, summary, sections } = preview;
-  const today = readingDay(new Date());
-  const commit = commitWords(summary.toImport, summary.pending);
+  // Goodreads private notes (SLN-453), 50 at a time like the sections
+  const notes = await getImportNotes(id, Math.min(5000, Math.max(SECTION_PAGE, Number(one(query.notes)) || SECTION_PAGE)));
+  const today = await readingToday();
+  const commit = commitWords(summary.toImport, summary.pending, summary.toQueue, notes.toImport);
   const carry = cannotCarry(header.source, summary, header.errorLog?.missing ?? []);
   const errors = header.errorLog?.errors ?? [];
   const uploaded = formatReadingDate(calendarDate(new Date(header.createdAt), appTimeZone()), "day");
@@ -74,9 +79,11 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
             {summaryLine(summary)}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0} />
+            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0 && notes.toImport === 0} />
             <MatchAgain importId={id} show={summary.noBook > 0} />
-            {header.readings > 0 && <UndoImport importId={id} readings={header.readings} />}
+            {(header.readings > 0 || header.queued > 0 || header.notes > 0) && (
+              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} />
+            )}
             <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary">
               All imports
             </Link>
@@ -133,6 +140,28 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
             </section>
           );
         })}
+
+        {notes.count > 0 && (
+          <section id="section-notes" className="scroll-mt-24" data-import-section="notes">
+            <SectionHeading
+              title="Private notes"
+              count={notes.count}
+              description="Goodreads private notes become notes on their books, on the row's latest read."
+              action={notes.count > notes.imported ? <NotesSectionAction importId={id} /> : undefined}
+            />
+            <ImportNoteRows importId={id} rows={notes.rows} />
+            {notes.count > notes.rows.length && (
+              <Link
+                href={moreHref(id, query, "notes", notes.rows.length)}
+                scroll={false}
+                className="mt-3 inline-flex h-8 items-center text-sm text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:h-11"
+                data-import-more="notes"
+              >
+                Show {Math.min(SECTION_PAGE, notes.count - notes.rows.length)} more
+              </Link>
+            )}
+          </section>
+        )}
       </div>
     </>
   );

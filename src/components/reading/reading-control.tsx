@@ -1,7 +1,7 @@
 "use client";
 
 import { BookMarked, ChevronDown } from "lucide-react";
-import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import {
   bookReadingState,
@@ -10,6 +10,7 @@ import {
   READING_ACTION_LABELS,
   type ReadingMenuAction,
 } from "@/lib/reading/labels";
+import { ordinal } from "@/lib/reading/queue";
 import { useReading } from "./reading-provider";
 
 /** The R key of each action, shown in the menu */
@@ -31,7 +32,7 @@ const KEY_OF: Partial<Record<ReadingMenuAction, string>> = {
  * actions that make sense in a menu.
  */
 export function ReadingControl() {
-  const { data, run } = useReading();
+  const { data, run, queuable, toggleQueue } = useReading();
   const readings = data.rows.map((r) => r.reading);
   const state = bookReadingState(readings);
   const label = readingControlLabel(readings);
@@ -61,6 +62,18 @@ export function ReadingControl() {
           )}
         </DropdownMenuItem>
       ))}
+      {/* Up Next (SLN-452), for an unread or read book */}
+      {queuable && (state === "unread" || state === "read") && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => void toggleQueue()}>
+            <span className="flex-1" data-queue-toggle="">
+              {data.queuePlace ? `In Up Next, ${ordinal(data.queuePlace)} · Remove` : "Add to Up Next"}
+            </span>
+            <span className="ml-4 font-mono text-micro text-fg-secondary">R {READING_KEYS.queue.toUpperCase()}</span>
+          </DropdownMenuItem>
+        </>
+      )}
     </DropdownMenu>
   );
 }

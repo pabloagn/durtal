@@ -352,7 +352,8 @@ CRUD for sub-locations within a parent location.
 
 ```typescript
 getAppSettings(): Promise<AppSettings>
-// { newBookStatus, newBookLanguage, newCopyLocationId, newCopyFormat, newCopyCondition, homeCurrency }
+// { newBookStatus, newBookLanguage, newCopyLocationId, newCopyFormat, newCopyCondition, homeCurrency,
+//   readingDayStartHour, readingWeekStart, readingTimerCheckMinutes }
 ```
 
 The one `app_settings` row, cached under the tag `ref:settings`. A stored value the app no longer offers falls back to its default. Before migration 0052 has run (no table, error 42P01), it returns the defaults. The root layout reads it once per request and passes it to `AppSettingsProvider`; client components read it with `useAppSettings()` (`src/lib/hooks/use-app-settings.tsx`).
@@ -365,7 +366,7 @@ updateAppSettings(input: Partial<AppSettingsInput>): Promise<
 >
 ```
 
-Changes only the fields given, after `appSettingsInputSchema` (`src/lib/validations/settings.ts`): a status other than deaccessioned, a language from `LANGUAGES`, an existing location or null, an `INSTANCE_FORMATS` / `INSTANCE_CONDITIONS` value or null, a supported currency. Problems come back as `{ ok: false, error }`. Invalidates `ref:settings` and the root layout.
+Changes only the fields given, after `appSettingsInputSchema` (`src/lib/validations/settings.ts`): a status other than deaccessioned, a language from `LANGUAGES`, an existing location or null, an `INSTANCE_FORMATS` / `INSTANCE_CONDITIONS` value or null, a supported currency, a reading day start hour from 0 to 6, a week start of 1 (Monday) or 7 (Sunday), and a timer check of 15 to 480 minutes (SLN-451, from `/settings/reading`). Problems come back as `{ ok: false, error }`. Invalidates `ref:settings` and the root layout.
 
 ### `refreshCachedData()`
 
@@ -445,13 +446,13 @@ Each status change writes the order and its history row in one transaction. It i
 
 ## Reading (`src/lib/actions/reading.ts`, SLN-444)
 
-Every write parses its input (`src/lib/validations/reading.ts`), checks the book (`requireBookWork`), reads the reading and its fingerprint, then runs one atomic write that locks the reading and asserts the fingerprint; a stale one gives "This reading changed elsewhere; reload before saving". Each returns the reading with its new fingerprint, records its history entry after the write, and invalidates `works` and `reading`. Ratings are 0.5 to 5.0 in half steps. Times and default dates use the browser's `timeZone` when given, else `APP_TIMEZONE`, and the reading day (hours before 04:00 count for the evening before).
+Every write parses its input (`src/lib/validations/reading.ts`), checks the book (`requireBookWork`), reads the reading and its fingerprint, then runs one atomic write that locks the reading and asserts the fingerprint; a stale one gives "This reading changed elsewhere; reload before saving". Each returns the reading with its new fingerprint, records its history entry after the write, and invalidates `works` and `reading`. Ratings are 0.5 to 5.0 in half steps. Times and default dates use the browser's `timeZone` when given, else `APP_TIMEZONE`, and the reading day: hours before `app_settings.reading_day_start_hour` (04:00 by default) count for the evening before. Every writer reads the hour with `readingDayStartHour()` (`src/lib/reading/day.ts`); no caller passes a literal hour.
 
 ### `startReading(input)`
 Starts a book: copy, edition, home, format (from the copy: e-book files are `ebook`, audiobooks `audio`), unit, totals (pages from the edition), start date (today's reading day, or unknown) and at most one start position. Refused while the book has an open reading ("This book is already being read", or "This book has a paused reading; resume it"). `work.reading_started`.
 
 ### `logProgress(input)`
-A page, percent, minutes, pages or minutes on, or a chapter, in the reading's edition or another of the book's. A paused reading resumes first. A new session starts where the session order says and ends at the new place; going back follows `goingBack` (`fix_last_log` replaces the latest session's end, `went_back` writes a session that counts nothing; without it, a log on the latest session's day fixes it). Past the last page or the end is refused with the page or time. Returns `{ reading, session, reachedEnd, wentBack, undo }`. `work.reading_progress` at most once per reading per day.
+A page, percent, minutes, pages or minutes on, or a chapter, in the reading's edition or another of the book's. A paused reading resumes first. A new session starts where the session order says and ends at the new place; going back follows `goingBack` (`fix_last_log` replaces the latest session's end, `went_back` writes a session that counts nothing; without it, a log on the latest session's day fixes it). Past the last page or the end is refused with the page or time. A session after today, or with a start or end more than a minute ahead, is refused: "This session is in the future" (it would be the latest and hold the position until that day). Returns `{ reading, session, reachedEnd, wentBack, undo }`. `work.reading_progress` at most once per reading per day.
 
 ### `undoProgress({ readingId, fingerprint, undo })`
 Deletes the session a log wrote, or puts back the end it replaced, recomputes the position, and pauses the reading again when the log had resumed it.
@@ -475,13 +476,33 @@ A finished or abandoned read from the past in one step, through `writeReadings` 
 Edition or copy (the start and current positions are mapped by share; with no page count, page null and unit percent; `work.reading_edition_changed`), format, unit, home (physical only), totals (never below the position: "You are on p. 212; the book cannot have 200 pages"), dates (the finish only on a finished or abandoned read, after the start), rating, review, reason and note.
 
 ### `deleteReading(input)` / `restoreReading(snapshot)`
-Deletes a reading with its sessions and history and returns the snapshot; restore puts it back with the same ids, an edition, copy or place deleted meanwhile coming back empty, and is refused if it would make a second open reading. `work.reading_deleted`.
+Deletes a reading with its sessions and history and returns the snapshot; restore puts it back with the same ids, an edition, copy or place deleted meanwhile coming back empty, and is refused if it would make a second open reading. `work.reading_deleted`. Its quotes and notes (SLN-453) stay with the book without a reading; the snapshot holds their ids (`noteIds`) and restore links back the ones still without a reading on the same book.
 
 ### `updateSession(input)` / `deleteSession(input)`
-Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. With no session left, the position returns to the start.
+Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. An edit that moves a session after today is refused, as in logProgress. With no session left, the position returns to the start. `deleteSession` returns `{ reading, session }`: the deleted row, for its Undo.
+
+### `addSession(input)` / `restoreSession({ readingId, fingerprint, snapshot })` (SLN-451)
+`addSession({ readingId, fingerprint, readOn, startedAt?, endedAt?, durationSeconds?, to: { page | percent | minutes }, chapter?, editionId?, format?, note?, timeZone })` adds one session by hand: `recordProgress` with `source: "manual"` and `goingBack: "went_back"`, so it never replaces another. It takes its place in the session order: it starts where the session before it ended, the next session's start follows, and the position moves only when it is the newest. Open readings only; `startedAt` and `endedAt` must fall on `readOn` in `timeZone`, and nothing may be in the future. Its Undo is `deleteSession`. `restoreSession` is the Undo of a delete: it puts the row back with its id and source and recomputes the next start and the position; refused for a running timer.
+
+### `getReadingSessions(readingId)` (SLN-451)
+One reading's sessions for the session list, newest first in the session order, each with its edition's title, and the running timer apart: `{ running, sessions }`. The list calls it when it opens.
+
+### The reading timer (SLN-451)
+One timer in the whole app: the session with `source = 'timer'` and `ended_at` null. Writes go through `src/lib/reading/timer-service.ts` and `recordProgress`.
+- `getRunningTimer()`: the running session with its book (title, slug, author, cover), its reading's position, unit, totals and fingerprint (equal to `readingFingerprintSql`), `startedAt`, `pausedAt` and `pausedSeconds`, or null. The chip calls it after mount, on focus and when the tab shows again.
+- `startTimer({ readingId, timeZone })`: refused while any timer runs ("A timer is running for Nadja. Stop it first"). A paused reading resumes first (`work.reading_resumed`). The session starts at the reading's position, in the sent zone, with `read_on` the reading day it started: a timer keeps that day and zone however late or wherever it stops.
+- `pauseTimer({ sessionId })` / `resumeTimer({ sessionId })`: set `paused_at`; add `now - paused_at` to `paused_seconds`. Pausing a paused timer or resuming a running one changes nothing.
+- `stopTimer({ sessionId, endedAt?, page?, percent?, minutes?, addPages?, addMinutes?, chapter?, editionId?, format?, goingBack?, note? })`: completes the running row through `recordProgress` with `timerSessionId` (no fingerprint: a fresh read, asserted in the same atomic with the row still running, one retry). It starts where the session before it ends, so a page logged by hand during the timer is never counted twice. It ends at `endedAt`, else now; a paused timer at its pause. `duration_seconds = ended_at - started_at - paused_seconds`, at least 1. No position: 0 pages, its time counted. Refused over 12 hours ("Edit the end time; a session can be at most 12 hours") and, without `endedAt`, past twice `reading_timer_check_minutes` ("Your timer for Nadja has run 6 h 12 min. When did you stop?"). Returns `{ reading, session, reachedEnd, undo }`.
+- `undoStopTimer({ sessionId, fingerprint, undo })`: the timer runs again (its end cleared, its pause restored) and the position is recomputed; refused while another timer runs ("A timer is running for La Curée").
+- `discardTimer({ sessionId })`: deletes the running row; the position does not change.
+- Any of them on a timer stopped or discarded elsewhere: "This timer was stopped on another device".
+- While a reading's timer runs, `pauseReading`, `finishReading`, `abandonReading` and `deleteReading` refuse with "Stop or discard the timer for Nadja first". Logging progress is allowed.
+
+### `getPaceContext(readingIds)` (SLN-451)
+The estimates' inputs in one query: each reading's format, unit, edition language, totals and position; its ended sessions with `countedPagesSql` pages, duration, format and the book minutes they moved (the running timer left out); its paused intervals from `reading_status_history`; and the priors, his pages an hour over the last two years by language and format, by format and overall. Numbers come back as `float8`. `getPaceContext([])` gives the priors alone (Up Next and suggestions use them). Computed per request, never cached. `readingEstimates(ids, today)` (`src/lib/reading/estimates.ts`) turns it into each reading's line and explanation with the pure `src/lib/reading/pace.ts`.
 
 ### `getReadingsForWork(workId)`, `getOpenReadings()`, `getReadingCounts(workId)`
-A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author, cover and when it was paused, most recently read first (the hub, the dashboard, and the command palette, which calls it each time it opens); the readings and sessions a book delete removes.
+A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author, cover and when it was paused, most recently read first (the hub, the dashboard, and the command palette, which calls it each time it opens); the readings, sessions, quotes and notes a book delete removes (`{ readings, sessions, quotes, notes }`, one query). A book's readings also carry `quoteCount` and `noteCount` (SLN-453), for the delete dialog's "Its 2 quotes and 1 note stay with the book".
 
 ### What the book page calls (SLN-447)
 The header control, the Reading section and its dialogs call `startReading`, `logProgress` and `undoProgress`, `pauseReading`, `resumeReading`, `finishReading`, `abandonReading`, `reopenReading` (the Undo of finish and abandon, and "Resume this reading" with `toStatus: "reading"`), `addPastReading`, `updateReading`, `deleteReading` and `restoreReading`. Every write sends the browser's `timeZone` and, on an existing reading, the fingerprint from `getReadingsForWork` or the last write. A "212/480" log first sets the page count with `updateReading`.
@@ -513,11 +534,55 @@ The series page's "Next to read": `nextToRead`'s volume and where its copy is (a
 - `getRecentlyFinished(limit)`: the latest finished reads with the read's rating, unknown dates last.
 
 ### Internal service (`src/lib/reading/service.ts`, not a server action)
-- `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
-- `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again").
-- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome. `allowPossibleDuplicate` writes a possible duplicate, and an undated read the import's count rule called present ("Import anyway").
+- `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged. It takes the book off Up Next in the same write and says so (`unqueued: true`, SLN-452).
+- `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again"). With `timerSessionId` (SLN-451) it completes that running timer row instead of inserting a session, keeping its zone and day, and asserts in the same atomic that the row still runs.
+- `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome. `allowPossibleDuplicate` writes a possible duplicate, and an undated read the import's count rule called present ("Import anyway"). An open or paused row takes its book off Up Next in the same write (`unqueued: true` in its outcome, SLN-452).
 
 ---
+
+## Up Next (`src/lib/actions/reading-queue.ts`, SLN-452)
+
+Each action parses its input with zod (`src/lib/validations/reading-queue.ts`), writes books only (`requireBookWork`), runs one `atomic` inside `withReadableErrors`, and invalidates `works` and `reading` (the library's filter and sort read the queue). `work.queued` and `work.unqueued` are recorded after the write, at most one each per book per reading day; items an import adds record none. Up Next never changes `catalogue_status`. Position arithmetic, the edition he means, where the copy is and time to read are pure, in `src/lib/reading/queue.ts`.
+
+### `addToQueue({ workId, editionId?, note?, at?: "top" | "bottom", from?: "suggestion" })`
+At the bottom unless `at: "top"`; `from: "suggestion"` stores `source = 'suggestion'`, else `manual`. Refused for a queued book ("Already in Up Next, at 3"), a book being read ("Nadja is being read", "Nadja has a paused reading") and an edition of another book. Returns `{ workId, place }`.
+
+### `addManyToQueue({ workIds })`
+The bulk toolbar's: appended in the given order in one write; queued books and books being read are skipped and counted. Returns `{ added, alreadyQueued, beingRead }`.
+
+### `removeFromQueue({ workId })` / `restoreQueueItem(snapshot)`
+Remove returns the deleted row, for its Undo. Restore puts it back with its id at its old position, or the next free one after it; an edition deleted or moved meanwhile comes back empty. Refused when the book was queued again ("Nadja is in Up Next again") or started meanwhile.
+
+### `moveQueueItem({ workId, beforeWorkId?, afterWorkId? })`
+Places the item after `afterWorkId` (the item above) and before `beforeWorkId` (the item below): the middle of the gap, or, with no gap left, every position renumbered in steps of 1024 in the same write. Returns `{ workId, place, total }`.
+
+### `updateQueueItem({ workId, editionId?, note? })`
+The edition he means to read and the note.
+
+### `getQueue({ homeId? })`, `getQueueHead(limit)`, `getQueuePlace(workId)`
+The whole list in one query, in order: each book with its author, covers, editions and copies (for the edition he means: the queued one, else `pickDefaultEdition` for the home; and where the copy is, through `copyWhereabouts`), each edition's last known audio length (`total_minutes` of its latest reading that has one), ownership (`ownedBookCondition`), the copy at hand at the home (`atHandCopySql`) and the reading history (`readCountSql`, `lastFinishedOnSql`). The hub's strip reads the first five; the book page reads its place.
+
+## Quotes and notes (`src/lib/actions/reading-notes.ts`, SLN-453)
+
+The commonplace book. Each write parses its input with zod (`src/lib/validations/reading-notes.ts`), writes books only (`requireBookWork`), reads and checks the reading and edition against the book ("This reading belongs to another book", "This edition belongs to another book"), runs one `atomic` inside `withReadableErrors`, then records activity and invalidates `works` and `reading`. `source`, `sourceKey` and `importId` are never taken from a page: page actions write `source: "manual"`. No event per note: at most one `work.notes_added` per book per reading day ("Added 3 quotes and 1 note"), recorded after the write; the first note of the day records it and later ones add to its counts. Notes an import writes record none. Pure rules: `src/lib/reading/notes-text.ts` (`joinHyphenatedLines`, `formatNoteForCopy`), `src/lib/reading/notes-params.ts` (`parseNotesQuery`) and `src/lib/reading/passage.ts` (`choosePassage`).
+
+### `createReadingNote({ workId, kind, body, readingId?, editionId?, page?, chapter?, percent?, commentHtml?, commentJson?, isFavourite? })`
+`kind` is `quote` or `note`; the body is trimmed and keeps at least one character, at most 10,000. A note on a reading takes the reading's edition unless it names another. The percent, when not given, is `percentOf` the page and the reading's `total_pages`, else the edition's `page_count`. Only a quote carries a thought ("Only a quote carries a thought"): `commentHtml` is sanitized with `sanitizeCommentHtml`, and an editor with no text stores none. Returns the note as the pages show it (`NoteItem`, with its reading's number).
+
+### `updateReadingNote({ id, ...patch })` / `toggleNoteFavourite({ id })`
+Any field of the create but the book. A new page recomputes the percent unless one is sent; a quote that becomes a note loses its thought. The star flips `is_favourite` and, like any edit, moves `updated_at`, so an import's undo keeps a starred note.
+
+### `deleteReadingNote({ id })` / `restoreReadingNote(snapshot)`
+Delete returns the row, for the page's 10-second Undo. Restore puts it back with the same id; a reading, edition or import deleted meanwhile comes back empty.
+
+### `getNotesForWork(workId)`
+A book's quotes and notes by page (then percent), then the order added, each with its reading's number ("2nd read", `readingOrdinalSql`).
+
+### `searchNotes({ q?, workId?, authorId?, kind?, favourites?, year?, sort, order?, page, perPage? })`
+The commonplace book: `textSearchCondition` and `textSearchRank` on `reading_notes.search_text` (accents and a one-letter typo forgiven), the book, any author of the book, the kind, the star and the year added (the app's zone). Sorts: `newest`, `book` (title, then page) and `relevance` (a search only). 48 a page unless `perPage` is another of the page sizes. Returns `{ items, total, page, pageCount }`; each item has its book's id, title, slug and first author. `getNotesFacets()` gives the filters' choices: the books, the authors and the years that have notes, and the total.
+
+### `getPassageOfTheDay({ day, offset? })`
+The hub's passage: `choosePassage(quotes, day, offset)` over every quote, then that quote with its book. `offset` is "Another", counted in the browser only. Returns `{ note, candidates }`, or null without quotes.
 
 ## Reading import (`src/lib/actions/reading-import.ts`, SLN-450)
 
@@ -529,18 +594,22 @@ One UPDATE of one row: Import, Skip, or "Use the file's rating" (the commit then
 ### `decideImportSection({ importId, section, decision })`
 `section` is `likely` ("Accept all likely matches") or `none` ("Skip all not in Durtal"): one UPDATE over the section's pending rows not yet written. Returns `{ changed }`.
 
+### `decideImportNote({ importId, rowNo, decision })` / `decideAllImportNotes({ importId })` (SLN-453)
+A row's Goodreads private note: one UPDATE of `note_decision`, apart from the row's reading decision. Refused once the note was written ("This note was imported; undo the import to change it"), for a row without a note, and Import for a row without a book ("Choose this row's book first"). "Import all private notes" sets every note with a book and not written to import in one UPDATE; returns `{ changed }`. `decideImportRow` and the readings' commit look only at the reading outcomes in `written` (`readingsCommitted`), so a row whose note is in can still be decided and committed for its readings; choosing another book for it is refused while its note is in.
+
 ### `rematchImport({ importId })`
 "Match again": matching and the duplicate check again for the rows still without a book, after a book was added. A row that now matches moves to its section with that section's default decision. Returns `{ matched }`.
 
 ### `commitReadingImport({ importId })`
-Locks the import (`select ... for update`, status pending, completed or undone), checks every matched row's readings again against what Durtal holds now, and writes the rows decided import and not yet written through `writeReadings(rows, { source: "import", importId })`. `source`, `sourceKey` and `importId` come from the server, never from the page. A book's rows go in one call, so the count rule sees them together, in chunks of at most 100 readings; after each chunk, each row's outcome goes to `written` in one UPDATE. Totals: the file's Durtal value, else the edition's `page_count`, else Goodreads' `Number of Pages`, never below the position. An edition matched by ISBN that has no `goodreads_id` gets a `catalogue_identifiers` row (provider `goodreads`, kind `edition`) when the file has a Book Id and that id is free; its id goes into `written`. Then the import's counts, `error_log` (row and reason only), status `completed` and `completed_at`. A commit stopped half way finishes when run again. Returns `{ written, present, refused, rows }`.
+Locks the import (`select ... for update`, status pending, completed or undone), checks every matched row's readings again against what Durtal holds now, and writes the rows decided import and not yet written through `writeReadings(rows, { source: "import", importId })`. `source`, `sourceKey` and `importId` come from the server, never from the page. A book's rows go in one call, so the count rule sees them together, in chunks of at most 100 readings; after each chunk, each row's outcome goes to `written` in one UPDATE. Totals: the file's Durtal value, else the edition's `page_count`, else Goodreads' `Number of Pages`, never below the position. An edition matched by ISBN that has no `goodreads_id` gets a `catalogue_identifiers` row (provider `goodreads`, kind `edition`) when the file has a Book Id and that id is free; its id goes into `written`. Then the import's counts, `error_log` (row and reason only), status `completed` and `completed_at`. A commit stopped half way finishes when run again. Then the to-read rows decided import (SLN-452): Up Next items at the bottom, in the file's Date Added order, oldest first (file order without it), in chunks of 100, `source` `import` with `import_id` and the row's `source_key`; a key already in Up Next writes nothing, and a book queued by hand or started meanwhile is skipped with its reason. Each written item goes into `written.queueItem` (`{ id, workId, position, editionId, note }`). Then the private notes (SLN-453) of rows decided import, with a book and no note written: each becomes a `reading_notes` row (`kind` note, `source` import, `import_id`, the private note with its tags stripped and its line breaks kept, the row's latest read in Durtal, written by this commit or matched as already there, else none, and `source_key` from `goodreadsNoteKey`), and its id goes to `written.noteIds` in the same write. A key already in Durtal writes nothing ("Already in Durtal (Same source)"); a note over 10,000 characters is left out ("Too long to import (12,400 characters; at most 10,000)"). An import committed before this step writes only its notes. Returns `{ written, present, refused, rows, queued, queuePresent, queueSkipped, notes, notesPresent }`.
 
 ### `undoReadingImport({ importId })`
-Deletes the import's readings not edited since (their `updated_at` equals their `created_at` and they have no sessions), any reading with this `import_id` included, in chunks of 100. Puts each book rating back to `before` only while `works.rating` still equals `after`; removes the identifiers it added; keeps in `written` only the readings it kept; status `undone`. Returns `{ removed, kept }`. Can be run again; an undone import keeps its decisions and can be committed again.
+Deletes the import's readings not edited since (their `updated_at` equals their `created_at` and they have no sessions), any reading with this `import_id` included, in chunks of 100. Puts each book rating back to `before` only while `works.rating` still equals `after`; removes the identifiers it added; keeps in `written` only the readings it kept; status `undone`. Up Next items (SLN-452) go when their position, edition and note still equal what was written; moved or edited ones stay. Notes (SLN-453) go first: the import's notes not edited since (`updated_at` equals `created_at`), those in `written.noteIds` and any the rows miss; then `noteIds` is cleared, and edited notes stay. Returns `{ removed, kept, queueRemoved, queueKept, notesRemoved, notesKept }`. Can be run again; an undone import keeps its decisions and can be committed again.
 
 ### Import queries (`src/lib/reading/import/page-data.ts`, not server actions)
 - `listReadingImports(limit)`: the reading imports, newest first, with their counts, readings and whether the raw file was kept.
-- `getImportPreview(importId, limits)`: the import, the section counts and the summary (rows, want to read, private notes, kept extras, pending, ratings that differ, readings to import, identifiers to record), and each section's first rows (50 by default) with the matched book and the To choose candidates. Reviews and private notes stay in the database.
+- `getImportPreview(importId, limits)`: the import, the section counts and the summary (rows, want to read, private notes, kept extras, pending, ratings that differ, readings to import, identifiers to record), and each section's first rows (50 by default) with the matched book and the To choose candidates. Reviews and private notes stay in the database. A row with only its note written shows as not committed.
+- `getImportNotes(importId, limit)` (`src/lib/reading/import/notes.ts`, SLN-453): the rows with a private note, their count, the notes a commit would write, and the first `limit` rows with the note's first three lines, the matched book and each note's state (to import, skipped, pending, imported, already in Durtal, too long, no book).
 
 ---
 

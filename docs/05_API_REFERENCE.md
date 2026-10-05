@@ -10,6 +10,8 @@ The app's own pages use server actions (see [06_SERVER_ACTIONS.md](06_SERVER_ACT
 
 The write routes for works, editions, orders, copies and collections (the routes that use `src/lib/api/rest.ts`) need the header `Authorization: Bearer <DURTAL_API_TOKEN>`. The token lives in `.env.local`. When `DURTAL_API_TOKEN` is not set, these writes return `503`, so a missing setting never leaves them open. A wrong or missing token returns `401`.
 
+Every `/api/readings` route checks the same token, its GET included (see Readings). An Authelia rule lets these paths through without a session for the phone (docs/11, Phone shortcuts), so the token is their only lock.
+
 The media, S3, comments, export, reader and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
@@ -123,16 +125,16 @@ List works with pagination, search and the library's reading filters (SLN-449). 
 | Param | Type | Default | Description |
 |---|---|---|---|
 | `q` | string | — | Search term (title, author, ISBN) |
-| `reading` | list | — | `unread`, `reading`, `paused`, `read`, `abandoned`: any of them |
+| `reading` | list | — | `unread`, `reading`, `paused`, `read`, `abandoned`, and `queued` (in Up Next, SLN-452; a queued book can be read or unread): any of them |
 | `holding` | string | — | `owned` (a copy not deaccessioned) or `not_owned`; both is no filter |
 | `readFrom`, `readTo` | year | — | A finished reading in these years, at any precision; reversed years are swapped |
 | `reread` | `true` | — | Two finished readings or more |
 | `status` | list | — | The catalogue status: `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
-| `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last) |
+| `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last), `queue` (Up Next order, SLN-452: books not queued last, ties on the id) |
 | `limit` | number | `50` | Results per page (at most 200) |
 | `offset` | number | `0` | Pagination offset |
 
-"Unread books I own": `GET /api/works?reading=unread&holding=owned&sort=lastRead`. `total` counts the works the filters keep.
+"Unread books I own": `GET /api/works?reading=unread&holding=owned&sort=lastRead`. Up Next in its order: `GET /api/works?reading=queued&sort=queue`. `total` counts the works the filters keep.
 
 **Response** `400`: any unknown value of `reading`, `holding`, `readFrom`, `readTo`, `reread`, `status` or `sort` (`status=owned`, `sort=pages`) answers `{ "error": "Invalid input", "issues": [...] }` with the zod issues; each issue's `path` starts with the parameter.
 
@@ -688,6 +690,84 @@ The format comes from the header names, never column positions. The server parse
 
 **Response** `201`: `{ "importId": "uuid", "source": "goodreads" | "storygraph" | "durtal", "rows": 1204 }`. The preview is `/reading/import/<importId>`.
 **Error** `400`: No file, not a CSV, over 10 MB, a broken multipart body, or a file that is not one of the three formats (the message names the columns it found). **Error** `403`: Another site.
+
+---
+
+## Readings
+
+Routes for iPhone Shortcuts and Siri (SLN-451): log a page, start and stop the reading timer, start a book from its barcode. Each one calls `requireApiToken` first, GETs included: `401` without the right token, `503` when `DURTAL_API_TOKEN` is not set. Every answer is short JSON with a `message` a Shortcut can speak, errors included. Helpers: `src/lib/api/readings.ts`.
+
+**Time zone**: the progress, timer start and start reading routes take an optional `tz`, an IANA zone such as `America/Mexico_City` (default: `appTimeZone()`). It sets the new session's `time_zone` and `read_on`, or the start date. An unknown zone answers `400` "The time zone is not one Durtal knows, such as Europe/Amsterdam". The stop route takes none: a timer keeps the zone and the day it started in.
+
+### `GET /api/readings/open`
+
+The open readings, most recently read first, and the running timer.
+
+**Response** `200`: `{ "message": "You are reading Nadja and La Curée", "readings": [{ "id", "workId", "title", "author", "status": "reading" | "paused", "unit", "totalPages", "totalMinutes", "position": { "page", "percent", "minutes" } }], "timer": { "sessionId", "readingId", "title", "startedAt", "pausedAt", "elapsedSeconds" } | null }`. With none open: "No book is being read".
+
+### `POST /api/readings/[id]/progress`
+
+Logs progress on one reading, as Log progress does (`recordProgress` with `source: "manual"`). No fingerprint: the service reads the reading, asserts it in the same write and retries once.
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | string | What was dictated or typed: "page 212", "212", "44 percent", "44%", "+20", "3:12". A bare number is in the reading's unit |
+| `page` / `percent` / `minutes` | number | In place of `text`; exactly one of the four |
+| `durationMinutes` | integer | Minutes read, 1–720 (optional) |
+| `note` | string | Optional |
+| `tz` | string | Optional IANA zone |
+
+A lower page on the same reading day corrects the last log; on a later day it is "I went back". A paused reading resumes. Reaching the end never finishes the book.
+
+| Status | `message` |
+|---|---|
+| `200` | "Logged page 212 of Nadja, 44%", "Corrected your last log of Nadja to page 212", "That is the last page of Nadja. Finish it in Durtal". Also `readingId` and `position` |
+| `400` | The parser's message ("Page 900 is past the last page, 480"), "Send one of text, page, percent or minutes", or the time zone message |
+| `404` | "No such reading in Durtal" |
+| `409` | "Nadja is finished; reopen it in Durtal", or "This reading changed elsewhere; try again" after one retry |
+
+### `POST /api/readings/timer/start`
+
+Body `{ "readingId"?: uuid, "tz"?: string }`. Without `readingId`, exactly one reading must be open.
+
+| Status | `message` |
+|---|---|
+| `200` | "Timer started for Nadja", with `readingId` and `sessionId` |
+| `400` | "Several books are open: Nadja and La Curée. Say which one", with `readings` |
+| `404` | "No book is being read", "No such reading in Durtal" |
+| `409` | "A timer is running for Nadja. Stop it first", or "Nadja is finished; reopen it in Durtal" |
+
+### `POST /api/readings/timer/stop`
+
+Body `{ "text"?: string, "endedAt"?: ISO 8601 time }`. It stops the running timer at `endedAt` (else now; a paused timer at its pause), where `text` says, or where it started (0 pages; its time still counts).
+
+| Status | `message` |
+|---|---|
+| `200` | "Stopped the timer: 42 min, page 212 of Nadja, 44%", with `readingId`, `durationSeconds` and `position` |
+| `400` | "Edit the end time; a session can be at most 12 hours", "The end time is before the timer started", or the parser's message |
+| `404` | "No timer is running" |
+| `409` | A forgotten timer (more than twice the check time of Settings → Reading) without `endedAt`: "Your timer for Nadja has run 6 h 12 min. Say when you stopped, or stop it in Durtal" |
+
+### `POST /api/readings`
+
+Starts reading a book, for a Shortcut that scans the barcode. Body `{ "isbn": string }` or `{ "workId": uuid }`, plus `tz`. The ISBN (an ISBN-10 also as ISBN-13) matches editions' `isbn_13` and `isbn_10`; that edition starts, with its copy when it has exactly one that is not deaccessioned.
+
+| Status | Body |
+|---|---|
+| `201` | `{ "message": "Started reading Nadja", "readingId", "position" }` |
+| `400` | "That is not an ISBN", "Send an isbn or a workId" |
+| `404` | `{ "message": "Not in Durtal yet", "addUrl": "/library/new?isbn=9780802130303" }`, or "No such book in Durtal" |
+| `409` | "Nadja is already being read", with `readingId` |
+
+### iPhone Shortcut
+
+Works once the access rule in docs/11 is in place.
+
+- The phone calls the Durtal address it can reach (docs/11, Phone shortcuts): the Durtal host over Tailscale behind Authelia, or `http://<Mac name>.local:3100` on the same network when Durtal runs on the Mac. Below, `<host>` is that address.
+- Log a page: Dictate Text, then Get Contents of URL: `POST <host>/api/readings/<reading id>/progress`, header `Authorization: Bearer <token>`, JSON body `text` = the dictated text and `tz` = Format Date (Current Date, custom format `VV`, which gives the IANA name). Then Get Dictionary Value `message` and Speak Text.
+- The reading id: `GET /api/readings/open` once, or a Choose from List over its `readings`.
+- Timer: `POST /api/readings/timer/start` with `tz`, and `POST /api/readings/timer/stop` with the dictated `text`. On a `409` for a forgotten timer, Ask for Input (a time) and send it again as `endedAt`.
+- Barcode: Scan Barcode, then `POST /api/readings` with `isbn`; on `404`, Open URLs with the host plus `addUrl`.
 
 ---
 

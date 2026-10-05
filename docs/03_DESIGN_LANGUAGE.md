@@ -323,6 +323,32 @@ A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one 
 - Series with no book yet: a shelf of spines, one per known volume (`ShelfSpines`).
 - While an image loads, its frame shows the poster's main color, dimmed, and the image fades in (`FadeImage`, `coverToneStyle`).
 
+### Reading timer chip
+
+The one running reading timer shows in a chip (`src/components/reading/timer-chip.tsx`, SLN-451). The chip is not glass: it sits inside the sidebar or the phone bar's `glass-bar`. Its popovers and menus are `glass` with `overflow-hidden`. The reader view (`/reader/[id]`) shows no chip.
+
+| Where | Layout |
+|---|---|
+| Expanded sidebar (footer) | Cover thumb (blank when the book has no cover: an icon there would sit beside the time off its cap height), the time ("12:04"), the title (`lines-1`), Pause or Resume, and Stop |
+| Icon rail (56px: a collapsed sidebar, and always from 768 to 800px) | The time above one 44px Stop button. The time opens a menu with the title, Pause or Resume, and Discard; its tooltip names the book |
+| Phone bar (below `md`) | The time and Stop only, between the name and Search, each at least 44px like the bar's buttons: the time, which opens the same menu, in `CapAlignedControls height={44}`, Stop in `CapAligned height={44}` |
+
+- The time uses `tabular-nums`, so its width never jitters. A paused timer shows its time in `fg-secondary` and says "Paused" to screen readers. The ticking time is not a live region.
+- The chip's accessible name reads "Timer for Nadja, 12 minutes". Each icon-only button has an `aria-label` and a tooltip: "Pause timer", "Resume timer", "Stop timer".
+- After the check time in Settings → Reading, the chip reads "Still reading?". It never turns red: no estimate or timer scolds.
+- An estimate's info button opens a glass popover (a native `popover`, so cards that clip do not cut it).
+
+### Quotes and notes
+
+A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453) looks the same on the book page, on `/reading/notes` and on the hub.
+
+- The passage is long reading text: `Prose` (EB Garamond, the `type-prose` role, 4.5:1 or more), its line breaks kept (`whitespace-pre-line`). A quote has a 2px rule at its left (`border-accent-rose/40`) and 16px before the text; a note has none.
+- His thought sits under it in 14px `fg-secondary` text, aligned with the passage's text (18px in for a quote).
+- Then one 12px line: where it is ("p. 212 · ch. 7 · 2nd read"; on `/reading/notes` the book's title first, a link), with the star (`FavouriteToggle`) and the menu at its right in `CapAlignedControls height={32} coarseHeight={44}`: 32px targets, 44px on touch. On touch, "Show all" grows to a 48px target with negative margins, so the line keeps its height.
+- Items are separated by a `glass-border` rule and 20px above and below; the first has no rule.
+- **The passage of the day** on `/reading` is the same quote layout under a `SectionHeading` "Passage of the day" with "Another" at its right, then a caption: the book (a link), author and page. A passage over 600 characters opens at 8 lines with "Show all".
+- **The note dialog** is a `max-w-lg` dialog: Quote / Note (`SegmentedControl`), the labelled text area, page and chapter side by side, the reading, "Your thought" (`TiptapEditor`) for a quote, and a Favourite switch. On touch the empty text area has a one-line hint, "To copy a printed page, tap and hold here, then Scan Text."
+
 ### Tooltips
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
@@ -403,5 +429,6 @@ A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-a
 - Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
 - Search: `S` opens the command palette from any page but the e-book reader (where `S` opens the reader's settings), as `⌘K` does; `/` goes to the page's own search field. Escape closes every search surface, one layer per press: the palette, a popover or menu, then the dialog around it. A list under a search field closes first (the field's text clears, as in the publisher and place pickers), and focus goes back to where it was. In a search field on a page, Escape leaves the field and keeps its text.
 - On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating input has 44px whole-star targets there (see Ratings).
+- A menu beside text goes in `CapAlignedControls`, never in `CapAligned`: `CapAligned`'s box clips, so a menu drawn inside it opens as a sliver whose items cannot be clicked. `CapAlignedControls` takes the same `height` and `coarseHeight` and clips nothing. `src/__tests__/cap-aligned-menus.test.ts` fails on a menu inside `CapAligned`.
 - With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.
 - Check it with `node scripts/qa/interaction-audit.mjs --disposable --base <app url> [route...]` on a disposable preview (`scripts/qa/preview-local.py`). It opens menus and dialogs, pressing only controls that open something, never one that writes; it refuses to start without `--disposable`, on another host or on port 3100.
