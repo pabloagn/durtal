@@ -54,6 +54,8 @@ type Db = typeof db;
 
 export const STALE_READING = "This reading changed elsewhere; reload before saving";
 const STALE_RETRY = "This reading changed elsewhere; try again";
+/** A session dated after today would hold the position until that day comes */
+export const FUTURE_SESSION = "This session is in the future";
 
 /** The md5 of the readings row, as the curation snapshot is fingerprinted */
 export function readingFingerprintSql(readingId: SQL | string) {
@@ -383,6 +385,11 @@ export async function recordProgress(
     // A timer keeps the zone and the reading day it started with
     const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
     const readOn = timer ? timer.readOn : (input.readOn ?? readingDay(input.startedAt ?? now, timeZone, await readingDayStartHour()));
+    // A session after today is the latest in the order and would hold the position until that day
+    if (!timer) {
+      const ahead = (at: Date | undefined) => !!at && at.getTime() - now.getTime() > 60_000;
+      if (readOn > readingDay(now, timeZone, 0) || ahead(input.startedAt) || ahead(input.endedAt)) throw new Error(FUTURE_SESSION);
+    }
     let stop: ReturnType<typeof stopTimes> | null = null;
     if (timer) {
       const clock = { startedAt: timer.startedAt ?? timer.createdAt, pausedAt: timer.pausedAt, pausedSeconds: timer.pausedSeconds };

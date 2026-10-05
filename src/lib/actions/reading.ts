@@ -40,6 +40,7 @@ import {
   undoStop,
 } from "@/lib/reading/timer-service";
 import {
+  FUTURE_SESSION,
   STALE_READING,
   checkWithinTotals,
   completePosition,
@@ -874,6 +875,9 @@ export async function updateSession(input: SessionPatchInput) {
     endedAt: patch.endedAt !== undefined ? patch.endedAt : session.endedAt,
   } as Session;
   if (updated.startedAt && updated.endedAt && updated.endedAt < updated.startedAt) throw new Error("The session ends before it starts");
+  // A session moved after today would hold the position until that day, as in logProgress
+  const ahead = (at: Date | null | undefined) => !!at && at.getTime() - Date.now() > 60_000;
+  if (updated.readOn > readingDay(new Date(), updated.timeZone, 0) || ahead(patch.startedAt) || ahead(patch.endedAt)) throw new Error(FUTURE_SESSION);
   const now = new Date();
   await withReadableErrors(() =>
     atomic((d) => [

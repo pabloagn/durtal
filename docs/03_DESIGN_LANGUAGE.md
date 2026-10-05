@@ -329,7 +329,7 @@ The one running reading timer shows in a chip (`src/components/reading/timer-chi
 
 | Where | Layout |
 |---|---|
-| Expanded sidebar (footer) | Cover thumb, the time ("12:04"), the title (`lines-1`), Pause or Resume, and Stop |
+| Expanded sidebar (footer) | Cover thumb (blank when the book has no cover: an icon there would sit beside the time off its cap height), the time ("12:04"), the title (`lines-1`), Pause or Resume, and Stop |
 | Icon rail (56px: a collapsed sidebar, and always from 768 to 800px) | The time above one 44px Stop button. The time opens a menu with the title, Pause or Resume, and Discard; its tooltip names the book |
 | Phone bar (below `md`) | The time and Stop only, between the name and Search, each at least 44px and in `CapAligned height={44}` like the bar's buttons. The time opens the same menu |
 

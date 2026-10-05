@@ -49,9 +49,11 @@ import {
   startTimer,
   stopTimer,
   undoStopTimer,
+  updateSession,
 } from "@/lib/actions/reading";
 import { updateAppSettings } from "@/lib/actions/settings";
-import { loadReading } from "@/lib/reading/service";
+import { FUTURE_SESSION, loadReading } from "@/lib/reading/service";
+import { readingDay } from "@/lib/reading/dates";
 import { countedPagesSql } from "@/lib/reading/summary";
 
 /* The reading timer and sessions by hand against PostgreSQL (SLN-451). */
@@ -134,9 +136,10 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       // Half a minute more: the database's clock and this one may differ by a few seconds
       await backdate(sessionId, 6 * 60 + 12.5);
       await expect(stopTimer({ sessionId, page: 150 })).rejects.toThrow("Your timer for Nadja has run 6 h 12 min. When did you stop?");
-      // The end the same half minute after the backdated start: 90 minutes, whatever the clocks
-      const stop = await stopTimer({ sessionId, page: 150, endedAt: new Date(Date.now() - (6 * 60 + 12.5 - 90) * 60_000) });
-      expect(Math.round(stop.session.durationSeconds! / 60)).toBe(90);
+      // The start the database stored, plus exactly 90 minutes, whatever the clocks
+      const startedAt = new Date(await value<string>(`select started_at::text from reading_sessions where id = $1`, [sessionId]));
+      const stop = await stopTimer({ sessionId, page: 150, endedAt: new Date(startedAt.getTime() + 90 * 60_000) });
+      expect(stop.session.durationSeconds).toBe(90 * 60);
     });
 
     it("refuses a session over 12 hours", async () => {
@@ -254,6 +257,20 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
   });
 
   describe("sessions by hand", () => {
+    it("refuses a session after today, which would hold the position", async () => {
+      const a = await started();
+      const tz = "Europe/Amsterdam";
+      const today = readingDay(new Date(), tz, 0);
+      const tomorrow = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) + 1)).toISOString().slice(0, 10);
+      await expect(addSession({ readingId: a.reading.id, fingerprint: await fp(a.reading.id), readOn: tomorrow, to: { page: 300 }, timeZone: tz })).rejects.toThrow(FUTURE_SESSION);
+      await expect(log(a.reading.id, { page: 300, readOn: tomorrow })).rejects.toThrow(FUTURE_SESSION);
+      await expect(log(a.reading.id, { page: 300, endedAt: new Date(Date.now() + 2 * 3600_000) })).rejects.toThrow(FUTURE_SESSION);
+      const first = await log(a.reading.id, { page: 150 });
+      await expect(updateSession({ sessionId: first.session.id, fingerprint: await fp(a.reading.id), readOn: tomorrow })).rejects.toThrow(FUTURE_SESSION);
+      // Nothing sits after today, so today's log moves the position
+      expect((await log(a.reading.id, { page: 320 })).reading.currentPage).toBe(320);
+    });
+
     it("puts a backdated session in its place and leaves the position; a newest one moves it", async () => {
       const a = await started();
       await log(a.reading.id, { page: 150, readOn: "2026-09-10" });

@@ -188,3 +188,17 @@ Migration 0067 adds three `app_settings` columns and two timer columns on
   the same network reaches it without that rule. docs/05's recipe keeps
   "Works once the access rule in docs/11 is in place" until Joris logs a page
   from his iPhone. His answer is not in yet.
+- Review fixes (PR #105):
+  - A session in the future froze the position: a session added for a later
+    day was the latest in the order, so today's logs and a stopped timer
+    never moved the reading past it. `recordProgress` now refuses a session
+    dated after today, or starting or ending more than a minute ahead
+    (`FUTURE_SESSION`, "This session is in the future"), and `updateSession`
+    refuses an edit that moves a session after today. The test "refuses a
+    session after today, which would hold the position" fails without it.
+  - The forgotten-timer test failed wherever Node and Postgres share a
+    clock: it now stops at the start the database stored plus exactly 90
+    minutes and expects 5,400 seconds.
+  - The expanded timer chip failed the alignment audit by 8 px for a book
+    without a cover: the book icon in the 24 by 36 thumb sat beside the time,
+    off its cap height. `Cover` takes `icon`, and the chip's thumb stays blank.
