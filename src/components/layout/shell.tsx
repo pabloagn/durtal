@@ -147,7 +147,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         />
         <main
           // Below md the page takes the full width, under the phone navigation bar
-          className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0 print:ml-0 print:min-h-0 print:pt-0"
+          className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0 print:ml-0 print:min-h-0 print:pt-0 print:transition-none"
           style={{ "--sidebar-w": `${effectiveWidth}px` } as React.CSSProperties}
           inert={navOpen}
         >

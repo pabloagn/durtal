@@ -667,10 +667,9 @@ async function readingJourney() {
     await step("print the Year in review without the app around it", async () => {
       await send("Emulation.setEmulatedMedia", { media: "print" });
       try {
-        await waitFor("getComputedStyle(document.getElementById('app-sidebar')).display === 'none' && getComputedStyle(document.querySelector('[data-print]')).display === 'none'", "the sidebar and Print hidden on paper");
-        const margin = await evaluate("getComputedStyle(document.querySelector('main')).marginLeft");
-        const background = await evaluate("getComputedStyle(document.documentElement).backgroundColor");
-        if (margin !== "0px" || background !== "rgb(255, 255, 255)") throw new Error(`On paper the page has a ${margin} margin and a ${background} background`);
+        // Print sits in a print:hidden box: it draws no box on paper
+        await waitFor("getComputedStyle(document.getElementById('app-sidebar')).display === 'none' && document.querySelector('[data-print]').getClientRects().length === 0", "the sidebar and Print hidden on paper");
+        await waitFor("getComputedStyle(document.querySelector('main')).marginLeft === '0px' && getComputedStyle(document.documentElement).backgroundColor === 'rgb(255, 255, 255)'", "the page at full width on white");
       } finally {
         await send("Emulation.setEmulatedMedia", { media: "" });
       }
