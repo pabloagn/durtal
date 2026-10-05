@@ -49,6 +49,13 @@ import { moveToExistingEdition } from "@/lib/actions/identify";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { writeReadings } from "@/lib/reading/service";
 import { queueAtHand, queueWhereabouts } from "@/lib/reading/queue";
+import { NextRequest } from "next/server";
+import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
+import { commitImport, createReadingImport, decideRow, undoImport } from "@/lib/reading/import/store";
+import { getImportPreview } from "@/lib/reading/import/page-data";
+import { getWorkCount, getWorks } from "@/lib/actions/works";
+import { LIBRARY_SORTS, parseReadingFilters } from "@/lib/reading/filter-params";
+import { GET as listWorks } from "@/app/api/works/route";
 
 /* Up Next against PostgreSQL (SLN-452). */
 
@@ -305,6 +312,166 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       expect(item.editions[0].audioMinutes).toBe(540);
       expect(item.readCount).toBe(1);
       expect(item.lastFinishedOn).toBe("2012-05-01");
+    });
+  });
+
+  describe("the library", () => {
+    it("filters to the books in Up Next and sorts by its order, on the page and in GET /api/works", async () => {
+      const [a, b, c, d] = [await book("Alpha"), await book("Beta"), await book("Gamma"), await book("Delta")];
+      await addToQueue({ workId: c });
+      await addToQueue({ workId: a });
+      await q(`insert into readings(work_id, status, started_precision, finished_on, finished_precision) values ($1, 'finished', 'unknown', '2020-01-01', 'year')`, [d]);
+      const titles = async (query: string) => {
+        const { filters, sort } = parseReadingFilters(new URLSearchParams(query), { sorts: LIBRARY_SORTS });
+        return (await getWorks({ filters, sort: sort as never, limit: 50 })).map((w) => w.title);
+      };
+      expect(await titles("reading=queued&sort=queue")).toEqual(["Gamma", "Alpha"]);
+      // Combined with a reading state it matches any one of them
+      expect(await titles("reading=queued,read&sort=queue")).toEqual(["Gamma", "Alpha", "Delta"]);
+      // Books not queued come last, ties on the id
+      const all = await titles("sort=queue");
+      expect(all.slice(0, 2)).toEqual(["Gamma", "Alpha"]);
+      expect(all.slice(2).sort()).toEqual(["Beta", "Delta"]);
+      expect(await getWorkCount(undefined, parseReadingFilters(new URLSearchParams("reading=queued"), { sorts: LIBRARY_SORTS }).filters)).toBe(2);
+      const res = await listWorks(new NextRequest("http://localhost/api/works?reading=queued&sort=queue"));
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.works.map((w: { title: string }) => w.title)).toEqual(["Gamma", "Alpha"]);
+      expect(body.total).toBe(2);
+      for (const bad of ["reading=queue", "sort=upnext"]) expect((await listWorks(new NextRequest(`http://localhost/api/works?${bad}`))).status).toBe(400);
+      void b;
+    });
+  });
+
+  describe("to-read shelves", () => {
+    async function author(workId: string, name: string) {
+      const authorId = (await value(`select id from authors where name = $1`, [name])) ?? (await value(`insert into authors(name, slug) values ($1, $2) returning id`, [name, `${name.toLowerCase().replace(/\W+/g, "-")}-${++serial}`]));
+      await q(`insert into work_authors(work_id, author_id, role) values ($1, $2, 'author')`, [workId, authorId]);
+    }
+    function goodreads(rows: Record<string, string>[]) {
+      const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+      return [GOODREADS_EXPORT_HEADER.join(","), ...rows.map((r) => GOODREADS_EXPORT_HEADER.map((h) => cell(r[h] ?? "")).join(","))].join("\n");
+    }
+    const STORYGRAPH = ["Title", "Authors", "ISBN/UID", "Format", "Read Status", "Date Added", "Dates Read", "Read Count", "Star Rating", "Review"];
+    const storygraph = (rows: Record<string, string>[]) => [STORYGRAPH.join(","), ...rows.map((r) => STORYGRAPH.map((h) => r[h] ?? "").join(","))].join("\n");
+    const queueRows = () => q(`select w.title, q.source, q.source_key, q.import_id from reading_queue q join works w on w.id = q.work_id order by q.position`);
+    const rowsOf = async (importId: string) =>
+      (await q(`select row_no, match, decision, written from reading_import_rows where import_id = $1 order by row_no`, [importId])) as unknown as {
+        row_no: number;
+        match: { section: string; note: string | null };
+        decision: string;
+        written: { queueOutcome?: string; queueReason?: string | null; queueItem?: { id: string } | null } | null;
+      }[];
+
+    async function shelf() {
+      const byId = await book("Watt");
+      await author(byId, "Samuel Beckett");
+      await q(`insert into editions(work_id, title, language, goodreads_id) values ($1, 'Watt', 'en', '1111')`, [byId]);
+      const byIsbn = await book("Nadja");
+      await author(byIsbn, "André Breton");
+      await q(`insert into editions(work_id, title, language, isbn_13) values ($1, 'Nadja', 'fr', '9782070360260')`, [byIsbn]);
+      const byTitle = await book("La Curée");
+      await author(byTitle, "Émile Zola");
+      const read = await book("Moby-Dick");
+      await author(read, "Herman Melville");
+      return goodreads([
+        { "Book Id": "1111", Title: "Watt", Author: "Samuel Beckett", "Exclusive Shelf": "to-read", "Date Added": "2024/03/01" },
+        { Title: "Nadja", Author: "André Breton", ISBN13: '="9782070360260"', "Exclusive Shelf": "to-read", "Date Added": "2023/01/01" },
+        { Title: "La Curée", Author: "Émile Zola", "Exclusive Shelf": "to-read" },
+        { Title: "Moby-Dick", Author: "Herman Melville", "Exclusive Shelf": "read", "Date Read": "2019/05/01", "Read Count": "1", "My Rating": "4" },
+        { Title: "Not in Durtal", Author: "Nobody", "Exclusive Shelf": "to-read", "Date Added": "2020/01/01" },
+      ]);
+    }
+
+    it("adds Goodreads to-read rows, with and without a Book Id, oldest added first, and never twice", async () => {
+      const file = await shelf();
+      const { importId } = await createReadingImport({ text: file, fileName: "goodreads.csv" });
+      const rows = await rowsOf(importId);
+      expect(rows.map((r) => [r.match.section, r.decision])).toEqual([
+        ["to_read", "import"],
+        ["to_read", "import"],
+        ["to_read", "import"],
+        ["likely", "pending"],
+        ["none", "pending"],
+      ]);
+      const preview = (await getImportPreview(importId))!;
+      expect(preview.summary).toMatchObject({ toQueue: 3, toImport: 0 });
+      const result = await commitImport(importId);
+      expect(result).toMatchObject({ queued: 3, queuePresent: 0, queueSkipped: 0 });
+      expect((await queueRows()).map((r) => [r.title, r.source, r.import_id === importId])).toEqual([
+        ["Nadja", "import", true],
+        ["Watt", "import", true],
+        ["La Curée", "import", true],
+      ]);
+      expect((await queueRows()).map((r) => String(r.source_key).split(":").slice(0, 2).join(":"))).toEqual([
+        "goodreads-to-read:isbn13",
+        "goodreads-to-read:1111",
+        "goodreads-to-read:title",
+      ]);
+      expect((await rowsOf(importId)).filter((r) => r.written?.queueItem).length).toBe(3);
+      // The same import committed again, and the same file uploaded again, write nothing
+      expect(await commitImport(importId)).toMatchObject({ queued: 0 });
+      const again = await createReadingImport({ text: file, fileName: "goodreads.csv" });
+      const second = await rowsOf(again.importId);
+      expect(second.slice(0, 3).map((r) => [r.match.note, r.decision])).toEqual([
+        ["Already in Up Next, at 2", "skip"],
+        ["Already in Up Next, at 1", "skip"],
+        ["Already in Up Next, at 3", "skip"],
+      ]);
+      for (const r of second.slice(0, 3)) await decideRow({ importId: again.importId, rowNo: r.row_no, decision: "import" });
+      expect(await commitImport(again.importId)).toMatchObject({ queued: 0, queuePresent: 3 });
+      expect(await queueRows()).toHaveLength(3);
+    });
+
+    it("skips a book queued by hand or started after the upload", async () => {
+      const file = await shelf();
+      const { importId } = await createReadingImport({ text: file, fileName: "goodreads.csv" });
+      const [watt] = (await q(`select id from works where title = 'Watt'`)).map((r) => r.id as string);
+      const [nadja] = (await q(`select id from works where title = 'Nadja'`)).map((r) => r.id as string);
+      await addToQueue({ workId: watt });
+      await startReading({ workId: nadja });
+      expect(await commitImport(importId)).toMatchObject({ queued: 1, queueSkipped: 2 });
+      const rows = await rowsOf(importId);
+      expect(rows.slice(0, 2).map((r) => [r.written?.queueOutcome, r.written?.queueReason])).toEqual([
+        ["skipped", "Queued by hand meanwhile"],
+        ["skipped", "Started meanwhile"],
+      ]);
+    });
+
+    it("adds StoryGraph to-read rows", async () => {
+      const w = await book("The Waves");
+      await author(w, "Virginia Woolf");
+      const { importId } = await createReadingImport({
+        text: storygraph([{ Title: "The Waves", Authors: "Virginia Woolf", "Read Status": "to-read", "Date Added": "2022/02/02" }]),
+        fileName: "storygraph.csv",
+      });
+      expect((await rowsOf(importId))[0].match.section).toBe("to_read");
+      await commitImport(importId);
+      const [item] = await queueRows();
+      expect(item.title).toBe("The Waves");
+      expect(String(item.source_key)).toMatch(/^storygraph-to-read:/);
+    });
+
+    it("re-imports an earlier file for its to-read rows only, and undo keeps a moved item", async () => {
+      const file = await shelf();
+      // The earlier import wrote the readings and left the to-read rows out
+      const first = await createReadingImport({ text: file, fileName: "goodreads.csv" });
+      for (const r of await rowsOf(first.importId))
+        if (r.match.section === "to_read") await decideRow({ importId: first.importId, rowNo: r.row_no, decision: "skip" });
+        else if (r.match.section === "likely") await decideRow({ importId: first.importId, rowNo: r.row_no, decision: "import" });
+      expect(await commitImport(first.importId)).toMatchObject({ written: 1, queued: 0 });
+      const again = await createReadingImport({ text: file, fileName: "goodreads.csv" });
+      const rows = await rowsOf(again.importId);
+      expect(rows.map((r) => r.match.section)).toEqual(["to_read", "to_read", "to_read", "present", "none"]);
+      const preview = (await getImportPreview(again.importId))!;
+      expect(preview.summary).toMatchObject({ toImport: 0, toQueue: 3 });
+      expect(await commitImport(again.importId)).toMatchObject({ written: 0, queued: 3 });
+      // One item moved after the import stays; the others go
+      const [nadja] = (await q(`select work_id from reading_queue order by position limit 1`)).map((r) => r.work_id as string);
+      const others = (await q(`select work_id from reading_queue order by position`)).map((r) => r.work_id as string);
+      await moveQueueItem({ workId: nadja, afterWorkId: others[2] });
+      expect(await undoImport(again.importId)).toMatchObject({ queueRemoved: 2, queueKept: 1 });
+      expect((await queueRows()).map((r) => r.title)).toEqual(["Nadja"]);
     });
   });
 });
