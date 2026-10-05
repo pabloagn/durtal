@@ -476,7 +476,7 @@ Deletes a reading with its sessions and history and returns the snapshot; restor
 Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. With no session left, the position returns to the start.
 
 ### `getReadingsForWork(workId)`, `getOpenReadings()`, `getReadingCounts(workId)`
-A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author and cover; the readings and sessions a book delete removes.
+A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author, cover and when it was paused, most recently read first (the hub, the dashboard, and the command palette, which calls it each time it opens); the readings and sessions a book delete removes.
 
 ### What the book page calls (SLN-447)
 The header control, the Reading section and its dialogs call `startReading`, `logProgress` and `undoProgress`, `pauseReading`, `resumeReading`, `finishReading`, `abandonReading`, `reopenReading` (the Undo of finish and abandon, and "Resume this reading" with `toStatus: "reading"`), `addPastReading`, `updateReading`, `deleteReading` and `restoreReading`. Every write sends the browser's `timeZone` and, on an existing reading, the fingerprint from `getReadingsForWork` or the last write. A "212/480" log first sets the page count with `updateReading`.
@@ -486,6 +486,17 @@ After a finish: the series' next volume to read (`nextToRead` in `src/lib/readin
 
 ### `findPageCount(editionId)`
 An edition's page count from ISBNdb (by ISBN-13), then Open Library (by its edition key), or null. It writes nothing: saving it to the edition is the match flow's job.
+
+### `searchBooksToRead(query)` (SLN-448)
+The book picker: books only, matched without accents on title and authors (`textSearchCondition`, no typos), owned books first (`ownedBookCondition` in `src/lib/catalogue/holdings.ts`: a copy that is not deaccessioned), then by title without accents, at most 20. Each with its first author, a cover, the catalogue status, the reading state, the finished reads, the open reading's share, and the open reading's id and fingerprint (Start on a book being read logs progress on it). An empty query lists the first 20.
+
+### `getReadingDialogData(workId, homeId)` (SLN-448)
+What a reading dialog needs for a book opened away from its page (the hub, the dashboard, the palette, `?then=`): its readings (as `getReadingsForWork`), its editions with their copies ranked by the "I'm at" home, the homes, its rating, today's reading day and the zone. `ReadingDialogsProvider` calls it when a dialog opens and after each write.
+
+### Hub queries (`src/lib/reading/journal.ts`, not server actions)
+- `queryJournal(query)`: one page of readings for `/reading/journal` with the filtered summary (readings, finished, abandoned, re-reads). Each row has the read's rating (`readingRatingSql`), whether it is a re-read (`rereadSql` in `src/lib/reading/summary.ts`), its book, author, cover, edition language and fingerprint.
+- `getJournalFacets()`: the years of finish and the formats, for the filters.
+- `getRecentlyFinished(limit)`: the latest finished reads with the read's rating, unknown dates last.
 
 ### Internal service (`src/lib/reading/service.ts`, not a server action)
 - `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.

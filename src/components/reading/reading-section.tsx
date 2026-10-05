@@ -10,8 +10,8 @@ import { RatingStars } from "@/components/shared/rating";
 import { Prose } from "@/components/shared/prose";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { ABANDON_REASON_LABELS, type AbandonReason, type ReadingFormat } from "@/lib/reading/constants";
-import { formatReadingDate, formatReadingSpan, readingDay } from "@/lib/reading/dates";
-import { ordinalRead, positionText } from "@/lib/reading/labels";
+import { formatReadingDate, formatReadingSpan } from "@/lib/reading/dates";
+import { lastReadText, ordinalRead, positionText } from "@/lib/reading/labels";
 import { formatRating } from "@/lib/utils/rating";
 import { languageName } from "@/lib/utils/language";
 import type { ReadingPageData, ReadingRow } from "./reading-client";
@@ -19,17 +19,6 @@ import { useReading } from "./reading-provider";
 
 const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, ebook: Tablet, audio: Headphones };
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "E-book", audio: "Audiobook" };
-
-/** "today", "yesterday", "3 days ago", else the date */
-function lastRead(at: Date | string | null, data: ReadingPageData) {
-  if (!at) return null;
-  const day = readingDay(new Date(at), data.zone, data.dayStartHour);
-  const diff = Math.round((Date.parse(data.today) - Date.parse(day)) / 86_400_000);
-  if (diff <= 0) return "today";
-  if (diff === 1) return "yesterday";
-  if (diff < 7) return `${diff} days ago`;
-  return formatReadingDate(day, "day", { omitYear: day.slice(0, 4) === data.today.slice(0, 4) });
-}
 
 /** A read's rating: its own, else the book's when it is the book's only finished read */
 export function readRating(row: ReadingRow, rows: ReadingRow[], bookRating: number | null) {
@@ -57,7 +46,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
     ? `Started ${formatReadingDate(r.startedOn, r.startedPrecision, { omitYear: r.startedPrecision === "day" && r.startedOn.slice(0, 4) === data.today.slice(0, 4) })}`
     : "Started, date unknown";
   const home = row.home?.name ? ` in ${row.home.name}` : "";
-  const last = lastRead(r.lastReadAt, data);
+  const last = lastReadText(r.lastReadAt, data);
   return (
     <div className="mb-6 flex gap-4 rounded-sm border border-glass-border p-4" data-reading="current">
       <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">

@@ -1,5 +1,5 @@
 import type { ReadingDatePrecision, ReadingStatus, ReadingUnit } from "./constants";
-import { formatReadingDate } from "./dates";
+import { formatReadingDate, readingDay } from "./dates";
 import { formatMinutes } from "./positions";
 
 /*
@@ -159,4 +159,39 @@ export function readingRecord(rows: { reading: RecordReading; totalSeconds: numb
     timesRead: rows.filter((r) => r.reading.status === "finished").length,
     timeSpent: seconds > 0 ? (hours ? `${hours} h ${minutes} min` : `${minutes} min`) : null,
   };
+}
+
+/** Where a reading-day line is computed: the server's today, zone and day start */
+export interface DayContext {
+  today: string;
+  zone: string;
+  dayStartHour: number;
+}
+
+/** Whole reading days from `at` to today: 01:30 counts for the evening before */
+function daysSince(at: Date | string, { today, zone, dayStartHour }: DayContext) {
+  const day = readingDay(new Date(at), zone, dayStartHour);
+  return { day, days: Math.round((Date.parse(today) - Date.parse(day)) / 86_400_000) };
+}
+
+/** "today", "yesterday", "3 days ago", else the date ("2 Oct", "2 Oct 2025") */
+export function lastReadText(at: Date | string | null, context: DayContext) {
+  if (!at) return null;
+  const { day, days } = daysSince(at, context);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return formatReadingDate(day, "day", { omitYear: day.slice(0, 4) === context.today.slice(0, 4) });
+}
+
+/** "today", "yesterday", "3 days ago", "3 weeks ago", "2 months ago", "2 years ago" */
+export function agoText(at: Date | string, context: DayContext) {
+  const { days } = daysSince(at, context);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
+  if (days < 14) return unit(days, "day");
+  if (days < 60) return unit(Math.floor(days / 7), "week");
+  if (days < 730) return unit(Math.floor(days / 30), "month");
+  return unit(Math.floor(days / 365), "year");
 }

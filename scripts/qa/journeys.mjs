@@ -14,6 +14,10 @@
  * log and undo it, go back, pause, resume, switch edition, log a sitting in the
  * audiobook, finish with a rating and review, undo, finish again and see the
  * next volume, re-read, abandon, undo, resume, log past reads, delete and undo.
+ * Then the reading hub (SLN-448): log from /reading, log "212" from the
+ * command palette, filter the journal by year, and add a book that is not in
+ * Durtal from the book picker's link, landing on its page with Start reading
+ * open.
  *
  * It writes and deletes records, so it runs against a disposable database
  * only (scripts/qa/preview-local.py): it refuses to start without
@@ -409,6 +413,57 @@ async function readingJourney() {
       await undo("Reading deleted");
       await go(path);
       if ((await count()) !== before) throw new Error("The reading did not come back");
+    });
+    // The reading hub (SLN-448): the reading is open again
+    const card = "[...document.querySelectorAll('[data-hub-card]')].find((c) => c.textContent.includes('Journey Reading'))";
+    await step("log from the hub", async () => {
+      await go("/reading");
+      await waitFor(card, "the hub's card");
+      await evaluate(`${card}.querySelector('[data-hub-log]').click()`);
+      await waitFor(`${DIALOG}?.querySelector('form')`, "Log progress");
+      await fill("Where are you?", "200");
+      // Behind the last log: say it was a mistyped one
+      await evaluate(`${DIALOG}.querySelector('input[value=fix_last_log]')?.click(), true`);
+      await save("Log");
+      await waitFor(`${card}.querySelector('[data-hub-position]').textContent.startsWith('p. 200 of')`, "the card at p. 200");
+    });
+    await step('log "212" from the palette', async () => {
+      // Cmd+K on a Mac, Ctrl+K elsewhere: the palette refuses both at once
+      await evaluate("(() => { const mac = /Mac|iPhone|iPad/.test(navigator.platform); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: mac, ctrlKey: !mac, bubbles: true })); return true; })()");
+      await waitFor("document.querySelector('[cmdk-input]')", "the palette");
+      const item = "[...document.querySelectorAll('[cmdk-item]')].find((e) => e.textContent.includes('Log p. 212 · Journey Reading'))";
+      await evaluate("(() => { const i = document.querySelector('[cmdk-input]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '212'); i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()");
+      await waitFor(item, "Log p. 212 in the palette");
+      await evaluate(`${item}.click()`);
+      await waitFor(`${DIALOG}?.querySelector('form') && ${field("Where are you?")}.value === '212'`, "Log progress with 212");
+      await save("Log");
+      await waitFor(`${card}.querySelector('[data-hub-position]').textContent.startsWith('p. 212 of')`, "the card at p. 212");
+    });
+    await step("filter the journal by year", async () => {
+      await go("/reading/journal?yearMin=2009&yearMax=2009");
+      await waitFor("document.querySelector('[data-journal-summary]')", "the journal");
+      const rows = await evaluate("[...document.querySelectorAll('[data-journal-row]')].map((r) => r.textContent)");
+      const groups = await evaluate("[...document.querySelectorAll('#list-start h3')].map((h) => h.textContent)");
+      if (!rows.length || !rows.every((r) => r.includes('2009')) || groups.join() !== "2009")
+        throw new Error(`The 2009 filter shows ${rows.length} rows in ${groups.join(", ")}`);
+      if (!rows.some((r) => r.includes("Journey Reading"))) throw new Error("The 2009 read of Journey Reading is not in the journal");
+    });
+    await step("add a book from the picker and start it", async () => {
+      const title = `Journey Loan ${Date.now() % 100000}`;
+      await go("/reading");
+      await evaluate("document.querySelector('[data-hub-start]').click()");
+      await waitFor(`${DIALOG}?.querySelector('input[aria-label="Search books"]')`, "the book picker");
+      await fill("Search books", title);
+      await waitFor(`${DIALOG}.querySelector('[data-picker-empty] [data-picker-add]')`, "Not in Durtal? Add");
+      await evaluate(`${DIALOG}.querySelector('[data-picker-empty] [data-picker-add]').click()`);
+      await waitFor(`location.pathname === '/library/new' && document.querySelector('input[placeholder^="Search by title"]')?.value === ${JSON.stringify(title)}`, "the add page searching the title");
+      await click("Enter details manually");
+      await waitFor("document.getElementById('title')", "the details step");
+      await type("document.getElementById('title')", title);
+      await type("document.getElementById('author')", "Journey Author");
+      await click("Fast Track");
+      await waitFor(`location.pathname.startsWith('/library/journey-loan') && !location.search.includes('then')`, "the new book's page");
+      await waitFor(`${DIALOG}?.open && ${DIALOG}.textContent.includes("I'm at")`, "Start reading on the new book");
     });
     console.log(`ok    reading: ${steps.join(" → ")}`);
     return true;

@@ -122,8 +122,9 @@ export function RangeSlider({
 
       {/* Min / max labels */}
       <div className="mt-1 flex items-center justify-between">
-        <span className="font-mono text-micro text-fg-muted/60">{min}</span>
-        <span className="font-mono text-micro text-fg-muted/60">{max}</span>
+        {/* The range's ends are text a reader needs: secondary, not muted (4.5:1) */}
+        <span className="font-mono text-micro text-fg-secondary">{min}</span>
+        <span className="font-mono text-micro text-fg-secondary">{max}</span>
       </div>
     </div>
   );

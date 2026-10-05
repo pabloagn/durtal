@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -30,12 +30,27 @@ const DeleteReadingDialog = dynamic(() => import("./dialogs/delete-reading-dialo
 
 export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete";
 
+/** The dialog a request asks for; a dialog on a reading needs that reading */
+export function ReadingDialogSwitch(props: ReadingDialogProps) {
+  const { request, row } = props;
+  if (request.kind === "start") return <StartReadingDialog {...props} />;
+  if (request.kind === "past") return <PastReadDialog {...props} />;
+  if (!row) return null;
+  if (request.kind === "progress") return <LogProgressDialog {...props} />;
+  if (request.kind === "finish") return <FinishReadingDialog {...props} />;
+  if (request.kind === "abandon") return <AbandonReadingDialog {...props} />;
+  if (request.kind === "edit") return <EditReadingDialog {...props} />;
+  return <DeleteReadingDialog {...props} />;
+}
+
 export interface DialogRequest {
   kind: ReadingDialog;
   readingId?: string;
   /** Finish after a log that reached the last page: the date to fill */
   finishedOn?: string;
   reachedEnd?: boolean;
+  /** Log progress opened from the palette with what was typed ("212") */
+  prefill?: string;
 }
 
 /** What every dialog receives */
@@ -71,18 +86,9 @@ export function useOptionalReading() {
   return useContext(ReadingContext);
 }
 
-export function ReadingProvider({
-  data,
-  startOnLoad = false,
-  children,
-}: {
-  data: ReadingPageData;
-  /** "Start reading" from the Finish dialog's next-in-series panel */
-  startOnLoad?: boolean;
-  children: ReactNode;
-}) {
+export function ReadingProvider({ data, children }: { data: ReadingPageData; children: ReactNode }) {
   const router = useRouter();
-  const [request, setRequest] = useState<DialogRequest | null>(startOnLoad ? { kind: "start" } : null);
+  const [request, setRequest] = useState<DialogRequest | null>(null);
   const [storedHome, setStoredHome] = usePreference<string | null>(READING_HOME_KEY, null);
   // A remembered home that is no longer a home is no home
   const home = storedHome && (storedHome === "none" || data.homes.some((h) => h.id === storedHome)) ? storedHome : null;
@@ -152,14 +158,6 @@ export function ReadingProvider({
     });
   useReadingActions(items);
 
-  // A finished book whose page was opened to start reading: clear the parameter
-  useEffect(() => {
-    if (!startOnLoad) return;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("reading");
-    window.history.replaceState(null, "", url);
-  }, [startOnLoad]);
-
   const context = useMemo(() => ({ data, openRow, open, run }), [data, openRow, open, run]);
   const row = request?.readingId ? (data.rows.find((r) => r.reading.id === request.readingId) ?? null) : null;
   const props: ReadingDialogProps | null = request
@@ -178,13 +176,7 @@ export function ReadingProvider({
   return (
     <ReadingContext.Provider value={context}>
       {children}
-      {props?.request.kind === "start" && <StartReadingDialog {...props} />}
-      {props?.request.kind === "progress" && row && <LogProgressDialog {...props} />}
-      {props?.request.kind === "finish" && row && <FinishReadingDialog {...props} />}
-      {props?.request.kind === "abandon" && row && <AbandonReadingDialog {...props} />}
-      {props?.request.kind === "past" && <PastReadDialog {...props} />}
-      {props?.request.kind === "edit" && row && <EditReadingDialog {...props} />}
-      {props?.request.kind === "delete" && row && <DeleteReadingDialog {...props} />}
+      {props && <ReadingDialogSwitch {...props} />}
     </ReadingContext.Provider>
   );
 }

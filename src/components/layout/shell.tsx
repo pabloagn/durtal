@@ -6,6 +6,7 @@ import { Sidebar } from "./sidebar";
 import { MobileNavBar } from "./mobile-nav-bar";
 import { CommandPalette } from "./command-palette";
 import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
+import { ReadingDialogsProvider } from "@/components/reading/reading-dialogs-provider";
 import { Toaster } from "sonner";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { SIDEBAR, sidebarWidth } from "@/lib/preferences";
@@ -92,8 +93,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (isReaderView) {
     return (
       <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
-        {children}
-        <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+        <ReadingDialogsProvider>
+          {children}
+          <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+        </ReadingDialogsProvider>
         <Toaster
           position="bottom-right"
           toastOptions={{
@@ -113,36 +116,39 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <ShortcutsProvider paletteOpen={commandOpen} onPaletteOpenChange={setCommandOpen}>
-      <MobileNavBar
-        ref={menuButtonRef}
-        navOpen={navOpen}
-        onOpenNav={() => setNavOpen(true)}
-        onSearch={openCommandPalette}
-      />
-      {navOpen && (
-        <div
-          aria-hidden="true"
-          className="glass-veil fixed inset-0 z-40 md:hidden"
-          onClick={closeNav}
+      {/* Reading dialogs from any page: the palette, the hub, the dashboard (SLN-448) */}
+      <ReadingDialogsProvider>
+        <MobileNavBar
+          ref={menuButtonRef}
+          navOpen={navOpen}
+          onOpenNav={() => setNavOpen(true)}
+          onSearch={openCommandPalette}
         />
-      )}
-      <Sidebar
-        width={effectiveWidth}
-        onWidthChange={setStoredWidth}
-        onCommandPalette={openCommandPalette}
-        drawer={phone}
-        drawerOpen={navOpen}
-        onDrawerClose={closeNav}
-      />
-      <main
-        // Below md the page takes the full width, under the phone navigation bar
-        className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0"
-        style={{ "--sidebar-w": `${effectiveWidth}px` } as React.CSSProperties}
-        inert={navOpen}
-      >
-        <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">{children}</div>
-      </main>
-      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+        {navOpen && (
+          <div
+            aria-hidden="true"
+            className="glass-veil fixed inset-0 z-40 md:hidden"
+            onClick={closeNav}
+          />
+        )}
+        <Sidebar
+          width={effectiveWidth}
+          onWidthChange={setStoredWidth}
+          onCommandPalette={openCommandPalette}
+          drawer={phone}
+          drawerOpen={navOpen}
+          onDrawerClose={closeNav}
+        />
+        <main
+          // Below md the page takes the full width, under the phone navigation bar
+          className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0"
+          style={{ "--sidebar-w": `${effectiveWidth}px` } as React.CSSProperties}
+          inert={navOpen}
+        >
+          <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">{children}</div>
+        </main>
+        <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+      </ReadingDialogsProvider>
       <Toaster
         position="bottom-right"
         toastOptions={{

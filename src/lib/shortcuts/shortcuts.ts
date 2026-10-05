@@ -28,7 +28,8 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: "m", label: "Places", href: "/places" },
   { key: "t", label: "Taxonomy", href: "/taxonomy" },
   { key: "h", label: "Harmonize", href: "/harmonize" },
-  { key: "r", label: "Reader", href: "/reader" },
+  // Reading progress has R; the e-book reader gets its own key in its epic
+  { key: "r", label: "Reading", href: "/reading" },
   { key: ",", label: "Settings", href: "/settings" },
 ];
 

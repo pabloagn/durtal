@@ -17,6 +17,7 @@ export const DOMAIN_SECTIONS: NavSection[] = getEnabledWorkKinds().map(
 export const NAV_SECTIONS: NavSection[] = [
   { href: "/", label: "Dashboard" },
   ...DOMAIN_SECTIONS,
+  { href: "/reading", label: "Reading" },
   { href: "/reader", label: "Reader" },
   { href: "/people", label: "People" },
   { href: "/publishers", label: "Publishers" },
