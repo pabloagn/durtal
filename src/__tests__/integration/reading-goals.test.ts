@@ -230,6 +230,10 @@ describe.skipIf(!url)("reading goals and rhythm with PostgreSQL", () => {
       // A running timer marks nothing
       const b = await started("Timed", { startedOn: addDays(today, -2) });
       await startTimer({ readingId: b.readingId, timeZone: ZONE });
+      // ... and adds no hours, even after an hour of running
+      await q(`update reading_sessions set started_at = now() - interval '1 hour' where source = 'timer' and ended_at is null`);
+      await setReadingGoal({ year: Number(today.slice(0, 4)), metric: "hours", target: 10 });
+      expect((await getGoalProgress(Number(today.slice(0, 4))))[0].count).toBe(0);
       expect((await updateAppSettings({ readingRhythmDays: 5 })).ok).toBe(true);
       const monday = await getRhythm();
       expect(monday).toMatchObject({ target: 5, weekStart: 1, today });
