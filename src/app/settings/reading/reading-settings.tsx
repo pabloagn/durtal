@@ -6,13 +6,18 @@ import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
 import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId } from "@/components/settings/settings-group";
 import { updateAppSettings, type AppSettings } from "@/lib/actions/settings";
+import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 
-type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes">;
+type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes" | "readingRhythmDays">;
 
 const HOURS = [0, 1, 2, 3, 4, 5, 6].map((h) => ({ value: String(h), label: h === 0 ? "Midnight" : `0${h}:00` }));
 const WEEK_STARTS = [
   { value: "1", label: "Monday" },
   { value: "7", label: "Sunday" },
+];
+const RHYTHM = [
+  { value: "", label: "Off" },
+  ...[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${d} ${d === 1 ? "day" : "days"} a week` })),
 ];
 const CHECKS = [15, 30, 45, 60, 90, 120, 180, 240, 360, 480].map((m) => ({
   value: String(m),
@@ -27,7 +32,7 @@ function SettingSelect({ id, value, options, onChange }: { id: string; value: st
   );
 }
 
-/** Reading settings (SLN-451): the reading day, the week and the timer's question. Each change saves at once */
+/** Reading settings (SLN-451): the reading day, the week, the rhythm and goals (SLN-455), and the timer's question. Each change saves at once */
 export function ReadingSettings({ settings: saved }: { settings: ReadingValues }) {
   const router = useRouter();
   const [settings, setSettings] = useState(saved);
@@ -48,6 +53,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
           readingDayStartHour: result.settings.readingDayStartHour,
           readingWeekStart: result.settings.readingWeekStart,
           readingTimerCheckMinutes: result.settings.readingTimerCheckMinutes,
+          readingRhythmDays: result.settings.readingRhythmDays,
         });
         toast.success(message);
         router.refresh();
@@ -82,6 +88,25 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
             options={WEEK_STARTS}
             onChange={(v) => save({ readingWeekStart: Number(v) as 1 | 7 }, `A reading week now starts on ${v === "7" ? "Sunday" : "Monday"}`)}
           />
+        </SettingRow>
+      </SettingsGroup>
+      <SettingsGroup title="Rhythm and goals">
+        <SettingRow
+          id="reading-rhythm-days"
+          label="Days I'd like to read each week"
+          description="The Reading page shows the days you read this week. 5 of 7 leaves room for rest days."
+        >
+          <SettingSelect
+            id="reading-rhythm-days"
+            value={settings.readingRhythmDays ? String(settings.readingRhythmDays) : ""}
+            options={RHYTHM}
+            onChange={(v) =>
+              save({ readingRhythmDays: v ? Number(v) : null }, v ? `Rhythm set to ${v} ${v === "1" ? "day" : "days"} a week` : "Rhythm turned off")
+            }
+          />
+        </SettingRow>
+        <SettingRow id="reading-goals" label="Reading goals" description="Optional yearly goals in books, pages or hours." labelFor={false}>
+          <GoalDialogButton />
         </SettingRow>
       </SettingsGroup>
       <SettingsGroup title="Timer">

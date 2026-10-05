@@ -44,7 +44,8 @@ import { finishedItem, tileItem } from "@/components/reading/hub-cards";
 import { DashboardReading } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getRecentlyFinished } from "@/lib/reading/journal";
-import { readingToday } from "@/lib/reading/day";
+import { readingDayStartHour, readingToday } from "@/lib/reading/day";
+import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { cardReadingOf } from "@/lib/reading/card";
 
@@ -213,7 +214,7 @@ async function DashboardContent() {
   const currentReads = [...openReadings]
     .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
     .slice(0, 3);
-  const [covers, authorCovers, personRoles, estimates] = await Promise.all([
+  const [covers, authorCovers, personRoles, estimates, goal] = await Promise.all([
     getCollectionCoverPreviews(collections.map((collection) => collection.id)),
     // Recent authors with no portrait show some of their book covers
     getAuthorCoverPreviews(
@@ -223,6 +224,11 @@ async function DashboardContent() {
     getPersonRoles(stats.recentAuthors.map((a) => a.id)),
     // Time left and the finish date of the reading tiles (SLN-451)
     readingToday().then((today) => readingEstimates(currentReads.map((o) => o.reading.id), today)),
+    // This year's first goal, for one line under the tiles (SLN-455)
+    Promise.all([readingToday(), readingDayStartHour()]).then(async ([today, dayStartHour]) => {
+      const [progress] = await getGoalProgress(Number(today.slice(0, 4)));
+      return progress ? { progress, serverToday: today, dayStartHour } : null;
+    }),
   ]);
   // Newest first across the open collections
   const recent = [
@@ -271,7 +277,7 @@ async function DashboardContent() {
       </section>
 
       {/* Reading (SLN-448): light tiles with small props, no book cards */}
-      <DashboardReading tiles={currentReads.map((o) => tileItem(o, estimates[o.reading.id]))} finished={finishedReads.map(finishedItem)} />
+      <DashboardReading tiles={currentReads.map((o) => tileItem(o, estimates[o.reading.id]))} finished={finishedReads.map(finishedItem)} goal={goal} />
 
       {/* Each other open collection: its counts and its add action */}
       {others.map(({ kind, counts }) => (

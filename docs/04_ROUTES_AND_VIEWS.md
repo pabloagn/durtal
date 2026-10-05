@@ -47,7 +47,8 @@
 /settings                   Settings: General (defaults for new records)
 /settings/display           Settings: lists, sidebar (this browser)
 /settings/reader            Settings: reader typography (this browser)
-/settings/reading           Settings: reading day, week start, timer check
+/settings/reading           Settings: reading day, week start, rhythm, goals,
+                            timer check
 /settings/integrations      Settings: live checks of outside services
 /settings/data              Settings: counts, review queues, export, cache
 /settings/shortcuts         Settings: keyboard shortcuts
@@ -150,7 +151,7 @@ first. A book shows as its book card; other records as a `DomainTileCard`.
 
 **Collections**: the first 4 collections in their curated order, with "View all".
 
-**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress, and the estimate as server text with a client info button, SLN-451). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
+**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress, and the estimate as server text with a client info button, SLN-451). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget. With a goal this year (SLN-455), one line under the tiles: "12 of 30 books this year · on pace" (alone under a "Reading" heading when nothing is being read), redrawn with the browser's reading day.
 
 **Highest rated**, **Recent authors** and **Wanted**: book sections.
 
@@ -675,8 +676,12 @@ perfume and painting pages have "Collections" in their actions menu.
 
 ### Reading (`/reading`)
 
-The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "Start a book" (both open the book picker) and `ReadingTabs`.
+The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "Start a book" (both open the book picker), a "Goals" menu (SLN-455: "Set a reading goal", and "Set a reading rhythm" or "Change the reading rhythm", which opens `/settings/reading` at that field), and `ReadingTabs`.
 - **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), the estimate with its info button (SLN-451), Log progress, Start timer or Stop timer, and a menu (Pause, Finish, Abandon, Add a quote, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
+- **Goals this year** (SLN-455), when a goal exists: one card per metric (books, pages, hours) with its count, a sage bar, one neutral line ("On pace", "2 books ahead", "18 to go: about one every 2 weeks from now", "Goal reached on 14 Oct") and an info button; "Edit goals" opens the goal dialog.
+- **This week** (SLN-455), when the rhythm is set: this week's seven days in the order of the week start (a filled mark on a reading day, today marked), "4 of 5 days this week", then the 12 weeks before as bars, "kept 9 of the last 12 weeks". A reading day has an ended session (by `read_on`) or a finish at day precision; the running timer never counts. No streak.
+- Goals and the rhythm render with the server's reading day, then the browser's; when the browser's reading year differs (late on 31 December in Mexico City) the cards load that year's goals.
+- **The goal dialog** (`GoalDialogButton`, `src/components/reading/goal-dialog-button.tsx`, the one trigger; the hub menu, Settings and later the stats page): this year or next, a target for books, pages and hours (empty means no goal), "Count re-reads", the work types to leave out, and the past years ("28 of 30 books in 2025").
 - **Up next** (SLN-452): the first five covers of Up Next, each with Start (the Start dialog with the queued edition), and View all.
 - **Passage of the day** (SLN-453): one of his quotes in `Prose`, with its book (a link), author and page, and "Another" when there are two or more. Hidden with no quotes. The day is the server's reading day (`readingDay(new Date(), appTimeZone(), dayStartHour)`), so the passage is the same all day on every device; `choosePassage` (`src/lib/reading/passage.ts`) takes his favourite quotes when there are at least 30, else all his quotes with the favourites first, each group in the order of the SHA-256 of its id, and picks (days since 1970-01-01) modulo their number. "Another" steps to the next one in that order in the browser only. A passage over 600 characters opens clamped to 8 lines with "Show all".
 - **Paused**: one line each with "paused 3 weeks ago" and Resume.
@@ -824,7 +829,7 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
   - Orders: home currency (new orders start in it; spending totals list it first).
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
 - **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
-- **Reading** (`/settings/reading`, SLN-451): saved in `app_settings` for every device. "A reading day ends at" (midnight to 06:00; "Past days stay as they were"), "A reading week starts on" (Monday or Sunday), "Ask “Still reading?” after" (15 minutes to 8 hours).
+- **Reading** (`/settings/reading`, SLN-451): saved in `app_settings` for every device. "A reading day ends at" (midnight to 06:00; "Past days stay as they were"), "A reading week starts on" (Monday or Sunday), "Days I'd like to read each week" (Off, or 1 to 7; "5 of 7 leaves room for rest days", SLN-455), "Reading goals" (the goal dialog's button), "Ask “Still reading?” after" (15 minutes to 8 hours).
 - **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
 - **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.

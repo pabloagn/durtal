@@ -562,6 +562,22 @@ The edition he means to read and the note.
 ### `getQueue({ homeId? })`, `getQueueHead(limit)`, `getQueuePlace(workId)`
 The whole list in one query, in order: each book with its author, covers, editions and copies (for the edition he means: the queued one, else `pickDefaultEdition` for the home; and where the copy is, through `copyWhereabouts`), each edition's last known audio length (`total_minutes` of its latest reading that has one), ownership (`ownedBookCondition`), the copy at hand at the home (`atHandCopySql`) and the reading history (`readCountSql`, `lastFinishedOnSql`). The hub's strip reads the first five; the book page reads its place.
 
+## Reading goals and rhythm (`src/lib/actions/reading-goals.ts`, SLN-455)
+
+Each input is parsed with zod (`src/lib/validations/reading-goals.ts`). Goal writes run in one `atomic` inside `withReadableErrors` and invalidate `reading`. No activity events. Progress and the rhythm are computed per request, never cached, one query each; every number comes back as a number (`float8`). The words, the expected share and the week are pure, in `src/lib/reading/goals.ts`.
+
+### `setReadingGoal({ year, metric, target, countRereads?, excludedWorkTypeIds? })` / `removeReadingGoal({ year, metric })`
+Sets a year's goal for books, pages or hours (1 to 100,000), replacing the one there (one per metric per year), or removes it; removing a goal that is not there changes nothing.
+
+### `getGoalProgress(year)`
+The year's goals, each with its count (books; pages from `countedPagesSql`, summed then rounded; hours from ended sessions, the running timer left out), the reading day the count reached the target and that unit's precision, the count over the 90 days up to today (the pace line), the average pages of the books it counts this year and last, the audiobooks without a page count, and the names of the work types it leaves out. A re-read (`rereadSql`) counts only with `countRereads`; a book of an excluded work type never.
+
+### `getGoalHistory()` / `getGoalDialogData()`
+Every past year's goals with their results, in one query; and what the goal dialog needs: this year's and next year's goals, the work types and the past years.
+
+### `getRhythm()`
+`{ target, weekStart, today, days }`: the days he would like to read each week (null: off), the week start, the server's reading day, and his reading days from the 12 weeks before yesterday's week to tomorrow, with a day to spare on each side (`rhythmRange`, so a browser a day behind the server still has its oldest week): days with an ended session (by `read_on`; the running timer never counts) or a finish at day precision. The browser builds this week and the 12 before it with `rhythmView`.
+
 ## Quotes and notes (`src/lib/actions/reading-notes.ts`, SLN-453)
 
 The commonplace book. Each write parses its input with zod (`src/lib/validations/reading-notes.ts`), writes books only (`requireBookWork`), reads and checks the reading and edition against the book ("This reading belongs to another book", "This edition belongs to another book"), runs one `atomic` inside `withReadableErrors`, then records activity and invalidates `works` and `reading`. `source`, `sourceKey` and `importId` are never taken from a page: page actions write `source: "manual"`. No event per note: at most one `work.notes_added` per book per reading day ("Added 3 quotes and 1 note"), recorded after the write; the first note of the day records it and later ones add to its counts. Notes an import writes record none. Pure rules: `src/lib/reading/notes-text.ts` (`joinHyphenatedLines`, `formatNoteForCopy`), `src/lib/reading/notes-params.ts` (`parseNotesQuery`) and `src/lib/reading/passage.ts` (`choosePassage`).

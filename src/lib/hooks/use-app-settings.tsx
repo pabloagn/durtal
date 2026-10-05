@@ -14,6 +14,7 @@ const AppSettingsContext = createContext<AppSettings>({
   readingDayStartHour: 4,
   readingWeekStart: 1,
   readingTimerCheckMinutes: 90,
+  readingRhythmDays: null,
 });
 
 /** The app-wide settings, read once per request by the root layout. */

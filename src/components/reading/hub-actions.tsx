@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Square, Timer } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Square, Timer } from "lucide-react";
 import { useOptionalTimer } from "./timer-provider";
 import { useStopTimer } from "./timer-chip";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useReadingDialogs, type ReadingRef } from "./reading-dialogs-provider";
+import { LazyGoalDialog } from "./goal-dialog-button";
 
 /*
  * The reading hub's and the dashboard's buttons (SLN-448): small client
@@ -28,6 +30,33 @@ export function HubActions() {
       <Button variant="primary" onClick={() => pick("start")} className="pointer-coarse:h-11" data-hub-start="">
         Start a book
       </Button>
+    </>
+  );
+}
+
+/** The hub's header menu (SLN-455): the goal dialog and the reading rhythm setting */
+export function HubMenu({ rhythm }: { rhythm: boolean }) {
+  const router = useRouter();
+  const [goals, setGoals] = useState(false);
+  // A text button like the header's others: an icon alone would sit off the 46px title's cap height
+  return (
+    <>
+      <DropdownMenu
+        label="Goals and rhythm"
+        align="end"
+        trigger={
+          <button type="button" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-menu-open="">
+            Goals
+            <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+          </button>
+        }
+      >
+        <DropdownMenuItem onClick={() => setGoals(true)}>Set a reading goal</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/settings/reading#reading-rhythm-days")}>
+          {rhythm ? "Change the reading rhythm" : "Set a reading rhythm"}
+        </DropdownMenuItem>
+      </DropdownMenu>
+      {goals && <LazyGoalDialog onClose={() => setGoals(false)} />}
     </>
   );
 }

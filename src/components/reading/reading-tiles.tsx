@@ -10,6 +10,8 @@ import type { ReadingFormat } from "@/lib/reading/constants";
 import type { ReadingEstimate } from "@/lib/reading/pace";
 import { EstimateLine } from "./estimate-line";
 import { JournalRowMenu, LogButton } from "./hub-actions";
+import { GoalLine } from "./goal-card";
+import type { GoalProgress } from "@/lib/actions/reading-goals";
 import type { ReadingRef } from "./reading-dialogs-provider";
 
 /*
@@ -86,9 +88,25 @@ function SectionLink({ href }: { href: string }) {
 }
 
 /** The dashboard's reading: up to three tiles with Log, up to four finished covers; each left out when empty */
-export function DashboardReading({ tiles, finished }: { tiles: TileItem[]; finished: FinishedItem[] }) {
+export function DashboardReading({
+  tiles,
+  finished,
+  goal,
+}: {
+  tiles: TileItem[];
+  finished: FinishedItem[];
+  /** This year's first goal, for one line under the tiles (SLN-455) */
+  goal?: { progress: GoalProgress; serverToday: string; dayStartHour: number } | null;
+}) {
+  const goalLine = goal ? <GoalLine goal={goal.progress} serverToday={goal.serverToday} dayStartHour={goal.dayStartHour} /> : null;
   return (
     <>
+      {tiles.length === 0 && goalLine && (
+        <section className="mt-12">
+          <SectionHeading title="Reading" icon={BookMarked} action={<SectionLink href="/reading" />} />
+          {goalLine}
+        </section>
+      )}
       {tiles.length > 0 && (
         <section className="mt-12">
           <SectionHeading title="Currently reading" icon={BookMarked} action={<SectionLink href="/reading" />} />
@@ -110,6 +128,7 @@ export function DashboardReading({ tiles, finished }: { tiles: TileItem[]; finis
               </div>
             ))}
           </div>
+          {goalLine && <div className="mt-3">{goalLine}</div>}
         </section>
       )}
       {finished.length > 0 && (

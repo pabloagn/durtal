@@ -58,6 +58,10 @@ export type NoteSource = (typeof NOTE_SOURCES)[number];
 /** The longest passage or note, in characters */
 export const NOTE_MAX = 10_000;
 
+/** What a reading goal counts (SLN-455) */
+export const GOAL_METRICS = ["books", "pages", "hours"] as const;
+export type GoalMetric = (typeof GOAL_METRICS)[number];
+
 /** A book's reading state, derived from its readings */
 export const WORK_READING_STATES = ["unread", "reading", "paused", "read", "abandoned"] as const;
 export type WorkReadingState = (typeof WORK_READING_STATES)[number];
