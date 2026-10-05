@@ -48,6 +48,18 @@ describe("colorBucketOf", () => {
     expect(named(hex)).toBe(bucket);
   });
 
+  it.each([
+    ["#380808", "red"], // oxblood
+    ["#081838", "blue"], // navy
+    ["#183828", "green"], // forest green
+    ["#281838", "purple"], // aubergine
+    ["#284848", "grey"],
+    ["#282828", "black"],
+    ["#281808", "black"],
+  ])("deep cloth colours, as sharp's dominant tone reports them (PR #113 review): %s is %s", (hex, bucket) => {
+    expect(named(hex)).toBe(bucket);
+  });
+
   it("names every colour of the sRGB cube with a known bucket", () => {
     const keys = new Set<string>(COLOR_BUCKETS.map((b) => b.key));
     for (let r = 0; r <= 255; r += 15)

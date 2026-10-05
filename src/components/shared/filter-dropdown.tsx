@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react
 import { SlidersHorizontal, ChevronDown, Search, Check } from "lucide-react";
 import { RangeSlider } from "@/components/ui/range-slider";
 import { inkOn } from "@/lib/color/color-math";
+import { CapAligned } from "./cap-aligned";
 
 /** Minimum number of options before showing the search box in a filter group */
 const SEARCH_THRESHOLD = 8;
@@ -97,43 +98,48 @@ function OptionRow({
           : "cursor-pointer text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
       }`}
     >
-      {swatch ? (
-        <span
-          aria-hidden
-          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
-            checked ? "border-fg-primary" : "border-fg-muted/60"
-          } ${empty ? "opacity-40" : ""}`}
-          style={{ backgroundColor: option.swatch }}
-        >
-          {checked && (
-            <Check
-              className={`h-2.5 w-2.5 ${option.swatch && inkOn(option.swatch) === "dark" ? "text-bg-primary" : "text-fg-primary"}`}
-              strokeWidth={2.5}
-            />
-          )}
-        </span>
-      ) : (
-        <span
-          aria-hidden
-          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
-            checked ? "border-accent-plum bg-accent-plum" : "border-glass-border bg-transparent"
-          }`}
-        >
-          {checked && (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-fg-primary">
-              <path d="M2 5L4.5 7.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </span>
-      )}
+      {/* The box sits on the cap height of the label's first line */}
+      <CapAligned height={14}>
+        {swatch ? (
+          <span
+            aria-hidden
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
+              checked ? "border-fg-primary" : "border-fg-muted/60"
+            } ${empty ? "opacity-40" : ""}`}
+            style={{ backgroundColor: option.swatch }}
+          >
+            {checked && (
+              <Check
+                className={`h-2.5 w-2.5 ${option.swatch && inkOn(option.swatch) === "dark" ? "text-bg-primary" : "text-fg-primary"}`}
+                strokeWidth={2.5}
+              />
+            )}
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+              checked ? "border-accent-plum bg-accent-plum" : "border-glass-border bg-transparent"
+            }`}
+          >
+            {checked && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-fg-primary">
+                <path d="M2 5L4.5 7.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+        )}
+      </CapAligned>
       <input type="checkbox" checked={checked} disabled={empty} onChange={onToggle} className="sr-only" />
-      {/* The label and its count share a baseline; the box stays centred */}
-      <span className="min-w-0 flex-1 self-baseline">{option.label}</span>
-      {option.count !== undefined && (
-        <span className="shrink-0 self-baseline pl-2 font-mono text-micro tabular-nums text-fg-secondary">
-          {option.count.toLocaleString("en")}
-        </span>
-      )}
+      {/* The label and its count share a baseline */}
+      <span className="flex min-w-0 flex-1 items-baseline">
+        <span className="min-w-0 flex-1">{option.label}</span>
+        {option.count !== undefined && (
+          <span className="shrink-0 pl-2 font-mono text-micro tabular-nums text-fg-secondary">
+            {option.count.toLocaleString("en")}
+          </span>
+        )}
+      </span>
     </label>
   );
 }
@@ -226,19 +232,33 @@ export function FilterDropdown({
 
   // The panel hangs from the button's right edge; on a narrow window it
   // moves sideways to stay EDGE px inside it, and the page scrolls to show
-  // all of it when it reaches below the window
+  // all of it when it reaches below the window. It places itself again when
+  // the button moves (a count badge, the sidebar folding) or the window
+  // changes size.
   useLayoutEffect(() => {
     const panel = panelRef.current;
-    if (!open || !panel) return;
-    // The window's width without its scrollbar: 100vw counts a classic scrollbar
-    const width = document.documentElement.clientWidth;
-    panel.style.translate = "";
-    panel.style.maxWidth = `${width - 2 * EDGE}px`;
-    const rect = panel.getBoundingClientRect();
-    const right = width - EDGE;
-    const shift = rect.left < EDGE ? EDGE - rect.left : rect.right > right ? right - rect.right : 0;
-    if (shift) panel.style.translate = `${shift}px 0`;
-    if (rect.bottom > window.innerHeight) panel.scrollIntoView({ block: "nearest" });
+    const button = containerRef.current;
+    if (!open || !panel || !button) return;
+    const place = () => {
+      // The window's width without its scrollbar: 100vw counts a classic scrollbar
+      const width = document.documentElement.clientWidth;
+      panel.style.translate = "";
+      panel.style.maxWidth = `${width - 2 * EDGE}px`;
+      const rect = panel.getBoundingClientRect();
+      const right = width - EDGE;
+      const shift = rect.left < EDGE ? EDGE - rect.left : rect.right > right ? right - rect.right : 0;
+      if (shift) panel.style.translate = `${shift}px 0`;
+      return rect;
+    };
+    if (place().bottom > window.innerHeight) panel.scrollIntoView({ block: "nearest" });
+    const observer = new ResizeObserver(() => place());
+    observer.observe(button);
+    if (button.parentElement) observer.observe(button.parentElement);
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
   }, [open]);
 
   /** A checkbox or swatch group's rows, with a search when the list is long */

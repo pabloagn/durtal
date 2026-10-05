@@ -139,7 +139,7 @@ node --env-file=.env.local --import tsx scripts/maintenance/backfill-cover-color
 node --env-file=.env.local --import tsx scripts/maintenance/backfill-cover-colors.ts
 ```
 
-The dry run only counts. `POST /api/media/backfill-palettes?limit=50` does the same in batches (admin token).
+The dry run only counts. `POST /api/media/backfill-palettes?limit=50` does the same in batches (admin token): call it again with `after` set to the answer's `next` until `next` is null, so an image that cannot be read is passed, not retried; `dryRun=1` only counts.
 
 ---
 

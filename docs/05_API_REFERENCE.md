@@ -585,11 +585,11 @@ Admin bulk job. Regenerates the thumbnail of every media record from its full-si
 
 ### `POST /api/media/backfill-palettes`
 
-Admin bulk job (SLN-405, `backfillCoverColors` in `src/lib/color/backfill.ts`). Gives every stored palette its named colour, then reads a palette for posters and edition covers that have none, from their thumbnails: at most `limit` images per call (1 to 500, default 50), posters first. Call again while `remaining` drops; a call that reads nothing is the end. Requires `x-admin-token` when `ADMIN_TOKEN` is set. `scripts/maintenance/backfill-cover-colors.ts` runs the same job over every image at once.
+Admin bulk job (SLN-405, `backfillCoverColors` in `src/lib/color/backfill.ts`). Gives every stored palette its named colour, then reads a palette for posters and edition covers that have none, from their thumbnails: at most `limit` images per call (1 to 500, default 50), posters first, in id order. Call again with `after` set to the answer's `next` until `next` is null: each batch starts past the images the last one tried, so an image that cannot be read is passed, not retried. `dryRun=1` only counts. Requires `x-admin-token` when `ADMIN_TOKEN` is set. `scripts/maintenance/backfill-cover-colors.ts` runs the same job over every image at once.
 
 **Response** `200`:
 ```json
-{ "colored": 120, "posters": { "processed": 39, "failed": 1 }, "covers": { "processed": 10, "failed": 0 }, "remaining": { "posters": 1, "covers": 1840 }, "errors": ["uuid: message"] }
+{ "colored": 120, "posters": { "processed": 39, "failed": 1 }, "covers": { "processed": 10, "failed": 0 }, "remaining": { "posters": 1, "covers": 1840 }, "errors": ["uuid: message"], "next": "cover:uuid" }
 ```
 
 **Error** `401`: Wrong admin token.

@@ -84,3 +84,23 @@ section, a chip for each chosen filter, and a filter by cover colour.
   loaded Mac put every route over its time budget, the untouched ones too.
 - After merge: apply `0071_cover_colors`, then run the backfill (dry run
   first). Until then the colour filter finds no book.
+
+### Review fixes (PR #113)
+
+- Phone rows: on a coarse pointer an option row is 44px; its box now sits on
+  the label's cap height (`CapAligned`) and the label and count share one
+  baseline, so they no longer split apart (8.5px before). A checked swatch's
+  tick moves from 0.56px off to 0.
+- Panel placement: the panel places itself again when the button moves (a
+  count badge appears, the sidebar folds) or the window resizes
+  (`ResizeObserver` on the button and its row, and `resize`), so it no longer
+  ends past the window at 390 or off the left edge at 768.
+- Deep colours: black now needs a nearly grey tone (`c < 16` under 14%
+  lightness), and the dark-grey rule takes cool hues only (170–260), so
+  oxblood, navy, forest green and aubergine keep their colours. Tests for
+  seven deep cloth colours.
+- Backfill batches: images are taken in id order and a full batch answers
+  `next`; the route takes `after` and `dryRun`, so a batch starts past the
+  images the last one could not read instead of retrying them first forever.
+  Test through the route: a dry run, then four calls with `limit=1` over two
+  broken covers and a red one. Docs 05 and 07.

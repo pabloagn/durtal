@@ -44,10 +44,11 @@ export function colorBucketOf(rgb: readonly [number, number, number]): ColorBuck
   // Chroma: how far the colour is from grey, 0 to 100, whatever its lightness
   const c = ((Math.max(...rgb) - Math.min(...rgb)) / 255) * 100;
 
-  if (l < 14 || (l < 22 && c < 10)) return "black";
+  // A deep tone that is clearly coloured (navy, bottle green, oxblood) keeps its colour
+  if ((l < 14 && c < 16) || (l < 22 && c < 10)) return "black";
   if (l > 95 || (l > 88 && c < 16)) return "white";
-  // Dark, nearly grey and cool (charcoal, slate) reads as grey; warm reads as brown
-  if (c < 6 || s < 15 || (l < 35 && c < 14 && h >= 60 && h < 330)) return "grey";
+  // Dark, nearly grey and cool (charcoal, slate) reads as grey; warm reads as brown, green as green
+  if (c < 6 || s < 15 || (l < 35 && c < 14 && h >= 170 && h < 260)) return "grey";
 
   // Red: either side of 0°
   if (h < 12 || h >= 345) {

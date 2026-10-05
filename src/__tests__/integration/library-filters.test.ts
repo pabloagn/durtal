@@ -57,6 +57,7 @@ import { getLibraryFilterOptions } from "@/lib/actions/library-filters";
 import { backfillCoverColors } from "@/lib/color/backfill";
 import { parseBookFilters } from "@/lib/library/filter-params";
 import { GET as listWorks } from "@/app/api/works/route";
+import { POST as backfillRoute } from "@/app/api/media/backfill-palettes/route";
 
 function palette(rgb: [number, number, number]) {
   return { dominant: { hex: "#000000", rgb }, crystal: [], extractedAt: "2026-10-05T00:00:00Z" };
@@ -299,6 +300,47 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     const e = await book("Another cover");
     await edition(e, { thumb: "gold/covers/red-2.webp" });
     expect(await backfillCoverColors({ limit: 0 })).toMatchObject({ covers: { processed: 0 }, remaining: { covers: 2 } });
+  });
+
+  it("moves a batch past the images it could not read; the route has a dry run (PR #113 review)", async () => {
+    for (const [title, key] of [
+      ["Broken one", "gold/covers/broken-1.webp"],
+      ["Broken two", "gold/covers/broken-2.webp"],
+      ["The red one", "gold/covers/red.webp"],
+    ])
+      await edition(await book(title), { thumb: key });
+    vi.stubEnv("ADMIN_TOKEN", "test-admin-token");
+    try {
+      const call = async (query: string) => {
+        const res = await backfillRoute(
+          new NextRequest(`http://localhost/api/media/backfill-palettes?${query}`, {
+            method: "POST",
+            headers: { "x-admin-token": "test-admin-token" },
+          }),
+        );
+        expect(res.status).toBe(200);
+        return res.json();
+      };
+      const dry = await call("dryRun=1");
+      expect(dry).toMatchObject({ remaining: { covers: 3 }, next: null, covers: { processed: 0, failed: 0 } });
+      expect(await value(`select count(*)::int from editions where cover_palette is not null`)).toBe(0);
+
+      let next: string | null = null;
+      let calls = 0;
+      const totals = { processed: 0, failed: 0 };
+      do {
+        const run = await call(`limit=1${next ? `&after=${encodeURIComponent(next)}` : ""}`);
+        totals.processed += run.covers.processed;
+        totals.failed += run.covers.failed;
+        next = run.next;
+        calls++;
+      } while (next && calls < 10);
+      expect(calls).toBe(4);
+      expect(totals).toEqual({ processed: 1, failed: 2 });
+      expect(await titles({ colors: ["red"] })).toEqual(["The red one"]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("refuses a colour outside the named ones", async () => {
