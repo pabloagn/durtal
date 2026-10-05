@@ -124,6 +124,24 @@ describe("a Goodreads export", () => {
     expect(r.readings[1].finishedPrecision).toBe("unknown");
     expect(r.rating).toBeNull();
   });
+  it("counts the read in progress in Read Count, as Goodreads does", () => {
+    const file = (readCount: string, dateRead: string) => {
+      const cells: Record<string, string> = { "Book Id": "9", Title: "T", Author: "A", "Exclusive Shelf": "currently-reading", "Read Count": readCount, "Date Read": dateRead };
+      return `${GOODREADS_EXPORT_HEADER.join(",")}\n${GOODREADS_EXPORT_HEADER.map((h): string => cells[h] ?? "").join(",")}\n`;
+    };
+    const reads = (readCount: string, dateRead: string) =>
+      parseImportFile(file(readCount, dateRead)).rows[0].readings.map((x) => [x.n, x.status, x.finishedOn]);
+    expect(reads("1", "")).toEqual([[1, "reading", null]]);
+    expect(reads("2", "2015/06/01")).toEqual([
+      [1, "finished", "2015-06-01"],
+      [2, "reading", null],
+    ]);
+    expect(reads("3", "2015/06/01")).toEqual([
+      [1, "finished", null],
+      [2, "finished", "2015-06-01"],
+      [3, "reading", null],
+    ]);
+  });
   it("reads a DNF shelf in any case as an abandoned read with its stop date", () => {
     const r = row("Ulysses");
     expect(r.readings).toHaveLength(1);

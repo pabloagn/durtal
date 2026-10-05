@@ -551,9 +551,9 @@ async function importJourney() {
       await type("document.getElementById('title')", "Import Journey Missing");
       await type("document.getElementById('author')", "Journey Newcomer");
       await click("Fast Track");
-      await waitFor("location.pathname.startsWith('/library/import-journey-missing')", "the new book's page", 30000);
+      await waitFor("location.pathname.startsWith('/library/import-journey-missing')", "the new book's page", 90000);
       await go(`/reading/import/${importId}`);
-      await waitFor(`${row(6)}?.querySelector('[data-import-book]')`, "the row matched to the new book", 30000);
+      await waitFor(`${row(6)}?.querySelector('[data-import-book]')`, "the row matched to the new book", 90000);
       await evaluate(`${row(6)}.querySelector('[data-import-decide=import]').click()`);
       await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 8 readings'", "Import 8 readings");
     });

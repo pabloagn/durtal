@@ -153,3 +153,5 @@ import can be undone. Migration 0066 adds `reading_import_rows` and
 - The database suite also imports the StoryGraph fixture: two reads from
   their ranges, the 3.75 saved as 4 on the later one, the inverted range in
   Cannot import.
+- Review fix: Goodreads counts the read in progress in Read Count, so a
+  currently-reading or paused book has one earlier read fewer.

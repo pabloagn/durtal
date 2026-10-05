@@ -113,11 +113,12 @@ export function mapGoodreads(headers: string[], records: Record<string, string>[
         note: "Earlier read, date unknown",
       }));
     if (reading || paused) {
-      // The earlier reads, the last one dated when Goodreads kept a date
-      const reads = readCount;
-      const before = earlier(Math.max(0, reads - (finished ? 1 : 0)));
-      const dated = reads > 0 && finished ? [{ ...latest(reads, "finished"), startedOn: null, startedPrecision: "unknown" as const, reviewHtml: null }] : [];
-      const open = latest(reads + 1, reading ? "reading" : "paused");
+      // Read Count includes the read in progress (a first read shows 1), so the
+      // earlier reads are one fewer; the last one dated when Goodreads kept a date
+      const prior = Math.max(readCount - 1, finished ? 1 : 0);
+      const before = earlier(prior - (finished ? 1 : 0));
+      const dated = finished ? [{ ...latest(prior, "finished"), startedOn: null, startedPrecision: "unknown" as const, reviewHtml: null }] : [];
+      const open = latest(prior + 1, reading ? "reading" : "paused");
       row.readings = [...before, ...dated, open];
     } else if (abandoned) {
       const reads = Math.max(1, readCount);
