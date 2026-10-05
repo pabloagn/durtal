@@ -100,6 +100,8 @@ export function ReadingProvider({
       try {
         if (action === "start" || action === "reread" || action === "startAgain") return open({ kind: "start" });
         if (action === "past") return open({ kind: "past" });
+        // "Resume this reading" acts on the latest read, which is abandoned
+        if (action === "resumeAbandoned" && !row) row = data.rows.find((r) => r.reading.status === "abandoned") ?? null;
         if (!row) return;
         const readingId = row.reading.id;
         if (action === "progress") return open({ kind: "progress", readingId });
@@ -121,7 +123,7 @@ export function ReadingProvider({
         showError(err, changed);
       }
     },
-    [openRow, open, changed],
+    [openRow, open, changed, data.rows],
   );
 
   // The R menu and the palette: the actions that make sense now

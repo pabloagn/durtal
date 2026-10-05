@@ -22,12 +22,17 @@ export interface ReadingSummary {
 
 export type BookReadingState = "unread" | "reading" | "paused" | "read" | "abandoned";
 
-/** The open reading, else the book's derived state */
+/**
+ * The state the book page shows, from its readings newest first (as
+ * `getReadingsForWork` returns them): the open reading; else an abandoned
+ * latest read, so it can be resumed; else read; else unread.
+ */
 export function bookReadingState(readings: Pick<ReadingSummary, "status">[]): BookReadingState {
   if (readings.some((r) => r.status === "reading")) return "reading";
   if (readings.some((r) => r.status === "paused")) return "paused";
-  if (readings.some((r) => r.status === "finished")) return "read";
-  if (readings.some((r) => r.status === "abandoned")) return "abandoned";
+  const latest = readings.find((r) => r.status === "finished" || r.status === "abandoned");
+  if (latest?.status === "abandoned") return "abandoned";
+  if (latest) return "read";
   return "unread";
 }
 
@@ -70,8 +75,7 @@ export function readingControlLabel(readings: ReadingSummary[]): string {
       return when ? `Read · ${formatReadingDate(when, last.finishedPrecision)}` : "Read";
     return when ? `Read ${times} times · ${when.slice(0, 4)}` : `Read ${times} times`;
   }
-  const abandoned = readings.filter((r) => r.status === "abandoned").sort((a, b) => (b.finishedOn ?? "").localeCompare(a.finishedOn ?? ""))[0];
-  return `Abandoned at ${stopText(abandoned)}`;
+  return `Abandoned at ${stopText(readings.find((r) => r.status === "abandoned")!)}`;
 }
 
 export type ReadingMenuAction =

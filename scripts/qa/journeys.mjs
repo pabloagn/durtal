@@ -229,8 +229,8 @@ async function readingJourney() {
   const expectLabel = (pattern) => waitFor(`/${pattern}/.test(${control}?.textContent ?? '')`, `the control to read ${pattern}`);
   const menu = async (item) => {
     await evaluate(`${control}.click()`);
-    await sleep(300);
-    await click(item);
+    await waitFor("document.querySelector('[role=menu]')", "the reading menu");
+    await click(item, "[...document.querySelectorAll('[role=menu]')].pop()");
   };
   /** A field of the open dialog by its label's text */
   const field = (text) =>
@@ -239,21 +239,26 @@ async function readingJourney() {
     await evaluate(`(() => { const el = ${field(text)}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
     await sleep(200);
   };
-  /** Picks an option of a custom Select, found by its label or aria-label */
+  /** Picks an option of a custom Select, found by its label or aria-label, in that Select's own list */
   const choose = async (text, option) => {
-    await evaluate(`(() => { const byAria = ${DIALOG}.querySelector('[role=combobox][aria-label=' + ${JSON.stringify(JSON.stringify(text))} + ']'); (byAria ?? ${field(text)}).click(); return true; })()`);
+    const box = `(${DIALOG}.querySelector('[role=combobox][aria-label=' + ${JSON.stringify(JSON.stringify(text))} + ']') ?? ${field(text)})`;
+    await evaluate(`${box}.click(), true`);
+    await waitFor(`${box}.parentElement.querySelector('[role=listbox]')`, `the ${text} list`);
+    const ok = await evaluate(`(() => { const o = [...${box}.parentElement.querySelectorAll('[role=option]')].find((e) => e.textContent.trim().replace(/^✓\\s*/, '').startsWith(${JSON.stringify(option)})); if (!o) return false; o.click(); return true; })()`);
+    if (!ok) throw new Error(`No "${option}" in ${text}`);
     await sleep(250);
-    await click(option, "document");
   };
   const save = async (text) => {
     await click(text, DIALOG);
     await waitFor(`!document.querySelector('dialog[open]')`, "the dialog to close").catch(() => {});
     await sleep(600);
   };
-  const undo = async () => {
-    await waitFor("[...document.querySelectorAll('[data-sonner-toast] button')].some((b) => b.textContent.trim() === 'Undo')", "the Undo toast");
-    await evaluate("[...document.querySelectorAll('[data-sonner-toast] button')].filter((b) => b.textContent.trim() === 'Undo').pop().click()");
-    await sleep(800);
+  /** Clicks Undo on the toast that says `message` */
+  const undo = async (message) => {
+    const button = `[...document.querySelectorAll('[data-sonner-toast]')].find((t) => t.textContent.includes(${JSON.stringify(message)}))?.querySelector('button[data-button], button:not([aria-label])')`;
+    await waitFor(button, `the Undo of "${message}"`);
+    await evaluate(`${button}.click()`);
+    await sleep(1000);
   };
   const log = async (value, choice) => {
     await menu("Log progress");
@@ -282,7 +287,7 @@ async function readingJourney() {
     await step("fix a log and undo; go back", async () => {
       await log("200", "fix_last_log");
       await expectLabel("p\\. 200 of 600");
-      await undo();
+      await undo("Logged p. 200");
       await go(path);
       await expectLabel("p\\. 232 of 600");
       await log("200", "went_back");
@@ -312,8 +317,12 @@ async function readingJourney() {
       const finish = async () => {
         await menu("Finish");
         await waitFor(`${DIALOG}?.querySelector('[role=slider]')`, "the Finish dialog");
-        await evaluate(`(() => { const s = ${DIALOG}.querySelector('[role=slider]'); s.focus(); for (const key of ['4', 'ArrowRight']) s.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); return true; })()`);
-        await sleep(200);
+        // One key at a time: the slider renders between keys, as when typed
+        for (const key of ["4", "ArrowRight"]) {
+          await evaluate(`(() => { const s = ${DIALOG}.querySelector('[role=slider]'); s.focus(); s.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true })); return true; })()`);
+          await sleep(200);
+        }
+        await waitFor(`${DIALOG}.querySelector('[role=slider]').getAttribute('aria-valuetext') === '4.5 stars'`, "the rating 4.5");
         await evaluate(`(() => { window.prompt = () => 'https://example.com/watt'; const area = ${DIALOG}.querySelector('[contenteditable=true]'); area.focus(); return true; })()`);
         await send("Input.insertText", { text: "A strange comedy" });
         await evaluate(`(() => { const sel = getSelection(); sel.selectAllChildren(${DIALOG}.querySelector('[contenteditable=true]')); return true; })()`);
@@ -324,7 +333,7 @@ async function readingJourney() {
         await sleep(600);
       };
       await finish();
-      await undo();
+      await undo("Finished Journey Reading");
       await click("Close", "document");
       await go(path);
       await expectLabel("Reading · p\\. 240 of 480");
@@ -348,19 +357,29 @@ async function readingJourney() {
         await expectLabel("Abandoned at");
       };
       await abandon();
-      await undo();
+      await undo("Abandoned Journey Reading");
       await go(path);
       await expectLabel("Reading ·");
       await abandon();
       await menu("Resume this reading");
       await expectLabel("Reading ·");
     });
+    /** Presses keys as the keyboard does: "r", then "l" opens Log a past read */
+    const press = async (...keys) => {
+      await evaluate("document.activeElement?.blur(), true");
+      for (const key of keys) {
+        await send("Input.dispatchKeyEvent", { type: "keyDown", key, text: key, code: `Key${key.toUpperCase()}` });
+        await send("Input.dispatchKeyEvent", { type: "keyUp", key, code: `Key${key.toUpperCase()}` });
+        await sleep(300);
+      }
+    };
     await step("past reads in 2009 and Apr 2019", async () => {
-      await menu("Log a past read");
+      // While a reading is open, Log a past read is on the R menu
+      await press("r", "l");
       await choose("Finished: how precise", "Year");
       await fill("Finished: year", "2009");
       await save("Log read");
-      await menu("Log a past read");
+      await press("r", "l");
       await choose("Started: how precise", "Day");
       await fill("Started: year", "2019");
       await choose("Started: month", "April");
@@ -368,7 +387,8 @@ async function readingJourney() {
       await choose("Finished: how precise", "Month");
       await fill("Finished: year", "2019");
       await choose("Finished: month", "April");
-      await save("Log read");
+      await click("Log read", DIALOG);
+      await waitFor("!document.querySelector('dialog[open]')", "the second past read to save", 8000);
       await go(path);
       await waitFor("document.getElementById('reading')?.innerText.includes('Finished 2009')", "the 2009 read");
       await waitFor("document.getElementById('reading')?.innerText.includes('14 Apr 2019 to Apr 2019')", "the April 2019 read");
@@ -381,17 +401,17 @@ async function readingJourney() {
       await click("Delete");
       await waitFor(DIALOG, "the delete dialog");
       await click("Delete", DIALOG);
-      await sleep(1000);
-      await go(path);
-      if ((await count()) !== before - 1) throw new Error("The reading was not deleted");
-      await undo();
+      await waitFor(`document.querySelectorAll('#reading [data-reading]').length === ${before - 1}`, "the reading to go");
+      await undo("Reading deleted");
       await go(path);
       if ((await count()) !== before) throw new Error("The reading did not come back");
     });
     console.log(`ok    reading: ${steps.join(" → ")}`);
     return true;
   } catch (error) {
-    console.log(`FAIL  reading: ${steps.join(" → ")}${steps.length ? " → " : ""}✗ ${error.message} (control: ${await label().catch(() => "?")})`);
+    const toastText = await evaluate("[...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.innerText.replace(/\\s+/g, ' ')).join(' | ')").catch(() => "");
+    const dialogText = await evaluate(`${DIALOG}?.open ? ${DIALOG}.innerText.replace(/\\s+/g, ' ').slice(0, 300) : ''`).catch(() => "");
+    console.log(`FAIL  reading: ${steps.join(" → ")}${steps.length ? " → " : ""}✗ ${error.message} (control: ${await label().catch(() => "?")})${toastText ? ` [toasts: ${toastText}]` : ""}${dialogText ? ` [dialog: ${dialogText}]` : ""}`);
     return false;
   }
 }

@@ -35,9 +35,14 @@ describe("the header control", () => {
     expect(readingControlLabel([{ ...base, status: "abandoned", currentPage: 120 }])).toBe("Abandoned at p. 120");
   });
   it("counts finished readings only for Read N times", () => {
-    const rows = [done("2009-01-01"), done("2015-06-01"), { ...base, status: "abandoned" as const }, done("2024-03-02")];
+    // Newest first, as the page gets them
+    const rows = [done("2024-03-02"), { ...base, status: "abandoned" as const, finishedOn: "2020-01-01" }, done("2015-06-01"), done("2009-01-01")];
     expect(readingControlLabel(rows)).toBe("Read 3 times · 2024");
     expect(bookReadingState(rows)).toBe("read");
+    // An abandoned re-read after a finished read can be resumed
+    const reread = [{ ...base, status: "abandoned" as const, currentPage: 120 }, done("2024-03-02")];
+    expect(bookReadingState(reread)).toBe("abandoned");
+    expect(readingControlLabel(reread)).toBe("Abandoned at p. 120");
   });
   it("offers the actions that make sense", () => {
     expect(readingMenu("unread")).toEqual(["start", "past"]);

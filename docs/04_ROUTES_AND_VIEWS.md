@@ -97,7 +97,7 @@ Groups:
 - **Places**: venues by name or address, archived ones left out
 - Pictures: a work's cover or poster, 24x36 like a small card, or a person's portrait, 28px square on the same 36px row; with no picture, the initials on the tint taken from the name, as on the cards. They load lazily in a fixed box, so the list never moves. The search text is normalized to letters and digits (`search_normalize`), so accents never matter, other scripts match as typed, and `%` or `_` match nothing special. Services: `quickSearch` in `src/lib/actions/quick-search.ts`
 - **Search**: one "Search books for …" entry per open collection
-- **This page**: the page's Edit menu entries ("Edit work", `E W`) and Copy menu entries
+- **This page**: the page's Edit menu entries ("Edit work", `E W`), Reading menu entries ("Log progress", `R P`) and Copy menu entries
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
 
@@ -112,7 +112,7 @@ Features:
 The root `Shell` component wraps all page content:
 - Renders the `Sidebar`
 - Applies `ml-56` margin to main content (accounts for sidebar width)
-- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
+- Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), `R` → the Reading menu (a book page's reading actions, given with `useReadingActions`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 
 ---
@@ -429,6 +429,14 @@ The detail page for a single work. Displays the work and all its editions and in
 **Actions**: Edit work metadata, add edition, add instance, re-fetch metadata, manage collections, delete work.
 
 **Edit menu** (`E`): `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy. The actions menu shows these keys. Plain `E` and `T` open no dialog.
+
+**Reading** (SLN-447):
+- *Header control*: under the title, one button whose label is the book's reading state ("Start reading", "Reading · p. 212 of 480 · 44%", "Paused at 44%", "Read · 14 Apr 2024", "Read 3 times · 2024", "Abandoned at p. 120"), with a menu of the actions that make sense now (start, log progress, pause or resume, finish, abandon, edit, re-read, resume an abandoned read, start again, log a past read), each with its `R` key. The Read button for digital editions follows it.
+- *Reading section*, after Notes: the current reading (edition, copy and where it is, a progress bar, "Started 2 Oct in Amsterdam · last read yesterday", the chapter, Log progress, Pause or Resume, Finish, and a menu with Abandon, Edit and Delete), then one row per earlier read, newest first (its number among all reads, dates, outcome, format, the edition when it changed, the read's rating, the review's first lines), and "Your ratings: 4 (2012), 5 (2024)" with two rated reads or more. With no readings the section is left out and "Start reading" and "Log a past read" are in the actions menu.
+- *Record group* "Reading": first read, last finished, times read (finished reads) and time spent once sessions have durations.
+- *Dialogs* (loaded when opened): Start reading ("I'm at", remembered per device; edition and copy with the smart default; format; pages to read with "Find page count"; audio length; start date, exact or not; already at), Log progress (one field, or Page / % / Time with keypad fields on touch; quick steps; another edition or format; a move back asks "Fix my last log" or "I went back"; the last page opens Finish), Finish (date, rating, the book's rating, review; then the series' next volume), Abandon, Log a past read (dates at any precision), Edit reading and Delete. Log progress, Finish, Abandon and Delete have a 10-second Undo. `?reading=start` opens Start reading on arrival.
+
+**Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
 
 **External links**: Open Library, Google Books, Calibre-Web (if digital instance with calibre_url exists).
 
