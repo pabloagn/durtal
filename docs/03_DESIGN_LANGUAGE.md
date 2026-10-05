@@ -357,7 +357,7 @@ The reading charts (SLN-456, `src/components/reading/charts/`) are hand-drawn SV
 - **"Show as table"** (a button with `aria-expanded`) shows the same numbers as a table under the chart.
 - **Never scaled.** No text is scaled through `viewBox`: the SVG's width is measured with a `ResizeObserver` and its height is fixed per chart, so nothing moves when it measures. Labels are 12px (`text-micro`) or 14px (`text-xs`) in `fg-secondary`.
 - **Colors**: sage and blue fills, `bg-tertiary` tracks, `glass-border` grid lines; never color alone, since every value is also text. Calendar shades are sage at 30, 55, 80 and 100%, against the year's busiest day.
-- **Narrow screens**: under 480px of width a bar chart turns into horizontal bars; the calendar (four blocks of week rows) scrolls inside its own box under 600px, never the page.
+- **Narrow screens and many bars**: under 480px of width, or when its labels would not fit side by side (`barsFit`: about 7px a character, 8px apart), a bar chart turns into horizontal bars; the calendar (four blocks of week rows) scrolls inside its own box under 600px, never the page.
 - Dates in labels use fixed English month and weekday names (no `Intl`), so the server and the browser write the same text.
 
 ### Print

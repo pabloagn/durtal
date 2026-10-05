@@ -1,12 +1,13 @@
 "use client";
 
-import { niceMax, ticks } from "@/lib/reading/charts";
+import { barsFit, niceMax, ticks } from "@/lib/reading/charts";
 import { ChartFrame } from "./chart-frame";
 
 /*
  * Bars (SLN-456): vertical where there is room, horizontal under 480px of
- * width. Drawn at the measured width with unscaled 12px text; one height for
- * both, so nothing moves when the chart measures itself.
+ * width or when the labels would not fit side by side (barsFit). Drawn at
+ * the measured width with unscaled 12px text; one height for both, so
+ * nothing moves when the chart measures itself.
  */
 
 export interface Bar {
@@ -61,7 +62,10 @@ export function BarChart({
       table={{ columns, rows: bars.map((b) => [b.label, b.value]) }}
     >
       {(width, focus) =>
-        width < NARROW ? (
+        width < NARROW || !barsFit(
+          width,
+          bars.map((b) => b.label),
+        ) ? (
           <svg role="img" aria-label={summary} width={width} height={height} className="block overflow-visible" data-chart-svg="">
             {bars.map((b, i) => {
               const labelWidth = 72;

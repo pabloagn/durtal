@@ -4,6 +4,7 @@ import { resultRows } from "@/lib/harmonization/store";
 import { ownedBookCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql, homeOptions } from "./at-hand";
 import { countedPagesSql, readingOrdinalSql, readingRatingSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
+import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /*
  * Reading stats (SLN-456): every number of /reading/stats and the Year in
@@ -336,29 +337,32 @@ export interface AuthorStats {
   genders: { gender: string | null; authors: number }[];
 }
 
+/** A book's writers: its authors and co-authors, as everywhere else in the app */
+const WRITER = sql.raw(`wa.role in (${WORK_AUTHOR_ROLES.map((r) => `'${r}'`).join(", ")})`);
+
 export async function authorStats(year: StatsYear): Promise<AuthorStats> {
   const [read, newAuthors, countries, genders] = await Promise.all([
     rows<{ authorId: string; name: string; slug: string; books: number; pages: number }>(sql`with ${BASE}
       select a.id::text as "authorId", a.name, a.slug,
         count(distinct rr.id) filter (where ${finishedIn(year)})::float8 as books,
         coalesce(round(sum(cp.pages) filter (where ${dayIn(year, sql`cp.day`, sql`cp.day_precision`)})), 0)::float8 as pages
-      from authors a join work_authors wa on wa.author_id = a.id and wa.role = 'author'
+      from authors a join work_authors wa on wa.author_id = a.id and ${WRITER}
         join rr on rr.work_id = wa.work_id left join cp on cp.reading_id = rr.id
       group by a.id, a.name, a.slug`),
     year === null
       ? Promise.resolve([] as { authorId: string; name: string; slug: string }[])
       : rows<{ authorId: string; name: string; slug: string }>(sql`with ${BASE}
           select a.id::text as "authorId", a.name, a.slug from authors a
-          join work_authors wa on wa.author_id = a.id and wa.role = 'author' join rr on rr.work_id = wa.work_id
+          join work_authors wa on wa.author_id = a.id and ${WRITER} join rr on rr.work_id = wa.work_id
           where rr.status = 'finished' and rr.finished_precision <> 'unknown'
           group by a.id, a.name, a.slug having extract(year from min(rr.finished_on)) = ${year} order by a.name`),
     rows<{ country: string; code: string; authors: number }>(sql`with ${BASE}
       select c.name as country, c.alpha_2 as code, count(distinct a.id)::float8 as authors from authors a
-      join countries c on c.id = a.nationality_id join work_authors wa on wa.author_id = a.id and wa.role = 'author'
+      join countries c on c.id = a.nationality_id join work_authors wa on wa.author_id = a.id and ${WRITER}
       join rr on rr.work_id = wa.work_id where ${finishedIn(year)} group by 1, 2 order by 3 desc, 1`),
     rows<{ gender: string | null; authors: number }>(sql`with ${BASE}
       select a.gender::text as gender, count(distinct a.id)::float8 as authors from authors a
-      join work_authors wa on wa.author_id = a.id and wa.role = 'author' join rr on rr.work_id = wa.work_id
+      join work_authors wa on wa.author_id = a.id and ${WRITER} join rr on rr.work_id = wa.work_id
       where ${finishedIn(year)} group by 1 order by 2 desc`),
   ]);
   const top = (key: "books" | "pages") => read.filter((r) => r[key] > 0).sort((a, b) => b[key] - a[key] || a.name.localeCompare(b.name)).slice(0, 8);
