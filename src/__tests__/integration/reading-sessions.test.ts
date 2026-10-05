@@ -134,7 +134,8 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       // Half a minute more: the database's clock and this one may differ by a few seconds
       await backdate(sessionId, 6 * 60 + 12.5);
       await expect(stopTimer({ sessionId, page: 150 })).rejects.toThrow("Your timer for Nadja has run 6 h 12 min. When did you stop?");
-      const stop = await stopTimer({ sessionId, page: 150, endedAt: new Date(Date.now() - (6 * 60 + 12 - 90) * 60_000) });
+      // The end the same half minute after the backdated start: 90 minutes, whatever the clocks
+      const stop = await stopTimer({ sessionId, page: 150, endedAt: new Date(Date.now() - (6 * 60 + 12.5 - 90) * 60_000) });
       expect(Math.round(stop.session.durationSeconds! / 60)).toBe(90);
     });
 
