@@ -20,7 +20,16 @@ import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
 
-type Segment = "page" | "percent" | "time";
+export type Segment = "page" | "percent" | "time";
+
+/** What was typed in Log progress, kept while "Add a quote" is open, to fill the dialog again on the way back */
+export interface LogDraft {
+  segment: Segment;
+  fields: { page: string; percent: string; hours: string; minutes: string; chapter: string };
+  readOn: string;
+  minutesRead: string;
+  otherId: string;
+}
 const SEGMENTS = [
   { value: "page", label: "Page" },
   { value: "percent", label: "%" },
@@ -63,14 +72,16 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   // What was typed in the palette ("+20") stays as typed, in the one field
   const coarse = useCoarsePointer() && !request.prefill;
   const [text, setText] = useState(request.prefill ?? "");
-  const [segment, setSegment] = useState<Segment>(r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page");
-  const [fields, setFields] = useState({ page: "", percent: "", hours: "", minutes: "", chapter: "" });
-  const [readOn, setReadOn] = useState(() => todayReadingDay(data.dayStartHour));
-  const [minutesRead, setMinutesRead] = useState("");
+  // Back from "Add a quote": what was typed before it
+  const draft = request.draft;
+  const [segment, setSegment] = useState<Segment>(draft?.segment ?? (r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page"));
+  const [fields, setFields] = useState(draft?.fields ?? { page: "", percent: "", hours: "", minutes: "", chapter: "" });
+  const [readOn, setReadOn] = useState(() => draft?.readOn ?? todayReadingDay(data.dayStartHour));
+  const [minutesRead, setMinutesRead] = useState(draft?.minutesRead ?? "");
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
-  const [showOther, setShowOther] = useState(false);
-  const [otherId, setOtherId] = useState("");
+  const [showOther, setShowOther] = useState(!!draft?.otherId);
+  const [otherId, setOtherId] = useState(draft?.otherId ?? "");
   const [goingBack, setGoingBack] = useState<"fix_last_log" | "went_back">("fix_last_log");
   const [saving, setSaving] = useState(false);
 
@@ -281,7 +292,13 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
                   noteKind: "quote",
                   readingId: r.id,
                   page: quotePage,
-                  back: { kind: "progress", readingId: r.id, prefill: !coarse && text.trim() ? text : undefined, timer: request.timer },
+                  back: {
+                    kind: "progress",
+                    readingId: r.id,
+                    prefill: !coarse && text.trim() ? text : undefined,
+                    timer: request.timer,
+                    draft: { segment, fields, readOn, minutesRead, otherId },
+                  },
                 })
               }
               className="text-xs text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"

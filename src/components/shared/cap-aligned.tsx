@@ -66,24 +66,38 @@ export function CapAligned({
  */
 export function CapAlignedControls({
   height,
+  coarseHeight,
   className = "",
   children,
 }: {
   /** Height of the controls in px */
   height: number;
+  /** Height on a coarse pointer (touch), when the controls grow there */
+  coarseHeight?: number;
   className?: string;
   children: ReactNode;
 }) {
+  const controls = "float-left flex items-center gap-2 font-sans text-sm font-normal not-italic tracking-normal";
+  if (coarseHeight === undefined)
+    return (
+      <span className={`block h-[1lh] shrink-0 ${className}`}>
+        <span
+          className="inline-block align-[0.5cap]"
+          style={{ height, marginBlock: -height / 2 }}
+        >
+          <span className={controls} style={{ height }}>
+            {children}
+          </span>
+        </span>
+      </span>
+    );
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="inline-block align-[0.5cap]"
-        style={{ height, marginBlock: -height / 2 }}
+        className="inline-block h-(--cap-box) align-[0.5cap] [margin-block:calc(var(--cap-box)/-2)] pointer-coarse:h-(--cap-box-coarse) pointer-coarse:[margin-block:calc(var(--cap-box-coarse)/-2)]"
+        style={{ "--cap-box": `${height}px`, "--cap-box-coarse": `${coarseHeight}px` } as CSSProperties}
       >
-        <span
-          className="float-left flex items-center gap-2 font-sans text-sm font-normal not-italic tracking-normal"
-          style={{ height }}
-        >
+        <span className={`${controls} h-(--cap-box) pointer-coarse:h-(--cap-box-coarse)`}>
           {children}
         </span>
       </span>

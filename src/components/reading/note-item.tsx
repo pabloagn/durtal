@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Prose } from "@/components/shared/prose";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import type { NoteItem } from "@/lib/actions/reading-notes";
 
 /*
@@ -47,7 +47,7 @@ export function NoteItemView({ note, meta, controls }: { note: Pick<NoteItem, "i
               <button
                 type="button"
                 onClick={() => setAll(!all)}
-                className="text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:min-h-11"
+                className="text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:-my-3.5 pointer-coarse:py-3.5"
                 data-note-more=""
               >
                 {all ? "Show less" : "Show all"}
@@ -56,9 +56,9 @@ export function NoteItemView({ note, meta, controls }: { note: Pick<NoteItem, "i
           )}
         </div>
         {controls && (
-          <CapAligned height={32} coarseHeight={44}>
+          <CapAlignedControls height={32} coarseHeight={44}>
             {controls}
-          </CapAligned>
+          </CapAlignedControls>
         )}
       </div>
     </div>

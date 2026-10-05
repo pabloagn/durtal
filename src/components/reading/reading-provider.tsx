@@ -16,6 +16,7 @@ import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/rea
 import { ordinal } from "@/lib/reading/queue";
 import type { NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteKind } from "@/lib/reading/constants";
+import type { LogDraft } from "./dialogs/log-progress-dialog";
 import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
 import { useOptionalTimer } from "./timer-provider";
 
@@ -80,6 +81,8 @@ export interface DialogRequest {
   page?: number | null;
   /** The dialog to go back to once the note dialog closes (Log progress) */
   back?: DialogRequest;
+  /** Log progress on the way back from the note dialog: what was typed there */
+  draft?: LogDraft;
 }
 
 /** The running timer a stop saves, and the end time a forgotten timer was given */

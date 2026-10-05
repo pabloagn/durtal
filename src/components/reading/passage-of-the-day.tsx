@@ -67,7 +67,7 @@ export function PassageOfTheDay({ day, initial, candidates }: { day: string; ini
           {long && (
             <>
               {" · "}
-              <button type="button" onClick={() => setAll(!all)} className="text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:min-h-11">
+              <button type="button" onClick={() => setAll(!all)} className="text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:-my-3.5 pointer-coarse:py-3.5">
                 {all ? "Show less" : "Show all"}
               </button>
             </>
