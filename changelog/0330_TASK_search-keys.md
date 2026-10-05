@@ -54,3 +54,4 @@ Review fixes:
 - An Esc that ends an input method composition (`isComposing`) is left to the input method in every Esc handler this task touched.
 - Tests: `search-keys.test.ts` (19) and `palette-focus.test.ts` (2).
 - Safari is now checked in headless WebKit (Playwright 1.63, WebKit 26.6), with no window; Joris allowed its install.
+- After the review fixes, on a production build at 1440 and 390px in Chrome, Firefox and WebKit (all headless): every step passes in all three. That includes the palette giving focus back to the button that had it, and Esc closing a select's list in the Add person dialog before a second Esc closes the dialog. `test-local.py` 2,151 tests pass; lint 0 errors; page weight within budget (`/` 242, `/library` 298 of 300 KB).
