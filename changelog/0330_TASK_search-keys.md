@@ -1,6 +1,6 @@
 # Task 0330: S opens search, Esc closes every search
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-05
 **Priority**: MEDIUM
 **Type**: Feature
@@ -25,4 +25,23 @@ SLN-477. Joris: "S, so open the search dialogue to search quickly, and Esc to ex
 - Docs: `docs/03_DESIGN_LANGUAGE.md` (keyboard), `docs/04_ROUTES_AND_VIEWS.md` (shortcuts).
 
 ## Completion Notes
-SUMMARY
+- The search for search surfaces finds the 31 of SLN-477 and no new one. 23 already closed on Esc, one layer at a time: the dialogs (native `<dialog>`), the select on a focused button, the search, publisher and taxonomy pickers, and the leader menus. 9 needed a fix (above). The page search fields now use the shared Esc rule.
+- Tests: `src/__tests__/ui/search-keys.test.ts`, 15 tests.
+  - S opens the palette. S does nothing while typing, with a modifier or Shift, with a dialog open, or in the reader.
+  - G S still goes to Series, and R S still starts a reading.
+  - Esc closes the palette. In a page search field, Esc leaves the field and keeps its text. In a dialog's search field, Esc is left to the dialog.
+  - One layer per press: the place picker's list, the date picker, a dropdown menu, the filter panel, a select's list, and a select whose button has no focus.
+- Browsers, on a production build (`pnpm build`, `preview-local.py --start`), at 1440 and 390px. Each run checks seven things:
+  - S opens the palette with an empty field and focus in it.
+  - Esc closes the palette.
+  - `/` goes to the page search.
+  - Esc leaves the page search and keeps the typed text.
+  - A then A opens the Add person dialog.
+  - Esc closes a select's list in that dialog, and the dialog stays.
+  - A second Esc closes the dialog.
+- Results:
+  - Chrome (headless): all pass at both widths.
+  - Firefox (headless): all pass at both widths.
+  - Safari: checked in real Safari before Joris asked for no more Safari windows. At 1440, everything passes after the select fix. Before the fix, one Esc closed the list and the dialog. At 390, Safari's WebDriver click sent no events to the select, so the list did not open; a script click opened it. Everything else passes at 390. Headless WebKit was not installed on the Mac, and its installation was not allowed in this session.
+- `page-weight.js`: `/` 242 / 300 KB, `/library` 298 / 300 KB, all routes within budget.
+- `pnpm typecheck` clean, lint 0 errors, `test-local.py` 2,145 tests pass.
