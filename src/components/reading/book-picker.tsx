@@ -16,7 +16,7 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
  * away from being added.
  */
 
-const TITLES: Record<PickerPurpose, string> = { start: "Start a book", past: "Log a past read" };
+const TITLES: Record<PickerPurpose, string> = { start: "Start a book", past: "Log a past read", quote: "Add a quote" };
 
 export function BookPicker({
   purpose,
@@ -58,6 +58,8 @@ export function BookPicker({
     onClose();
     if (onPick) return onPick(book);
     if (purpose === "past") return void open({ kind: "past", workId: book.id });
+    // A quote goes on the book's open reading when it has one (SLN-453)
+    if (purpose === "quote") return void open({ kind: "note", workId: book.id, noteKind: "quote", readingId: book.openReadingId });
     // Start would be refused while a reading is open: log progress on it instead
     if (book.openReadingId && book.openFingerprint)
       return void open({ kind: "progress", workId: book.id, readingId: book.openReadingId, fingerprint: book.openFingerprint });

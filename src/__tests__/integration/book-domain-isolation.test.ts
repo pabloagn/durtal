@@ -391,6 +391,12 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           await c`insert into reading_queue(work_id,position) values (${books[0]},2048) on conflict do nothing`;
           return c`update reading_queue set work_id = ${other.id} where work_id = ${books[0]}`;
         },
+        () => c`insert into reading_notes(work_id,kind,body) values (${other.id},'quote','Invalid')`,
+        async () => {
+          const [note] =
+            await c`insert into reading_notes(work_id,kind,body) values (${books[0]},'note','Kept') returning id`;
+          return c`update reading_notes set work_id = ${other.id} where id = ${note.id}`;
+        },
       ];
       for (const statement of statements)
         await expect(statement()).rejects.toMatchObject({

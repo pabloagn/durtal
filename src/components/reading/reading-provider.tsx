@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, ListMinus, ListPlus, Pause, Play, Square, Timer } from "lucide-react";
+import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, ListMinus, ListPlus, Pause, Play, Quote, Square, Timer } from "lucide-react";
 import { useReadingActions, type EditItem } from "@/components/shortcuts/shortcuts-provider";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
@@ -14,6 +14,8 @@ import { pauseReading, reopenReading, resumeReading, type SessionRow } from "@/l
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { ordinal } from "@/lib/reading/queue";
+import type { NoteItem } from "@/lib/actions/reading-notes";
+import type { NoteKind } from "@/lib/reading/constants";
 import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
 import { useOptionalTimer } from "./timer-provider";
 
@@ -31,8 +33,9 @@ const PastReadDialog = dynamic(() => import("./dialogs/past-read-dialog").then((
 const EditReadingDialog = dynamic(() => import("./dialogs/edit-reading-dialog").then((m) => m.EditReadingDialog));
 const DeleteReadingDialog = dynamic(() => import("./dialogs/delete-reading-dialog").then((m) => m.DeleteReadingDialog));
 const SessionDialog = dynamic(() => import("./dialogs/session-dialog").then((m) => m.SessionDialog));
+const NoteDialog = dynamic(() => import("./dialogs/note-dialog").then((m) => m.NoteDialog));
 
-export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete" | "session";
+export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete" | "session" | "note";
 
 const TimerBlockDialog = dynamic(() => import("./timer-chip").then((m) => m.TimerBlockDialog));
 
@@ -45,6 +48,7 @@ export function ReadingDialogSwitch(props: ReadingDialogProps) {
     return <TimerBlockDialog {...props} />;
   if (request.kind === "start") return <StartReadingDialog {...props} />;
   if (request.kind === "past") return <PastReadDialog {...props} />;
+  if (request.kind === "note") return <NoteDialog {...props} />;
   if (!row) return null;
   if (request.kind === "progress") return <LogProgressDialog {...props} />;
   if (request.kind === "finish") return <FinishReadingDialog {...props} />;
@@ -68,6 +72,14 @@ export interface DialogRequest {
   session?: SessionRow;
   /** Start reading with this edition: the one queued in Up Next (SLN-452) */
   editionId?: string;
+  /** The note dialog (SLN-453): a quote or a note, on `readingId` when given */
+  noteKind?: NoteKind;
+  /** The note dialog edits this note; without one it adds */
+  note?: NoteItem;
+  /** The page to fill, from Log progress */
+  page?: number | null;
+  /** The dialog to go back to once the note dialog closes (Log progress) */
+  back?: DialogRequest;
 }
 
 /** The running timer a stop saves, and the end time a forgotten timer was given */
@@ -235,6 +247,12 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
         : { key: READING_KEYS.queue, label: "Add to Up Next", icon: ListPlus, run: () => void toggleQueue() },
     );
   items.push({ key: READING_KEYS.past, label: "Log a past read", icon: CalendarClock, run: () => run("past") });
+  items.push({
+    key: READING_KEYS.quote,
+    label: "Add a quote",
+    icon: Quote,
+    run: () => open({ kind: "note", noteKind: "quote", readingId: openRow?.reading.id }),
+  });
   if (data.rows.length)
     items.push({
       key: READING_KEYS.history,

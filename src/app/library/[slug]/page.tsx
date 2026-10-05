@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getReadingsForWork } from "@/lib/actions/reading";
+import { getNotesForWork } from "@/lib/actions/reading-notes";
+import { NotesSection } from "@/components/reading/notes-section";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { getQueuePlace } from "@/lib/actions/reading-queue";
 import { ReadingProvider } from "@/components/reading/reading-provider";
@@ -181,6 +183,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     seriesWorks,
     links,
     readingRows,
+    readingNotes,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -202,10 +205,14 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       : Promise.resolve([]),
     getWorkRelations(work.id),
     getReadingsForWork(work.id),
+    // Quotes and notes (SLN-453): books only
+    canUseWorkCapability(work.kind, "reading") ? getNotesForWork(work.id) : Promise.resolve([]),
   ]);
   const readingCounts = {
     readings: readingRows.length,
     sessions: readingRows.reduce((sum, r) => sum + r.sessionCount, 0),
+    quotes: readingNotes.filter((n) => n.kind === "quote").length,
+    notes: readingNotes.filter((n) => n.kind === "note").length,
   };
   // The reading control, section and dialogs (SLN-447)
   const canRead = canUseWorkCapability(work.kind, "reading");
@@ -651,6 +658,10 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         )}
 
         {canRead && <ReadingSection />}
+
+        {canRead && readingNotes.length > 0 && (
+          <NotesSection notes={readingNotes} book={{ title: work.title, author: primaryAuthor?.name ?? null }} />
+        )}
 
         {(acquisitionTargets.length > 0 ||
           HUNTED_STATUSES.has(work.catalogueStatus)) && (

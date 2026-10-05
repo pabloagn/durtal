@@ -484,6 +484,13 @@
       "when": 1791207894009,
       "tag": "0068_reading_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1791211782798,
+      "tag": "0069_reading_notes",
+      "breakpoints": true
     }
   ]
 }

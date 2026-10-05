@@ -111,6 +111,10 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
             // The old book stays in Up Next, without this edition (SLN-452)
             d.execute(sql`update reading_queue set edition_id = null
               where edition_id = ${id}::uuid and work_id <> ${editionData.workId}::uuid`),
+            // Its quotes and notes keep their book, page and percent, without this edition (SLN-453);
+            // updated_at stays, so an imported note still counts as unedited for its import's undo
+            d.execute(sql`update reading_notes set edition_id = null
+              where edition_id = ${id}::uuid and work_id <> ${editionData.workId}::uuid`),
           ]
         : []),
       d.update(editions).set(updates).where(eq(editions.id, id)),

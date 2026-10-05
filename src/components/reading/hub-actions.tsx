@@ -42,7 +42,17 @@ export function StartBookButton() {
   );
 }
 
-/** A current reading's card: Log progress, and Pause, Finish, Abandon, Open book */
+/** "Add a quote" from the commonplace book (SLN-453): the book picker, then the note dialog */
+export function AddQuoteButton({ variant = "secondary" }: { variant?: "primary" | "secondary" | "ghost" }) {
+  const { pick } = useReadingDialogs();
+  return (
+    <Button variant={variant} onClick={() => pick("quote")} className="pointer-coarse:h-11" data-notes-pick="">
+      Add a quote
+    </Button>
+  );
+}
+
+/** A current reading's card: Log progress, and Pause, Finish, Abandon, Add a quote, Open book */
 export function ReadingCardActions({ reading, href, title }: { reading: ReadingRef; href: string; title: string }) {
   const { open, setPaused } = useReadingDialogs();
   const router = useRouter();
@@ -81,6 +91,9 @@ export function ReadingCardActions({ reading, href, title }: { reading: ReadingR
         <DropdownMenuItem onClick={() => void open({ kind: "finish", ...reading })}>Finish</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void open({ kind: "abandon", ...reading })}>Abandon</DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void open({ kind: "note", workId: reading.workId, readingId: reading.readingId, noteKind: "quote" })}>
+          Add a quote
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push(href)}>Open book</DropdownMenuItem>
       </DropdownMenu>
     </div>

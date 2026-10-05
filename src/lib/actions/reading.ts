@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
@@ -15,6 +15,7 @@ import {
   readingStatusHistory,
   readings,
   works,
+  readingNotes,
 } from "@/lib/db/schema";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
@@ -761,9 +762,11 @@ export async function deleteReading(input: z.input<typeof statusChangeSchema>) {
   const { readingId, fingerprint } = statusChangeSchema.parse(input);
   await refuseWhileTiming(readingId);
   const reading = await readingFor(readingId, fingerprint);
-  const [sessions, history] = await Promise.all([
+  const [sessions, history, notes] = await Promise.all([
     loadSessions(reading.id),
     db.select().from(readingStatusHistory).where(eq(readingStatusHistory.readingId, reading.id)),
+    // Its quotes and notes stay with the book; Undo links them back (SLN-453)
+    db.select({ id: readingNotes.id }).from(readingNotes).where(eq(readingNotes.readingId, reading.id)),
   ]);
   await withReadableErrors(() =>
     atomic((d) => [...guardReading(d, reading.id, fingerprint), d.delete(readings).where(eq(readings.id, reading.id))]),
@@ -771,13 +774,14 @@ export async function deleteReading(input: z.input<typeof statusChangeSchema>) {
   event(reading.workId, "work.reading_deleted", reading);
   changed();
   const { fingerprint: _f, ...row } = reading;
-  return { reading: row, sessions, history };
+  return { reading: row, sessions, history, noteIds: notes.map((n) => n.id) };
 }
 
 const snapshotSchema = z.object({
   reading: z.record(z.string(), z.unknown()),
   sessions: z.array(z.record(z.string(), z.unknown())),
   history: z.array(z.record(z.string(), z.unknown())),
+  noteIds: z.array(z.uuid()).max(100_000).optional(),
 });
 
 const asDate = (v: unknown) => (v == null ? null : new Date(v as string));
@@ -832,6 +836,15 @@ export async function restoreReading(input: z.input<typeof snapshotSchema>) {
                 changedAt: asDate(h.changedAt) ?? new Date(),
               })),
             ),
+          ]
+        : []),
+      // Its notes come back to it where nothing else claimed them and they are still on the book
+      ...(snap.noteIds?.length
+        ? [
+            d
+              .update(readingNotes)
+              .set({ readingId: r.id })
+              .where(and(inArray(readingNotes.id, snap.noteIds), isNull(readingNotes.readingId), eq(readingNotes.workId, r.workId))),
           ]
         : []),
     ]),
@@ -1025,6 +1038,9 @@ export async function getReadingsForWork(workId: string) {
     ordinal: number;
     sessionCount: number;
     totalSeconds: number;
+    /** Its quotes and notes (SLN-453), which a delete leaves with the book */
+    quoteCount: number;
+    noteCount: number;
     edition: { id: string; title: string; coverS3Key: string | null; thumbnailS3Key: string | null; pageCount: number | null; language: string | null; translators: string[] } | null;
     copy: { id: string; location: string | null; shelf: string | null } | null;
     home: { id: string; name: string } | null;
@@ -1033,6 +1049,8 @@ export async function getReadingsForWork(workId: string) {
         ${readingOrdinalSql("r")} as ordinal,
         (select count(*)::int from reading_sessions s where s.reading_id = r.id and not (s.source = 'timer' and s.ended_at is null)) as "sessionCount",
         (select coalesce(sum(s.duration_seconds), 0)::int from reading_sessions s where s.reading_id = r.id) as "totalSeconds",
+        (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'quote') as "quoteCount",
+        (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'note') as "noteCount",
         (select jsonb_build_object('id', e.id, 'title', e.title, 'coverS3Key', e.cover_s3_key, 'thumbnailS3Key', e.thumbnail_s3_key,
             'pageCount', e.page_count, 'language', e.language,
             'translators', coalesce((select jsonb_agg(a.name order by ec.sort_order) from edition_contributors ec join authors a on a.id = ec.author_id
@@ -1077,14 +1095,17 @@ export async function getOpenReadings() {
   ).map((row) => ({ ...row, reading: camelReading(row.reading as unknown as Record<string, unknown>) }));
 }
 
-/** The reading history a book delete removes */
+/** The reading history, quotes and notes a book delete removes */
 export async function getReadingCounts(workId: string) {
   const id = z.uuid().parse(workId);
-  const [row] = resultRows<{ readings: number; sessions: number }>(
+  const [row] = resultRows<{ readings: number; sessions: number; quotes: number; notes: number }>(
     await db.execute(sql`select (select count(*)::int from readings where work_id = ${id}::uuid) as readings,
-      (select count(*)::int from reading_sessions s join readings r on r.id = s.reading_id where r.work_id = ${id}::uuid) as sessions`),
+      (select count(*)::int from reading_sessions s join readings r on r.id = s.reading_id where r.work_id = ${id}::uuid) as sessions,
+      n.quotes, n.notes
+      from (select count(*) filter (where kind = 'quote')::int as quotes, count(*) filter (where kind = 'note')::int as notes
+        from reading_notes where work_id = ${id}::uuid) n`),
   );
-  return row ?? { readings: 0, sessions: 0 };
+  return row ?? { readings: 0, sessions: 0, quotes: 0, notes: 0 };
 }
 
 /**

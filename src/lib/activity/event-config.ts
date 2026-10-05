@@ -4,6 +4,7 @@ import { ABANDON_REASON_LABELS } from "@/lib/reading/constants";
 import { languageName } from "@/lib/utils/language";
 import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
 import { formatRating } from "@/lib/utils/rating";
+import { notesCountText } from "@/lib/reading/notes-text";
 
 export interface EventDisplayConfig {
   icon: string;
@@ -81,6 +82,8 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   // ── Up Next (SLN-452) ────────────────────────────────────────────────────
   "work.queued":                    { icon: "ListPlus",     color: MUTED,     category: "update" },
   "work.unqueued":                  { icon: "ListMinus",    color: MUTED,     category: "update" },
+  // ── Quotes and notes (SLN-453) ───────────────────────────────────────────
+  "work.notes_added":               { icon: "Quote",        color: SECONDARY, category: "update" },
   "organization.comment_added":     { icon: "MessageSquare",color: SECONDARY, category: "comment" },
   "venue.comment_added":            { icon: "MessageSquare",color: SECONDARY, category: "comment" },
 
@@ -244,6 +247,7 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.reading_deleted":           () => [text("Deleted a reading")],
   "work.queued":                    (m) => [text("Added to Up Next"), ...(m?.extra?.position ? [text(", "), label(String(m.extra.position))] : [])],
   "work.unqueued":                  () => [text("Removed from Up Next")],
+  "work.notes_added":               (m) => [text(`Added ${notesCountText(Number(m?.extra?.quotes ?? 0), Number(m?.extra?.notes ?? 0)) || "a note"}`)],
   "work.location_recorded":         (m) => {
     const custody = m?.extra?.custody, certainty = m?.extra?.certainty;
     const how = [custody, certainty].filter(Boolean).join(", ").toLowerCase();

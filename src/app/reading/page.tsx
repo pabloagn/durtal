@@ -10,6 +10,8 @@ import { CurrentReadingCard, PausedRow, finishedItem } from "@/components/readin
 import { Cover, FinishedCovers } from "@/components/reading/reading-tiles";
 import { getQueueHead } from "@/lib/actions/reading-queue";
 import { getOpenReadings } from "@/lib/actions/reading";
+import { getPassageOfTheDay } from "@/lib/actions/reading-notes";
+import { PassageOfTheDay } from "@/components/reading/passage-of-the-day";
 import { getRecentlyFinished } from "@/lib/reading/journal";
 import { readingDay } from "@/lib/reading/dates";
 import { readingDayStartHour } from "@/lib/reading/day";
@@ -19,22 +21,28 @@ import { appTimeZone } from "@/lib/utils/date";
 export const metadata = { title: "Reading" };
 
 /*
- * The reading hub (SLN-448): what is being read now, what is paused, and the
- * latest finished reads. Later steps add their blocks here (the timer, Up
- * next, a passage of the day, the goal, On this day, suggestions).
+ * The reading hub (SLN-448): what is being read now, Up next, the passage of
+ * the day, what is paused, and the latest finished reads. Later steps add
+ * their blocks here (the goal, On this day, suggestions).
  */
 export default async function ReadingPage() {
-  const [open, finished, next] = await Promise.all([getOpenReadings(), getRecentlyFinished(6), getQueueHead(5)]);
   const zone = appTimeZone();
   const dayStartHour = await readingDayStartHour();
   const day = { today: readingDay(new Date(), zone, dayStartHour), zone, dayStartHour };
+  // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
+  const [open, finished, next, passage] = await Promise.all([
+    getOpenReadings(),
+    getRecentlyFinished(6),
+    getQueueHead(5),
+    getPassageOfTheDay({ day: day.today }),
+  ]);
   const reading = open.filter((o) => o.reading.status === "reading");
   const estimates = await readingEstimates(
     reading.map((o) => o.reading.id),
     day.today,
   );
   const paused = open.filter((o) => o.reading.status === "paused");
-  const empty = open.length === 0 && finished.length === 0 && next.length === 0;
+  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage;
 
   return (
     <>
@@ -91,6 +99,7 @@ export default async function ReadingPage() {
               </ol>
             </section>
           )}
+          {passage && <PassageOfTheDay day={day.today} initial={passage.note} candidates={passage.candidates} />}
           {paused.length > 0 && (
             <section>
               <SectionHeading title="Paused" count={paused.length} />

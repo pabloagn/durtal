@@ -91,7 +91,7 @@ interface WorkActionsMenuProps {
   editionCount: number;
   instanceCount: number;
   /** The reading history the delete removes */
-  readingCounts?: { readings: number; sessions: number };
+  readingCounts?: { readings: number; sessions: number; quotes?: number; notes?: number };
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
@@ -164,6 +164,8 @@ export function WorkActionsMenu({
       instances: instanceCount,
       readings: readingCounts?.readings ?? 0,
       sessions: readingCounts?.sessions ?? 0,
+      quotes: readingCounts?.quotes ?? 0,
+      notes: readingCounts?.notes ?? 0,
     });
   }
 
