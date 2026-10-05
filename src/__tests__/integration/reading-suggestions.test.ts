@@ -42,7 +42,10 @@ const home = vi.hoisted(() => ({ cookie: null as string | null }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => (home.cookie ? { value: JSON.stringify(home.cookie) } : undefined) }) }));
 vi.mock("next/navigation", async (original) => ({ ...(await original<typeof import("next/navigation")>()), usePathname: () => "/reading/suggestions", useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({ open: async () => {}, pick: () => {} }) }));
-vi.mock("@/components/layout/page-header", () => ({ PageHeader: ({ tabs, actions }: { tabs?: ReactNode; actions?: ReactNode }) => [actions, tabs] }));
+vi.mock("@/components/layout/page-header", async () => {
+  const { createElement } = await import("react");
+  return { PageHeader: ({ tabs, actions }: { tabs?: ReactNode; actions?: ReactNode }) => createElement("header", null, actions, tabs) };
+});
 import { setSuggestionFeedback, removeSuggestionFeedback, restoreSuggestionFeedback } from "@/lib/actions/suggestions";
 import { getWorkCount } from "@/lib/actions/works";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
@@ -75,8 +78,9 @@ describe.skipIf(!url)("suggestions with PostgreSQL", () => {
   beforeEach(async () => {
     vi.stubEnv("DURTAL_API_TOKEN", TOKEN);
     home.cookie = null;
+    // Truncating locations cascades to app_settings (its default copy location): put the row back
     await q(`truncate works, authors, locations, series, recommenders, activity_events, imports cascade`);
-    await q(`update app_settings set reading_prediction_gate = null, reading_suggest_hide_anathema = false`);
+    await q(`insert into app_settings(id) values (true) on conflict (id) do update set reading_prediction_gate = null, reading_suggest_hide_anathema = false`);
     amsterdam = await value(`insert into locations(name, type) values ('Amsterdam', 'physical') returning id`);
     mexico = await value(`insert into locations(name, type) values ('Mexico City', 'physical') returning id`);
   });
