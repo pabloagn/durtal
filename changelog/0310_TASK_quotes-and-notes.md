@@ -147,5 +147,12 @@ and `reading_import_rows.note_decision`.
 - Tests: the menu test, a `NoteItemView` test (no `.cap-box` around the
   controls), the touch draft round trip and the page-only edit; each fails
   without its fix. Docs 03: a menu beside text goes in `CapAlignedControls`.
-
-RESULTS
+- Checked: `scripts/qa/test-local.py` 202 files and 2,274 tests, none
+  skipped; typecheck clean, lint 81 warnings as on main. On a
+  production-build preview, headless Chrome, Firefox and WebKit at 1440 and
+  390 px: all five menus open in full and every item is reachable (the
+  phone timer menu at 390), no trigger inside a `.cap-box`, no alignment
+  deviation. On a touch phone (WebKit and Chromium, 390 px, coarse pointer)
+  a note over 600 characters keeps a 20 px meta line, "Show all" is 55 x 48
+  px, and the alignment audit finds no issue on the book page,
+  `/reading/notes` and `/reading`.
