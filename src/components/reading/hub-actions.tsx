@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Square, Timer } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Square, Timer } from "lucide-react";
 import { useOptionalTimer } from "./timer-provider";
 import { useStopTimer } from "./timer-chip";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useReadingDialogs, type ReadingRef } from "./reading-dialogs-provider";
 import { LazyGoalDialog } from "./goal-dialog-button";
@@ -38,15 +38,16 @@ export function HubActions() {
 export function HubMenu({ rhythm }: { rhythm: boolean }) {
   const router = useRouter();
   const [goals, setGoals] = useState(false);
-  const label = "More reading options";
+  // A text button like the header's others: an icon alone would sit off the 46px title's cap height
   return (
     <>
       <DropdownMenu
-        label={label}
+        label="Goals and rhythm"
         align="end"
         trigger={
-          <button type="button" aria-label={label} data-tooltip="More" className={`${menuButton} border border-glass-border`} data-hub-menu-open="">
-            <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+          <button type="button" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-menu-open="">
+            Goals
+            <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
           </button>
         }
       >
