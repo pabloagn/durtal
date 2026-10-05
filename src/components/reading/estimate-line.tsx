@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import type { ReadingEstimate } from "@/lib/reading/pace";
 import { EstimateInfo } from "./estimate-info";
@@ -19,14 +20,25 @@ export function EstimateLine({
   lines?: string;
   onAddLength?: () => void;
 }) {
+  // A line breaks between its parts, never inside "Around 25 Oct"
+  const parts = estimate.text.split(" · ");
+  const text = parts.map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && " "}
+      <span className="whitespace-nowrap">
+        {part}
+        {i < parts.length - 1 ? " ·" : ""}
+      </span>
+    </Fragment>
+  ));
   return (
     <div className={`flex items-start gap-1 text-xs text-fg-secondary ${className}`} data-estimate="">
       {estimate.needsLength && onAddLength ? (
         <button type="button" onClick={onAddLength} className={`${lines} text-left underline-offset-2 hover:text-fg-primary hover:underline`}>
-          {estimate.text}
+          {text}
         </button>
       ) : (
-        <span className={`${lines} min-w-0`}>{estimate.text}</span>
+        <span className={`${lines} min-w-0`}>{text}</span>
       )}
       {estimate.explanation && (
         <CapAligned height={24} coarseHeight={44}>

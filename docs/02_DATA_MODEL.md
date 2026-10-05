@@ -1690,9 +1690,12 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `new_copy_format` | TEXT | nullable, default `'paperback'`. An `INSTANCE_FORMATS` value; null: none |
 | `new_copy_condition` | TEXT | nullable, default `'mint'`. An `INSTANCE_CONDITIONS` value; null: none |
 | `home_currency` | TEXT | NOT NULL, default `'EUR'`, CHECK `^[A-Z]{3}$`. New orders start in it, orders saved without a currency get it when edited, and spending totals list it first |
+| `reading_day_start_hour` | SMALLINT | NOT NULL, default `4`, CHECK 0–6 (migration `0067_reading_sessions_timer`). A session before this hour counts for the day before. Read by every writer that sets a `read_on` or defaults a reading date; a change applies to new sessions only |
+| `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
+| `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`.
+The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The three reading columns are changed from Settings → Reading (`/settings/reading`).
 
 ### `collections`
 
@@ -2288,7 +2291,7 @@ One sitting or one progress update.
 | `reading_id` | UUID | NOT NULL, FK → `readings` CASCADE | |
 | `edition_id` | UUID | nullable, FK → `editions` SET NULL | The edition read in this session; may differ from the reading's, but belongs to its book (`guard_reading_session`) |
 | `format` | TEXT | NOT NULL | May differ from the reading's |
-| `read_on` | DATE | NOT NULL | The reading day: `readingDay(started_at ?? save time, time_zone, 4)`; hours before 04:00 count for the evening before. Stored, never recomputed |
+| `read_on` | DATE | NOT NULL | The reading day: `readingDay(started_at ?? save time, time_zone, app_settings.reading_day_start_hour)`; hours before the start hour (04:00 by default) count for the evening before. A timer's is the day it started. Stored, never recomputed, also when the setting changes |
 | `time_zone` | TEXT | NOT NULL | IANA zone the session was read in |
 | `started_at`, `ended_at` | TIMESTAMPTZ | nullable | `ended_at >= started_at` |
 | `duration_seconds` | INTEGER | nullable, 1–86400 | |
@@ -2297,9 +2300,11 @@ One sitting or one progress update.
 | `pages_total` | INTEGER | nullable | The page count the session was logged against |
 | `pages_read` | INTEGER | generated | `greatest(end_page - start_page, 0)` when both are known; for the session list only |
 | `source` | TEXT | NOT NULL, default `'manual'` | `manual`, `timer`, `reader`, `import` |
+| `paused_at` | TIMESTAMPTZ | nullable | Set while the running timer is paused (migration `0067_reading_sessions_timer`) |
+| `paused_seconds` | INTEGER | NOT NULL, default `0`, 0–86400 | The running timer's paused time so far; `duration_seconds = ended_at - started_at - paused_seconds` when it stops |
 | `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
-`reading_session_timer_unique` allows one running timer (`source = 'timer'` with `ended_at` null) in the whole app; position recompute and every total leave it out. Indexes on `(reading_id, read_on)`, `read_on`, `edition_id`.
+`reading_session_timer_unique` allows one running timer (`source = 'timer'` with `ended_at` null) in the whole app. The running timer moves nothing while it runs: position recompute, `countedPagesSql`, pace and every total leave it out, and it counts once stopped. `reading_session_paused_check`: `paused_at is null or (source = 'timer' and ended_at is null)`, so only a running timer is paused. `reading_session_paused_seconds_check` keeps `paused_seconds` within 0–86400. Indexes on `(reading_id, read_on)`, `read_on`, `edition_id`.
 
 ### `reading_status_history`
 

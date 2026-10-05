@@ -26,6 +26,7 @@ const SOURCE: Record<SessionSource, { icon: typeof Timer; label: string }> = {
   reader: { icon: BookOpen, label: "From the e-book reader" },
   import: { icon: Download, label: "Imported" },
 };
+const MIN_PACE_SECONDS = 5 * 60;
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "E-book", audio: "Audiobook" };
 
 /** "p. 180", "44%", "3:12", in the reading's unit */
@@ -49,7 +50,8 @@ function SessionLine({ s, row, today }: { s: SessionRow; row: ReadingRow; today:
   if (s.durationSeconds) parts.push(durationWords(s.durationSeconds));
   if (s.pagesRead != null) parts.push(`${s.pagesRead} p.`);
   else parts.push(`to ${atText({ page: s.endPage, percent: s.endPercent, minutes: s.endMinutes }, r.unit)}`);
-  if (s.pagesRead && s.durationSeconds) parts.push(`${Math.round(s.pagesRead / (s.durationSeconds / 3600))} p. an hour`);
+  // A pace from a few seconds says nothing
+  if (s.pagesRead && s.durationSeconds && s.durationSeconds >= MIN_PACE_SECONDS) parts.push(`${Math.round(s.pagesRead / (s.durationSeconds / 3600))} p. an hour`);
   if (s.format !== r.format) parts.push(FORMAT_LABEL[s.format as ReadingFormat] ?? s.format);
   else if (s.editionId && s.editionId !== r.editionId && s.editionTitle) parts.push(s.editionTitle);
   return (

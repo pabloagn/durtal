@@ -44,6 +44,7 @@
 /settings                   Settings: General (defaults for new records)
 /settings/display           Settings: lists, sidebar (this browser)
 /settings/reader            Settings: reader typography (this browser)
+/settings/reading           Settings: reading day, week start, timer check
 /settings/integrations      Settings: live checks of outside services
 /settings/data              Settings: counts, review queues, export, cache
 /settings/shortcuts         Settings: keyboard shortcuts
@@ -87,7 +88,8 @@ Structure from top to bottom:
    Places, Provenance, Locations, Collections, Taxonomy, Harmonize, Settings.
    Icons come from `SECTION_ICONS` and `DOMAIN_ICONS`
    (`src/components/shortcuts/section-icons.ts`).
-4. **Footer**: "catalogue . index . archive" text
+4. **Timer chip** (SLN-451): the running reading timer, above the footer, in the expanded or the rail layout (docs/03, Reading timer chip). Below `md` it is in the phone bar, between the name and Search. Nothing shows while no timer runs; the reader view has no chip. It loads `getRunningTimer()` after mount, on window focus and when the tab shows again, so a timer started on the phone shows on the desktop when he looks.
+5. **Footer**: "catalogue . index . archive" text
 
 Active route is highlighted with `bg-accent-plum`.
 
@@ -104,7 +106,7 @@ Groups:
 - **Search**: one "Search books for …" entry per open collection
 - **Log progress** (SLN-448), first: when the query is a position ("212", "44%", "+20", "3:12", "p 212") that fits an open reading, one "Log p. 212 · Title" per such reading. When a book found for the query has it as a word of its title ("451", "84", "Catch-22"), the books come first and this group follows them (`queryNamesATitle`). It opens Log progress with what was typed; "+20" stays relative (the server adds it to the row it checks). Services: `paletteReadingItems` in `src/lib/reading/palette.ts`
 - **This page**: the page's Edit menu entries ("Edit work", `E W`), Reading menu entries ("Log progress", `R P`) and Copy menu entries
-- **Reading**: "Log progress · Title" for each open reading, "Start reading..." and "Log a past read..." (the book picker). The open readings load each time the palette opens (`getOpenReadings`), never with the page; every item sends its reading's fingerprint
+- **Reading**: "Log progress · Title" for each open reading, "Start timer · Title" for each open reading ("Stop timer · Title" while a timer runs; SLN-451), "Start reading..." and "Log a past read..." (the book picker). The open readings load each time the palette opens (`getOpenReadings`), never with the page; every item sends its reading's fingerprint
 - **Actions**: one "Add a …" entry per Add menu item, Import books, Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
 
@@ -121,6 +123,7 @@ The root `Shell` component wraps all page content:
 - Applies `ml-56` margin to main content (accounts for sidebar width)
 - Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `/` → list search, `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), `R` → the Reading menu (a book page's reading actions, given with `useReadingActions`), `G R` → Reading (`/reading`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
+- Wraps the page and the palette in `TimerProvider` (`src/components/reading/timer-provider.tsx`, SLN-451): the one running timer, its ticking time and Start, Pause, Resume and Discard for every page; it also renders `TimerAlerts` (the forgotten-timer question, "A timer is running for Nadja" with "Stop it and start this one", and the discard confirmation)
 - Wraps the page and the palette in `ReadingDialogsProvider` (`src/components/reading/reading-dialogs-provider.tsx`), in both branches (the reader view at `/reader/[calibreId]` too): `useReadingDialogs()` opens Start reading, Log progress, Finish, Abandon, Log a past read, Edit and Delete for any book from any page, and the book picker. A dialog loads its book's data when it opens (`getReadingDialogData`) and each dialog's code on first use; a dialog on a reading sends the fingerprint its caller holds, so a reading changed elsewhere gets the server's "This reading changed elsewhere; reload before saving", then the page refreshes
 
 ---
@@ -144,7 +147,7 @@ first. A book shows as its book card; other records as a `DomainTileCard`.
 
 **Collections**: the first 4 collections in their curated order, with "View all".
 
-**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
+**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress, and the estimate as server text with a client info button, SLN-451). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
 
 **Highest rated**, **Recent authors** and **Wanted**: book sections.
 
@@ -440,11 +443,14 @@ The detail page for a single work. Displays the work and all its editions and in
 
 **Reading** (SLN-447):
 - *Header control*: under the title, one button whose label is the book's reading state ("Start reading", "Reading · p. 212 of 480 · 44%", "Paused at 44%", "Read · 14 Apr 2024", "Read 3 times · 2024", "Abandoned at p. 120"), with a menu of the actions that make sense now (start, log progress, pause or resume, finish, abandon, edit, re-read, resume an abandoned read, start again, log a past read), each with its `R` key. The Read button for digital editions follows it.
-- *Reading section*, after Notes: the current reading (edition, copy and where it is, a progress bar, "Started 2 Oct in Amsterdam · last read yesterday", the chapter, Log progress, Pause or Resume, Finish, and a menu with Abandon, Edit and Delete), then one row per earlier read, newest first (its number among all reads, dates, outcome, format, the edition when it changed, the read's rating, the review's first lines), and "Your ratings: 4 (2012), 5 (2024)" with two rated reads or more. With no readings the section is left out and "Start reading" and "Log a past read" are in the actions menu.
+- *Reading section*, after Notes: the current reading (edition, copy and where it is, a progress bar, the position, its estimate "About 6 h 40 min left · Around 18 Oct" with an info button that says what it is based on, "Started 2 Oct in Amsterdam · last read yesterday", the chapter, Log progress, Start timer or "Stop timer 12:04", Pause or Resume, Finish, and a menu with Add a session, Abandon, Edit and Delete), its **Sessions** list, then one row per earlier read, newest first (its number among all reads, dates, outcome, format, the edition when it changed, the read's rating, the review's first lines), and "Your ratings: 4 (2012), 5 (2024)" with two rated reads or more. With no readings the section is left out and "Start reading" and "Log a past read" are in the actions menu.
 - *Record group* "Reading": first read, last finished, times read (finished reads) and time spent once sessions have durations.
 - *Dialogs* (loaded when opened): Start reading ("I'm at", remembered per device; edition and copy with the smart default; format; pages to read with "Find page count"; audio length; start date, exact or not; already at), Log progress (one field, or Page / % / Time with keypad fields on touch; quick steps; another edition or format; a move back asks "Fix my last log" or "I went back"; the last page opens Finish), Finish (date, rating, the book's rating, review; then the series' next volume), Abandon, Log a past read (dates at any precision), Edit reading and Delete. Log progress, Finish, Abandon and Delete have a 10-second Undo. `?then=start` opens Start reading on arrival (Log progress when the book is being read) and `?then=past` opens Log a past read, once: `ReadingThen` (`src/components/reading/reading-then.tsx`) opens the dialog through `useReadingDialogs()`, then takes `then` out of the address with `router.replace`, so a refresh or Back does not open it again. The Finish dialog's next volume and the add-a-book page link here.
 
-**Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
+- *Sessions* (SLN-451, `src/components/reading/session-list.tsx`): a disclosure under the current reading, "12 sessions · 9 h 40 min", with Add a session. It loads the sessions when opened (`getReadingSessions`), newest first in the session order. A row: the date; the time in the session's own zone, with the zone's city when it differs from the browser's ("21:30 Mexico City"); the duration; the pages; the pace ("36 p. an hour"); the edition or format when it differs from the reading's; and a source icon (Logged by hand, Timed, From the e-book reader, Imported). The running timer is the top row, "Running · 12 min", with no menu. Each other row has Edit and Delete, each with a 10-second Undo. Earlier reads show their totals and the same list, collapsed.
+- *Add a session* and *Edit session*: date, optional start time, time read (hours and minutes), where it ended (one field, or Page / % / Time keypad fields on touch), the edition or format, a note. The start is shown, not asked: "From p. 180, where the session before ended". An end below it says "This session ends before the one before it (p. 212); it adds no pages".
+
+**Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R T` starts or stops the timer, `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
 
 **External links**: Open Library, Google Books, Calibre-Web (if digital instance with calibre_url exists).
 
@@ -666,7 +672,7 @@ perfume and painting pages have "Collections" in their actions menu.
 ### Reading (`/reading`)
 
 The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "Start a book" (both open the book picker) and `ReadingTabs`.
-- **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), Log progress and a menu (Pause, Finish, Abandon, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
+- **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), the estimate with its info button (SLN-451), Log progress, Start timer or Stop timer, and a menu (Pause, Finish, Abandon, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
 - **Paused**: one line each with "paused 3 weeks ago" and Resume.
 - **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision.
 - With no reading at all: `EmptyState` with Start a book and "Import from Goodreads or StoryGraph" (a link to `/reading/import`). Later steps add the timer, Up next, a passage of the day, the goal, On this day and suggestions here.
@@ -788,6 +794,7 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
   - Orders: home currency (new orders start in it; spending totals list it first).
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
 - **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
+- **Reading** (`/settings/reading`, SLN-451): saved in `app_settings` for every device. "A reading day ends at" (midnight to 06:00; "Past days stay as they were"), "A reading week starts on" (Monday or Sunday), "Ask “Still reading?” after" (15 minutes to 8 hours).
 - **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
 - **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.

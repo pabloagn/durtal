@@ -231,7 +231,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
         </div>
         <fieldset className="space-y-1.5">
           <legend className="text-xs text-fg-secondary">Time read (optional)</legend>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <Input label="Hours" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} />
             <Input label="Minutes" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} error={durationError ?? undefined} />
           </div>
@@ -249,7 +249,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
               <Input label="Percent" inputMode="decimal" value={fields.percent} onChange={(e) => setFields((f) => ({ ...f, percent: e.target.value }))} />
             )}
             {segment === "time" && (
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <Input label="Hours" inputMode="numeric" value={fields.hours} onChange={(e) => setFields((f) => ({ ...f, hours: e.target.value }))} />
                 <Input label="Minutes" inputMode="numeric" value={fields.minutes} onChange={(e) => setFields((f) => ({ ...f, minutes: e.target.value }))} />
               </div>

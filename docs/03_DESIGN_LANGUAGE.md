@@ -315,6 +315,21 @@ A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one 
 - Series with no book yet: a shelf of spines, one per known volume (`ShelfSpines`).
 - While an image loads, its frame shows the poster's main color, dimmed, and the image fades in (`FadeImage`, `coverToneStyle`).
 
+### Reading timer chip
+
+The one running reading timer shows in a chip (`src/components/reading/timer-chip.tsx`, SLN-451). The chip is not glass: it sits inside the sidebar or the phone bar's `glass-bar`. Its popovers and menus are `glass` with `overflow-hidden`. The reader view (`/reader/[id]`) shows no chip.
+
+| Where | Layout |
+|---|---|
+| Expanded sidebar (footer) | Cover thumb, the time ("12:04"), the title (`lines-1`), Pause or Resume, and Stop |
+| Icon rail (56px: a collapsed sidebar, and always from 768 to 800px) | The time above one 44px Stop button. The time opens a menu with the title, Pause or Resume, and Discard; its tooltip names the book |
+| Phone bar (below `md`) | The time and Stop only, between the name and Search, each at least 44px and in `CapAligned height={44}` like the bar's buttons. The time opens the same menu |
+
+- The time uses `tabular-nums`, so its width never jitters. A paused timer shows its time in `fg-secondary` and says "Paused" to screen readers. The ticking time is not a live region.
+- The chip's accessible name reads "Timer for Nadja, 12 minutes". Each icon-only button has an `aria-label` and a tooltip: "Pause timer", "Resume timer", "Stop timer".
+- After the check time in Settings → Reading, the chip reads "Still reading?". It never turns red: no estimate or timer scolds.
+- An estimate's info button opens a glass popover (a native `popover`, so cards that clip do not cut it).
+
 ### Tooltips
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
