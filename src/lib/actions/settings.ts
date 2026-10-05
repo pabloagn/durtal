@@ -9,8 +9,10 @@ import { databaseErrorCode } from "@/lib/db/errors";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
 import {
   appSettingsInputSchema,
+  predictionGateSchema,
   type AppSettingsInput,
   type NewBookStatus,
+  type PredictionGate,
 } from "@/lib/validations/settings";
 import type { InstanceCondition, InstanceFormat } from "@/lib/types";
 
@@ -36,6 +38,10 @@ export interface AppSettings {
   readingTimerCheckMinutes: number;
   /** Days he would like to read each week, 1 to 7; null: no rhythm (SLN-455) */
   readingRhythmDays: number | null;
+  /** Suggestions leave out books marked Anathema (SLN-457) */
+  readingSuggestHideAnathema: boolean;
+  /** The predicted rating's last daily check; null before the first. Written only by the suggestion engine */
+  readingPredictionGate: PredictionGate | null;
 }
 
 /** The values before migration 0052: the same as its seeded row, without a location. */
@@ -50,6 +56,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   readingWeekStart: 1,
   readingTimerCheckMinutes: 90,
   readingRhythmDays: null,
+  readingSuggestHideAnathema: false,
+  readingPredictionGate: null,
 };
 
 const SETTINGS_COLUMNS = {
@@ -63,13 +71,18 @@ const SETTINGS_COLUMNS = {
   readingWeekStart: appSettings.readingWeekStart,
   readingTimerCheckMinutes: appSettings.readingTimerCheckMinutes,
   readingRhythmDays: appSettings.readingRhythmDays,
+  readingSuggestHideAnathema: appSettings.readingSuggestHideAnathema,
+  readingPredictionGate: appSettings.readingPredictionGate,
 };
+
+/** Each stored field's check: the inputs', and the gate's own (it is never an input) */
+const FIELD_SCHEMAS = { ...appSettingsInputSchema.shape, readingPredictionGate: predictionGateSchema.nullable() };
 
 /** A stored row as settings: a value the app no longer offers falls back to its default. */
 function toSettings(row: Record<keyof AppSettings, unknown>): AppSettings {
   const settings: Record<string, unknown> = { ...DEFAULT_SETTINGS };
   for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
-    const field = appSettingsInputSchema.shape[key].safeParse(row[key]);
+    const field = FIELD_SCHEMAS[key].safeParse(row[key]);
     if (field.success && field.data !== undefined) settings[key] = field.data;
   }
   return settings as unknown as AppSettings;

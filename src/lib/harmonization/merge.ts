@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { bookCreditMergeQueries } from "./book-credit-merge";
 import { workRelationMergeQueries } from "./work-relation-merge";
 import { readingQueueMergeQueries } from "./reading-queue-merge";
+import { recommendationFeedbackMergeQueries } from "./recommendation-feedback-merge";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
@@ -509,6 +510,8 @@ export async function executeMerge(input: {
         ? workRelationMergeQueries(source.id, target.id)
         : ref.table === "reading_queue" && ref.columns[0] === "work_id"
           ? readingQueueMergeQueries(source.id, target.id)
+        : ref.table === "recommendation_feedback" && ref.columns[0] === "work_id"
+          ? recommendationFeedbackMergeQueries(source.id, target.id)
         : ref.table === "work_credits" && ref.columns[0] === "work_id"
           ? workCreditMergeQueries(source.id, target.id)
           : ref.columns.length === 1

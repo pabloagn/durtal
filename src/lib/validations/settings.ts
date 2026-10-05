@@ -39,7 +39,27 @@ export const appSettingsInputSchema = z
       .min(15, "Ask after 15 minutes to 8 hours")
       .max(480, "Ask after 15 minutes to 8 hours"),
     readingRhythmDays: z.number().int().min(1, "Pick 1 to 7 days").max(7, "Pick 1 to 7 days").nullable(),
+    readingSuggestHideAnathema: z.boolean(),
   })
   .partial();
+
+/**
+ * The predicted rating's daily check (SLN-457), as app_settings stores it.
+ * Only the suggestion engine writes it; it is never a settings input.
+ */
+export const predictionGateSchema = z.object({
+  /** ISO time of the check */
+  checkedAt: z.string(),
+  on: z.boolean(),
+  /** Consecutive failing checks while on */
+  failures: z.number().int().min(0),
+  /** Books with a finished reading and taste evidence */
+  n: z.number().int().min(0),
+  /** The share of those that got a prediction, 0 to 1 */
+  coverage: z.number().min(0).max(1),
+  mae: z.number().nullable(),
+  baselineMae: z.number().nullable(),
+});
+export type PredictionGate = z.infer<typeof predictionGateSchema>;
 
 export type AppSettingsInput = z.input<typeof appSettingsInputSchema>;

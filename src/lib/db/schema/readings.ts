@@ -31,6 +31,10 @@ import {
   NOTE_KINDS,
   NOTE_SOURCES,
   GOAL_METRICS,
+  FEEDBACK_REASONS,
+  FEEDBACK_SOURCES,
+  FEEDBACK_VERDICTS,
+  FEEDBACK_NOTE_MAX,
 } from "@/lib/reading/constants";
 
 /** A list of allowed values for a CHECK: ('a','b') */
@@ -346,6 +350,41 @@ export const readingsRelations = relations(readings, ({ one, many }) => ({
   statusHistory: many(readingStatusHistory),
 }));
 
+/**
+ * Suggestion feedback (SLN-457), as the reading tracker's parent defines it
+ * for both it and the book enrichment epic: one row per book, Not now (until
+ * a date), Never, or rejected with reasons. Every write is an upsert on
+ * work_id: the newer verdict replaces the older, and source is the latest
+ * writer. book_parent_required keeps it on books (migration 0071_reading_suggestions).
+ */
+export const recommendationFeedback = pgTable(
+  "recommendation_feedback",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workId: uuid("work_id")
+      .notNull()
+      .unique()
+      .references(() => works.id, { onDelete: "cascade" }),
+    verdict: text("verdict", { enum: FEEDBACK_VERDICTS }).notNull(),
+    /** Codes from FEEDBACK_REASONS */
+    reasons: text("reasons").array().notNull().default(sql`'{}'::text[]`),
+    note: text("note"),
+    /** For not_now: hidden until this day (30 days after the verdict by default) */
+    until: date("until"),
+    source: text("source", { enum: FEEDBACK_SOURCES }).notNull().default("suggestions"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "recommendation_feedback_values_check",
+      sql`${t.verdict} in ${list(FEEDBACK_VERDICTS)} and ${t.source} in ${list(FEEDBACK_SOURCES)}
+        and ${t.reasons} <@ array${sql.raw(`[${FEEDBACK_REASONS.map((r) => `'${r}'`).join(",")}]`)}::text[]
+        and (${t.note} is null or length(${t.note}) <= ${sql.raw(String(FEEDBACK_NOTE_MAX))})`,
+    ),
+  ],
+);
+
 export const readingSessionsRelations = relations(readingSessions, ({ one }) => ({
   reading: one(readings, { fields: [readingSessions.readingId], references: [readings.id] }),
   edition: one(editions, { fields: [readingSessions.editionId], references: [editions.id] }),
@@ -364,4 +403,8 @@ export const readingNotesRelations = relations(readingNotes, ({ one }) => ({
   work: one(works, { fields: [readingNotes.workId], references: [works.id] }),
   reading: one(readings, { fields: [readingNotes.readingId], references: [readings.id] }),
   edition: one(editions, { fields: [readingNotes.editionId], references: [editions.id] }),
+}));
+
+export const recommendationFeedbackRelations = relations(recommendationFeedback, ({ one }) => ({
+  work: one(works, { fields: [recommendationFeedback.workId], references: [works.id] }),
 }));
