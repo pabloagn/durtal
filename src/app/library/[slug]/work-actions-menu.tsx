@@ -12,7 +12,10 @@ import {
   Link2,
   Plus,
   Trash2,
+  BookPlus,
+  CalendarClock,
 } from "lucide-react";
+import { useOptionalReading } from "@/components/reading/reading-provider";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
@@ -25,6 +28,7 @@ import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";
 import { deleteWork } from "@/lib/actions/works";
+import { workDeleteCascadeMessage } from "@/components/books/delete-cascade";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
 
@@ -83,6 +87,8 @@ interface WorkActionsMenuProps {
   authorName: string;
   editionCount: number;
   instanceCount: number;
+  /** The reading history the delete removes */
+  readingCounts?: { readings: number; sessions: number };
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
@@ -101,6 +107,7 @@ export function WorkActionsMenu({
   authorName: _authorName,
   editionCount,
   instanceCount,
+  readingCounts,
   posterCount: _posterCount,
   backgroundCount: _backgroundCount,
   galleryCount: _galleryCount,
@@ -149,15 +156,15 @@ export function WorkActionsMenu({
   }
 
   function buildCascadeMessage(): string | undefined {
-    const parts: string[] = [];
-    if (editionCount > 0)
-      parts.push(`${editionCount} edition${editionCount === 1 ? "" : "s"}`);
-    if (instanceCount > 0)
-      parts.push(`${instanceCount} instance${instanceCount === 1 ? "" : "s"}`);
-    if (parts.length === 0) return undefined;
-    return `This will also delete ${parts.join(" and ")}.`;
+    return workDeleteCascadeMessage({
+      editions: editionCount,
+      instances: instanceCount,
+      readings: readingCounts?.readings ?? 0,
+      sessions: readingCounts?.sessions ?? 0,
+    });
   }
 
+  const reading = useOptionalReading();
   const actionItems = [
     {
       label: copied ? "Copied!" : "Copy",
@@ -182,6 +189,13 @@ export function WorkActionsMenu({
       onClick: () => setMediaOpen(true),
       shortcut: "E M",
     },
+    // With no readings yet, the Reading section is not shown: its first steps are here
+    ...(reading && reading.data.rows.length === 0
+      ? [
+          { label: "Start reading", icon: BookPlus, onClick: () => reading.run("start"), shortcut: "R S" },
+          { label: "Log a past read", icon: CalendarClock, onClick: () => reading.run("past"), shortcut: "R L" },
+        ]
+      : []),
     {
       label: "Add Edition",
       icon: Plus,

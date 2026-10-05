@@ -1,4 +1,18 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { getReadingsForWork } from "@/lib/actions/reading";
+import { ReadingProvider } from "@/components/reading/reading-provider";
+import { ReadingControl } from "@/components/reading/reading-control";
+import { ReadingSection } from "@/components/reading/reading-section";
+import { readingEditions, readingHomes } from "@/lib/reading/page-data";
+import { readingRecord } from "@/lib/reading/labels";
+import { readingDay } from "@/lib/reading/dates";
+import { canUseWorkCapability } from "@/lib/catalogue/domains";
+import { appTimeZone } from "@/lib/utils/date";
+import { READING_HOME_KEY } from "@/lib/preferences";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { RatingStars } from "@/components/shared/rating";
+import { formatRating } from "@/lib/utils/rating";
 import { cache } from "react";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
@@ -12,7 +26,7 @@ import { HuntAssessmentControl } from "@/components/books/hunt-assessment-contro
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import { ArrowLeft, Star, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
   getWorksByAuthorId,
@@ -74,6 +88,7 @@ import { languageName } from "@/lib/utils/language";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ reading?: string }>;
 }
 
 /** A book still looked for: its hunting block shows even with no target */
@@ -107,8 +122,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title: authors ? `${work.title} by ${authors}` : work.title };
 }
 
-export default async function WorkDetailPage({ params }: PageProps) {
+export default async function WorkDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const startOnLoad = (await searchParams)?.reading === "start";
 
   const [
     work,
@@ -158,6 +174,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     markRows,
     seriesWorks,
     links,
+    readingRows,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getCalibreBooksByWorkId(work.id),
@@ -178,7 +195,34 @@ export default async function WorkDetailPage({ params }: PageProps) {
       ? getOtherWorksInSeries(work.seriesId, work.id)
       : Promise.resolve([]),
     getWorkRelations(work.id),
+    getReadingsForWork(work.id),
   ]);
+  const readingCounts = {
+    readings: readingRows.length,
+    sessions: readingRows.reduce((sum, r) => sum + r.sessionCount, 0),
+  };
+  // The reading control, section and dialogs (SLN-447)
+  const canRead = canUseWorkCapability(work.kind, "reading");
+  const zone = appTimeZone();
+  const today = readingDay(new Date(), zone);
+  let homeCookie: string | null = null;
+  try {
+    const raw = (await cookies()).get(READING_HOME_KEY)?.value;
+    homeCookie = raw ? (JSON.parse(raw) as string | null) : null;
+  } catch {
+    homeCookie = null;
+  }
+  const readingData = {
+    workId: work.id,
+    workTitle: work.title,
+    bookRating: work.rating ?? null,
+    dayStartHour: 4,
+    rows: readingRows,
+    editions: readingEditions(work.editions, { today, homeId: homeCookie && homeCookie !== "none" ? homeCookie : null }),
+    homes: readingHomes(allLocations),
+    today,
+    zone,
+  };
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
     workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
@@ -233,7 +277,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
     ? `/api/s3/read?key=${encodeURIComponent(background.s3Key)}`
     : null;
 
-  return (
+  const page = (
     <div className="relative">
       <CopyShortcuts
         name={formatBookClipboardText(work.title, primaryAuthors.map((a) => a.name))}
@@ -306,6 +350,12 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 </h1>
                 {/* On the cap-height center of the title's first line */}
                 <CapAlignedControls height={32} className="type-page-title">
+                  <FavouriteToggle
+                    favourite={work.isFavourite}
+                    target={{ entity: "work", id: work.id }}
+                    name={work.title}
+                    shortcut
+                  />
                   <CollectionButton workId={work.id} title={work.title} />
                   <CopyBookButton
                     title={work.title}
@@ -340,6 +390,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
                       role: wa.role,
                     }))}
                     authorName={primaryAuthors.map((a) => a.name).join(", ")}
+                    readingCounts={readingCounts}
                     editionCount={work.editions.length}
                     instanceCount={work.editions.reduce(
                       (acc, e) => acc + (e.instances?.length ?? 0),
@@ -454,16 +505,14 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 {work.originalYear && (
                   <span className="text-fg-secondary">{work.originalYear}</span>
                 )}
-                {work.rating && (
-                  <div className="flex items-start gap-1">
-                    <CapAligned height={12}>
-                      <Star
-                        className="block h-3 w-3 text-accent-gold"
-                        strokeWidth={1.5}
-                        fill="currentColor"
-                      />
+                {work.rating != null && (
+                  <div className="flex items-start gap-1.5">
+                    <CapAligned height={14}>
+                      <RatingStars value={work.rating} size={14} />
                     </CapAligned>
-                    <span className="text-accent-gold">{work.rating}/5</span>
+                    <span className="text-accent-gold" aria-hidden="true">
+                      {formatRating(work.rating)}
+                    </span>
                   </div>
                 )}
                 {/* Marks: one group; the negative margin cancels the
@@ -491,10 +540,11 @@ export default async function WorkDetailPage({ params }: PageProps) {
                 )}
               </div>
 
-              {/* Read button (digital editions) */}
-              {digitalBooks.length > 0 && (
-                <div className="mt-3">
-                  <ReadButton calibreBooks={digitalBooks} />
+              {/* The reading control, and the Read button for digital editions */}
+              {(canRead || digitalBooks.length > 0) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {canRead && <ReadingControl />}
+                  {digitalBooks.length > 0 && <ReadButton calibreBooks={digitalBooks} />}
                 </div>
               )}
 
@@ -567,6 +617,7 @@ export default async function WorkDetailPage({ params }: PageProps) {
               gallery: galleryMedia.length,
             }}
             links={uniqueExternalLinks}
+            reading={readingRows.length ? readingRecord(readingRows) : null}
           />
         }
       >
@@ -584,6 +635,8 @@ export default async function WorkDetailPage({ params }: PageProps) {
             </p>
           </section>
         )}
+
+        {canRead && <ReadingSection />}
 
         {(acquisitionTargets.length > 0 ||
           HUNTED_STATUSES.has(work.catalogueStatus)) && (
@@ -745,5 +798,12 @@ export default async function WorkDetailPage({ params }: PageProps) {
       <ActivityTimeline entityType="work" entityId={work.id} />
 
     </div>
+  );
+  return canRead ? (
+    <ReadingProvider data={readingData} startOnLoad={startOnLoad}>
+      {page}
+    </ReadingProvider>
+  ) : (
+    page
   );
 }

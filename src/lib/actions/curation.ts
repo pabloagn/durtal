@@ -17,6 +17,7 @@ import {
 } from "@/lib/catalogue/curation-store";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { recordActivity } from "@/lib/activity/record";
 
 function snapshot(owner: CurationOwner) {
   return sql`select jsonb_build_object('id',w.id,'kind',w.kind,'notes',w.notes,'rating',w.rating,'isFavourite',w.is_favourite,
@@ -53,6 +54,9 @@ export async function updateWorkCuration(input: {
     .string()
     .regex(/^[a-f0-9]{32}$/)
     .parse(input.fingerprint);
+  // The favourite before the save, to log a change like the other marks
+  const before =
+    patch.isFavourite === undefined ? null : await getWorkCuration(owner);
   // A stale edit reaches the caller as its message, never as SQL
   await withReadableErrors(() => atomic((d) => [
     d.execute(
@@ -66,6 +70,12 @@ export async function updateWorkCuration(input: {
     ),
     ...curationQueries(d, owner, patch),
   ]));
+  if (before && before.isFavourite !== patch.isFavourite) {
+    recordActivity("work", owner.id, "work.favourite_changed", {
+      newValue: patch.isFavourite ? "favourite" : null,
+    });
+    invalidate(CACHE_TAGS.activity);
+  }
   if (hasCurationChanges(patch)) invalidate(CACHE_TAGS.works, CACHE_TAGS.recommenders);
   return (await getWorkCuration(owner))!;
 }

@@ -100,6 +100,7 @@ export interface PublisherBook {
   isRare: boolean;
   huntAssessedOn: string | null;
   isPoison: boolean;
+  isFavourite: boolean;
   acquisitionPriority: string | null;
   primaryEditionId: string;
 }
@@ -148,6 +149,7 @@ export async function getPublisherBooks(publisherId: string, query: PublisherBoo
     )})`);
   if (query.marks.includes("rare")) filters.push(sql`w.is_rare`);
   if (query.marks.includes("poison")) filters.push(sql`w.is_poison`);
+  if (query.marks.includes("favourite")) filters.push(sql`w.is_favourite`);
   if (query.languages.length) filters.push(sql`e.language in ${query.languages}`);
   if (query.bindings.length) filters.push(sql`e.binding in ${query.bindings}`);
   if (query.yearMin !== undefined) filters.push(sql`e.publication_year >= ${query.yearMin}`);
@@ -218,6 +220,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
     is_rare: boolean;
     hunt_assessed_on: string | null;
     is_poison: boolean;
+    is_favourite: boolean;
     acquisition_priority: string | null;
   }>(
     await db.execute(sql`select e.id as edition_id, w.id as work_id, w.slug, w.title,
@@ -228,7 +231,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
           from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1) as poster,
         e.publication_year as year, e.language,
         (select count(*)::int from instances i where i.edition_id = e.id and i.status <> 'deaccessioned') as copies,
-        w.rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.acquisition_priority
+        w.rating::float8 as rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.is_favourite, w.acquisition_priority
       from editions e join works w on w.id = e.work_id
       where e.id in (${ids})`),
   );
@@ -252,6 +255,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
       isRare: r.is_rare,
       huntAssessedOn: r.hunt_assessed_on,
       isPoison: r.is_poison,
+      isFavourite: r.is_favourite,
       acquisitionPriority: r.acquisition_priority,
       primaryEditionId: r.edition_id,
     };

@@ -3,9 +3,10 @@
  * otherwise ISO 639-3 ("grc"). The database converts every write the same way
  * (migration 0035). This module does it in the app for values from metadata
  * sources, so forms show the right choice, and gives the English name for
- * display. Pure module, usable on server and client.
+ * display (from fixed tables, the same on server and client). Pure module.
  */
 import { LANGUAGES } from "@/lib/constants/languages";
+import { LANGUAGE_NAMES } from "@/lib/constants/language-names";
 
 const displayNames = new Intl.DisplayNames(["en"], {
   type: "language",
@@ -61,10 +62,19 @@ export function normalizeLanguage(
   return codeForName(value);
 }
 
-/** English name of a stored code ("en" → "English"); the code when unknown. */
+const LIST_NAMES: Record<string, string> = Object.fromEntries(
+  LANGUAGES.map((l) => [l.value, l.label]),
+);
+
+/**
+ * English name of a stored code ("en" → "English"); the code when unknown.
+ * Fixed tables first, so the server and the browser name the usual and the
+ * historical languages the same way (Chrome's Intl knows no "grc"). A rare
+ * code the tables lack falls back to the runtime's Intl name, then the code.
+ */
 export function languageName(code: string | null | undefined): string | null {
   if (!code) return null;
-  return nameOf(code) ?? code;
+  return LIST_NAMES[code] ?? LANGUAGE_NAMES[code] ?? nameOf(code) ?? code;
 }
 
 /** Options for a language select: the app's list, plus `current` when missing. */

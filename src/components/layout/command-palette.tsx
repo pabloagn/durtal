@@ -178,10 +178,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [trimmed]);
 
   // "This page" shows when the page has its own entries, or when searched
-  const allEditItems = actions.editItems();
-  const editItems = trimmed
-    ? filterBySearch(allEditItems, trimmed, (i) => `Edit ${i.label}`)
-    : allEditItems;
+  // The page's E and R entries, each with its full label ("Edit work", "Log progress")
+  const allPageActions = [
+    ...actions.editItems().map((i) => ({ ...i, value: `edit:${i.key}`, phrase: `Edit ${i.label.toLowerCase()}`, keys: ["e", i.key] })),
+    ...actions.readingItems().map((i) => ({ ...i, value: `reading:${i.key}`, phrase: i.label, keys: ["r", i.key] })),
+  ];
+  const pageActions = trimmed ? filterBySearch(allPageActions, trimmed, (i) => i.phrase) : allPageActions;
   const allCopyItems = actions.copyItems();
   const copyItems = trimmed
     ? filterBySearch(allCopyItems, trimmed, (i) => `Copy ${i.label}`)
@@ -199,7 +201,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     (results.people[0] && `person:${results.people[0].id}`) ||
     (results.organizations[0] && `org:${results.organizations[0].id}`) ||
     (results.venues[0] && `venue:${results.venues[0].id}`) ||
-    (editItems[0] && `edit:${editItems[0].key}`) ||
+    (pageActions[0] && pageActions[0].value) ||
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (actionItems[0] && `action:${actionItems[0].label}`) ||
     (navigationItems[0] && `nav:${navigationItems[0].label}`) ||
@@ -371,18 +373,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               </Command.Group>
             )}
 
-            {(editItems.length > 0 || copyItems.length > 0) && (
+            {(pageActions.length > 0 || copyItems.length > 0) && (
               <Command.Group heading="This page" className={GROUP_CLASS}>
-                {editItems.map((item) => (
+                {pageActions.map((item) => (
                   <PaletteRow
-                    key={`edit:${item.key}`}
+                    key={item.value}
                     item={{
-                      label: `Edit ${item.label.toLowerCase()}`,
+                      label: item.phrase,
                       icon: item.icon,
-                      keys: ["e", item.key],
+                      keys: item.keys,
                       then: true,
                     }}
-                    value={`edit:${item.key}`}
+                    value={item.value}
                     onSelect={() => {
                       onOpenChange(false);
                       item.run();

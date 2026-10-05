@@ -179,7 +179,7 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 
 | Surface | Utility |
 |---|---|
-| Command palette, leader menu, dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
+| Command palette, leader menus (A, G, Y, E, R), dialogs | `glass`, with `glass-veil` behind (`backdrop:glass-veil` on a `<dialog>`) |
 | Menus, select lists, date picker, filter panels, pickers (also films' search picker), hover cards | `glass` |
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
@@ -213,6 +213,14 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 
 Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold. Collection cards: name with its icon, two lines of description, then the edition count. No count or status sits on a portrait or a cover.
 
+### Mosaic
+
+A view of the pictures alone: no card, no text, no chips (`<Mosaic>`, `src/components/shared/mosaic.tsx`; `mosaic*` utilities in `globals.css`). Every list with posters offers it beside the grid: books, people, films, perfumes, paintings and collections, and the choice is kept like the other views.
+
+- Justified rows: each picture keeps its own proportions (a painting is not cropped to a poster), every picture of a row has one height, and every row but the last fills the width, in reading order. A full row holds the size slider's value plus two pictures of the list's usual proportions, or fewer where they would be under 150px tall (a phone). The last row has the height of a full row; it does not stretch.
+- 4px between pictures, 2px corners, a hairline edge; each picture over its own tone while it loads, and the list's own stand-in (a title card, a monogram, a fan of covers) when there is none.
+- Hover: the picture eases forward (4%) and its title, and the author or house under it, appear at its foot on glass; the other pictures dim to 62%. Keyboard focus shows the title and a rose ring. In selection mode a click selects; a selected picture has a rose ring. A right-click opens the browser's menu for the link, not for the picture, so pictures stay protected.
+
 ### Buttons
 
 Four variants:
@@ -233,6 +241,14 @@ Three sizes: `sm`, `md` (default), `lg`. All squared (2px radius). Focus ring us
 - `accent-rose` focus ring
 - No rounded corners (2px radius)
 - Optional label displayed above
+
+### Ratings
+
+A work's rating is 0.5 to 5 in half steps, the same for books, films, perfumes and paintings (venue ratings are another scale). One component shows and edits it (`src/components/shared/rating.tsx`); the number is written by `formatRating` (`src/lib/utils/rating.ts`): "4" or "4.5", never "4.0".
+
+- `RatingStars`: five Lucide stars at 1.5 stroke, 12px in rows, 14px in a header, 16px at most. Filled parts are `accent-gold`; a half star fills its left half (a clipped second icon). Empty stars and halves are outlined in `fg-secondary`, never `fg-muted`. Read as "Rated 4.5 out of 5" or "Not rated".
+- `RatingInput`: a slider ("4.5 stars", or "Not rated" at 0). With a mouse each star is a 24px target split in two: the left half sets n - 0.5, the right half n, hover previews, and choosing the current value clears it. On touch (by the event's pointer type) the stars are 44px whole-star targets: a tap sets n, a second tap on the same star n - 0.5, a third n again; a drag previews half steps and sets on release, and the row lets the page scroll vertically. A "Clear" button follows the stars on coarse pointers when a value is set; its space is kept so the row does not shift. Keys: Left and Down step down to 0.5, Right and Up step up (from Not rated to 0.5), Home 0.5, End 5, Backspace and Delete clear, 1 to 5 set whole stars. It sits on the cap-height center of the text beside it (`CapAligned` with `coarseHeight`).
+- Beside stars, a short number ("4.5"); a badge keeps "4.5/5".
 
 ### Tables
 
@@ -366,9 +382,15 @@ The application is designed desktop-first but must be usable on all screen sizes
 
 A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
 
+### Progress bars and rich text
+
+- `ProgressBar` (`src/components/shared/progress-bar.tsx`): 4px tall, 2px radius, `accent-blue` while reading and `accent-sage` when finished, on a `bg-tertiary` track. It is a `progressbar` whose `aria-valuetext` says the number in words ("44 percent, page 212 of 480"); the number is always shown as text nearby too.
+- `TiptapEditor` (`src/components/shared/tiptap-editor.tsx`) is the rich text field for reviews and notes: bold, italic, link, bulleted and numbered lists and quote, each an icon button with `aria-label` and a tooltip (44px on touch). It saves HTML and Tiptap JSON and opens an imported review from its HTML. `CommentEditor` is built on it with its own extra tools. `rich-text-editor.tsx` stays for author bios. A dialog that uses it loads it on opening, so a page ships no editor until then.
+- The book page's header row under the title holds the reading control first, then the Read button: both 32px tall (44px on touch) with an 8px gap.
+
 ### Keyboard, touch and motion
 
 - Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
-- On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating stars are 24px wide there (`pointer-coarse:w-6`).
+- On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating input has 44px whole-star targets there (see Ratings).
 - With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.
 - Check it with `node scripts/qa/interaction-audit.mjs --disposable --base <app url> [route...]` on a disposable preview (`scripts/qa/preview-local.py`). It opens menus and dialogs, pressing only controls that open something, never one that writes; it refuses to start without `--disposable`, on another host or on port 3100.

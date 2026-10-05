@@ -382,6 +382,11 @@ export async function moveToExistingEdition(placeholderId: string, editionId: st
     d.execute(sql`insert into collection_editions (collection_id, edition_id, sort_order, added_at)
       select collection_id, ${editionId}::uuid, sort_order, added_at from collection_editions
       where edition_id = ${placeholderId}::uuid on conflict do nothing`),
+    // Readings and their sessions follow the copies to the real edition
+    d.execute(sql`update readings set edition_id = ${editionId}::uuid, updated_at = now()
+      where edition_id = ${placeholderId}::uuid`),
+    d.execute(sql`update reading_sessions set edition_id = ${editionId}::uuid, updated_at = now()
+      where edition_id = ${placeholderId}::uuid`),
     d.execute(sql`delete from editions where id = ${placeholderId}::uuid
       and metadata_source = ${PLACEHOLDER_SOURCE}`),
   ]);

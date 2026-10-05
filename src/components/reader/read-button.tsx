@@ -27,7 +27,8 @@ export function ReadButton({ calibreBooks }: ReadButtonProps) {
   return (
     <Link
       href={`/reader/${preferred.calibreId}`}
-      className="inline-flex items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+      className="inline-flex h-8 items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary px-3 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
+      data-read-button
       data-tooltip={`Read (${formatLabels})`}
     >
       <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />

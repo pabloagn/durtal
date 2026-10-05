@@ -2,11 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Pencil, Star } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { RatingInput } from "@/components/shared/rating";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { updateWorkCuration } from "@/lib/actions/curation";
@@ -82,68 +83,49 @@ function useCurationSave() {
   return { save, saving };
 }
 
-/** The favourite toggle beside the title */
-export function FavouriteToggle({ isFavourite }: { isFavourite: boolean }) {
-  const { save, saving } = useCurationSave();
-  const [on, setOn] = useState(isFavourite);
-  const label = on ? "Remove from favourites" : "Add to favourites";
+/**
+ * The work's favourite star beside the title: the shared `FavouriteToggle`,
+ * saved with the rest of the work's curation. F toggles it.
+ */
+export function CurationFavourite({
+  isFavourite,
+  name,
+}: {
+  isFavourite: boolean;
+  name?: string;
+}) {
+  const { save } = useCurationSave();
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={label}
-      data-tooltip={label}
-      disabled={saving}
-      onClick={async () => {
-        setOn(!on);
-        if (!(await save({ isFavourite: !on }))) setOn(on);
-      }}
-      className={`flex h-8 w-8 items-center justify-center rounded-[2px] border border-glass-border bg-bg-tertiary/50 transition-colors hover:bg-bg-tertiary ${
-        on ? "text-accent-rose-text" : "text-fg-muted hover:text-fg-primary"
-      }`}
-    >
-      <Heart className="h-4 w-4" strokeWidth={1.5} fill={on ? "currentColor" : "none"} />
-    </button>
+    <FavouriteToggle
+      favourite={isFavourite}
+      onToggle={(next) => save({ isFavourite: next })}
+      name={name}
+      variant="boxed"
+      shortcut
+    />
   );
 }
 
 /**
- * The personal rating, one to five stars. The row carries the text's type,
- * so each star sits on its cap-height center; choosing the current rating
- * clears it.
+ * The personal rating, 0.5 to 5 stars in half steps, saved as it changes.
+ * The row carries the text's type, so the stars sit on its cap-height center.
  */
 export function RatingControl({ rating }: { rating: number | null }) {
-  const { save, saving } = useCurationSave();
+  // Not disabled while saving: the saves queue, so a quick second tap (the
+  // half star) is kept
+  const { save } = useCurationSave();
   const [value, setValue] = useState(rating);
   return (
-    <div role="group" aria-label="Your rating" className="flex items-start">
-      {[1, 2, 3, 4, 5].map((n) => {
-        const filled = value !== null && n <= value;
-        const label = value === n ? `Clear the rating of ${n}` : `Rate ${n} of 5`;
-        return (
-          <CapAligned key={n} height={20}>
-            <button
-              type="button"
-              aria-label={label}
-              aria-pressed={filled}
-              data-tooltip={label}
-              disabled={saving}
-              onClick={async () => {
-                const next = value === n ? null : n;
-                const previous = value;
-                setValue(next);
-                if (!(await save({ rating: next }))) setValue(previous);
-              }}
-              className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors pointer-coarse:w-6 ${
-                filled ? "text-accent-gold" : "text-fg-muted hover:text-fg-secondary"
-              }`}
-            >
-              <Star className="h-3 w-3" strokeWidth={1.5} fill={filled ? "currentColor" : "none"} />
-            </button>
-          </CapAligned>
-        );
-      })}
-    </div>
+    <RatingInput
+      value={value}
+      label="Your rating"
+      size={12}
+      onChange={async (next) => {
+        const previous = value;
+        setValue(next);
+        if (!(await save({ rating: next }))) setValue(previous);
+      }}
+    />
   );
 }
 

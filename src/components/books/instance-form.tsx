@@ -149,6 +149,42 @@ function Section({
   );
 }
 
+/** A copy's form values as createInstance and updateInstance take them */
+export function instancePayload(draft: InstanceDraft) {
+  return {
+    locationId: draft.locationId,
+    subLocationId: draft.subLocationId || null,
+    format: draft.format || null,
+    condition: draft.condition || null,
+    status: (draft.status as "available" | "lent_out" | "in_transit" | "in_storage" | "missing" | "damaged" | "deaccessioned") || "available",
+    acquisitionType: draft.acquisitionType || null,
+    acquisitionDate: draft.acquisitionDate || null,
+    acquisitionSource: draft.acquisitionSource || null,
+    acquisitionPrice: draft.acquisitionPrice || null,
+    acquisitionCurrency: draft.acquisitionCurrency || null,
+    isSigned: draft.isSigned,
+    signedBy: draft.signedBy || null,
+    inscription: draft.inscription || null,
+    isFirstPrinting: draft.isFirstPrinting,
+    provenance: draft.provenance || null,
+    hasDustJacket: draft.hasDustJacket,
+    hasSlipcase: draft.hasSlipcase,
+    conditionNotes: draft.conditionNotes || null,
+    calibreId: draft.calibreId ? parseInt(draft.calibreId, 10) : null,
+    calibreUrl: draft.calibreUrl || null,
+    fileSizeBytes: draft.fileSizeBytes ? parseInt(draft.fileSizeBytes, 10) : null,
+    notes: draft.notes || null,
+    lentTo: draft.lentTo || null,
+    lentDate: draft.lentDate || null,
+    dispositionType: (draft.dispositionType as "sold" | "donated" | "gifted" | "traded" | "lost" | "stolen" | "destroyed" | "returned" | "expired") || null,
+    dispositionDate: draft.dispositionDate || null,
+    dispositionTo: draft.dispositionTo || null,
+    dispositionPrice: draft.dispositionPrice || null,
+    dispositionCurrency: draft.dispositionCurrency || null,
+    dispositionNotes: draft.dispositionNotes || null,
+  };
+}
+
 export function InstanceForm({
   value,
   onChange,

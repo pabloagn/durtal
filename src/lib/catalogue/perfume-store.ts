@@ -221,7 +221,7 @@ export async function loadPerfumeCards(ids: string[]) {
       tone: string | null;
     } | null;
   }>(
-    await db.execute(sql`select w.id,w.slug,w.title,w.rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
+    await db.execute(sql`select w.id,w.slug,w.title,w.rating::float8 as rating,w.is_favourite as "isFavourite",w.created_at as "createdAt",
       case when rd.id is null then null else jsonb_build_object('precision',rd.precision,'startYear',rd.start_year,'startMonth',rd.start_month,'startDay',rd.start_day,
         'endYear',rd.end_year,'endMonth',rd.end_month,'endDay',rd.end_day,'approximate',rd.approximate,'label',rd.label) end as "releaseDate",
       coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'name',p.name,'slug',p.slug,'role',o.role)

@@ -214,6 +214,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             posterUrl={posterUrl}
             posterCrop={posterCrop}
             workCount={works.length}
+            isFavourite={author.isFavourite}
           />
         </div>
       </div>
@@ -328,6 +329,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                         isRare={work.isRare}
                         huntAssessedOn={work.huntAssessedOn}
                         isPoison={work.isPoison}
+                        isFavourite={work.isFavourite}
                         primaryEditionId={work.editions[0]?.id}
                       />
                     );

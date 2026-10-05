@@ -17,7 +17,7 @@ import {
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 import {
   CurationProvider,
-  FavouriteToggle,
+  CurationFavourite,
   PersonalNotes,
   RatingControl,
 } from "@/components/catalogue/curation";
@@ -40,6 +40,8 @@ import { getCatalogueProvenance } from "@/lib/actions/catalogue-provenance";
 import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { getMediaForWork } from "@/lib/actions/media";
 import { getLocations } from "@/lib/actions/locations";
+import { WantedSection } from "@/components/catalogue/wanted-section";
+import { getTypedTargets } from "@/lib/actions/acquisitions";
 import { catalogueDateText, catalogueDateYears } from "@/lib/catalogue/dates";
 import { HOLDING_STATUS_LABELS } from "@/lib/catalogue/holdings";
 import {
@@ -285,7 +287,7 @@ export default async function PaintingPage({
   const painting = await loadPainting(slug);
   if (!painting) notFound();
   const owner = { kind: "painting" as const, id: painting.id };
-  const [media, curation, provenance, families, allLocations, choices, histories, links] =
+  const [media, curation, provenance, families, allLocations, choices, histories, links, wanted] =
     await Promise.all([
       getMediaForWork(painting.id),
       getWorkCuration(owner),
@@ -295,6 +297,7 @@ export default async function PaintingPage({
       getPaintingChoices(),
       Promise.all(painting.objects.map((o) => getWhereabouts(o.id))),
       getWorkRelations(painting.id),
+      getTypedTargets(painting.id),
     ]);
 
   // ── The picture ───────────────────────────────────────────────────────────
@@ -442,7 +445,7 @@ export default async function PaintingPage({
                 sources={citable}
                 owned={owned.length}
               >
-                <FavouriteToggle isFavourite={curation?.isFavourite ?? false} />
+                <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
               </PaintingActions>
             </div>
 
@@ -584,6 +587,24 @@ export default async function PaintingPage({
             objects={objects}
             locations={locations}
             sources={citable}
+          />
+
+          <WantedSection
+            workId={painting.id}
+            title={painting.title}
+            targets={wanted}
+            choices={{
+              kind: "painting",
+              // An object in private or unknown hands can be bought; an
+              // original or version can be had as a reproduction
+              objects: painting.objects.map((o) => ({
+                id: o.id,
+                label: objectName({ kind: o.kind as ArtObjectKind, label: o.label }),
+                forSale: o.ownership === "private" || o.ownership === "unknown",
+                reproducible: o.kind !== "reproduction",
+              })),
+            }}
+            locations={{ physical: locations, digital: [] }}
           />
 
           <LinkedWorksSection

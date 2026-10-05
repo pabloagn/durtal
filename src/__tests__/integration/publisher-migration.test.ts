@@ -70,7 +70,8 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
         await c`insert into orders(work_id,edition_id,acquisition_method,order_date,status) values (${w.id},${e.id},'gift','2024-02-29','received') returning *`;
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
       // Later migrations may add work columns; every existing value must survive.
-      expect((await c`select * from works where id=${w.id}`)[0]).toMatchObject(w);
+      // The reading tracker makes the rating numeric(2,1), which returns as text.
+      expect((await c`select * from works where id=${w.id}`)[0]).toMatchObject({ ...w, rating: "5.0" });
       expect((await c`select * from instances where id=${copy.id}`)[0]).toEqual(
         copy,
       );
@@ -84,6 +85,10 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
       expect((await c`select * from orders where id=${order.id}`)[0]).toEqual({
         ...order,
         acquisition_target_id: null,
+        // Later columns (SLN-374) start empty
+        film_holding_id: null,
+        perfume_bottle_id: null,
+        art_object_id: null,
       });
       expect(
         (await c`select * from publishing_houses where id=${p.id}`)[0],
@@ -94,6 +99,9 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
         is_favourite: false,
         notes: null,
         search_text: "nyrb",
+        // Migration 0058: no founding year or city yet
+        founded_year: null,
+        founded_place_id: null,
       });
       expect([...(await c`select * from edition_publishers`)]).toEqual([
         { edition_id: e.id, publisher_id: p.id },

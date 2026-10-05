@@ -78,6 +78,7 @@ import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
+import { wantedTargetQueries } from "@/lib/catalogue/acquisition-receipt";
 import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
 
 const lockWork = (d: Db, workId: string) =>
@@ -840,6 +841,7 @@ export async function deleteArtObject(id: string) {
         "Reproductions refer to this object; change or delete them first",
       ),
     ),
+    ...wantedTargetQueries(d, sql`t.art_object_id=${id}::uuid or t.art_reproduces_object_id=${id}::uuid`, "object"),
     d.delete(artObjects).where(eq(artObjects.id, id)),
     ...releaseDates(d, [
       object.creationDateId,

@@ -1,6 +1,7 @@
 import { FadeImage } from "@/components/shared/fade-image";
 import { TitleCard } from "@/components/shared/no-photo";
 import { coverToneStyle, mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface FilmPosterImage {
   s3Key: string;
@@ -18,7 +19,7 @@ export function filmImageUrl(
   { thumbnail = true }: { thumbnail?: boolean } = {},
 ) {
   const key = thumbnail ? (image?.thumbnailS3Key ?? image?.s3Key) : image?.s3Key;
-  return key ? `/api/s3/read?key=${encodeURIComponent(key)}` : null;
+  return key ? mediaUrl(key) : null;
 }
 
 /**

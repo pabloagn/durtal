@@ -6,9 +6,11 @@ import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { useHomeView } from "@/components/domains/domain-home-shell";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
-import { PerfumeCard, PerfumeRow, type PerfumeCardData } from "./perfume-card";
+import { PerfumeCard, PerfumeRow, perfumeHref, perfumeMakers, type PerfumeCardData } from "./perfume-card";
+import { PerfumeImage } from "./perfume-image";
+import { Mosaic, mosaicPerRow } from "@/components/shared/mosaic";
 
-/** The perfumes of the home in the saved view (grid or list), with paging. */
+/** The perfumes of the home in the saved view (grid, mosaic or list), with paging. */
 export function PerfumeGrid({
   perfumes,
   pagination,
@@ -36,7 +38,20 @@ export function PerfumeGrid({
   return (
     <>
       <Pagination {...pagination} noun="perfumes" compact />
-      {viewMode === "grid" ? (
+      {viewMode === "mosaic" ? (
+        <Mosaic
+          aspect={1}
+          perRow={mosaicPerRow(gridColumns)}
+          items={perfumes.map((perfume) => ({
+            key: perfume.id,
+            href: perfumeHref(perfume),
+            title: perfume.title,
+            subtitle: perfumeMakers(perfume),
+            aspect: 1,
+            media: <PerfumeImage image={perfume.poster} title={perfume.title} />,
+          }))}
+        />
+      ) : viewMode === "grid" ? (
         <div className="@container">
           <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {perfumes.map((perfume) => (

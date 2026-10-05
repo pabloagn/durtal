@@ -18,7 +18,7 @@ import {
   PublisherListItem,
   type PublisherItem,
 } from "@/components/publishers/publisher-card";
-import { PublisherFavourite } from "@/components/publishers/favourite-button";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import {
   PUBLISHER_FILTER_PARAMS,
@@ -71,7 +71,13 @@ function renderCell(p: PublisherItem, key: string) {
     case "editions":
       return p.editionCount;
     case "favourite":
-      return <PublisherFavourite id={p.id} favourite={p.isFavourite} />;
+      return (
+        <FavouriteToggle
+          favourite={p.isFavourite}
+          target={{ entity: "publisher", id: p.id }}
+          name={p.name}
+        />
+      );
     case "website":
       return p.website ? (
         <a

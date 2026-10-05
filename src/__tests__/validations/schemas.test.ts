@@ -61,16 +61,16 @@ describe("createWorkSchema", () => {
     expect(result.catalogueStatus).toBe("tracked");
   });
 
-  it("accepts valid rating range 1-5", () => {
-    for (const rating of [1, 2, 3, 4, 5]) {
+  it("accepts ratings from 0.5 to 5 in half steps", () => {
+    for (const rating of [0.5, 1, 2, 3, 4, 4.5, 5]) {
       const result = createWorkSchema.safeParse({ ...validWork, rating });
       expect(result.success).toBe(true);
     }
   });
 
-  it("rejects rating outside 1-5", () => {
-    expect(createWorkSchema.safeParse({ ...validWork, rating: 0 }).success).toBe(false);
-    expect(createWorkSchema.safeParse({ ...validWork, rating: 6 }).success).toBe(false);
+  it("rejects a rating outside 0.5 to 5 or between half steps", () => {
+    for (const rating of [0, 4.3, 5.5, 6])
+      expect(createWorkSchema.safeParse({ ...validWork, rating }).success).toBe(false);
   });
 
   it("accepts year range -3000 to 2100", () => {

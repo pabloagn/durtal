@@ -1,5 +1,6 @@
 "use client";
 
+import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import { VENUE_TYPE_LABELS, VENUE_TYPES } from "@/lib/catalogue/venues";
 import { firstPageHref } from "@/lib/utils/list-params";
 
@@ -50,7 +51,7 @@ export function PlacesFiltersBar({
   // --- Active filter values from URL ---
   const activeFilters: Record<string, string[]> = {
     type: searchParams.get("type")?.split(",").filter(Boolean) ?? [],
-    favorite: searchParams.get("favorite") ? [searchParams.get("favorite")!] : [],
+    favourites: favouritesOnly(searchParams.get(FAVOURITES_PARAM)) ? ["true"] : [],
     country: searchParams.get("country")?.split(",").filter(Boolean) ?? [],
     archived: searchParams.get("archived") ? [searchParams.get("archived")!] : [],
   };
@@ -70,9 +71,9 @@ export function PlacesFiltersBar({
       options: countries.map((c) => ({ value: c.id, label: c.name })),
     },
     {
-      key: "favorite",
-      label: "Favorites",
-      options: [{ value: "true", label: "Favorites only" }],
+      key: FAVOURITES_PARAM,
+      label: "Favourites",
+      options: [{ value: "true", label: "Favourites only" }],
     },
     {
       key: "archived",
@@ -92,11 +93,11 @@ export function PlacesFiltersBar({
       const next = values.filter((v) => v !== current).at(-1) ?? values[0];
       if (next) params.set("archived", next);
       else params.delete("archived");
-    } else if (key === "favorite") {
+    } else if (key === FAVOURITES_PARAM) {
       if (values.length > 0) {
-        params.set("favorite", "true");
+        params.set(FAVOURITES_PARAM, "true");
       } else {
-        params.delete("favorite");
+        params.delete(FAVOURITES_PARAM);
       }
     } else if (values.length > 0) {
       params.set(key, values.join(","));
@@ -108,7 +109,7 @@ export function PlacesFiltersBar({
 
   function handleClearAll() {
     const params = new URLSearchParams(searchParams.toString());
-    for (const key of ["type", "favorite", "country", "archived"]) params.delete(key);
+    for (const key of ["type", FAVOURITES_PARAM, "country", "archived"]) params.delete(key);
       router.push(firstPageHref("/places", params));
   }
 

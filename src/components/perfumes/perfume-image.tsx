@@ -1,6 +1,7 @@
 import { FadeImage } from "@/components/shared/fade-image";
 import { Flacon } from "@/components/shared/no-photo";
 import { coverToneStyle } from "@/lib/utils/media-style";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /** The URL of a stored image's display (or thumbnail) size */
 export function imageUrl(
@@ -8,7 +9,7 @@ export function imageUrl(
   { thumbnail = true }: { thumbnail?: boolean } = {},
 ) {
   const key = thumbnail ? (image?.thumbnailS3Key ?? image?.s3Key) : image?.s3Key;
-  return key ? `/api/s3/read?key=${encodeURIComponent(key)}` : null;
+  return key ? mediaUrl(key) : null;
 }
 
 /**

@@ -6,6 +6,7 @@ import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/med
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { displayYear } from "@/lib/utils/years";
 import { PersonRoles } from "@/components/people/person-roles";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
@@ -35,6 +36,8 @@ interface AuthorCardProps {
   preferKind?: WorkKind | null;
   /** Roles the list is filtered by: they lead the role line */
   preferRoles?: string[] | null;
+  /** The favourite star shows when this is given */
+  isFavourite?: boolean;
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -57,6 +60,7 @@ export function AuthorCard({
   roles,
   preferKind,
   preferRoles,
+  isFavourite,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -153,16 +157,31 @@ export function AuthorCard({
         </div>
       )}
 
-      {/* Meta — navigates on click */}
-      <Link
-        href={href}
-        className={`block ${isSelecting ? "pointer-events-none" : ""}`}
-        tabIndex={isSelecting ? -1 : undefined}
-      >
+      {/* Meta — navigates on click. The link covers the text, so the
+          favourite star can sit above it */}
+      <div className="relative">
+        <Link
+          href={href}
+          aria-label={name}
+          className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
+          tabIndex={-1}
+        />
         <div className="p-3.5">
           {/* Two name lines and one nationality line, always: every author
               card has the same height. The portrait shows no overlay. */}
-          <CardHeading title={name} subtitle={nationality} />
+          <CardHeading
+            title={name}
+            subtitle={nationality}
+            action={
+              isFavourite === undefined ? undefined : (
+                <FavouriteToggle
+                  favourite={isFavourite}
+                  target={{ entity: "author", id }}
+                  name={name}
+                />
+              )
+            }
+          />
           {/* What the person is: one line, reserved when empty */}
           <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} className="mt-1" />
           <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
@@ -174,7 +193,7 @@ export function AuthorCard({
             )}
           </div>
         </div>
-      </Link>
+      </div>
     </div>
   );
 }

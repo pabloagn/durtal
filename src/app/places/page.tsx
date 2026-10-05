@@ -1,4 +1,5 @@
 import { PaginatedSection } from "@/components/shared/pagination";
+import { favouritesOnly } from "@/lib/constants/favourites";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Suspense } from "react";
@@ -24,7 +25,7 @@ interface PageProps {
     page?: string;
     perPage?: string;
     type?: string;
-    favorite?: string;
+    favourites?: string;
     country?: string;
     archived?: string;
   }>;
@@ -40,7 +41,7 @@ async function PlacesContent({
     page?: string;
     perPage?: string;
     type?: string;
-    favorite?: string;
+    favourites?: string;
     country?: string;
     archived?: string;
   };
@@ -51,7 +52,7 @@ async function PlacesContent({
   const typeFilter = searchParams.type
     ?.split(",")
     .filter((value): value is VenueType => VENUE_TYPES.includes(value as VenueType));
-  const favoriteFilter = searchParams.favorite === "true" ? true : undefined;
+  const favoriteFilter = favouritesOnly(searchParams.favourites) ? true : undefined;
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const countryFilter = searchParams.country?.split(",").filter((id) => UUID.test(id)).slice(0, 50);
   const archivedFilter: "include" | "only" | undefined =
