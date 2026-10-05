@@ -63,6 +63,10 @@ format, and see the book's whole reading history. No migration.
   activation, "1 star"), `reading-menu-shortcuts.test.ts`; database suite
   `book-page-reading.test.ts` (`atHandCopySql` agrees with `isAtHand` for 21
   copies at three places; `nextToRead` and `getNextInSeries`).
+- `pnpm typecheck` clean; `pnpm deadcode` clean; `python3 scripts/qa/test-local.py`:
+  171 files, 1941 tests, 0 skipped. `pnpm lint`: 0 errors, 82 warnings (one
+  more than before: the R menu reads the page's actions the way the E menu
+  does).
 - Preview from `live-before-0064-0065-20261005-013641.dump`, seeded with
   `scripts/qa/reading-journey.sql` and one book per state.
 - `node scripts/qa/journeys.mjs --disposable <preview> reading`: passes every

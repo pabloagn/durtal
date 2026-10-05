@@ -86,7 +86,9 @@ export function TiptapEditor({
 }) {
   const id = useId();
   const changed = useRef(onChange);
-  changed.current = onChange;
+  useEffect(() => {
+    changed.current = onChange;
+  });
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [

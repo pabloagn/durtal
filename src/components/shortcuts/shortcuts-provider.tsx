@@ -323,10 +323,8 @@ export function ShortcutsProvider({
         icon: item.key === COPY_KEYS.link ? Link2 : Copy,
         hint: preview(item.text),
       }));
-    if (menu === "edit")
-      return editItems().map(({ key, label, icon }) => ({ key, label, icon }));
-    if (menu === "reading")
-      return readingItems().map(({ key, label, icon }) => ({ key, label, icon }));
+    if (menu === "edit" || menu === "reading")
+      return (menu === "edit" ? editItems : readingItems)().map(({ key, label, icon }) => ({ key, label, icon }));
     return [];
   }, [menu, copyItems, editItems, readingItems]);
 
