@@ -2,6 +2,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { TitleCard } from "@/components/shared/no-photo";
 import { coverToneStyle } from "@/lib/utils/media-style";
 import { paintingRatio } from "@/lib/catalogue/painting-labels";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface PaintingImageData {
   s3Key: string;
@@ -18,7 +19,7 @@ export function paintingImageUrl(
   { thumbnail = true }: { thumbnail?: boolean } = {},
 ) {
   const key = thumbnail ? (image?.thumbnailS3Key ?? image?.s3Key) : image?.s3Key;
-  return key ? `/api/s3/read?key=${encodeURIComponent(key)}` : null;
+  return key ? mediaUrl(key) : null;
 }
 
 /**

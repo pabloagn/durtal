@@ -15,6 +15,7 @@ import {
 } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface SeriesBook {
   id: string;
@@ -119,7 +120,7 @@ export function SeriesBooks({
             <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
               {book.cover && (
                 <img
-                  src={`/api/s3/read?key=${encodeURIComponent(book.cover)}`}
+                  src={mediaUrl(book.cover)}
                   alt=""
                   className="protected-image h-full w-full object-cover"
                   style={mediaImageStyle(book.coverCrop)}
