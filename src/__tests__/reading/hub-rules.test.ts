@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { journalGroup, parseJournalQuery } from "@/lib/reading/journal-params";
 import { addBookParams, bookPickerAddHref, isbnOf, pickerReadingState } from "@/lib/reading/book-picker";
-import { paletteReadingItems, type PaletteOpenReading } from "@/lib/reading/palette";
+import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
 import { READING_TABS, readingTabs } from "@/components/reading/reading-tabs";
 import { agoText, lastReadText } from "@/lib/reading/labels";
 
@@ -143,6 +143,21 @@ describe("paletteReadingItems", () => {
       ["Log 50% · Watt", "fp-r1", "r1"],
       ["Log 50% · Molloy", "fp-r2", "r2"],
     ]);
+  });
+});
+
+describe("queryNamesATitle", () => {
+  it("finds the query as a whole word of a title", () => {
+    expect(queryNamesATitle("451", ["Watt", "Fahrenheit 451"])).toBe(true);
+    expect(queryNamesATitle(" 84 ", ["84, Charing Cross Road"])).toBe(true);
+    expect(queryNamesATitle("22", ["Catch-22"])).toBe(true);
+  });
+
+  it("does not take part of a word, or no title, or no query", () => {
+    expect(queryNamesATitle("45", ["Fahrenheit 451"])).toBe(false);
+    expect(queryNamesATitle("212", ["Watt"])).toBe(false);
+    expect(queryNamesATitle("212", [])).toBe(false);
+    expect(queryNamesATitle("", ["Fahrenheit 451"])).toBe(false);
   });
 });
 

@@ -49,7 +49,8 @@ function fits(input: ProgressInput, r: PaletteOpenReading["reading"]) {
 /**
  * The palette's reading items. `smart`: when the query is a position ("212",
  * "44%", "+20", "3:12") that fits a reading, one "Log p. 212 · Title" per such
- * reading; they come first. A chapter is never read from the query, since a
+ * reading; they come first, unless a book found for the query has it as a word
+ * of its title (`queryNamesATitle`). A chapter is never read from the query, since a
  * search for "Chekhov" would read as chapter "ekhov". `log`: one "Log progress ·
  * Title" per open reading.
  */
@@ -75,4 +76,16 @@ export function paletteReadingItems(query: string, openReadings: PaletteOpenRead
     });
   }
   return { smart, log };
+}
+
+/**
+ * True when the query is a whole word of a title: "451" of "Fahrenheit 451",
+ * "84" of "84, Charing Cross Road", "22" of "Catch-22". The palette then puts
+ * the book first and the smart log items after the book results, so Enter
+ * opens the book. "45" is not a word of "Fahrenheit 451".
+ */
+export function queryNamesATitle(query: string, titles: string[]) {
+  const word = query.trim().toLowerCase();
+  if (!word) return false;
+  return titles.some((title) => title.toLowerCase().split(/[^\p{L}\p{N}]+/u).includes(word));
 }

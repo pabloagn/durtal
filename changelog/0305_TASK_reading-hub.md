@@ -56,7 +56,10 @@ flow. No migration.
   progress per open reading, Start reading..., Log a past read...) and, first,
   smart items for a typed position (`paletteReadingItems`,
   `src/lib/reading/palette.ts`; "+20" stays relative). The open readings load
-  each time the palette opens.
+  each time the palette opens. From #96's review: when a book found for the
+  query has the number as a word of its title ("451", "84", "Catch-22"), the
+  book comes first and the smart items follow the book groups
+  (`queryNamesATitle`), so Enter opens the book.
 - Dashboard: Currently reading tiles (three at most) and Recently finished
   covers (four at most) after the Books block.
 - Page weight: `RatingStars` is one SVG with the star path once (the same

@@ -29,7 +29,7 @@ import { SETTINGS_SECTIONS } from "@/components/settings/sections";
 import { monogramTint } from "@/components/shared/no-photo";
 import { useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
 import { getOpenReadings } from "@/lib/actions/reading";
-import { paletteReadingItems, type PaletteOpenReading } from "@/lib/reading/palette";
+import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -215,8 +215,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigationItems = trimmed
     ? filterBySearch([...NAVIGATION_ITEMS, ...SETTINGS_ITEMS], trimmed, (i) => i.label)
     : NAVIGATION_ITEMS;
-  // "212" logs page 212: those items come first; then the Reading group
+  // "212" logs page 212: those items come first; then the Reading group.
+  // "451" opens Fahrenheit 451 first: a found title with the number as a word
+  // puts the books before the log items
   const { smart: smartItems, log: logItems } = paletteReadingItems(trimmed, openReadings);
+  const smartFirst = !queryNamesATitle(
+    trimmed,
+    results.works.map((work) => work.title),
+  );
   const allReadingItems: (PaletteItem & { value: string })[] = [
     ...logItems.map((item) => ({ value: item.value, label: item.label, icon: BookMarked, run: () => void reading.open(item.request) })),
     { value: "reading:start", label: "Start reading...", icon: BookPlus, run: () => reading.pick("start") },
@@ -224,8 +230,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   ];
   const readingItems = trimmed ? filterBySearch(allReadingItems, trimmed, (i) => i.label) : allReadingItems;
   const firstValue =
-    (smartItems[0] && smartItems[0].value) ||
+    (smartFirst && smartItems[0] && smartItems[0].value) ||
     (results.works[0] && `work:${results.works[0].id}`) ||
+    (smartItems[0] && smartItems[0].value) ||
     (results.people[0] && `person:${results.people[0].id}`) ||
     (results.organizations[0] && `org:${results.organizations[0].id}`) ||
     (results.venues[0] && `venue:${results.venues[0].id}`) ||
@@ -243,6 +250,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [firstValue]);
 
   if (!open) return null;
+
+  const smartGroup = smartItems.length > 0 && (
+    <Command.Group heading="Log progress" className={GROUP_CLASS}>
+      {smartItems.map((item) => (
+        <PaletteRow
+          key={item.value}
+          item={{ label: item.label, icon: BookMarked }}
+          value={item.value}
+          onSelect={() => {
+            onOpenChange(false);
+            void reading.open(item.request);
+          }}
+        />
+      ))}
+    </Command.Group>
+  );
 
   return (
     <div className="fixed inset-0 z-50">
@@ -279,21 +302,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </div>
 
           <Command.List className="max-h-96 overflow-y-auto p-2">
-            {smartItems.length > 0 && (
-              <Command.Group heading="Log progress" className={GROUP_CLASS}>
-                {smartItems.map((item) => (
-                  <PaletteRow
-                    key={item.value}
-                    item={{ label: item.label, icon: BookMarked }}
-                    value={item.value}
-                    onSelect={() => {
-                      onOpenChange(false);
-                      void reading.open(item.request);
-                    }}
-                  />
-                ))}
-              </Command.Group>
-            )}
+            {smartFirst && smartGroup}
 
             {RESULT_KINDS.map((kind) => {
               const works = results.works.filter((work) => work.kind === kind);
@@ -327,6 +336,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 </Command.Group>
               );
             })}
+
+            {!smartFirst && smartGroup}
 
             {results.people.length > 0 && (
               <Command.Group heading="People" className={GROUP_CLASS}>
