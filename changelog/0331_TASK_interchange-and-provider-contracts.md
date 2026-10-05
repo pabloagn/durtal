@@ -101,7 +101,7 @@ the reading CSV import with its bronze copy, do not change. No schema change.
     person already here is not given back a removed source; an edition here
     that names a publisher the import adds is linked to it once the import
     ends.
-- `python3 scripts/qa/test-local.py`: 2296 tests in 205 files passed, none
+- `python3 scripts/qa/test-local.py`: 2298 tests in 205 files passed, none
   skipped, against 69 disposable databases, plus both Python checks.
   `pnpm typecheck` and lint of the changed files are clean.
 - Limitations: images, comments, activity, readings, orders and acquisition
