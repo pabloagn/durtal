@@ -25,6 +25,8 @@ export async function generateMetadata({ params }: { params: Promise<{ year: str
 const book = (b: { slug: string | null; workId: string }) => `/library/${b.slug ?? b.workId}`;
 const link = "text-fg-primary transition-colors hover:text-accent-rose-text";
 const evidence = "text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary";
+/** Covers a month shows at most; the rest are a "+38" tile to the journal, so a year of hundreds stays within the page budget */
+const WALL_MONTH = 12;
 
 /**
  * Year in review (SLN-456): one year's reading as a long page that also
@@ -128,7 +130,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                   <span className="ml-2 tabular-nums sm:ml-0 sm:block">{n(books.length)}</span>
                 </p>
                 <ul className="flex flex-wrap gap-2">
-                  {books.map((b) => (
+                  {books.slice(0, WALL_MONTH).map((b) => (
                     <li key={`${b.workId}-${b.finishedOn}`}>
                       <Link
                         href={book(b)}
@@ -140,6 +142,19 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                       </Link>
                     </li>
                   ))}
+                  {books.length > WALL_MONTH && (
+                    <li>
+                      <Link
+                        href={`${journal}&status=finished`}
+                        aria-label={`${n(books.length - WALL_MONTH)} more in the journal`}
+                        data-tooltip="See them in the journal"
+                        className="flex aspect-[2/3] w-14 items-center justify-center rounded-sm border border-glass-border text-xs text-fg-secondary tabular-nums transition-colors hover:text-fg-primary"
+                        data-review-more=""
+                      >
+                        +{n(books.length - WALL_MONTH)}
+                      </Link>
+                    </li>
+                  )}
                 </ul>
               </div>
             ))}
