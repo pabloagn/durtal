@@ -90,6 +90,7 @@ import { getRecommenderList, getRecommender } from "@/lib/actions/recommenders";
 import { loadDataset } from "@/lib/harmonization/store";
 import { scanDataset } from "@/lib/harmonization/engine";
 import { previewMerge, executeMerge } from "@/lib/harmonization/merge";
+import { addToQueue } from "@/lib/actions/reading-queue";
 import { POST as exportCatalogue } from "@/app/api/export/route";
 import { recordActivity } from "@/lib/activity/record";
 import { processAndUploadCover } from "@/lib/s3/covers";
@@ -339,6 +340,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
             orderDate: "2026-09-30",
           }),
         () => updateOrder(order, { workId: other.id }),
+        () => addToQueue({ workId: other.id }),
       ];
       for (const attempt of attempts)
         await expect(attempt()).rejects.toThrow(/(?:Book|Work) not found/);
@@ -383,6 +385,11 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
             await c`insert into imports(source,status) values ('goodreads','pending') returning id`;
           await c`insert into reading_import_rows(import_id,row_no,data,work_id) values (${imp.id},1,'{}'::jsonb,${books[0]})`;
           return c`update reading_import_rows set work_id = ${other.id} where import_id = ${imp.id}`;
+        },
+        () => c`insert into reading_queue(work_id,position) values (${other.id},1024)`,
+        async () => {
+          await c`insert into reading_queue(work_id,position) values (${books[0]},2048) on conflict do nothing`;
+          return c`update reading_queue set work_id = ${other.id} where work_id = ${books[0]}`;
         },
       ];
       for (const statement of statements)
