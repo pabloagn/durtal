@@ -120,12 +120,12 @@ describe.skipIf(!url)("search and lists across the collections", () => {
       expect.objectContaining({ kind: "perfume", title: "Shalimar", creators: ["Guerlain"] }),
     ]);
     expect(found.works[0].href).toMatch(/^\/perfumes\//);
-    // A retailer with no page of its own is left out until organizations have pages
+    // A retailer leads no list, so it opens its own organization page
     expect(found.organizations.map((o) => [o.name, o.href, o.roles])).toEqual([
       ["Guerlain", `/perfumes?house=${guerlain.id}`, "Perfume house · Retailer"],
       ["Guerlain Éditions", `/publishers/${publisher.slug}`, "Publisher"],
+      ["Guerlain Boutiques", `/organizations/${shop.slug}`, "Retailer"],
     ]);
-    expect(found.organizations.map((o) => o.id)).not.toContain(shop.id);
     // Archived places stay out
     expect(found.venues).toEqual([
       { id: venue.id, name: "Guerlain Champs-Élysées", href: `/places/${venue.slug}`, type: "Perfumery" },
