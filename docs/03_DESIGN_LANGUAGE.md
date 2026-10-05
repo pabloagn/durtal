@@ -338,6 +338,17 @@ The one running reading timer shows in a chip (`src/components/reading/timer-chi
 - After the check time in Settings → Reading, the chip reads "Still reading?". It never turns red: no estimate or timer scolds.
 - An estimate's info button opens a glass popover (a native `popover`, so cards that clip do not cut it).
 
+### Quotes and notes
+
+A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453) looks the same on the book page, on `/reading/notes` and on the hub.
+
+- The passage is long reading text: `Prose` (EB Garamond, the `type-prose` role, 4.5:1 or more), its line breaks kept (`whitespace-pre-line`). A quote has a 2px rule at its left (`border-accent-rose/40`) and 16px before the text; a note has none.
+- His thought sits under it in 14px `fg-secondary` text, aligned with the passage's text (18px in for a quote).
+- Then one 12px line: where it is ("p. 212 · ch. 7 · 2nd read"; on `/reading/notes` the book's title first, a link), with the star (`FavouriteToggle`) and the menu at its right in `CapAligned height={32} coarseHeight={44}`: 32px targets, 44px on touch.
+- Items are separated by a `glass-border` rule and 20px above and below; the first has no rule.
+- **The passage of the day** on `/reading` is the same quote layout under a `SectionHeading` "Passage of the day" with "Another" at its right, then a caption: the book (a link), author and page. A passage over 600 characters opens at 8 lines with "Show all".
+- **The note dialog** is a `max-w-lg` dialog: Quote / Note (`SegmentedControl`), the labelled text area, page and chapter side by side, the reading, "Your thought" (`TiptapEditor`) for a quote, and a Favourite switch. On touch the empty text area has a one-line hint, "To copy a printed page, tap and hold here, then Scan Text."
+
 ### Tooltips
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.

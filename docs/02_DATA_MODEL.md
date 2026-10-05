@@ -1858,9 +1858,10 @@ One data row of an uploaded reading history file (SLN-450), so an import's worki
 | `data` | JSONB | NOT NULL | The parsed `ImportRow` (`src/lib/reading/import/types.ts`): everything the file carries, private notes, to-read rows and StoryGraph moods included, for Up next, notes and enrichment |
 | `match` | JSONB | nullable | How the book was found, the reason, up to three candidates with scores, one duplicate verdict per reading, the section and its note |
 | `decision` | TEXT | NOT NULL, default `'pending'`, CHECK in `pending`, `import`, `skip` | |
+| `note_decision` | TEXT | NOT NULL, default `'pending'`, CHECK in `pending`, `import`, `skip` | His choice for the row's Goodreads private note (SLN-453, migration 0069), apart from `decision`: a row whose readings are already in Durtal can still bring its note. An upload sets `import` for rows with a note in the Exact section |
 | `use_file_rating` | BOOLEAN | NOT NULL, default `false` | "Use the file's rating": the commit replaces a different book rating |
 | `work_id` | UUID | nullable, FK → `works` SET NULL | The matched or chosen book; trigger `book_parent_required` |
-| `written` | JSONB | nullable | What the commit wrote: each reading's outcome and id, the book rating `{ workId, before, after }`, the Goodreads identifier ids. Undo reads it |
+| `written` | JSONB | nullable | What the commit wrote: each reading's outcome and id, the book rating `{ workId, before, after }`, the Goodreads identifier ids, the Up Next item, and `noteIds`, the note made from the row's private note. Undo reads it. The readings' rules (a decision refused once written, the next commit) look only at the reading outcomes and the Up Next item (`readingsCommitted`), never at `noteIds` |
 
 A book merge moves `work_id` like any single-column reference. Matching (`src/lib/reading/import/match.ts`) tries, in order: the Durtal work id; a reading that already has one of the row's source keys; the Goodreads Book Id (an edition's `goodreads_id` or a goodreads catalogue identifier); the id in `works.goodreads_url`; an ISBN; then title and author (`strict_word_similarity` both ways after `search_normalize`, 0.8 for likely, 0.5 for a candidate, the author's surname required for likely).
 
@@ -2328,6 +2329,36 @@ Up Next (SLN-452, migration `0068_reading_queue`): the books he wants to read ne
 
 Index on `position`. `guard_reading_queue` (BEFORE INSERT OR UPDATE) checks the edition only when it is set and new, changed, or its row moved to another book: an edition of another book raises 23514 `reading_queue_edition_work`, "This edition belongs to another book". Clearing the edition (an edition delete) and a renumber of positions or a note change never re-check it. Starting a book takes it off Up Next in the same write (`createReading`, and `writeReadings` for an open or paused row); a finished or abandoned past read leaves it.
 
+### `reading_notes`
+
+The commonplace book (SLN-453, migration `0069_reading_notes`): a passage he keeps (a quote, with his thought about it) or his own note, against a book and, when known, its page, chapter, edition and reading.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `work_id` | UUID | NOT NULL, FK → `works` CASCADE | Books only (`book_parent_required`). Deleting the book deletes its notes |
+| `reading_id` | UUID | nullable, FK → `readings` SET NULL | The read it belongs to; on the note's book (`guard_reading_note`) |
+| `edition_id` | UUID | nullable, FK → `editions` SET NULL | The edition its page is in; on the note's book. A note on a reading takes the reading's edition unless it names another |
+| `kind` | TEXT | NOT NULL, CHECK in (`quote`, `note`) | |
+| `body` | TEXT | NOT NULL, CHECK 1 to 10,000 characters | The passage or the note: plain text with its line breaks |
+| `comment_html` | TEXT | nullable | His thought about a quote, from `TiptapEditor`, sanitized on the server with `sanitizeCommentHtml` |
+| `comment_json` | JSONB | nullable | The same thought as a Tiptap document |
+| `page` | INTEGER | nullable, CHECK 0 or more | |
+| `chapter` | TEXT | nullable, CHECK 1 to 300 characters | |
+| `percent` | NUMERIC(5,2) | nullable, CHECK 0 to 100 | When not given, `percentOf` the page and the reading's `total_pages`, else the edition's `page_count` |
+| `is_favourite` | BOOLEAN | NOT NULL, default `false` | The star. A star counts as an edit for an import's undo |
+| `source` | TEXT | NOT NULL, default `'manual'`, CHECK in (`manual`, `reader`, `import`) | Pages always write `manual` |
+| `import_id` | UUID | nullable, FK → `imports` SET NULL | The import that wrote it |
+| `source_key` | TEXT | nullable, UNIQUE | `goodreads-note:<Book Id>` (else `isbn13:` or `title:` fallbacks), built only by `goodreadsNoteKey`; a re-import never duplicates |
+| `search_text` | TEXT | GENERATED ALWAYS, STORED | `search_normalize(body \|\| ' ' \|\| coalesce(chapter, ''))`, like `authors.search_text`: accent-free, lower case |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, default now | An imported note whose `updated_at` is still its `created_at` is unedited |
+
+`reading_note_comment_check`: only a quote carries a thought (`kind = 'quote'` or both comment columns null). `reading_note_values_check` holds the kind, source, body, page, chapter and percent rules. Indexes: `reading_note_work_page_idx (work_id, page)`, `reading_note_created_idx (created_at)`, `reading_note_search_trgm_idx` (GIN `gin_trgm_ops` on `search_text`), and `reading_note_reading_idx`, `reading_note_edition_idx`, `reading_note_import_idx` for the `on delete set null` cascades. No e-book anchor here: the e-book reader keeps its own highlights.
+
+`guard_reading_note` (BEFORE INSERT OR UPDATE), in order: (1) the audited book merge passes: an UPDATE that moves `work_id`, keeps `reading_id` and is allowed by `harmonization_allows_move('works', old, new)` returns at once, since the merge moves `reading_notes` before `readings`; (2) a set edition that is new, changed or moved with its note must be on the note's book, else 23514 `reading_note_edition_work`, "This edition belongs to another book"; (3) the same for the reading, 23514 `reading_note_reading_work`, "This reading belongs to another book". An update that only sets references to null never raises. A direct move of a note to another book with its reading is refused.
+
+Keeping notes consistent: a book merge moves `work_id` with no merge code (a single-column reference). An edition moved to another book is cleared from the old book's notes (`updateEdition`; the note keeps its book, page and percent); a placeholder's notes move to the real edition (`moveToExistingEdition`). Neither touches `updated_at`. A deleted reading leaves its notes on the book with no reading; `deleteReading`'s snapshot holds their ids and `restoreReading` links back the ones still without a reading on the same book. `getReadingCounts` also returns `quotes` and `notes`, for the book delete's warning.
+
 ### Guards and null rules
 
 `edition_id` and `instance_id` are `on delete set null`, and Postgres applies that as an UPDATE that fires BEFORE UPDATE triggers, so the guards check a reference only when it is set and new or changed: `guard_reading` clears `instance_id` when `edition_id` is null, then checks the edition's book (`reading_edition_work`, "This edition belongs to another book") and the copy's edition (`reading_instance_edition`, "This copy belongs to another edition"); `guard_reading_session` checks a session's edition (`reading_session_edition_work`). An update that only sets references to null never raises, so deleting an edition, a copy, a location or the book needs no extra code. A book merge moves `readings.work_id` after the editions, so the guard lets it through; it is refused while both books have an open reading. An edition moved to another book clears it from the old book's readings and their sessions (`updateEdition`); a placeholder edition's readings and sessions move to the real edition (`moveToExistingEdition`). The same two steps clear or carry a queued edition in `reading_queue` (SLN-452). A book merge moves `reading_queue.work_id` with `readingQueueMergeQueries` (`src/lib/harmonization/reading-queue-merge.ts`): `work_id` is unique, so when both books are queued the row with the later position goes and the earlier one keeps its place, note and edition.
@@ -2342,7 +2373,7 @@ Which rating feeds what: the book's rating is `works.rating` (library filters an
 
 ### Source keys and duplicates
 
-`src/lib/reading/source-keys.ts` builds every key: `goodreads:<Book Id>#<n>` (else `goodreads:isbn13:<ISBN>#<n>`, else `goodreads:title:<hash>#<n>`), `storygraph:<hash>#<n>`, `seed:<hash>`, `durtal:<reading id>`, `durtal-import:<hash of the row>`, `reader:<e-book id>` (the reader's own e-book record, an opaque id; no Calibre key), and the Up Next and note keys of later steps. A hash is the SHA-256 of the normalized parts (NFKD, marks dropped, lower case, runs of non-letters and non-digits as one space) joined with `|`. `src/lib/reading/duplicates.ts` holds the one duplicate rule: the same reading or source key; the same read (same status, the same finish date at the coarser precision); an undated read against that status's unmatched readings (imports create only the undated reads beyond those already there; elsewhere it is a possible duplicate, written only when chosen). Each existing reading matches one row at most.
+`src/lib/reading/source-keys.ts` builds every key: `goodreads:<Book Id>#<n>` (else `goodreads:isbn13:<ISBN>#<n>`, else `goodreads:title:<hash>#<n>`), `storygraph:<hash>#<n>`, `seed:<hash>`, `durtal:<reading id>`, `durtal-import:<hash of the row>`, `reader:<e-book id>` (the reader's own e-book record, an opaque id; no Calibre key), the Up Next keys `goodreads-to-read:` and `storygraph-to-read:` (SLN-452), and the note key `goodreads-note:` (SLN-453). A hash is the SHA-256 of the normalized parts (NFKD, marks dropped, lower case, runs of non-letters and non-digits as one space) joined with `|`. `src/lib/reading/duplicates.ts` holds the one duplicate rule: the same reading or source key; the same read (same status, the same finish date at the coarser precision); an undated read against that status's unmatched readings (imports create only the undated reads beyond those already there; elsewhere it is a possible duplicate, written only when chosen). Each existing reading matches one row at most.
 
 ## Activity & Comments
 
