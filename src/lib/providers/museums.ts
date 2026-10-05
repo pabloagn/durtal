@@ -163,6 +163,7 @@ export const articArtworks: ProviderAdapter<"painting"> = {
 // ── The Metropolitan Museum of Art ───────────────────────────────────────────
 
 const MET = "https://collectionapi.metmuseum.org/public/collection/v1";
+const MET_SEARCH = "https://collectionapi.metmuseum.org/public/collection/v1.1/search";
 
 /** The Met's answer in the common shape */
 export function metArtwork(data: Record<string, unknown>): MuseumArtwork {
@@ -200,7 +201,8 @@ export const metArtworks: ProviderAdapter<"painting"> = {
   limits: { timeoutMs: 15000, minIntervalMs: 1000, maxResults: 10 },
 
   async search({ text: query }, { signal }) {
-    const url = `${MET}/search?${new URLSearchParams({ q: query, hasImages: "false" })}`;
+    // v1/search was retired on 2026-10-01; v1.1 pages its answer
+    const url = `${MET_SEARCH}?${new URLSearchParams({ q: query, offset: "0", limit: "8" })}`;
     const body = (await (await fetchOk(url, { signal })).json()) as { objectIDs?: number[] | null };
     // The search answers ids only: each one is read, a few at most
     const hits = [];

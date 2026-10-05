@@ -44,7 +44,7 @@ function museum(input: string | URL) {
   const address = String(input);
   asked.push(address);
   if (offline) throw new TypeError("fetch failed");
-  const body = address.includes("/search?") ? { total: 1, objectIDs: [437397] } : met;
+  const body = address.includes("/v1.1/search?") ? { total: 1, objectIDs: [437397] } : met;
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }
 const rembrandt = () => ({
