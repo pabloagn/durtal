@@ -113,7 +113,7 @@ import can be undone. Migration 0066 adds `reading_import_rows` and
   `test_reading_seed.py`: 10 tests.
 - `pnpm typecheck` clean; `pnpm deadcode` clean; `pnpm lint` 0 errors, 81
   warnings, none in the new files; `python3 scripts/qa/test-local.py`: both
-  Python test files, then 186 files, 2091 tests, 0 failed, 0 skipped.
+  Python test files, then 186 files, 2092 tests, 0 failed, 0 skipped.
 - Matching on a preview of `live-before-0064-0065-20261005-013641.dump`
   (699 books, 505 editions with an ISBN-13, 2 with a Goodreads id), with a
   synthetic 2,000-row Goodreads file built from it (502 rows by ISBN, 187 by
