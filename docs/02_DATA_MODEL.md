@@ -1693,9 +1693,10 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_day_start_hour` | SMALLINT | NOT NULL, default `4`, CHECK 0–6 (migration `0067_reading_sessions_timer`). A session before this hour counts for the day before. Read by every writer that sets a `read_on` or defaults a reading date; a change applies to new sessions only |
 | `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
 | `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
+| `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
-The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The three reading columns are changed from Settings → Reading (`/settings/reading`).
+The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The four reading columns are changed from Settings → Reading (`/settings/reading`).
 
 ### `collections`
 
@@ -2358,6 +2359,22 @@ The commonplace book (SLN-453, migration `0069_reading_notes`): a passage he kee
 `guard_reading_note` (BEFORE INSERT OR UPDATE), in order: (1) the audited book merge passes: an UPDATE that moves `work_id`, keeps `reading_id` and is allowed by `harmonization_allows_move('works', old, new)` returns at once, since the merge moves `reading_notes` before `readings`; (2) a set edition that is new, changed or moved with its note must be on the note's book, else 23514 `reading_note_edition_work`, "This edition belongs to another book"; (3) the same for the reading, 23514 `reading_note_reading_work`, "This reading belongs to another book". An update that only sets references to null never raises. A direct move of a note to another book with its reading is refused.
 
 Keeping notes consistent: a book merge moves `work_id` with no merge code (a single-column reference). An edition moved to another book is cleared from the old book's notes (`updateEdition`; the note keeps its book, page and percent); a placeholder's notes move to the real edition (`moveToExistingEdition`). Neither touches `updated_at`. A deleted reading leaves its notes on the book with no reading; `deleteReading`'s snapshot holds their ids and `restoreReading` links back the ones still without a reading on the same book. `getReadingCounts` also returns `quotes` and `notes`, for the book delete's warning.
+
+### `reading_goals`
+
+Optional yearly goals (SLN-455, migration `0070_reading_goals`). No book, so no `book_parent_required`. Progress is computed per request (`getGoalProgress`), never stored.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `year` | SMALLINT | NOT NULL, CHECK 1900–2200 | |
+| `metric` | TEXT | NOT NULL, CHECK in (`books`, `pages`, `hours`) | |
+| `target` | INTEGER | NOT NULL, CHECK 1–100,000 | |
+| `count_rereads` | BOOLEAN | NOT NULL, default `true` | Off: a re-read (`rereadSql`: a finished reading of the book before it) adds no books, pages or hours |
+| `excluded_work_type_ids` | UUID[] | NOT NULL, default `'{}'` | Work types left out (reference books); an id that no longer exists is ignored |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, default now | |
+
+Unique `(year, metric)` (`reading_goal_year_metric_unique`): a books goal and an hours goal can sit side by side, never two of one metric. The counts (`src/lib/actions/reading-goals.ts`, one query): **books**, finished readings with a known finish in the year, at day, month or year precision (unknown and abandoned never count); **pages**, `countedPagesSql` rows whose day falls in the year, summed then rounded (each page once, from the start page, the closing session of a finish included; an audiobook without `total_pages` counts 0); **hours**, the `duration_seconds` of sessions whose `read_on` falls in the year, the running timer left out. The year runs on reading days: a session's `read_on` is its day in its own zone with the day start hour. The **rhythm** reads the same `read_on` (an ended session; the running timer never counts) and day-precision finishes.
 
 ### Guards and null rules
 
