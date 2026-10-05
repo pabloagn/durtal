@@ -314,7 +314,7 @@ async function readingJourney() {
       await expectLabel("p\\. 240 of 480 · 50%");
     });
     await step("finish with 4.5 and a review; undo; finish again", async () => {
-      const finish = async () => {
+      const finish = async (review) => {
         await menu("Finish");
         await waitFor(`${DIALOG}?.querySelector('[role=slider]')`, "the Finish dialog");
         // One key at a time: the slider renders between keys, as when typed
@@ -323,27 +323,31 @@ async function readingJourney() {
           await sleep(200);
         }
         await waitFor(`${DIALOG}.querySelector('[role=slider]').getAttribute('aria-valuetext') === '4.5 stars'`, "the rating 4.5");
-        await evaluate(`(() => { window.prompt = () => 'https://example.com/watt'; const area = ${DIALOG}.querySelector('[contenteditable=true]'); area.focus(); return true; })()`);
-        await send("Input.insertText", { text: "A strange comedy" });
-        await evaluate(`(() => { const sel = getSelection(); sel.selectAllChildren(${DIALOG}.querySelector('[contenteditable=true]')); return true; })()`);
-        await click("Bold", DIALOG);
-        await click("Link", DIALOG);
+        if (review) {
+          await evaluate(`(() => { window.prompt = () => 'https://example.com/watt'; const area = ${DIALOG}.querySelector('[contenteditable=true]'); area.focus(); return true; })()`);
+          await send("Input.insertText", { text: "A strange comedy" });
+          await evaluate(`(() => { const sel = getSelection(); sel.selectAllChildren(${DIALOG}.querySelector('[contenteditable=true]')); return true; })()`);
+          await click("Bold", DIALOG);
+          await click("Link", DIALOG);
+        }
         await click("Finish", DIALOG);
         await waitFor(`document.querySelector('[data-next-volume]') || !document.querySelector('dialog[open]')`, "the finish to save");
         await sleep(600);
       };
-      await finish();
+      await finish(true);
       await undo("Finished Journey Reading");
       await click("Close", "document");
       await go(path);
       await expectLabel("Reading · p\\. 240 of 480");
       if (await evaluate("!!document.querySelector('main [role=img][aria-label^=\"Rated\"]')")) throw new Error("The book's rating did not come back");
-      await finish();
+      // The review was kept through the Undo
+      await finish(false);
       await waitFor("document.querySelector('[data-next-volume]')?.textContent.includes('on your shelf in Amsterdam')", "the next volume panel");
       await click("Close", "document");
       await go(path);
       await expectLabel("Read · ");
       await waitFor("document.querySelector('main [role=img][aria-label=\"Rated 4.5 out of 5\"]')", "the book's rating");
+      await waitFor("document.querySelector('#reading strong') && document.querySelector('#reading a[href=\"https://example.com/watt\"]')", "the review's bold and link");
     });
     await step("re-read, abandon, undo, abandon, resume", async () => {
       await menu("Start a re-read");
