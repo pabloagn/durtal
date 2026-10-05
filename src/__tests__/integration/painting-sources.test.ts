@@ -66,6 +66,9 @@ const rembrandt = () => ({
   objectURL: "https://www.metmuseum.org/art/collection/search/437397",
 });
 
+// Calls to one museum keep a one-second gap, as its terms ask
+vi.setConfig({ testTimeout: 30000 });
+
 describe.skipIf(!url)("museum-source painting enrichment", () => {
   const c = client!;
   const year = (value: number) => ({ precision: "year" as const, start: { year: value } });
@@ -180,11 +183,14 @@ describe.skipIf(!url)("museum-source painting enrichment", () => {
     const other = await aristotle({ height: 100, width: 80, dimensionUnit: "cm" });
     const differs = await reviewPaintingSource({ museum: "metmuseum", paintingId: other.painting.id, externalId: "437397" });
     expect((differs as { objectFields: { field: string; verdict: string }[] }).objectFields.find((f) => f.field === "dimensions")!.verdict).toBe("conflict");
-    await apply(other.painting.id, { object: ["dimensions"] });
+    expect(await apply(other.painting.id, { object: ["dimensions"] })).not.toHaveProperty("error");
     expect(await getArtObject(other.object.id)).toMatchObject({ height: 100, width: 80, dimensionUnit: "cm" });
 
+    // One museum object belongs to one painting here: the next painting is filled once that link is gone
+    await c`delete from source_records where work_id = ${other.painting.id}`;
+    await c`delete from catalogue_identifiers where work_id = ${other.painting.id}`;
     const empty = await aristotle();
-    await apply(empty.painting.id, { object: ["dimensions"] });
+    expect(await apply(empty.painting.id, { object: ["dimensions"] })).toMatchObject({ added: ["Size"] });
     expect(await getArtObject(empty.object.id)).toMatchObject({ height: 143.5, width: 136.5, dimensionUnit: "cm" });
   });
 
@@ -193,7 +199,12 @@ describe.skipIf(!url)("museum-source painting enrichment", () => {
     const first = await apply(painting.id, { painter: true });
     expect(first).toMatchObject({ added: ["Rembrandt (Rembrandt van Rijn)"] });
     const firstSource = (first as { sourceRecordId: string }).sourceRecordId;
-    await c`update source_records set retrieved_at = now() - interval '400 days' where id = ${firstSource}`;
+    // The first answer came 400 days ago. Observations cannot be edited, so the
+    // test steps past the rule's trigger in its own transaction
+    await c.begin(async (t) => {
+      await t.unsafe("set local session_replication_role = replica");
+      await t.unsafe("update source_records set retrieved_at = now() - interval '401 days', verified_at = now() - interval '401 days' where id = $1", [firstSource]);
+    });
 
     met = { ...rembrandt(), artistDisplayName: "Workshop of Rembrandt", GalleryNumber: "" };
     const review = await reviewPaintingSource({ museum: "metmuseum", paintingId: painting.id, externalId: "437397" });
