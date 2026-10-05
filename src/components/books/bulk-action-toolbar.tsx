@@ -168,7 +168,8 @@ export function BulkActionToolbar({
 
   return (
     <>
-      <div className="glass fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 px-4 py-2.5">
+      {/* On a narrow screen the bar wraps onto a second row and stays inside the screen (SLN-452) */}
+      <div className="glass fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-2.5">
         {/* Selection info */}
         <span className="whitespace-nowrap text-sm text-fg-secondary">
           <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}
