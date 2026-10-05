@@ -5,6 +5,9 @@ Usage:
     uv run python -m scripts.ingest.main --all --dry-run
     uv run python -m scripts.ingest.main --step reference
     uv run python -m scripts.ingest.main --step books --priority 5,4,3 --limit 20
+    uv run python -m scripts.ingest.main --step readings --out DIR
+
+The readings step writes files, not data, so --all leaves it out.
 """
 
 import click
@@ -19,6 +22,7 @@ STEPS = {
     "authors": "scripts.ingest.seed_authors",
     "books": "scripts.ingest.seed_books",
     "series": "scripts.ingest.seed_series",
+    "readings": "scripts.ingest.seed_readings",
 }
 
 STEP_ORDER = ["reference", "taxonomy", "publishers", "authors", "books", "series"]
@@ -26,11 +30,12 @@ STEP_ORDER = ["reference", "taxonomy", "publishers", "authors", "books", "series
 
 @click.command()
 @click.option("--all", "run_all", is_flag=True, help="Run all steps in order")
-@click.option("--step", type=click.Choice(STEP_ORDER), help="Run a single step")
+@click.option("--step", type=click.Choice([*STEP_ORDER, "readings"]), help="Run a single step")
 @click.option("--dry-run", is_flag=True, help="Preview without writing to database")
 @click.option("--priority", default="5,4,3", help="Comma-separated priority values for books filter")
 @click.option("--limit", type=int, default=None, help="Limit number of rows processed per step")
-def main(run_all: bool, step: str | None, dry_run: bool, priority: str, limit: int | None):
+@click.option("--out", type=click.Path(file_okay=False), default=None, help="Folder for the readings step's files")
+def main(run_all: bool, step: str | None, dry_run: bool, priority: str, limit: int | None, out: str | None):
     """Durtal seed data ingestion pipeline."""
     priorities = {int(x.strip()) for x in priority.split(",")}
 
@@ -65,6 +70,12 @@ def main(run_all: bool, step: str | None, dry_run: bool, priority: str, limit: i
             elif step_name == "series":
                 from scripts.ingest.seed_series import run as run_series
                 run_series(dry_run=dry_run)
+            elif step_name == "readings":
+                if not out:
+                    console.print("[red]The readings step needs --out DIR[/red]")
+                    raise SystemExit(1)
+                from scripts.ingest.seed_readings import run as run_readings
+                run_readings(out)
 
         except Exception as e:
             console.print(f"[red]Step '{step_name}' failed: {e}[/red]")

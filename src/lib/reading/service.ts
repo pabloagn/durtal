@@ -571,7 +571,9 @@ export async function writeReadings(
     indexes.forEach((i, k) => {
       const v = verdicts[k];
       const row = parsed[i]!;
-      if (v.verdict === "already_present") outcomes[i] = { outcome: "already_present", match: v.match };
+      // An import's "Import anyway" writes an undated read the count rule called present
+      const anyway = row.allowPossibleDuplicate && v.match?.reason === "Undated read";
+      if (v.verdict === "already_present" && !anyway) outcomes[i] = { outcome: "already_present", match: v.match };
       else if (v.verdict === "possible_duplicate" && !row.allowPossibleDuplicate)
         outcomes[i] = { outcome: "possible_duplicate", match: v.match };
       else if (isOpenStatus(row.status)) {

@@ -373,6 +373,17 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
             await c`insert into readings(work_id,status,started_precision) values (${books[0]},'finished','unknown') returning id`;
           return c`update readings set work_id = ${other.id} where id = ${read.id}`;
         },
+        async () => {
+          const [imp] =
+            await c`insert into imports(source,status) values ('goodreads','pending') returning id`;
+          return c`insert into reading_import_rows(import_id,row_no,data,work_id) values (${imp.id},1,'{}'::jsonb,${other.id})`;
+        },
+        async () => {
+          const [imp] =
+            await c`insert into imports(source,status) values ('goodreads','pending') returning id`;
+          await c`insert into reading_import_rows(import_id,row_no,data,work_id) values (${imp.id},1,'{}'::jsonb,${books[0]})`;
+          return c`update reading_import_rows set work_id = ${other.id} where import_id = ${imp.id}`;
+        },
       ];
       for (const statement of statements)
         await expect(statement()).rejects.toMatchObject({

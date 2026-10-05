@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Run all Vitest suites against a fresh, disposable PostgreSQL container.
 
+Every scripts/qa/test_*.py runs first, each with this Python.
+
 Requires Docker, an already installed postgres:16 image, and project dependencies.
 Never reads .env files, accepts a database URL, or reuses a running database.
 Usage: python3 scripts/qa/test-local.py [Vitest file filters ...]
@@ -44,20 +46,31 @@ def database_manifest():
     return manifest
 
 
+def python_tests():
+    """Every scripts/qa/test_*.py, sorted, each with this interpreter; none found is a failure."""
+    files = sorted((ROOT / "scripts/qa").glob("test_*.py"))
+    if not files:
+        raise RuntimeError("No Python tests found in scripts/qa")
+    for path in files:
+        run(sys.executable, str(path.relative_to(ROOT)), cwd=ROOT)
+        print(f"Python tests passed: {path.relative_to(ROOT)}", flush=True)
+    return [str(path.relative_to(ROOT)) for path in files]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("filters", nargs="*", help="Optional Vitest file filters")
     parser.add_argument("--report-dir", type=Path, help="Directory for log and JSON reports (default: a new temporary directory)")
     args = parser.parse_args()
     manifest = database_manifest()
-    run(sys.executable, "scripts/qa/test_book_ingestion.py", cwd=ROOT)
+    python_files = python_tests()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull/install.
     report_dir = (args.report_dir or Path(tempfile.mkdtemp(prefix="durtal-tests-"))).resolve()
     report_dir.mkdir(parents=True, exist_ok=True)
     container = f"durtal-test-{secrets.token_hex(6)}"
     password = secrets.token_hex(24)
     started = time.monotonic()
-    report = {"status": "failed", "suites": manifest, "filters": args.filters, "pythonBookImportTests": "passed"}
+    report = {"status": "failed", "suites": manifest, "filters": args.filters, "pythonTests": python_files}
     child = None
 
     def interrupted(signum, _frame):
