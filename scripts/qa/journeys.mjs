@@ -763,7 +763,8 @@ async function importJourney() {
       await go("/reading/next");
       await waitFor(`!(${shelfInUpNext})`, "Up Next without the imported book");
       await go("/library/import-journey-rated");
-      await waitFor(`document.getElementById('reading') && !(${importedNote})`, "the book page without the imported note");
+      // The book has no reading left, so its Reading section is gone too: wait for the title
+      await waitFor(`document.querySelector('main h1')?.textContent.includes('Import Journey Rated') && !(${importedNote})`, "the book page without the imported note");
       await go(`/reading/import/${importId}`);
     });
     await step("commit again", async () => {

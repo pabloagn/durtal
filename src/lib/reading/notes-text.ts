@@ -1,7 +1,26 @@
+import type { NoteEdit, NoteItem } from "@/lib/actions/reading-notes";
+
 /*
  * The commonplace book's text rules (SLN-453). Pure: the page, the dialog and
  * the tests share them.
  */
+
+/** A note as a page sends it to the browser: what the item, the star, Copy and Edit need, nothing more */
+export function slimNote(n: NoteItem): NoteEdit {
+  return {
+    id: n.id,
+    workId: n.workId,
+    kind: n.kind,
+    body: n.body,
+    commentHtml: n.commentHtml,
+    page: n.page,
+    chapter: n.chapter,
+    percent: n.percent,
+    isFavourite: n.isFavourite,
+    readingId: n.readingId,
+    readingOrdinal: n.readingOrdinal,
+  };
+}
 
 /**
  * Joins a word that a pasted page broke over two lines: "melan-\ncholy"

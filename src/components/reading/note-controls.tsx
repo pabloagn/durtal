@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { deleteReadingNote, restoreReadingNote, toggleNoteFavourite, type NoteItem } from "@/lib/actions/reading-notes";
+import { deleteReadingNote, restoreReadingNote, toggleNoteFavourite, type NoteEdit } from "@/lib/actions/reading-notes";
 import { formatNoteForCopy, type CopyBook } from "@/lib/reading/notes-text";
 import { showError, undoToast } from "./reading-client";
 import { useReadingDialogs } from "./reading-dialogs-provider";
@@ -20,7 +20,7 @@ const menuButton =
  * (the book page's own, else the shared one), Copy puts the passage and its
  * source on the clipboard, Delete has a 10-second Undo.
  */
-export function NoteControls({ note, book }: { note: NoteItem; book: CopyBook }) {
+export function NoteControls({ note, book }: { note: NoteEdit; book: CopyBook }) {
   const router = useRouter();
   const dialogs = useReadingDialogs();
   const page = useOptionalReading();

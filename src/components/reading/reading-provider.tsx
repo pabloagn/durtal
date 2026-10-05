@@ -14,7 +14,7 @@ import { pauseReading, reopenReading, resumeReading, type SessionRow } from "@/l
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { ordinal } from "@/lib/reading/queue";
-import type { NoteItem } from "@/lib/actions/reading-notes";
+import type { NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteKind } from "@/lib/reading/constants";
 import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
 import { useOptionalTimer } from "./timer-provider";
@@ -75,7 +75,7 @@ export interface DialogRequest {
   /** The note dialog (SLN-453): a quote or a note, on `readingId` when given */
   noteKind?: NoteKind;
   /** The note dialog edits this note; without one it adds */
-  note?: NoteItem;
+  note?: NoteEdit;
   /** The page to fill, from Log progress */
   page?: number | null;
   /** The dialog to go back to once the note dialog closes (Log progress) */

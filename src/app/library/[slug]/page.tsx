@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getReadingsForWork } from "@/lib/actions/reading";
 import { getNotesForWork } from "@/lib/actions/reading-notes";
 import { NotesSection } from "@/components/reading/notes-section";
+import { slimNote } from "@/lib/reading/notes-text";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { getQueuePlace } from "@/lib/actions/reading-queue";
 import { ReadingProvider } from "@/components/reading/reading-provider";
@@ -660,7 +661,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         {canRead && <ReadingSection />}
 
         {canRead && readingNotes.length > 0 && (
-          <NotesSection notes={readingNotes} book={{ title: work.title, author: primaryAuthor?.name ?? null }} />
+          <NotesSection notes={readingNotes.map(slimNote)} book={{ title: work.title, author: primaryAuthor?.name ?? null }} />
         )}
 
         {(acquisitionTargets.length > 0 ||

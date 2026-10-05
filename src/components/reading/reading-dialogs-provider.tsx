@@ -11,7 +11,7 @@ import { getReadingDialogData, pauseReading, resumeReading } from "@/lib/actions
 import { showError, type ReadingPageData } from "./reading-client";
 import { ReadingDialogSwitch, type DialogRequest, type ReadingDialog, type ReadingDialogProps, type StopRequest } from "./reading-provider";
 import type { PickerPurpose } from "@/lib/reading/book-picker";
-import type { NoteItem } from "@/lib/actions/reading-notes";
+import type { NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteKind } from "@/lib/reading/constants";
 
 /*
@@ -33,7 +33,7 @@ export interface ReadingRef {
 export type ReadingDialogsRequest =
   | { kind: "start" | "past"; workId: string; editionId?: string | null }
   /** A quote or a note on a book (SLN-453), on its open reading when given */
-  | { kind: "note"; workId: string; readingId?: string | null; noteKind?: NoteKind; note?: NoteItem }
+  | { kind: "note"; workId: string; readingId?: string | null; noteKind?: NoteKind; note?: NoteEdit }
   | ({ kind: Exclude<ReadingDialog, "start" | "past" | "note">; prefill?: string; timer?: StopRequest } & ReadingRef);
 
 interface ReadingDialogsValue {

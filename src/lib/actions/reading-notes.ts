@@ -56,6 +56,12 @@ export interface NoteItem {
   updatedAt: string;
 }
 
+/** What the note dialog edits, and what a list sends the browser for each note: no dates, no Tiptap JSON (the editor opens from the HTML) */
+export type NoteEdit = Pick<
+  NoteItem,
+  "id" | "workId" | "kind" | "body" | "commentHtml" | "page" | "chapter" | "percent" | "isFavourite" | "readingId" | "readingOrdinal"
+> & { commentJson?: unknown };
+
 /** A note with its book, for the commonplace book and the passage of the day */
 export interface NoteWithBook extends NoteItem {
   book: { id: string; title: string; slug: string | null; author: string | null };
@@ -183,10 +189,12 @@ export async function updateReadingNote(input: z.input<typeof updateReadingNoteS
   const { id, ...patch } = updateReadingNoteSchema.parse(input);
   const note = await noteOrThrow(id);
   const kind = patch.kind ?? note.kind;
+  // Another reading brings its edition, unless one is sent; the same reading keeps the note's
+  const readingChanged = patch.readingId !== undefined && patch.readingId !== note.readingId;
   const refs = await references(
     note.workId,
     patch.readingId === undefined ? note.readingId : patch.readingId,
-    patch.editionId === undefined ? (patch.readingId === undefined ? note.editionId : undefined) : patch.editionId,
+    patch.editionId !== undefined ? patch.editionId : readingChanged ? undefined : note.editionId,
   );
   const values: Partial<typeof readingNotes.$inferInsert> = { kind, readingId: refs.reading?.id ?? null, editionId: refs.editionId };
   if (patch.body !== undefined) values.body = patch.body;
