@@ -466,7 +466,7 @@ async function readingJourney() {
       await evaluate("document.querySelector('[data-reading-timer]').click()");
       await waitFor(chip, "the timer chip");
       await go(path);
-      await waitFor(`/^\\d+:\\d\\d$/.test(${chip}?.querySelector('[data-timer-time]')?.textContent.trim() ?? '')`, "the running timer after a reload");
+      await waitFor(`/^\\d+:\\d\\d$/.test(${chip}?.querySelector('.tabular-nums')?.textContent.trim() ?? '')`, "the running timer after a reload");
     });
     await step("pause, resume", async () => {
       const pause = `${chip}.querySelector('[data-timer-pause]')`;
