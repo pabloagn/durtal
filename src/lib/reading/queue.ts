@@ -89,7 +89,7 @@ export function timeToReadText(t: TimeToRead): string | null {
  * timed session yet, pages only: "14 books · 4,210 pages".
  */
 export function queueSummary(times: TimeToRead[]): string {
-  const books = `${times.length} ${times.length === 1 ? "book" : "books"}`;
+  const books = `${times.length.toLocaleString("en-US")} ${times.length === 1 ? "book" : "books"}`;
   if (!times.length) return books;
   const without = times.filter((t) => t.kind === "none").length;
   const apart = without ? ` · ${without} without a length` : "";
@@ -103,7 +103,7 @@ export function queueSummary(times: TimeToRead[]): string {
     return `${books} · ${pages.toLocaleString("en-US")} pages${audioText}${apart}`;
   }
   const minutes = timed.reduce((sum, t) => sum + t.minutes, 0);
-  const total = minutes >= 120 ? `about ${Math.round(minutes / 60)} hours` : `about ${hoursWords(minutes)}`;
+  const total = minutes >= 120 ? `about ${Math.round(minutes / 60).toLocaleString("en-US")} hours` : `about ${hoursWords(minutes)}`;
   return `${books} · ${total} at your pace${apart}`;
 }
 

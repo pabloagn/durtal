@@ -54,6 +54,8 @@ describe("time to read", () => {
       ]),
     ).toBe("2 books · 4,210 pages");
     expect(queueSummary([])).toBe("0 books");
+    // A long list keeps its thousands separator (PR #107 review)
+    expect(queueSummary(Array.from({ length: 1200 }, () => at(300)))).toBe("1,200 books · about 6,000 hours at your pace");
   });
 });
 
