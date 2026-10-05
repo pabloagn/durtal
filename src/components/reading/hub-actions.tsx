@@ -61,6 +61,16 @@ export function HubMenu({ rhythm }: { rhythm: boolean }) {
   );
 }
 
+/** "Log a past read" alone: the empty Year in review list (SLN-456) */
+export function PastReadButton() {
+  const { pick } = useReadingDialogs();
+  return (
+    <Button variant="primary" onClick={() => pick("past")} className="pointer-coarse:h-11" data-past-read="">
+      Log a past read
+    </Button>
+  );
+}
+
 /** The empty hub's one action */
 export function StartBookButton() {
   const { pick } = useReadingDialogs();

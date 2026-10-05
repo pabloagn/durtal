@@ -21,13 +21,13 @@ import type { ReadingRef } from "./reading-dialogs-provider";
  * "/" stays within its 300 KB budget and a journal page of 48 rows within its.
  */
 
-/** A book's cover, or a book icon on the blank thumb; `icon={false}` leaves a tiny thumb blank */
-export function Cover({ s3Key, className, icon = true }: { s3Key: string | null; className: string; icon?: boolean }) {
+/** A book's cover, or a book icon on the blank thumb; `icon={false}` leaves a tiny thumb blank; `eager` loads it at once (a page meant for print) */
+export function Cover({ s3Key, className, icon = true, eager = false }: { s3Key: string | null; className: string; icon?: boolean; eager?: boolean }) {
   return (
     <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary ${className}`}>
       {s3Key ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/s3/read?key=${encodeURIComponent(s3Key)}`} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img src={`/api/s3/read?key=${encodeURIComponent(s3Key)}`} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
       ) : (
         icon && <BookOpen className="h-4 w-4 text-fg-muted" strokeWidth={1.5} aria-hidden />
       )}

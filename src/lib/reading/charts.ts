@@ -135,3 +135,27 @@ export function durationWords(days: number): string {
   if (days >= 60) return `${Math.round(days / 30.44)} months`;
   return `${Math.round(days)} ${Math.round(days) === 1 ? "day" : "days"}`;
 }
+
+/** A year's reading days by week: the weeks of the year (calendar rows), the weeks with a reading day, and those with `target` days or more */
+export function yearRhythm(days: Iterable<string>, year: number, weekStart: 1 | 7, target: number | null): { weeks: number; weeksRead: number; kept: number | null } {
+  const cells = calendarCells(year, weekStart);
+  const rowOf = new Map(cells.map((c) => [c.day, c.row]));
+  const perWeek = new Map<number, number>();
+  for (const day of new Set(days)) {
+    const row = rowOf.get(day);
+    if (row !== undefined) perWeek.set(row, (perWeek.get(row) ?? 0) + 1);
+  }
+  return {
+    weeks: cells.at(-1)!.row + 1,
+    weeksRead: perWeek.size,
+    kept: target === null ? null : [...perWeek.values()].filter((d) => d >= target).length,
+  };
+}
+
+/** When a book was finished, at its precision: "3 Jan", "January", "2026" */
+export function finishText(day: string, precision: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  if (precision === "year") return String(y);
+  if (precision === "month") return MONTHS[m - 1];
+  return `${d} ${MONTHS_SHORT[m - 1]}`;
+}

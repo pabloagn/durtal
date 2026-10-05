@@ -22,6 +22,9 @@
     { "path": "/reading/next", "maxKB": 300, "maxMs": 1000 },
     { "path": "/reading/journal", "maxKB": 300, "maxMs": 1000 },
     { "path": "/reading/notes", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/reading/stats", "maxKB": 400, "maxMs": 1000 },
+    { "path": "/reading/year", "maxKB": 300, "maxMs": 1000 },
+    { "path": "/reading/year/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/reading/import", "maxKB": 300, "maxMs": 1000 },
     { "path": "/settings/reading", "maxKB": 300, "maxMs": 1000 },
     { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"], "ifNone": "no import" }

@@ -147,11 +147,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         />
         <main
           // Below md the page takes the full width, under the phone navigation bar
-          className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0"
+          className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0 print:ml-0 print:min-h-0 print:pt-0"
           style={{ "--sidebar-w": `${effectiveWidth}px` } as React.CSSProperties}
           inert={navOpen}
         >
-          <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">{children}</div>
+          <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 print:max-w-none print:p-0">{children}</div>
         </main>
         <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
         <TimerAlerts />
