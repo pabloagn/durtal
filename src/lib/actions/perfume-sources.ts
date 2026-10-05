@@ -228,7 +228,8 @@ export async function applyPerfumeSource(input: z.input<typeof applySchema>): Pr
       if (field === "description") patch.description = proposed.description ?? null;
       if (field === "launched") {
         patch.releaseDate = proposed.launched ?? null;
-        patch.sourceRecordId = observation.id;
+        // The dates' source, unless the person already cited one
+        if (!perfume.sourceRecordId) patch.sourceRecordId = observation.id;
       }
       added.push(FIELD_LABELS[field]);
     }
@@ -244,7 +245,8 @@ export async function applyPerfumeSource(input: z.input<typeof applySchema>): Pr
     }
     if (organizations.length !== perfume.organizations.length) patch.organizations = organizations;
 
-    const credits = perfume.credits.map((c) => ({
+    type Credit = NonNullable<Parameters<typeof updatePerfume>[1]["credits"]>[number];
+    const credits: Credit[] = perfume.credits.map((c) => ({
       id: c.id,
       personId: c.personId,
       roleId: c.roleId,
@@ -258,7 +260,7 @@ export async function applyPerfumeSource(input: z.input<typeof applySchema>): Pr
       await ensureIdentifier("person", id, p.wikidataId);
       if (!credits.some((c) => c.personId === id && c.roleId === "perfume.perfumer")) {
         // Attributed: a source names this perfumer, the person has not confirmed it
-        credits.push({ personId: id, roleId: "perfume.perfumer", creditedAs: null, attribution: "attributed", characters: [], notes: `Named by Wikidata (${p.wikidataId})` } as never);
+        credits.push({ personId: id, roleId: "perfume.perfumer", creditedAs: null, attribution: "attributed", characters: [], notes: `Named by Wikidata (${p.wikidataId})` });
         added.push(p.name);
       }
     }
