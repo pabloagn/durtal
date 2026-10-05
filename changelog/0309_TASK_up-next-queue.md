@@ -124,6 +124,8 @@ changes `catalogue_status`. Migration 0068 adds `reading_queue`.
   above every other one. Move up, Move down and dragging still name the
   neighbours shown.
 - `LIBRARY_SORTS`' comment says the API takes the first six sorts.
+- The summary writes long counts with a thousands separator ("412 books ·
+  about 3,865 hours at your pace"; it read "3865").
 - Tests: `up-next` gains a filtered list (places 2, 5, 9, Move up's
   neighbours, Move to top with none) and the page with 60 books (50 rows, "60
   books", "Show 10 more" to `?show=100`; all 60 with `show=100`); both fail on
