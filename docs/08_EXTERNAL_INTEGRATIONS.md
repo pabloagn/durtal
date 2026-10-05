@@ -224,6 +224,19 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 
 Not used: Open Beauty Facts (an open product database by barcode; it names products and sizes, rarely the fragrance), and house websites (cited by hand like any page).
 
+### Museum sources (SLN-378)
+
+| Source | Access | Why | What it has |
+|---|---|---|---|
+| Art Institute of Chicago | Looked up (`artic`) | Documented open API, no key; CC0 data, public-domain images | Title, attribution, date, medium, size in cm (`dimensions_detail`), reference number, credit line, `is_on_view` and gallery, IIIF image |
+| The Met | Looked up (`metmuseum`) | Documented open API, no key; CC0 data, public-domain images | Title, attribution, date, medium, size in cm (`measurements`), accession number, credit line, gallery number when on view, image |
+| Cleveland Museum of Art | Cited by hand | Open API without a key, not connected yet | Its collection, with the current gallery |
+| Rijksmuseum | Cited by hand | Its API needs a personal key | Its collection |
+| Smithsonian Open Access | Cited by hand | Its API needs an api.data.gov key | The Smithsonian collections |
+| Wikidata | Not for paintings | Collection and location statements carry no dates | Owning collections, inventory numbers |
+
+Calls: the Art Institute's `GET /api/v1/artworks/search` and `GET /api/v1/artworks/{id}` with the fields Durtal reads and an `AIC-User-Agent` header (60 requests a minute anonymous); the Met's `GET /public/collection/v1/search` (ids only, so up to eight objects are read for a result list) and `GET /public/collection/v1/objects/{id}`. One call a second at most per museum. An Art Institute work without `is_on_view` is "does not say"; a Met object with an empty gallery number is "not on view". Neither answer says where an object is when it is not shown, so neither ever moves it. The institution is matched to Organizations by its Wikidata id (Art Institute Q239303, The Met Q160236), then by one exact name.
+
 Wikidata calls: `wbsearchentities` then `wbgetentities` for a search (items whose P31 is Q131746, perfume), and `wbgetentities` for an item and the labels of its brand (P1716), manufacturer (P176) and perfumers (P14539); the launch date is P571, else P577, at its own precision (a decade is a range). One call a second at most, 12 s each. A brand is proposed as a brand and a manufacturer as a manufacturer, never as each other.
 
 ---
@@ -237,3 +250,4 @@ Wikidata calls: `wbsearchentities` then `wbgetentities` for a search (items whos
 | Nominatim | None | 1 req/sec | Location geocoding |
 | Calibre-Web | Internal network | N/A | Digital book deep links |
 | Wikidata (perfumes) | None | 1 req/sec | Perfume identity lookup, reviewed before saving |
+| Art Institute of Chicago, The Met | None | 1 req/sec | Painting and original lookup; location only from "on view" |

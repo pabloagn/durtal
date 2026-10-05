@@ -680,6 +680,33 @@ Wikidata cannot be reached, so manual entry goes on.
   perfume's source: a Wikidata item as an accepted observation, any other
   link cited as the person's own source, without reading it.
 
+## Painting sources (`src/lib/actions/painting-sources.ts`, SLN-378)
+
+Museums with documented open APIs and no key: the Art Institute of Chicago
+(`artic`) and The Met (`metmuseum`), in `src/lib/providers/museums.ts`, through
+the provider contract. `src/lib/catalogue/painting-sources.ts` lists the
+museums considered and why the others are not looked up. Every action returns
+`{ error }` instead of throwing when a museum cannot be reached.
+
+- `searchPaintingSource({ museum, text })`: up to ten works of that museum.
+- `reviewPaintingSource({ museum, paintingId, externalId, objectId? })`: the
+  answer set against the painting (title, date, painter) and its original
+  (accession number, owner, size), each `fill`, `same`, `conflict` or
+  `locked`; the location evidence (`on_view`, `not_on_view`, `unknown`) with
+  the day it was given and what saving would do (`record`, `verify`, `move` or
+  nothing); the last answer of this museum, its age and what changed. Reads
+  only.
+- `applyPaintingSource(...)`: fetches the answer again and checks the
+  painting's, the original's and the location history's fingerprints. Keeps
+  the answer as an accepted source (the successor of the museum's previous
+  answer, which stays). Fills the chosen empty fields, credits the painter as
+  attributed, adds the original when asked (owned by the museum, which is
+  created in Organizations when missing, with its Wikidata id). A location is
+  written only from an "on view" answer, through `recordWhereabouts` or
+  `updateWhereabouts`: a first record at the museum's venue, a check of the
+  current one, or a move dated the day of the answer. A locked source stops
+  the save.
+
 ## Taxonomy (`src/lib/actions/taxonomy.ts`)
 
 Reads only. Subjects, genres, tags and every other family are created, renamed, merged and deleted through the family registry in `src/lib/actions/taxonomy-families.ts` (`createTaxonomyItem`, `updateTaxonomyItem`, `deleteTaxonomyItem` and the rest).

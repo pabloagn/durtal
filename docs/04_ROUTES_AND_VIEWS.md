@@ -412,6 +412,22 @@ unknown, lost or destroyed. A move closes the current location on its date.
 "Checked today" stamps the record. A painting with objects you own cannot be
 deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each location recorded ("Moved from Louvre, Paris to Tokyo Gallery (on loan for an exhibition, confirmed)").
 
+Museum sources (SLN-378). "Look up" in Sources asks the Art Institute of
+Chicago or The Met (open APIs without a key) for a title, then shows the
+museum's answer beside the painting and its original: date, painter (credited
+as attributed, never in place of a painter here), accession number, owner and
+size (compared across units within 0.5 cm). An empty field can be filled; a
+different or locked value stays. With no original, saving can add it, owned by
+the museum. The location comes only from the museum's own dated answer that
+the work is on view: with no location here it records one at the museum's
+venue (the venue its organization operates) since an unknown day; at that
+venue it marks the record checked; elsewhere (a loan) it offers a move on the
+day of the answer, off by default. A museum that does not show the work, or
+does not say, changes no location. The museum's public-domain image can be
+added to the original with its credit, license and source. A later look shows
+how old the last answer is (stale after a year) and what the museum changed
+since; the new answer follows the old one, which stays.
+
 ### Linked works (every detail page)
 
 `LinkedWorksSection` (`src/components/catalogue/work-relations.tsx`) lists the
