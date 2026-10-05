@@ -71,4 +71,55 @@ flow. No migration.
 
 ## Completion Notes
 
-Filled in below after the checks.
+- Tests: unit `hub-rules.test.ts` (`parseJournalQuery` with every parameter
+  and bad values, `bookPickerAddHref` and `addBookParams`, `paletteReadingItems`
+  for pages, percents, "+20" as `addPages`, audio times, no and several open
+  readings with their fingerprints, `readingTabs`, the hub's words);
+  component `reading-hub.test.ts` (the picker's empty result and footer links,
+  an ISBN, Log progress for a book being read, `ReadingThen` once and the
+  address cleaned, the shell's dialogs on `/reader/12` and `/library`) and
+  `add-book-query.test.ts` (the wizard searches the query or the ISBN at
+  once); database suite `reading-hub.test.ts` (the read's rating with the
+  three cases, the minimum rating and the Rating sort, re-reads with an
+  abandoned first attempt and unknown dates, year groups at every precision,
+  every filter and sort, the facets and fingerprints, the picker without
+  accents, owned first, a deaccessioned copy not owned); the navigation test
+  checks `G R`.
+- `pnpm typecheck` clean; `pnpm deadcode` clean; `pnpm lint` 0 errors, 81
+  warnings, none in the new files; `python3 scripts/qa/test-local.py`: 178
+  files, 1990 tests, 0 failed.
+- Preview of `live-before-0064-0065-20261005-013641.dump` with 3 books being
+  read, 1 paused, finished reads at day, month and year precision, a re-read,
+  an abandoned read and 60 more finished reads.
+- Page weight on that preview, before (main) and after: `/` 297 KB before,
+  288 KB after with three reading tiles and four finished covers (the
+  lighter `RatingStars` and Recent people pay for them); `/reading` 73 KB;
+  `/reading/journal` 257 KB with 48 rows; `/library` 338 KB before and 339
+  KB after (over budget before this change; the sidebar's new entry is 1 KB
+  on every page). Every other route within budget.
+- Browsers, Chrome, Firefox 157 and Safari 26 at 1440, 768 and 390 px:
+  `/reading` (cards of one height, tabs 32 px on one line, no page overflow),
+  the journal (groups, 48 rows, filters open, a year range), the dashboard,
+  the palette with "120" typed (first item "Log p. 120 · The Door") and with
+  "+20" on `/reader/1`, the picker with no result and its link,
+  `/library/new?q=Dune` searching, a book page with `?then=start` opening
+  Start reading and cleaning the address, and the empty hub, journal and
+  dashboard. Fixed on the way: finished covers six to a row overflowed at
+  768 px (the date now sits under the stars), the cover link on a hub card had
+  no name (removed; the title links), the Add book results' arrow was 3.7 px
+  off its title (`CapAligned`), and the range filters' end years were
+  `fg-muted` (now `fg-secondary`). Left as they were before this change: the
+  edition cards' collection button beside its 21 px title, Safari's title-row
+  icons 0.55 px off, the decorative monogram initials in `fg-muted`.
+- `RatingStars` before and after, rendered side by side in each browser:
+  identical in Chrome, at most 3/255 per channel in Firefox and 1/255 in
+  Safari (antialiasing), the same gold and outline pixel counts.
+- Touch (Chrome, 390 px): tabs, Log progress, the card menus, Resume, Start a
+  book, the dashboard's Log and the journal's menus are 44 px; no overflow.
+- Journey: `node scripts/qa/journeys.mjs --disposable <preview> reading`
+  passes every step of task 0304's journey, then logs from `/reading`, logs
+  "212" from the palette, filters the journal to 2009, and adds "Journey
+  Loan" by hand from the picker's link, landing on its page with Start
+  reading open and no `then` in the address.
+- Not run: the iOS Simulator and VoiceOver by hand. The tab row's sideways
+  scroll is in place but has nothing to scroll until later steps add tabs.

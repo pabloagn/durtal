@@ -428,7 +428,8 @@ async function readingJourney() {
       await waitFor(`${card}.querySelector('[data-hub-position]').textContent.startsWith('p. 200 of')`, "the card at p. 200");
     });
     await step('log "212" from the palette', async () => {
-      await evaluate("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, ctrlKey: true, bubbles: true })), true");
+      // Cmd+K on a Mac, Ctrl+K elsewhere: the palette refuses both at once
+      await evaluate("(() => { const mac = /Mac|iPhone|iPad/.test(navigator.platform); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: mac, ctrlKey: !mac, bubbles: true })); return true; })()");
       await waitFor("document.querySelector('[cmdk-input]')", "the palette");
       const item = "[...document.querySelectorAll('[cmdk-item]')].find((e) => e.textContent.includes('Log p. 212 · Journey Reading'))";
       await evaluate("(() => { const i = document.querySelector('[cmdk-input]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, '212'); i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()");
