@@ -5,7 +5,7 @@
  * same parameters.
  */
 import { NOTE_KINDS, type NoteKind } from "./constants";
-import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
+import { parsePagination, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 
 /** newest: the latest added first; book: by book, then page; relevance: the best match first (a search only) */
 export const NOTES_SORTS = ["newest", "book", "relevance"] as const;
@@ -14,7 +14,7 @@ export type NotesSort = (typeof NOTES_SORTS)[number];
 /** Each sort's own direction; the other one is ?order= */
 export const NOTES_DEFAULT_ORDER: Record<NotesSort, "asc" | "desc"> = { newest: "desc", book: "asc", relevance: "desc" };
 
-/** One page of the commonplace book */
+/** One page of the commonplace book without a saved page size; the page's size control offers the usual sizes */
 export const NOTES_PER_PAGE = 48;
 
 export interface NotesQuery {
@@ -28,6 +28,7 @@ export interface NotesQuery {
   /** newest asc is oldest first; book desc runs the titles from Z (pages stay in order) */
   order: "asc" | "desc";
   page: number;
+  perPage: number;
   offset: number;
 }
 
@@ -46,8 +47,7 @@ export function parseNotesQuery(raw: ListSearchParams | URLSearchParams): NotesQ
   if (sort === "relevance" && !q) sort = "newest";
   const orderParam = params.get("order");
   const order = sort !== "relevance" && (orderParam === "asc" || orderParam === "desc") ? orderParam : NOTES_DEFAULT_ORDER[sort];
-  const pageParam = params.get("page") ?? "";
-  const page = /^\d{1,6}$/.test(pageParam) && Number(pageParam) >= 1 ? Number(pageParam) : 1;
+  const { page, perPage, offset } = parsePagination(params, { defaultPerPage: NOTES_PER_PAGE });
   return {
     q,
     workId: uuid(params.get("book")),
@@ -58,7 +58,8 @@ export function parseNotesQuery(raw: ListSearchParams | URLSearchParams): NotesQ
     sort,
     order,
     page,
-    offset: (page - 1) * NOTES_PER_PAGE,
+    perPage,
+    offset,
   };
 }
 
@@ -74,6 +75,7 @@ export function notesHref(query: Partial<NotesQuery>, base = "/reading/notes") {
   const defaultSort = query.q ? "relevance" : "newest";
   if (query.sort && query.sort !== defaultSort) params.set("sort", query.sort);
   if (query.sort && query.order && query.order !== NOTES_DEFAULT_ORDER[query.sort]) params.set("order", query.order);
+  if (query.perPage && query.perPage !== NOTES_PER_PAGE) params.set("perPage", String(query.perPage));
   if (query.page && query.page > 1) params.set("page", String(query.page));
   const text = params.toString();
   return text ? `${base}?${text}` : base;

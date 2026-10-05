@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { NOTE_KINDS, NOTE_MAX, NOTE_SOURCES } from "@/lib/reading/constants";
-import { NOTES_SORTS } from "@/lib/reading/notes-params";
+import { NOTES_PER_PAGE, NOTES_SORTS } from "@/lib/reading/notes-params";
+import { PAGE_SIZES } from "@/lib/utils/pagination";
 
 /* The commonplace book (SLN-453): every note action's input. A page never sends a source or key. */
 
@@ -67,6 +68,10 @@ export const searchNotesSchema = z
     sort: z.enum(NOTES_SORTS).default("newest"),
     order: z.enum(["asc", "desc"]).optional(),
     page: z.number().int().min(1).default(1),
+    perPage: z
+      .number()
+      .refine((n) => (PAGE_SIZES as readonly number[]).includes(n), "Not a page size")
+      .default(NOTES_PER_PAGE),
   })
   .strict();
 

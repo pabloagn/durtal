@@ -16,7 +16,6 @@ import { readingToday } from "@/lib/reading/day";
 import { percentOf } from "@/lib/reading/positions";
 import { readingOrdinalSql } from "@/lib/reading/summary";
 import { choosePassage, passageCandidates } from "@/lib/reading/passage";
-import { NOTES_PER_PAGE } from "@/lib/reading/notes-params";
 import type { NoteKind, NoteSource } from "@/lib/reading/constants";
 import {
   createReadingNoteSchema,
@@ -270,7 +269,7 @@ export async function getNotesForWork(workId: string): Promise<NoteItem[]> {
   );
 }
 
-/** The commonplace book: search, filters, sort and one page of 48 */
+/** The commonplace book: search, filters, sort and one page (48 by default) */
 export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
   const query = searchNotesSchema.parse(input);
   const haystack = sql`n.search_text`;
@@ -291,11 +290,11 @@ export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
       : query.sort === "relevance" && text
         ? sql`${textSearchRank(haystack, sql`left(n.body, 300)`, query.q!)} desc, n.created_at desc, n.id asc`
         : sql`n.created_at ${direction}, n.id asc`;
-  const offset = (query.page - 1) * NOTES_PER_PAGE;
+  const offset = (query.page - 1) * query.perPage;
   const rows = resultRows<NoteWithBook & { total: number }>(
     await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN}, count(*) over ()::int as total
       from reading_notes n join works w on w.id = n.work_id ${where}
-      order by ${order} limit ${NOTES_PER_PAGE} offset ${offset}`),
+      order by ${order} limit ${query.perPage} offset ${offset}`),
   );
   let total = rows[0]?.total ?? 0;
   // A page past the end still says how many there are
@@ -307,7 +306,7 @@ export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
     items: rows.map(({ total: _t, ...row }) => row as NoteWithBook),
     total,
     page: query.page,
-    pageCount: Math.max(1, Math.ceil(total / NOTES_PER_PAGE)),
+    pageCount: Math.max(1, Math.ceil(total / query.perPage)),
   };
 }
 

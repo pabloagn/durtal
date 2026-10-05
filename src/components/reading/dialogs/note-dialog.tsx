@@ -151,7 +151,7 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
             autoFocus={!coarse}
             aria-describedby={coarse && !body ? hintId : undefined}
             placeholder={kind === "quote" ? "The words as the book has them" : "Your note"}
-            className="w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+            className="w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-rose focus:outline-none pointer-coarse:text-base"
             data-note-body=""
           />
           {coarse && !body && (
@@ -168,10 +168,11 @@ export function NoteDialog({ data, request, onClose, changed, open }: ReadingDia
             value={position}
             onChange={(e) => setPosition(e.target.value)}
             error={positionError ?? undefined}
-            className="pointer-coarse:h-11"
+            // 16px on touch: iOS Safari zooms into a smaller field on focus
+            className="pointer-coarse:h-11 pointer-coarse:text-base"
             data-note-position=""
           />
-          <Input label="Chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} maxLength={300} className="pointer-coarse:h-11" />
+          <Input label="Chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} maxLength={300} className="pointer-coarse:h-11 pointer-coarse:text-base" />
         </div>
         {data.rows.length > 0 && (
           <Select

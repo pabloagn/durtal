@@ -53,7 +53,7 @@ describe("the note's words", () => {
 describe("parseNotesQuery", () => {
   const id = "0b5f2f48-3d43-4c1e-9e43-3c1f6d1b2a10";
   it("reads every parameter", () => {
-    expect(parseNotesQuery({ q: " melancolie ", book: id, author: id, kind: "quote", fav: "1", year: "2024", sort: "book", order: "desc", page: "3" })).toEqual({
+    expect(parseNotesQuery({ q: " melancolie ", book: id, author: id, kind: "quote", fav: "1", year: "2024", sort: "book", order: "desc", page: "3", perPage: "96" })).toEqual({
       q: "melancolie",
       workId: id,
       authorId: id,
@@ -63,11 +63,12 @@ describe("parseNotesQuery", () => {
       sort: "book",
       order: "desc",
       page: 3,
-      offset: 2 * NOTES_PER_PAGE,
+      perPage: 96,
+      offset: 2 * 96,
     });
   });
   it("drops bad values", () => {
-    expect(parseNotesQuery({ book: "nadja", author: "1", kind: "highlight", fav: "yes", year: "24", sort: "rating", order: "up", page: "-2" })).toEqual({
+    expect(parseNotesQuery({ book: "nadja", author: "1", kind: "highlight", fav: "yes", year: "24", sort: "rating", order: "up", page: "-2", perPage: "50" })).toEqual({
       q: undefined,
       workId: undefined,
       authorId: undefined,
@@ -77,6 +78,7 @@ describe("parseNotesQuery", () => {
       sort: "newest",
       order: "desc",
       page: 1,
+      perPage: NOTES_PER_PAGE,
       offset: 0,
     });
   });

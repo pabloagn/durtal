@@ -8,7 +8,7 @@ import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { AddQuoteButton } from "@/components/reading/hub-actions";
 import { NotesList, type NotesListRow } from "@/components/reading/notes-list";
 import { getNotesFacets, searchNotes, type NoteWithBook } from "@/lib/actions/reading-notes";
-import { NOTES_PER_PAGE, parseNotesQuery } from "@/lib/reading/notes-params";
+import { parseNotesQuery } from "@/lib/reading/notes-params";
 import { slimNote } from "@/lib/reading/notes-text";
 import { clearedListHref, firstPageHref, hasListQuery } from "@/lib/utils/list-params";
 import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
@@ -34,6 +34,7 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
     sort: query.sort,
     order: query.order,
     page: query.page,
+    perPage: query.perPage,
   });
   if (result.total === 0)
     return (
@@ -55,7 +56,7 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
         <NotesList rows={result.items.map(listRow)} byBook={query.sort === "book"} />
       </div>
       <div className="mt-8">
-        <Pagination page={result.page} perPage={NOTES_PER_PAGE} total={result.total} noun="quotes and notes" />
+        <Pagination page={result.page} perPage={query.perPage} total={result.total} noun="quotes and notes" />
       </div>
     </>
   );
