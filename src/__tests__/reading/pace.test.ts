@@ -6,6 +6,7 @@ import {
   paceExplanation,
   pagesPerHour,
   priorFor,
+  readingEstimate,
   timeLeft,
   timeLeftText,
   type PacePriors,
@@ -110,5 +111,27 @@ describe("the finish date", () => {
     expect(paceExplanation(reading({ sessions: daily }), priors, today)).toBe(
       "From 12 sessions over 12 days: 30 pages a day, 30 pages an hour. Your usual pace in French print is 29 pages an hour. Pages are counted against each edition's page count.",
     );
+  });
+});
+
+describe("the estimate line", () => {
+  it("joins time left and the finish date, and explains both", () => {
+    const sessions = [1, 2, 3].map((d) => session({ readOn: `2026-10-0${d}`, pages: 30, durationSeconds: 3600 }));
+    const e = readingEstimate(reading({ totalPages: 300, currentPercent: 30, sessions }), noPriors, "2026-10-03");
+    expect(e.text).toBe("About 7 h left · Around 10 Oct");
+    expect(e.explanation).toContain("From 3 sessions over 3 days: 30 pages a day, 30 pages an hour.");
+    expect(e.needsLength).toBe(false);
+  });
+
+  it("asks for the page count when there is nothing to measure", () => {
+    expect(readingEstimate(reading({ totalPages: null }), noPriors, "2026-10-03")).toEqual({
+      text: "Add the page count for an estimate",
+      explanation: null,
+      needsLength: true,
+    });
+  });
+
+  it("says when there are too few sessions for a date", () => {
+    expect(readingEstimate(reading({}), noPriors, "2026-10-03").text).toBe("About 6 h 40 min left · Log a few sessions for an estimate");
   });
 });

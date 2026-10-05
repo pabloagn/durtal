@@ -46,11 +46,11 @@ import {
   createReading,
   editionPages,
   guardReading,
+  isRunningTimer,
   loadReading,
   loadSessions,
   openReadingMessage,
   openReadingOf,
-  pagesOnDay,
   positionValues,
   recomputeQueries,
   recordProgress,
@@ -993,6 +993,22 @@ export async function deleteSession(input: z.input<typeof deleteSessionSchema>) 
   return { reading: (await loadReading(reading.id))!, session };
 }
 
+export type SessionRow = Session & { editionTitle: string | null };
+
+/** One reading's sessions for its list (SLN-451): newest first in the session order, the running timer apart */
+export async function getReadingSessions(readingId: string): Promise<{ running: SessionRow | null; sessions: SessionRow[] }> {
+  const id = z.uuid().parse(readingId);
+  const rows = await db
+    .select({ session: readingSessions, editionTitle: editions.title })
+    .from(readingSessions)
+    .leftJoin(editions, eq(editions.id, readingSessions.editionId))
+    .where(eq(readingSessions.readingId, id));
+  const withTitle = (s: Session): SessionRow => ({ ...s, editionTitle: rows.find((r) => r.session.id === s.id)?.editionTitle ?? null });
+  const all = rows.map((r) => r.session);
+  const running = all.find(isRunningTimer);
+  return { running: running ? withTitle(running) : null, sessions: sessionOrder(all).reverse().map(withTitle) };
+}
+
 /**
  * A book's readings, newest first: each with its fingerprint, its number
  * among the book's readings, its sessions and time, its edition, copy and home.
@@ -1011,7 +1027,7 @@ export async function getReadingsForWork(workId: string) {
   }>(
     await db.execute(sql`select to_jsonb(r) as reading, md5(to_jsonb(r)::text) as fingerprint,
         ${readingOrdinalSql("r")} as ordinal,
-        (select count(*)::int from reading_sessions s where s.reading_id = r.id) as "sessionCount",
+        (select count(*)::int from reading_sessions s where s.reading_id = r.id and not (s.source = 'timer' and s.ended_at is null)) as "sessionCount",
         (select coalesce(sum(s.duration_seconds), 0)::int from reading_sessions s where s.reading_id = r.id) as "totalSeconds",
         (select jsonb_build_object('id', e.id, 'title', e.title, 'coverS3Key', e.cover_s3_key, 'thumbnailS3Key', e.thumbnail_s3_key,
             'pageCount', e.page_count, 'language', e.language,

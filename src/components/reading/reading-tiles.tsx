@@ -7,6 +7,8 @@ import { ProgressBar } from "@/components/shared/progress-bar";
 import { RatingStars } from "@/components/shared/rating";
 import { Badge } from "@/components/ui/badge";
 import type { ReadingFormat } from "@/lib/reading/constants";
+import type { ReadingEstimate } from "@/lib/reading/pace";
+import { EstimateLine } from "./estimate-line";
 import { JournalRowMenu, LogButton } from "./hub-actions";
 import type { ReadingRef } from "./reading-dialogs-provider";
 
@@ -69,6 +71,8 @@ export interface TileItem {
   position: string;
   /** What a screen reader hears for the bar */
   progressLabel: string;
+  /** Time left and the finish date (SLN-451) */
+  estimate?: ReadingEstimate;
 }
 
 function SectionLink({ href }: { href: string }) {
@@ -100,6 +104,7 @@ export function DashboardReading({ tiles, finished }: { tiles: TileItem[]; finis
                     <span className="lines-1 text-xs text-fg-secondary">{tile.position}</span>
                     <LogButton reading={tile.reading} title={tile.title} />
                   </div>
+                  {tile.estimate && <EstimateLine estimate={tile.estimate} lines="lines-2" className="mt-1" />}
                 </div>
               </div>
             ))}

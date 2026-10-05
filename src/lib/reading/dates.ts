@@ -1,5 +1,4 @@
 import { z } from "zod/v4";
-import { appTimeZone } from "@/lib/utils/date";
 import type { ReadingDatePrecision, ReadingStatus } from "./constants";
 
 /*

@@ -11,6 +11,9 @@ import {
   stopProblem,
   stopTimes,
   suggestedStop,
+  atWallTime,
+  wallTime,
+  zoneCity,
 } from "@/lib/reading/timer";
 
 /* The timer's arithmetic (SLN-451) and the reading day at every start hour. */
@@ -72,5 +75,24 @@ describe("the reading day", () => {
       "2026-10-04",
       "2026-10-04",
     ]);
+  });
+});
+
+describe("wall-clock times for the session list and Add a session", () => {
+  it("shows a session's time in its own zone, with the zone's city", () => {
+    const at = new Date("2026-10-06T03:30:00Z");
+    expect(wallTime(at, "America/Mexico_City")).toBe("21:30");
+    expect(wallTime(at, "Europe/Amsterdam")).toBe("05:30");
+    expect(zoneCity("America/Mexico_City")).toBe("Mexico City");
+  });
+
+  it("turns a time on a reading day into an instant, early mornings on the next calendar day", () => {
+    expect(atWallTime("2026-10-05", "21:30", "America/Mexico_City", 4).toISOString()).toBe("2026-10-06T03:30:00.000Z");
+    expect(atWallTime("2026-10-04", "01:30", "Europe/Amsterdam", 4).toISOString()).toBe("2026-10-04T23:30:00.000Z");
+    expect(atWallTime("2026-10-04", "01:30", "Europe/Amsterdam", 0).toISOString()).toBe("2026-10-03T23:30:00.000Z");
+    // Across the autumn clock change: 23:00 in Amsterdam is UTC+1 after 25 Oct
+    expect(atWallTime("2026-10-25", "23:00", "Europe/Amsterdam", 4).toISOString()).toBe("2026-10-25T22:00:00.000Z");
+    for (const day of ["2026-10-04", "2026-10-25"])
+      expect(readingDay(atWallTime(day, "01:30", "Europe/Amsterdam", 4), "Europe/Amsterdam", 4)).toBe(day);
   });
 });

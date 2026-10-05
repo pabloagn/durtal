@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getReadingsForWork } from "@/lib/actions/reading";
+import { readingEstimates } from "@/lib/reading/estimates";
 import { ReadingProvider } from "@/components/reading/reading-provider";
 import { ReadingThen } from "@/components/reading/reading-then";
 import { addBookParams } from "@/lib/reading/book-picker";
@@ -227,6 +228,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     homes: readingHomes(allLocations),
     today,
     zone,
+    // Time left and the finish date of the open reading (SLN-451)
+    estimates: await readingEstimates(
+      readingRows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
+      today,
+    ),
   };
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(

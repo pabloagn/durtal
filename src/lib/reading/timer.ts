@@ -98,3 +98,35 @@ export function stopProblem(
   if (stopTimes(t, endedAt, now).durationSeconds > MAX_SESSION_SECONDS) return MAX_SESSION_MESSAGE;
   return null;
 }
+
+/** "21:30": the wall-clock time of an instant in a zone */
+export function wallTime(at: Date | string, zone: string): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(at));
+}
+
+/** "Mexico City" for America/Mexico_City */
+export function zoneCity(zone: string): string {
+  return (zone.split("/").at(-1) ?? zone).replace(/_/g, " ");
+}
+
+/** How far a zone's wall clock is ahead of UTC at an instant, in milliseconds */
+function zoneOffset(at: number, zone: string): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      .formatToParts(new Date(at))
+      .map((p) => [p.type, p.value]),
+  );
+  return Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second) - Math.floor(at / 1000) * 1000;
+}
+
+/**
+ * The instant of "21:30" on a reading day in a zone. A time before the day
+ * start hour is the next calendar morning: 01:30 on the 4th is the 5th.
+ */
+export function atWallTime(readOn: string, time: string, zone: string, dayStartHour: number): Date {
+  const [h, m] = time.split(":").map(Number);
+  const day = new Date(Date.UTC(+readOn.slice(0, 4), +readOn.slice(5, 7) - 1, +readOn.slice(8, 10) + (h < dayStartHour ? 1 : 0), h, m));
+  const wall = day.getTime();
+  const guess = wall - zoneOffset(wall, zone);
+  return new Date(wall - zoneOffset(guess, zone));
+}

@@ -234,3 +234,19 @@ export function paceExplanation(r: PaceReading, priors: PacePriors, today: strin
   parts.push("Pages are counted against each edition's page count.");
   return parts.join(" ");
 }
+
+export interface ReadingEstimate {
+  /** "About 6 h 40 min left · Around 18 Oct", or what to add for one */
+  text: string;
+  /** What it is based on, for the info popover; null when there is no estimate */
+  explanation: string | null;
+  /** No page count and no audio length: on the book page the line opens Edit reading */
+  needsLength: boolean;
+}
+
+/** Time left and the finish date as one line, with its explanation */
+export function readingEstimate(r: PaceReading, priors: PacePriors, today: string): ReadingEstimate {
+  const left = timeLeft(r, priors);
+  if (left.kind === "none") return { text: left.text, explanation: null, needsLength: true };
+  return { text: `${timeLeftText(left)} · ${finishText(finishEstimate(r, today), today)}`, explanation: paceExplanation(r, priors, today), needsLength: false };
+}

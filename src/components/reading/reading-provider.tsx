@@ -10,7 +10,7 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/reading";
+import { pauseReading, reopenReading, resumeReading, type SessionRow } from "@/lib/actions/reading";
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { showError, type ReadingPageData, type ReadingRow } from "./reading-client";
 import { useOptionalTimer } from "./timer-provider";
@@ -28,8 +28,9 @@ const AbandonReadingDialog = dynamic(() => import("./dialogs/abandon-reading-dia
 const PastReadDialog = dynamic(() => import("./dialogs/past-read-dialog").then((m) => m.PastReadDialog));
 const EditReadingDialog = dynamic(() => import("./dialogs/edit-reading-dialog").then((m) => m.EditReadingDialog));
 const DeleteReadingDialog = dynamic(() => import("./dialogs/delete-reading-dialog").then((m) => m.DeleteReadingDialog));
+const SessionDialog = dynamic(() => import("./dialogs/session-dialog").then((m) => m.SessionDialog));
 
-export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete";
+export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete" | "session";
 
 const TimerBlockDialog = dynamic(() => import("./timer-chip").then((m) => m.TimerBlockDialog));
 
@@ -47,6 +48,7 @@ export function ReadingDialogSwitch(props: ReadingDialogProps) {
   if (request.kind === "finish") return <FinishReadingDialog {...props} />;
   if (request.kind === "abandon") return <AbandonReadingDialog {...props} />;
   if (request.kind === "edit") return <EditReadingDialog {...props} />;
+  if (request.kind === "session") return <SessionDialog {...props} />;
   return <DeleteReadingDialog {...props} />;
 }
 
@@ -60,6 +62,8 @@ export interface DialogRequest {
   prefill?: string;
   /** Log progress in stop mode: saving stops this running timer (SLN-451) */
   timer?: StopRequest;
+  /** The session dialog edits this session; without one it adds a session (SLN-451) */
+  session?: SessionRow;
 }
 
 /** The running timer a stop saves, and the end time a forgotten timer was given */
@@ -91,6 +95,8 @@ interface ReadingContextValue {
   run: (action: ReadingMenuAction, row?: ReadingRow | null) => void;
   /** Starts the timer on the open reading, or stops it when it runs on this book (SLN-451) */
   toggleTimer: () => void;
+  /** After a write: refresh the page and the activity timeline */
+  changed: () => void;
 }
 
 const ReadingContext = createContext<ReadingContextValue | null>(null);
@@ -199,7 +205,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     });
   useReadingActions(items);
 
-  const context = useMemo(() => ({ data, openRow, open, run, toggleTimer }), [data, openRow, open, run, toggleTimer]);
+  const context = useMemo(() => ({ data, openRow, open, run, toggleTimer, changed }), [data, openRow, open, run, toggleTimer, changed]);
   const row = request?.readingId ? (data.rows.find((r) => r.reading.id === request.readingId) ?? null) : null;
   const props: ReadingDialogProps | null = request
     ? {
