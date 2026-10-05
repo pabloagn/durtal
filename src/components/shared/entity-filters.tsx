@@ -29,10 +29,11 @@ interface EntityFiltersProps {
   searchPlaceholder?: string;
   defaultSort?: string;
   defaultSortOrders?: Record<string, "asc" | "desc">;
-  viewMode: ViewMode;
-  gridColumns: number;
-  onViewModeChange: (mode: ViewMode) => void;
-  onGridColumnsChange: (cols: number) => void;
+  /** A list with one view (the reading journal) leaves these out: no view switch, no size slider */
+  viewMode?: ViewMode;
+  gridColumns?: number;
+  onViewModeChange?: (mode: ViewMode) => void;
+  onGridColumnsChange?: (cols: number) => void;
   availableViewModes?: ViewMode[];
   children?: React.ReactNode;
   className?: string;
@@ -160,10 +161,12 @@ export function EntityFilters({
       {children}
 
       {/* View mode */}
-      <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} availableModes={availableViewModes} />
+      {viewMode && onViewModeChange && (
+        <ViewModeSwitcher value={viewMode} onChange={onViewModeChange} availableModes={availableViewModes} />
+      )}
 
       {/* Size slider: cards per row in the grid, pictures per row in the mosaic */}
-      {(viewMode === "grid" || viewMode === "mosaic") && (
+      {(viewMode === "grid" || viewMode === "mosaic") && gridColumns !== undefined && onGridColumnsChange && (
         <GridSizeSlider value={gridColumns} onChange={onGridColumnsChange} />
       )}
     </div>

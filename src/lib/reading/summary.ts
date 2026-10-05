@@ -56,10 +56,27 @@ export function openReadingPercentSql(workId: SQL | unknown) {
  */
 export function readingOrdinalSql(readingAlias: string) {
   const r = sql.raw(readingAlias);
-  return sql<number>`(row_number() over (partition by ${r}.work_id order by
-    (${r}.status in ${OPEN}) asc,
+  return sql<number>`(row_number() over (partition by ${r}.work_id order by ${readingOrder(readingAlias)}))::float8`.mapWith(Number);
+}
+
+/** The order of a book's readings that `readingOrdinalSql` numbers by */
+function readingOrder(readingAlias: string) {
+  const r = sql.raw(readingAlias);
+  return sql`(${r}.status in ${OPEN}) asc,
     coalesce(${r}.started_on, ${r}.finished_on) asc nulls first,
-    ${r}.source_key asc nulls last, ${r}.created_at asc, ${r}.id asc))::float8`.mapWith(Number);
+    ${r}.source_key asc nulls last, ${r}.created_at asc, ${r}.id asc`;
+}
+
+/**
+ * A re-read: the book has a finished reading before this one in the order of
+ * `readingOrdinalSql`. An abandoned first attempt does not count. One window
+ * over `readings` aliased as `readingAlias`, so it goes in a select over all
+ * of a book's readings, before any filter.
+ */
+export function rereadSql(readingAlias: string) {
+  const r = sql.raw(readingAlias);
+  return sql<boolean>`(count(*) filter (where ${r}.status = 'finished') over (partition by ${r}.work_id order by ${readingOrder(readingAlias)}
+    rows between unbounded preceding and 1 preceding) > 0)`;
 }
 
 /**

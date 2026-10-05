@@ -818,15 +818,17 @@ export async function getOpenReadings() {
     work: { id: string; title: string; slug: string | null };
     author: string | null;
     cover: string | null;
+    pausedAt: string | null;
   }>(
     await db.execute(sql`select to_jsonb(r) as reading, md5(to_jsonb(r)::text) as fingerprint,
         jsonb_build_object('id', w.id, 'title', w.title, 'slug', w.slug) as work,
+        (select max(h.changed_at) from reading_status_history h where h.reading_id = r.id and h.to_status = 'paused') as "pausedAt",
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
         coalesce((select e.thumbnail_s3_key from editions e where e.id = r.edition_id),
           (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover
       from readings r join works w on w.id = r.work_id
       where r.status in ('reading','paused')
-      order by r.last_read_at desc nulls last, r.created_at desc`),
+      order by r.last_read_at desc nulls last, r.started_on desc nulls last, r.created_at desc`),
   ).map((row) => ({ ...row, reading: camelReading(row.reading as unknown as Record<string, unknown>) }));
 }
 
