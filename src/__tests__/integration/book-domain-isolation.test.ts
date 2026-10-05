@@ -91,6 +91,7 @@ import { loadDataset } from "@/lib/harmonization/store";
 import { scanDataset } from "@/lib/harmonization/engine";
 import { previewMerge, executeMerge } from "@/lib/harmonization/merge";
 import { addToQueue } from "@/lib/actions/reading-queue";
+import { createReadingNote } from "@/lib/actions/reading-notes";
 import { POST as exportCatalogue } from "@/app/api/export/route";
 import { recordActivity } from "@/lib/activity/record";
 import { processAndUploadCover } from "@/lib/s3/covers";
@@ -341,6 +342,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           }),
         () => updateOrder(order, { workId: other.id }),
         () => addToQueue({ workId: other.id }),
+        () => createReadingNote({ workId: other.id, kind: "quote", body: "Invalid" }),
       ];
       for (const attempt of attempts)
         await expect(attempt()).rejects.toThrow(/(?:Book|Work) not found/);

@@ -48,8 +48,10 @@ export function notesCountText(quotes: number, notes: number): string {
   return parts.filter(Boolean).join(" and ");
 }
 
-/** The first `lines` lines of a text, with an ellipsis when there is more */
-export function firstLines(text: string, lines = 3): string {
+/** The first `lines` lines of a text, at most `chars` characters, with an ellipsis when there is more */
+export function firstLines(text: string, lines = 3, chars = 300): string {
   const all = text.trim().split(/\r?\n/);
-  return all.length > lines ? `${all.slice(0, lines).join("\n")}…` : all.join("\n");
+  const kept = all.slice(0, lines).join("\n");
+  if (kept.length > chars) return `${kept.slice(0, chars).trimEnd()}…`;
+  return all.length > lines ? `${kept}…` : kept;
 }
