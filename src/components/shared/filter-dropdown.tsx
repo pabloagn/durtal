@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { SlidersHorizontal, ChevronDown, Search } from "lucide-react";
 import { RangeSlider } from "@/components/ui/range-slider";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 /** Minimum number of options before showing the search box in a filter group */
 const SEARCH_THRESHOLD = 8;
@@ -55,6 +56,7 @@ export function FilterDropdown({
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [groupSearchTerms, setGroupSearchTerms] = useState<Record<string, string>>({});
 
   // Track which groups are expanded: default first group open, rest closed
@@ -118,10 +120,25 @@ export function FilterDropdown({
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [open]);
 
+  // Esc closes the panel, from its search fields too, and focus goes back to
+  // the Filter button (SLN-477). The page's search field keeps its own Esc.
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open]);
+
   return (
     <div ref={containerRef} className="relative">
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         onClick={() => {
           onIntent?.();
           setOpen((prev) => !prev);

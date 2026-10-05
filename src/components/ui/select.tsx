@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 export interface SelectOption {
   value: string;
@@ -80,6 +81,22 @@ export function Select({
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, [isOpen]);
+
+  // Esc closes an open list wherever focus is: Safari does not focus a
+  // button on click, so the trigger may not have the key. The dialog around
+  // the field stays until the next Esc (SLN-477)
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
+      e.preventDefault();
+      setIsOpen(false);
+      setActiveHint(null);
+      containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
   }, [isOpen]);
 
   // Scroll active item into view

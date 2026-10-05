@@ -20,6 +20,7 @@ import {
   currencySymbol,
 } from "@/lib/constants/currencies";
 import { STATUS_LABELS, getPosterUrl, getPosterStyle, getAuthorName } from "./order-model";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 // The steps of the new-order dialog: the book, how it was acquired, the details and the notes.
 
@@ -86,6 +87,8 @@ export function WorkSearchStep({
     { id: string; name: string }[]
   >([]);
   const [isSearchingAuthors, setIsSearchingAuthors] = useState(false);
+  // Esc closed the suggestions; typing shows them again (SLN-477)
+  const [authorListClosed, setAuthorListClosed] = useState(false);
   const authorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Work search effect
@@ -183,7 +186,24 @@ export function WorkSearchStep({
             <input
               type="text"
               value={authorQuery}
-              onChange={(e) => setAuthorQuery(e.target.value)}
+              onChange={(e) => {
+                setAuthorQuery(e.target.value);
+                setAuthorListClosed(false);
+              }}
+              // Esc closes the suggestions only, and keeps the name; the
+              // dialog stays until the next Esc (SLN-477)
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Escape" &&
+                  !isComposing(e) &&
+                  !authorListClosed &&
+                  authorQuery.trim() &&
+                  authorResults.length > 0
+                ) {
+                  e.preventDefault();
+                  setAuthorListClosed(true);
+                }
+              }}
               placeholder="Author name"
               // ↑ ↓ and Enter pick from the author suggestions
               data-picker=""
@@ -198,7 +218,7 @@ export function WorkSearchStep({
           </div>
 
           {/* Author autocomplete dropdown */}
-          {authorQuery.trim() && authorResults.length > 0 && (
+          {authorQuery.trim() && authorResults.length > 0 && !authorListClosed && (
             <div className="max-h-32 overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary">
               {authorResults.map((a) => (
                 <button
@@ -218,6 +238,7 @@ export function WorkSearchStep({
 
           {authorQuery.trim() &&
             !isSearchingAuthors &&
+            !authorListClosed &&
             authorResults.length === 0 && (
               <p className="text-xs text-fg-secondary">
                 No existing author found. A new author &ldquo;
