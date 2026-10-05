@@ -441,5 +441,15 @@ read-through with its own dates, edition, copy, sessions and rating; it never
 reuses `catalogue_status`, which is about buying. The book's rating becomes
 half-step. Migrations 0064 and 0065.
 
+Interchange and provider contracts (SLN-375, task 0331): a versioned JSON file
+carries records of every collection whole, with credits, realizations,
+holdings, sources, classification, collection places, links and location
+history, plus the shared rows they point at. Imports check each record, write
+it in one transaction, never change a row already here, match vocabularies by
+natural key and report each record; a dry run rolls back. Providers meet one
+contract scoped to a collection and its record levels, with time limits, gaps
+between calls, pending source review and lock-preserving proposals. No schema
+change.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.
