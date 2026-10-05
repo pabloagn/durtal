@@ -763,8 +763,8 @@ Starts reading a book, for a Shortcut that scans the barcode. Body `{ "isbn": st
 
 Works once the access rule in docs/11 is in place.
 
-- The phone calls the Durtal host over Tailscale (`https://durtal.<tailnet host>`), the address in the browser.
-- Log a page: Dictate Text, then Get Contents of URL: `POST https://<host>/api/readings/<reading id>/progress`, header `Authorization: Bearer <token>`, JSON body `text` = the dictated text and `tz` = Format Date (Current Date, custom format `VV`, which gives the IANA name). Then Get Dictionary Value `message` and Speak Text.
+- The phone calls the Durtal address it can reach (docs/11, Phone shortcuts): the Durtal host over Tailscale behind Authelia, or `http://<Mac name>.local:3100` on the same network when Durtal runs on the Mac. Below, `<host>` is that address.
+- Log a page: Dictate Text, then Get Contents of URL: `POST <host>/api/readings/<reading id>/progress`, header `Authorization: Bearer <token>`, JSON body `text` = the dictated text and `tz` = Format Date (Current Date, custom format `VV`, which gives the IANA name). Then Get Dictionary Value `message` and Speak Text.
 - The reading id: `GET /api/readings/open` once, or a Choose from List over its `readings`.
 - Timer: `POST /api/readings/timer/start` with `tz`, and `POST /api/readings/timer/stop` with the dictated `text`. On a `409` for a forgotten timer, Ask for Input (a time) and send it again as `endedAt`.
 - Barcode: Scan Barcode, then `POST /api/readings` with `isbn`; on `404`, Open URLs with the host plus `addUrl`.

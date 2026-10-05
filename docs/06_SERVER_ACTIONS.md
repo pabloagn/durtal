@@ -352,7 +352,8 @@ CRUD for sub-locations within a parent location.
 
 ```typescript
 getAppSettings(): Promise<AppSettings>
-// { newBookStatus, newBookLanguage, newCopyLocationId, newCopyFormat, newCopyCondition, homeCurrency }
+// { newBookStatus, newBookLanguage, newCopyLocationId, newCopyFormat, newCopyCondition, homeCurrency,
+//   readingDayStartHour, readingWeekStart, readingTimerCheckMinutes }
 ```
 
 The one `app_settings` row, cached under the tag `ref:settings`. A stored value the app no longer offers falls back to its default. Before migration 0052 has run (no table, error 42P01), it returns the defaults. The root layout reads it once per request and passes it to `AppSettingsProvider`; client components read it with `useAppSettings()` (`src/lib/hooks/use-app-settings.tsx`).
@@ -365,7 +366,7 @@ updateAppSettings(input: Partial<AppSettingsInput>): Promise<
 >
 ```
 
-Changes only the fields given, after `appSettingsInputSchema` (`src/lib/validations/settings.ts`): a status other than deaccessioned, a language from `LANGUAGES`, an existing location or null, an `INSTANCE_FORMATS` / `INSTANCE_CONDITIONS` value or null, a supported currency. Problems come back as `{ ok: false, error }`. Invalidates `ref:settings` and the root layout.
+Changes only the fields given, after `appSettingsInputSchema` (`src/lib/validations/settings.ts`): a status other than deaccessioned, a language from `LANGUAGES`, an existing location or null, an `INSTANCE_FORMATS` / `INSTANCE_CONDITIONS` value or null, a supported currency, a reading day start hour from 0 to 6, a week start of 1 (Monday) or 7 (Sunday), and a timer check of 15 to 480 minutes (SLN-451, from `/settings/reading`). Problems come back as `{ ok: false, error }`. Invalidates `ref:settings` and the root layout.
 
 ### `refreshCachedData()`
 
@@ -445,7 +446,7 @@ Each status change writes the order and its history row in one transaction. It i
 
 ## Reading (`src/lib/actions/reading.ts`, SLN-444)
 
-Every write parses its input (`src/lib/validations/reading.ts`), checks the book (`requireBookWork`), reads the reading and its fingerprint, then runs one atomic write that locks the reading and asserts the fingerprint; a stale one gives "This reading changed elsewhere; reload before saving". Each returns the reading with its new fingerprint, records its history entry after the write, and invalidates `works` and `reading`. Ratings are 0.5 to 5.0 in half steps. Times and default dates use the browser's `timeZone` when given, else `APP_TIMEZONE`, and the reading day (hours before 04:00 count for the evening before).
+Every write parses its input (`src/lib/validations/reading.ts`), checks the book (`requireBookWork`), reads the reading and its fingerprint, then runs one atomic write that locks the reading and asserts the fingerprint; a stale one gives "This reading changed elsewhere; reload before saving". Each returns the reading with its new fingerprint, records its history entry after the write, and invalidates `works` and `reading`. Ratings are 0.5 to 5.0 in half steps. Times and default dates use the browser's `timeZone` when given, else `APP_TIMEZONE`, and the reading day: hours before `app_settings.reading_day_start_hour` (04:00 by default) count for the evening before. Every writer reads the hour with `readingDayStartHour()` (`src/lib/reading/day.ts`); no caller passes a literal hour.
 
 ### `startReading(input)`
 Starts a book: copy, edition, home, format (from the copy: e-book files are `ebook`, audiobooks `audio`), unit, totals (pages from the edition), start date (today's reading day, or unknown) and at most one start position. Refused while the book has an open reading ("This book is already being read", or "This book has a paused reading; resume it"). `work.reading_started`.
@@ -478,7 +479,27 @@ Edition or copy (the start and current positions are mapped by share; with no pa
 Deletes a reading with its sessions and history and returns the snapshot; restore puts it back with the same ids, an edition, copy or place deleted meanwhile coming back empty, and is refused if it would make a second open reading. `work.reading_deleted`.
 
 ### `updateSession(input)` / `deleteSession(input)`
-Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. With no session left, the position returns to the start.
+Edit or remove one session (not the running timer); the next session's start and the open reading's position follow. With no session left, the position returns to the start. `deleteSession` returns `{ reading, session }`: the deleted row, for its Undo.
+
+### `addSession(input)` / `restoreSession({ readingId, fingerprint, snapshot })` (SLN-451)
+`addSession({ readingId, fingerprint, readOn, startedAt?, endedAt?, durationSeconds?, to: { page | percent | minutes }, chapter?, editionId?, format?, note?, timeZone })` adds one session by hand: `recordProgress` with `source: "manual"` and `goingBack: "went_back"`, so it never replaces another. It takes its place in the session order: it starts where the session before it ended, the next session's start follows, and the position moves only when it is the newest. Open readings only; `startedAt` and `endedAt` must fall on `readOn` in `timeZone`. Its Undo is `deleteSession`. `restoreSession` is the Undo of a delete: it puts the row back with its id and source and recomputes the next start and the position; refused for a running timer.
+
+### `getReadingSessions(readingId)` (SLN-451)
+One reading's sessions for the session list, newest first in the session order, each with its edition's title, and the running timer apart: `{ running, sessions }`. The list calls it when it opens.
+
+### The reading timer (SLN-451)
+One timer in the whole app: the session with `source = 'timer'` and `ended_at` null. Writes go through `src/lib/reading/timer-service.ts` and `recordProgress`.
+- `getRunningTimer()`: the running session with its book (title, slug, author, cover), its reading's position, unit, totals and fingerprint (equal to `readingFingerprintSql`), `startedAt`, `pausedAt` and `pausedSeconds`, or null. The chip calls it after mount, on focus and when the tab shows again.
+- `startTimer({ readingId, timeZone })`: refused while any timer runs ("A timer is running for Nadja. Stop it first"). A paused reading resumes first (`work.reading_resumed`). The session starts at the reading's position, in the sent zone, with `read_on` the reading day it started: a timer keeps that day and zone however late or wherever it stops.
+- `pauseTimer({ sessionId })` / `resumeTimer({ sessionId })`: set `paused_at`; add `now - paused_at` to `paused_seconds`. Pausing a paused timer or resuming a running one changes nothing.
+- `stopTimer({ sessionId, endedAt?, page?, percent?, minutes?, addPages?, addMinutes?, chapter?, editionId?, format?, goingBack?, note? })`: completes the running row through `recordProgress` with `timerSessionId` (no fingerprint: a fresh read, asserted in the same atomic with the row still running, one retry). It starts where the session before it ends, so a page logged by hand during the timer is never counted twice. It ends at `endedAt`, else now; a paused timer at its pause. `duration_seconds = ended_at - started_at - paused_seconds`, at least 1. No position: 0 pages, its time counted. Refused over 12 hours ("Edit the end time; a session can be at most 12 hours") and, without `endedAt`, past twice `reading_timer_check_minutes` ("Your timer for Nadja has run 6 h 12 min. When did you stop?"). Returns `{ reading, session, reachedEnd, undo }`.
+- `undoStopTimer({ sessionId, fingerprint, undo })`: the timer runs again (its end cleared, its pause restored) and the position is recomputed; refused while another timer runs ("A timer is running for La Curée").
+- `discardTimer({ sessionId })`: deletes the running row; the position does not change.
+- Any of them on a timer stopped or discarded elsewhere: "This timer was stopped on another device".
+- While a reading's timer runs, `pauseReading`, `finishReading`, `abandonReading` and `deleteReading` refuse with "Stop or discard the timer for Nadja first". Logging progress is allowed.
+
+### `getPaceContext(readingIds)` (SLN-451)
+The estimates' inputs in one query: each reading's format, unit, edition language, totals and position; its ended sessions with `countedPagesSql` pages, duration, format and the book minutes they moved (the running timer left out); its paused intervals from `reading_status_history`; and the priors, his pages an hour over the last two years by language and format, by format and overall. Numbers come back as `float8`. `getPaceContext([])` gives the priors alone (Up Next and suggestions use them). Computed per request, never cached. `readingEstimates(ids, today)` (`src/lib/reading/estimates.ts`) turns it into each reading's line and explanation with the pure `src/lib/reading/pace.ts`.
 
 ### `getReadingsForWork(workId)`, `getOpenReadings()`, `getReadingCounts(workId)`
 A book's readings newest first (fingerprint, ordinal, sessions and time, edition with translators, copy and shelf, home); every open reading with its book, author, cover and when it was paused, most recently read first (the hub, the dashboard, and the command palette, which calls it each time it opens); the readings and sessions a book delete removes.
@@ -514,7 +535,7 @@ The series page's "Next to read": `nextToRead`'s volume and where its copy is (a
 
 ### Internal service (`src/lib/reading/service.ts`, not a server action)
 - `createReading(input, { source, sourceKey?, importId? })`: the start every writer shares; with a known source key it returns that reading unchanged.
-- `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again").
+- `recordProgress(input, { fingerprint?, source, editionId?, format? })`: the progress write. Without a fingerprint (REST, the timer, the reader) it builds the write from a fresh read, asserts it, and retries once ("This reading changed elsewhere; try again"). With `timerSessionId` (SLN-451) it completes that running timer row instead of inserting a session, keeping its zone and day, and asserts in the same atomic that the row still runs.
 - `writeReadings(rows, { source, importId? })`: the batch writer for imports, the seed, the backfill and past reads. Each row is validated, checked with the duplicate rule (the count rule for imports), refused when it would open a second reading, and written with its history row, at most 100 per atomic; a repeated run writes nothing again. The book's rating is set `if_none` or `replace`, with `{ before, after }` in the outcome. `allowPossibleDuplicate` writes a possible duplicate, and an undated read the import's count rule called present ("Import anyway").
 
 ---
