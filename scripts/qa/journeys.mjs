@@ -21,8 +21,8 @@
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
- * summary and "Book rating 3 kept (the file says 4)", choose a book with the
- * picker, add a missing book and see its row match, commit, check a book
+ * summary and "Book rating 3 kept (the file says 4)", use the file's rating
+ * and back, choose a book with the picker, add a missing book and see its row match, commit, check a book
  * page, the journal and the imported review in Edit, undo, commit again, and
  * upload the same file again to see nothing left to import. Run the preview
  * with --s3-dir and the list shows the raw file kept; without, "Raw file not
@@ -526,6 +526,13 @@ async function importJourney() {
       await waitFor(`${row(2)}?.textContent.includes('Book rating 3 kept (the file says 4)')`, "the kept rating");
       await waitFor(`${row(1)}?.textContent.includes('+1 earlier read, date unknown') && ${row(1)}.textContent.includes('Book rating set to 5')`, "the re-read's line");
       await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 6 readings'", "Import 6 readings");
+    });
+    await step("use the file's rating, then keep the book's", async () => {
+      const box = `${row(2)}.querySelector('[data-import-rating] input')`;
+      await evaluate(`${box}.click(), true`);
+      await waitFor(`${row(2)}.textContent.includes('Book rating 3 replaced by 4') && ${box}.checked`, "the rating replaced");
+      await evaluate(`${box}.click(), true`);
+      await waitFor(`${row(2)}.textContent.includes('Book rating 3 kept (the file says 4)') && !${box}.checked`, "the rating kept again");
     });
     await step("choose a book with the picker", async () => {
       await evaluate(`${row(5)}.querySelector('[data-import-pick]').click()`);

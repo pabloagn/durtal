@@ -2,6 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import * as schema from "@/lib/db/schema";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
 import { DURTAL_READING_COLUMNS } from "@/lib/reading/import/durtal-format";
@@ -204,6 +206,24 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect([otherMurphy.workId, otherMurphy.match.found, otherMurphy.match.section]).toEqual([null, "possible", "choose"]);
       expect(otherMurphy.match.candidates[0]).toMatchObject({ score: 1, byAuthor: false });
       expect([gaddis.match.found, gaddis.match.section, gaddis.decision]).toEqual(["none", "none", "pending"]);
+    });
+
+    it("imports a StoryGraph file: a read per range, the rating rounded, the format", async () => {
+      const workId = await book("Crime and Punishment", "Fyodor Dostoevsky");
+      await edition(workId, { isbn13: "9780140449136" });
+      const text = readFileSync(join(__dirname, "../fixtures/reading-import/storygraph.csv"), "utf8");
+      const { importId, source } = await upload(text, "storygraph.csv");
+      expect(source).toBe("storygraph");
+      const all = await rows(importId);
+      const row = all.find((x) => x.data.title === "Crime and Punishment")!;
+      expect([row.workId, row.match.reason, row.decision]).toEqual([workId, "Same ISBN", "import"]);
+      expect(all.find((x) => x.data.title === "Backwards")!.match.section).toBe("cannot");
+      expect(await commitReadingImport({ importId })).toMatchObject({ written: 2 });
+      const written = await q(`select started_on::text as s, finished_on::text as f, rating::float8 as rating, format, source from readings where work_id = $1 order by finished_on`, [workId]);
+      expect(written.map((r) => [r.s, r.f, r.rating, r.format, r.source])).toEqual([
+        ["2021-03-01", "2021-04-02", null, "print", "import"],
+        ["2023-01-05", "2023-02-10", 4, "print", "import"],
+      ]);
     });
 
     it("matches a 2,000-row file with one query per batch", async () => {
