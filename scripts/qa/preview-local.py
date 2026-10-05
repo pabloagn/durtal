@@ -33,7 +33,12 @@ The preview has no S3: placeholder keys make every S3 call fail. With
 (DURTAL_PREVIEW_S3_DIR), so uploads, imports and e-books work. It is never
 set anywhere else.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR]
+With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
+printed once at start, so the phone's /api/readings routes can be checked
+with curl. It is never the live token. Without it the variable stays unset
+and those routes answer 503.
+
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR] [--api-token]
 """
 
 import argparse
@@ -207,6 +212,8 @@ def main():
                         help="append every query the app sends, with its time, to FILE (JSON lines)")
     parser.add_argument("--s3-dir", type=Path, metavar="DIR",
                         help="keep S3 objects as files under DIR instead of S3")
+    parser.add_argument("--api-token", action="store_true",
+                        help="give the app a random API token for this run, printed once")
     args = parser.parse_args()
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
@@ -277,6 +284,11 @@ def main():
         if args.s3_dir:
             args.s3_dir.resolve().mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_S3_DIR"] = str(args.s3_dir.resolve())
+        if args.api_token:
+            env["DURTAL_API_TOKEN"] = secrets.token_urlsafe(32)
+            print(f"API token for this preview only: {env['DURTAL_API_TOKEN']}", flush=True)
+        else:
+            env.pop("DURTAL_API_TOKEN", None)
         bridge = workdir / "neon-bridge.mjs"
         bridge.write_text(BRIDGE % {
             "postgres": repr(str(ROOT / "node_modules/postgres/src/index.js")),

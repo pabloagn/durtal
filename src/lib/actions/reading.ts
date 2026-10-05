@@ -27,6 +27,7 @@ import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { percentOf, remapPosition } from "@/lib/reading/positions";
 import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
+import { progressEvent, readingEvent } from "@/lib/reading/activity";
 import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
 import { TIMER_GONE } from "@/lib/reading/timer";
 import {
@@ -104,9 +105,7 @@ async function readingFor(readingId: string, fingerprint: string) {
   return reading;
 }
 
-function event(workId: string, key: string, reading: { id: string }, extra: Record<string, unknown> = {}) {
-  recordActivity("work", workId, key, { extra: { readingId: reading.id, ...extra } });
-}
+const event = readingEvent;
 
 /** The edition's title, for the history entries */
 async function editionTitle(editionId: string | null) {
@@ -151,21 +150,6 @@ export async function logProgress(input: LogProgressInput) {
   await progressEvent(result.reading, result.session.readOn);
   changed();
   return result;
-}
-
-/** At most one progress entry per reading per reading day */
-async function progressEvent(reading: Reading, day: string) {
-  const [seen] = resultRows<{ n: number }>(
-    await db.execute(sql`select count(*)::int as n from activity_events
-      where entity_type = 'work' and entity_id = ${reading.workId}::uuid and event_key = 'work.reading_progress'
-      and metadata->'extra'->>'readingId' = ${reading.id} and metadata->'extra'->>'day' = ${day}`),
-  );
-  if (seen?.n) return;
-  event(reading.workId, "work.reading_progress", reading, {
-    day,
-    pages: await pagesOnDay(reading.id, day),
-    percent: reading.currentPercent,
-  });
 }
 
 /* ── Pace (SLN-451) ── */
