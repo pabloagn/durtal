@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/actions/paintings", () => mocks);
 vi.mock("@/components/paintings/painting-grid", () => ({ PaintingGrid: () => null }));
 
-import { PaintingResults } from "@/app/paintings/painting-results";
+import { PaintingResults } from "@/app/paintings/(list)/painting-results";
 
 describe("the painting home's results", () => {
   beforeEach(() => vi.clearAllMocks());
