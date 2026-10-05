@@ -37,3 +37,5 @@ This task gives them the app's words.
 
 - `src/__tests__/utils/labels.test.ts`: order statuses and methods, and the
   copy labels equal to `enumLabel`'s.
+- `src/__tests__/ui/copy-form-labels.test.ts`: the copy form's format,
+  condition, status and disposition selects list words, no stored key.
