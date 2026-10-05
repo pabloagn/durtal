@@ -1859,7 +1859,7 @@ One data row of an uploaded reading history file (SLN-450), so an import's worki
 | `work_id` | UUID | nullable, FK → `works` SET NULL | The matched or chosen book; trigger `book_parent_required` |
 | `written` | JSONB | nullable | What the commit wrote: each reading's outcome and id, the book rating `{ workId, before, after }`, the Goodreads identifier ids. Undo reads it |
 
-A book merge moves `work_id` like any single-column reference.
+A book merge moves `work_id` like any single-column reference. Matching (`src/lib/reading/import/match.ts`) tries, in order: the Durtal work id; a reading that already has one of the row's source keys; the Goodreads Book Id (an edition's `goodreads_id` or a goodreads catalogue identifier); the id in `works.goodreads_url`; an ISBN; then title and author (`strict_word_similarity` both ways after `search_normalize`, 0.8 for likely, 0.5 for a candidate, the author's surname required for likely).
 
 ---
 
