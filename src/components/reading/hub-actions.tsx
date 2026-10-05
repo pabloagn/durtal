@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Square, Timer } from "lucide-react";
 import { useOptionalTimer } from "./timer-provider";
@@ -7,6 +8,7 @@ import { useStopTimer } from "./timer-chip";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useReadingDialogs, type ReadingRef } from "./reading-dialogs-provider";
+import { LazyGoalDialog } from "./goal-dialog-button";
 
 /*
  * The reading hub's and the dashboard's buttons (SLN-448): small client
@@ -28,6 +30,32 @@ export function HubActions() {
       <Button variant="primary" onClick={() => pick("start")} className="pointer-coarse:h-11" data-hub-start="">
         Start a book
       </Button>
+    </>
+  );
+}
+
+/** The hub's header menu (SLN-455): the goal dialog and the reading rhythm setting */
+export function HubMenu({ rhythm }: { rhythm: boolean }) {
+  const router = useRouter();
+  const [goals, setGoals] = useState(false);
+  const label = "More reading options";
+  return (
+    <>
+      <DropdownMenu
+        label={label}
+        align="end"
+        trigger={
+          <button type="button" aria-label={label} data-tooltip="More" className={`${menuButton} border border-glass-border`} data-hub-menu-open="">
+            <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        }
+      >
+        <DropdownMenuItem onClick={() => setGoals(true)}>Set a reading goal</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/settings/reading#reading-rhythm-days")}>
+          {rhythm ? "Change the reading rhythm" : "Set a reading rhythm"}
+        </DropdownMenuItem>
+      </DropdownMenu>
+      {goals && <LazyGoalDialog onClose={() => setGoals(false)} />}
     </>
   );
 }
