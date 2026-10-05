@@ -607,6 +607,21 @@ exports[`interchange format version 1 > pins every column it carries: a change t
     "publisher_id:uuid",
     "name:text",
   ],
+  "publisher_isbn_prefixes": [
+    "prefix:text",
+    "publisher_id:uuid",
+    "created_at:timestamp",
+  ],
+  "publisher_specialties": [
+    "id:uuid",
+    "name:text",
+    "slug:text",
+    "created_at:timestamp",
+  ],
+  "publishing_house_specialties": [
+    "publishing_house_id:uuid",
+    "specialty_id:uuid",
+  ],
   "publishing_houses": [
     "id:uuid",
     "name:text",

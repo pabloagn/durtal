@@ -57,6 +57,13 @@ export interface ImportReport {
 }
 
 const DRY_RUN = "durtal.interchange: dry run, rolled back";
+/**
+ * Each publisher, alias or ISBN prefix written relinks every unconfirmed
+ * edition (refresh_publisher_matches, migration 0036). The import defers that
+ * in each transaction and relinks once at the end.
+ */
+const DEFER_RELINK = sql`select set_config('durtal.defer_publisher_refresh', 'on', true)`;
+const RELINKING = ["publishing_houses", "publisher_aliases", "publisher_isbn_prefixes"];
 const CHUNK = 500;
 
 type Rows = Map<string, Map<string, Row>>;
@@ -237,7 +244,11 @@ async function write(plan: Rows, dryRun: boolean): Promise<string | null> {
   const queries = statements(plan);
   if (!queries.length) return null;
   try {
-    await atomic((d) => [...queries.map((q) => d.execute(q)), ...(dryRun ? [d.execute(assertSql(sql`false`, DRY_RUN))] : [])]);
+    await atomic((d) => [
+      d.execute(DEFER_RELINK),
+      ...queries.map((q) => d.execute(q)),
+      ...(dryRun ? [d.execute(assertSql(sql`false`, DRY_RUN))] : []),
+    ]);
     return null;
   } catch (error) {
     if (dryRun && isDryRunEnd(error)) return null;
@@ -441,6 +452,20 @@ export async function importInterchange(
             queue.push([part.shape.name, row]);
           }
       }
+      // A person, organization or venue the import adds brings its identifiers and sources;
+      // one already here keeps what it has
+      if (existing) return;
+      for (const owned of TABLES.values()) {
+        if (owned.spec.mode !== "record") continue;
+        for (const by of owned.spec.entityOwners ?? []) {
+          if (by.table !== t.shape.name) continue;
+          for (const [key, row] of sharedRows.get(owned.shape.name) ?? [])
+            if (String(row[by.column]) === id && !has(local, owned.shape.name, key) && !has(plan, owned.shape.name, key)) {
+              add(plan, owned, row);
+              queue.push([owned.shape.name, row]);
+            }
+        }
+      }
     };
     while (queue.length) {
       const [name, row] = queue.shift()!;
@@ -478,6 +503,7 @@ export async function importInterchange(
   };
 
   const wrote = new Set<string>();
+  let relink = false;
   for (const group of groups(entries)) {
     const members = group.map((id) => entries.get(id)!);
     const writing = members.filter((m) => !m.report.problems.length && (m.report.outcome === "created" || m.report.outcome === "added"));
@@ -515,6 +541,7 @@ export async function importInterchange(
           m.report.written = count(m.plan);
         }
         if (!dryRun) for (const [name, rows] of plan) for (const row of rows.values()) add(local, table(name), row);
+        if (!dryRun && RELINKING.some((name) => plan.get(name)?.size)) relink = true;
       }
     }
     if (problems.length) for (const m of writing) m.report.problems.push(...problems);
@@ -525,6 +552,8 @@ export async function importInterchange(
       report.outcome = "failed";
       report.written = {};
     }
+  // The relinking each publisher write deferred, once for the whole import
+  if (relink) await db.execute(sql`select refresh_all_publisher_links()`);
   if (!dryRun && wrote.size)
     invalidate(...Object.values(CACHE_TAGS).filter((tag) => tag !== CACHE_TAGS.settings));
 

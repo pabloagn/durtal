@@ -83,6 +83,24 @@ the reading CSV import with its bronze copy, do not change. No schema change.
   snapshot; `src/__tests__/providers/contract.test.ts` covers declarations,
   result limits, time limits, gaps, rate limits, proposals and that catalogue
   writes, imports and exports never import a provider.
+- Review fixes (PR #111):
+  - The identifiers and sources of people, organizations and venues travel in
+    `shared` (`entityOwners` on `catalogue_identifiers` and `source_records`,
+    `entityOwner()` checks each row has exactly one owner); a person,
+    organization or venue the import adds brings them, one already here keeps
+    what it has. Publisher specialties (a vocabulary matched by slug), house
+    specialties and ISBN prefixes travel as parts of an organization.
+  - Each publisher, alias or ISBN prefix written fired the statement trigger
+    that relinks every unconfirmed edition, once per record: 1,000 books and
+    200 publishers took 22 s, 3,000 and 600 took 354 s. Each transaction now
+    sets `durtal.defer_publisher_refresh`, and the import calls
+    `refresh_all_publisher_links()` once at the end when it wrote any of those
+    rows (34 s for 3,000 books, the same links).
+  - Tests: identifiers and sources of a person, an organization and a venue,
+    a specialty with another id here and an ISBN prefix round-trip, and a
+    person already here is not given back a removed source; an edition here
+    that names a publisher the import adds is linked to it once the import
+    ends.
 - `python3 scripts/qa/test-local.py`: 2296 tests in 205 files passed, none
   skipped, against 69 disposable databases, plus both Python checks.
   `pnpm typecheck` and lint of the changed files are clean.

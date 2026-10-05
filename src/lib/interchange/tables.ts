@@ -59,6 +59,12 @@ export interface RecordSpec extends BaseSpec {
   alsoParent?: { column: string; table: string };
   /** Pulled into a record when one of its rows refers to it (a date, a cited source) */
   referenced?: boolean;
+  /**
+   * Shared records that may own a row instead of a work: an identifier or a
+   * source of a person, an organization or a venue travels in `shared` with
+   * its owner.
+   */
+  entityOwners?: readonly { column: string; table: string }[];
 }
 export interface EntitySpec extends BaseSpec {
   mode: "entity";
@@ -84,6 +90,12 @@ const variant = { column: "variant_id", table: "perfume_variants" };
 const film = { column: "work_id", table: "film_details" };
 const painting = { column: "work_id", table: "painting_details" };
 const object = { column: "object_id", table: "art_objects" };
+
+const entityOwners = [
+  { column: "person_id", table: "authors" },
+  { column: "organization_id", table: "publishing_houses" },
+  { column: "venue_id", table: "venues" },
+] as const;
 
 const vocabulary = (table: PgTable, label: string, natural: readonly string[] = ["slug"], create = true): EntitySpec => ({
   table,
@@ -113,6 +125,7 @@ const SPECS: TableSpec[] = [
   vocabulary(s.artTypes, "art type"),
   vocabulary(s.artMovements, "art movement"),
   vocabulary(s.workTypes, "work type"),
+  vocabulary(s.publisherSpecialties, "publisher specialty"),
 
   // Shared records, matched by id
   entity(s.places, "place"),
@@ -124,6 +137,8 @@ const SPECS: TableSpec[] = [
   entity(s.publishingHouses, "organization"),
   { table: s.organizationRoles, mode: "part", parent: { column: "organization_id", table: "publishing_houses" }, forExisting: true },
   { table: s.publisherAliases, mode: "part", parent: { column: "publisher_id", table: "publishing_houses" } },
+  { table: s.publishingHouseSpecialties, mode: "part", parent: { column: "publishing_house_id", table: "publishing_houses" } },
+  { table: s.publisherIsbnPrefixes, mode: "part", parent: { column: "publisher_id", table: "publishing_houses" } },
   entity(s.authors, "person"),
   // A new person is a book person until told otherwise (legacy_author_domain)
   { table: s.personDomains, mode: "part", parent: { column: "person_id", table: "authors" }, forExisting: true, exact: true },
@@ -135,8 +150,8 @@ const SPECS: TableSpec[] = [
   { table: s.catalogueDates, mode: "record", section: "dates", referenced: true },
   { table: s.works, mode: "record", section: "identity" },
   { table: s.editions, mode: "record", section: "realizations", domains: BOOK, parent: work },
-  { table: s.catalogueIdentifiers, mode: "record", section: "sources", parent: work, alsoParent: edition, referenced: true },
-  { table: s.sourceRecords, mode: "record", section: "sources", parent: work, alsoParent: edition, referenced: true },
+  { table: s.catalogueIdentifiers, mode: "record", section: "sources", parent: work, alsoParent: edition, referenced: true, entityOwners },
+  { table: s.sourceRecords, mode: "record", section: "sources", parent: work, alsoParent: edition, referenced: true, entityOwners },
   { table: s.workAuthors, mode: "record", section: "credits", domains: BOOK, parent: work },
   { table: s.editionContributors, mode: "record", section: "credits", domains: BOOK, parent: edition },
   { table: s.editionPublishers, mode: "record", section: "realizations", domains: BOOK, parent: edition },
@@ -229,6 +244,19 @@ export const SHARED_TABLES = [...TABLES.values()].filter((t) => t.spec.mode !== 
 /** Whether a collection's records may carry this table */
 export function carries(t: Table, domain: WorkKind) {
   return t.spec.mode === "record" && (!t.spec.domains || t.spec.domains.includes(domain));
+}
+
+/**
+ * The person, organization or venue that owns a row of an identifier or
+ * source table, when no work or edition does. Null for a row of a work or an
+ * edition, and for a row with no owner or more than one.
+ */
+export function entityOwner(t: Table, row: Record<string, unknown>): { column: string; table: string } | null {
+  if (t.spec.mode !== "record" || !t.spec.entityOwners) return null;
+  const set = (column: string | undefined) => !!column && row[column] !== null && row[column] !== undefined;
+  if (set(t.spec.parent?.column) || set(t.spec.alsoParent?.column)) return null;
+  const owners = t.spec.entityOwners.filter((owner) => set(owner.column));
+  return owners.length === 1 ? owners[0] : null;
 }
 
 /**

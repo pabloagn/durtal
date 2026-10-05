@@ -1,7 +1,7 @@
 import { WORK_KINDS, isWorkKind, type WorkKind } from "@/lib/catalogue/kinds";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { rowProblems, type Row } from "./columns";
-import { SECTIONS, TABLES, carries, references, type Section } from "./tables";
+import { SECTIONS, TABLES, carries, entityOwner, references, type Section } from "./tables";
 
 /*
  * The Durtal interchange file (SLN-375): one JSON document that carries
@@ -65,7 +65,8 @@ export function readShared(shared: Record<string, unknown>): Record<string, Row[
   const out: Record<string, Row[]> = {};
   for (const [name, rows] of Object.entries(shared)) {
     const t = TABLES.get(name);
-    if (!t || t.spec.mode === "record") {
+    // Identifiers and sources travel here too, when a person, an organization or a venue owns them
+    if (!t || (t.spec.mode === "record" && !t.spec.entityOwners)) {
       issues.push(`shared.${name}: is not a shared table of version ${INTERCHANGE_VERSION}`);
       continue;
     }
@@ -74,7 +75,10 @@ export function readShared(shared: Record<string, unknown>): Record<string, Row[
       continue;
     }
     rows.forEach((row, i) => {
-      for (const problem of rowProblems(t.shape, row)) issues.push(`shared.${name}[${i}].${problem}`);
+      const problems = rowProblems(t.shape, row);
+      for (const problem of problems) issues.push(`shared.${name}[${i}].${problem}`);
+      if (!problems.length && t.spec.mode === "record" && !entityOwner(t, row as Row))
+        issues.push(`shared.${name}[${i}]: must belong to one person, organization or venue`);
     });
     out[name] = rows as Row[];
   }

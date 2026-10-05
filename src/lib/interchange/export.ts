@@ -162,6 +162,7 @@ export async function exportInterchange(selection: ExportSelection = {}): Promis
   const everything = () => [...records.map((r) => r.bag), shared];
   const entities = SHARED_TABLES.filter((t) => t.spec.mode === "entity");
   const parts = SHARED_TABLES.filter((t) => t.spec.mode === "part");
+  const entityOwned = RECORD_TABLES.filter((t) => t.spec.mode === "record" && t.spec.entityOwners);
   for (let changed = true; changed; ) {
     const before = [...shared.values()].reduce((n, rows) => n + rows.size, 0);
     for (const t of entities) {
@@ -173,6 +174,14 @@ export async function exportInterchange(selection: ExportSelection = {}): Promis
       if (t.spec.mode !== "part") continue;
       const owners = [...(shared.get(t.spec.parent.table)?.keys() ?? [])];
       if (owners.length) for (const row of await rowsWhere(t, t.spec.parent.column, owners)) put(shared, t, row);
+    }
+    // The identifiers and sources of the people, organizations and venues here
+    for (const t of entityOwned) {
+      if (t.spec.mode !== "record") continue;
+      for (const by of t.spec.entityOwners ?? []) {
+        const owners = [...(shared.get(by.table)?.keys() ?? [])];
+        if (owners.length) for (const row of await rowsWhere(t, by.column, owners)) put(shared, t, row);
+      }
     }
     changed = [...shared.values()].reduce((n, rows) => n + rows.size, 0) !== before;
   }
@@ -189,7 +198,7 @@ export async function exportInterchange(selection: ExportSelection = {}): Promis
   const sharedOut: Record<string, Row[]> = {};
   for (const t of TABLES.values()) {
     const rows = shared.get(t.shape.name);
-    if (rows?.size && t.spec.mode !== "record") sharedOut[t.shape.name] = sorted(t, rows.values());
+    if (rows?.size) sharedOut[t.shape.name] = sorted(t, rows.values());
   }
   return {
     format: INTERCHANGE_FORMAT,

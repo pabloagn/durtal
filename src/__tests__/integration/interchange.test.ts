@@ -44,7 +44,7 @@ import { createArtObject, createPainting } from "@/lib/actions/paintings";
 import { getWhereabouts, recordWhereabouts } from "@/lib/actions/whereabouts";
 import { createWorkRelation } from "@/lib/actions/work-relations";
 import { bulkAddWorksToCollection, createCollection } from "@/lib/actions/collections";
-import { citeSource } from "@/lib/actions/catalogue-provenance";
+import { citeSource, recordSourceObservation, registerCatalogueIdentifier } from "@/lib/actions/catalogue-provenance";
 import { getWorkCuration, updateWorkCuration } from "@/lib/actions/curation";
 import { fetchProviderDetail, providerLocks, recordProviderDetail, reviewProposal } from "@/lib/providers/run";
 import type { ProviderAdapter } from "@/lib/providers/contract";
@@ -90,6 +90,7 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
   async function library() {
     ids = {};
     const burgess = await value(`insert into authors(name, slug) values ('Anthony Burgess', 'anthony-burgess') returning id`);
+    ids.burgess = burgess;
     ids.book = await value(`insert into works(title, slug, original_language, original_year) values ('A Clockwork Orange', 'a-clockwork-orange', 'en', 1962) returning id`);
     await c`insert into work_authors(work_id, author_id, role, sort_order) values (${ids.book}, ${burgess}, 'author', 0)`;
     ids.firstEdition = await value(`insert into editions(work_id, title, isbn_13, publication_year) values ($1, 'A Clockwork Orange', '9780434098001', 1962) returning id`, [ids.book]);
@@ -101,6 +102,7 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     const kubrick = (await createPerson({ name: "Stanley Kubrick", domains: ["film"] })).id;
     const vermeer = (await createPerson({ name: "Johannes Vermeer", domains: ["painting"] })).id;
     const chanel = (await saveOrganization({ name: "Chanel", roles: ["perfume_house"] }))!.id;
+    ids.chanel = chanel;
     const mauritshuis = (await saveOrganization({ name: "Mauritshuis", roles: ["museum"] }))!.id;
     const hague = (await createVenue({ name: "Mauritshuis, The Hague", type: "museum" })).id;
     const tokyo = (await createVenue({ name: "Tokyo Metropolitan Art Museum", type: "museum" })).id;
@@ -302,6 +304,62 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     const partial = await importInterchange(missing, { policy: "keep", dryRun: true });
     expect(outcomes(partial)).toEqual({ book: "created", film: "created", painting: "created", perfume: "failed" });
     expect(partial.records.find((r) => r.domain === "perfume")!.problems).toContain("The taxonomy family “perfume-moods” does not exist here");
+  });
+
+  /** Penguin publishes the restored edition, confirmed by hand, with a specialty and an ISBN prefix */
+  async function penguin() {
+    const id = (await saveOrganization({ name: "Penguin", roles: ["publisher"] }))!.id;
+    await c`update editions set publisher_links_confirmed = true where id = ${ids.chosenEdition}`;
+    await c`insert into edition_publishers(edition_id, publisher_id) values (${ids.chosenEdition}, ${id})`;
+    const specialty = await value(`insert into publisher_specialties(name, slug) values ('Literary fiction', 'literary-fiction') on conflict (slug) do update set name = excluded.name returning id`);
+    await c`insert into publishing_house_specialties(publishing_house_id, specialty_id) values (${id}, ${specialty})`;
+    await c`insert into publisher_isbn_prefixes(prefix, publisher_id) values ('97801401', ${id})`;
+    return id;
+  }
+
+  it("keeps the identifiers and sources of people, organizations and venues, and a publisher's specialties and prefixes", async () => {
+    await library();
+    const person = { kind: "person" as const, id: ids.burgess };
+    const identifier = await registerCatalogueIdentifier({ owner: person, provider: "wikidata", externalId: "Q217619" });
+    await recordSourceObservation({ owner: person, provider: "wikidata", identifierId: identifier.id, retrievedAt: new Date("2026-10-01T00:00:00Z"), payload: { label: "Anthony Burgess" } });
+    await registerCatalogueIdentifier({ owner: { kind: "organization", id: ids.chanel }, provider: "wikidata", externalId: "Q180270" });
+    await citeSource({ owner: { kind: "venue", id: ids.tokyo }, attribution: "Museum website", url: "https://www.tobikan.jp/en/", retrievedOn: "2026-10-01" });
+    await penguin();
+    const counts = async () => ({
+      identifiers: await value<number>(`select count(*)::int from catalogue_identifiers where work_id is null and edition_id is null`),
+      sources: await value<number>(`select count(*)::int from source_records where work_id is null and edition_id is null`),
+      specialties: await value<number>(`select count(*)::int from publishing_house_specialties`),
+      prefixes: await value<number>(`select count(*)::int from publisher_isbn_prefixes`),
+    });
+    expect(await counts()).toEqual({ identifiers: 2, sources: 2, specialties: 1, prefixes: 1 });
+    const file = clone(await exportInterchange());
+
+    await wipe();
+    // Another Durtal numbers the specialty differently: it is matched by slug
+    await c`update publisher_specialties set id = gen_random_uuid() where slug = 'literary-fiction'`;
+    const report = await importInterchange(file, { policy: "keep", dryRun: false });
+    expect(report.records.flatMap((r) => r.problems)).toEqual([]);
+    expect(await counts()).toEqual({ identifiers: 2, sources: 2, specialties: 1, prefixes: 1 });
+    expect(await value<number>(`select count(*)::int from publisher_specialties where slug = 'literary-fiction'`)).toBe(1);
+    expect((await exportInterchange()).records).toEqual(file.records);
+
+    // A person already here keeps what it has: a source removed here is not brought back
+    await c`delete from source_records where person_id = ${ids.burgess}`;
+    await importInterchange(file, { policy: "add", dryRun: false });
+    expect(await value<number>(`select count(*)::int from source_records where person_id = $1`, [ids.burgess])).toBe(0);
+  });
+
+  it("relinks publishers once, after the import", async () => {
+    await library();
+    const penguinId = await penguin();
+    const file = clone(await exportInterchange({ ids: [ids.book] }));
+    await wipe();
+    // A book here whose edition names Penguin, which is not here yet
+    const orwell = await value(`insert into works(title, slug) values ('Nineteen Eighty-Four', 'nineteen-eighty-four') returning id`);
+    const edition = await value(`insert into editions(work_id, title, publisher) values ($1, 'Nineteen Eighty-Four', 'Penguin') returning id`, [orwell]);
+    const report = await importInterchange(file, { policy: "keep", dryRun: false });
+    expect(report.records.flatMap((r) => r.problems)).toEqual([]);
+    expect(await c`select publisher_id from edition_publishers where edition_id = ${edition}`).toEqual([{ publisher_id: penguinId }]);
   });
 
   it("exports one collection or a few works", async () => {

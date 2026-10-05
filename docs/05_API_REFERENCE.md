@@ -422,7 +422,7 @@ The file is `{ "format": "durtal.interchange", "version": 1, "exportedAt", "reco
 | `collections` | The collections that hold the work, or one of its editions, with their order |
 | `relations` | Links that start from the work (adaptation, remake, flanker, inspiration) |
 
-`shared` holds what records point at, once: people, organizations with their roles, venues, places, storage locations, collections, series and vocabularies. Not carried in version 1: images and their files, comments, activity, readings, orders and acquisition targets, Calibre links.
+`shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried in version 1: images and their files, comments, activity, readings, orders and acquisition targets, Calibre links.
 
 A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one.
 
@@ -447,7 +447,7 @@ Imports an interchange file. Needs the write token.
 | `dryRun` | boolean | Default `true`: check everything, write nothing. Send `false` to write |
 | `document` | object | The file |
 
-Each record is one transaction: a record that fails writes nothing, and the others still import. A row that is here already is never changed, so curated edits here always win; running the same file again writes nothing. Records are matched by id. People, organizations, venues and the other shared rows are matched by id and added when missing. Vocabularies are matched by natural key (a country by its ISO code, a taxonomy family by slug, a taxonomy item by family and slug), so another Durtal's ids do not matter; a missing country, language, credit role or taxonomy family fails the records that need it. Records that link to each other are written in order; a cycle is written in one transaction. A dry run takes the same steps and rolls each transaction back.
+Each record is one transaction: a record that fails writes nothing, and the others still import. A row that is here already is never changed, so curated edits here always win; running the same file again writes nothing. Records are matched by id. People, organizations, venues and the other shared rows are matched by id and added when missing; one the import adds brings its identifiers and sources, and one already here keeps what it has. Publisher links are relinked once at the end of the import, not after every publisher written. Vocabularies are matched by natural key (a country by its ISO code, a taxonomy family by slug, a taxonomy item by family and slug), so another Durtal's ids do not matter; a missing country, language, credit role or taxonomy family fails the records that need it. Records that link to each other are written in order; a cycle is written in one transaction. A dry run takes the same steps and rolls each transaction back.
 
 **Response** `200`: `{ "dryRun", "policy", "counts", "records": [...] }`. Each record reports `outcome`: `created`, `unchanged`, `added`, `kept` (left as it is here) or `failed`; `written` (rows by table); `differences` (file rows that differ from the rows here, by table, key and columns); `absent` (rows a kept record lacks); `problems` (why it failed, row by row).
 
