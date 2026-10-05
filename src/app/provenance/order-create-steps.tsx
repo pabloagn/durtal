@@ -20,6 +20,7 @@ import {
   currencySymbol,
 } from "@/lib/constants/currencies";
 import { STATUS_LABELS, getPosterUrl, getPosterStyle, getAuthorName } from "./order-model";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 // The steps of the new-order dialog: the book, how it was acquired, the details and the notes.
 
@@ -194,7 +195,7 @@ export function WorkSearchStep({
               onKeyDown={(e) => {
                 if (
                   e.key === "Escape" &&
-                  !e.nativeEvent.isComposing &&
+                  !isComposing(e) &&
                   !authorListClosed &&
                   authorQuery.trim() &&
                   authorResults.length > 0

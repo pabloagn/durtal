@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 export interface SelectOption {
   value: string;
@@ -88,7 +89,7 @@ export function Select({
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
+      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
       e.preventDefault();
       setIsOpen(false);
       setActiveHint(null);

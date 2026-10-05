@@ -137,6 +137,14 @@ describe("S opens the search", () => {
     expect(onPalette).not.toHaveBeenCalled();
   });
 
+  it("held down after it opened the palette, types nothing into it", () => {
+    renderApp();
+    press("s");
+    expect(press("s", { repeat: true }).defaultPrevented).toBe(true);
+    // A fresh S is typing in the palette's field
+    expect(press("s").defaultPrevented).toBe(false);
+  });
+
   it("does nothing while a combobox has focus (it takes letters to find an option)", () => {
     const onPalette = renderApp();
     const box = document.createElement("button");
@@ -249,6 +257,21 @@ describe("Esc closes one layer per press", () => {
     input.focus();
     expect(press("Escape", { isComposing: true }, input).defaultPrevented).toBe(false);
     expect(input.value).toBe("par");
+  });
+
+  it("leaves the Esc that ends a composition in Safari alone (keyCode 229, isComposing false)", async () => {
+    act(() => root.render(createElement(PlacePicker, { label: "City", value: null, onChange: () => {} })));
+    const input = document.querySelector('input[placeholder="Search a city"]') as HTMLInputElement;
+    typeInto(input, "Ams");
+    await wait(350);
+    input.focus();
+    const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    Object.defineProperty(event, "keyCode", { value: 229 });
+    act(() => {
+      input.dispatchEvent(event);
+    });
+    expect(event.defaultPrevented).toBe(false);
+    expect(input.value).toBe("Ams");
   });
 
   it("closes the new order's author suggestions only, and keeps the name", async () => {

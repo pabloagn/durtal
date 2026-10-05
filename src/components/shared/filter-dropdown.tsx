@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { SlidersHorizontal, ChevronDown, Search } from "lucide-react";
 import { RangeSlider } from "@/components/ui/range-slider";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 /** Minimum number of options before showing the search box in a filter group */
 const SEARCH_THRESHOLD = 8;
@@ -124,7 +125,7 @@ export function FilterDropdown({
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
+      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
       e.preventDefault();
       setOpen(false);
       triggerRef.current?.focus();

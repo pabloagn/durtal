@@ -21,6 +21,7 @@ import {
   parseBookLinkValues,
   type BookLinkValues,
 } from "@/components/books/book-links-fields";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
   value: l.value,
@@ -529,7 +530,7 @@ export function WorkForm({
                     placeholder="Search author by name..."
                     className="mb-2 h-8 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
                     onKeyDown={(e) => {
-                      if (e.key === "Escape" && !e.nativeEvent.isComposing) {
+                      if (e.key === "Escape" && !isComposing(e)) {
                         // The author search closes; the dialog stays
                         e.preventDefault();
                         setShowAuthorAdd(false);

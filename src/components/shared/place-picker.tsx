@@ -10,6 +10,7 @@ import {
   searchPlaces,
 } from "@/lib/actions/places";
 import type { GeocodingResult } from "@/app/api/geocode/route";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 export interface PlaceValue {
   id: string;
@@ -131,7 +132,7 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
         // Esc closes the list under the field, as the publisher picker's
         // does; the dialog around it stays until the next Esc (SLN-477)
         onKeyDown={(e) => {
-          if (e.key === "Escape" && q && !e.nativeEvent.isComposing) {
+          if (e.key === "Escape" && q && !isComposing(e)) {
             e.preventDefault();
             setQuery("");
           }

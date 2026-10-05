@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Search, MapPin, Loader2, X } from "lucide-react";
 import type { GooglePlaceResult } from "@/app/api/venues/search-places/route";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 export type { GooglePlaceResult };
 
@@ -155,7 +156,7 @@ export function GooglePlacesSearch({
       e.preventDefault();
       const place = results[activeIndex];
       if (place) handleSelect(place);
-    } else if (e.key === "Escape" && isOpen && !e.nativeEvent.isComposing) {
+    } else if (e.key === "Escape" && isOpen && !isComposing(e)) {
       // The list closes; the dialog around it stays (one layer per Esc)
       e.preventDefault();
       setIsOpen(false);

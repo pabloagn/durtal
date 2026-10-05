@@ -7,6 +7,7 @@
  * "shift", "enter", "esc", or the character itself.
  */
 
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 
 export type Keys = string[];
@@ -212,6 +213,17 @@ const NOT_TEXT = new Set([
 ]);
 
 /** The user types into this element: single-key shortcuts must not fire */
+/**
+ * A key that belongs to an input method composing text (Japanese, Chinese,
+ * Korean): an Esc there ends the composition and must close nothing. Safari
+ * sends the key that ends a composition with keyCode 229 and isComposing
+ * false, so both count (SLN-477).
+ */
+export function isComposing(event: KeyboardEvent | ReactKeyboardEvent): boolean {
+  const native = "nativeEvent" in event ? event.nativeEvent : event;
+  return native.isComposing || native.keyCode === 229;
+}
+
 export function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   if (el.isContentEditable) return true;

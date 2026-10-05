@@ -61,6 +61,7 @@ import {
   draftsToCreate,
   newCopyLocationId,
 } from "@/lib/utils/instance-drafts";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -379,7 +380,7 @@ export function AddBookWizard({
         break;
       case "Escape":
         // Open results close first; with none, Esc leaves the field
-        if (!searchResults.length || e.nativeEvent.isComposing) break;
+        if (!searchResults.length || isComposing(e)) break;
         e.preventDefault();
         clearResults();
         setHighlightedIndex(-1);

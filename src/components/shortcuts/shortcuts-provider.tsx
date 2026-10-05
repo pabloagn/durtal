@@ -25,6 +25,7 @@ import {
   ADD,
   COPY_KEYS,
   GO_TO,
+  isComposing,
   isConfirmField,
   isMacPlatform,
   isPickerField,
@@ -383,7 +384,7 @@ export function ShortcutsProvider({
 
     function onKeyDown(event: KeyboardEvent) {
       // A handler on the page took the key, or an input method is composing
-      if (event.defaultPrevented || event.isComposing || event.keyCode === 229)
+      if (event.defaultPrevented || isComposing(event))
         return;
       const target = event.target as HTMLElement | null;
       const mod = mac ? event.metaKey : event.ctrlKey;
@@ -401,6 +402,10 @@ export function ShortcutsProvider({
         if (event.key === "Escape") {
           event.preventDefault();
           onPaletteOpenChange(false);
+        } else if (event.repeat && plain && key === "s") {
+          // The S that opened the palette, held down: its repeats would
+          // type "ssss" into the palette's field
+          event.preventDefault();
         }
         return;
       }

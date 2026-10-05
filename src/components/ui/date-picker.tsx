@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { DayPicker } from "react-day-picker";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 interface DatePickerProps {
   label?: string;
@@ -65,7 +66,7 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.isComposing) return;
+      if (e.key !== "Escape" || isComposing(e)) return;
       // The calendar closes; the dialog around it stays (one layer per Esc)
       e.preventDefault();
       setOpen(false);
