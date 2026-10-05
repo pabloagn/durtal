@@ -50,6 +50,7 @@ import {
   loadPerfumeHoldings,
   loadPerfumeClassification,
   loadPerfumePerfumers,
+  loadVariantsInheritance,
 } from "@/lib/catalogue/perfume-model";
 import { recordSourceObservation } from "@/lib/actions/catalogue-provenance";
 import {
@@ -284,6 +285,36 @@ describe.skipIf(!url)("perfume relational model", () => {
     await expect(loadPerfumeClassification(otherId, variantId)).rejects.toThrow(
       "does not belong",
     );
+  });
+  it("reads every formulation's perfumers and classification in two queries, the same as one by one", async () => {
+    const perfumer = await createPerson({ name: "House perfumer", domains: ["perfume"] });
+    const reformulator = await createPerson({ name: "Reformulator", domains: ["perfume"] });
+    await c`insert into work_credits(work_id,person_id,role_id,attribution) values (${workId},${perfumer.id},'perfume.perfumer','confirmed')`;
+    await c`insert into perfume_notes(work_id,item_id,position,sort_order) values (${workId},${items.rose},'top',0),(${workId},${items.wood},'base',0)`;
+    await c`insert into custom_taxonomy_item_works(work_id,item_id) values (${workId},${items.amber})`;
+    // A second formulation with its own perfumers and its own notes; a third with nothing of its own
+    const [own, plain] = await testDb!
+      .insert(schema.perfumeVariants)
+      .values([perfumeVariantSchema.parse({ workId }), perfumeVariantSchema.parse({ workId })])
+      .returning();
+    await c`update perfume_variants set perfumers_override=true where id=${own.id}`;
+    await c`insert into perfume_variant_perfumers(variant_id,person_id,sort_order) values (${own.id},${reformulator.id},0)`;
+    await c`insert into perfume_variant_perfumers(variant_id,attribution,sort_order) values (${own.id},'unknown',1)`;
+    await c`insert into perfume_variant_overrides(variant_id,family_id) values (${own.id},${family["perfume-notes"]})`;
+    await c`insert into perfume_variant_notes(variant_id,item_id,position) values (${own.id},${items.wood},'heart')`;
+    await c`insert into perfume_variant_overrides(variant_id,family_id) values (${own.id},${family["perfume-accords"]})`;
+    await c`insert into perfume_variant_taxa(variant_id,item_id) values (${own.id},${items.fresh})`;
+
+    const ids = [variantId, own.id, plain.id];
+    const batched = await loadVariantsInheritance(workId, ids);
+    for (const id of ids)
+      expect(batched.get(id), id).toEqual({
+        perfumers: await loadPerfumePerfumers(workId, id),
+        classification: await loadPerfumeClassification(workId, id),
+      });
+    expect(batched.get(own.id)!.perfumers.map((p) => p.personId)).toEqual([reformulator.id, null]);
+    expect(batched.get(plain.id)!.classification).toHaveLength(3);
+    expect(await loadVariantsInheritance(workId, [])).toEqual(new Map());
   });
   it("enforces vocabulary and scope boundaries, protecting used items and overrides", async () => {
     await expect(
