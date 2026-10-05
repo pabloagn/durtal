@@ -160,7 +160,7 @@ export function BookCard({
           className={`block ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={isSelecting ? -1 : undefined}
         >
-          <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+          <div className="cover-shadow">
           {/* While the cover loads, the frame shows the poster's main color */}
           <div
             className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"

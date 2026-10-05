@@ -34,7 +34,7 @@ export function CapAligned({
     return (
       <span className={`block h-[1lh] shrink-0 ${className}`}>
         <span
-          className="inline-block overflow-hidden align-[0.5cap] [&_:focus-visible]:-outline-offset-1"
+          className="cap-box"
           style={{ height, marginBlock: -height / 2 }}
         >
           {children}
@@ -44,7 +44,7 @@ export function CapAligned({
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="inline-block h-(--cap-box) overflow-hidden align-[0.5cap] [margin-block:calc(var(--cap-box)/-2)] pointer-coarse:h-(--cap-box-coarse) pointer-coarse:[margin-block:calc(var(--cap-box-coarse)/-2)] [&_:focus-visible]:-outline-offset-1"
+        className="cap-box h-(--cap-box) [margin-block:calc(var(--cap-box)/-2)] pointer-coarse:h-(--cap-box-coarse) pointer-coarse:[margin-block:calc(var(--cap-box-coarse)/-2)]"
         style={{ "--cap-box": `${height}px`, "--cap-box-coarse": `${coarseHeight}px` } as CSSProperties}
       >
         {children}

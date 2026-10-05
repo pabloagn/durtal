@@ -38,3 +38,12 @@ Measured on one disposable preview of the live dump of 2026-10-04 (690 books,
   390 px: 48 cards, both icons drawn (their `<use>` boxes measured), no
   overflow; alignment and design audits clean.
 - The other main routes keep their budgets (`page-weight.js`).
+- After main merged in (a favourite star on every card), /library was
+  312 KB on the 2026-10-05 live dump. Three more classes repeat on every
+  card and became utilities in `globals.css`: `cap-box` (CapAligned's inner
+  box), `chip-button` (the copy and actions buttons; the element keeps
+  `glass-chip`, which `hover-reveal-glass` looks for) and `cover-shadow`.
+  Computed styles match the build before them; the actions button no longer
+  carries `flex-shrink: 1`, in a box that is not a flex row.
+- Same dump, production build: /library 294 KB in grid view (mosaic 146,
+  list 231, detailed 187, timeline 93). All 17 routes pass `page-weight.js`.
