@@ -19,6 +19,9 @@ import { PassageOfTheDay } from "@/components/reading/passage-of-the-day";
 import { getRecentlyFinished } from "@/lib/reading/journal";
 import { readingDay } from "@/lib/reading/dates";
 import { readingDayStartHour } from "@/lib/reading/day";
+import { addDays } from "@/lib/reading/goals";
+import { finishedYears, onThisDay } from "@/lib/reading/stats";
+import { OnThisDay } from "@/components/reading/on-this-day";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { appTimeZone } from "@/lib/utils/date";
 
@@ -27,7 +30,8 @@ export const metadata = { title: "Reading" };
 /*
  * The reading hub (SLN-448): what is being read now, the goals and the weekly
  * rhythm (SLN-455), Up next, the passage of the day, what is paused, and the
- * latest finished reads. Later steps add On this day and suggestions.
+ * latest finished reads; above them On this day (SLN-456). A later step adds
+ * suggestions.
  */
 export default async function ReadingPage() {
   const zone = appTimeZone();
@@ -35,14 +39,20 @@ export default async function ReadingPage() {
   const day = { today: readingDay(new Date(), zone, dayStartHour), zone, dayStartHour };
   // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
   // Goals and the rhythm (SLN-455): computed per request, never cached
-  const [open, finished, next, passage, goals, rhythm] = await Promise.all([
+  // On this day (SLN-456): the server's day and one on each side; the line shows the browser's
+  const [open, finished, next, passage, goals, rhythm, past, years] = await Promise.all([
     getOpenReadings(),
     getRecentlyFinished(6),
     getQueueHead(5),
     getPassageOfTheDay({ day: day.today }),
     getGoalProgress(Number(day.today.slice(0, 4))),
     getRhythm(),
+    onThisDay([addDays(day.today, -1), day.today, addDays(day.today, 1)]),
+    finishedYears(),
   ]);
+  // In January, a link to the year just ended: this year and last, as the browser's year may differ by a day
+  const year = Number(day.today.slice(0, 4));
+  const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
   const reading = open.filter((o) => o.reading.status === "reading");
   const estimates = await readingEstimates(
     reading.map((o) => o.reading.id),
@@ -79,6 +89,7 @@ export default async function ReadingPage() {
         />
       ) : (
         <div className="space-y-12">
+          <OnThisDay hits={past} serverToday={day.today} dayStartHour={dayStartHour} reviewYears={reviewYears} />
           {reading.length > 0 && (
             <section>
               <SectionHeading title="Currently reading" count={reading.length} />

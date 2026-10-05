@@ -62,10 +62,11 @@ describe("page-weight.js", () => {
     expect(out).toContain("FAIL  /empty/*");
     expect(out).toContain("no link found on /empty");
   });
-  it("gives the import preview row its note", async () => {
+  it("gives the import preview row and the Year in review row their notes, and no other row", async () => {
     const { readFileSync } = await import("node:fs");
     const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; ifNone?: string }[] };
     expect(config.routes.find((r) => r.path === "/reading/import/*")?.ifNone).toBe("no import");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/reading/import/*"]);
+    expect(config.routes.find((r) => r.path === "/reading/year/*")?.ifNone).toBe("no finished year");
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/reading/year/*", "/reading/import/*"]);
   });
 });

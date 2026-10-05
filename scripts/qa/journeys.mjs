@@ -25,7 +25,9 @@
  * a misspelled word, star it, and see it as the passage of the day. Then
  * goals and the rhythm (SLN-455): set a 30-book goal from the hub's menu,
  * finish a book and see the count go up by one with a neutral line, then set
- * a rhythm of 5 days and see today's mark.
+ * a rhythm of 5 days and see today's mark. Then stats (SLN-456): this year's
+ * stats, All time, a pages goal from the stats header, the Year in review from
+ * its list, and the review in print (no sidebar, no Print button, white).
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
@@ -637,6 +639,40 @@ async function readingJourney() {
       await sleep(800);
       await go("/reading");
       await waitFor("document.querySelector('[data-hub-rhythm] [data-today][data-read]') && /of 5 days this week/.test(document.querySelector('[data-rhythm-week]').textContent)", "today marked as a reading day, of 5");
+    });
+    // Stats and the Year in review (SLN-456)
+    const thisYear = new Date().getFullYear();
+    await step("open this year's stats and switch to All time", async () => {
+      await go("/reading/stats");
+      await waitFor(`document.querySelector('[data-stats-years] [aria-current=page]')?.textContent === '${thisYear}' && document.querySelector('[data-stats-section=numbers]')`, "this year's numbers");
+      await waitFor("document.querySelector('[data-chart-frame][tabindex=\"0\"] svg[role=img]')", "a chart");
+      await click("All time", "document.querySelector('[data-stats-years]')");
+      await waitFor("location.search === '?year=all' && document.querySelector('[data-stats-section=numbers] h2')?.textContent === 'All time in numbers'", "all time's numbers");
+    });
+    await step("set a pages goal from the stats header", async () => {
+      await go("/reading/stats");
+      await evaluate("document.querySelector('[data-goal-open]').click()");
+      await waitFor(`${DIALOG}?.querySelector('[data-goal-dialog]')`, "the goal dialog");
+      await fill("Pages", "5000");
+      await save("Save");
+      await go("/reading/stats");
+      await waitFor("/ of 5,000 pages$/.test(document.querySelector('[data-stats-section=numbers] [data-goal-card=pages] [data-goal-title]')?.textContent ?? '')", "the pages goal on the stats page");
+    });
+    await step("open the Year in review from its list", async () => {
+      await go("/reading/year");
+      await waitFor(`document.querySelector('[data-review-year="${thisYear}"]')`, `${thisYear} in the list`);
+      await evaluate(`document.querySelector('[data-review-year="${thisYear}"]').click()`);
+      await waitFor(`location.pathname === '/reading/year/${thisYear}' && document.querySelector('h1')?.textContent === '${thisYear} in review' && document.querySelector('[data-review-wall] a')`, `the ${thisYear} review with its covers`);
+    });
+    await step("print the Year in review without the app around it", async () => {
+      await send("Emulation.setEmulatedMedia", { media: "print" });
+      try {
+        // Print sits in a print:hidden box: it draws no box on paper
+        await waitFor("getComputedStyle(document.getElementById('app-sidebar')).display === 'none' && document.querySelector('[data-print]').getClientRects().length === 0", "the sidebar and Print hidden on paper");
+        await waitFor("getComputedStyle(document.querySelector('main')).marginLeft === '0px' && getComputedStyle(document.documentElement).backgroundColor === 'rgb(255, 255, 255)'", "the page at full width on white");
+      } finally {
+        await send("Emulation.setEmulatedMedia", { media: "" });
+      }
     });
     await step("filter the journal by year", async () => {
       await go("/reading/journal?yearMin=2009&yearMax=2009");

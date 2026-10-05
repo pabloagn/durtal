@@ -824,3 +824,39 @@ dialog::backdrop {
   background-color: var(--color-bg-tertiary);
   color: var(--color-fg-primary);
 }
+
+/* ==========================================================================
+   Print (SLN-456)
+   ========================================================================== */
+
+/* A page on paper: light tokens, no app around it. The sidebar and the phone
+   bar are `print:hidden`, the page takes the full width, and colors print as
+   drawn (tiles, bars). A page adds `print:hidden` to its own controls and
+   `break-inside-avoid` to blocks that must not split (the Year in review). */
+@media print {
+  :root {
+    --color-bg-primary: #fff;
+    --color-bg-secondary: #fff;
+    --color-bg-tertiary: #e6e8e7;
+    --color-fg-primary: #16181a;
+    --color-fg-secondary: #4b504e;
+    --color-fg-muted: #8a8f8d;
+    --color-glass-border: rgba(22, 24, 26, 0.18);
+    --color-accent-rose-text: #7d3d52;
+    --color-accent-plum: #f1e7ee;
+  }
+  html {
+    color-scheme: light;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #app-tooltip,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}
+
+/* Half an inch: with 14mm, Chrome cut the right edge's last pixel on Letter */
+@page {
+  margin: 0.5in;
+}
