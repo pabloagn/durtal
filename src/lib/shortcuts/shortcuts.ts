@@ -93,6 +93,8 @@ export const EDIT_KEYS = {
 
 export const SHORTCUTS = {
   palette: ["mod", "k"],
+  /** S: the palette from any page but the e-book reader (SLN-477) */
+  openSearch: ["s"],
   search: ["/"],
   addMenu: ["a"],
   goMenu: ["g"],
@@ -122,6 +124,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.editMenu, label: "Edit this page" },
       { keys: SHORTCUTS.readingMenu, label: "Reading (a book)" },
       { keys: SHORTCUTS.palette, label: "Search books, people, commands" },
+      { keys: SHORTCUTS.openSearch, label: "Search, from any page" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
     ],
@@ -133,7 +136,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.confirm, label: "Pick, confirm, next step, Fast Track" },
       { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
       { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
-      { keys: SHORTCUTS.close, label: "Close" },
+      { keys: SHORTCUTS.close, label: "Close a search, a list, a menu or a dialog" },
     ],
   },
   {

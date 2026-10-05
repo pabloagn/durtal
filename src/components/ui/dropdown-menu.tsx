@@ -96,6 +96,8 @@ export function DropdownMenu({
     if (!isOpen) return;
     function handleKey(e: globalThis.KeyboardEvent) {
       if (e.key === "Escape") {
+        // The menu closes; the dialog around it stays (one layer per Esc)
+        e.preventDefault();
         setOpen(false);
         triggerRef.current?.focus();
       }

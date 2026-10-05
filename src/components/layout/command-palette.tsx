@@ -151,6 +151,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     else if (typeof item.run === "function") item.run();
   }
 
+  // However the palette closes (Esc, a pick, the backdrop), focus goes back
+  // to what had it when the palette opened (SLN-477); a pick that opens a
+  // dialog moves it on into the dialog
+  useEffect(() => {
+    if (!open) return;
+    const origin = document.activeElement;
+    return () => {
+      if (origin instanceof HTMLElement && origin !== document.body && origin.isConnected)
+        origin.focus({ preventScroll: true });
+    };
+  }, [open]);
+
   // The open readings, fetched each time the palette opens, never with the page
   const reading = useReadingDialogs();
   const [openReadings, setOpenReadings] = useState<PaletteOpenReading[]>([]);

@@ -378,6 +378,9 @@ export function AddBookWizard({
         }
         break;
       case "Escape":
+        // Open results close first; with none, Esc leaves the field
+        if (!searchResults.length) break;
+        e.preventDefault();
         clearResults();
         setHighlightedIndex(-1);
         break;

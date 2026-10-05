@@ -65,7 +65,10 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      // The calendar closes; the dialog around it stays (one layer per Esc)
+      e.preventDefault();
+      setOpen(false);
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);

@@ -78,7 +78,10 @@ export function CollectionIconPicker({
         setPosition(null);
     }
     function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") close(true);
+      if (event.key !== "Escape") return;
+      // The panel closes; the dialog around it stays (one layer per Esc)
+      event.preventDefault();
+      close(true);
     }
     function scrolled(event: Event) {
       // The panel scrolls its own grid; only page scrolls close it.

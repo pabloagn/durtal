@@ -27,6 +27,7 @@ import {
   GO_TO,
   isConfirmField,
   isMacPlatform,
+  isPickerField,
   isTyping,
   pageSearchField,
   pickerOptions,
@@ -397,7 +398,25 @@ export function ShortcutsProvider({
         return;
       }
       if (paletteOpen) {
-        if (event.key === "Escape") onPaletteOpenChange(false);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onPaletteOpenChange(false);
+        }
+        return;
+      }
+
+      // Esc in a search field on the page (no dialog around it, and no list
+      // or popover of its own that took the key): leave the field, keep the
+      // text. Inside a dialog, Esc closes the dialog.
+      if (
+        event.key === "Escape" &&
+        target instanceof HTMLInputElement &&
+        isTyping(target) &&
+        (target.hasAttribute("data-shortcut-search") || isPickerField(target)) &&
+        !target.closest("dialog")
+      ) {
+        event.preventDefault();
+        target.blur();
         return;
       }
 
@@ -477,6 +496,13 @@ export function ShortcutsProvider({
       }
       // "?" and "/" may need Shift; letters never do
       if (event.shiftKey || event.key.length !== 1) return;
+
+      // S: the palette, whatever the page (SLN-477). A capital S does nothing
+      if (key === "s") {
+        event.preventDefault();
+        onPaletteOpenChange(true);
+        return;
+      }
 
       const pageShortcut = pageShortcuts.findLast((s) => s.key === key);
       if (pageShortcut) {

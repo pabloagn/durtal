@@ -530,6 +530,8 @@ export function WorkForm({
                     className="mb-2 h-8 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
+                        // The author search closes; the dialog stays
+                        e.preventDefault();
                         setShowAuthorAdd(false);
                         setAuthorSearch("");
                       }

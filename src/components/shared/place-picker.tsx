@@ -128,6 +128,14 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
         label={label}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        // Esc closes the list under the field, as the publisher picker's
+        // does; the dialog around it stays until the next Esc (SLN-477)
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && q) {
+            e.preventDefault();
+            setQuery("");
+          }
+        }}
         placeholder="Search a city"
         disabled={disabled || busy}
         // Always set, so the field keeps its focus when the spinner shows
