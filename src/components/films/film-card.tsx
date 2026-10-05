@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { CapAligned } from "@/components/shared/cap-aligned";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { CardHeading } from "@/components/shared/card-heading";
+import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
 import { Disc3 } from "lucide-react";
 import type { getFilms } from "@/lib/actions/films";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
@@ -38,28 +39,25 @@ export function filmFacts(film: FilmCardData) {
 }
 
 /**
- * A film in a grid: its poster, title, directors and facts, each on fixed
- * lines so every card of a grid has one height. Chips mark a favourite and
- * the copies held.
+ * A film in a grid: its poster, then a book card's heading and info row
+ * (SLN-478): title, directors, rating and release year, on fixed
+ * lines. A chip marks the copies held.
  */
 export function FilmCard({
   film,
-  caption,
 }: {
   film: FilmCardData;
-  /** Replaces the facts line: why the card is shown ("With Kurt Russell") */
-  caption?: string;
 }) {
   const held = filmHoldingsText(film.holdings);
   const count = film.holdings.physical + film.holdings.digital;
   return (
-    <div className="@container group relative block rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className={WORK_CARD}>
       <Link
         href={filmHref(film)}
         aria-label={film.title}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+      <div className="relative cover-shadow">
         <FilmPoster
           image={film.poster}
           title={film.title}
@@ -79,25 +77,24 @@ export function FilmCard({
           </div>
         )}
       </div>
-      <div className="p-3">
-        {/* The row carries the title's type: the star sits on the
-            cap-height center of the title's first line */}
-        <div className="type-item-title flex items-start gap-2">
-          <h3 className="type-item-title lines-2 min-w-0 flex-1">{film.title}</h3>
-          <CapAligned height={32} className="relative z-20 -mr-2">
+      <div className={WORK_CARD_BODY}>
+        {/* As on a book's card: two title lines and one line of directors,
+            then the info row, so cards of every collection line up */}
+        <CardHeading
+          title={film.title}
+          subtitle={filmDirectors(film) ?? "Director unknown"}
+          action={
             <FavouriteToggle
               favourite={film.isFavourite}
               target={{ entity: "work", id: film.id }}
               name={film.title}
             />
-          </CapAligned>
-        </div>
-        <p className="mt-1 lines-1 text-sm text-fg-secondary">
-          {filmDirectors(film) ?? "Director unknown"}
-        </p>
-        <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
-          {caption ?? filmFacts(film)}
-        </p>
+          }
+        />
+        <WorkCardInfo
+          rating={film.rating}
+          year={catalogueDateYears(film.releaseDate)}
+        />
       </div>
     </div>
   );

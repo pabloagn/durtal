@@ -22,6 +22,10 @@ export interface DomainTile {
   creators: string | null;
   date: string | null;
   imageUrl: string | null;
+  /** The picture's main color, for its frame while it loads */
+  tone: string | null;
+  /** For the card's info row: films, perfumes and paintings have no status yet */
+  rating: number | null;
   createdAt: Date;
 }
 
@@ -36,6 +40,18 @@ function names(people: { name: string | null }[]) {
 function imageUrl(poster: { s3Key: string; thumbnailS3Key: string | null } | null) {
   const key = poster?.thumbnailS3Key ?? poster?.s3Key;
   return key ? mediaUrl(key) : null;
+}
+
+/** What every card's info row shows, from a collection's card row */
+function cardFields(work: {
+  poster: { s3Key: string; thumbnailS3Key: string | null; tone: string | null } | null;
+  rating: number | null;
+}) {
+  return {
+    imageUrl: imageUrl(work.poster),
+    tone: work.poster?.tone ?? null,
+    rating: work.rating,
+  };
 }
 
 function tile(
@@ -80,7 +96,7 @@ const SOURCES: Record<
         tile("perfume", perfume, {
           creators: names(perfume.organizations) ?? names(perfume.perfumers),
           date: catalogueDateYears(perfume.releaseDate),
-          imageUrl: imageUrl(perfume.poster),
+          ...cardFields(perfume),
         }),
       ),
     count: (search) => getPerfumeCount({ search }),
@@ -97,7 +113,7 @@ const SOURCES: Record<
         tile("film", film, {
           creators: names(film.directors),
           date: catalogueDateYears(film.releaseDate),
-          imageUrl: imageUrl(film.poster),
+          ...cardFields(film),
         }),
       ),
     count: (search) => getFilmCount({ search }),
@@ -114,7 +130,7 @@ const SOURCES: Record<
         tile("painting", painting, {
           creators: names(painting.painters),
           date: catalogueDateYears(painting.creationDate),
-          imageUrl: imageUrl(painting.poster),
+          ...cardFields(painting),
         }),
       ),
     count: (search) => getPaintingCount({ search }),

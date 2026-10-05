@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { CapAligned } from "@/components/shared/cap-aligned";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { CardHeading } from "@/components/shared/card-heading";
+import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
 import { Droplet } from "lucide-react";
 import type { getPerfumes } from "@/lib/actions/perfumes";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
@@ -47,29 +48,26 @@ function heldCounts(perfume: PerfumeCardData) {
 }
 
 /**
- * A perfume in a grid: its bottle, title, house and facts, each on fixed
- * lines so every card of a grid has one height. Chips mark a favourite and
- * what is in the collection.
+ * A perfume in a grid: its bottle in its square frame, then a book card's
+ * heading and info row (SLN-478): title, house, rating and release year,
+ * on fixed lines. A chip marks what is in the collection.
  */
 export function PerfumeCard({
   perfume,
-  caption,
 }: {
   perfume: PerfumeCardData;
-  /** Replaces the facts line: why the card is shown ("Shares iris, vanilla") */
-  caption?: string;
 }) {
   const held = holdingsSummary(heldCounts(perfume));
   const count =
     perfume.holdings.bottles + perfume.holdings.samples + perfume.holdings.decants;
   return (
-    <div className="@container group relative block rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className={WORK_CARD}>
       <Link
         href={perfumeHref(perfume)}
         aria-label={perfume.title}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="relative shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
+      <div className="relative cover-shadow">
         <PerfumeImage image={perfume.poster} title={perfume.title} />
         {held && (
           <div className={`${COVER_CORNER.topRight} z-20` /* above the card's link, so its tooltip opens */}>
@@ -85,25 +83,24 @@ export function PerfumeCard({
           </div>
         )}
       </div>
-      <div className="p-3">
-        {/* The row carries the title's type: the star sits on the
-            cap-height center of the title's first line */}
-        <div className="type-item-title flex items-start gap-2">
-          <h3 className="type-item-title lines-2 min-w-0 flex-1">{perfume.title}</h3>
-          <CapAligned height={32} className="relative z-20 -mr-2">
+      <div className={WORK_CARD_BODY}>
+        {/* As on a book's card: two title lines and one line of house,
+            then the info row, so cards of every collection line up */}
+        <CardHeading
+          title={perfume.title}
+          subtitle={perfumeMakers(perfume) ?? "Unknown house"}
+          action={
             <FavouriteToggle
               favourite={perfume.isFavourite}
               target={{ entity: "work", id: perfume.id }}
               name={perfume.title}
             />
-          </CapAligned>
-        </div>
-        <p className="mt-1 lines-1 text-sm text-fg-secondary">
-          {perfumeMakers(perfume) ?? "Unknown house"}
-        </p>
-        <p className="mt-1.5 lines-1 font-mono text-micro text-fg-secondary">
-          {caption ?? perfumeFacts(perfume)}
-        </p>
+          }
+        />
+        <WorkCardInfo
+          rating={perfume.rating}
+          year={catalogueDateYears(perfume.releaseDate)}
+        />
       </div>
     </div>
   );

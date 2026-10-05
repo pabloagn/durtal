@@ -1,19 +1,13 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import {
   usePreference,
   useViewModePreference,
 } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
-import { Pagination, type PaginationData } from "@/components/shared/pagination";
-import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
-import { COL_CLASSES } from "@/components/shared/grid-columns";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
-import type { DomainTile, HomeKind } from "@/lib/catalogue/domain-homes";
-import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
-import { DomainTileCard, DomainTileRow } from "./domain-tile";
+import type { HomeKind } from "@/lib/catalogue/domain-homes";
 
 const VIEW_MODES: ViewMode[] = ["grid", "mosaic", "list"];
 
@@ -76,57 +70,5 @@ export function DomainHomeFilters({ kind }: { kind: HomeKind }) {
       onGridColumnsChange={view.setGridColumns}
       availableViewModes={VIEW_MODES}
     />
-  );
-}
-
-/** The records of a collection home in the saved view, with paging. */
-export function DomainHomeShell({
-  kind,
-  tiles,
-  pagination,
-}: {
-  kind: HomeKind;
-  tiles: DomainTile[];
-  pagination: PaginationData;
-}) {
-  const searchParams = useSearchParams();
-  const { viewMode, gridColumns } = useHomeView(kind);
-  const basePath = WORK_DOMAINS[kind].basePath;
-  const noun = WORK_DOMAINS[kind].pluralLabel.toLowerCase();
-
-  if (pagination.total === 0)
-    return (
-      <NoResults
-        noun={noun}
-        search={searchParams.get("q")}
-        hasFilters={false}
-        clearHref={clearedListHref(basePath, searchParams)}
-      />
-    );
-  if (tiles.length === 0)
-    return (
-      <PageOutOfRange firstPageHref={firstPageHref(basePath, searchParams)} />
-    );
-
-  return (
-    <>
-      <Pagination {...pagination} noun={noun} compact />
-      {viewMode === "grid" ? (
-        <div className="@container">
-          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
-            {tiles.map((tile) => (
-              <DomainTileCard key={tile.id} kind={kind} tile={tile} />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {tiles.map((tile) => (
-            <DomainTileRow key={tile.id} kind={kind} tile={tile} />
-          ))}
-        </div>
-      )}
-      <Pagination {...pagination} noun={noun} />
-    </>
   );
 }
