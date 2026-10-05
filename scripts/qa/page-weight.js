@@ -7,8 +7,12 @@
  *
  * A path that ends in "/*" is a detail page: the first link under that path
  * on the list page is used ("/library/*" takes the first book on /library).
- * Each route is requested once before it is measured, so dev-server
- * compilation is not counted.
+ * With no such link the route fails, unless it has an `ifNone` note: a
+ * detail page that may have no record yet ("/reading/import/*" before the
+ * first import) is then skipped with that note. Each route is requested once
+ * before it is measured, so dev-server compilation is not counted.
+ *
+ * PAGE_WEIGHT_CONFIG names another budget file (the script's own test).
  *
  * Every front-end change must pass this before it is called done, like the
  * alignment audit.
@@ -16,7 +20,7 @@
 import { readFileSync } from "node:fs";
 
 const config = JSON.parse(
-  readFileSync(new URL("./page-weight.json", import.meta.url), "utf8"),
+  readFileSync(process.env.PAGE_WEIGHT_CONFIG ?? new URL("./page-weight.json", import.meta.url), "utf8"),
 );
 const baseUrl = (process.argv[2] ?? config.baseUrl).replace(/\/$/, "");
 const TIMEOUT_MS = 120_000;
@@ -49,11 +53,15 @@ async function resolve(route) {
 }
 
 let failed = 0;
+let skipped = 0;
 for (const route of config.routes) {
   let line;
   try {
     const path = await resolve(route);
-    if (!path) {
+    if (!path && route.ifNone) {
+      line = `skip  ${route.path.padEnd(40)} skipped: ${route.ifNone} (no link on ${route.path.slice(0, -2)})`;
+      skipped++;
+    } else if (!path) {
       line = `FAIL  ${route.path.padEnd(40)} no link found on ${route.path.slice(0, -2)}`;
       failed++;
     } else {
@@ -77,6 +85,7 @@ for (const route of config.routes) {
   console.log(line.trimEnd());
 }
 
+if (skipped) console.log(`\n${skipped} of ${config.routes.length} routes skipped: nothing to measure yet`);
 if (failed) {
   console.error(
     `\n${failed} of ${config.routes.length} routes failed the budget`,

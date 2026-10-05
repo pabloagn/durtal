@@ -27,7 +27,11 @@ function Row({
       <HorizontalCarousel title={title} titleHref={href}>
         {films.map((film) => (
           <div key={film.id} className="w-[160px] flex-shrink-0 snap-start">
-            <FilmCard film={film} caption={caption?.(film)} />
+            <FilmCard film={film} />
+            {/* Why the card is here, under it, as on a book's related rows */}
+            {caption && (
+              <p className="mt-1.5 lines-2 text-micro text-fg-secondary">{caption(film)}</p>
+            )}
           </div>
         ))}
       </HorizontalCarousel>

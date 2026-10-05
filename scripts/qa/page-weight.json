@@ -22,6 +22,6 @@
     { "path": "/reading/journal", "maxKB": 300, "maxMs": 1000 },
     { "path": "/reading/import", "maxKB": 300, "maxMs": 1000 },
     { "path": "/settings/reading", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"] }
+    { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"], "ifNone": "no import" }
   ]
 }

@@ -20,7 +20,11 @@ function Row({
       <HorizontalCarousel title={title} titleHref={href}>
         {perfumes.map((perfume) => (
           <div key={perfume.id} className="w-[168px] flex-shrink-0 snap-start">
-            <PerfumeCard perfume={perfume} caption={caption?.(perfume)} />
+            <PerfumeCard perfume={perfume} />
+            {/* Why the card is here, under it, as on a book's related rows */}
+            {caption && (
+              <p className="mt-1.5 lines-2 text-micro text-fg-secondary">{caption(perfume)}</p>
+            )}
           </div>
         ))}
       </HorizontalCarousel>
