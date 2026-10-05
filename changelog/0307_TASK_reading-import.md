@@ -125,9 +125,9 @@ import can be undone. Migration 0066 adds `reading_import_rows` and
   close ones is now likely; the 3 left are books catalogued twice (Solaris,
   Roadside Picnic, Ada or Ardor).
 - Page weight on that preview, main and after: every route within budget
-  except `/harmonize`, whose server time moved between 324 ms and 3,056 ms
-  across runs on the same data with this change and without; it reads no
-  table this change adds. `/reading/import` 48 KB; `/reading/import/*` with
+  except `/harmonize`: 324 ms on main, 1,018 to 3,056 ms in three runs after,
+  while other heavy jobs ran. Its scan reads no table this change adds; it is
+  to be measured again side by side on a quiet preview. `/reading/import` 48 KB; `/reading/import/*` with
   the 2,000-row import as the newest: 815 KB in the first version, 360 KB and
   237 ms after the rows went to one client list with one button class
   (`row-chip`) and only what each row has.
