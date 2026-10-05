@@ -660,6 +660,25 @@ Searches external book sources and returns a compact list for matching a record.
 
 ---
 
+## Reading import
+
+### `POST /api/reading/import`
+
+Multipart upload of one reading history file (SLN-450). A route, not a server action: a full Goodreads export passes the server action body limit. Calls from another site are refused (`crossOriginRefusal`).
+
+**Form fields**:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `file` | File | yes | One `.csv` of at most 10 MB: a Goodreads export, a StoryGraph export, or a Durtal reading CSV (`DURTAL_READING_COLUMNS`) |
+
+The format comes from the header names, never column positions. The server parses and matches the file (reads only), then writes the `imports` row (`status` `pending`, `file_name`, `total_records`) and one `reading_import_rows` row per data row in one write. Then, as a best effort, it keeps the raw file at `bronze/imports/<importId>/<safe name>` and sets `s3_bronze_key`; when S3 refuses, it logs a warning and the import stays without it ("Raw file not kept"). No silver key is written.
+
+**Response** `201`: `{ "importId": "uuid", "source": "goodreads" | "storygraph" | "durtal", "rows": 1204 }`. The preview is `/reading/import/<importId>`.
+**Error** `400`: No file, not a CSV, over 10 MB, a broken multipart body, or a file that is not one of the three formats (the message names the columns it found). **Error** `403`: Another site.
+
+---
+
 ## Reader
 
 Endpoints for the Calibre e-book reader. `[calibreId]` is the integer Calibre ID.

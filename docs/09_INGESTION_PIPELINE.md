@@ -289,6 +289,25 @@ Script: `scripts/ingest/enrich/`
 - Fetch and process cover images to S3
 - Update edition records with fetched data (ISBN, page count, description, cover)
 
+### Readings (files only, not part of `--all`)
+
+The seed spreadsheet's reading history as a Durtal reading CSV (SLN-450). Script: `scripts/ingest/seed_readings.py`.
+
+```bash
+uv run python -m scripts.ingest.main --step readings --out DIR
+```
+
+- Reads the `Books` sheet as `seed_books.py` does (the same `COL` indices; rows with `Duplicated_Entry` `Y` skipped).
+- Resolves each row's book on a read-only connection (`default_transaction_read_only=on`): by the slug `seed_books.py` computes, then by the edition's Goodreads id from the row's link, then by the id in `works.goodreads_url`. Run it against a `--from-dump` preview's database: its ids are the live ones as of the dump. A row it cannot resolve gets an empty `work_id`; the import preview matches it by title and author.
+- `Read`: "Yes" (and `Y`, `X`, `1`, `true`, "Read", "Done") and a date mean finished; "Reading" a read in progress; "DNF" and "Abandoned" abandoned; empty and "No" mean nothing. Any other value stops the step and lists it.
+- Dates: an Excel date is day precision, a year number year precision, `YYYY-MM` month precision. A date cell it cannot read is listed.
+- `Rating` carries only the Rating cell (0.5 to 5 in half steps), never Priority.
+- `source_key` is `seed:<sha256 of normalized title|first author>`, from a Python copy of `normalizeKeyText` and `seedReadingKey` that `scripts/qa/test_reading_seed.py` checks against `src/__tests__/fixtures/reading/source-keys.json`. Rows that give the same key are listed; only the first is written.
+- Writes `DIR/readings.csv` (exactly `DURTAL_READING_COLUMNS`, read from `src/lib/reading/import/durtal-format.ts`) and `DIR/priority-ratings.csv`: every work whose row has an empty Rating and a Priority equal to its current `works.rating` (`work_id`, `slug`, `title`, `rating`, `priority`), the seed's priorities stored as ratings. The step changes no rating; clearing them is a live write done only with Joris's yes.
+- Prints the distinct `Read` values and how each was mapped, the counts by how each book was found, and the count of `priority-ratings.csv`.
+
+Importing `readings.csv` into the live library is a live-data write: Joris does it in the app, or a thread does it with his yes.
+
 ### Step 11: Reporting
 
 Generate ingestion summary.
@@ -323,7 +342,7 @@ Output:
 | `Notes` | `works.notes` | Direct |
 | `Priority` | `works.acquisition_priority`, `works.catalogue_status` | The acquisition priority and the catalogue status only. 314/3905 populated. |
 | `Rating` | `works.rating` | The only source of `works.rating`. Seeds before changelog 0302 also wrote `Priority` there when `Rating` was empty (SLN-444). 54/3905 populated. |
-| `Read` | `readings` | Imported by the reading seed step (`--step readings`, reading tracker sub-issue 6), through the shared reading writer with `seed:` source keys. |
+| `Read` | `readings` | The reading seed step (`--step readings`, SLN-450) writes it, with `Started_Date`, `Finished_Date` and `Rating`, to a Durtal reading CSV with `seed:` source keys. The CSV is imported through Reading › Import with its preview; the step writes no data. A value whose meaning is unclear stops the step. |
 | `Book_Type` | `works.work_type_id` | Map to `work_types` lookup. Most values are literary types, not bindings. |
 | `Series` | `works.series_name` -> `works.series_id` | Lookup/create in `series` table. Cross-reference with `Book_Series` sheet. |
 | `Series_Number` | `works.series_position` | Parse to decimal. 18/3905 populated. |
@@ -394,6 +413,9 @@ uv run python -m scripts.ingest.main --step occult
 uv run python -m scripts.ingest.main --step instances
 uv run python -m scripts.ingest.main --step enrich --limit 100
 uv run python -m scripts.ingest.main --step report
+
+# The seed's reading history as files (not part of --all)
+uv run python -m scripts.ingest.main --step readings --out DIR
 
 # Specific source file override
 uv run python -m scripts.ingest.main --all --excel /path/to/knowledge_base.xlsx

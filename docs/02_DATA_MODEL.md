@@ -1823,15 +1823,16 @@ Pre-computed collage grid layout specifications for gallery media on work and au
 
 ### `imports`
 
-Tracks bulk import operations through the medallion pipeline.
+Tracks bulk import operations through the medallion pipeline. A reading history import (SLN-450) is one row: `source` is `goodreads`, `storygraph` or `durtal` (the seed CSV is a Durtal file); `status` is `pending` (the preview), `completed` or `undone`. The table has no CHECK on either; `src/lib/validations/reading-import.ts` holds the lists. Its working state lives in `reading_import_rows`; the raw file in S3 is a best-effort copy, and a reading import never writes a silver key.
 
 | Column | Type | Constraints |
 |---|---|---|
 | `id` | UUID | PK |
 | `source` | TEXT | NOT NULL |
 | `status` | TEXT | NOT NULL, default `'pending'` |
-| `s3_bronze_key` | TEXT | nullable |
+| `s3_bronze_key` | TEXT | nullable; null when the raw file was not kept |
 | `s3_silver_key` | TEXT | nullable |
+| `file_name` | TEXT | nullable; the uploaded file's sanitized base name, at most 255 characters (SLN-450) |
 | `total_records` | INTEGER | nullable |
 | `processed_records` | INTEGER | NOT NULL, default `0` |
 | `skipped_records` | INTEGER | NOT NULL, default `0` |
@@ -1840,6 +1841,25 @@ Tracks bulk import operations through the medallion pipeline.
 | `started_at` | TIMESTAMPTZ | nullable |
 | `completed_at` | TIMESTAMPTZ | nullable |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+A reading import's `error_log` is `{ missing, errors }`: what the file's columns cannot carry, and the rows the last commit could not write (row number and reason, never more than 200 characters of a cell).
+
+### `reading_import_rows`
+
+One data row of an uploaded reading history file (SLN-450), so an import's working state lives in Postgres. Primary key `(import_id, row_no)`; index `reading_import_rows_work_idx (work_id)`.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `import_id` | UUID | NOT NULL, FK → `imports` CASCADE | |
+| `row_no` | INTEGER | NOT NULL | The file's data row number, 1 for the first row after the header |
+| `data` | JSONB | NOT NULL | The parsed `ImportRow` (`src/lib/reading/import/types.ts`): everything the file carries, private notes, to-read rows and StoryGraph moods included, for Up next, notes and enrichment |
+| `match` | JSONB | nullable | How the book was found, the reason, up to three candidates with scores, one duplicate verdict per reading, the section and its note |
+| `decision` | TEXT | NOT NULL, default `'pending'`, CHECK in `pending`, `import`, `skip` | |
+| `use_file_rating` | BOOLEAN | NOT NULL, default `false` | "Use the file's rating": the commit replaces a different book rating |
+| `work_id` | UUID | nullable, FK → `works` SET NULL | The matched or chosen book; trigger `book_parent_required` |
+| `written` | JSONB | nullable | What the commit wrote: each reading's outcome and id, the book rating `{ workId, before, after }`, the Goodreads identifier ids. Undo reads it |
+
+A book merge moves `work_id` like any single-column reference.
 
 ---
 

@@ -24,6 +24,8 @@
 /recommenders/[id]          Recommender detail
 /reading                    Reading: what is being read now, paused, recently finished
 /reading/journal            Every reading, by year of finish, filtered and sorted
+/reading/import             Import reading history: upload, past imports
+/reading/import/[id]        One import's preview, decisions, commit and undo
 /reader                     Calibre e-book library
 /reader/[calibreId]         E-book reader for one Calibre book
 /series                     Series index
@@ -496,10 +498,9 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 
 ### Bulk Import (`/library/import`)
 
-Interface for importing books in bulk from external sources.
+Interface for importing books in bulk from external sources. Reading history (Goodreads, StoryGraph, the seed spreadsheet) is imported at `/reading/import`; a line under the header links there.
 
 **Supported sources**:
-- Goodreads CSV export
 - Calibre library export
 - Custom CSV
 
@@ -659,11 +660,11 @@ The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "St
 - **Currently reading**: one card per reading in status reading, most recently read first (last read, then started): cover, title, author, progress bar, "p. 212 of 480 · 44% · last read yesterday" ("yesterday" counts reading days), Log progress and a menu (Pause, Finish, Abandon, Open book). One column at 390 px, two from `md`, three from `lg`; the cards share one height (`CardHeading`).
 - **Paused**: one line each with "paused 3 weeks ago" and Resume.
 - **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision.
-- With no reading at all: `EmptyState` with Start a book. Later steps add the timer, Up next, a passage of the day, the goal, On this day and suggestions here.
+- With no reading at all: `EmptyState` with Start a book and "Import from Goodreads or StoryGraph" (a link to `/reading/import`). Later steps add the timer, Up next, a passage of the day, the goal, On this day and suggestions here.
 
 **Book picker** (`src/components/reading/book-picker.tsx`): opened by "Start a book", "Log a past read" and the palette. Books only, matched without accents on title and authors as you type, owned books first (`ownedBookCondition`), then by title, at most 20 (`searchBooksToRead`). Each row: cover, title, author, "Owned" or the catalogue status, and the reading state ("Reading 44%", "Paused", "Read 2 times"). Choosing a book opens the dialog the picker was opened for; Start on a book being read opens Log progress instead. The empty result and the footer read 'Not in Durtal? Add "<query>"', a link to `/library/new?q=<query>&then=start` (`?isbn=` for an ISBN, `&then=past` for a past read).
 
-**Tabs**: `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the one tab row of every reading page, in its final order: Now (`/reading`), Up next (`/reading/next`), Journal (`/reading/journal`), Notes, Stats, Suggestions, Import. A tab shows only once its page exists; this step shows Now and Journal. Now is current on `/reading` only; any other tab on its path and below. The e-book reader's pages have no tab row.
+**Tabs**: `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the one tab row of every reading page, in its final order: Now (`/reading`), Up next (`/reading/next`), Journal (`/reading/journal`), Notes, Stats, Suggestions, Import. A tab shows only once its page exists; Now, Journal and Import show today. Now is current on `/reading` only; any other tab on its path and below. The e-book reader's pages have no tab row.
 
 ### Reading journal (`/reading/journal`)
 
@@ -674,6 +675,20 @@ Every reading (SLN-448), from `parseJournalQuery` (`src/lib/reading/journal-para
 - Filters in the URL: Status (`status`), Year range (`yearMin`, `yearMax`, on the finish or stop date), Format (`format`), Minimum rating (`minRating`, half stars), Re-reads only (`rereads=1`), and the search (`q`, title and author, accents ignored). Sorts (`sort`, `order`): Finished (newest first, unknown dates last), Started, Rating (unrated last), Title (accents ignored). Ties on the reading's id. 48 per page.
 - **The read's rating** everywhere on the hub (the journal's stars, filter and sort, the Now page, the dashboard): `readingRatingSql`, the read's own rating, else the book's when it is the book's only finished read. A book rated 5 whose 2012 read was rated 3 shows 3 on that row.
 - **Re-reads**: a reading is a re-read when its book has a finished reading before it in the order `getReadingsForWork` numbers by (`rereadSql`, one window over all readings). An abandoned first attempt does not make the next read a re-read.
+
+### Reading import (`/reading/import`)
+
+The Import tab (SLN-450). An upload area for one CSV of at most 10 MB, chosen or dropped: a Goodreads or StoryGraph export, or a Durtal reading CSV (the seed step's output and a later step's export). It goes to `POST /api/reading/import`, then the page opens the import's preview. Under it, "Past imports", newest first: the file name (a link to the preview), the date, the source, the rows, the readings imported, the rows not written, "Raw file not kept" when `imports.s3_bronze_key` is null, the status (To review, Imported, Undone) and Undo while the import has readings. Settings, Data has a row "Import reading history" in an "Import" group that links here.
+
+### Import preview (`/reading/import/[id]`)
+
+What an import will do, before anything is written (SLN-450), from `getImportPreview` (`src/lib/reading/import/page-data.ts`).
+- The file name, the source and the upload date, then a summary: "1,204 rows · 980 exact · 120 likely · 60 to choose · 44 not in Durtal · 412 want to read · 18 already in Durtal · 6 book ratings differ".
+- The commit button says what it writes ("Import 1,142 readings"), with "60 rows not decided yet are left out" when some are pending. Beside it: Match again (while rows have no book), Undo (while the import has readings) and All imports.
+- A box "What this file cannot carry", written for the format: Goodreads' missing start dates and earlier read dates, StoryGraph's quarter stars, what is kept but not imported (want-to-read books, private notes, moods and tags), and any missing column.
+- Sections in this order, each a `SectionHeading` with its count: To choose, Likely, Not in Durtal, Exact, Already in Durtal, Cannot import, Not imported. Each shows 50 rows; "Show 50 more" raises that section's count in the URL (`?likely=100`). Likely has "Accept all likely matches"; Not in Durtal has "Skip all not in Durtal": one UPDATE each over the section's undecided rows.
+- Each row: what the file says (title, author, latest read, rating), the Durtal book (cover, title, author, a link), the reason ("Same ISBN", "Same Goodreads id", "Same Goodreads link", "Same Durtal book", "Title and author, 92%", "Chosen by you"), what will be written ("Finished 14 Apr 2019 · 4 stars · review · +2 earlier reads, dates unknown"), the book rating line ("Book rating set to 4: the book has none", or "Book rating 3 kept (the file says 4)" with "Use the file's rating"), and Import, Skip and Choose another book (the book picker). To choose rows show their candidates as buttons. Not in Durtal rows have "Add this book" (`/library/new?isbn=` or `?q=`, in a new tab); the page matches again when it becomes visible after that. A row already in Durtal only through the undated count offers "Import anyway". After the commit each row shows its outcome.
+- Decisions are saved at once, one row each. Defaults: Exact rows import; Already in Durtal, Cannot import and Not imported rows skip; the rest wait.
 
 ### Reader (`/reader`)
 
@@ -765,6 +780,6 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
 - **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
 - **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
-- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
+- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.
