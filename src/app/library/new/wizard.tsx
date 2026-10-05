@@ -32,6 +32,7 @@ import { CategorizationForm } from "@/components/books/categorization-form";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { languageName, normalizeLanguage } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
+import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
 import { BINDING_TYPES } from "@/lib/types/index";
 import { findDuplicateWork } from "@/lib/actions/works";
 import { createBookFromWizard, isIsbnInUse } from "@/lib/actions/wizard";
@@ -1369,10 +1370,10 @@ export function AddBookWizard() {
                             : "muted"
                       }
                     >
-                      {catalogueStatus}
+                      {catalogueStatusLabel(catalogueStatus)}
                     </Badge>
                     {acquisitionPriority !== "none" && (
-                      <Badge variant="blue">{acquisitionPriority} priority</Badge>
+                      <Badge variant="blue">{priorityLabel(acquisitionPriority)} priority</Badge>
                     )}
                     {existingWorkId && (
                       <Badge variant="gold">Existing work</Badge>
@@ -1457,11 +1458,11 @@ export function AddBookWizard() {
                               {loc?.name ?? "Unknown"}
                             </span>
                             {d.format && (
-                              <Badge variant="muted">{d.format}</Badge>
+                              <Badge variant="muted">{enumLabel(d.format)}</Badge>
                             )}
                             {d.condition && (
                               <Badge variant="sage">
-                                {d.condition.replace(/_/g, " ")}
+                                {enumLabel(d.condition)}
                               </Badge>
                             )}
                             {d.isSigned && (

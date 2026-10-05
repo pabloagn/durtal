@@ -16,6 +16,7 @@ import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { MEDIA_WIDTHS, withMediaWidth } from "@/lib/s3/media-url";
+import { languageName } from "@/lib/utils/language";
 
 export type CoverCrop = MediaCrop;
 
@@ -272,7 +273,11 @@ export function BookCard({
                 beside a rating) */}
             {language && language !== "en" && (
               <span className="hidden @[200px]:contents">
-                <Badge variant="blue">{language}</Badge>
+                {/* A long name ("Norwegian Bokmål") shrinks first and cuts
+                    off; the status never does */}
+                <Badge variant="blue" className="min-w-0 shrink-[999]">
+                  <span className="truncate">{languageName(language)}</span>
+                </Badge>
               </span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-2">

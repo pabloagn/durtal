@@ -14,6 +14,7 @@ import type { CatalogueStatus } from "@/lib/types";
 import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { formatRating } from "@/lib/utils/rating";
+import { languageName } from "@/lib/utils/language";
 
 export interface DetailedBookItem {
   workId: string;
@@ -99,7 +100,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
     case "rating":
       return val != null && val !== "" ? <Badge variant="gold">{formatRating(val as number)}/5</Badge> : null;
     case "language":
-      return val && val !== "en" ? <Badge variant="blue">{val}</Badge> : val;
+      return val && val !== "en" ? <Badge variant="blue">{languageName(val)}</Badge> : languageName(val);
     case "binding":
     case "format":
     case "condition":
