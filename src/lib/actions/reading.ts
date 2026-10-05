@@ -989,3 +989,43 @@ export async function getReadingDialogData(workId: string, homeId: string | null
     zone,
   };
 }
+
+export interface ReadingSummaryRow {
+  state: "unread" | "reading" | "paused" | "read" | "abandoned";
+  timesRead: number;
+  lastFinishedOn: string | null;
+  lastFinishedPrecision: string | null;
+  lastReadAt: string | null;
+  percent: number | null;
+}
+
+/**
+ * The library list's and table's reading columns for one page of books
+ * (SLN-449), in one query: loaded only while the list or table view shows,
+ * so the grid's payload does not grow. At most 100 work ids.
+ */
+export async function getReadingSummaries(workIds: string[]): Promise<Record<string, ReadingSummaryRow>> {
+  const ids = z.array(z.uuid()).max(100).parse(workIds);
+  if (!ids.length) return {};
+  const { readingStateSql, readCountSql, lastFinishedOnSql, lastFinishedPrecisionSql, lastReadAtSql, openReadingPercentSql } = await import(
+    "@/lib/reading/summary"
+  );
+  const rows = resultRows<ReadingSummaryRow & { id: string }>(
+    await db.execute(sql`select w.id, ${readingStateSql(sql`w.id`)} as state, ${readCountSql(sql`w.id`)} as "timesRead",
+        ${lastFinishedOnSql(sql`w.id`)} as "lastFinishedOn", ${lastFinishedPrecisionSql(sql`w.id`)} as "lastFinishedPrecision",
+        ${lastReadAtSql(sql`w.id`)}::text as "lastReadAt", ${openReadingPercentSql(sql`w.id`)} as percent
+      from works w where w.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`),
+  );
+  return Object.fromEntries(
+    rows.map(({ id, ...row }) => [id, { ...row, timesRead: Number(row.timesRead), percent: row.percent === null ? null : Number(row.percent) }]),
+  );
+}
+
+/** The years with a finished reading, for the library's "Read in" filter */
+export async function getReadYearRange(): Promise<{ min: number | null; max: number | null }> {
+  const [row] = resultRows<{ min: number | null; max: number | null }>(
+    await db.execute(sql`select min(extract(year from finished_on))::int as min, max(extract(year from finished_on))::int as max
+      from readings where status = 'finished' and finished_precision <> 'unknown' and finished_on is not null`),
+  );
+  return row ?? { min: null, max: null };
+}

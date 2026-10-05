@@ -9,10 +9,7 @@ import {
   bookResult,
 } from "@/lib/catalogue/book-boundary";
 
-import {
-  publisherWorkCondition,
-  catalogueStatusCondition,
-} from "@/lib/publishers/conditions";
+import { publisherWorkCondition } from "@/lib/publishers/conditions";
 import { bookAuthorQueries } from "@/lib/catalogue/book-credits";
 import { curationQueries } from "@/lib/catalogue/curation-store";
 import { planBookWork, workSubjectQueries } from "@/lib/catalogue/book-store";
@@ -71,6 +68,16 @@ import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import type { SQL } from "drizzle-orm";
 import { countryDisplayName } from "@/lib/utils/labels";
+import { readingFilterConditions } from "@/lib/reading/filter-conditions";
+import {
+  lastFinishedOnSql,
+  lastFinishedPrecisionSql,
+  lastReadAtSql,
+  openReadingPercentSql,
+  readCountSql,
+  readingStateSql,
+} from "@/lib/reading/summary";
+import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 
 type AcquisitionPriority =
   (typeof works.acquisitionPriority.enumValues)[number];
@@ -156,8 +163,7 @@ const buildSearchCondition = cache(async (search: string) => {
   return or(...orConditions)!;
 });
 
-type WorkFilters = {
-  catalogueStatus?: string[];
+export type WorkFilters = ReadingFilterParams & {
   isRare?: boolean;
   isPoison?: boolean;
   marks?: WorkMarkKey[];
@@ -166,6 +172,15 @@ type WorkFilters = {
   minRating?: number;
   locationId?: string;
   hasPoster?: boolean;
+};
+
+/** The library cards' and the API's reading data, one correlated subquery each over the root work (SLN-449) */
+const readingExtras = {
+  readingState: readingStateSql(works.id).as("reading_state"),
+  readingPercent: sql<number | null>`${openReadingPercentSql(works.id)}`.mapWith(Number).as("reading_percent"),
+  timesRead: readCountSql(works.id).as("times_read"),
+  lastFinishedOn: lastFinishedOnSql(works.id).as("last_finished_on"),
+  lastFinishedPrecision: lastFinishedPrecisionSql(works.id).as("last_finished_precision"),
 };
 
 /**
@@ -190,9 +205,8 @@ async function buildWorkConditions(
   }
   const marks = marksCondition(filters?.marks ?? []);
   if (marks) conditions.push(marks);
-  if (filters?.catalogueStatus?.length) {
-    conditions.push(catalogueStatusCondition(filters.catalogueStatus));
-  }
+  // Status, reading state, holding, read in, re-read (SLN-449)
+  conditions.push(...readingFilterConditions(works.id, filters));
   if (filters?.acquisitionPriority?.length) {
     conditions.push(
       inArray(
@@ -248,7 +262,8 @@ export async function getWorks(opts?: {
     | "year"
     | "rating"
     | "authorFirstName"
-    | "authorLastName";
+    | "authorLastName"
+    | "lastRead";
   order?: "asc" | "desc";
   filters?: WorkFilters;
 }) {
@@ -269,6 +284,7 @@ export async function getWorks(opts?: {
     rating: "desc",
     authorFirstName: "asc",
     authorLastName: "asc",
+    lastRead: "desc",
   };
   const resolvedOrder = order ?? defaultOrders[sort] ?? "asc";
 
@@ -283,6 +299,8 @@ export async function getWorks(opts?: {
     rating: resolvedOrder === "asc" ? sql`${works.rating} asc nulls last` : sql`${works.rating} desc nulls last`,
     authorFirstName: orderFn(works.createdAt), // page membership is selected below
     authorLastName: orderFn(works.createdAt), // page membership is selected below
+    // The later of the last finish and the last progress; never read last either way
+    lastRead: sql`${lastReadAtSql(works.id)} ${sql.raw(resolvedOrder)} nulls last`,
   }[sort];
 
   const where = await buildWorkConditions(search, filters);
@@ -301,6 +319,7 @@ export async function getWorks(opts?: {
     orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(works.id)],
     limit,
     offset: pageIds ? 0 : offset,
+    extras: readingExtras,
     with: {
       workAuthors: {
         with: { author: true },
@@ -823,6 +842,7 @@ export async function getLibraryStats() {
       where: bookCondition,
       orderBy: desc(works.createdAt),
       limit: 8,
+      extras: readingExtras,
       with: worksWith,
     }),
     // Top rated
@@ -830,6 +850,7 @@ export async function getLibraryStats() {
       where: and(bookCondition, isNotNull(works.rating)),
       orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
       limit: 8,
+      extras: readingExtras,
       with: worksWith,
     }),
     // Wanted / shortlisted

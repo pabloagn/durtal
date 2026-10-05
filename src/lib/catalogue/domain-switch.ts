@@ -15,6 +15,7 @@ export const BOOK_SORTS = [
   "rating",
   "authorFirstName",
   "authorLastName",
+  "lastRead",
 ] as const;
 
 /** The query each collection home reads, besides `q`, `sort`, `order`, `page` and `perPage`. */
@@ -24,7 +25,7 @@ const HOME_QUERY: Record<
 > = {
   book: {
     sorts: BOOK_SORTS,
-    filters: ["status", "priority", "mark", "rare", "publisher", "rating", "location", "poster"],
+    filters: ["status", "priority", "mark", "rare", "publisher", "rating", "location", "poster", "reading", "readFrom", "readTo", "reread", "holding"],
   },
   perfume: { sorts: PERFUME_SORTS, filters: PERFUME_FILTER_KEYS },
   film: { sorts: FILM_SORTS, filters: FILM_FILTER_KEYS },

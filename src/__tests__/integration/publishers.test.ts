@@ -930,7 +930,7 @@ describe.skipIf(!url)(
         w = await work();
       await own((await edition(w.id, penguin.name)).id);
       await createAcquisitionTarget({ workId: w.id, publisherId: p.id });
-      const filters = { publisherIds: [p.id], catalogueStatus: ["wanted"] };
+      const filters = { publisherIds: [p.id], catalogueStatus: ["wanted" as const] };
       expect(await getWorkCount(undefined, filters)).toBe(1);
       expect((await getWorks({ filters })).map((w) => w.id)).toEqual([w.id]);
       expect((await getWorksForTimeline({ filters })).map((w) => w.id)).toEqual(

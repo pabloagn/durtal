@@ -13,6 +13,7 @@ import { BulkActionToolbar } from "@/components/books/bulk-action-toolbar";
 import { CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CoverCrop } from "@/components/books/book-card";
+import type { CardReadingValue } from "@/lib/reading/card";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { useViewData } from "@/lib/hooks/use-view-data";
 import { LIST_PREFERENCES } from "@/lib/preferences";
@@ -53,6 +54,8 @@ interface BookItem {
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   hasDigitalEdition?: boolean;
+  /** An open reading (SLN-449): the card shows "Reading 44%" */
+  reading?: CardReadingValue;
 }
 
 interface LibraryShellProps {

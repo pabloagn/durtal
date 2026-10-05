@@ -13,6 +13,12 @@ import type { CoverCrop } from "./book-card";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
 import { TitleCard } from "@/components/shared/no-photo";
+import { useViewData } from "@/lib/hooks/use-view-data";
+import { getReadingSummaries } from "@/lib/actions/reading";
+import type { CardReadingValue } from "@/lib/reading/card";
+
+/** The list's and table's reading data for the books shown, by work id */
+const loadSummaries = (books: { workId: string }[]) => getReadingSummaries(books.map((b) => b.workId));
 
 interface BookItem {
   workId: string;
@@ -43,6 +49,8 @@ interface BookItem {
   format?: string | null;
   condition?: string | null;
   addedDate?: string | null;
+  /** An open reading (SLN-449): the card shows "Reading 44%" */
+  reading?: CardReadingValue;
 }
 
 interface LibraryViewProps {
@@ -65,6 +73,10 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
     LIST_PREFERENCES.library.columns.key,
     DEFAULT_COLUMN_CONFIG,
   );
+  // The list badge and the table's reading columns load only while those views show (SLN-449)
+  const summaries = useViewData(viewMode === "list" || viewMode === "detailed", books, loadSummaries);
+  const withSummaries = () =>
+    summaries.status === "ready" ? books.map((b) => ({ ...b, readingSummary: summaries.data[b.workId] })) : books;
 
   switch (viewMode) {
     case "grid":
@@ -105,7 +117,7 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
     case "list":
       return (
         <BookList
-          books={books}
+          books={withSummaries()}
           isSelecting={isSelecting}
           selectedIds={selectedIds}
           onSelect={onSelect}
@@ -114,7 +126,7 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
     case "detailed":
       return (
         <BookDataTable
-          books={books as DetailedBookItem[]}
+          books={withSummaries() as DetailedBookItem[]}
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
           isSelecting={isSelecting}

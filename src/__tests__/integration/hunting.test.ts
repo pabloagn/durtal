@@ -274,7 +274,7 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
       isRare: true,
       huntAssessedOn: "2026-01-01",
     });
-    const filters = { isRare: true, catalogueStatus: ["wanted"] };
+    const filters = { isRare: true, catalogueStatus: ["wanted" as const] };
     expect((await getWorks({ filters })).map((w) => w.id).sort()).toEqual(
       [rare.id, difficult.id].sort(),
     );

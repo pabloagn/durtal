@@ -15,6 +15,8 @@ import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { formatRating } from "@/lib/utils/rating";
 import { languageName } from "@/lib/utils/language";
+import { formatReadingDate } from "@/lib/reading/dates";
+import { readingBadge, type CardReadingValue, type ReadingSummaryValue } from "@/lib/reading/card";
 
 export interface DetailedBookItem {
   workId: string;
@@ -40,6 +42,10 @@ export interface DetailedBookItem {
   format?: string | null;
   condition?: string | null;
   addedDate?: string | null;
+  /** An open reading, until the summaries load */
+  reading?: CardReadingValue;
+  /** Reading state, times read, last read and progress (SLN-449) */
+  readingSummary?: ReadingSummaryValue;
 }
 
 export const ALL_COLUMNS: ColumnDef[] = [
@@ -58,7 +64,25 @@ export const ALL_COLUMNS: ColumnDef[] = [
   { key: "isbn", label: "ISBN", defaultVisible: false, defaultOrder: 12 },
   { key: "instanceCount", label: "Copies", defaultVisible: true, defaultOrder: 13 },
   { key: "addedDate", label: "Added", defaultVisible: false, defaultOrder: 14 },
+  // Reading (SLN-449): a saved column choice gets them hidden, in the column dialog
+  { key: "readingState", label: "Reading", defaultVisible: false, defaultOrder: 15 },
+  { key: "lastReadAt", label: "Last read", defaultVisible: false, defaultOrder: 16 },
+  { key: "timesRead", label: "Times read", defaultVisible: false, defaultOrder: 17 },
+  { key: "readingPercent", label: "Progress", defaultVisible: false, defaultOrder: 18 },
 ];
+
+const STATE_ORDER: Record<string, number> = { reading: 0, paused: 1, read: 2, abandoned: 3, unread: 4 };
+
+/** The reading columns' values for a header click's sort */
+function readingSortValue(book: DetailedBookItem, key: string): string | number {
+  const r = book.readingSummary;
+  if (key === "readingState") return STATE_ORDER[r?.state ?? book.reading?.state ?? "unread"] ?? 4;
+  if (key === "lastReadAt") return r?.lastReadAt ?? "";
+  if (key === "timesRead") return r?.timesRead ?? 0;
+  if (key === "readingPercent") return r?.percent ?? book.reading?.percent ?? -1;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((book as any)[key] ?? "") as string | number;
+}
 
 function renderBookCell(book: DetailedBookItem, key: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,6 +129,19 @@ function renderBookCell(book: DetailedBookItem, key: string) {
     case "format":
     case "condition":
       return val ? <Badge variant="muted">{val}</Badge> : null;
+    // Reading (SLN-449): empty until the summaries load
+    case "readingState": {
+      const badge = readingBadge(book.readingSummary, book.reading);
+      return badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : null;
+    }
+    case "lastReadAt":
+      return book.readingSummary?.lastReadAt ? formatReadingDate(book.readingSummary.lastReadAt.slice(0, 10), "day") : null;
+    case "timesRead":
+      return book.readingSummary?.timesRead ? String(book.readingSummary.timesRead) : null;
+    case "readingPercent": {
+      const percent = book.readingSummary ? book.readingSummary.percent : (book.reading?.percent ?? null);
+      return percent === null ? null : `${Math.round(percent)}%`;
+    }
     default:
       return val ?? "";
   }
@@ -135,6 +172,9 @@ export function BookDataTable({
       columns={columns}
       onColumnsChange={onColumnsChange}
       renderCell={renderBookCell}
+      getSortValue={readingSortValue}
+      // The server's sort holds until a header is clicked
+      preserveOrder
       isSelecting={isSelecting}
       selectedIds={selectedIds}
       onSelect={onSelect}
