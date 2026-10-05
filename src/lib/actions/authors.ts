@@ -34,7 +34,7 @@ import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { posterTone } from "@/lib/actions/utils/work-card-query";
+import { posterTone, workReadingExtras } from "@/lib/actions/utils/work-card-query";
 import { cleanBioForStorage, sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { z } from "zod";
 
@@ -487,6 +487,8 @@ export async function getAuthorBySlug(slug: string) {
       workAuthors: {
         with: {
           work: {
+            // Reading (SLN-449): the cards, "Read 7 of 12" and the Reading record
+            extras: workReadingExtras,
             with: {
               editions: {
                 columns: {

@@ -44,6 +44,7 @@ import { finishedItem, tileItem } from "@/components/reading/hub-cards";
 import { DashboardReading } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getRecentlyFinished } from "@/lib/reading/journal";
+import { cardReadingOf } from "@/lib/reading/card";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -114,6 +115,8 @@ function workToCardProps(work: {
   huntAssessedOn: string | null;
   isPoison: boolean;
   originalYear: number | null;
+  readingState?: string | null;
+  readingPercent?: number | null;
   workAuthors: Array<{ author: { name: string } }>;
   editions: Array<{
     id: string;
@@ -172,6 +175,7 @@ function workToCardProps(work: {
     isRare: work.isRare,
     huntAssessedOn: work.huntAssessedOn,
     isPoison: work.isPoison,
+    reading: cardReadingOf(work),
   };
 }
 

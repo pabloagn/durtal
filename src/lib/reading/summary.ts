@@ -38,9 +38,24 @@ export function lastFinishedPrecisionSql(workId: SQL | unknown) {
   return sql<string | null>`${latestFinished(workId, "finished_precision")}`;
 }
 
-/** The last time any reading of the book moved */
+/**
+ * A finished reading in these years: its finish date's year, at any
+ * precision (a month or a year date counts in its year). Either end may be open.
+ */
+export function readInCondition(workId: SQL | unknown, from?: number, to?: number) {
+  return sql`exists (select 1 from readings r where r.work_id = ${workId} and r.status = 'finished'
+    and r.finished_precision <> 'unknown' and r.finished_on is not null
+    ${from !== undefined ? sql`and extract(year from r.finished_on) >= ${from}` : sql``}
+    ${to !== undefined ? sql`and extract(year from r.finished_on) <= ${to}` : sql``})`;
+}
+
+/**
+ * The last time the book was read: the later of its last progress and its
+ * last finish date (a past read or an import has a finish date and no
+ * progress). The library's "Last read" sort.
+ */
 export function lastReadAtSql(workId: SQL | unknown) {
-  return sql<string | null>`(select max(r.last_read_at) from readings r where r.work_id = ${workId})`;
+  return sql<string | null>`(select greatest(max(r.last_read_at), max(r.finished_on)::timestamptz) from readings r where r.work_id = ${workId})`;
 }
 
 /** The open reading's share read, 0 to 100 */

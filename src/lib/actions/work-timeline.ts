@@ -2,10 +2,9 @@
 
 import { bookCondition } from "@/lib/catalogue/book-boundary";
 
-import {
-  publisherWorkCondition,
-  catalogueStatusCondition,
-} from "@/lib/publishers/conditions";
+import { publisherWorkCondition } from "@/lib/publishers/conditions";
+import { readingFiltersSchema, type ReadingFilterParams } from "@/lib/reading/filter-params";
+import { readingFilterConditions } from "@/lib/reading/filter-conditions";
 import { db } from "@/lib/db";
 import { works, editions } from "@/lib/db/schema";
 import { and, eq, asc, ilike, inArray, isNotNull } from "drizzle-orm";
@@ -38,8 +37,7 @@ export interface WorkTimelineItem {
 
 export async function getWorksForTimeline(opts?: {
   search?: string;
-  filters?: {
-    catalogueStatus?: string[];
+  filters?: ReadingFilterParams & {
     isRare?: boolean;
     isPoison?: boolean;
     marks?: WorkMarkKey[];
@@ -48,6 +46,8 @@ export async function getWorksForTimeline(opts?: {
   };
 }): Promise<WorkTimelineItem[]> {
   const { search, filters } = opts ?? {};
+  // The browser sends the page's parsed filters back: check them again
+  const reading = filters ? readingFiltersSchema.parse(filters) : undefined;
 
   const conditions: SQL[] = [bookCondition, isNotNull(works.originalYear)];
 
@@ -65,9 +65,8 @@ export async function getWorksForTimeline(opts?: {
   }
   const marks = marksCondition(filters?.marks ?? []);
   if (marks) conditions.push(marks);
-  if (filters?.catalogueStatus?.length) {
-    conditions.push(catalogueStatusCondition(filters.catalogueStatus));
-  }
+  // Status, reading state, holding, read in, re-read (SLN-449)
+  conditions.push(...readingFilterConditions(works.id, reading));
 
   // Language filter: find works that have at least one edition in the requested
   // language(s), then restrict the work IDs accordingly.

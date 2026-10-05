@@ -1,6 +1,7 @@
 import { COL_CLASSES, maxCardWidth } from "@/components/shared/grid-columns";
 import { BookCard } from "./book-card";
 import type { CoverCrop } from "./book-card";
+import type { CardReadingValue } from "@/lib/reading/card";
 
 interface BookGridItem {
   workId: string;
@@ -22,6 +23,8 @@ interface BookGridItem {
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
   hasDigitalEdition?: boolean;
+  /** An open reading (SLN-449): the card shows "Reading 44%" */
+  reading?: CardReadingValue;
 }
 
 export function BookGrid({

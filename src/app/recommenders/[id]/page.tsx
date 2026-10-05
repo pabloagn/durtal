@@ -7,6 +7,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { BookCard } from "@/components/books/book-card";
+import { cardReadingOf } from "@/lib/reading/card";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { getRecommender } from "@/lib/actions/recommenders";
 import { websiteLabel } from "@/lib/validations/recommenders";
@@ -38,6 +39,8 @@ export default async function RecommenderPage({
   const books = recommender.books;
   const paging = paginateItems(books, await searchParams);
   const count = books.length;
+  // Read: a finished reading at least (SLN-449)
+  const read = books.filter((w) => Number(w.timesRead) >= 1).length;
 
   return (
     <>
@@ -76,6 +79,11 @@ export default async function RecommenderPage({
             <span className="font-mono text-xs text-fg-secondary">
               {count} {count === 1 ? "book" : "books"} recommended
             </span>
+            {read > 0 && (
+              <span className="text-xs text-fg-secondary" data-recommender-read="">
+                {`You have read ${read} of their ${count} ${count === 1 ? "pick" : "picks"}`}
+              </span>
+            )}
           </div>
         </div>
         {/* On the cap-height center of the name's first line */}
@@ -142,6 +150,7 @@ export default async function RecommenderPage({
                     isPoison={work.isPoison}
                     isFavourite={work.isFavourite}
                     primaryEditionId={work.editions[0]?.id}
+                    reading={cardReadingOf(work)}
                   />
                 );
               })}

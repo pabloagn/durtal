@@ -3,6 +3,7 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { PRIORITY_CONFIG, STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { AcquisitionPriority, CatalogueStatus } from "@/lib/types";
 import { formatRating } from "@/lib/utils/rating";
+import { cardReadingLabel, cardReadingTooltip, type CardReadingValue } from "@/lib/reading/card";
 
 /** The dot color per status variant (fills, so the lighter rose and red) */
 const STATUS_DOT = {
@@ -13,6 +14,22 @@ const STATUS_DOT = {
   sage: "bg-accent-sage",
   red: "bg-accent-red-text",
 } as const;
+
+/** The status tooltip: the label, the acquisition priority and the number of copies */
+function statusDetails(status?: string | null, priority?: string | null, copies?: number) {
+  const info = status ? STATUS_CONFIG[status as CatalogueStatus] : null;
+  if (!info) return null;
+  const priorityLabel =
+    priority && priority !== "none"
+      ? PRIORITY_CONFIG[priority as AcquisitionPriority]?.label
+      : null;
+  const details = [
+    info.label,
+    priorityLabel && `${priorityLabel} priority`,
+    copies ? `${copies} ${copies === 1 ? "copy" : "copies"}` : null,
+  ].filter(Boolean);
+  return { info, tooltip: details.join(" · ") };
+}
 
 /**
  * A book's status in a card's info row: a colored dot and the label. The
@@ -28,29 +45,54 @@ export function CardStatus({
   priority?: string | null;
   copies?: number;
 }) {
-  const info = status ? STATUS_CONFIG[status as CatalogueStatus] : null;
-  if (!info) return null;
-  const priorityLabel =
-    priority && priority !== "none"
-      ? PRIORITY_CONFIG[priority as AcquisitionPriority]?.label
-      : null;
-  const details = [
-    info.label,
-    priorityLabel && `${priorityLabel} priority`,
-    copies ? `${copies} ${copies === 1 ? "copy" : "copies"}` : null,
-  ].filter(Boolean);
+  const details = statusDetails(status, priority, copies);
+  if (!details) return null;
   return (
     <span
       className="relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary"
-      data-tooltip={details.join(" · ")}
+      data-tooltip={details.tooltip}
     >
       <CapAligned height={6}>
         <span
           aria-hidden="true"
-          className={`block h-1.5 w-1.5 rounded-full ${STATUS_DOT[info.variant]}`}
+          className={`block h-1.5 w-1.5 rounded-full ${STATUS_DOT[details.info.variant]}`}
         />
       </CapAligned>
-      <span className="truncate">{info.label}</span>
+      <span className="truncate">{details.info.label}</span>
+    </span>
+  );
+}
+
+/**
+ * A book being read, in the status slot of a card's info row (SLN-449): a
+ * blue dot for reading, a secondary one for paused, and "Reading 44%". The
+ * tooltip is the status's with the reading after it.
+ */
+export function CardReading({
+  reading,
+  status,
+  priority,
+  copies,
+}: {
+  reading: CardReadingValue;
+  status?: string | null;
+  priority?: string | null;
+  copies?: number;
+}) {
+  const details = statusDetails(status, priority, copies);
+  return (
+    <span
+      className="relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary"
+      data-tooltip={cardReadingTooltip(details?.tooltip ?? "", reading)}
+      data-card-reading={reading.state}
+    >
+      <CapAligned height={6}>
+        <span
+          aria-hidden="true"
+          className={`block h-1.5 w-1.5 rounded-full ${reading.state === "reading" ? "bg-accent-blue" : "bg-fg-secondary"}`}
+        />
+      </CapAligned>
+      <span className="truncate">{cardReadingLabel(reading)}</span>
     </span>
   );
 }

@@ -22,6 +22,8 @@ import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { parseMarks } from "@/lib/constants/marks";
 import { parseRatingParam } from "@/lib/utils/rating";
+import { LIBRARY_SORTS, hasReadingFilters, parseReadingFilters } from "@/lib/reading/filter-params";
+import { cardReadingOf } from "@/lib/reading/card";
 
 export const metadata = { title: "Library" };
 
@@ -38,6 +40,11 @@ interface PageProps {
     rating?: string;
     location?: string;
     poster?: string;
+    reading?: string;
+    readFrom?: string;
+    readTo?: string;
+    reread?: string;
+    holding?: string;
     page?: string;
     perPage?: string;
   }>;
@@ -58,22 +65,23 @@ async function LibraryContent({
     rating?: string;
     location?: string;
     poster?: string;
+    reading?: string;
+    readFrom?: string;
+    readTo?: string;
+    reread?: string;
+    holding?: string;
     page?: string;
     perPage?: string;
   };
 }) {
   const search = searchParams.q;
-  const sort = (searchParams.sort ?? "title") as
-    | "title"
-    | "recent"
-    | "year"
-    | "rating"
-    | "authorFirstName"
-    | "authorLastName";
-  const order = (searchParams.order ?? undefined) as "asc" | "desc" | undefined;
+  // Reading, holding, status and sort (SLN-449): unknown values are dropped here,
+  // so `status=owned` never reaches the enum's SQL
+  const { filters: reading, sort: parsedSort } = parseReadingFilters(searchParams, { sorts: LIBRARY_SORTS });
+  const sort = parsedSort ?? "title";
+  const order = searchParams.order === "asc" || searchParams.order === "desc" ? searchParams.order : undefined;
   const { page, perPage: limit, offset } = parsePagination(searchParams);
 
-  const statusFilter = searchParams.status?.split(",").filter(Boolean);
   const priorityFilter = searchParams.priority?.split(",").filter(Boolean);
   // One "Marks" group; the old `rare=true` link still selects Rare
   const markFilter = parseMarks(
@@ -98,7 +106,7 @@ async function LibraryContent({
       limit,
       offset,
       filters: {
-        catalogueStatus: statusFilter?.length ? statusFilter : undefined,
+        ...reading,
         marks: markFilter,
         publisherIds: searchParams.publisher
           ?.split(",")
@@ -112,7 +120,7 @@ async function LibraryContent({
       },
     }),
     getWorkCount(search, {
-      catalogueStatus: statusFilter?.length ? statusFilter : undefined,
+      ...reading,
       marks: markFilter,
       publisherIds: searchParams.publisher
         ?.split(",")
@@ -140,7 +148,7 @@ async function LibraryContent({
           search={search}
           hasFilters={
             !!(
-              statusFilter?.length ||
+              hasReadingFilters(reading) ||
               priorityFilter?.length ||
               markFilter.length > 0 ||
               ratingParam ||
@@ -210,6 +218,7 @@ async function LibraryContent({
       isFavourite: work.isFavourite,
       primaryEditionId: firstEdition?.id ?? null,
       hasDigitalEdition: digitalWorkIds.has(work.id),
+      reading: cardReadingOf(work),
     };
   });
 
@@ -221,7 +230,7 @@ async function LibraryContent({
         timelineQuery={{
           search,
           filters: {
-            catalogueStatus: statusFilter?.length ? statusFilter : undefined,
+            ...reading,
             marks: markFilter,
             publisherIds: searchParams.publisher
               ?.split(",")

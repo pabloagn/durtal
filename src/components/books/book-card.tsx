@@ -7,7 +7,8 @@ import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
 import { COVER_CORNER } from "./cover-chip";
-import { CardRating, CardStatus } from "./card-status";
+import { CardRating, CardReading, CardStatus } from "./card-status";
+import type { CardReadingValue } from "@/lib/reading/card";
 import { Badge } from "@/components/ui/badge";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
@@ -52,6 +53,8 @@ interface BookCardProps {
   coverSizes?: string;
   /** Load the cover at once with high priority (cards above the fold) */
   coverPriority?: boolean;
+  /** An open reading: it takes the status slot ("Reading 44%") */
+  reading?: CardReadingValue;
 }
 
 function CoverPlaceholder({ letter }: { letter: string }) {
@@ -135,6 +138,7 @@ export function BookCard({
   onSelect,
   coverSizes = "(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px",
   coverPriority = false,
+  reading,
 }: BookCardProps) {
   const href = `/library/${slug}`;
 
@@ -263,11 +267,20 @@ export function BookCard({
             }
           />
           <div className="mt-2.5 flex h-5 items-center gap-2">
-            <CardStatus
-              status={catalogueStatus}
-              priority={acquisitionPriority}
-              copies={instanceCount}
-            />
+            {reading ? (
+              <CardReading
+                reading={reading}
+                status={catalogueStatus}
+                priority={acquisitionPriority}
+                copies={instanceCount}
+              />
+            ) : (
+              <CardStatus
+                status={catalogueStatus}
+                priority={acquisitionPriority}
+                copies={instanceCount}
+              />
+            )}
             {/* The status keeps the row: the rating shows from 160px of card
                 width, the language from 200px, the year from 160px (220px
                 beside a rating) */}

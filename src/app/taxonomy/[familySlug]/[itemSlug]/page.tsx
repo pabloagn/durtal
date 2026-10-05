@@ -20,7 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { posterTone } from "@/lib/actions/utils/work-card-query";
+import { posterTone, workCardExtras } from "@/lib/actions/utils/work-card-query";
+import { cardReadingOf } from "@/lib/reading/card";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ async function getWorksByIds(ids: string[]) {
   const results = await db.query.works.findMany({
     where: inArray(works.id, ids),
     orderBy: asc(works.title),
+    // An open reading on the card (SLN-449)
+    extras: workCardExtras,
     with: {
       workAuthors: {
         with: { author: true },
@@ -207,6 +210,7 @@ async function ItemContent({
                   isPoison={work.isPoison}
                   isFavourite={work.isFavourite}
                   primaryEditionId={primaryEdition?.id}
+                  reading={cardReadingOf(work)}
                 />
               );
             })}

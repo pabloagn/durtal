@@ -2,7 +2,7 @@
 
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
 
-import { workCardWith } from "@/lib/actions/utils/work-card-query";
+import { workCardExtras, workCardWith, workReadingExtras } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, uniqueConstraint } from "@/lib/db/errors";
@@ -66,6 +66,8 @@ export async function getSeries(opts?: {
 
 const haystack = sql`search_normalize(${series.title} || ' ' || coalesce(${series.originalTitle}, ''))`;
 const bookCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id")`;
+/** Volumes with a finished reading: a volume being re-read counts as read (SLN-449) */
+const readCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from readings r where r.work_id = w.id and r.status = 'finished'))`;
 const ownedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = w.id and i.status <> 'deaccessioned'))`;
 
 const listSchema = z.object({
@@ -111,6 +113,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
         createdAt: series.createdAt,
         bookCount,
         ownedCount,
+        readCount,
       })
       .from(series)
       .where(where)
@@ -156,6 +159,8 @@ export async function getSeriesDetail(id: string) {
           sql`${positionOrder} nulls last`,
           sql`lower(${works.title})`,
         ],
+        // Reading (SLN-449): "Read 4 of 20" and each volume's state
+        extras: workReadingExtras,
         with: {
           workAuthors: {
             with: { author: true },
@@ -498,6 +503,7 @@ export async function getOtherWorksInSeries(seriesId: string, workId: string) {
       asc(works.title),
       asc(works.id),
     ],
+    extras: workCardExtras,
     with: workCardWith,
   });
 }

@@ -14,6 +14,7 @@ import type { CoverCrop } from "./book-card";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { formatRating } from "@/lib/utils/rating";
+import { readingBadge, type CardReadingValue, type ReadingSummaryValue } from "@/lib/reading/card";
 
 interface BookListItem {
   workId: string;
@@ -33,6 +34,10 @@ interface BookListItem {
   isPoison?: boolean;
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
+  /** An open reading, until the summaries load */
+  reading?: CardReadingValue;
+  /** Reading state, times read and progress (SLN-449), loaded with the list */
+  readingSummary?: ReadingSummaryValue;
 }
 
 interface BookListProps {
@@ -95,6 +100,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           book.acquisitionPriority && book.acquisitionPriority !== "none"
             ? PRIORITY_CONFIG[book.acquisitionPriority as AcquisitionPriority]
             : null;
+        const badge = readingBadge(book.readingSummary, book.reading);
 
         return (
         <div
@@ -147,6 +153,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                   />
                 )}
                 {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
+                {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
                 {book.rating != null && <Badge variant="gold">{formatRating(book.rating)}/5</Badge>}
               </CapAlignedControls>
             </div>

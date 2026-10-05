@@ -12,6 +12,8 @@ import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { MemberCard } from "@/components/collections/member-card";
+import { readingStatesFor } from "@/lib/reading/states";
+import { readingBadge } from "@/lib/reading/card";
 import { FilmPoster } from "@/components/films/film-poster";
 import { filmDirectors, filmFacts, filmHref } from "@/components/films/film-card";
 import { PerfumeImage } from "@/components/perfumes/perfume-image";
@@ -74,7 +76,12 @@ const cover = (key: string | null | undefined, alt: string) =>
  * and each whole work except a book that also has an edition here (the
  * edition stands for it and says so).
  */
-async function collectionMembers(collection: Collection): Promise<Member[]> {
+async function collectionMembers(
+  collection: Collection,
+  reading: Awaited<ReturnType<typeof readingStatesFor>>,
+): Promise<Member[]> {
+  // A book's reading on its card's note line (SLN-449)
+  const state = (workId: string) => readingBadge(reading.get(workId))?.label ?? null;
   const editionWorks = new Set(collection.collectionEditions.map((m) => m.edition.workId));
   const wholeWorks = collection.collectionWorks.filter((m) => !editionWorks.has(m.workId));
   const heldAsWork = new Set(collection.collectionWorks.map((m) => m.workId));
@@ -105,9 +112,7 @@ async function collectionMembers(collection: Collection): Promise<Member[]> {
         byline: names.join(" & "),
         facts: [e.publisher, e.publicationYear, e.language, e.binding].filter(Boolean).join(" · "),
         // A book held both ways shows as its edition, and says so
-        note: heldAsWork.has(work.id)
-          ? [e.isbn13, "also collected as the book"].filter(Boolean).join(" · ")
-          : e.isbn13,
+        note: [e.isbn13, heldAsWork.has(work.id) ? "also collected as the book" : null, state(work.id)].filter(Boolean).join(" · ") || null,
         noteMono: true,
       },
       copy: <CopyBookButton title={work.title} authorNames={names} />,
@@ -129,7 +134,7 @@ async function collectionMembers(collection: Collection): Promise<Member[]> {
             title: w.title,
             byline: names.join(" & "),
             facts: "The book, no edition chosen",
-            note: label,
+            note: [label, state(w.id)].filter(Boolean).join(" · "),
           },
           copy: <CopyBookButton title={w.title} authorNames={names} />,
         },
@@ -204,11 +209,20 @@ async function collectionMembers(collection: Collection): Promise<Member[]> {
 }
 
 /** "3 books · 4 editions · 2 films": a book collected both ways counts once */
-function memberCounts(collection: Collection) {
-  const books = new Set([
-    ...collection.collectionEditions.map((m) => m.edition.workId),
-    ...collection.collectionWorks.filter((m) => m.work.kind === "book").map((m) => m.workId),
-  ]).size;
+function collectionBookIds(collection: Collection) {
+  return [
+    ...new Set([
+      ...collection.collectionEditions.map((m) => m.edition.workId),
+      ...collection.collectionWorks.filter((m) => m.work.kind === "book").map((m) => m.workId),
+    ]),
+  ];
+}
+
+function memberCounts(collection: Collection, reading: Awaited<ReturnType<typeof readingStatesFor>>) {
+  const bookIds = collectionBookIds(collection);
+  const books = bookIds.length;
+  // Read: a finished reading at least, so a book being re-read counts (SLN-449)
+  const read = bookIds.filter((id) => (reading.get(id)?.timesRead ?? 0) >= 1).length;
   const of = (kind: string) => collection.collectionWorks.filter((m) => m.work.kind === kind).length;
   const editionCount = collection.collectionEditions.length;
   const parts: [number, string, string][] = [
@@ -220,7 +234,9 @@ function memberCounts(collection: Collection) {
   ];
   const shown = parts.filter(([n]) => n > 0);
   if (!shown.length) return "Nothing yet";
-  return shown.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`).join(" · ");
+  const counts = shown.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
+  if (read) counts.push(`${read} of ${books} ${books === 1 ? "book" : "books"} read`);
+  return counts.join(" · ");
 }
 
 /** One read per request for the page and its title */
@@ -251,11 +267,12 @@ export default async function CollectionPage({
   if (!collection) notFound();
   const query = await searchParams;
   const { page, perPage, offset } = parsePagination(query);
-  const members = await collectionMembers(collection);
+  const reading = await readingStatesFor(collectionBookIds(collection));
+  const members = await collectionMembers(collection, reading);
   const total = members.length;
   if (page > lastPage(total, perPage))
     redirect(pageHref(`/collections/${id}`, query, lastPage(total, perPage)));
-  const counts = memberCounts(collection);
+  const counts = memberCounts(collection, reading);
   const poster = collectionPoster(collection.media);
   const background = collectionBackground(collection.media);
   return (

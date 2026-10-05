@@ -116,16 +116,25 @@ Search external book databases for metadata. Queries Google Books and Open Libra
 
 ### `GET /api/works`
 
-List works with pagination and search.
+List works with pagination, search and the library's reading filters (SLN-449). The library page and this route read them with one parser (`src/lib/reading/filter-params.ts`).
 
 **Query parameters**:
 
 | Param | Type | Default | Description |
 |---|---|---|---|
 | `q` | string | — | Search term (title, author, ISBN) |
-| `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` |
-| `limit` | number | `50` | Results per page |
+| `reading` | list | — | `unread`, `reading`, `paused`, `read`, `abandoned`: any of them |
+| `holding` | string | — | `owned` (a copy not deaccessioned) or `not_owned`; both is no filter |
+| `readFrom`, `readTo` | year | — | A finished reading in these years, at any precision; reversed years are swapped |
+| `reread` | `true` | — | Two finished readings or more |
+| `status` | list | — | The catalogue status: `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
+| `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last) |
+| `limit` | number | `50` | Results per page (at most 200) |
 | `offset` | number | `0` | Pagination offset |
+
+"Unread books I own": `GET /api/works?reading=unread&holding=owned&sort=lastRead`. `total` counts the works the filters keep.
+
+**Response** `400`: any unknown value of `reading`, `holding`, `readFrom`, `readTo`, `reread`, `status` or `sort` (`status=owned`, `sort=pages`) answers `{ "error": "Invalid input", "issues": [...] }` with the zod issues; each issue's `path` starts with the parameter.
 
 **Response** `200`:
 ```json
@@ -139,12 +148,15 @@ List works with pagination and search.
       "catalogueStatus": "accessioned",
       "rating": 5,
       "editions": [...],
-      "workAuthors": [{ "author": { "name": "Miguel de Cervantes" }, "role": "author" }]
+      "workAuthors": [{ "author": { "name": "Miguel de Cervantes" }, "role": "author" }],
+      "reading": { "state": "reading", "timesRead": 1, "lastFinishedOn": "2019-01-01", "lastFinishedPrecision": "year", "percent": 44.17 }
     }
   ],
   "total": 1234
 }
 ```
+
+`reading.state` is `unread`, `reading`, `paused`, `read` or `abandoned`; `timesRead` counts finished readings; `percent` is the open reading's share, a number, or null.
 
 ### `GET /api/works/[id]`
 

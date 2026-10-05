@@ -15,11 +15,15 @@ List works with pagination, search, and sorting.
 ```typescript
 getWorks(opts?: {
   search?: string;
-  sort?: "recent" | "title" | "year" | "rating";
+  sort?: "recent" | "title" | "year" | "rating" | "authorFirstName" | "authorLastName" | "lastRead";
+  order?: "asc" | "desc";
   limit?: number;   // default 50
   offset?: number;  // default 0
+  filters?: WorkFilters;
 }): Promise<WorkWithRelations[]>
 ```
+
+`WorkFilters` (SLN-449) is `ReadingFilterParams` (`reading`, `readFrom`, `readTo`, `reread`, `holding`, `catalogueStatus`, from `parseReadingFilters`) with `marks`, `isRare`, `isPoison`, `publisherIds`, `acquisitionPriority`, `minRating` (the book's rating), `locationId` and `hasPoster`. The reading and holding conditions are `readingFilterConditions` (`src/lib/reading/filter-conditions.ts`), shared with `getWorksForTimeline`, which checks them again with `readingFiltersSchema` since the browser sends them back. Each work carries root extras in the same query: `readingState`, `readingPercent` (a number), `timesRead`, `lastFinishedOn` and `lastFinishedPrecision`; `getLibraryStats`' recent and top-rated books carry them too. `cardReadingOf` turns them into a card's `reading`.
 
 Returns works with loaded relations: `editions` (with cover keys), `workAuthors` (with author data), `workSubjects`, `media`.
 
@@ -28,6 +32,7 @@ Search matches against work title using `ilike`. Sort options:
 - `title`: alphabetical ascending
 - `year`: `originalYear` descending (nulls last)
 - `rating`: `rating` descending, or ascending with `order: "asc"`; unrated works last either way
+- `lastRead`: `lastReadAtSql` (the later of the last progress and the last finish) descending, never-read works last
 
 ### `getWorkCount(search?, filters?)`
 
@@ -492,6 +497,15 @@ The book picker: books only, matched without accents on title and authors (`text
 
 ### `getReadingDialogData(workId, homeId)` (SLN-448)
 What a reading dialog needs for a book opened away from its page (the hub, the dashboard, the palette, `?then=`): its readings (as `getReadingsForWork`), its editions with their copies ranked by the "I'm at" home, the homes, its rating, today's reading day and the zone. `ReadingDialogsProvider` calls it when a dialog opens and after each write.
+
+### `getReadingSummaries(workIds)` (SLN-449)
+The library list's and table's reading for one page of books (at most 192 uuids, the largest page size), in one query: `{ state, timesRead, lastFinishedOn, lastFinishedPrecision, lastReadAt, percent }` by work id. `LibraryView` calls it only while the list or table view shows.
+
+### `getReadYearRange()` (SLN-449)
+The years with a finished reading, for the library's "Read in" range.
+
+### `getSeriesNextToRead(seriesId)` (SLN-449)
+The series page's "Next to read": `nextToRead`'s volume and where its copy is (an available physical copy, an available digital one, any copy still held, through `copyWhereabouts`), else "Not owned · <status>".
 
 ### Hub queries (`src/lib/reading/journal.ts`, not server actions)
 - `queryJournal(query)`: one page of readings for `/reading/journal` with the filtered summary (readings, finished, abandoned, re-reads). Each row has the read's rating (`readingRatingSql`), whether it is a re-read (`rereadSql` in `src/lib/reading/summary.ts`), its book, author, cover, edition language and fingerprint.

@@ -17,7 +17,7 @@ import {
   recommenderInputSchema,
   type RecommenderInput,
 } from "@/lib/validations/recommenders";
-import { posterTone } from "@/lib/actions/utils/work-card-query";
+import { posterTone, workReadingExtras } from "@/lib/actions/utils/work-card-query";
 
 export const getRecommenders = cached(
   () => db.select().from(recommenders).orderBy(asc(recommenders.name)),
@@ -91,6 +91,8 @@ export async function getRecommender(id: string) {
         where: (link) => bookReferenceCondition(link.workId),
         with: {
           work: {
+            // Reading (SLN-449): the cards and "You have read 7 of their 15 picks"
+            extras: workReadingExtras,
             with: {
               editions: {
                 columns: {
