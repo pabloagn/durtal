@@ -29,6 +29,7 @@ import {
   type MonochromeParams,
 } from "@/lib/validations/media";
 import { extractColorPalette } from "@/lib/color/extract-palette";
+import { mediaPaletteFields } from "@/lib/color/color-buckets";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import type { WorkKind } from "@/lib/catalogue/kinds";
@@ -199,7 +200,7 @@ export async function ingestMedia(input: IngestInput) {
             processingParams: input.logoCard
               ? ({ logoCard: input.logoCard.options } as unknown as MonochromeParams)
               : params,
-            colorPalette,
+            ...mediaPaletteFields(colorPalette),
             ...attribution,
           })
           .returning(),

@@ -158,9 +158,10 @@ export async function setActiveMedia(id: string) {
       const { extractColorPalette } = await import("@/lib/color/extract-palette");
       const obj = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: item.s3Key }));
       const bytes = await obj.Body!.transformToByteArray();
+      const { mediaPaletteFields } = await import("@/lib/color/color-buckets");
       const palette = await extractColorPalette(Buffer.from(bytes));
       if (palette) {
-        await db.update(media).set({ colorPalette: palette }).where(eq(media.id, id));
+        await db.update(media).set(mediaPaletteFields(palette)).where(eq(media.id, id));
       }
     } catch (err) {
       console.error("Palette backfill on setActive failed (non-blocking):", err);

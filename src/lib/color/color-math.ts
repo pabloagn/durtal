@@ -143,3 +143,18 @@ export function hexToRgb(hex: string): [number, number, number] {
     parseInt(h.slice(4, 6), 16),
   ];
 }
+
+/** WCAG relative luminance of an sRGB hex colour, 0 (black) to 1 (white) */
+export function relativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex).map((c) => {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Whether dark or light ink reads better on a colour: the one with the higher contrast */
+export function inkOn(hex: string): "dark" | "light" {
+  const l = relativeLuminance(hex);
+  return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) ? "dark" : "light";
+}

@@ -9,6 +9,7 @@ import {
   timestamp,
   index,
   check,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { editionPublishers } from "./publisher-links";
@@ -18,6 +19,8 @@ import { editionContributors } from "./authors";
 import { editionGenres, editionTags } from "./taxonomy";
 import { collectionEditions } from "./collections";
 import { customTaxonomyItemEditions } from "./taxonomy-families";
+import { colorBucketCheck } from "@/lib/color/color-bucket-sql";
+import type { ColorPalette } from "@/lib/types";
 
 export const editions = pgTable(
   "editions",
@@ -80,6 +83,10 @@ export const editions = pgTable(
     coverS3Key: text("cover_s3_key"),
     thumbnailS3Key: text("thumbnail_s3_key"),
     coverSourceUrl: text("cover_source_url"),
+    // The cover's colour palette, and the named colour of its dominant tone
+    // (SLN-405, src/lib/color/color-buckets.ts): written with the cover
+    coverPalette: jsonb("cover_palette").$type<ColorPalette>(),
+    coverColorBucket: text("cover_color_bucket"),
 
     // Metadata provenance
     metadataSource: text("metadata_source"),
@@ -103,6 +110,7 @@ export const editions = pgTable(
     index("editions_work_id_idx").on(t.workId),
     index("editions_language_idx").on(t.language),
     index("editions_publication_year_idx").on(t.publicationYear),
+    check("editions_cover_color_bucket_check", colorBucketCheck(t.coverColorBucket)),
     // BINDING_TYPES in src/lib/types; sources' text goes through normalizeBinding
     check(
       "editions_binding_check",

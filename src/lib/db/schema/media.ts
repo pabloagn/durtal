@@ -20,6 +20,7 @@ import { artObjects } from "./paintings";
 import { perfumeVariants } from "./perfumes";
 import { sourceRecords } from "./provenance";
 import type { AppliedCrop } from "@/lib/media/crop";
+import { colorBucketCheck } from "@/lib/color/color-bucket-sql";
 
 export const media = pgTable(
   "media",
@@ -82,8 +83,10 @@ export const media = pgTable(
     originalS3Key: text("original_s3_key"),
     processingParams: jsonb("processing_params"),
 
-    // Extracted color palette (poster images only)
+    // Extracted color palette (work posters), and the named colour of its
+    // dominant tone (SLN-405, src/lib/color/color-buckets.ts)
     colorPalette: jsonb("color_palette"),
+    colorBucket: text("color_bucket"),
 
     // Ordering and metadata
     sortOrder: smallint("sort_order").notNull().default(0),
@@ -121,6 +124,7 @@ export const media = pgTable(
         and (${t.licenseUrl} is null or (length(${t.licenseUrl}) <= 4000 and ${t.licenseUrl} ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))
         and (${t.sourceUrl} is null or (length(${t.sourceUrl}) <= 4000 and ${t.sourceUrl} ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))`,
     ),
+    check("media_color_bucket_check", colorBucketCheck(t.colorBucket)),
     check(
       "media_applied_crop_check",
       sql`num_nonnulls(${t.uncroppedS3Key}, ${t.appliedCrop}) in (0, 2)`,
