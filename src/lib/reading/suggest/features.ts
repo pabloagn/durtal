@@ -18,6 +18,8 @@ export type FeatureKey = "series" | "author" | "recommender" | "taste" | "shelf"
 export interface Evidence {
   label: string;
   href?: string;
+  /** The book, recommender or series id behind it (the API returns these) */
+  id?: string;
 }
 
 export interface FeatureResult {
@@ -84,9 +86,9 @@ const series: Feature = {
     const ordered = seriesOrder(volumes);
     const last = [...ordered].reverse().find((v) => v.finished);
     const name = book.seriesTitle ?? "the series";
-    if (!last) return { score: 0.3, reason: `First in ${name}`, meets: true, evidence: [{ label: name, href: `/series/${book.seriesId}` }] };
+    if (!last) return { score: 0.3, reason: `First in ${name}`, meets: true, evidence: [{ label: name, href: `/series/${book.seriesId}`, id: book.seriesId }] };
     const rated = last.taste !== null ? ` (you gave it ${formatRating(last.taste)})` : "";
-    return { score: 1, reason: `Next in ${name} after ${last.title}${rated}`, meets: true, evidence: [{ label: last.title, href: bookHref(last) }] };
+    return { score: 1, reason: `Next in ${name} after ${last.title}${rated}`, meets: true, evidence: [{ label: last.title, href: bookHref(last), id: last.id }] };
   },
 };
 
@@ -108,7 +110,7 @@ const author: Feature = {
         score,
         reason: `You rated ${n(others.length)} of ${possessive(a.name)} books ${one(average(others))} on average`,
         meets: others.length >= 2 && bayes > ctx.meanTaste,
-        evidence: others.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b) })),
+        evidence: others.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b), id: b.id })),
       };
       if (!best || result.score > best.score) best = result;
     }
@@ -135,7 +137,7 @@ const recommender: Feature = {
         score: clamp(0.5 + (trust - ctx.baseLiked)),
         reason: `${r.name} recommended it; you rated ${n(liked)} of their ${n(rated)} picks 4 or more`,
         meets: rated >= 3 && trust > ctx.baseLiked,
-        evidence: [{ label: r.name, href: `/recommenders/${r.id}` }, ...picks.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b) }))],
+        evidence: [{ label: r.name, href: `/recommenders/${r.id}`, id: r.id }, ...picks.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b), id: b.id }))],
       };
       if (!best || result.score > best.score) best = result;
     }
@@ -186,7 +188,7 @@ const taste: Feature = {
       score: clamp((cos + 1) / 2),
       reason: shared.length ? `Shares ${names.join(" and ")} with ${n(liked.length)} ${liked.length === 1 ? "book" : "books"} you rated 4 or more` : null,
       meets: shared.length > 0 && liked.length > 0,
-      evidence: liked.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b) })),
+      evidence: liked.map((b) => ({ label: `${b.title} ${formatRating(b.taste!)}`, href: bookHref(b), id: b.id })),
     };
   },
 };
@@ -260,10 +262,10 @@ const feedback: Feature = {
     const longer = rejected.filter((r) => pages > r.pages);
     if (longer.length) {
       const r = longer[0];
-      return { score: 0, reason: `Longer than ${r.book.title}, which you passed on as too long`, meets: false, evidence: [{ label: r.book.title, href: bookHref(r.book) }], factor: 0.5 };
+      return { score: 0, reason: `Longer than ${r.book.title}, which you passed on as too long`, meets: false, evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }], factor: 0.5 };
     }
     const r = [...rejected].sort((a, b) => a.pages - b.pages)[0];
-    return { score: 1, reason: `Shorter than ${r.book.title}, which you passed on as too long`, meets: true, evidence: [{ label: r.book.title, href: bookHref(r.book) }] };
+    return { score: 1, reason: `Shorter than ${r.book.title}, which you passed on as too long`, meets: true, evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }] };
   },
 };
 

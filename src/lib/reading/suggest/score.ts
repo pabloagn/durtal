@@ -180,15 +180,21 @@ export function suggest(ctx: SuggestContext, p: SuggestionParams): Scored[] {
   );
 }
 
-/** Pick one for me: a weighted draw among the top ten; `random` returns 0 to 1 */
-export function pickOne(list: Scored[], random: () => number = Math.random, exclude: string[] = []): Scored | null {
-  const top = list.filter((s) => !exclude.includes(s.book.id)).slice(0, 10);
-  if (!top.length) return null;
-  const total = top.reduce((s, i) => s + Math.max(i.score, 0.01), 0);
+/** A weighted draw: each item's chance follows its weight (at least 0.01); `random` returns 0 to 1 */
+export function weightedPick<T>(items: T[], weight: (item: T) => number, random: () => number = Math.random): T | null {
+  if (!items.length) return null;
+  const total = items.reduce((s, i) => s + Math.max(weight(i), 0.01), 0);
   let at = random() * total;
-  for (const item of top) {
-    at -= Math.max(item.score, 0.01);
+  for (const item of items) {
+    at -= Math.max(weight(item), 0.01);
     if (at <= 0) return item;
   }
-  return top.at(-1)!;
+  return items.at(-1)!;
+}
+
+/** Pick one for me: a weighted draw among the top ten by score, leaving out those already shown */
+export function pickOne<T extends { score: number }>(list: T[], key: (item: T) => string, random: () => number = Math.random, exclude: string[] = []): T | null {
+  const top = list.slice(0, 10);
+  const fresh = top.filter((i) => !exclude.includes(key(i)));
+  return weightedPick(fresh.length ? fresh : top, (i) => i.score, random);
 }

@@ -6,6 +6,7 @@ import { ownedBookCondition } from "@/lib/catalogue/holdings";
 import { getPaceContext } from "@/lib/actions/reading";
 import { predictionGateSchema, type PredictionGate } from "@/lib/validations/settings";
 import { languageName } from "@/lib/utils/language";
+import { WORK_AUTHOR_ROLES } from "@/lib/types";
 import { atHandCopySql, homeOptions, isAtHand } from "../at-hand";
 import { readingToday } from "../day";
 import { tasteRatingSql } from "../summary";
@@ -29,6 +30,9 @@ export function centuryName(century: number): string {
   const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[century % 10] ?? "th";
   return `${century}${suffix} century`;
 }
+
+/** A book's writers: its authors and co-authors, as everywhere else in the app */
+const WRITER = sql.raw(`wa.role in (${WORK_AUTHOR_ROLES.map((r) => `'${r}'`).join(", ")})`);
 
 interface Row extends Omit<SuggestBook, "terms" | "atHandHomes" | "editions" | "cover"> {
   fineTerms: SuggestTerm[];
@@ -63,7 +67,7 @@ async function loadBooks(homeId: string | null): Promise<Row[]> {
           where e.work_id = w.id and i.status <> 'deaccessioned') as "lastAcquired",
         (${atHandCopySql(sql`w.id`, homeId)} limit 1)::text as "atHandCopyId",
         coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'name', a.name, 'slug', a.slug) order by wa.sort_order, a.name)
-          from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and wa.role = 'author'), '[]'::jsonb) as authors,
+          from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and ${WRITER}), '[]'::jsonb) as authors,
         coalesce((select array_agg(distinct ec.author_id::text) from edition_contributors ec join editions e on e.id = ec.edition_id
           where e.work_id = w.id and ec.role = 'translator'), '{}') as "translatorIds",
         coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'name', r.name) order by r.name)
@@ -133,18 +137,24 @@ async function ensureGate(ctx: SuggestContext, previous: PredictionGate | null, 
   return parsed.success ? parsed.data : previous;
 }
 
-/** Everything the engine reads, for the remembered home (the durtal-reading-home cookie), else none */
-export async function getSuggestionContext({ homeId = null, now = new Date() }: { homeId?: string | null; now?: Date } = {}): Promise<SuggestContext> {
-  const [today, settingsRows, places, rows, pace, queue] = await Promise.all([
+/**
+ * Everything the engine reads. `homeId` is the remembered home (the
+ * durtal-reading-home cookie): one that is not a home now counts as none.
+ */
+export async function getSuggestionContext({ homeId: stored = null, now = new Date() }: { homeId?: string | null; now?: Date } = {}): Promise<SuggestContext> {
+  const places = resultRows<{ id: string; name: string; type: string; isActive: boolean }>(
+    await db.execute(sql`select id::text as id, name, type, is_active as "isActive" from locations order by name`),
+  );
+  const homes = homeOptions(places).map((h) => ({ id: h.id, name: h.name }));
+  const homeId = homes.some((h) => h.id === stored) ? stored : null;
+  const [today, settingsRows, rows, pace, queue] = await Promise.all([
     readingToday(),
     db.execute(sql`select reading_suggest_hide_anathema as "hideAnathema", reading_prediction_gate as gate from app_settings limit 1`),
-    db.execute(sql`select id::text as id, name, type, is_active as "isActive" from locations order by name`),
     loadBooks(homeId),
     getPaceContext([]),
     db.execute(sql`select count(*)::int as n from reading_queue`),
   ]);
   const [settings] = resultRows<{ hideAnathema: boolean; gate: unknown }>(settingsRows);
-  const homes = homeOptions(resultRows<{ id: string; name: string; type: string; isActive: boolean }>(places)).map((h) => ({ id: h.id, name: h.name }));
   const parsedGate = predictionGateSchema.safeParse(settings?.gate);
   const books: SuggestBook[] = rows.map(({ fineTerms: _fine, workTypeName: _type, originalYear: _year, workCover, ...row }) => {
     const copies = row.editions.flatMap((e) => e.copies);
