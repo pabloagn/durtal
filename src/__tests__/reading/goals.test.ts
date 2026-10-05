@@ -11,6 +11,7 @@ import {
   pastGoalText,
   projection,
   reachedText,
+  rhythmRange,
   rhythmView,
   weekDays,
   weekStartOf,
@@ -101,5 +102,22 @@ describe("the week", () => {
       [5, true],
     ]);
     expect(view.kept).toBe(1);
+  });
+
+  it("sends every day a browser a day behind or ahead of the server reads (PR #109 review)", () => {
+    // Sunday 21:30 in Mexico City is Monday in Amsterdam: the browser's week is the one before the server's
+    const missing: string[] = [];
+    for (let i = 0; i < 14; i++) {
+      const server = addDays("2026-10-01", i);
+      for (const weekStart of [1, 7] as const) {
+        const { from, to } = rhythmRange(server, weekStart);
+        for (const browser of [addDays(server, -1), addDays(server, 1)]) {
+          const view = rhythmView([], browser, weekStart, 5);
+          const read = [...view.weeks.flatMap((w) => Array.from({ length: 7 }, (_, d) => addDays(w.start, d))), ...view.week.filter((d) => d.day <= browser).map((d) => d.day)];
+          for (const day of read) if (day < from || day > to) missing.push(`${day} for server ${server} / browser ${browser}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

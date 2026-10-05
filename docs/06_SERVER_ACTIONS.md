@@ -576,7 +576,7 @@ The year's goals, each with its count (books; pages from `countedPagesSql`, summ
 Every past year's goals with their results, in one query; and what the goal dialog needs: this year's and next year's goals, the work types and the past years.
 
 ### `getRhythm()`
-`{ target, weekStart, today, days }`: the days he would like to read each week (null: off), the week start, the server's reading day, and his reading days over the last 13 weeks with a day to spare on each side: days with an ended session (by `read_on`; the running timer never counts) or a finish at day precision. The browser builds this week and the 12 before it with `rhythmView`.
+`{ target, weekStart, today, days }`: the days he would like to read each week (null: off), the week start, the server's reading day, and his reading days from the 12 weeks before yesterday's week to tomorrow, with a day to spare on each side (`rhythmRange`, so a browser a day behind the server still has its oldest week): days with an ended session (by `read_on`; the running timer never counts) or a finish at day precision. The browser builds this week and the 12 before it with `rhythmView`.
 
 ## Reading stats (`src/lib/reading/stats.ts`, SLN-456)
 
