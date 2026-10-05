@@ -141,7 +141,7 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     expect(await titles({ series: "in" })).toEqual(["Nadja"]);
     expect(await titles({ series: "none" })).toEqual(["Quixote", "Ulysses"]);
     // From the URL: reversed years are swapped
-    expect(await titles(fromUrl("lang=fr&yearFrom=1930&yearTo=1600"))).toEqual(["Quixote"]);
+    expect(await titles(fromUrl("lang=fr&yearFrom=1925&yearTo=1600"))).toEqual(["Quixote"]);
   });
 
   it("filters by held copies: place, format, signed and first printing, all on one copy", async () => {
