@@ -14,7 +14,8 @@
  * log and undo it, go back, pause, resume, switch edition, log a sitting in the
  * audiobook, finish with a rating and review, undo, finish again and see the
  * next volume, re-read, abandon, undo, resume, log past reads, delete and undo.
- * Then the reading hub (SLN-448): log from /reading, log "212" from the
+ * Then the library (SLN-449): the unread books owned, and the books read this
+ * year. Then the reading hub (SLN-448): log from /reading, log "212" from the
  * command palette, filter the journal by year, and add a book that is not in
  * Durtal from the book picker's link, landing on its page with Start reading
  * open.
@@ -447,6 +448,19 @@ async function readingJourney() {
       if (!rows.length || !rows.every((r) => r.includes('2009')) || groups.join() !== "2009")
         throw new Error(`The 2009 filter shows ${rows.length} rows in ${groups.join(", ")}`);
       if (!rows.some((r) => r.includes("Journey Reading"))) throw new Error("The 2009 read of Journey Reading is not in the journal");
+    });
+    // Reading across the library (SLN-449)
+    const titles = "[...document.querySelectorAll('main h3')].map((h) => h.textContent.trim())";
+    await step("the library's unread books I own", async () => {
+      await go("/library?q=journey&reading=unread&holding=owned");
+      await waitFor(`${titles}.includes('Journey Sequel')`, "Journey Sequel among the unread books owned");
+      if ((await evaluate(titles)).includes("Journey Reading")) throw new Error("Journey Reading is read, yet listed as unread");
+    });
+    await step("the library's books read this year", async () => {
+      const year = new Date().getFullYear();
+      await go(`/library?q=journey&readFrom=${year}&readTo=${year}`);
+      await waitFor(`${titles}.includes('Journey Reading')`, "Journey Reading among the books read this year");
+      if ((await evaluate(titles)).includes("Journey Sequel")) throw new Error("Journey Sequel is unread, yet listed as read this year");
     });
     await step("add a book from the picker and start it", async () => {
       const title = `Journey Loan ${Date.now() % 100000}`;

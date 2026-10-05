@@ -168,32 +168,29 @@ the page offers it; any other value shows the grid.
 **Column configuration** (table view): Dialog to select which columns are visible.
 
 **Controls**:
-- Search: Full-text across work title, edition title, author name, ISBN, publisher, description
-- Sort: Title (work), Author (sort name), Date Added, Original Year, Edition Year, Page Count, Language, Rating
-- Pagination: 48 items per page
+- Search (`q`): work title, series, author names, publisher and ISBN
+- Sort (`sort`, `order`): Recent, Title, Year, Rating (the book's rating, unrated last), Author (first), Author (last), Last read (SLN-449: the later of the last progress and the last finish, never-read books last)
+- Pagination: 48 items per page by default
 
-**Filter sidebar** (collapsible):
-- Status: All, Catalogued, Wishlist, On Order
-- Location: All, per-location
-- Genre: Multi-select
-- Author: Searchable select
-- Tags: Multi-select
-- Format: Hardcover, Paperback, Digital
-- Language: Multi-select
-- Min Rating (`rating`): 5, 4.5+, 4+, 3.5+, 3+; any other value is ignored
+**Filters** (the Filters panel; every one is in the URL and read by `parseReadingFilters`, `src/lib/reading/filter-params.ts`, for the page and `GET /api/works`; an unknown value is dropped here and answered 400 by the API):
+- Marks (`mark`): Rare, Poison, Favourite; the old `rare=true` still selects Rare
+- Reading (`reading`, SLN-449): Unread, Reading, Paused, Read, Abandoned (`readingStateSql`); several match any of them
+- Holding (`holding`): Owned or Not owned. Owned is a copy that is not deaccessioned (`ownedBookCondition`); both values, or neither, is no holding filter. "Unread I own" is `/library?reading=unread&holding=owned`
+- Re-read (`reread=true`): two finished readings or more
+- Read in (`readFrom`, `readTo`): a year range on the finish date of a finished reading, at any precision; reversed years are swapped
+- Status (`status`): the catalogue status (Accessioned, Wanted, Shortlisted, Tracked, On Order, Deaccessioned), checked against the enum. There is no `status=owned`: Owned is the Holding filter
+- Priority (`priority`), Min Rating (`rating`: 5, 4.5+, 4+, 3.5+, 3+; the book's rating), Media (`poster`), Publisher (`publisher`), Location (`location`)
 
 **Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status).
 
 **Empty state**: Displayed when no works match the current filter/search. Provides a link to add the first book.
 
 **Book card** contents:
-- Cover image (from S3 thumbnail)
-- Title (serif)
-- Primary author name
-- Original year
-- Language badge
-- Instance count
-- Rating (if set)
+- Cover image (from S3 thumbnail), with the rare, poison and digital marks only
+- Title (serif) and the primary author
+- The info row: the status, or while a reading is open `CardReading` in its place ("Reading 44%" with a blue dot, "Paused 44%" with a secondary one; its tooltip is the status's with the reading: "Accessioned · High priority · 2 copies · Reading, 44%"), the language, the rating and the year as the card's width allows. A card carries only `reading: { state, percent }` for an open reading; finished books show nothing more on cards.
+
+**List and table reading** (SLN-449): the list adds a badge after the status ("Reading 44%" blue, "Read" or "Read 3×" sage, "Abandoned" muted); the table offers Reading, Last read, Times read and Progress columns (hidden until chosen in the column dialog; a saved choice gets them hidden too). Both load `getReadingSummaries` only while the list or table shows, so the grid sends nothing more. The table keeps the server's sort until a header is clicked. The timeline view takes the reading and holding filters.
 
 ---
 
@@ -553,6 +550,8 @@ Everyone in the catalogue, in every collection: writers, translators, directors,
 
 ---
 
+**Reading** (SLN-449): the Books heading says "Read 7 of 12" (a book read at least once, one being re-read included); All, Unread, Reading (or paused) and Read over the books (`?reading=`); the record's Reading group: read, re-read books, your average (the books' own ratings) and the last read. Cards show an open reading.
+
 ### Publishers (`/publishers`)
 
 - Grid, list and detailed views; each card leads with the house's logo, whole on a dark tile (the first letter when there is none), then its name, kind, country and edition count.
@@ -565,6 +564,8 @@ Everyone in the catalogue, in every collection: writers, translators, directors,
 - Record column: the counts (books, editions, owned, wanted, on order), details (country, founded, founded in, group, imprints, other names, specialties, ISBN prefixes) and the website.
 - Below: books wanted from this house (acquisition targets not yet received). Loading skeleton, an empty state for a house with no books, and a not-found page.
 - The record's Links group opens the house's organization page, where its roles in the other collections show.
+
+**Reading** (SLN-449): "Read" in the "In the catalogue" group counts the house's books read at least once; the cards show an open reading.
 
 ### Organizations (`/organizations`)
 
@@ -610,6 +611,12 @@ Single series view.
 
 ---
 
+**Reading** (SLN-449): "Read 4 of 20" beside "owned"; "Next to read: 5. L'Assommoir · On your shelf in Amsterdam, Study, shelf 3" from `nextToRead` (the first volume not finished after the last finished one) and the copy (an available physical copy, else an available digital one, else any copy still held, through `copyWhereabouts`; with none, "Not owned · Wanted"); each volume's reading badge. The series cards add "· 4 read".
+
+### Recommender Detail (`/recommenders/[id]`)
+
+The books one person or source recommended, as book cards (an open reading on each), with "You have read 7 of their 15 picks" in the header when any is read (SLN-449).
+
 ### Locations (`/locations`)
 
 Management interface for physical and digital storage locations.
@@ -652,6 +659,8 @@ library's selection dialog adds a book with no edition as a whole book; film,
 perfume and painting pages have "Collections" in their actions menu.
 
 ---
+
+**Reading on a collection page** (SLN-449): "· 12 of 30 books read" after the counts, and each book's reading state on its card's note line.
 
 ### Reading (`/reading`)
 
