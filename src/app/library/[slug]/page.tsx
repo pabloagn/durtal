@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getReadingsForWork } from "@/lib/actions/reading";
 import { ReadingProvider } from "@/components/reading/reading-provider";
+import { ReadingThen } from "@/components/reading/reading-then";
+import { addBookParams } from "@/lib/reading/book-picker";
 import { ReadingControl } from "@/components/reading/reading-control";
 import { ReadingSection } from "@/components/reading/reading-section";
 import { readingEditions, readingHomes } from "@/lib/reading/page-data";
@@ -88,7 +90,7 @@ import { languageName } from "@/lib/utils/language";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ reading?: string }>;
+  searchParams?: Promise<{ then?: string | string[] }>;
 }
 
 /** A book still looked for: its hunting block shows even with no target */
@@ -124,7 +126,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function WorkDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const startOnLoad = (await searchParams)?.reading === "start";
+  // ?then=start or ?then=past: open that reading dialog on arrival (SLN-448)
+  const { then } = addBookParams((await searchParams) ?? {});
 
   const [
     work,
@@ -799,9 +802,17 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
 
     </div>
   );
+  const openReading = readingRows.find((r) => r.reading.status === "reading" || r.reading.status === "paused");
   return canRead ? (
-    <ReadingProvider data={readingData} startOnLoad={startOnLoad}>
+    <ReadingProvider data={readingData}>
       {page}
+      {then && (
+        <ReadingThen
+          workId={work.id}
+          then={then}
+          openReading={openReading ? { workId: work.id, readingId: openReading.reading.id, fingerprint: openReading.fingerprint } : null}
+        />
+      )}
     </ReadingProvider>
   ) : (
     page

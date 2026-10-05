@@ -45,10 +45,11 @@ export function segmentInput(
 }
 
 /** Log progress: one field, or keypad-friendly fields on a touch screen */
-export function LogProgressDialog({ data, row, onClose, changed, open }: ReadingDialogProps) {
+export function LogProgressDialog({ data, row, request, onClose, changed, open }: ReadingDialogProps) {
   const r = row!.reading;
-  const coarse = useCoarsePointer();
-  const [text, setText] = useState("");
+  // What was typed in the palette ("+20") stays as typed, in the one field
+  const coarse = useCoarsePointer() && !request.prefill;
+  const [text, setText] = useState(request.prefill ?? "");
   const [segment, setSegment] = useState<Segment>(r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page");
   const [fields, setFields] = useState({ page: "", percent: "", hours: "", minutes: "", chapter: "" });
   const [readOn, setReadOn] = useState(() => todayReadingDay(data.dayStartHour));

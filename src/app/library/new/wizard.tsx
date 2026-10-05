@@ -13,6 +13,8 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
+import { isbn10To13, validIsbn10 } from "@/lib/match/plan";
+import type { PickerPurpose } from "@/lib/reading/book-picker";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,8 +146,20 @@ function cameFromApp(): boolean {
 
 // ── Wizard ───────────────────────────────────────────────────────────────────
 
-export function AddBookWizard() {
+export function AddBookWizard({
+  initialQuery = null,
+  initialIsbn = null,
+  then = null,
+}: {
+  /** From the reading book picker's "Not in Durtal?" link (SLN-448) */
+  initialQuery?: string | null;
+  initialIsbn?: string | null;
+  /** The reading dialog the new book's page opens */
+  then?: PickerPurpose | null;
+} = {}) {
   const router = useRouter();
+  // The book page opens the reading dialog it was added for
+  const bookHref = (slug: string) => `/library/${slug}${then ? `?then=${then}` : ""}`;
   // Defaults for the new book and its copies (Settings, General)
   const appSettings = useAppSettings();
   const [isPending, startTransition] = useTransition();
@@ -165,6 +179,12 @@ export function AddBookWizard() {
   } = useDebouncedSearch(300);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // A query or an ISBN from the link: search for it at once
+  useEffect(() => {
+    const first = initialIsbn ?? initialQuery;
+    if (first) setSearchQuery(first);
+  }, [initialIsbn, initialQuery, setSearchQuery]);
 
   // Reset highlight when results change
   useEffect(() => {
@@ -206,7 +226,12 @@ export function AddBookWizard() {
   const isWishlistStatus = ["tracked", "shortlisted", "wanted"].includes(catalogueStatus);
 
   // Edition fields
-  const [isbn13, setIsbn13] = useState("");
+  // An ISBN from the link also fills the field, for details entered by hand
+  const [isbn13, setIsbn13] = useState(() => {
+    if (!initialIsbn) return "";
+    const ten = initialIsbn.length === 10 ? validIsbn10(initialIsbn) : null;
+    return ten ? isbn10To13(ten) : initialIsbn;
+  });
   const [isbnClash, setIsbnClash] = useState<string | null>(null);
   const [publisher, setPublisher] = useState("");
   const [publicationYear, setPublicationYear] = useState("");
@@ -472,7 +497,7 @@ export function AddBookWizard() {
             "The cover could not be downloaded. Its source URL was saved.",
           );
         // Keep the guard until navigation completes, including no-ISBN books.
-        router.push(`/library/${result.slug}`);
+        router.push(bookHref(result.slug));
       } catch {
         setFastTrackError("Could not add the book. Please try again.");
         fastTrackInFlight.current = false;
@@ -544,7 +569,7 @@ export function AddBookWizard() {
         toast.warning(
           "The cover could not be downloaded. Its source URL was saved.",
         );
-      router.push(`/library/${result.slug ?? ""}`);
+      router.push(bookHref(result.slug ?? ""));
     });
   }
 

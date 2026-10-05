@@ -22,6 +22,17 @@ import FilmsLayout from "@/app/films/layout";
 import PaintingsLayout from "@/app/paintings/layout";
 
 
+describe("reading navigation (SLN-448)", () => {
+  it("puts Reading before the e-book reader, and G R opens it", () => {
+    const labels = NAV_SECTIONS.map((s) => s.label);
+    expect(labels.indexOf("Reading")).toBe(labels.indexOf("Reader") - 1);
+    expect(GO_TO.find((g) => g.key === "r")).toEqual({ key: "r", label: "Reading", href: "/reading" });
+    expect(GO_TO.some((g) => g.href === "/reader")).toBe(false);
+    const keys = GO_TO.map((g) => g.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
 describe("collection navigation", () => {
   it("lists only the open collections, named after them", () => {
     expect(DOMAIN_SECTIONS).toEqual([

@@ -914,3 +914,76 @@ export async function findPageCount(editionId: string) {
   }
   return null;
 }
+
+export interface BookToRead {
+  id: string;
+  title: string;
+  slug: string | null;
+  author: string | null;
+  cover: string | null;
+  owned: boolean;
+  catalogueStatus: string;
+  state: "unread" | "reading" | "paused" | "read" | "abandoned";
+  reads: number;
+  percent: number | null;
+  openReadingId: string | null;
+  openFingerprint: string | null;
+}
+
+/**
+ * The book picker (SLN-448): books only, matched without accents on title and
+ * authors, owned books first, then by title; at most 20, with each book's
+ * reading state.
+ */
+export async function searchBooksToRead(query: string) {
+  const q = z.string().max(200).parse(query).trim();
+  const { textSearchCondition } = await import("@/lib/actions/utils/text-search");
+  const { ownedBookCondition } = await import("@/lib/catalogue/holdings");
+  const { readingStateSql, readCountSql, openReadingPercentSql } = await import("@/lib/reading/summary");
+  const authors = sql`coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')`;
+  const match = q ? textSearchCondition(sql`search_normalize(w.title || ' ' || ${authors})`, q, { fuzzy: false }) : undefined;
+  return resultRows<BookToRead>(
+    await db.execute(sql`select w.id, w.title, w.slug,
+        (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
+        (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and (e.thumbnail_s3_key is not null or e.cover_s3_key is not null)
+          order by e.publication_year nulls last, e.id limit 1) as cover,
+        ${ownedBookCondition(sql`w.id`)} as owned, w.catalogue_status as "catalogueStatus",
+        ${readingStateSql(sql`w.id`)} as state, ${readCountSql(sql`w.id`)} as reads, ${openReadingPercentSql(sql`w.id`)} as percent,
+        (select r.id from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openReadingId",
+        (select md5(to_jsonb(r)::text) from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openFingerprint"
+      from works w where w.kind = 'book' ${match ? sql`and ${match}` : sql``}
+      order by ${ownedBookCondition(sql`w.id`)} desc, lower(w.title), w.id limit 20`),
+  );
+}
+
+/**
+ * What a reading dialog needs for one book, opened away from its page (the
+ * hub, the dashboard, the palette): its readings, editions with their
+ * copies, the homes, its rating.
+ */
+export async function getReadingDialogData(workId: string, homeId: string | null = null) {
+  const id = z.uuid().parse(workId);
+  const home = homeId === null ? null : z.uuid().parse(homeId);
+  await requireBookWork(id);
+  const [{ getWork }, { getLocations }, { readingEditions, readingHomes }, rows] = await Promise.all([
+    import("@/lib/actions/works"),
+    import("@/lib/actions/locations"),
+    import("@/lib/reading/page-data"),
+    getReadingsForWork(id),
+  ]);
+  const [work, locations] = await Promise.all([getWork(id), getLocations()]);
+  if (!work) throw new Error("Book not found");
+  const zone = appTimeZone();
+  const today = readingDay(new Date(), zone);
+  return {
+    workId: work.id,
+    workTitle: work.title,
+    bookRating: work.rating ?? null,
+    dayStartHour: 4,
+    rows,
+    editions: readingEditions(work.editions, { today, homeId: home }),
+    homes: readingHomes(locations),
+    today,
+    zone,
+  };
+}

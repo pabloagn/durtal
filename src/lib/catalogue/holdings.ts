@@ -1,10 +1,20 @@
 import { z } from "zod";
+import { sql, type SQL } from "drizzle-orm";
 import {
   computeOwnershipSummary,
   computeDerivedStatus,
   type InstanceWithLocation,
   type CatalogueStatusValue,
 } from "@/lib/utils/ownership";
+
+/**
+ * The one owned rule for a book (SLN-448): a copy of one of its editions that
+ * is not deaccessioned, as `ownedCount` and `bookHoldings().personallyOwned`
+ * count it. `workIdSql` names the work's id column.
+ */
+export function ownedBookCondition(workIdSql: SQL | unknown) {
+  return sql<boolean>`exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = ${workIdSql} and i.status <> 'deaccessioned')`;
+}
 
 /** Book adapters preserve all legacy lifecycle and partial-holdings semantics. */
 export function bookHoldings(
