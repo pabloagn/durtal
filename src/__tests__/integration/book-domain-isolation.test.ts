@@ -92,6 +92,7 @@ import { scanDataset } from "@/lib/harmonization/engine";
 import { previewMerge, executeMerge } from "@/lib/harmonization/merge";
 import { addToQueue } from "@/lib/actions/reading-queue";
 import { createReadingNote } from "@/lib/actions/reading-notes";
+import { setSuggestionFeedback } from "@/lib/actions/suggestions";
 import { POST as exportCatalogue } from "@/app/api/export/route";
 import { recordActivity } from "@/lib/activity/record";
 import { processAndUploadCover } from "@/lib/s3/covers";
@@ -343,6 +344,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
         () => updateOrder(order, { workId: other.id }),
         () => addToQueue({ workId: other.id }),
         () => createReadingNote({ workId: other.id, kind: "quote", body: "Invalid" }),
+        () => setSuggestionFeedback({ workId: other.id, verdict: "never" }),
       ];
       for (const attempt of attempts)
         await expect(attempt()).rejects.toThrow(/(?:Book|Work) not found/);
@@ -398,6 +400,11 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           const [note] =
             await c`insert into reading_notes(work_id,kind,body) values (${books[0]},'note','Kept') returning id`;
           return c`update reading_notes set work_id = ${other.id} where id = ${note.id}`;
+        },
+        () => c`insert into recommendation_feedback(work_id,verdict) values (${other.id},'never')`,
+        async () => {
+          await c`insert into recommendation_feedback(work_id,verdict) values (${books[0]},'not_now') on conflict (work_id) do nothing`;
+          return c`update recommendation_feedback set work_id = ${other.id} where work_id = ${books[0]}`;
         },
       ];
       for (const statement of statements)

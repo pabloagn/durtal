@@ -1694,6 +1694,8 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
 | `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
 | `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
+| `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0071_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
+| `reading_prediction_gate` | JSONB | nullable (migration `0071_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The four reading columns are changed from Settings → Reading (`/settings/reading`).
@@ -2375,6 +2377,22 @@ Optional yearly goals (SLN-455, migration `0070_reading_goals`). No book, so no 
 | `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, default now | |
 
 Unique `(year, metric)` (`reading_goal_year_metric_unique`): a books goal and an hours goal can sit side by side, never two of one metric. The counts (`src/lib/actions/reading-goals.ts`, one query): **books**, finished readings with a known finish in the year, at day, month or year precision (unknown and abandoned never count); **pages**, `countedPagesSql` rows whose day falls in the year, summed then rounded (each page once, from the start page, the closing session of a finish included; an audiobook without `total_pages` counts 0); **hours**, the `duration_seconds` of sessions whose `read_on` falls in the year, the running timer left out. The year runs on reading days: a session's `read_on` is its day in its own zone with the day start hour. The **rhythm** reads the same `read_on` (an ended session; the running timer never counts) and day-precision finishes.
+
+
+### `recommendation_feedback`
+
+Suggestion feedback (SLN-457, migration `0071_reading_suggestions`), shared with the book enrichment epic and defined once in the reading tracker's parent issue: Not now (until a date), Never, and Not for me with reasons. One row a book. Every write is an upsert on `work_id`: the newer verdict replaces the older one; `reasons`, `note` and `until` are replaced, not merged; `source` becomes the latest writer. Removing the row (Undo in the Hidden view) makes the book a candidate again. `book_parent_required` keeps it on books; a book merge keeps the newer row (`recommendationFeedbackMergeQueries`).
+
+| Column | Type | Notes |
+| -- | -- | -- |
+| `id` | UUID | PK, `gen_random_uuid()` |
+| `work_id` | UUID | NOT NULL, UNIQUE, FK `works.id` ON DELETE CASCADE |
+| `verdict` | TEXT | NOT NULL, CHECK `not_now`, `never`, `rejected` |
+| `reasons` | TEXT[] | NOT NULL DEFAULT `'{}'`; codes from `FEEDBACK_REASONS` (`src/lib/reading/constants.ts`), checked: `too_long`, `too_short`, `not_in_the_mood`, `prose`, `genre`, `too_popular`, `already_read`, `other` |
+| `note` | TEXT | nullable, 500 characters at most |
+| `until` | DATE | nullable; for `not_now`, hidden until then (30 days after the verdict by default) |
+| `source` | TEXT | NOT NULL DEFAULT `suggestions`, CHECK `suggestions`, `agent`, `enrichment`: the latest writer |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL DEFAULT now() |
 
 ### Guards and null rules
 

@@ -22,6 +22,12 @@ import { readingDayStartHour } from "@/lib/reading/day";
 import { addDays } from "@/lib/reading/goals";
 import { finishedYears, onThisDay } from "@/lib/reading/stats";
 import { OnThisDay } from "@/components/reading/on-this-day";
+import { SuggestionActions } from "@/components/reading/suggestions/suggestion-list";
+import { storedHomeId } from "@/lib/reading/home-cookie";
+import { getSuggestionContext } from "@/lib/reading/suggest/context";
+import { DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
+import { suggest } from "@/lib/reading/suggest/score";
+import { suggestionRow } from "@/lib/reading/suggest/view";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { appTimeZone } from "@/lib/utils/date";
 
@@ -30,8 +36,8 @@ export const metadata = { title: "Reading" };
 /*
  * The reading hub (SLN-448): what is being read now, the goals and the weekly
  * rhythm (SLN-455), Up next, the passage of the day, what is paused, and the
- * latest finished reads; above them On this day (SLN-456). A later step adds
- * suggestions.
+ * latest finished reads; above them On this day (SLN-456); after Up next,
+ * three suggestions (SLN-457).
  */
 export default async function ReadingPage() {
   const zone = appTimeZone();
@@ -40,7 +46,7 @@ export default async function ReadingPage() {
   // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
   // Goals and the rhythm (SLN-455): computed per request, never cached
   // On this day (SLN-456): the server's day and one on each side; the line shows the browser's
-  const [open, finished, next, passage, goals, rhythm, past, years] = await Promise.all([
+  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext] = await Promise.all([
     getOpenReadings(),
     getRecentlyFinished(6),
     getQueueHead(5),
@@ -49,7 +55,12 @@ export default async function ReadingPage() {
     getRhythm(),
     onThisDay([addDays(day.today, -1), day.today, addDays(day.today, 1)]),
     finishedYears(),
+    // Suggestions (SLN-457): the top three Owned, computed per request
+    storedHomeId().then((homeId) => getSuggestionContext({ homeId })),
   ]);
+  const suggestions = suggest(suggestionContext, DEFAULT_SUGGESTION_PARAMS)
+    .slice(0, 3)
+    .map((s) => suggestionRow(s, suggestionContext));
   // In January, a link to the year just ended: this year and last, as the browser's year may differ by a day
   const year = Number(day.today.slice(0, 4));
   const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
@@ -59,7 +70,7 @@ export default async function ReadingPage() {
     day.today,
   );
   const paused = open.filter((o) => o.reading.status === "paused");
-  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target;
+  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target && suggestions.length === 0;
 
   return (
     <>
@@ -127,6 +138,36 @@ export default async function ReadingPage() {
                     </Link>
                     <div className="mt-1">
                       <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          {suggestions.length > 0 && (
+            <section data-hub-suggestions="">
+              <SectionHeading
+                title="Suggestions"
+                action={
+                  <Link href="/reading/suggestions" className="flex items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary">
+                    See all
+                    <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+                  </Link>
+                }
+              />
+              <ol className="grid gap-6 md:grid-cols-3">
+                {suggestions.map((row) => (
+                  <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId}>
+                    <Link href={row.href} tabIndex={-1} aria-hidden className="shrink-0">
+                      <Cover s3Key={row.cover} className="h-20 w-14" />
+                    </Link>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <Link href={row.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+                        {row.title}
+                      </Link>
+                      {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}
+                      {row.reasons[0] && <p className="lines-2 text-xs text-fg-primary">{row.reasons[0]}</p>}
+                      <SuggestionActions row={row} compact />
                     </div>
                   </li>
                 ))}

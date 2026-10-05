@@ -16,7 +16,7 @@ export const READING_TABS = [
   { href: "/reading/journal", label: "Journal", ready: true },
   { href: "/reading/notes", label: "Notes", ready: true },
   { href: "/reading/stats", label: "Stats", ready: true, also: "/reading/year" },
-  { href: "/reading/suggestions", label: "Suggestions", ready: false },
+  { href: "/reading/suggestions", label: "Suggestions", ready: true },
   { href: "/reading/import", label: "Import", ready: true },
 ] as const;
 

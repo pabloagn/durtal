@@ -85,9 +85,15 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
           title="Nothing in Up Next"
           description="Add the books you want to read next, in your order."
           action={
-            <Link href="/library?reading=unread&holding=owned" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-queue-empty="">
-              Add from your library
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/library?reading=unread&holding=owned" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-queue-empty="">
+                Add from your library
+              </Link>
+              {/* Suggestions (SLN-457): what to read next, from the books he owns */}
+              <Link href="/reading/suggestions?scope=owned" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-queue-suggestions="">
+                See suggestions
+              </Link>
+            </div>
           }
         />
       ) : (

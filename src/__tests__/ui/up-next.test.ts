@@ -190,5 +190,9 @@ describe("the Up Next page", () => {
     expect(html).toContain("Nothing in Up Next");
     expect(html).toContain('href="/library?reading=unread&amp;holding=owned"');
     expect(html).toContain("Add from your library");
+    // SLN-457: and See suggestions, from the books he owns
+    const link = html.match(/<a[^>]*data-queue-suggestions[^>]*>.*?<\/a>/)?.[0] ?? "";
+    expect(link).toContain('href="/reading/suggestions?scope=owned"');
+    expect(link.replace(/<[^>]+>/g, "")).toBe("See suggestions");
   });
 });
