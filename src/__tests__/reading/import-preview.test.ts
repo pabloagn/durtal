@@ -46,6 +46,16 @@ describe("candidates", () => {
     ]);
     expect([two.found, two.candidates.map((c) => c.workId)]).toEqual(["possible", ["a", "b"]]);
     expect(judgeCandidates([{ workId: "a", score: 1, byAuthor: false }]).found).toBe("possible");
+    // The one same title among close ones: "The Familiar, Volume 5" among volumes 1 to 4
+    expect(
+      judgeCandidates([
+        { workId: "v4", score: 0.909, byAuthor: true },
+        { workId: "v5", score: 1, byAuthor: true },
+        { workId: "v1", score: 0.909, byAuthor: true },
+      ]),
+    ).toMatchObject({ found: "likely", workId: "v5", reason: "Title and author, 100%" });
+    // Two books with the same title and author: a duplicate to choose from
+    expect(judgeCandidates([{ workId: "a", score: 1, byAuthor: true }, { workId: "b", score: 1, byAuthor: true }]).found).toBe("possible");
     expect(judgeCandidates([{ workId: "a", score: 0.6, byAuthor: true }]).found).toBe("possible");
     expect(judgeCandidates([{ workId: "a", score: 0.4, byAuthor: true }]).found).toBe("none");
     expect(judgeCandidates([]).found).toBe("none");

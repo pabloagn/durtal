@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { BookPicker } from "@/components/reading/book-picker";
+import { Cover } from "@/components/reading/reading-tiles";
 import { commitReadingImport, decideImportRow, decideImportSection, rematchImport, undoReadingImport } from "@/lib/actions/reading-import";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
+import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
 
 /*
  * The reading import's buttons (SLN-450): small client islands on server
@@ -92,7 +95,7 @@ export function ImportUpload() {
           {error}
         </p>
       )}
-      <p className="mt-5 max-w-md text-xs leading-relaxed text-fg-secondary">
+      <p className="mt-5 max-w-lg text-xs leading-relaxed text-fg-secondary">
         Goodreads: My Books, Import and export, Export library. StoryGraph: Manage account, Export StoryGraph library. At most 10 MB.
       </p>
     </div>
@@ -115,96 +118,60 @@ function useAction() {
   return { pending, run };
 }
 
-export interface CandidateChoice {
-  workId: string;
-  label: string;
-  score: string;
-}
-
 /** A row's decision, its book, its candidates, the rating choice and "Add this book" */
-export function ImportRowActions({
-  importId,
-  rowNo,
-  title,
-  decision,
-  canImport,
-  anyway,
-  canChoose,
-  candidates,
-  ratingChoice,
-  addHref,
-}: {
-  importId: string;
-  rowNo: number;
-  title: string;
-  decision: ImportDecision;
-  canImport: boolean;
-  /** "Already in Durtal" only through the undated count */
-  anyway: boolean;
-  canChoose: boolean;
-  candidates: CandidateChoice[];
-  ratingChoice: { checked: boolean } | null;
-  addHref: string | null;
-}) {
+function RowActions({ importId, rowNo, title, actions }: { importId: string; rowNo: number; title: string; actions: NonNullable<RowView["actions"]> }) {
   const { pending, run } = useAction();
-  const [current, setCurrent] = useState(decision);
+  const [current, setCurrent] = useState(actions.decision);
   const [picking, setPicking] = useState(false);
-  useEffect(() => setCurrent(decision), [decision]);
+  useEffect(() => setCurrent(actions.decision), [actions.decision]);
   const decide = (next: ImportDecision) => {
     setCurrent(next);
     run(() => decideImportRow({ importId, rowNo, decision: next }));
   };
   const choose = (workId: string) => run(() => decideImportRow({ importId, rowNo, workId }));
+  const remember = () => {
+    try {
+      sessionStorage.setItem(ADDED_KEY, importId);
+    } catch {}
+  };
   const toggle = (label: string, value: ImportDecision) => (
-    <Button
-      size="sm"
-      variant={current === value ? "secondary" : "ghost"}
+    <button
+      type="button"
+      className="row-chip"
+      data-on={current === value ? "" : undefined}
       aria-pressed={current === value}
       disabled={pending}
       onClick={() => current !== value && decide(value)}
-      className={coarse}
       data-import-decide={value}
     >
       {label}
-    </Button>
+    </button>
   );
-
   return (
-    <div className="flex flex-wrap items-center gap-2" data-import-actions={rowNo}>
-      {candidates.map((c) => (
-        <Button key={c.workId} size="sm" variant="secondary" disabled={pending} onClick={() => choose(c.workId)} className={`max-w-full ${coarse}`} data-import-candidate={c.workId}>
+    <div className="flex flex-wrap items-center gap-2 pt-1" data-import-actions={rowNo}>
+      {actions.candidates?.map((c) => (
+        <button key={c.workId} type="button" className="row-chip" data-on="" disabled={pending} onClick={() => choose(c.workId)} data-import-candidate={c.workId}>
           <span className="truncate">{c.label}</span>
           <span className="text-fg-secondary">{c.score}</span>
-        </Button>
+        </button>
       ))}
-      {canImport && toggle(anyway ? "Import anyway" : "Import", "import")}
-      {(canImport || anyway) && toggle("Skip", "skip")}
-      {canChoose && (
-        <Button size="sm" variant="ghost" disabled={pending} onClick={() => setPicking(true)} className={coarse} data-import-pick="">
+      {actions.canImport && toggle(actions.anyway ? "Import anyway" : "Import", "import")}
+      {(actions.canImport || actions.anyway) && toggle("Skip", "skip")}
+      {actions.canChoose && (
+        <button type="button" className="row-chip" disabled={pending} onClick={() => setPicking(true)} data-import-pick="">
           Choose another book
-        </Button>
+        </button>
       )}
-      {addHref && (
-        <a
-          href={addHref}
-          target="_blank"
-          rel="noopener"
-          onClick={() => {
-            try {
-              sessionStorage.setItem(ADDED_KEY, importId);
-            } catch {}
-          }}
-          className={`${buttonClass("ghost", "sm")} ${coarse}`}
-          data-import-add=""
-        >
+      {actions.addHref && (
+        <a href={actions.addHref} target="_blank" rel="noopener" onClick={remember} className="row-chip" data-import-add="">
           Add this book
         </a>
       )}
-      {ratingChoice && (
+      {actions.ratingChoice !== undefined && (
         <label className="inline-flex h-7 cursor-pointer items-center gap-2 text-xs text-fg-secondary pointer-coarse:h-11" data-import-rating="">
           <input
             type="checkbox"
-            checked={ratingChoice.checked}
+            checked={actions.ratingChoice}
             disabled={pending}
             onChange={(e) => run(() => decideImportRow({ importId, rowNo, useFileRating: e.target.checked }))}
             className="h-3.5 w-3.5 accent-accent-rose"
@@ -220,14 +187,62 @@ export function ImportRowActions({
           onClose={() => setPicking(false)}
           onPick={(book) => choose(book.id)}
           addHref={(typed) => {
-            try {
-              sessionStorage.setItem(ADDED_KEY, importId);
-            } catch {}
+            remember();
             return `/library/new?${new URLSearchParams({ q: typed }).toString()}`;
           }}
         />
       )}
     </div>
+  );
+}
+
+const LINE_CLASS: Record<RowLineKind, string> = {
+  reason: "line-clamp-2 text-xs text-fg-secondary",
+  outcome: "text-xs text-fg-primary",
+  writes: "text-xs text-fg-primary",
+  rating: "text-xs text-fg-secondary",
+  note: "text-xs text-fg-secondary",
+};
+/** One section's rows: what the file says, the book, and what will happen */
+export function ImportRows({ importId, rows }: { importId: string; rows: RowView[] }) {
+  return (
+    <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
+      {rows.map((row) => (
+        <li
+          key={row.rowNo}
+          className="grid gap-x-6 gap-y-2 px-4 py-3 lg:grid-cols-3"
+          data-import-row={row.rowNo}
+        >
+          <div className="min-w-0">
+            <p className="lines-1 text-sm text-fg-primary">{row.title}</p>
+            <p className="lines-1 text-xs text-fg-secondary">{row.line}</p>
+          </div>
+          <div className="flex min-w-0 items-center gap-3">
+            {row.book ? (
+              <>
+                <Cover s3Key={row.book.cover} className="h-12 w-8" />
+                <div className="min-w-0">
+                  <Link href={row.book.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text" data-import-book="">
+                    {row.book.title}
+                  </Link>
+                  <p className="lines-1 text-xs text-fg-secondary">{row.book.line}</p>
+                </div>
+              </>
+            ) : (
+              row.empty && <p className="self-start text-xs text-fg-secondary">{row.empty}</p>
+            )}
+          </div>
+          <div className="min-w-0 space-y-1">
+            {row.lines.map(([kind, text], i) => (
+              <p key={i} className={LINE_CLASS[kind]} data-import-outcome={kind === "outcome" ? "" : undefined}>
+                {text}
+              </p>
+            ))}
+            {row.actions && <RowActions importId={importId} rowNo={row.rowNo} title={row.title} actions={row.actions} />}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

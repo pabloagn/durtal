@@ -60,6 +60,8 @@ export interface ImportSummary {
   /** Rows still pending in the sections that need a decision */
   pending: number;
   written: number;
+  /** Rows that could be imported and have no book yet: Match again shows while there are some */
+  noBook: number;
   ratingsDiffer: number;
   /** Readings the commit button would write */
   toImport: number;
@@ -131,6 +133,7 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.data->'extras' <> '{}'::jsonb)::int as extras,
         count(*) filter (where r.decision = 'pending' and r.written is null and r.match->>'section' in ('choose', 'likely', 'none', 'exact'))::int as pending,
         count(*) filter (where r.written is not null)::int as written,
+        count(*) filter (where r.work_id is null and r.written is null and r.match->>'section' in ('choose', 'none'))::int as "noBook",
         count(*) filter (where r.written is null and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
           and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported'))::int as "ratingsDiffer",
         coalesce(sum(case when r.decision = 'import' and r.written is null and r.work_id is not null then

@@ -275,6 +275,12 @@ dialog::backdrop {
   @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border text-fg-primary hover:glass-chip-lift;
 }
 
+/* A small button on a list row (the reading import's rows, SLN-450): one
+   class, so 50 rows a section stay light. `data-on` is the chosen one */
+@utility row-chip {
+  @apply inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border border-transparent px-2.5 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary disabled:opacity-40 data-[on]:border-glass-border data-[on]:bg-glass-highlight data-[on]:text-fg-primary pointer-coarse:h-11;
+}
+
 /* The shadow and hairline ring under a book cover */
 @utility cover-shadow {
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 2px 16px rgba(0, 0, 0, 0.55);

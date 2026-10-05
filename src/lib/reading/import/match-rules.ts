@@ -81,11 +81,17 @@ export function likelyReason(score: number) {
   return `Title and author, ${Math.round(score * 100)}%`;
 }
 
-/** The candidates of a title search, best first: likely when exactly one passes the bar with its author */
+/**
+ * The candidates of a title search, best first. Likely when exactly one book
+ * passes the bar with its author, or when exactly one has the same title and
+ * the others only come close ("The Familiar, Volume 5" among volumes 1 to 4).
+ */
 export function judgeCandidates(candidates: MatchCandidate[]): { found: FoundHow; workId: string | null; reason: string | null; candidates: MatchCandidate[] } {
   const sorted = [...candidates].sort((a, b) => Number(b.byAuthor) - Number(a.byAuthor) || b.score - a.score);
   const strong = sorted.filter((c) => c.byAuthor && c.score >= LIKELY_THRESHOLD);
-  if (strong.length === 1) return { found: "likely", workId: strong[0].workId, reason: likelyReason(strong[0].score), candidates: [] };
+  const same = strong.filter((c) => c.score >= 1);
+  const one = strong.length === 1 ? strong[0] : same.length === 1 ? same[0] : null;
+  if (one) return { found: "likely", workId: one.workId, reason: likelyReason(one.score), candidates: [] };
   const shown = sorted.filter((c) => !c.byAuthor || c.score >= CANDIDATE_THRESHOLD).slice(0, MAX_CANDIDATES);
   if (shown.length) return { found: "possible", workId: null, reason: null, candidates: shown };
   return { found: "none", workId: null, reason: null, candidates: [] };
