@@ -259,7 +259,6 @@ export function VenueRetailPart({ retail }: { retail: VenueRetail }) {
   );
 }
 
-
 /** Orders placed at this venue, newest first: the bookshop's history stays here */
 export function VenueOrdersPart({ orders }: { orders: Awaited<ReturnType<typeof getVenueOrders>> }) {
   if (orders.total === 0) return null;

@@ -1,5 +1,6 @@
-// ── Order Types and Constants ─────────────────────────────────────────────────
 import { enumLabel } from "@/lib/utils/labels";
+
+// ── Order Types and Constants ─────────────────────────────────────────────────
 // Extracted from actions/orders.ts because "use server" files
 // can only export async functions.
 
@@ -26,7 +27,6 @@ export type AcquisitionMethod =
   | "auction"
   | "event_purchase";
 
-// C4: removed "won" — auction orders must advance past won to shipped/delivered
 /** An order's status in words: "In transit", "Bid placed" */
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   placed: "Placed",
@@ -66,6 +66,7 @@ export function acquisitionMethodLabel(method: string | null | undefined): strin
   return ACQUISITION_METHOD_LABELS[method as AcquisitionMethod] ?? enumLabel(method);
 }
 
+// C4: removed "won" — auction orders must advance past won to shipped/delivered
 export const TERMINAL_STATUSES: OrderStatus[] = [
   "delivered",
   "purchased",

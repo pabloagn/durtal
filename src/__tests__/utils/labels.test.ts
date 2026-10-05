@@ -9,6 +9,7 @@ import {
 import { formatEventDescription } from "@/lib/activity/event-config";
 import { acquisitionMethodLabel, orderStatusLabel } from "@/lib/constants/orders";
 import { COPY_CONDITION_LABELS, COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
+import { STATUS_LABELS } from "@/app/provenance/order-model";
 
 describe("labels (SLN-400)", () => {
   it("labels catalogue statuses and priorities from their config", () => {
@@ -67,5 +68,11 @@ describe("labels (SLN-400)", () => {
     expect(
       formatEventDescription("work.language_changed", { newValue: "de" }),
     ).toBe("Set original language to German");
+  });
+
+  it("names an order status one way on every page and in the activity list (PR #114 review)", () => {
+    for (const [status, words] of Object.entries(STATUS_LABELS)) expect(words).toBe(orderStatusLabel(status));
+    expect(formatEventDescription("work.order_deleted", { oldValue: "in_transit" })).toBe("Deleted an order (was In transit)");
+    expect(formatEventDescription("work.order_deleted", { oldValue: "bid" })).toBe("Deleted an order (was Bid placed)");
   });
 });

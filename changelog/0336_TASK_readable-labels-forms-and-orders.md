@@ -49,3 +49,19 @@ This task gives them the app's words.
   `/library`, `/people` and `/publishers` shows "No results" with a clear
   action and no pagination; `/reader` with no books shows its empty state
   alone.
+
+### Review fixes (PR #114)
+
+- Activity list: a deleted order's line names its status in words ("Deleted
+  an order (was In transit)", "(was Bid placed)") through
+  `orderStatusLabel`.
+- Provenance: `STATUS_LABELS` in `src/app/provenance/order-model.ts` is now
+  `ORDER_STATUS_LABELS`, so the status menu, "Mark as", the create dialog's
+  status step and the drag toast say what the badges say ("In transit", not
+  "In Transit"; "Bid placed", not "Bid").
+- Test: every provenance status word equals `orderStatusLabel`, and the
+  deleted-order activity line for an order in transit and a bid.
+- Tidy: the import in `orders.ts` above its header, the "C4" note back above
+  `TERMINAL_STATUSES`, one orders import in `provenance-shell.tsx`, one blank
+  line in `venue-parts.tsx`.
+
