@@ -131,14 +131,31 @@ function flatten({ width, height, rgba }: Raster) {
 /** Ink: how unlike the backdrop each pixel is, 0..255, soft edges kept */
 function inkMask(width: number, height: number, rgb: Float32Array, backdrop: number[]) {
   const mask = new Uint8Array(width * height);
-  const low = 28;
-  const high = 84;
+  const dist = new Float32Array(width * height);
+  const histogram = new Uint32Array(256);
   for (let i = 0; i < width * height; i++) {
     const d = Math.max(
       Math.abs(rgb[i * 3] - backdrop[0]),
       Math.abs(rgb[i * 3 + 1] - backdrop[1]),
       Math.abs(rgb[i * 3 + 2] - backdrop[2]),
     );
+    dist[i] = d;
+    if (d > 12) histogram[Math.min(255, Math.round(d))]++;
+  }
+  // The logo's own contrast: the distance most of its ink reaches. A dark
+  // logo on black reaches only part of the way, and still becomes full ink
+  let total = 0;
+  for (const n of histogram) total += n;
+  let seen = 0;
+  let reach = 255;
+  for (let v = 0; v < 256 && total; v++) {
+    seen += histogram[v];
+    if (seen >= total * 0.9) { reach = v; break; }
+  }
+  const high = Math.max(20, Math.min(84, reach * 0.8));
+  const low = Math.min(28, high * 0.33);
+  for (let i = 0; i < width * height; i++) {
+    const d = dist[i];
     mask[i] = d <= low ? 0 : d >= high ? 255 : Math.round(((d - low) / (high - low)) * 255);
   }
   return mask;
@@ -287,14 +304,16 @@ export async function renderLogoCard(input: Buffer, options: LogoCardOptions = {
   cx /= ink;
   cy /= ink;
 
-  const target =
-    TARGET_INK_SHARE * LOGO_CARD_WIDTH * LOGO_CARD_HEIGHT *
-    (options.size === 1 ? 1.3 : options.size === -1 ? 0.75 : 1);
-  const scale = Math.min(
-    Math.sqrt(target / ink),
-    (MAX_LOGO_WIDTH * LOGO_CARD_WIDTH) / bw,
-    (MAX_LOGO_HEIGHT * LOGO_CARD_HEIGHT) / bh,
-  );
+  // Smaller shrinks after the width and height caps, so a wide wordmark or a
+  // tall emblem held by a cap still gets smaller; Bigger stops at the caps
+  const factor = options.size === 1 ? 1.3 : options.size === -1 ? 0.75 : 1;
+  const target = TARGET_INK_SHARE * LOGO_CARD_WIDTH * LOGO_CARD_HEIGHT * Math.max(1, factor);
+  const scale =
+    Math.min(
+      Math.sqrt(target / ink),
+      (MAX_LOGO_WIDTH * LOGO_CARD_WIDTH) / bw,
+      (MAX_LOGO_HEIGHT * LOGO_CARD_HEIGHT) / bh,
+    ) * Math.sqrt(Math.min(1, factor));
   const w = Math.max(1, Math.round(bw * scale));
   const h = Math.max(1, Math.round(bh * scale));
   const alpha = await resizeMask(cropped, bw, bh, w, h);
