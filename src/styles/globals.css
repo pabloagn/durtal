@@ -856,6 +856,7 @@ dialog::backdrop {
   }
 }
 
+/* Half an inch: with 14mm, Chrome cut the right edge's last pixel on Letter */
 @page {
-  margin: 16mm 14mm;
+  margin: 0.5in;
 }
