@@ -537,6 +537,30 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect([written.movements, written.workTypes, written.categories]).toEqual([[], [], []]);
     });
 
+    it("counts co-authors as writers in every author number (PR #110 review)", async () => {
+      await q(`insert into countries(name, alpha_2, alpha_3) values ('France', 'FR', 'FRA') on conflict do nothing`);
+      const france = await value(`select id from countries where alpha_2 = 'FR'`);
+      const writer = (name: string) =>
+        value(`insert into authors(name, slug, nationality_id, gender) values ($1, $2, $3, 'male') returning id`, [name, name.toLowerCase(), france]);
+      const deleuze = await writer("Deleuze");
+      const guattari = await writer("Guattari");
+      const plateaus = await book("A Thousand Plateaus", { language: "fr", year: 1980 });
+      await q(`insert into work_authors(work_id, author_id, role) values ($1, $2, 'author'), ($1, $3, 'co_author')`, [plateaus, deleuze, guattari]);
+      await past(plateaus, { on: `${YEAR}-02-01`, pages: 600 });
+      const authors = await authorStats(YEAR);
+      expect(authors.byBooks.map((a) => [a.name, a.books])).toEqual([
+        ["Deleuze", 1],
+        ["Guattari", 1],
+      ]);
+      expect(authors.byPages.map((a) => [a.name, a.pages])).toEqual([
+        ["Deleuze", 600],
+        ["Guattari", 600],
+      ]);
+      expect(authors.newAuthors.map((a) => a.name)).toEqual(["Deleuze", "Guattari"]);
+      expect(authors.countries.map((c) => [c.code, c.authors])).toEqual([["FR", 2]]);
+      expect(authors.genders).toEqual([{ gender: "male", authors: 2 }]);
+    });
+
     it("counts abandoned books, their reasons and where he usually stops", async () => {
       await past(await book("A"), { status: "abandoned", on: `${YEAR}-02-01`, percent: 20, reason: "prose" });
       await past(await book("B"), { status: "abandoned", on: `${YEAR}-03-01`, percent: 40, reason: "prose" });

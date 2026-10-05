@@ -131,9 +131,12 @@ export function peakWords(peak: { weekday: number; part: string } | null): strin
   return `${WEEKDAYS[peak.weekday - 1]} ${parts[peak.part] ?? ""}`.trim();
 }
 
-/** "3.2 years", "8 months", "12 days" */
+/** "3.2 years", "1 year", "8 months", "12 days" */
 export function durationWords(days: number): string {
-  if (days >= 365) return `${(Math.round((days / 365.25) * 10) / 10).toLocaleString("en-US")} years`;
+  if (days >= 365) {
+    const years = Math.round((days / 365.25) * 10) / 10;
+    return `${years.toLocaleString("en-US")} ${years === 1 ? "year" : "years"}`;
+  }
   if (days >= 60) return `${Math.round(days / 30.44)} months`;
   return `${Math.round(days)} ${Math.round(days) === 1 ? "day" : "days"}`;
 }
@@ -160,4 +163,14 @@ export function finishText(day: string, precision: string): string {
   if (precision === "year") return String(y);
   if (precision === "month") return MONTHS[m - 1];
   return `${d} ${MONTHS_SHORT[m - 1]}`;
+}
+
+/**
+ * Whether bars can stand side by side: each band holds its label (12px text,
+ * about 7px a character, 8px apart). Past that they lie down, one per row.
+ */
+export function barsFit(width: number, labels: string[], axis = 36): boolean {
+  if (!labels.length) return true;
+  const widest = Math.max(...labels.map((l) => l.length)) * 7 + 8;
+  return (width - axis) / labels.length >= widest;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  barsFit,
   calendarBlocks,
   calendarCells,
   dayLabel,
@@ -39,6 +40,15 @@ describe("scales", () => {
       expect(t.every(Number.isInteger)).toBe(true);
       expect(t.length).toBeLessThanOrEqual(6);
     }
+  });
+
+  it("stands bars side by side only when their labels fit (PR #110 review)", () => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "?"];
+    expect([barsFit(534, months), barsFit(480, months)]).toEqual([true, true]);
+    expect(barsFit(534, ["Under 150", "150 to 299", "300 to 499", "500 to 799", "800 or more"])).toBe(true);
+    const decades = Array.from({ length: 37 }, (_, i) => `${1610 + i * 10}s`);
+    expect([barsFit(1100, decades), barsFit(1100, decades.slice(0, 12))]).toEqual([false, true]);
+    expect(barsFit(300, [])).toBe(true);
   });
 
   it("shades a day from 0 to 4 against the busiest day", () => {
@@ -122,6 +132,7 @@ describe("labels and the year", () => {
     expect(dayLabel("2026-02-03")).toBe("3 Feb 2026");
     expect([45, 60, 80, 1_210].map(minutesLabel)).toEqual(["45 min", "1 h", "1 h 20 min", "20 h 10 min"]);
     expect([1, 12, 59, 240, 1_169].map(durationWords)).toEqual(["1 day", "12 days", "59 days", "8 months", "3.2 years"]);
+    expect([365, 400].map(durationWords)).toEqual(["1 year", "1.1 years"]);
     expect(peakWords({ weekday: 7, part: "evening" })).toBe("Sunday evenings");
     expect(peakWords(null)).toBeNull();
     expect([finishText("2026-01-03", "day"), finishText("2026-03-01", "month"), finishText("2026-01-01", "year")]).toEqual(["3 Jan", "March", "2026"]);

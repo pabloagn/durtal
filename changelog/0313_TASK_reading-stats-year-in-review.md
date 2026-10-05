@@ -137,3 +137,17 @@ prints. No migration.
 - On the seeded year the insights read "Borrowed books get higher ratings
   than your own copies (4.0 against 3.5)" and "You finish 9 of 10 books you
   start", each with its numbers and a link to the journal.
+
+## Review fixes (PR #110)
+
+- Co-authors were left out of the author numbers: `authorStats` joined
+  `work_authors` on `role = 'author'` only, so a co-authored book counted its
+  first author alone (most read, new authors, countries, gender). It now
+  takes every writer role (`WORK_AUTHOR_ROLES`), as the rest of the app does;
+  a database test checks Deleuze and Guattari on one book.
+- Bar labels overlapped when a chart had many bars (40 decades gave 39
+  overlapping pairs at 1440 px and 77 at 768): `barsFit` lays the bars down,
+  one per row, when their labels would not fit side by side (about 7 px a
+  character, 8 px apart). The heights are already shared, so nothing moves;
+  every other chart stays upright.
+- `durationWords(365)` read "1 years": it now reads "1 year".
