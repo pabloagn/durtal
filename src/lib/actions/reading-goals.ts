@@ -179,7 +179,7 @@ export interface Rhythm {
   weekStart: 1 | 7;
   /** The server's reading day; the browser recomputes with its own */
   today: string;
-  /** His reading days in the last 13 weeks, a day to spare on each side */
+  /** His reading days from yesterday's week back 12 weeks, to tomorrow, a day to spare on each side (rhythmRange) */
   days: string[];
 }
 

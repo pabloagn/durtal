@@ -192,7 +192,12 @@ export function rhythmView(readDays: Iterable<string>, today: string, weekStart:
   return { week, thisWeek: week.filter((d) => d.read && d.day <= today).length, weeks, kept: weeks.filter((w) => w.kept).length };
 }
 
-/** The first and last day the rhythm needs: 13 weeks back from this week's start, and tomorrow, each with a day to spare */
+/**
+ * The first and last day the rhythm needs, on the server's day: the 12 weeks
+ * before yesterday's week, and tomorrow, each with a day to spare. A browser
+ * a day behind (21:30 on Sunday in Mexico City is Monday in Amsterdam) draws
+ * the week before the server's, so the range starts from yesterday's week.
+ */
 export function rhythmRange(today: string, weekStart: 1 | 7): { from: string; to: string } {
-  return { from: addDays(weekStartOf(today, weekStart), -7 * 12 - 2), to: addDays(today, 2) };
+  return { from: addDays(weekStartOf(addDays(today, -1), weekStart), -7 * 12 - 1), to: addDays(today, 2) };
 }

@@ -100,3 +100,15 @@ yet, and the plan lets steps 11 to 14 go first.
 - Journeys on a production-build preview: `reading` passes with its new
   steps (a 30-book goal from the hub's menu, a finished book counted with a
   neutral line, a 5-day rhythm with today marked) and `import` passes.
+
+## Review fixes (PR #109)
+
+- A browser a day behind the server (21:30 on Sunday in Mexico City is Monday
+  in Amsterdam) draws the week before the server's, so the oldest of its 12
+  weeks started 7 days before the range the server sent: 5 of its days were
+  never sent, and the page said "kept 8 of the last 12 weeks" for 9.
+  `rhythmRange` now starts 12 weeks before yesterday's week, with a day to
+  spare; a browser a day ahead was already covered. A test walks 14 server
+  days and both week starts with the browser a day behind and a day ahead,
+  and checks every day the browser's view reads is in the server's range; on
+  the old range it names 2026-07-06.
