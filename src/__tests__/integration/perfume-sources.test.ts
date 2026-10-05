@@ -104,8 +104,8 @@ describe.skipIf(!url)("perfume source-assisted entry", () => {
         { field: "description", here: null, source: "perfume by Coco Chanel", verdict: "fill" },
         { field: "launched", here: null, source: "1921", verdict: "fill" },
       ],
-      // Chanel is here as a house: as a brand, it is matched, not created again
-      organizations: [{ wikidataId: "Q180270", name: "Chanel", role: "brand", match: { id: chanel }, here: false }],
+      // Chanel is already this perfume's house: it is matched, and not added again as its brand
+      organizations: [{ wikidataId: "Q180270", name: "Chanel", role: "brand", match: { id: chanel }, here: true }],
       perfumers: [{ wikidataId: "Q1374026", name: "Ernest Beaux", match: null, here: false }],
     });
     // Reading is not writing
@@ -113,7 +113,8 @@ describe.skipIf(!url)("perfume source-assisted entry", () => {
   });
 
   it("fills empty fields, adds houses and perfumers with their source, and keeps every other value", async () => {
-    const perfume = await createPerfume({ title: "No 5", organizations: [{ organizationId: chanel, role: "perfume_house" }] });
+    // Chanel is in the library, not yet on this perfume
+    const perfume = await createPerfume({ title: "No 5" });
     const saved = await applyPerfumeSource({
       perfumeId: perfume.id,
       fingerprint: perfume.fingerprint,
@@ -129,10 +130,7 @@ describe.skipIf(!url)("perfume source-assisted entry", () => {
     expect(after.releaseDate?.value).toMatchObject({ precision: "year", start: { year: 1921 } });
     const sourceId = (saved as { sourceRecordId: string }).sourceRecordId;
     expect(after.sourceRecordId).toBe(sourceId);
-    expect(after.organizations.map((o) => [o.name, o.role, o.sourceRecordId])).toEqual([
-      ["Chanel", "perfume_house", null],
-      ["Chanel", "brand", sourceId],
-    ]);
+    expect(after.organizations.map((o) => [o.organizationId, o.role, o.sourceRecordId])).toEqual([[chanel, "brand", sourceId]]);
     expect(after.credits.map((x) => [x.person?.name, x.attribution])).toEqual([["Ernest Beaux", "attributed"]]);
     expect(await c`select provider, review_status, locked from source_records`).toEqual([{ provider: "wikidata", review_status: "accepted", locked: false }]);
     expect((await c`select entity_kind, external_id from catalogue_identifiers order by entity_kind`).map((r) => `${r.entity_kind}:${r.external_id}`)).toEqual([
@@ -178,7 +176,7 @@ describe.skipIf(!url)("perfume source-assisted entry", () => {
 
   it("never gives one Wikidata perfume to two perfumes of the same name", async () => {
     const lutens = (await saveOrganization({ name: "Serge Lutens", roles: ["perfume_house"] }))!.id;
-    const first = await createPerfume({ title: "No 5", organizations: [{ organizationId: chanel, role: "perfume_house" }] });
+    const first = await createPerfume({ title: "No 5" });
     const other = await createPerfume({ title: "No 5", organizations: [{ organizationId: lutens, role: "perfume_house" }] });
     await applyPerfumeSource({ perfumeId: first.id, fingerprint: first.fingerprint, externalId: "Q820507", organizations: ["Q180270"] });
     const refused = await applyPerfumeSource({ perfumeId: other.id, fingerprint: other.fingerprint, externalId: "Q820507", organizations: ["Q180270"] });
