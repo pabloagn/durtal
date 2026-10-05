@@ -335,6 +335,18 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect(await rematchImport({ importId })).toEqual({ matched: 1 });
       const [, found] = await rows(importId);
       expect([found.workId, found.match.found, found.match.reason, found.match.section, found.decision]).toEqual([gaddis, "exact", "Same ISBN", "exact", "import"]);
+      // Once imported, the same file finds the chosen book by the reading's key
+      await commitReadingImport({ importId });
+      const again = await upload(
+        goodreads([
+          { Title: "Some Watt", Author: "Unknown", "Exclusive Shelf": "read", "Date Read": "2020/02/02" },
+          { Title: "The Recognitions", Author: "William Gaddis", ISBN13: '="9780140449136"', "Exclusive Shelf": "read" },
+        ]),
+      );
+      expect((await rows(again.importId)).map((r) => [r.workId, r.match.reason, r.match.section])).toEqual([
+        [watt, "Same source", "present"],
+        [gaddis, "Same source", "present"],
+      ]);
     });
   });
 

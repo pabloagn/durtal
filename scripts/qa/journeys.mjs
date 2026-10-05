@@ -19,6 +19,15 @@
  * Durtal from the book picker's link, landing on its page with Start reading
  * open.
  *
+ * The "import" journey (SLN-450) imports a Goodreads file written here into
+ * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
+ * summary and "Book rating 3 kept (the file says 4)", choose a book with the
+ * picker, add a missing book and see its row match, commit, check a book
+ * page, the journal and the imported review in Edit, undo, commit again, and
+ * upload the same file again to see nothing left to import. Run the preview
+ * with --s3-dir and the list shows the raw file kept; without, "Raw file not
+ * kept" (pass --no-s3).
+ *
  * It writes and deletes records, so it runs against a disposable database
  * only (scripts/qa/preview-local.py): it refuses to start without
  * --disposable, on any host but this computer, and on port 3100 (the live
@@ -27,13 +36,14 @@
  * Node's own WebSocket.
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const argv = process.argv.slice(2);
 const disposable = argv.includes("--disposable");
-const [baseArg, ...only] = argv.filter((a) => a !== "--disposable");
+const noS3 = argv.includes("--no-s3");
+const [baseArg, ...only] = argv.filter((a) => a !== "--disposable" && a !== "--no-s3");
 const base = (baseArg ?? "http://127.0.0.1:3410").replace(/\/$/, "");
 const target = URL.parse(base);
 const refusal = !target
@@ -54,7 +64,7 @@ const COLLECTIONS = {
   films: { form: "Add film", placeholder: "The Thing", entity: "films", missing: "Film not found" },
   paintings: { form: "Add painting", placeholder: "The Garden of Earthly Delights", entity: "paintings", missing: "Painting not found" },
 };
-const JOURNEYS = [...Object.keys(COLLECTIONS), "reading"];
+const JOURNEYS = [...Object.keys(COLLECTIONS), "reading", "import"];
 const chosen = only.length ? only : Object.keys(COLLECTIONS);
 
 function findChrome() {
@@ -475,6 +485,124 @@ async function readingJourney() {
   }
 }
 
+/** The import journey (seed: scripts/qa/reading-import-journey.sql) */
+async function importJourney() {
+  const steps = [];
+  const step = async (label, fn) => {
+    await fn();
+    steps.push(label);
+  };
+  const header = ["Book Id", "Title", "Author", "Author l-f", "Additional Authors", "ISBN", "ISBN13", "My Rating", "Average Rating", "Publisher", "Binding", "Number of Pages", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Bookshelves", "Bookshelves with positions", "Exclusive Shelf", "My Review", "Spoiler", "Private Notes", "Read Count", "Owned Copies"];
+  const rows = [
+    { "Book Id": "9000001", Title: "Import Journey Reread", Author: "Journey Author", "My Rating": "5", "Date Read": "2020/03/14", "Exclusive Shelf": "read", "My Review": "<b>Bold</b> review", "Read Count": "2" },
+    { "Book Id": "9000002", Title: "Import Journey Rated", Author: "Journey Author", ISBN13: '="9780000000019"', "My Rating": "4", "Date Read": "2021/05/05", "Exclusive Shelf": "read", "Read Count": "1" },
+    { "Book Id": "9000003", Title: "Import Journey Current", Author: "Journey Author", "Date Read": "2018/08/08", "Exclusive Shelf": "currently-reading", "Read Count": "1" },
+    { "Book Id": "9000004", Title: "Import Journey Dropped", Author: "Journey Author", "Date Read": "2022/02/02", Bookshelves: "dnf", "Exclusive Shelf": "read", "Read Count": "1" },
+    { "Book Id": "9000005", Title: "Import Journey Twin", Author: "Someone Else", "Exclusive Shelf": "read", "Read Count": "1" },
+    { "Book Id": "9000006", Title: "Import Journey Missing", Author: "Journey Newcomer", "Date Read": "2023/07/01", "Exclusive Shelf": "read", "Read Count": "1" },
+    { "Book Id": "9000007", Title: "Import Journey Wanted", Author: "Journey Author", "Exclusive Shelf": "to-read", "Read Count": "0" },
+    { "Book Id": "9000008", Title: "Import Journey Wanted Too", Author: "Journey Author", "Exclusive Shelf": "to-read", "Read Count": "0" },
+  ];
+  const cell = (v) => (/[",\n]/.test(v) && !v.startsWith("=") ? `"${v.replace(/"/g, '""')}"` : v);
+  const file = join(mkdtempSync(join(tmpdir(), "import-journey-")), "goodreads_library_export.csv");
+  writeFileSync(file, [header.join(","), ...rows.map((r) => header.map((h) => cell(r[h] ?? "")).join(","))].join("\n") + "\n");
+  const row = (n) => `document.querySelector('[data-import-row="${n}"]')`;
+  const toast = (text) => `[...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.includes(${JSON.stringify(text)}))`;
+  let importId = "";
+  const upload = async () => {
+    await go("/reading/import");
+    await waitFor("document.querySelector('[data-import-file]')", "the upload area");
+    const { result } = await send("DOM.getDocument", { depth: 0 });
+    const { result: input } = await send("DOM.querySelector", { nodeId: result.root.nodeId, selector: "[data-import-file]" });
+    await send("DOM.setFileInputFiles", { nodeId: input.nodeId, files: [file] });
+    await waitFor("/^\\/reading\\/import\\/[0-9a-f-]{36}$/.test(location.pathname) && document.querySelector('[data-import-summary]')", "the preview", 60000);
+    importId = await evaluate("location.pathname.split('/').pop()");
+  };
+  try {
+    await step("upload a Goodreads file", upload);
+    await step("see the summary and the rating kept", async () => {
+      const summary = await evaluate("document.querySelector('[data-import-summary]').textContent");
+      if (summary !== "8 rows · 4 exact · 1 to choose · 1 not in Durtal · 2 want to read · 1 book rating differs") throw new Error(`The summary reads "${summary}"`);
+      await waitFor(`${row(2)}?.textContent.includes('Book rating 3 kept (the file says 4)')`, "the kept rating");
+      await waitFor(`${row(1)}?.textContent.includes('+1 earlier read, date unknown') && ${row(1)}.textContent.includes('Book rating set to 5')`, "the re-read's line");
+      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 6 readings'", "Import 6 readings");
+    });
+    await step("choose a book with the picker", async () => {
+      await evaluate(`${row(5)}.querySelector('[data-import-pick]').click()`);
+      await waitFor(`${DIALOG}?.querySelector('[data-picker-results] button')`, "the picker's books");
+      const ok = await evaluate(`(() => { const b = [...${DIALOG}.querySelectorAll('[data-picker-results] button')].find((e) => e.textContent.includes('Import Journey Twin') && e.textContent.includes('Journey Author')); if (!b) return false; b.click(); return true; })()`);
+      if (!ok) throw new Error("No Import Journey Twin by Journey Author in the picker");
+      await waitFor(`${row(5)}?.textContent.includes('Chosen by you') && ${row(5)}.querySelector('[data-import-decide=import][aria-pressed=true]')`, "the chosen book, to import");
+    });
+    await step("add a missing book and see its row match", async () => {
+      const href = await evaluate(`${row(6)}.querySelector('[data-import-add]').getAttribute('href')`);
+      if (href !== "/library/new?q=Import+Journey+Missing+Journey+Newcomer") throw new Error(`Add this book links to ${href}`);
+      await evaluate(`sessionStorage.setItem('durtal-import-added', ${JSON.stringify(importId)}), true`);
+      await go(href);
+      await click("Enter details manually");
+      await waitFor("document.getElementById('title')", "the details step");
+      await type("document.getElementById('title')", "Import Journey Missing");
+      await type("document.getElementById('author')", "Journey Newcomer");
+      await click("Fast Track");
+      await waitFor("location.pathname.startsWith('/library/import-journey-missing')", "the new book's page", 30000);
+      await go(`/reading/import/${importId}`);
+      await waitFor(`${row(6)}?.querySelector('[data-import-book]')`, "the row matched to the new book", 30000);
+      await evaluate(`${row(6)}.querySelector('[data-import-decide=import]').click()`);
+      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 8 readings'", "Import 8 readings");
+    });
+    await step("commit", async () => {
+      await evaluate("document.querySelector('[data-import-commit]').click()");
+      await waitFor(toast("8 readings written"), "8 readings written", 60000);
+      await waitFor(`${row(1)}?.querySelector('[data-import-outcome]')?.textContent.includes('Written (2)')`, "the re-read's outcome");
+    });
+    await step("check the book page and the journal", async () => {
+      await go("/library/import-journey-reread");
+      await waitFor("document.getElementById('reading')?.innerText.includes('14 Mar 2020')", "the 2020 read on the book page");
+      await go("/reading/journal?q=Import+Journey");
+      await waitFor("document.querySelectorAll('[data-journal-row]').length === 8", "8 imported readings in the journal");
+    });
+    await step("open the imported review in Edit", async () => {
+      const menu = "[...document.querySelectorAll('[data-journal-row]')].find((r) => r.textContent.includes('Import Journey Reread') && r.textContent.includes('2020'))?.querySelector('[data-journal-menu]')";
+      await evaluate(`${menu}.click()`);
+      await waitFor("document.querySelector('[role=menu]')", "the row's menu");
+      await click("Edit", "[...document.querySelectorAll('[role=menu]')].pop()");
+      await waitFor(`${DIALOG}?.querySelector('form strong')?.textContent === 'Bold'`, "the review's bold text in Edit");
+      await evaluate(`${DIALOG}.querySelector('button[data-variant=ghost]')?.click(), true`);
+      await sleep(500);
+    });
+    await step("undo", async () => {
+      await go(`/reading/import/${importId}`);
+      await evaluate(`document.querySelector('[data-import-undo="${importId}"]').click()`);
+      await waitFor("document.querySelector('[data-import-undo-confirm]')", "the undo question");
+      await evaluate("document.querySelector('[data-import-undo-confirm]').click()");
+      await waitFor(toast("8 readings removed"), "8 readings removed", 60000);
+    });
+    await step("commit again", async () => {
+      await waitFor("document.querySelector('[data-import-commit]')?.textContent === 'Import 8 readings'", "Import 8 readings again");
+      await evaluate("document.querySelector('[data-import-commit]').click()");
+      await waitFor(toast("8 readings written"), "8 readings written again", 60000);
+    });
+    await step("upload the same file again: nothing to import", async () => {
+      await upload();
+      const summary = await evaluate("document.querySelector('[data-import-summary]').textContent");
+      if (summary !== "8 rows · 2 want to read · 6 already in Durtal") throw new Error(`The second upload's summary reads "${summary}"`);
+      await waitFor("document.querySelector('[data-import-commit]').disabled && document.querySelector('[data-import-commit]').textContent === 'Nothing to import'", "Nothing to import");
+    });
+    await step(noS3 ? "the list says Raw file not kept" : "the list shows the raw file kept", async () => {
+      await go("/reading/import");
+      const text = await evaluate(`document.querySelector('[data-import-item="${importId}"]')?.textContent ?? ''`);
+      if (!text) throw new Error("The import is not in the list");
+      if (noS3 !== text.includes("Raw file not kept")) throw new Error(`The list reads "${text}"`);
+    });
+    console.log(`ok    import: ${steps.join(" → ")}`);
+    return true;
+  } catch (error) {
+    const toastText = await evaluate("[...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.innerText.replace(/\\s+/g, ' ')).join(' | ')").catch(() => "");
+    console.log(`FAIL  import: ${steps.join(" → ")}${steps.length ? " → " : ""}✗ ${error.message}${toastText ? ` [toasts: ${toastText}]` : ""}`);
+    return false;
+  }
+}
+
 // A fresh next dev compiles each route on its first request: compile them here,
 // so the journeys' waits measure the app, not the compiler
 for (const name of chosen.filter((n) => COLLECTIONS[n]))
@@ -483,11 +611,18 @@ for (const name of chosen.filter((n) => COLLECTIONS[n]))
 
 if (chosen.includes("reading"))
   await fetch(`${base}/library/journey-reading`, { signal: AbortSignal.timeout(180000) }).catch(() => {});
+if (chosen.includes("import"))
+  for (const path of ["/reading/import", "/library/new", "/reading/journal"])
+    await fetch(base + path, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 
 let failed = 0;
 for (const name of chosen) {
   if (name === "reading") {
     if (!(await readingJourney())) failed++;
+    continue;
+  }
+  if (name === "import") {
+    if (!(await importJourney())) failed++;
     continue;
   }
   if (!COLLECTIONS[name]) {

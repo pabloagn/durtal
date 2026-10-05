@@ -266,6 +266,7 @@ export function MatchAgain({ importId, show }: { importId: string; show: boolean
     );
   const latest = useRef(again);
   latest.current = again;
+  // Back from "Add this book": in this tab (the page loads again) or from another (it becomes visible)
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
@@ -276,6 +277,7 @@ export function MatchAgain({ importId, show }: { importId: string; show: boolean
       } catch {}
       if (added === importId) latest.current(true);
     };
+    onVisible();
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [importId]);

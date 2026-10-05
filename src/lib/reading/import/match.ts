@@ -17,7 +17,9 @@ import type { ImportRow, ImportSource } from "./types";
 
 /*
  * Matching an import's rows to books (SLN-450), books only. In order, the
- * first confident answer wins: the Durtal work id; the Goodreads Book Id (an
+ * first confident answer wins: the Durtal work id; a reading that already has
+ * one of the row's source keys (an earlier import of the same file, so a book
+ * chosen by hand is remembered); the Goodreads Book Id (an
  * edition's goodreads_id or a goodreads catalogue identifier); the id in a
  * book's Goodreads link; an ISBN. Then title and author: the file's title
  * against every title a book is known by (its own and its editions', so an
@@ -80,7 +82,23 @@ interface IdHit {
   key: string;
   workId: string;
   editionId: string | null;
-  reason: "Same Goodreads id" | "Same Goodreads link" | "Same ISBN";
+  reason: "Same source" | "Same Goodreads id" | "Same Goodreads link" | "Same ISBN";
+}
+
+/** Books that already hold a reading with one of these keys: an earlier import's book, chosen or matched */
+async function sourceKeyHits(keys: string[]): Promise<IdHit[]> {
+  const hits: IdHit[] = [];
+  for (const batch of batches(keys)) {
+    hits.push(
+      ...resultRows<IdHit>(
+        await db.execute(sql`
+          select r.source_key as key, r.work_id::text as "workId", r.edition_id::text as "editionId", 'Same source' as reason
+          from readings r join works w on w.id = r.work_id and w.kind = 'book'
+          where r.source_key in (select value from jsonb_array_elements_text(${json(batch)}::jsonb))`),
+      ),
+    );
+  }
+  return hits;
 }
 
 /** Books by Goodreads Book Id: an edition's goodreads_id, a goodreads identifier, the id in a Goodreads link */
@@ -193,6 +211,7 @@ async function titleCandidates(entries: { i: number; title: string; author: stri
 export async function matchRows(rows: ImportRow[]): Promise<RowMatch[]> {
   const result: RowMatch[] = rows.map(() => ({ found: "none", workId: null, reason: null, editionId: null, instanceId: null, candidates: [], warnings: [] }));
   const ids = await durtalIds(rows);
+  const keyed = await sourceKeyHits(unique(rows.flatMap((r) => r.readings.map((x) => x.sourceKey))));
   const gr = await goodreadsHits(unique(rows.map((r) => r.sourceBookId)));
   const isbn = await isbnHits(unique(rows.flatMap((r) => [r.isbn13, r.isbn10])));
   const byKey = (hits: IdHit[], key: string | null) => (key ? hits.filter((h) => h.key === key) : []);
@@ -205,8 +224,9 @@ export async function matchRows(rows: ImportRow[]): Promise<RowMatch[]> {
       Object.assign(m, { found: "exact", workId: row.workId, reason: "Same Durtal book" });
     } else {
       if (row.workId) m.warnings.push("The work_id is not a book in Durtal; the row is matched by title and author");
-      // 2. The Goodreads id or link, then the ISBN; several books for one id is not exact
+      // 2. A reading an earlier import wrote, then the Goodreads id or link, then the ISBN; several books for one id is not exact
       const steps: IdHit[][] = [
+        row.readings.flatMap((x) => byKey(keyed, x.sourceKey)),
         byKey(gr, row.sourceBookId).filter((h) => h.reason === "Same Goodreads id"),
         byKey(gr, row.sourceBookId).filter((h) => h.reason === "Same Goodreads link"),
         [...byKey(isbn, row.isbn13), ...byKey(isbn, row.isbn10)],
@@ -233,7 +253,9 @@ export async function matchRows(rows: ImportRow[]): Promise<RowMatch[]> {
         } else m.warnings.push("Edition not in Durtal; the reading is kept without it");
       }
       m.editionId ??=
-        [...byKey(gr, row.sourceBookId), ...byKey(isbn, row.isbn13), ...byKey(isbn, row.isbn10)].find((h) => h.workId === m.workId && h.editionId)
+        [...row.readings.flatMap((x) => byKey(keyed, x.sourceKey)), ...byKey(gr, row.sourceBookId), ...byKey(isbn, row.isbn13), ...byKey(isbn, row.isbn10)].find(
+          (h) => h.workId === m.workId && h.editionId,
+        )
           ?.editionId ?? null;
     } else if (m.found === "none" && row.title) {
       pending.push({ i, title: matchTitle(row.title), author: row.authors[0] ?? "" });
