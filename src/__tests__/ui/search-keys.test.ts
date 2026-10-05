@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, createElement, Fragment, useState } from "react";
+import { act, createElement, Fragment, useState, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Play } from "lucide-react";
 
@@ -76,16 +76,13 @@ function ReadingPage() {
 /** The provider around a page with a search field, a plain field and a book's reading actions */
 function App({ onPalette }: { onPalette: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
-  return createElement(
-    ShortcutsProvider,
-    {
-      paletteOpen: open,
-      onPaletteOpenChange: (next: boolean) => {
-        onPalette(next);
-        setOpen(next);
-      },
+  return createElement(ShortcutsProvider, {
+    paletteOpen: open,
+    onPaletteOpenChange: (next: boolean) => {
+      onPalette(next);
+      setOpen(next);
     },
-    createElement(
+    children: createElement(
       Fragment,
       null,
       createElement("input", { "data-shortcut-search": "", "aria-label": "Search works", defaultValue: "" }),
@@ -93,7 +90,7 @@ function App({ onPalette }: { onPalette: (open: boolean) => void }) {
       createElement(ReadingPage),
       open && createElement("div", { "data-testid": "palette" }),
     ),
-  );
+  });
 }
 
 function renderApp() {
@@ -226,11 +223,11 @@ describe("Esc closes one layer per press", () => {
   it("closes a menu (the dropdown menu) and gives focus back to its trigger", () => {
     act(() =>
       root.render(
-        createElement(
-          DropdownMenu,
-          { trigger: createElement("button", { type: "button" }, "More"), label: "More" },
-          createElement(DropdownMenuItem, { onClick: () => {} }, "Edit"),
-        ),
+        createElement(DropdownMenu, {
+          trigger: createElement("button", { type: "button" }, "More") as ComponentProps<typeof DropdownMenu>["trigger"],
+          label: "More",
+          children: createElement(DropdownMenuItem, { onClick: () => {}, children: "Edit" }),
+        }),
       ),
     );
     const trigger = host.querySelector('button[aria-label="More"]') as HTMLButtonElement;
@@ -277,5 +274,25 @@ describe("Esc closes one layer per press", () => {
     expect(press("Escape", {}, trigger).defaultPrevented).toBe(true);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(press("Escape", {}, trigger).defaultPrevented).toBe(false);
+  });
+
+  it("closes a select's list when its trigger has no focus (Safari does not focus a clicked button)", () => {
+    act(() =>
+      root.render(
+        createElement(Select, {
+          id: "t",
+          label: "Status",
+          value: "a",
+          onChange: () => {},
+          options: [{ value: "a", label: "Alpha" }],
+        }),
+      ),
+    );
+    const trigger = document.getElementById("t") as HTMLButtonElement;
+    act(() => trigger.click());
+    trigger.blur();
+    expect(press("Escape", {}, document.body).defaultPrevented).toBe(true);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
   });
 });

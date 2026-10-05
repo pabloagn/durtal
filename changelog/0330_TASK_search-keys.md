@@ -18,9 +18,10 @@ SLN-477. Joris: "S, so open the search dialogue to search quickly, and Esc to ex
   - The filter panel (`filter-dropdown.tsx`): Esc did nothing; it now closes the panel and focus goes back to the Filter button.
   - The place picker: Esc closed the dialog around it; it now clears the field and so closes its list, as the publisher picker does.
   - The Add book search: Esc clears the results when there are some; with none, it leaves the field.
+  - The select (`ui/select.tsx`): Esc closed its list only when its button had focus. Safari does not focus a button on click, so there one Esc closed the list and the dialog around it. The open list now takes Esc wherever focus is, and focus goes back to the button.
 - A search field on a page (no dialog around it, no list of its own that took the key: the list, collection, taxonomy, harmonize and reader library searches): Esc leaves the field and keeps its text (`shortcuts-provider.tsx`).
 - The command palette: Esc closes it, and focus goes back to what had it before it opened.
-- Unchanged, as they already close on Esc and keep the layers apart: the dialogs (native `<dialog>`, `src/components/ui/dialog.tsx`), the select (`ui/select.tsx`), the search picker, the publisher picker, taxonomy assignments, the leader menus.
+- Unchanged, as they already close on Esc and keep the layers apart: the dialogs (native `<dialog>`, `src/components/ui/dialog.tsx`), the search picker, the publisher picker, taxonomy assignments, the leader menus.
 - Docs: `docs/03_DESIGN_LANGUAGE.md` (keyboard), `docs/04_ROUTES_AND_VIEWS.md` (shortcuts).
 
 ## Completion Notes
