@@ -153,6 +153,7 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
 
     await wipe();
     const dry = await importInterchange(file, { policy: "keep", dryRun: true });
+    expect(dry.records.flatMap((r) => r.problems)).toEqual([]);
     expect(dry.counts).toEqual({ created: 4, unchanged: 0, added: 0, kept: 0, failed: 0 });
     expect(await value<number>(`select count(*)::int from works`)).toBe(0);
     expect(await value<number>(`select count(*)::int from authors`)).toBe(0);
@@ -232,12 +233,10 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     const perfume = kept.records.find((r) => r.domain === "perfume")!;
     expect(perfume.outcome).toBe("kept");
     expect(perfume.absent).toEqual({ perfume_bottles: 1 });
-    expect(perfume.differences).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ table: "works", columns: expect.arrayContaining(["notes", "rating"]) }),
-        expect.objectContaining({ table: "source_records", columns: ["locked"] }),
-      ]),
-    );
+    expect(perfume.differences).toEqual([
+      { table: "works", key: ids.perfume, columns: ["notes", "rating", "updated_at"] },
+      { table: "source_records", key: ids.source, columns: ["locked", "revision"] },
+    ]);
     expect(await value<number>(`select count(*)::int from perfume_bottles`)).toBe(1);
 
     const failed = await importInterchange(file, { policy: "fail", dryRun: false });
@@ -289,6 +288,7 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     const family = file.shared.taxonomy_families.find((f) => f.slug === "perfume-notes")!;
     const elsewhere = JSON.parse(JSON.stringify(file).replaceAll(String(family.id), randomUUID())) as InterchangeDocument;
     const report = await importInterchange(elsewhere, { policy: "keep", dryRun: false });
+    expect(report.records.flatMap((r) => r.problems)).toEqual([]);
     expect(report.counts.created).toBe(4);
     expect(
       await value(`select f.slug from perfume_notes n join custom_taxonomy_items i on i.id = n.item_id join taxonomy_families f on f.id = i.family_id`),
@@ -316,10 +316,7 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     expect(recordOf(two, "film").sections.relations!.work_relations).toHaveLength(1);
     expect(recordOf(two, "book").sections.relations).toBeUndefined();
   });
-});
 
-describe.skipIf(!url)("provider observations", () => {
-  const c = client!;
   const fake: ProviderAdapter<"perfume"> = {
     id: "example-notes",
     label: "Example notes",
@@ -340,8 +337,7 @@ describe.skipIf(!url)("provider observations", () => {
     normalize: (detail) => [{ level: "work", fields: { description: String(detail.payload.description), title: "Number Five" } }],
   };
 
-  it("keeps a detail as a pending source, proposes only into empty fields and respects a lock", async () => {
-    await c`truncate works, source_records, catalogue_identifiers cascade`;
+  it("keeps a provider's detail as a pending source, proposes only into empty fields and respects a lock", async () => {
     const perfume = await createPerfume({ title: "No 5" });
     const owner = { kind: "perfume" as const, id: perfume.id };
     const found = await fetchProviderDetail(fake, "no-5");

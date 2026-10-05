@@ -71,6 +71,8 @@ export interface PartSpec extends BaseSpec {
   mode: "part";
   parent: { column: string; table: string };
   forExisting?: boolean;
+  /** A new entity has exactly the file's parts: what the database adds on its own goes */
+  exact?: boolean;
 }
 export type TableSpec = RecordSpec | EntitySpec | PartSpec;
 
@@ -123,7 +125,8 @@ const SPECS: TableSpec[] = [
   { table: s.organizationRoles, mode: "part", parent: { column: "organization_id", table: "publishing_houses" }, forExisting: true },
   { table: s.publisherAliases, mode: "part", parent: { column: "publisher_id", table: "publishing_houses" } },
   entity(s.authors, "person"),
-  { table: s.personDomains, mode: "part", parent: { column: "person_id", table: "authors" }, forExisting: true },
+  // A new person is a book person until told otherwise (legacy_author_domain)
+  { table: s.personDomains, mode: "part", parent: { column: "person_id", table: "authors" }, forExisting: true, exact: true },
   { table: s.personAliases, mode: "part", parent: { column: "person_id", table: "authors" } },
   entity(s.venues, "venue"),
   { table: s.organizationVenues, mode: "part", parent: { column: "organization_id", table: "publishing_houses" } },

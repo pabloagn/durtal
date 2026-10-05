@@ -8,6 +8,7 @@ import { CACHE_TAGS, invalidate } from "@/lib/cache";
 import { differingColumns, fileRow, rowKey, type Row } from "./columns";
 import { INTERCHANGE_FORMAT, INTERCHANGE_VERSION, readEnvelope, readRecord, readShared, type CheckedRecord } from "./format";
 import { RECORD_TABLES, TABLES, references, table, type Table } from "./tables";
+import { idList } from "./export";
 
 /*
  * Import (SLN-375). Each record is written in one transaction, so a record
@@ -187,17 +188,30 @@ function parentsFirst(t: Table, rows: Row[]): Row[] {
   return out;
 }
 
+/**
+ * Rows were checked absent before the plan, so the only row with the same key
+ * at this point is one the database itself just added (a person's book
+ * domain when the person is added): it is kept. Any other duplicate value
+ * still fails the record.
+ */
 function insertSql(t: Table, rows: Row[]): SQL {
   const name = sql.identifier(t.shape.name);
   const columns = sql.join(t.shape.columns.map((c) => sql.identifier(c.name)), sql`, `);
-  return sql`insert into ${name} (${columns}) select ${columns} from jsonb_populate_recordset(null::${name}, ${JSON.stringify(rows)}::jsonb)`;
+  const key = sql.join(t.shape.primaryKey.map((c) => sql.identifier(c)), sql`, `);
+  return sql`insert into ${name} (${columns}) select ${columns} from jsonb_populate_recordset(null::${name}, ${JSON.stringify(rows)}::jsonb) on conflict (${key}) do nothing`;
 }
 
 function statements(plan: Rows): SQL[] {
   const out: SQL[] = [];
-  const names = [...plan.keys()].sort((a, b) => table(a).order - table(b).order);
-  for (const name of names) {
-    const t = table(name);
+  for (const t of [...TABLES.values()].sort((a, b) => a.order - b.order)) {
+    const name = t.shape.name;
+    if (t.spec.mode === "part" && t.spec.exact) {
+      const { column, table: parent } = t.spec.parent;
+      const added = [...(plan.get(parent)?.keys() ?? [])];
+      if (added.length)
+        out.push(sql`delete from ${sql.identifier(name)} where ${sql.identifier(column)} in ${idList(added)}`);
+    }
+    if (!plan.get(name)?.size) continue;
     const rows = parentsFirst(t, [...plan.get(name)!.values()].map((row) => fileRow(t.shape, row)));
     for (let i = 0; i < rows.length; i += CHUNK) out.push(insertSql(t, rows.slice(i, i + CHUNK)));
   }
