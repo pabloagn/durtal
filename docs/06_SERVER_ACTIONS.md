@@ -653,6 +653,33 @@ Deletes the import's readings not edited since (their `updated_at` equals their 
 
 ---
 
+## Perfume sources (`src/lib/actions/perfume-sources.ts`, SLN-377)
+
+Wikidata is the one perfume source with a documented public API
+(`src/lib/providers/wikidata-perfumes.ts`, through the provider contract of
+`src/lib/providers/run.ts`). Fragrantica, Basenotes and Parfumo have none: they
+are cited, and `readPerfumeLink` (`src/lib/catalogue/perfume-sources.ts`) reads
+only their addresses. Every action returns `{ error }` instead of throwing when
+Wikidata cannot be reached, so manual entry goes on.
+
+- `searchPerfumeSource(text)`: Wikidata items that are perfumes (instance of
+  Q131746), at most ten, and what Wikidata covers.
+- `reviewPerfumeSource({ perfumeId | null, externalId })`: the item's title,
+  description and launch date set against the perfume, each `fill`, `same`,
+  `conflict` or `locked`; its brands, manufacturers and perfumers, matched to
+  the library by Wikidata id, then by one exact name (two of a name match
+  none). Reads only.
+- `applyPerfumeSource({ perfumeId, fingerprint, externalId, fields,
+  organizations, perfumers })`: fetches the item again, keeps it as an
+  accepted source with its id (an id another perfume holds refuses the save),
+  fills the chosen empty fields, and adds the chosen organizations and
+  perfumers (created when missing, credited as attributed, with their
+  Wikidata ids). Nothing on the perfume is replaced. A locked Wikidata source
+  refuses the save.
+- `recordPerfumeEntrySource({ perfumeId, link, retrievedOn })`: a new
+  perfume's source: a Wikidata item as an accepted observation, any other
+  link cited as the person's own source, without reading it.
+
 ## Taxonomy (`src/lib/actions/taxonomy.ts`)
 
 Reads only. Subjects, genres, tags and every other family are created, renamed, merged and deleted through the family registry in `src/lib/actions/taxonomy-families.ts` (`createTaxonomyItem`, `updateTaxonomyItem`, `deleteTaxonomyItem` and the rest).

@@ -451,5 +451,12 @@ contract scoped to a collection and its record levels, with time limits, gaps
 between calls, pending source review and lock-preserving proposals. No schema
 change.
 
+Perfume sources (SLN-377, task 0332): Wikidata is the one perfume source with
+a documented public API and is looked up; Fragrantica, Basenotes and Parfumo
+are cited and only their addresses are read. A lookup is reviewed against the
+perfume: it fills empty fields, adds brands and perfumers with their source,
+and leaves different or locked values as they are. Note claims cite their
+source, and two placements of one note are both kept. No schema change.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

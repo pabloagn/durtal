@@ -29,6 +29,7 @@ import { getTypedTargets } from "@/lib/actions/acquisitions";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
+import { PerfumeSourceLookup } from "@/components/perfumes/source-lookup";
 import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { RelatedPerfumes } from "@/components/perfumes/related-perfumes";
 import type { FormulationVocabulary } from "@/components/perfumes/formulation-dialog";
@@ -543,6 +544,7 @@ export default async function PerfumePage({
         notes={notes}
         editable={!selected}
         scope={scope}
+        sources={choices}
       />
 
       <section className="mb-10" aria-labelledby="perfume-classification">
@@ -626,6 +628,7 @@ export default async function PerfumePage({
           name: "Fragrantica, the house's website, a book and page",
           says: "Launch year, perfumer",
         }}
+        lookup={<PerfumeSourceLookup perfume={{ id: perfume.id, title: perfume.title, fingerprint: perfume.fingerprint }} />}
       />
 
       <PersonalNotes notes={curation?.notes ?? null} placeholder="How it wears on you, when you reach for it" />

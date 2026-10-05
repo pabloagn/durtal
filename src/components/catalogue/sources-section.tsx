@@ -42,6 +42,7 @@ export function SourcesSection({
   title,
   sources,
   examples,
+  lookup,
 }: {
   owner: SourceOwner;
   /** The record's name, under the dialog title */
@@ -49,6 +50,8 @@ export function SourcesSection({
   sources: SourceView[];
   /** Placeholders of the form: where facts of this kind come from, and what they say */
   examples: { name: string; says: string };
+  /** A control that looks the record up at a source with an API, beside Add source */
+  lookup?: React.ReactNode;
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -61,10 +64,13 @@ export function SourcesSection({
         title="Sources"
         count={sources.length || undefined}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
-            <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Add source
-          </Button>
+          <div className="flex items-center gap-2">
+            {lookup}
+            <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+              <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Add source
+            </Button>
+          </div>
         }
       />
       {sources.length === 0 ? (

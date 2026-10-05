@@ -262,7 +262,8 @@ and image; `?formulation=` chooses one and the facts and notes above show its
 own values); Bottles and samples (formulation, size, what is left, status,
 storage place, acquisition); Wanted (see below); Retailers (listings with
 recorded prices);
-Gallery; Sources (cited sources, and sources a reader adds); Your notes;
+Gallery; Sources (cited sources, and sources a reader adds; "Look up" asks
+Wikidata, see below); Your notes;
 related perfumes ("More from {house}", "More by {perfumer}", "Shared notes").
 
 Create and edit share `PerfumeForm`: title, houses (house, brand, manufacturer),
@@ -273,6 +274,21 @@ samples, retailer listings and prices, and sources. A perfume with bottles,
 samples or listings cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each bottle, sample or decant added, changed (status, amount left, condition, location) or removed.
 Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
 in the house, people and note pickers; Escape closes a dialog.
+
+Sources while entering (SLN-377). On create, the form starts with an optional
+source link. Durtal reads the address, never the page: a Fragrantica,
+Basenotes or Parfumo address names the perfume, its house and often its
+concentration ("Use the name" takes the name; a switch adds that formulation
+with the perfume). A Wikidata address can be looked up: its launch date,
+description, and the brand and perfumers already in the library fill the
+empty fields ("Use these"). Saving keeps the link as the perfume's source.
+On the page, "Look up" in Sources searches Wikidata for perfumes, then shows
+what the item says beside what the perfume has: an empty field can be filled,
+a different or locked value stays, and a brand, manufacturer or perfumer can
+be added (made when not in the library, credited as attributed). Saving
+keeps Wikidata as an accepted source. When the notes are edited, the notes
+added cite the source chosen above them; two sources that place one note in
+different tiers are both kept, and the pyramid names the note under it.
 
 ### Films (`/films`)
 

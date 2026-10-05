@@ -9,7 +9,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TitleInput } from "@/components/shared/title-input";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
-import { createPerfume, updatePerfume } from "@/lib/actions/perfumes";
+import { createPerfume, createPerfumeVariant, updatePerfume } from "@/lib/actions/perfumes";
+import { recordPerfumeEntrySource, type PerfumeSourceReview } from "@/lib/actions/perfume-sources";
+import { SourceLinkField, type SourceLinkState } from "./source-link-field";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
 import {
@@ -76,10 +78,55 @@ export function PerfumeForm(props: Props) {
   const [families, setFamilies] = useState<TermEntry[]>([]);
   const [accords, setAccords] = useState<TermEntry[]>([]);
   const [sourceRecordId, setSourceRecordId] = useState(editing?.sourceRecordId ?? null);
+  const [sourceLink, setSourceLink] = useState<SourceLinkState>({ link: "", reading: null, addFormulation: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const blocked = !title.trim() || Object.values(dateErrors).some(Boolean);
+  const linkInvalid = sourceLink.link.trim() !== "" && !sourceLink.reading;
+  const blocked = !title.trim() || Object.values(dateErrors).some(Boolean) || linkInvalid;
+
+  /** Fills what the form lacks from a source; what the person typed stays */
+  function takeSource({ title: name, review }: { title: string | null; review: PerfumeSourceReview | null }) {
+    if (name && (!review || !title.trim())) setTitle(name);
+    if (!review) return;
+    if (!description.trim() && review.values.description) setDescription(review.values.description);
+    if (!release && review.values.launched) setRelease(review.values.launched);
+    const houses = review.organizations.filter(
+      (o) => o.match && !organizations.some((x) => x.organizationId === o.match!.id && x.role === o.role),
+    );
+    if (houses.length)
+      setOrganizations([
+        ...organizations,
+        ...houses.map((o) => ({ organizationId: o.match!.id, name: o.match!.name, role: o.role, sourceRecordId: null })),
+      ]);
+    const people = review.perfumers.filter((p) => p.match && !credits.some((c) => c.personId === p.match!.id));
+    if (people.length)
+      setCredits([
+        ...credits,
+        ...people.map((p) => ({ personId: p.match!.id, name: p.match!.name, creditedAs: null, attribution: "attributed" as const })),
+      ]);
+  }
+
+  /** After a new perfume is saved: its source, and the formulation its link names */
+  async function keepSource(perfumeId: string) {
+    const { reading, link, addFormulation } = sourceLink;
+    if (!reading) return;
+    const now = new Date();
+    const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const kept = await recordPerfumeEntrySource({ perfumeId, link, retrievedOn: day });
+    if ("error" in kept) toast.error(`The perfume is saved, but not its source: ${kept.error}`);
+    if (addFormulation && reading.hints.concentration) {
+      try {
+        await createPerfumeVariant({
+          workId: perfumeId,
+          concentration: reading.hints.concentration,
+          sourceRecordId: "error" in kept ? null : kept.sourceRecordId,
+        });
+      } catch (err) {
+        toast.error(`The perfume is saved, but not its formulation: ${err instanceof Error ? err.message : "it was refused"}`);
+      }
+    }
+  }
 
   async function save() {
     if (blocked || saving) return;
@@ -115,6 +162,7 @@ export function PerfumeForm(props: Props) {
           notePyramid: notes.map(({ itemId, position }) => ({ itemId, position })),
           classificationItemIds: [...families, ...accords].map((t) => t.id),
         });
+        await keepSource(perfume.id);
         toast.success("Perfume added");
         router.push(`/perfumes/${perfume.slug ?? perfume.id}`);
       } else {
@@ -137,6 +185,11 @@ export function PerfumeForm(props: Props) {
   return (
     // ⌘Enter saves; on the create page this is the page's shortcut scope
     <div className="space-y-8" data-shortcut-scope="">
+      {props.mode === "create" && (
+        <Section title="Source">
+          <SourceLinkField value={sourceLink} onChange={setSourceLink} onUse={takeSource} />
+        </Section>
+      )}
       <Section title="Identity">
         <TitleInput
           label="Title"
