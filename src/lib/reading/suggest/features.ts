@@ -88,7 +88,7 @@ const series: Feature = {
     const name = book.seriesTitle ?? "the series";
     if (!last) return { score: 0.3, reason: `First in ${name}`, meets: true, evidence: [{ label: name, href: `/series/${book.seriesId}`, id: book.seriesId }] };
     const rated = last.taste !== null ? ` (you gave it ${formatRating(last.taste)})` : "";
-    return { score: 1, reason: `Next in ${name} after ${last.title}${rated}`, meets: true, evidence: [{ label: last.title, href: bookHref(last), id: last.id }] };
+    return { score: 1, reason: `Next in ${name} after ${last.title}${rated}`, meets: true, evidence: [{ label: last.title, href: bookHref({ id: last.id, slug: last.slug ?? null }), id: last.id }] };
   },
 };
 
