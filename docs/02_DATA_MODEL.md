@@ -2310,9 +2310,27 @@ One sitting or one progress update.
 
 Every status change of a reading, shaped like `work_status_history`: `id`, `reading_id` (FK → `readings` CASCADE), `from_status` (null for the first row), `to_status`, `changed_at`, `notes`. Index on `(reading_id, changed_at)`. Pause intervals for pace come from it.
 
+### `reading_queue`
+
+Up Next (SLN-452, migration `0068_reading_queue`): the books he wants to read next, in his order. Separate from what he wants to buy: it never changes `catalogue_status`, so a book can be wanted and not queued, or queued and not owned.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `work_id` | UUID | NOT NULL, UNIQUE, FK → `works` CASCADE | Books only (`book_parent_required`). Deleting the book deletes the row |
+| `edition_id` | UUID | nullable, FK → `editions` SET NULL | The edition he means to read; it belongs to the book (`guard_reading_queue`) |
+| `position` | INTEGER | NOT NULL | The order, with gaps of 1024; a move takes the middle, and a full renumber restores the gaps when none is left |
+| `note` | TEXT | nullable, CHECK at most 500 characters | "M. says start with this one" |
+| `source` | TEXT | NOT NULL, default `'manual'`, CHECK in (`manual`, `import`, `suggestion`) | |
+| `import_id` | UUID | nullable, FK → `imports` SET NULL | The import that added it |
+| `source_key` | TEXT | nullable, UNIQUE | `goodreads-to-read:<Book Id>` (else `isbn13:` or `title:` fallbacks) or `storygraph-to-read:<hash>`, built only by `src/lib/reading/source-keys.ts`; a re-import never duplicates |
+| `added_at` | TIMESTAMPTZ | NOT NULL, default now | |
+
+Index on `position`. `guard_reading_queue` (BEFORE INSERT OR UPDATE) checks the edition only when it is set and new, changed, or its row moved to another book: an edition of another book raises 23514 `reading_queue_edition_work`, "This edition belongs to another book". Clearing the edition (an edition delete) and a renumber of positions or a note change never re-check it. Starting a book takes it off Up Next in the same write (`createReading`, and `writeReadings` for an open or paused row); a finished or abandoned past read leaves it.
+
 ### Guards and null rules
 
-`edition_id` and `instance_id` are `on delete set null`, and Postgres applies that as an UPDATE that fires BEFORE UPDATE triggers, so the guards check a reference only when it is set and new or changed: `guard_reading` clears `instance_id` when `edition_id` is null, then checks the edition's book (`reading_edition_work`, "This edition belongs to another book") and the copy's edition (`reading_instance_edition`, "This copy belongs to another edition"); `guard_reading_session` checks a session's edition (`reading_session_edition_work`). An update that only sets references to null never raises, so deleting an edition, a copy, a location or the book needs no extra code. A book merge moves `readings.work_id` after the editions, so the guard lets it through; it is refused while both books have an open reading. An edition moved to another book clears it from the old book's readings and their sessions (`updateEdition`); a placeholder edition's readings and sessions move to the real edition (`moveToExistingEdition`).
+`edition_id` and `instance_id` are `on delete set null`, and Postgres applies that as an UPDATE that fires BEFORE UPDATE triggers, so the guards check a reference only when it is set and new or changed: `guard_reading` clears `instance_id` when `edition_id` is null, then checks the edition's book (`reading_edition_work`, "This edition belongs to another book") and the copy's edition (`reading_instance_edition`, "This copy belongs to another edition"); `guard_reading_session` checks a session's edition (`reading_session_edition_work`). An update that only sets references to null never raises, so deleting an edition, a copy, a location or the book needs no extra code. A book merge moves `readings.work_id` after the editions, so the guard lets it through; it is refused while both books have an open reading. An edition moved to another book clears it from the old book's readings and their sessions (`updateEdition`); a placeholder edition's readings and sessions move to the real edition (`moveToExistingEdition`). The same two steps clear or carry a queued edition in `reading_queue` (SLN-452). A book merge moves `reading_queue.work_id` with `readingQueueMergeQueries` (`src/lib/harmonization/reading-queue-merge.ts`): `work_id` is unique, so when both books are queued the row with the later position goes and the earlier one keeps its place, note and edition.
 
 ### Positions, state and counting
 

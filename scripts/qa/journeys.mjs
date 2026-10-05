@@ -523,6 +523,40 @@ async function readingJourney() {
       await go("/settings/reading");
       await waitFor(`${box}.textContent.includes('04:00')`, "04:00 back");
     });
+    // Up Next (SLN-452): three books from the library, reordered by keyboard, the top one started
+    const queueOrder = "[...document.querySelectorAll('[data-queue-row]')].map((r) => r.querySelector('a').textContent.trim())";
+    await step("add three books to Up Next from the library", async () => {
+      await go("/library?q=queue+journey&sort=title");
+      await waitFor("[...document.querySelectorAll('main h3')].filter((h) => h.textContent.startsWith('Queue Journey')).length === 3", "the three books");
+      await click("Select", "document.querySelector('main')");
+      await evaluate("[...document.querySelectorAll('main h3')].filter((h) => h.textContent.startsWith('Queue Journey')).forEach((h) => h.click()), true");
+      await waitFor("document.querySelector('[data-bulk-queue]')", "the bulk toolbar");
+      await evaluate("document.querySelector('[data-bulk-queue]').click()");
+      await waitFor("[...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.includes('Added 3'))", "Added 3");
+      await go("/reading/next");
+      await waitFor(`${queueOrder}.join() === 'Queue Journey One,Queue Journey Three,Queue Journey Two'`, "the three in Up Next, in the library's order");
+    });
+    await step("reorder Up Next by keyboard", async () => {
+      // Lift the third with Space, two up, drop with Space
+      await evaluate("[...document.querySelectorAll('[data-queue-handle]')][2].focus(), true");
+      for (const key of [" ", "ArrowUp", "ArrowUp", " "]) {
+        const code = key === " " ? "Space" : key;
+        await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode: key === " " ? 32 : 38 });
+        await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: key === " " ? 32 : 38 });
+        await sleep(400);
+      }
+      await waitFor(`${queueOrder}[0] === 'Queue Journey Two'`, "Queue Journey Two at the top");
+      await go("/reading/next");
+      await waitFor(`${queueOrder}.join() === 'Queue Journey Two,Queue Journey One,Queue Journey Three'`, "the new order after a reload");
+    });
+    await step("start the top book; it leaves Up Next", async () => {
+      await evaluate("document.querySelector('[data-queue-start]').click()");
+      await waitFor(`${DIALOG}?.textContent.includes("I'm at")`, "Start reading");
+      await save("Start reading");
+      await waitFor("[...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.includes('Started Queue Journey Two · removed from Up Next'))", "the toast");
+      await go("/reading/next");
+      await waitFor(`${queueOrder}.join() === 'Queue Journey One,Queue Journey Three'`, "Up Next without the started book");
+    });
     await step("filter the journal by year", async () => {
       await go("/reading/journal?yearMin=2009&yearMax=2009");
       await waitFor("document.querySelector('[data-journal-summary]')", "the journal");
@@ -587,8 +621,8 @@ async function importJourney() {
     { "Book Id": "9000004", Title: "Import Journey Dropped", Author: "Journey Author", "Date Read": "2022/02/02", Bookshelves: "dnf", "Exclusive Shelf": "read", "Read Count": "1" },
     { "Book Id": "9000005", Title: "Import Journey Twin", Author: "Someone Else", "Exclusive Shelf": "read", "Read Count": "1" },
     { "Book Id": "9000006", Title: "Import Journey Missing", Author: "Journey Newcomer", "Date Read": "2023/07/01", "Exclusive Shelf": "read", "Read Count": "1" },
-    { "Book Id": "9000007", Title: "Import Journey Wanted", Author: "Journey Author", "Exclusive Shelf": "to-read", "Read Count": "0" },
-    { "Book Id": "9000008", Title: "Import Journey Wanted Too", Author: "Journey Author", "Exclusive Shelf": "to-read", "Read Count": "0" },
+    { "Book Id": "9000007", Title: "Import Journey Shelf", Author: "Journey Author", "Exclusive Shelf": "to-read", "Date Added": "2024/01/02", "Read Count": "0" },
+    { "Book Id": "9000008", Title: "Import Journey Wanted Too", Author: "Journey Stranger", "Exclusive Shelf": "to-read", "Read Count": "0" },
   ];
   const cell = (v) => (/[",\n]/.test(v) && !v.startsWith("=") ? `"${v.replace(/"/g, '""')}"` : v);
   const file = join(mkdtempSync(join(tmpdir(), "import-journey-")), "goodreads_library_export.csv");
@@ -609,10 +643,12 @@ async function importJourney() {
     await step("upload a Goodreads file", upload);
     await step("see the summary and the rating kept", async () => {
       const summary = await evaluate("document.querySelector('[data-import-summary]').textContent");
-      if (summary !== "8 rows · 4 exact · 1 to choose · 1 not in Durtal · 2 want to read · 1 book rating differs") throw new Error(`The summary reads "${summary}"`);
+      if (summary !== "8 rows · 4 exact · 1 to choose · 2 not in Durtal · 2 want to read · 1 book rating differs") throw new Error(`The summary reads "${summary}"`);
       await waitFor(`${row(2)}?.textContent.includes('Book rating 3 kept (the file says 4)')`, "the kept rating");
       await waitFor(`${row(1)}?.textContent.includes('+1 earlier read, date unknown') && ${row(1)}.textContent.includes('Book rating set to 5')`, "the re-read's line");
-      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 6 readings'", "Import 6 readings");
+      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 6 readings and add 1 book to Up Next'", "Import 6 readings and add 1 book to Up Next");
+      // The to-read book is in the Want to read section, to go to Up Next (SLN-452)
+      await waitFor(`${row(7)}?.closest('[data-import-section]')?.dataset.importSection === 'to_read' && ${row(7)}.textContent.includes('Goes to the bottom of Up Next')`, "the to-read row");
     });
     await step("use the file's rating, then keep the book's", async () => {
       const box = `${row(2)}.querySelector('[data-import-rating] input')`;
@@ -642,12 +678,17 @@ async function importJourney() {
       await go(`/reading/import/${importId}`);
       await waitFor(`${row(6)}?.querySelector('[data-import-book]')`, "the row matched to the new book", 90000);
       await evaluate(`${row(6)}.querySelector('[data-import-decide=import]').click()`);
-      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 8 readings'", "Import 8 readings");
+      await waitFor("document.querySelector('[data-import-commit]').textContent === 'Import 8 readings and add 1 book to Up Next'", "Import 8 readings and add 1 book to Up Next");
     });
     await step("commit", async () => {
       await evaluate("document.querySelector('[data-import-commit]').click()");
-      await waitFor(toast("8 readings written"), "8 readings written", 60000);
+      await waitFor(toast("8 readings written · 1 book added to Up Next"), "8 readings written · 1 book added to Up Next", 60000);
       await waitFor(`${row(1)}?.querySelector('[data-import-outcome]')?.textContent.includes('Written (2)')`, "the re-read's outcome");
+    });
+    const shelfInUpNext = "[...document.querySelectorAll('[data-queue-row]')].some((r) => r.textContent.includes('Import Journey Shelf'))";
+    await step("see the to-read book in Up Next", async () => {
+      await go("/reading/next");
+      await waitFor(shelfInUpNext, "Import Journey Shelf in Up Next");
     });
     await step("check the book page and the journal", async () => {
       await go("/library/import-journey-reread");
@@ -669,17 +710,20 @@ async function importJourney() {
       await evaluate(`document.querySelector('[data-import-undo="${importId}"]').click()`);
       await waitFor("document.querySelector('[data-import-undo-confirm]')", "the undo question");
       await evaluate("document.querySelector('[data-import-undo-confirm]').click()");
-      await waitFor(toast("8 readings removed"), "8 readings removed", 60000);
+      await waitFor(toast("8 readings removed · 1 book taken off Up Next"), "8 readings removed · 1 book taken off Up Next", 60000);
+      await go("/reading/next");
+      await waitFor(`!(${shelfInUpNext})`, "Up Next without the imported book");
+      await go(`/reading/import/${importId}`);
     });
     await step("commit again", async () => {
-      await waitFor("document.querySelector('[data-import-commit]')?.textContent === 'Import 8 readings'", "Import 8 readings again");
+      await waitFor("document.querySelector('[data-import-commit]')?.textContent === 'Import 8 readings and add 1 book to Up Next'", "Import 8 readings and add 1 book to Up Next again");
       await evaluate("document.querySelector('[data-import-commit]').click()");
       await waitFor(toast("8 readings written"), "8 readings written again", 60000);
     });
     await step("upload the same file again: nothing to import", async () => {
       await upload();
       const summary = await evaluate("document.querySelector('[data-import-summary]').textContent");
-      if (summary !== "8 rows · 2 want to read · 6 already in Durtal") throw new Error(`The second upload's summary reads "${summary}"`);
+      if (summary !== "8 rows · 1 not in Durtal · 2 want to read · 6 already in Durtal") throw new Error(`The second upload's summary reads "${summary}"`);
       await waitFor("document.querySelector('[data-import-commit]').disabled && document.querySelector('[data-import-commit]').textContent === 'Nothing to import'", "Nothing to import");
     });
     await step(noS3 ? "the list says Raw file not kept" : "the list shows the raw file kept", async () => {

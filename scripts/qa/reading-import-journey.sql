@@ -1,7 +1,8 @@
 -- The reading import journey's books (scripts/qa/journeys.mjs import), for a
 -- disposable preview database only (SLN-450): a book found by its edition's
 -- Goodreads id, one by ISBN with a rating of 3, one by its Goodreads link,
--- one to stop reading, and two books of one title by two authors.
+-- one to stop reading, two books of one title by two authors, and a to-read
+-- book for Up Next.
 --   docker exec -i <container> psql -U durtal_preview -d durtal_preview < scripts/qa/reading-import-journey.sql
 do $$
 declare
@@ -25,6 +26,11 @@ begin
   insert into works(title, slug) values ('Import Journey Dropped', 'import-journey-dropped') returning id into w;
   insert into work_authors(work_id, author_id, role) values (w, a, 'author');
   insert into editions(work_id, title, language, goodreads_id) values (w, 'Import Journey Dropped', 'en', '9000004');
+
+  -- A to-read book for Up Next (SLN-452)
+  insert into works(title, slug) values ('Import Journey Shelf', 'import-journey-shelf') returning id into w;
+  insert into work_authors(work_id, author_id, role) values (w, a, 'author');
+  insert into editions(work_id, title, language, page_count) values (w, 'Import Journey Shelf', 'en', 250);
 
   insert into works(title, slug) values ('Import Journey Twin', 'import-journey-twin-by-journey-author') returning id into w;
   insert into work_authors(work_id, author_id, role) values (w, a, 'author');

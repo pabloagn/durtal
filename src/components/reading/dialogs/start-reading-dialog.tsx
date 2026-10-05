@@ -57,12 +57,20 @@ export function startPosition(
 }
 
 /** Start a reading: where, which edition and copy, the format, the pages, when and from where */
-export function StartReadingDialog({ data, home: storedHome, setHome, onClose, changed }: ReadingDialogProps) {
+export function StartReadingDialog({ data, request, home: storedHome, setHome, onClose, changed }: ReadingDialogProps) {
   const lastEditionId = data.rows.find((r) => r.reading.editionId)?.reading.editionId ?? null;
   const [home, setHomeState] = useState<string>(storedHome ?? data.homes[0]?.id ?? NOT_HOME);
   const homeId = home === NOT_HOME ? null : home;
   const initial = useMemo(
-    () => pickDefaultEdition(data.editions, { homeId, lastReadingEditionId: lastEditionId }),
+    () => {
+      // The edition queued in Up Next, with its copy at hand, else its first copy held
+      const queued = request.editionId ? data.editions.find((e) => e.id === request.editionId) : null;
+      if (queued) {
+        const held = queued.copies.filter((c) => c.status !== "deaccessioned").sort((a, b) => Number(b.status === "available") - Number(a.status === "available"));
+        return { editionId: queued.id, instanceId: (queued.copies.find((c) => isAtHand(c, homeId)) ?? held[0])?.id ?? null };
+      }
+      return pickDefaultEdition(data.editions, { homeId, lastReadingEditionId: lastEditionId });
+    },
     // The default is chosen when the dialog opens and when the home changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home],
@@ -132,7 +140,7 @@ export function StartReadingDialog({ data, home: storedHome, setHome, onClose, c
     if (position.error) return;
     setSaving(true);
     try {
-      await startReading({
+      const started = await startReading({
         workId: data.workId,
         editionId: editionId || null,
         instanceId: instanceId || null,
@@ -146,7 +154,7 @@ export function StartReadingDialog({ data, home: storedHome, setHome, onClose, c
         ...position.value,
         timeZone: browserZone(),
       });
-      toast.success(`Started ${data.workTitle}`);
+      toast.success(started.unqueued ? `Started ${data.workTitle} · removed from Up Next` : `Started ${data.workTitle}`);
       onClose();
       changed();
     } catch (err) {

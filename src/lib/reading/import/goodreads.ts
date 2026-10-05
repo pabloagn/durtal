@@ -1,4 +1,4 @@
-import { goodreadsReadingKey } from "../source-keys";
+import { goodreadsReadingKey, goodreadsToReadKey } from "../source-keys";
 import type { ReadingStatus } from "../constants";
 import { datesError, day, halfStar, int, isbns, review, text } from "./fields";
 import type { ImportReading, ImportRow, ParsedFile } from "./types";
@@ -90,7 +90,10 @@ export function mapGoodreads(headers: string[], records: Record<string, string>[
       return row;
     }
     if (exclusive === "to-read") {
+      // Up Next (SLN-452), oldest added first
       row.kind = "to_read";
+      row.queueKey = goodreadsToReadKey(identity);
+      row.addedOn = day(r["Date Added"]);
       return row;
     }
     const abandoned = shelves.some((s) => ABANDON_SHELVES.includes(s));

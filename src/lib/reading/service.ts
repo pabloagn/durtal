@@ -10,6 +10,7 @@ import {
   locations,
   readingSessions,
   readingStatusHistory,
+  readingQueue,
   readings,
   works,
 } from "@/lib/db/schema";
@@ -231,11 +232,11 @@ export function openReadingMessage(status: string) {
 export async function createReading(
   raw: CreateReadingInput,
   opts: { source: ReadingSource; sourceKey?: string | null; importId?: string | null },
-): Promise<ReadingWithFingerprint> {
+): Promise<ReadingWithFingerprint & { unqueued: boolean }> {
   const input = createReadingSchema.parse(raw);
   if (opts.sourceKey) {
     const [existing] = await db.select({ id: readings.id }).from(readings).where(eq(readings.sourceKey, opts.sourceKey));
-    if (existing) return (await loadReading(existing.id))!;
+    if (existing) return { ...(await loadReading(existing.id))!, unqueued: false };
   }
   if (!(await requireReadableWorks([input.workId])).has(input.workId)) throw new Error("Only books can be read");
   const open = await openReadingOf(input.workId);
@@ -275,7 +276,7 @@ export async function createReading(
   const start = anyStart ? completePosition(given, totals) : { page: null, percent: null, minutes: null };
   const id = randomUUID();
   const status = input.status ?? "reading";
-  await withReadableErrors(() =>
+  const results = await withReadableErrors(() =>
     atomic((d) => [
       d.insert(readings).values({
         id,
@@ -300,9 +301,12 @@ export async function createReading(
         importId: opts.importId ?? null,
       }),
       d.insert(readingStatusHistory).values({ readingId: id, fromStatus: null, toStatus: status, notes: `Started (${opts.source})` }),
+      // Starting a book takes it off Up Next (SLN-452)
+      d.delete(readingQueue).where(eq(readingQueue.workId, input.workId)).returning({ id: readingQueue.id }),
     ]),
   );
-  return (await loadReading(id))!;
+  const unqueued = ((results as unknown[])[2] as unknown[] | undefined)?.length ? true : false;
+  return { ...(await loadReading(id))!, unqueued };
 }
 
 export interface UndoProgress {
@@ -595,6 +599,8 @@ export interface WriteOutcome {
   match?: { readingId: string; reason: string };
   reason?: string;
   bookRating?: { before: number | null; after: number | null };
+  /** An open row started a book that was in Up Next, which it left (SLN-452) */
+  unqueued?: true;
 }
 
 const CHUNK = 100;
@@ -680,6 +686,11 @@ export async function writeReadings(
   const toWrite = parsed
     .map((row, i) => ({ row, i }))
     .filter((x): x is { row: NonNullable<typeof x.row>; i: number } => !!x.row && !outcomes[x.i]);
+  // Books an open row starts, and which of them are in Up Next (SLN-452)
+  const openWorkIds = [...new Set(toWrite.filter((x) => isOpenStatus(x.row.status)).map((x) => x.row.workId))];
+  const queued = openWorkIds.length
+    ? new Set((await db.select({ workId: readingQueue.workId }).from(readingQueue).where(inArray(readingQueue.workId, openWorkIds))).map((r) => r.workId))
+    : new Set<string>();
   for (let at = 0; at < toWrite.length; at += CHUNK) {
     const chunk = toWrite.slice(at, at + CHUNK).map(({ row, i }) => {
       const id = randomUUID();
@@ -745,6 +756,10 @@ export async function writeReadings(
           ...(bookRating && bookRating.after !== bookRating.before
             ? [d.update(works).set({ rating: bookRating.after, updatedAt: new Date() }).where(eq(works.id, row.workId))]
             : []),
+          // An open row starts the book: it leaves Up Next, only when the row was written
+          ...(isOpenStatus(row.status)
+            ? [d.execute(sql`delete from reading_queue where work_id = ${row.workId}::uuid and exists (select 1 from readings where id = ${id}::uuid)`)]
+            : []),
         ]),
       ),
     );
@@ -760,7 +775,12 @@ export async function writeReadings(
       outcomes[c.i] =
         keyedId && keyedId !== c.id
           ? { outcome: "already_present", match: { readingId: keyedId, reason: "Same source" } }
-          : { outcome: "written", readingId: c.id, ...(c.bookRating ? { bookRating: c.bookRating } : {}) };
+          : {
+              outcome: "written",
+              readingId: c.id,
+              ...(c.bookRating ? { bookRating: c.bookRating } : {}),
+              ...(isOpenStatus(c.row.status) && queued.has(c.row.workId) ? { unqueued: true } : {}),
+            };
     }
   }
   return outcomes.map((o) => o ?? { outcome: "refused", reason: "Not written" });

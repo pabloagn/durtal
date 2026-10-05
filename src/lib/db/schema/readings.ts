@@ -25,6 +25,7 @@ import {
   READING_STATUSES,
   READING_UNITS,
   SESSION_SOURCES,
+  QUEUE_SOURCES,
 } from "@/lib/reading/constants";
 
 /** A list of allowed values for a CHECK: ('a','b') */
@@ -215,6 +216,38 @@ export const readingStatusHistory = pgTable(
   ],
 );
 
+/**
+ * Up Next (SLN-452): the books he wants to read next, in his order. One row
+ * per book, separate from what he wants to buy: it never changes
+ * catalogue_status. Positions leave gaps of QUEUE_GAP so a move takes the
+ * middle; a full renumber restores them. A guard trigger keeps the edition
+ * on the row's book (migration 0068).
+ */
+export const readingQueue = pgTable(
+  "reading_queue",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workId: uuid("work_id")
+      .notNull()
+      .unique()
+      .references(() => works.id, { onDelete: "cascade" }),
+    /** The edition he means to read; null leaves the choice to the Start dialog */
+    editionId: uuid("edition_id").references(() => editions.id, { onDelete: "set null" }),
+    position: integer("position").notNull(),
+    note: text("note"),
+    source: text("source", { enum: QUEUE_SOURCES }).notNull().default("manual"),
+    importId: uuid("import_id").references(() => imports.id, { onDelete: "set null" }),
+    /** Built only by goodreadsToReadKey and storygraphToReadKey */
+    sourceKey: text("source_key").unique(),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("reading_queue_position_idx").on(t.position),
+    check("reading_queue_source_check", sql`${t.source} in ${list(QUEUE_SOURCES)}`),
+    check("reading_queue_note_check", sql`${t.note} is null or length(${t.note}) <= 500`),
+  ],
+);
+
 export const readingsRelations = relations(readings, ({ one, many }) => ({
   work: one(works, { fields: [readings.workId], references: [works.id] }),
   edition: one(editions, { fields: [readings.editionId], references: [editions.id] }),
@@ -231,4 +264,9 @@ export const readingSessionsRelations = relations(readingSessions, ({ one }) => 
 
 export const readingStatusHistoryRelations = relations(readingStatusHistory, ({ one }) => ({
   reading: one(readings, { fields: [readingStatusHistory.readingId], references: [readings.id] }),
+}));
+
+export const readingQueueRelations = relations(readingQueue, ({ one }) => ({
+  work: one(works, { fields: [readingQueue.workId], references: [works.id] }),
+  edition: one(editions, { fields: [readingQueue.editionId], references: [editions.id] }),
 }));

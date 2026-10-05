@@ -12,7 +12,9 @@ import {
   type FoundHow,
   type ImportMatch,
   type MatchCandidate,
+  type QueueState,
 } from "./match-rules";
+import { lastFinishedOnSql } from "../summary";
 import type { ImportRow, ImportSource } from "./types";
 
 /*
@@ -314,8 +316,40 @@ export async function withVerdicts(source: ImportSource, rows: MatchedRow[]): Pr
     const ordered = [...bookRows].sort((a, b) => a.rowNo - b.rowNo);
     bookVerdicts(source, ordered.map((r) => r.data), existing.get(workId) ?? []).forEach((v, k) => verdicts.set(ordered[k].rowNo, v));
   }
+  const queued = await queueStates(rows.filter((r) => r.data.kind === "to_read" && r.data.queueKey && !r.data.error));
   return rows.map((r) => {
     const v = verdicts.get(r.rowNo) ?? [];
-    return { ...r.match, verdicts: v, ...sectionOf(r.data, r.match.found, r.workId, v) };
+    const queue = r.data.kind === "to_read" && r.workId ? (queued(r.workId, r.data.queueKey ?? null) ?? null) : null;
+    return { ...r.match, verdicts: v, queue, ...sectionOf(r.data, r.match.found, r.workId, v, queue) };
   });
+}
+
+/**
+ * Where to-read rows' books stand (SLN-452): each one's place in Up Next,
+ * whether the row's own key is there, an open reading, the last finish year.
+ * Up Next is short, so its order comes whole in one query.
+ */
+async function queueStates(rows: MatchedRow[]): Promise<(workId: string, key: string | null) => QueueState | undefined> {
+  if (!rows.length) return () => undefined;
+  const queue = resultRows<{ workId: string; place: number; sourceKey: string | null }>(
+    await db.execute(sql`select work_id::text as "workId", (row_number() over (order by position, work_id))::int as place, source_key as "sourceKey" from reading_queue`),
+  );
+  const place = new Map(queue.map((q) => [q.workId, q.place]));
+  const keys = new Set(queue.map((q) => q.sourceKey).filter(Boolean));
+  const workIds = unique(rows.map((r) => r.workId).filter((id): id is string => !!id));
+  const states = new Map<string, { open: "reading" | "paused" | null; readYear: string | null }>();
+  for (const batch of batches(workIds)) {
+    const found = resultRows<{ workId: string; open: "reading" | "paused" | null; readYear: string | null }>(
+      await db.execute(sql`
+        select w.id::text as "workId",
+          (select r.status from readings r where r.work_id = w.id and r.status in ('reading', 'paused') limit 1) as open,
+          left(${lastFinishedOnSql(sql`w.id`)}, 4) as "readYear"
+        from works w where w.id in (select value::uuid from jsonb_array_elements_text(${json(batch)}::jsonb))`),
+    );
+    for (const { workId, ...state } of found) states.set(workId, state);
+  }
+  return (workId, key) => {
+    const state = states.get(workId);
+    return { place: place.get(workId) ?? null, sameKey: !!key && keys.has(key), open: state?.open ?? null, readYear: state?.readYear ?? null };
+  };
 }

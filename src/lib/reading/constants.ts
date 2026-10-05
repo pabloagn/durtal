@@ -43,6 +43,12 @@ export type ReadingSource = (typeof READING_SOURCES)[number];
 export const SESSION_SOURCES = ["manual", "timer", "reader", "import"] as const;
 export type SessionSource = (typeof SESSION_SOURCES)[number];
 
+/** Where an Up Next item came from (SLN-452) */
+export const QUEUE_SOURCES = ["manual", "import", "suggestion"] as const;
+export type QueueSource = (typeof QUEUE_SOURCES)[number];
+/** The gap between Up Next positions: a move between two items takes the middle */
+export const QUEUE_GAP = 1024;
+
 /** A book's reading state, derived from its readings */
 export const WORK_READING_STATES = ["unread", "reading", "paused", "read", "abandoned"] as const;
 export type WorkReadingState = (typeof WORK_READING_STATES)[number];

@@ -1,4 +1,4 @@
-import { storygraphReadingKey } from "../source-keys";
+import { storygraphReadingKey, storygraphToReadKey } from "../source-keys";
 import type { ReadingFormat, ReadingStatus } from "../constants";
 import { datesError, day, halfStar, int, isbns, review, shown, text } from "./fields";
 import type { ImportReading, ImportRow, ParsedFile } from "./types";
@@ -120,7 +120,10 @@ export function mapStorygraph(headers: string[], records: Record<string, string>
       return row;
     }
     if (status === "to_read") {
+      // Up Next (SLN-452), oldest added first
       row.kind = "to_read";
+      row.queueKey = storygraphToReadKey({ title, firstAuthor, isbn13 });
+      row.addedOn = day(r["Date Added"]);
       return row;
     }
     const make = (n: number, s: ReadingStatus, start: string | null, finish: string | null, note?: string): ImportReading => ({
