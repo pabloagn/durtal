@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bookVerdicts, defaultDecision, judgeCandidates, matchTitle, onlyUndated, sectionOf } from "@/lib/reading/import/match-rules";
 import { addBookHref, cannotCarry, commitWords, fileLine, ratingLine, summaryLine, writeLine } from "@/lib/reading/import/preview-text";
+import { rowView } from "@/lib/reading/import/row-view";
 import type { ImportReading } from "@/lib/reading/import/types";
 
 /* The import's pure rules and words (SLN-450): title normalization, the
@@ -170,5 +171,73 @@ describe("the preview's words", () => {
     expect(cannotCarry("storygraph", { wantToRead: 0, privateNotes: 0, extras: 3 }, [])[1]).toBe(
       "Moods, pace, character questions, content warnings and tags of 3 books are kept but not imported.",
     );
+  });
+});
+
+describe("a row as the page sends it", () => {
+  const today = "2026-10-05";
+  const base = {
+    rowNo: 3,
+    section: "exact" as const,
+    data: {
+      kind: "readings" as const,
+      sourceBookId: "77",
+      title: "Watt",
+      authors: ["Samuel Beckett"],
+      isbn13: "9780140449136",
+      isbn10: null,
+      fileRating: 4,
+      rating: 4,
+      shelves: [],
+      pages: null,
+      extras: {},
+      workId: null,
+      editionId: null,
+      instanceId: null,
+      warnings: [],
+      error: null,
+      hasNotes: false,
+      readings: [{ ...reading({ finishedOn: "2019-04-14", finishedPrecision: "day", rating: 4 }), hasReview: false }],
+    },
+    match: {
+      found: "exact" as const,
+      reason: "Same ISBN",
+      chosen: false,
+      editionId: "e",
+      instanceId: null,
+      candidates: [],
+      verdicts: [{ n: 1, verdict: "new" as const, reason: null, readingId: null }],
+      section: "exact" as const,
+      note: null,
+      warnings: [],
+    },
+    decision: "import" as const,
+    useFileRating: false,
+    written: null,
+    book: { workId: "w", title: "Watt", slug: "watt", author: "Samuel Beckett", year: 1953, cover: null, rating: 3, editionWithoutGoodreads: true },
+    candidates: [],
+  };
+  it("carries the words, the book and only the buttons the row has", () => {
+    expect(rowView(base, today)).toEqual({
+      rowNo: 3,
+      title: "Watt",
+      line: "Samuel Beckett · Finished 14 Apr 2019 · 4 stars",
+      book: { href: "/library/watt", title: "Watt", line: "Samuel Beckett · 1953", cover: null },
+      lines: [
+        ["reason", "Same ISBN"],
+        ["writes", "Finished 14 Apr 2019 · 4 stars"],
+        ["rating", "Book rating 3 kept (the file says 4)"],
+        ["note", "Records Goodreads id 77 on this edition"],
+      ],
+      actions: { decision: "import", canImport: true, canChoose: true, ratingChoice: false },
+    });
+  });
+  it("shows a written row's outcome and no buttons", () => {
+    const view = rowView({ ...base, written: { readings: [{ n: 1, outcome: "written", readingId: "r", reason: null }], bookRating: null, identifiers: [] } }, today);
+    expect([view.lines, view.actions]).toEqual([[["reason", "Same ISBN"], ["outcome", "Written"]], null]);
+  });
+  it("offers Add this book on a row not in Durtal", () => {
+    const view = rowView({ ...base, section: "none", book: null, match: { ...base.match, found: "none", reason: null, verdicts: [] } }, today);
+    expect(view).toMatchObject({ empty: "Not in Durtal", actions: { decision: "import", canChoose: true, addHref: "/library/new?isbn=9780140449136" } });
   });
 });
