@@ -250,6 +250,46 @@ dialog::backdrop {
    opaque and the glass itself fades, as a backdrop filter has nothing to
    blur while an ancestor's opacity is under 1 (the blur would pop in at the
    end of the fade). */
+/* FadeImage: the fade-in and the hover zoom, one class instead of a long
+   arbitrary value on every card's image (page weight, SLN-381) */
+@utility fade-image {
+  transition: opacity 150ms ease-out, transform 300ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* CapAligned's inner box, one class on every card (page weight, SLN-381) */
+@utility cap-box {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: 0.5cap;
+  & :focus-visible {
+    outline-offset: -1px;
+  }
+}
+
+/* A 28px glass button on a card (copy, actions). The element keeps the
+   glass-chip class itself: hover-reveal-glass looks for it */
+@utility chip-button {
+  @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border text-fg-primary hover:glass-chip-lift;
+}
+
+/* The shadow and hairline ring under a book cover */
+@utility cover-shadow {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 2px 16px rgba(0, 0, 0, 0.55);
+}
+
+/* An icon drawn from the sprite (IconSprite in the root layout): the Lucide
+   stroke, 1.5px, without repeating its markup on every card */
+@utility sprite-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 @utility hover-reveal-glass {
   & .glass-chip {
     opacity: 0;

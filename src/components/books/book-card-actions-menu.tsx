@@ -1,9 +1,9 @@
 "use client";
 
+import { SpriteIcon } from "@/components/ui/sprite-icon";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  MoreVertical,
   Pencil,
   Trash2,
   RefreshCw,
@@ -62,8 +62,9 @@ export function BookCardActionsMenu({
         side="top"
         label="Actions"
         trigger={
-          <button className="flex h-7 w-7 items-center justify-center rounded-[2px] border glass-chip text-fg-primary hover:glass-chip-lift">
-            <MoreVertical className="h-4 w-4" strokeWidth={1.5} />
+          <button className="flex chip-button glass-chip">
+            {/* From the sprite: this menu repeats on every card */}
+            <SpriteIcon name="ellipsis-vertical" className="h-4 w-4" />
           </button>
         }
       >
