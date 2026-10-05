@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { n } from "@/lib/reading/charts";
 
 /*
  * The stats pages' plain parts (SLN-456): number tiles, ranked lists with a
@@ -74,4 +75,21 @@ export function Footnote({ children }: { children: ReactNode }) {
 /** "3 audiobooks are not counted in pages" */
 export function audioNote(count: number) {
   return count ? `${count} ${count === 1 ? "audiobook is" : "audiobooks are"} not counted in pages.` : null;
+}
+
+/** People linking to their pages, at most `max`, then "and 273 more": a year of hundreds of new authors stays within the page budget */
+export function NameList({ people, max = 24 }: { people: { authorId: string; name: string; slug: string }[]; max?: number }) {
+  return (
+    <>
+      {people.slice(0, max).map((a, i) => (
+        <span key={a.authorId}>
+          {i > 0 && ", "}
+          <Link href={`/people/${a.slug}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+            {a.name}
+          </Link>
+        </span>
+      ))}
+      {people.length > max && `, and ${n(people.length - max)} more`}
+    </>
+  );
 }

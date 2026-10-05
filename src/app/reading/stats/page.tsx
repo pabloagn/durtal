@@ -9,7 +9,7 @@ import { GoalCards } from "@/components/reading/goal-card";
 import { BarChart } from "@/components/reading/charts/bar-chart";
 import { CalendarHeatmap } from "@/components/reading/charts/calendar-heatmap";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { Footnote, NumberTiles, RankList, StatsSection, audioNote } from "@/components/reading/stats-parts";
+import { Footnote, NameList, NumberTiles, RankList, StatsSection, audioNote } from "@/components/reading/stats-parts";
 import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { readingDay } from "@/lib/reading/dates";
@@ -394,16 +394,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             </div>
             {authors.newAuthors.length > 0 && (
               <p className="text-sm text-fg-secondary" data-stats-new-authors="">
-                New authors in {year}:{" "}
-                {authors.newAuthors.map((a, i) => (
-                  <span key={a.authorId}>
-                    {i > 0 && ", "}
-                    <Link href={`/people/${a.slug}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
-                      {a.name}
-                    </Link>
-                  </span>
-                ))}
-                .
+                New authors in {year}: <NameList people={authors.newAuthors} />.
               </p>
             )}
           </StatsSection>

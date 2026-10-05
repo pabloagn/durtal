@@ -8,7 +8,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { Cover } from "@/components/reading/reading-tiles";
 import { PrintButton } from "@/components/reading/print-button";
-import { Footnote, NumberTiles, StatsSection, audioNote } from "@/components/reading/stats-parts";
+import { Footnote, NameList, NumberTiles, StatsSection, audioNote } from "@/components/reading/stats-parts";
 import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { MONTHS, finishText, n, yearRhythm } from "@/lib/reading/charts";
@@ -201,16 +201,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
               )}
               {authors.newAuthors.length > 0 && (
                 <p data-review-new-authors="">
-                  {n(authors.newAuthors.length)} new {authors.newAuthors.length === 1 ? "author" : "authors"}:{" "}
-                  {authors.newAuthors.map((a, i) => (
-                    <span key={a.authorId}>
-                      {i > 0 && ", "}
-                      <Link href={`/people/${a.slug}`} className={link}>
-                        {a.name}
-                      </Link>
-                    </span>
-                  ))}
-                  .
+                  {n(authors.newAuthors.length)} new {authors.newAuthors.length === 1 ? "author" : "authors"}: <NameList people={authors.newAuthors} />.
                 </p>
               )}
               {authors.countries.length > 0 && (
