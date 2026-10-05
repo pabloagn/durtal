@@ -18,7 +18,10 @@ import { PREFERENCE_COOKIE_PREFIX } from "@/lib/utils/preference-cookies";
 import { getAppSettings } from "@/lib/actions/settings";
 import { AppSettingsProvider } from "@/lib/hooks/use-app-settings";
 
-const serif = localFont({
+// next/font names the family after this variable. It must not be a generic
+// family ("serif"): Safari writes the computed family without quotes, and a
+// script that reads it back (a canvas measuring the font) gets Times instead
+const cirka = localFont({
   src: [
     {
       path: "../../public/fonts/PPCirka/PPCirka-Light.otf",
@@ -79,7 +82,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${serif.variable} ${sans.variable} ${mono.variable}`}
+      className={`dark ${cirka.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>
         <link

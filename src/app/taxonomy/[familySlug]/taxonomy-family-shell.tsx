@@ -286,6 +286,7 @@ export function TaxonomyFamilyShell({
 
         {/* Sort dropdown */}
         <select
+          aria-label="Sort"
           value={sortMode}
           onChange={(e) => setFilter("sort", e.target.value)}
           className="h-8 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-sm text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"

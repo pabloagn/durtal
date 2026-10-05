@@ -413,7 +413,7 @@ export function WorkForm({
                 placeholder="Personal notes"
               />
               <div>
-                <label className="type-label mb-1.5 block">
+                <label htmlFor={id("recommender")} className="type-label mb-1.5 block">
                   Recommended by
                 </label>
                 {values.recommenderIds.length > 0 && (
@@ -446,6 +446,7 @@ export function WorkForm({
                   </div>
                 )}
                 <select
+                  id={id("recommender")}
                   value=""
                   onChange={(e) => {
                     const val = e.target.value;
@@ -494,6 +495,7 @@ export function WorkForm({
                     {author.name}
                   </span>
                   <select
+                    aria-label={`Role of ${author.name}`}
                     value={author.role}
                     onChange={(e) => updateAuthorRole(author.id, e.target.value)}
                     className="h-7 appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"

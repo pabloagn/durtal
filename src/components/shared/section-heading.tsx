@@ -1,4 +1,5 @@
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { isValidElement } from "react";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 
 /**
  * The title of a block on a page. Every section title has the same size,
@@ -8,7 +9,8 @@ import { CapAligned } from "@/components/shared/cap-aligned";
  * (a button, a link, carousel arrows) sits at the right.
  *
  * An icon-only action must sit on the title's cap-height center: wrap it in
- * `<CapAligned height={…} className="type-section-title">`.
+ * `<CapAligned height={…} className="type-section-title">`. Such an action
+ * stays on the title's first line when the title wraps.
  *
  * As an h3 it titles a block inside a titled section, in the item title role
  * (`headingRole("h3")`); the same rules apply with that class.
@@ -69,7 +71,19 @@ export function SectionHeading({
           <p className="mt-1 text-sm text-fg-secondary">{description}</p>
         )}
       </div>
-      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+      {action && (
+        // A cap-aligned action is one title line tall: it stays on the first
+        // line when the title wraps (a phone), not halfway down the title
+        <div
+          className={`flex shrink-0 items-center gap-2 ${
+            isValidElement(action) && (action.type === CapAligned || action.type === CapAlignedControls)
+              ? "self-start"
+              : ""
+          }`}
+        >
+          {action}
+        </div>
+      )}
     </div>
   );
 }
