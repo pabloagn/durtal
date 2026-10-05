@@ -10,7 +10,7 @@
 ## Overview
 
 SLN-381 remainder. `/library` weighed 308-313 KB against its 300 KB budget
-(`scripts/qa/page-weight.json`). It now weighs about 284 KB, with every
+(`scripts/qa/page-weight.json`). It now weighs 294 KB on the 2026-10-05 dump, with every
 feature kept.
 
 ## Implementation Details
