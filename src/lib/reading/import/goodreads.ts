@@ -6,7 +6,8 @@ import type { ImportReading, ImportRow, ParsedFile } from "./types";
 /*
  * A Goodreads export (SLN-450). Goodreads keeps only the last read date: a
  * Read Count above 1 becomes earlier finished reads with unknown dates,
- * numbered before the dated one. Most rows have no start date.
+ * numbered before the dated one. Most rows have no start date. `Number of
+ * Pages` stays on the row: the commit uses it only when the edition has none.
  */
 
 const ABANDON_SHELVES = ["did-not-finish", "dnf", "abandoned", "abandon"];
@@ -101,7 +102,6 @@ export function mapGoodreads(headers: string[], records: Record<string, string>[
       startedPrecision: started ? "day" : "unknown",
       finishedOn: status === "finished" || status === "abandoned" ? finished : null,
       finishedPrecision: (status === "finished" || status === "abandoned") && finished ? "day" : "unknown",
-      totalPages: pages,
       rating: status === "finished" ? rating : null,
       reviewHtml,
       sourceKey: key(n),
@@ -109,7 +109,6 @@ export function mapGoodreads(headers: string[], records: Record<string, string>[
     const earlier = (count: number) =>
       Array.from({ length: count }, (_, i): ImportReading => ({
         ...base(i + 1, "finished"),
-        totalPages: pages,
         sourceKey: key(i + 1),
         note: "Earlier read, date unknown",
       }));
