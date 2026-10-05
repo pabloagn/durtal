@@ -13,7 +13,7 @@ const actions = vi.hoisted(() => ({
   reopenReading: vi.fn(async () => ({ reading: {}, message: null as string | null })),
   abandonReading: vi.fn(),
   pauseReading: vi.fn(),
-  startReading: vi.fn(async () => ({})),
+  startReading: vi.fn(async (_input: Record<string, unknown>) => ({})),
   getNextInSeries: vi.fn(async () => null),
   findPageCount: vi.fn(async () => null),
 }));
