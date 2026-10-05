@@ -22,12 +22,15 @@ import { queueAtHand, queueEdition, queueSummary, queueWhereabouts, readHistory,
 
 export const metadata = { title: "Up next" };
 
+/** Rows a page shows at first and each "Show more" adds: a long list stays within the page budget */
+const QUEUE_PAGE = 50;
+
 /*
  * Up Next (SLN-452): the books he wants to read next, in his order, with
  * where each copy is and how long the list would take at his pace.
  */
-export default async function UpNextPage({ searchParams }: { searchParams: Promise<{ hand?: string }> }) {
-  const { hand } = await searchParams;
+export default async function UpNextPage({ searchParams }: { searchParams: Promise<{ hand?: string; show?: string }> }) {
+  const { hand, show } = await searchParams;
   let stored: string | null = null;
   try {
     const raw = (await cookies()).get(READING_HOME_KEY)?.value;
@@ -40,7 +43,7 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
   const home = homes.find((h) => h.id === stored) ?? null;
   const [items, pace, today] = await Promise.all([getQueue({ homeId: home?.id ?? null }), getPaceContext([]), readingToday()]);
 
-  const rows = items.map((item) => {
+  const rows = items.map((item, i) => {
     const edition = queueEdition(item.editions, item.editionId, home?.id ?? null);
     const copy = edition?.copies.find((c) => c.status !== "deaccessioned");
     const format = edition?.audioMinutes ? "audio" : formatOfCopy(copy?.format);
@@ -48,6 +51,7 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
     const length = edition?.audioMinutes ? formatMinutes(edition.audioMinutes) : edition?.pageCount ? `${edition.pageCount} p.` : null;
     const row: QueueRow = {
       workId: item.workId,
+      place: i + 1,
       title: item.title,
       href: `/library/${item.slug ?? item.workId}`,
       author: item.author,
@@ -65,7 +69,12 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
     return { row, time, atHand: queueAtHand(item.editions, home?.id ?? null) };
   });
   const handOnly = !!home && hand === "1";
-  const shown = handOnly ? rows.filter((r) => r.atHand) : rows;
+  // At hand first, then the first 50 (or as many as "Show more" asked for)
+  const matching = handOnly ? rows.filter((r) => r.atHand) : rows;
+  const limit = Math.max(QUEUE_PAGE, Math.floor(Number(show)) || 0);
+  const shown = matching.slice(0, limit);
+  const remaining = matching.length - shown.length;
+  const more = new URLSearchParams({ ...(handOnly ? { hand: "1" } : {}), show: String(limit + QUEUE_PAGE) });
 
   return (
     <>
@@ -90,7 +99,19 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
             <QueueHomeFilter home={home} homes={homes} on={handOnly} />
           </div>
           {shown.length ? (
-            <QueueList key={handOnly ? "hand" : "all"} rows={shown.map((r) => r.row)} />
+            <>
+              <QueueList key={handOnly ? "hand" : "all"} rows={shown.map((r) => r.row)} filtered={handOnly} />
+              {remaining > 0 && (
+                <Link
+                  href={`/reading/next?${more.toString()}`}
+                  scroll={false}
+                  className="inline-flex h-8 items-center text-sm text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:h-11"
+                  data-queue-more=""
+                >
+                  Show {Math.min(QUEUE_PAGE, remaining)} more
+                </Link>
+              )}
+            </>
           ) : (
             <p className="text-sm text-fg-secondary">Nothing in Up Next is at hand in {home?.name}.</p>
           )}

@@ -35,6 +35,8 @@ import { Cover } from "./reading-tiles";
 
 export interface QueueRow {
   workId: string;
+  /** Its place in all of Up Next, 1 for the top: what a filtered list shows */
+  place: number;
   title: string;
   href: string;
   author: string | null;
@@ -54,15 +56,21 @@ function placeWords(title: string, place: number, total: number) {
 
 function Row({
   row,
-  place,
+  index,
+  shownPlace,
   total,
   onMove,
+  onTop,
   onRemove,
 }: {
   row: QueueRow;
-  place: number;
+  /** Its place among the rows shown, 1 for the first */
+  index: number;
+  /** The number it shows: its place in all of Up Next under a filter, else its index */
+  shownPlace: number;
   total: number;
   onMove: (workId: string, to: number) => void;
+  onTop: (workId: string) => void;
   onRemove: (row: QueueRow) => void;
 }) {
   const { open } = useReadingDialogs();
@@ -90,7 +98,7 @@ function Row({
         </button>
       </CapAligned>
       <span className="w-6 shrink-0 text-right text-sm tabular-nums text-fg-secondary" data-queue-place="">
-        {place}
+        {shownPlace}
       </span>
       <Cover s3Key={row.cover} className="h-16 w-11" />
       <div className="min-w-0 flex-1 space-y-0.5">
@@ -127,9 +135,9 @@ function Row({
               </button>
             }
           >
-            {place > 1 && <DropdownMenuItem onClick={() => onMove(row.workId, 1)}>Move to top</DropdownMenuItem>}
-            {place > 1 && <DropdownMenuItem onClick={() => onMove(row.workId, place - 1)}>Move up</DropdownMenuItem>}
-            {place < total && <DropdownMenuItem onClick={() => onMove(row.workId, place + 1)}>Move down</DropdownMenuItem>}
+            {shownPlace > 1 && <DropdownMenuItem onClick={() => onTop(row.workId)}>Move to top</DropdownMenuItem>}
+            {index > 1 && <DropdownMenuItem onClick={() => onMove(row.workId, index - 1)}>Move up</DropdownMenuItem>}
+            {index < total && <DropdownMenuItem onClick={() => onMove(row.workId, index + 1)}>Move down</DropdownMenuItem>}
             {total > 1 && <DropdownMenuSeparator />}
             <DropdownMenuItem variant="danger" onClick={() => onRemove(row)}>
               Remove from Up Next
@@ -141,7 +149,11 @@ function Row({
   );
 }
 
-export function QueueList({ rows: initial }: { rows: QueueRow[] }) {
+/**
+ * `filtered`: the rows are a part of Up Next (At hand): each shows its place
+ * in the whole list, and Move to top puts the book above every other one.
+ */
+export function QueueList({ rows: initial, filtered = false }: { rows: QueueRow[]; filtered?: boolean }) {
   const router = useRouter();
   // The order on screen; a refresh with new rows replaces it
   const [shown, setShown] = useState({ from: initial, rows: initial });
@@ -161,16 +173,24 @@ export function QueueList({ rows: initial }: { rows: QueueRow[] }) {
     triggerActivityRefresh();
   };
 
-  /** Saves the row at its new index, between its new neighbours; puts it back on a refusal */
-  async function save(workId: string, from: number, to: number) {
-    if (from === to) return;
+  /**
+   * Saves the row at its new index, between its new neighbours (none: the top
+   * of all of Up Next); puts it back on a refusal
+   */
+  async function save(workId: string, from: number, to: number, top = false) {
+    // The first row shown under a filter may still go to the top of all of Up Next
+    if (from === to && !top) return;
     const before = rows;
     const next = arrayMove(rows, from, to);
     setRows(next);
     const message = placeWords(next[to].title, to + 1, next.length);
     setSaid(message);
     try {
-      await moveQueueItem({ workId, afterWorkId: next[to - 1]?.workId ?? null, beforeWorkId: next[to + 1]?.workId ?? null });
+      await moveQueueItem(
+        top
+          ? { workId, afterWorkId: null, beforeWorkId: null }
+          : { workId, afterWorkId: next[to - 1]?.workId ?? null, beforeWorkId: next[to + 1]?.workId ?? null },
+      );
       changed();
     } catch (err) {
       setRows(before);
@@ -221,7 +241,16 @@ export function QueueList({ rows: initial }: { rows: QueueRow[] }) {
         <SortableContext items={rows.map((r) => r.workId)} strategy={verticalListSortingStrategy}>
           <ol className="rounded-sm border border-glass-border" data-queue-list="">
             {rows.map((row, i) => (
-              <Row key={row.workId} row={row} place={i + 1} total={rows.length} onMove={(id, to) => void save(id, i, to - 1)} onRemove={(r) => void remove(r)} />
+              <Row
+                key={row.workId}
+                row={row}
+                index={i + 1}
+                shownPlace={filtered ? row.place : i + 1}
+                total={rows.length}
+                onMove={(id, to) => void save(id, i, to - 1)}
+                onTop={(id) => void save(id, i, 0, true)}
+                onRemove={(r) => void remove(r)}
+              />
             ))}
           </ol>
         </SortableContext>
