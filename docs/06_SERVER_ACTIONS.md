@@ -499,7 +499,7 @@ The book picker: books only, matched without accents on title and authors (`text
 What a reading dialog needs for a book opened away from its page (the hub, the dashboard, the palette, `?then=`): its readings (as `getReadingsForWork`), its editions with their copies ranked by the "I'm at" home, the homes, its rating, today's reading day and the zone. `ReadingDialogsProvider` calls it when a dialog opens and after each write.
 
 ### `getReadingSummaries(workIds)` (SLN-449)
-The library list's and table's reading for one page of books (at most 100 uuids), in one query: `{ state, timesRead, lastFinishedOn, lastFinishedPrecision, lastReadAt, percent }` by work id. `LibraryView` calls it only while the list or table view shows.
+The library list's and table's reading for one page of books (at most 192 uuids, the largest page size), in one query: `{ state, timesRead, lastFinishedOn, lastFinishedPrecision, lastReadAt, percent }` by work id. `LibraryView` calls it only while the list or table view shows.
 
 ### `getReadYearRange()` (SLN-449)
 The years with a finished reading, for the library's "Read in" range.

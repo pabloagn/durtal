@@ -192,7 +192,9 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
     expect(summaries[w.reread]).toMatchObject({ state: "read", timesRead: 2, lastFinishedOn: "2019-01-01", lastFinishedPrecision: "year", percent: null });
     expect(summaries[w.reread].lastReadAt).toMatch(/^2019-01-01/);
     expect(summaries[w.unreadOwned]).toMatchObject({ state: "unread", timesRead: 0, lastReadAt: null });
-    await expect(getReadingSummaries(Array.from({ length: 101 }, () => w.reading))).rejects.toThrow();
+    // One page of the largest size (192), not one more
+    await expect(getReadingSummaries(Array.from({ length: 192 }, () => w.reading))).resolves.toHaveProperty(w.reading);
+    await expect(getReadingSummaries(Array.from({ length: 193 }, () => w.reading))).rejects.toThrow();
   });
 
   it("counts an author's books read, a book being re-read included, and averages the books' ratings", async () => {

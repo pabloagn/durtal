@@ -20,6 +20,7 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { appTimeZone } from "@/lib/utils/date";
+import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingStatus } from "@/lib/reading/constants";
 import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
@@ -1002,10 +1003,11 @@ export interface ReadingSummaryRow {
 /**
  * The library list's and table's reading columns for one page of books
  * (SLN-449), in one query: loaded only while the list or table view shows,
- * so the grid's payload does not grow. At most 100 work ids.
+ * so the grid's payload does not grow. At most one page of the largest size
+ * (`PAGE_SIZES`, 192) of work ids.
  */
 export async function getReadingSummaries(workIds: string[]): Promise<Record<string, ReadingSummaryRow>> {
-  const ids = z.array(z.uuid()).max(100).parse(workIds);
+  const ids = z.array(z.uuid()).max(Math.max(...PAGE_SIZES)).parse(workIds);
   if (!ids.length) return {};
   const { readingStateSql, readCountSql, lastFinishedOnSql, lastFinishedPrecisionSql, lastReadAtSql, openReadingPercentSql } = await import(
     "@/lib/reading/summary"

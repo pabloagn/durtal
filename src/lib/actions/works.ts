@@ -297,7 +297,7 @@ export async function getWorks(opts?: {
     authorFirstName: orderFn(works.createdAt), // page membership is selected below
     authorLastName: orderFn(works.createdAt), // page membership is selected below
     // The later of the last finish and the last progress; never read last either way
-    lastRead: sql`${lastReadAtSql(works.id)} ${sql.raw(resolvedOrder)} nulls last`,
+    lastRead: resolvedOrder === "asc" ? sql`${lastReadAtSql(works.id)} asc nulls last` : sql`${lastReadAtSql(works.id)} desc nulls last`,
   }[sort];
 
   const where = await buildWorkConditions(search, filters);
