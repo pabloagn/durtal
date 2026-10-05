@@ -11,6 +11,8 @@ export interface SeriesItem {
   originalTitle: string | null;
   bookCount: number;
   ownedCount: number;
+  /** Volumes read at least once (SLN-449) */
+  readCount?: number;
   totalVolumes: number | null;
   isComplete: boolean;
   isFavourite: boolean;
@@ -24,9 +26,9 @@ function imageUrl(key: string) {
 function countsLabel(s: SeriesItem) {
   const books = `${s.bookCount} ${s.bookCount === 1 ? "book" : "books"}`;
   const of = s.totalVolumes ? ` of ${s.totalVolumes}` : "";
-  return s.ownedCount
-    ? `${books}${of} · ${s.ownedCount} owned`
-    : `${books}${of}`;
+  return [`${books}${of}`, s.ownedCount ? `${s.ownedCount} owned` : null, s.readCount ? `${s.readCount} read` : null]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** Grid card: the first books' covers side by side, like a shelf. */

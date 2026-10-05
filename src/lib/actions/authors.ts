@@ -445,8 +445,6 @@ export async function getAuthor(id: string) {
       workAuthors: {
         with: {
           work: {
-            // Reading (SLN-449): the cards, "Read 7 of 12" and the Reading record
-            extras: workReadingExtras,
             with: {
               editions: {
                 columns: {
@@ -489,6 +487,8 @@ export async function getAuthorBySlug(slug: string) {
       workAuthors: {
         with: {
           work: {
+            // Reading (SLN-449): the cards, "Read 7 of 12" and the Reading record
+            extras: workReadingExtras,
             with: {
               editions: {
                 columns: {

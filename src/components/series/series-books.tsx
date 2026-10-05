@@ -16,6 +16,17 @@ import {
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { readingBadge } from "@/lib/reading/card";
+
+/** A volume's reading: "Reading 44%", "Read", "Read 2×", "Abandoned" */
+const badge = (book: SeriesBook) =>
+  book.readingState
+    ? readingBadge({
+        state: book.readingState as "unread" | "reading" | "paused" | "read" | "abandoned",
+        timesRead: book.timesRead ?? 0,
+        percent: book.readingPercent ?? null,
+      })
+    : null;
 
 export interface SeriesBook {
   id: string;
@@ -27,6 +38,10 @@ export interface SeriesBook {
   coverCrop: MediaCrop | null;
   owned: boolean;
   status: string;
+  /** The volume's reading state (SLN-449) and the open reading's share */
+  readingState?: string | null;
+  timesRead?: number;
+  readingPercent?: number | null;
 }
 
 function PositionField({
@@ -142,6 +157,7 @@ export function SeriesBooks({
                   ) : (
                     <Badge variant="muted">{book.status}</Badge>
                   )}
+                  {badge(book) && <Badge variant={badge(book)!.variant}>{badge(book)!.label}</Badge>}
                   <div className="flex gap-1">
                     <Button
                       size="sm"

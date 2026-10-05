@@ -13,6 +13,8 @@ import { resultRows } from "@/lib/harmonization/store";
 import { parsePagination, type ListSearchParams, toSearchParams } from "@/lib/utils/pagination";
 import { parseMarks, type WorkMarkKey } from "@/lib/constants/marks";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
+import { openReadingPercentSql, readingStateSql } from "@/lib/reading/summary";
+import { cardReadingOf, type CardReadingValue } from "@/lib/reading/card";
 
 export const PUBLISHER_BOOK_STATES = ["owned", "wanted", "on_order"] as const;
 export type PublisherBookState = (typeof PUBLISHER_BOOK_STATES)[number];
@@ -103,6 +105,8 @@ export interface PublisherBook {
   isFavourite: boolean;
   acquisitionPriority: string | null;
   primaryEditionId: string;
+  /** An open reading (SLN-449): the card shows "Reading 44%" */
+  reading?: CardReadingValue;
 }
 
 export interface PublisherBookFacets {
@@ -222,6 +226,8 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
     is_poison: boolean;
     is_favourite: boolean;
     acquisition_priority: string | null;
+    reading_state: string | null;
+    reading_percent: number | null;
   }>(
     await db.execute(sql`select e.id as edition_id, w.id as work_id, w.slug, w.title,
         (select array_agg(a.name order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id) as authors,
@@ -231,7 +237,8 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
           from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1) as poster,
         e.publication_year as year, e.language,
         (select count(*)::int from instances i where i.edition_id = e.id and i.status <> 'deaccessioned') as copies,
-        w.rating::float8 as rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.is_favourite, w.acquisition_priority
+        w.rating::float8 as rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.is_favourite, w.acquisition_priority,
+        ${readingStateSql(sql`w.id`)} as reading_state, ${openReadingPercentSql(sql`w.id`)} as reading_percent
       from editions e join works w on w.id = e.work_id
       where e.id in (${ids})`),
   );
@@ -258,6 +265,7 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
       isFavourite: r.is_favourite,
       acquisitionPriority: r.acquisition_priority,
       primaryEditionId: r.edition_id,
+      reading: cardReadingOf({ readingState: r.reading_state, readingPercent: r.reading_percent === null ? null : Number(r.reading_percent) }),
     };
   });
 }
@@ -298,8 +306,9 @@ export async function getPublisherCounts(publisherId: string) {
   z.uuid().parse(publisherId);
   const family = sql`(select publisher_family(${publisherId}::uuid))`;
   const state = editionState(sql`e.id`);
-  const [row] = resultRows<{ books: number; editions: number; owned: number; wanted: number; on_order: number }>(
+  const [row] = resultRows<{ books: number; editions: number; owned: number; wanted: number; on_order: number; read: number }>(
     await db.execute(sql`select count(distinct work_id)::int as books, count(*)::int as editions,
+        count(distinct work_id) filter (where exists (select 1 from readings r where r.work_id = x.work_id and r.status = 'finished'))::int as read,
         count(distinct work_id) filter (where owned)::int as owned,
         count(distinct work_id) filter (where wanted)::int as wanted,
         count(distinct work_id) filter (where on_order)::int as on_order
@@ -307,7 +316,7 @@ export async function getPublisherCounts(publisherId: string) {
         from editions e join works w on w.id = e.work_id and w.kind = 'book'
         where exists (select 1 from edition_publishers ep where ep.edition_id = e.id and ep.publisher_id in ${family})) x`),
   );
-  return { books: row.books, editions: row.editions, owned: row.owned, wanted: row.wanted, onOrder: row.on_order };
+  return { books: row.books, editions: row.editions, owned: row.owned, wanted: row.wanted, onOrder: row.on_order, read: row.read };
 }
 
 /** Books where an edition from this house (or its imprints) is the one wanted, not yet received */

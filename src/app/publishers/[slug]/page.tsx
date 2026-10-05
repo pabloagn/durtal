@@ -126,6 +126,7 @@ export default async function PublisherPage({
           <RecordField label="Books">{counts.books}</RecordField>
           <RecordField label="Editions">{counts.editions}</RecordField>
           <RecordField label="Owned">{counts.owned}</RecordField>
+          <RecordField label="Read">{counts.read}</RecordField>
           <RecordField label="Wanted">{counts.wanted}</RecordField>
           <RecordField label="On order">{counts.onOrder}</RecordField>
         </RecordFields>

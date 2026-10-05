@@ -1029,3 +1029,45 @@ export async function getReadYearRange(): Promise<{ min: number | null; max: num
   );
   return row ?? { min: null, max: null };
 }
+
+/**
+ * The series page's "Next to read" (SLN-449): `nextToRead`'s volume with
+ * where its copy is, for the first of an available physical copy, an
+ * available digital copy, then any other copy still held; else "Not owned ·
+ * Wanted" with the catalogue status.
+ */
+export async function getSeriesNextToRead(seriesId: string) {
+  const id = z.uuid().parse(seriesId);
+  const { nextToRead } = await import("@/lib/reading/series");
+  const next = await nextToRead(id);
+  if (!next) return null;
+  const { copyWhereabouts } = await import("@/lib/reading/at-hand");
+  const { catalogueStatusLabel } = await import("@/lib/utils/labels");
+  const [copy] = resultRows<{
+    status: string;
+    locationId: string;
+    locationType: string | null;
+    locationName: string | null;
+    subLocationName: string | null;
+    lentTo: string | null;
+    lentDate: string | null;
+  }>(
+    await db.execute(sql`select i.status, i.location_id as "locationId", l.type as "locationType", l.name as "locationName",
+        sl.name as "subLocationName", i.lent_to as "lentTo", i.lent_date::text as "lentDate"
+      from instances i join editions e on e.id = i.edition_id join locations l on l.id = i.location_id
+      left join sub_locations sl on sl.id = i.sub_location_id
+      where e.work_id = ${next.id}::uuid and i.status <> 'deaccessioned'
+      order by (i.status = 'available' and l.type = 'physical') desc, (i.status = 'available') desc, i.created_at, i.id
+      limit 1`),
+  );
+  const [work] = await db.select({ catalogueStatus: works.catalogueStatus }).from(works).where(eq(works.id, next.id));
+  return {
+    id: next.id,
+    title: next.title,
+    slug: next.slug ?? null,
+    position: next.position ?? null,
+    whereabouts: copy
+      ? copyWhereabouts(copy, { today: readingDay(new Date(), appTimeZone()) })
+      : ["Not owned", work ? catalogueStatusLabel(work.catalogueStatus) : null].filter(Boolean).join(" · "),
+  };
+}

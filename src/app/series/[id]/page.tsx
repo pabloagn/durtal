@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Layers } from "lucide-react";
 import { getSeriesDetail, getSeriesSuggestions } from "@/lib/actions/series";
+import { getSeriesNextToRead } from "@/lib/actions/reading";
 import { Badge } from "@/components/ui/badge";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { SeriesActions } from "@/components/series/series-actions";
@@ -35,10 +36,11 @@ export default async function SeriesDetailPage({
   searchParams,
 }: PageProps) {
   const { id } = await params;
-  const [s, suggestions, query] = await Promise.all([
+  const [s, suggestions, query, next] = await Promise.all([
     loadSeries(id),
     getSeriesSuggestions(id).catch(() => []),
     searchParams,
+    getSeriesNextToRead(id).catch(() => null),
   ]);
   if (!s) notFound();
 
@@ -62,9 +64,14 @@ export default async function SeriesDetailPage({
       status:
         STATUS_CONFIG[w.catalogueStatus as CatalogueStatus]?.label ??
         w.catalogueStatus,
+      readingState: w.readingState,
+      timesRead: w.timesRead,
+      readingPercent: w.readingPercent,
     };
   });
   const owned = books.filter((b) => b.owned).length;
+  // Read: at least one finished reading, so a volume being re-read counts
+  const read = books.filter((b) => (b.timesRead ?? 0) >= 1).length;
   const count = books.length;
 
   return (
@@ -98,8 +105,24 @@ export default async function SeriesDetailPage({
                 {owned} of {s.totalVolumes ?? count} owned
               </Badge>
             )}
+            {read > 0 && (
+              <Badge variant="blue">
+                Read {read} of {s.totalVolumes ?? count}
+              </Badge>
+            )}
             {s.isComplete && <Badge variant="gold">Complete series</Badge>}
           </div>
+          {/* The volume to read next and where its copy is (SLN-449) */}
+          {next && read > 0 && (
+            <p className="mt-3 text-sm text-fg-secondary" data-next-to-read="">
+              Next to read:{" "}
+              <Link href={`/library/${next.slug ?? next.id}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+                {next.position ? `${next.position}. ` : ""}
+                {next.title}
+              </Link>
+              {` · ${next.whereabouts}`}
+            </p>
+          )}
           {s.description && (
             <Prose className="mt-4 whitespace-pre-wrap">{s.description}</Prose>
           )}
