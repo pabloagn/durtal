@@ -324,9 +324,14 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
         run(
           () => commitReadingImport({ importId }),
           (r) => {
-            const { written, present, refused } = r as { written: number; present: number; refused: number };
+            const { written, present, refused, queued } = r as { written: number; present: number; refused: number; queued: number };
             toast.success(
-              [`${written} ${written === 1 ? "reading" : "readings"} written`, present ? `${present} already in Durtal` : null, refused ? `${refused} refused` : null]
+              [
+                `${written} ${written === 1 ? "reading" : "readings"} written`,
+                present ? `${present} already in Durtal` : null,
+                refused ? `${refused} refused` : null,
+                queued ? `${queued} ${queued === 1 ? "book" : "books"} added to Up Next` : null,
+              ]
                 .filter(Boolean)
                 .join(" · "),
             );

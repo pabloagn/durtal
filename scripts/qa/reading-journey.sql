@@ -23,4 +23,10 @@ begin
   insert into instances(edition_id, location_id, format, status) values (eaudio, audible, 'audiobook', 'available');
   insert into editions(work_id, title, language, page_count) values (nxt, 'Journey Sequel', 'en', 300) returning id into enext;
   insert into instances(edition_id, location_id, sub_location_id, format, status) values (enext, ams, shelf, 'paperback', 'available');
+  -- Three books for Up Next (SLN-452)
+  for i in 1..3 loop
+    insert into works(title, slug) values ('Queue Journey ' || (array['One', 'Two', 'Three'])[i], 'queue-journey-' || i) returning id into w;
+    insert into editions(work_id, title, language, page_count) values (w, 'Queue Journey', 'en', 100 * i) returning id into e600;
+    insert into instances(edition_id, location_id, sub_location_id, format, status) values (e600, ams, shelf, 'paperback', 'available');
+  end loop;
 end $$;
