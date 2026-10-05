@@ -213,6 +213,14 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 
 Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold. Collection cards: name with its icon, two lines of description, then the edition count. No count or status sits on a portrait or a cover.
 
+### Mosaic
+
+A view of the pictures alone: no card, no text, no chips (`<Mosaic>`, `src/components/shared/mosaic.tsx`; `mosaic*` utilities in `globals.css`). Every list with posters offers it beside the grid: books, people, films, perfumes, paintings and collections, and the choice is kept like the other views.
+
+- Justified rows: each picture keeps its own proportions (a painting is not cropped to a poster), every picture of a row has one height, and every row but the last fills the width, in reading order. A full row holds the size slider's value plus two pictures of the list's usual proportions, or fewer where they would be under 150px tall (a phone). The last row has the height of a full row; it does not stretch.
+- 4px between pictures, 2px corners, a hairline edge; each picture over its own tone while it loads, and the list's own stand-in (a title card, a monogram, a fan of covers) when there is none.
+- Hover: the picture eases forward (4%) and its title, and the author or house under it, appear at its foot on glass; the other pictures dim to 62%. Keyboard focus shows the title and a rose ring. In selection mode a click selects; a selected picture has a rose ring. A right-click opens the browser's menu for the link, not for the picture, so pictures stay protected.
+
 ### Buttons
 
 Four variants:

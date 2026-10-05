@@ -15,7 +15,7 @@ import type { DomainTile, HomeKind } from "@/lib/catalogue/domain-homes";
 import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { DomainTileCard, DomainTileRow } from "./domain-tile";
 
-const VIEW_MODES: ViewMode[] = ["grid", "list"];
+const VIEW_MODES: ViewMode[] = ["grid", "mosaic", "list"];
 
 /** Each home's sorts; every sort but the title starts with the newest or best. */
 const SORT_OPTIONS: Record<HomeKind, { value: string; label: string }[]> = {

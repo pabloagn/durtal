@@ -20,7 +20,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { CreateCollectionDialog } from "./create-collection-dialog";
-import { CollectionCard } from "@/components/collections/collection-card";
+import { CollectionsView, CollectionsViewSwitcher } from "@/components/collections/collections-view";
 
 export const metadata = { title: "Collections" };
 
@@ -63,20 +63,17 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
 
   return (
     <PaginatedSection {...paging} noun="collections">
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {collections.map((collection) => (
-          <CollectionCard
-            key={collection.id}
-            collection={{
-              ...collection,
-              ...collectionCounts(collection),
-            }}
-            covers={previews
-              .filter((p) => p.collectionId === collection.id)
-              .map((p) => p.s3Key)}
-          />
-        ))}
-      </div>
+      <CollectionsView
+        collections={collections.map((collection) => ({
+          collection: {
+            ...collection,
+            ...collectionCounts(collection),
+          },
+          covers: previews
+            .filter((p) => p.collectionId === collection.id)
+            .map((p) => p.s3Key),
+        }))}
+      />
     </PaginatedSection>
   );
 }
@@ -94,8 +91,8 @@ export default async function CollectionsPage({
         description="Curated groups of books"
         actions={<CreateCollectionDialog />}
       />
-      <div className="mb-5 flex items-center gap-2">
-        <form className="flex min-w-0 max-w-md flex-1 gap-2" action="/collections">
+      <div className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-3">
+        <form className="flex min-w-48 max-w-md flex-1 gap-2" action="/collections">
           {/* A search keeps the favourites filter */}
           {favouritesOnly(params[FAVOURITES_PARAM]) && (
             <input type="hidden" name={FAVOURITES_PARAM} value="true" />
@@ -115,6 +112,9 @@ export default async function CollectionsPage({
           </button>
         </form>
         <FavouritesFilter basePath="/collections" />
+        <div className="ml-auto">
+          <CollectionsViewSwitcher />
+        </div>
       </div>
       <Suspense
         key={JSON.stringify(params)}
