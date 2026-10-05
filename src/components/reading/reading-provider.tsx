@@ -64,6 +64,8 @@ export interface DialogRequest {
   timer?: StopRequest;
   /** The session dialog edits this session; without one it adds a session (SLN-451) */
   session?: SessionRow;
+  /** Start reading with this edition: the one queued in Up Next (SLN-452) */
+  editionId?: string;
 }
 
 /** The running timer a stop saves, and the end time a forgotten timer was given */

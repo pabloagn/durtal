@@ -29,7 +29,7 @@ export interface ReadingRef {
 }
 
 export type ReadingDialogsRequest =
-  | { kind: "start" | "past"; workId: string }
+  | { kind: "start" | "past"; workId: string; editionId?: string | null }
   | ({ kind: Exclude<ReadingDialog, "start" | "past">; prefill?: string; timer?: StopRequest } & ReadingRef);
 
 interface ReadingDialogsValue {
@@ -81,7 +81,7 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     async (request: ReadingDialogsRequest) => {
       try {
         const data = await getReadingDialogData(request.workId, homeId);
-        if (!("readingId" in request)) return setOpened({ data, request: { kind: request.kind } });
+        if (!("readingId" in request)) return setOpened({ data, request: { kind: request.kind, editionId: request.editionId ?? undefined } });
         const row = data.rows.find((r) => r.reading.id === request.readingId);
         if (!row) {
           toast.error("This reading no longer exists");

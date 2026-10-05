@@ -34,6 +34,8 @@ import {
   BookCheck,
   BookX,
   ArrowLeftRight,
+  ListPlus,
+  ListMinus,
   type LucideIcon,
 } from "lucide-react";
 import { EVENT_CONFIG } from "@/lib/activity/event-config";
@@ -72,6 +74,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   BookCheck,
   BookX,
   ArrowLeftRight,
+  ListPlus,
+  ListMinus,
 };
 
 interface ActivityEventIconProps {
