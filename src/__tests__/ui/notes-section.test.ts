@@ -121,6 +121,31 @@ describe("long quote groups", () => {
     expect(wentTo()).toEqual([noteAnchor("n3")]);
   });
 
+  it("holds the note in view while the passages above reflow, until the reader scrolls", async () => {
+    const observers: (() => void)[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          observers.push(callback);
+        }
+        observe() {}
+        disconnect() {
+          observers.length = 0;
+        }
+      },
+    );
+    await address("#note-n150");
+    draw(notes(200));
+    await settle();
+    expect(scrolled).toEqual([noteAnchor("n150")]);
+    act(() => observers.forEach((reflow) => reflow()));
+    expect(scrolled).toEqual([noteAnchor("n150"), noteAnchor("n150")]);
+    window.dispatchEvent(new WheelEvent("wheel"));
+    expect(observers).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+
   it("opens the group when the address changes to a hidden note", async () => {
     draw(notes(200));
     await settle();

@@ -25,7 +25,11 @@ scope grew to both causes, agreed with the coordinator.
   page does not move and the focus goes to the 11th note
   (`focus({ preventScroll: true })`). Each note has its own anchor,
   `#note-<id>`: on arrival or on a new hash, a note in a closed group opens
-  the group and comes into view once the group has drawn it.
+  the group and comes into view once the group has drawn it. A
+  `ResizeObserver` holds it in view while the page settles, for 5 seconds
+  or until the reader scrolls, presses a key or touches the page: at 768px
+  the passages above reflowed for about 150 ms after the scroll and left
+  the note 1,722px above the screen.
 - **Edit dialog lists on open**: the page sends only the book's own
   choices. `getEditOptions(groups)` (`src/lib/actions/edit-options.ts`, a
   server action like the others: behind Authelia, origin checked by Next)

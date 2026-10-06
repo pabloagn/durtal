@@ -31,6 +31,31 @@ function hashNote() {
   return hash.startsWith("note-") ? hash.slice(5) : null;
 }
 
+/** The reader's own moves, after which a note is no longer held in view */
+const LET_GO = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+
+/**
+ * Brings a note into view and holds it there while the page settles: the
+ * passages above can still reflow (at 768px wide they did after the scroll
+ * and left the note 1,722px above the screen). It lets go after 5 seconds,
+ * or at the reader's first scroll, key or touch.
+ */
+function goToNote(id: string) {
+  const note = () => document.getElementById(noteAnchor(id));
+  if (!note()) return false;
+  note()!.scrollIntoView({ block: "start" });
+  if (typeof ResizeObserver === "undefined") return true;
+  const hold = new ResizeObserver(() => note()?.scrollIntoView({ block: "start" }));
+  const letGo = () => {
+    hold.disconnect();
+    for (const event of LET_GO) removeEventListener(event, letGo);
+  };
+  hold.observe(document.body);
+  for (const event of LET_GO) addEventListener(event, letGo, { passive: true });
+  setTimeout(letGo, 5000);
+  return true;
+}
+
 function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; editions: Record<string, NoteEdition> }) {
   const long = notes.length >= LONG_GROUP;
   const [all, setAll] = useState(!long);
@@ -46,9 +71,7 @@ function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; e
   useEffect(() => {
     const open = () => {
       const id = hashNote();
-      if (!id || !ids.split(",").includes(id)) return;
-      const drawn = document.getElementById(noteAnchor(id));
-      if (drawn) return drawn.scrollIntoView({ block: "start" });
+      if (!id || !ids.split(",").includes(id) || goToNote(id)) return;
       goTo.current = id;
       setAll(true);
     };
@@ -64,7 +87,7 @@ function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; e
   // first new note takes the focus where the button was, without scrolling
   useEffect(() => {
     if (!all) return;
-    if (goTo.current) document.getElementById(noteAnchor(goTo.current))?.scrollIntoView({ block: "start" });
+    if (goTo.current) goToNote(goTo.current);
     else if (focusNew.current) firstNew.current?.focus({ preventScroll: true });
     goTo.current = null;
     focusNew.current = false;
