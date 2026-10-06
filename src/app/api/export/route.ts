@@ -272,7 +272,11 @@ export async function POST(req: NextRequest) {
         });
       if (fmt === "csv" || fmt === "tsv") {
         // An empty export still has its header
-        const text = fmt === "csv" ? toCSV(result.rows, result.headers) : toTSV(result.rows, result.headers);
+        // The Goodreads file is for Goodreads and StoryGraph to import, not for a spreadsheet: as stored, no guard or BOM
+        const text =
+          fmt === "csv"
+            ? toCSV(result.rows, result.headers, { forImport: entity === "goodreads" })
+            : toTSV(result.rows, result.headers);
         return new NextResponse(text, {
           status: 200,
           headers: { "Content-Type": `${FORMAT_MIME[fmt]}; charset=utf-8`, "Content-Disposition": disposition(FORMAT_EXT[fmt]) },

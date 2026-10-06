@@ -131,7 +131,7 @@ export function ExportMenu({
       trigger={
         <Button variant={variant} size={size} disabled={isExporting}>
           <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {isExporting ? "Exporting..." : "Export"}
+          {isExporting ? "Exporting…" : "Export"}
         </Button>
       }
     >

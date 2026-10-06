@@ -12,11 +12,19 @@ export type ExportFormat = "csv" | "tsv" | "parquet" | "md";
  */
 const FORMULA_START = /^[=+\-@\t\r]/;
 
-function cellText(value: unknown): string {
+function cellText(value: unknown, guard = true): string {
   if (value == null) return "";
   if (typeof value === "number" || typeof value === "bigint") return String(value);
   const str = String(value);
-  return FORMULA_START.test(str) ? `'${str}` : str;
+  return guard && FORMULA_START.test(str) ? `'${str}` : str;
+}
+
+/**
+ * A file another app imports rather than a spreadsheet opens (the Goodreads
+ * file) goes out as stored: no formula guard, no byte order mark.
+ */
+export interface CsvOptions {
+  forImport?: boolean;
 }
 
 /** A UTF-8 byte order mark, so Excel opens accents correctly; the importers skip it */
@@ -26,8 +34,8 @@ const BOM = "\uFEFF";
  * Escape a value for CSV (RFC 4180): wrap in double-quotes if it contains
  * a comma, double-quote, or newline. Double-quotes inside the value are doubled.
  */
-function escapeCSV(value: unknown): string {
-  const str = cellText(value);
+function escapeCSV(value: unknown, guard = true): string {
+  const str = cellText(value, guard);
   if (/[,"\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -45,14 +53,15 @@ function escapeTSV(value: unknown): string {
  * With `headers`, those columns in that order, and the header row even when
  * there are no rows; without, the first row's keys, and "" for no rows.
  */
-export function toCSV(rows: Record<string, unknown>[], headers?: readonly string[]): string {
+export function toCSV(rows: Record<string, unknown>[], headers?: readonly string[], { forImport = false }: CsvOptions = {}): string {
   if (rows.length === 0 && !headers) return "";
   const columns = headers ?? Object.keys(rows[0]);
+  const cell = (value: unknown) => escapeCSV(value, !forImport);
   const lines = [
-    columns.map(escapeCSV).join(","),
-    ...rows.map((row) => columns.map((h) => escapeCSV(row[h])).join(",")),
+    columns.map(cell).join(","),
+    ...rows.map((row) => columns.map((h) => cell(row[h])).join(",")),
   ];
-  return BOM + lines.join("\n");
+  return (forImport ? "" : BOM) + lines.join("\n");
 }
 
 /**

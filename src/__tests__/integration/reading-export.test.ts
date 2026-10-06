@@ -188,7 +188,8 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(parsed.source).toBe("durtal");
     expect(parsed.rows).toEqual([]);
     for (const entity of ["reading-sessions", "reading-notes", "goodreads"]) expect((await exportFile(entity)).status).toBe(200);
-    expect((await exportFile("goodreads")).text).toBe(`﻿${GOODREADS_EXPORT_HEADER.join(",")}`);
+    // The Goodreads file is for importing: no byte order mark
+    expect((await exportFile("goodreads")).text).toBe(GOODREADS_EXPORT_HEADER.join(","));
     // Parquet with no rows has nothing to write
     expect((await exportFile("readings", { all: true }, "parquet")).status).toBe(404);
   });
@@ -232,13 +233,16 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(readingsFile.slice(1).find((row) => row[0] === openId)![readingsFile[0].indexOf("current_percent")]).toBe("44.5");
   });
 
-  it("guards a title or a passage that starts with = in every export, the works export too", async () => {
+  it("guards a title or a passage that starts with = in every spreadsheet export, the works export too", async () => {
     const { formula } = await library();
     const guarded = (text: string, cell: string) => text.split(/\r?\n/).some((line) => line.split(",").includes(`'${cell}`));
     expect(guarded((await exportFile("readings")).text, "=Equals")).toBe(true);
     expect(guarded((await exportFile("reading-sessions")).text, "=Equals")).toBe(true);
     expect(guarded((await exportFile("reading-notes")).text, "=SUM(A1)")).toBe(true);
-    expect(guarded((await exportFile("goodreads")).text, "=Equals")).toBe(true);
+    // Not the Goodreads file, which Goodreads and StoryGraph import: the title goes as stored
+    const goodreads = (await exportFile("goodreads")).text;
+    expect(guarded(goodreads, "=Equals")).toBe(false);
+    expect(goodreads.split("\n").some((line) => line.split(",").includes("=Equals"))).toBe(true);
     expect(guarded((await exportFile("works", { ids: [formula.workId] })).text, "=Equals")).toBe(true);
   });
 

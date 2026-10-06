@@ -32,6 +32,11 @@ describe("toCSV and toTSV", () => {
     expect(tsv.split("\n").slice(1)).toEqual(["'=HYPERLINK(\"x\")", "'+1", "'-x", "'@SUM", "' lead", "' lead", "-2", "4.5", "a=b"]);
   });
 
+  it("leave a file for another app to import as stored: no guard, no byte order mark", () => {
+    expect(toCSV([{ t: "-Ramble" }, { t: "=x" }, { t: 3 }], ["t"], { forImport: true })).toBe("t\n-Ramble\n=x\n3");
+    expect(toCSV([], ["t"], { forImport: true })).toBe("t");
+  });
+
   it("quote a value with a carriage return, a comma, a quote or a newline", () => {
     expect(toCSV([{ t: "a\rb" }, { t: "a,b" }, { t: 'a"b' }, { t: "a\nb" }], ["t"]).split("\n").slice(1, 4)).toEqual(['"a\rb"', '"a,b"', '"a""b"']);
   });

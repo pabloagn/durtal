@@ -101,3 +101,19 @@ duplicated. `GET /api/stats` and the TUI's dashboard know about reading.
   `/settings/data` 84,674 → 94,665 (four rows and the Goodreads dialog). Every
   route is within its size budget; server times went over on main too on a
   loaded Mac. `pnpm deadcode`: clean.
+
+### Review fixes (PR #129)
+
+- The Markdown commonplace book escapes every mark Markdown would read:
+  backslash, star, underscore, backtick, brackets, `<`, `>`, `&`, `~` and
+  `|`, and the first mark of a line that would start a heading, a rule, a
+  list or a quote ("1) first" and "2026. A year" keep their numbers, with the
+  backslash before the punctuation only). A line's leading spaces become
+  no-break spaces, so a poem's indented verse stays indented text and never
+  turns into a code block. Tests in `commonplace.test.ts`.
+- The Goodreads file goes out as stored: no formula guard and no byte order
+  mark (`toCSV(..., { forImport: true })`), since Goodreads and StoryGraph
+  import it; a title that starts with `-` or `=` arrives unchanged. The
+  spreadsheet exports keep both.
+- The export menu says "Exporting…" with one ellipsis character.
+

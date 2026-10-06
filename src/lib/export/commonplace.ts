@@ -28,12 +28,20 @@ export interface CommonplaceNote {
   edition: NoteEdition | null;
 }
 
-/** Text that Markdown would read as markup keeps its characters: \, *, _ and ` are escaped, and a line that starts a heading, list or quote */
+/**
+ * Text that Markdown would read as markup keeps its characters: \, *, _, `,
+ * brackets, < and >, &, ~ and | are escaped, and so is the first mark of a
+ * line that would start a heading, a rule, a list or a quote. A line's
+ * leading spaces become no-break spaces, so an indented verse shows as
+ * indented text, never as a code block.
+ */
 function plain(text: string): string {
   return text
-    .replace(/[\\*_`]/g, (c) => `\\${c}`)
+    .replace(/[\\*_`[\]<>&~|]/g, (c) => `\\${c}`)
     .split("\n")
-    .map((line) => line.replace(/^(\s*)([#>+-]|\d+\.)(?=\s|$)/, "$1\\$2"))
+    // A backslash escapes punctuation only: "1." becomes "1\.", never "\1."
+    .map((line) => line.replace(/^(\s*)([#+=-])/, "$1\\$2").replace(/^(\s*)(\d+)([.)])/, "$1$2\\$3"))
+    .map((line) => line.replace(/^[ \t]+/, (space) => space.replace(/\t/g, "    ").replace(/ /g, "\u00a0")))
     .join("\n");
 }
 

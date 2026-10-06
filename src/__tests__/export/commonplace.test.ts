@@ -79,6 +79,18 @@ describe("commonplaceMarkdown", () => {
     expect(md).toContain("\npp. xiv–xvi\n");
   });
 
+  it("keeps links, HTML, tables, numbered lines and rules as text, with no backslash before a digit", () => {
+    const body = "See [the map](http://x.y) <b>here</b> & ~~there~~\n1) first\n2026. A year\n---\na | b";
+    const md = commonplaceMarkdown([note({ body, title: "A <b> [title]" })], "2026-10-06");
+    expect(md).toContain("## A \\<b\\> \\[title\\]");
+    expect(md).toContain("> See \\[the map\\](http://x.y) \\<b\\>here\\</b\\> \\& \\~\\~there\\~\\~\n> 1\\) first\n> 2026\\. A year\n> \\---\n> a \\| b");
+  });
+
+  it("keeps a poem's indented verse as indented text, never a code block", () => {
+    const md = commonplaceMarkdown([note({ body: "The first line\n\n    an indented verse\n\tand a tabbed one" })], "2026-10-06");
+    expect(md).toContain("> The first line\n>\n> \u00a0\u00a0\u00a0\u00a0an indented verse\n> \u00a0\u00a0\u00a0\u00a0and a tabbed one");
+  });
+
   it("says so when there is nothing", () => {
     expect(commonplaceMarkdown([], "2026-10-06")).toBe("# Commonplace book\n\nExported from Durtal on 6 October 2026: No quotes or notes.\n");
   });
