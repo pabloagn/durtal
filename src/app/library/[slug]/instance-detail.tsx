@@ -247,7 +247,10 @@ export function InstanceDetail({
                 <dt className="text-fg-secondary">eBook</dt>
                 <dd className="text-fg-secondary">
                   <span className="font-mono">
-                    {[ebook.formats, formatFileSize(ebook.sizeBytes)].filter(Boolean).join(" · ")}
+                    {/* The size keeps its number and unit on one line; an e-book with no file has none */}
+                    {[ebook.formats, ebook.sizeBytes ? formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0") : null]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                   <Link
                     href={`/reader/${ebook.id}`}
