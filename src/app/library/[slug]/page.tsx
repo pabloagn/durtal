@@ -18,9 +18,8 @@ import { readingDayStartHour } from "@/lib/reading/day";
 import { canUseWorkCapability } from "@/lib/catalogue/domains";
 import { appTimeZone } from "@/lib/utils/date";
 import { READING_HOME_KEY } from "@/lib/preferences";
-import { getAppSettings } from "@/lib/actions/settings";
 import { EstimateInfo } from "@/components/reading/estimate-info";
-import { getSuggestionContext } from "@/lib/reading/suggest/context";
+import { getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
 import { predict, predictionSource, predictionText } from "@/lib/reading/suggest/predict";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RatingStars } from "@/components/shared/rating";
@@ -251,7 +250,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   };
   // The predicted rating of an unread book (SLN-457): only while the gate is on, and only with enough similar books
   let prediction: { text: string; why: string } | null = null;
-  if (canRead && !readingRows.some((r) => r.reading.status === "finished") && (await getAppSettings()).readingPredictionGate?.on) {
+  if (canRead && !readingRows.some((r) => r.reading.status === "finished") && (await predictionGateOn())) {
     const ctx = await getSuggestionContext({ homeId: homeCookie });
     const book = ctx.byId.get(work.id);
     const p = book && ctx.gate?.on ? predict(book, ctx) : null;

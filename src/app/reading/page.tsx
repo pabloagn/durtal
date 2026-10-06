@@ -158,7 +158,7 @@ export default async function ReadingPage() {
               <ol className="grid gap-6 md:grid-cols-3">
                 {suggestions.map((row) => (
                   <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId}>
-                    <Link href={row.href} tabIndex={-1} aria-hidden className="shrink-0">
+                    <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
                       <Cover s3Key={row.cover} className="h-20 w-14" />
                     </Link>
                     <div className="min-w-0 flex-1 space-y-1">

@@ -30,6 +30,7 @@ async function ensureGate(ctx: SuggestContext, previous: PredictionGate | null, 
       returning reading_prediction_gate as gate`),
   );
   if (rows.length) {
+    // Next ignores this during a page render, so the gate is never read from the settings cache (predictionGateOn)
     invalidate(CACHE_TAGS.settings);
     return next;
   }
@@ -37,6 +38,17 @@ async function ensureGate(ctx: SuggestContext, previous: PredictionGate | null, 
   const [stored] = resultRows<{ gate: unknown }>(await db.execute(sql`select reading_prediction_gate as gate from app_settings limit 1`));
   const parsed = predictionGateSchema.safeParse(stored?.gate);
   return parsed.success ? parsed.data : previous;
+}
+
+/**
+ * Whether predictions show now: the stored gate, read fresh. The settings
+ * cache can hold an older gate for up to an hour, as the engine writes it
+ * during a page render, when Next ignores the cache invalidation.
+ */
+export async function predictionGateOn(): Promise<boolean> {
+  const [row] = resultRows<{ gate: unknown }>(await db.execute(sql`select reading_prediction_gate as gate from app_settings limit 1`));
+  const parsed = predictionGateSchema.safeParse(row?.gate);
+  return parsed.success && parsed.data.on;
 }
 
 /**

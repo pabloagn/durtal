@@ -274,10 +274,11 @@ const feedback: Feature = {
       };
     }
     const r = [...rejected].sort((a, b) => a.pages - b.pages)[0];
+    // Only in Why this?: one long book passed on is shorter than almost every other, so as a card reason it would sit on every card for 30 days
     return {
       score: 1,
       reason: `Shorter than ${r.book.title}, which you passed on as too long`,
-      meets: true,
+      meets: false,
       evidence: [{ label: r.book.title, href: bookHref(r.book), id: r.book.id }],
     };
   },

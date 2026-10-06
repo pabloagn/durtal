@@ -51,7 +51,7 @@ export function EstimateInfo({ text, label = LABEL }: { text: string; label?: st
         ref={pop}
         id={id}
         popover="auto"
-        className="glass fixed inset-auto m-0 overflow-hidden border-0 p-3 text-xs leading-relaxed whitespace-pre-line text-fg-primary"
+        className="glass fixed inset-auto m-0 overflow-hidden border-0 bg-transparent p-3 text-xs leading-relaxed whitespace-pre-line text-fg-primary"
         data-estimate-popover=""
       >
         {text}

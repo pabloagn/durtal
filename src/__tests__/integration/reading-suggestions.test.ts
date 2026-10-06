@@ -50,7 +50,7 @@ import { setSuggestionFeedback, removeSuggestionFeedback, restoreSuggestionFeedb
 import { getWorkCount } from "@/lib/actions/works";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { nextToRead } from "@/lib/reading/series";
-import { getSuggestionContext } from "@/lib/reading/suggest/context";
+import { getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
 import { DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
 import { candidates, passes, suggest } from "@/lib/reading/suggest/score";
 import { readingToday } from "@/lib/reading/day";
@@ -236,6 +236,14 @@ describe.skipIf(!url)("suggestions with PostgreSQL", () => {
     const [x, y] = await Promise.all([getSuggestionContext({ now: later }), getSuggestionContext({ now: later })]);
     expect((await value<{ checkedAt: string }>(`select reading_prediction_gate from app_settings`)).checkedAt).toBe(later.toISOString());
     expect([x.gate?.checkedAt, y.gate?.checkedAt]).toEqual([later.toISOString(), later.toISOString()]);
+  });
+
+  it("reads the gate fresh for the book page, not from the settings cache", async () => {
+    expect(await predictionGateOn()).toBe(false);
+    await getSuggestionContext();
+    expect(await predictionGateOn()).toBe(false);
+    await q(`update app_settings set reading_prediction_gate = jsonb_set(reading_prediction_gate, '{on}', 'true')`);
+    expect(await predictionGateOn()).toBe(true);
   });
 
   it("counts the rated books with no reading exactly as its library link lists them", async () => {

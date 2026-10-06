@@ -10,7 +10,8 @@ import type { SuggestContext } from "./types";
 /*
  * A suggestion as the pages show it (SLN-457): slim, so a list of 24 stays
  * within the page budget. Its line reads "320 p. · On your shelf in
- * Amsterdam · About 9 h", as Up Next computes it.
+ * Amsterdam · About 9 h", as Up Next computes it, without the place when a
+ * reason already says it.
  */
 
 export interface WhyPart {
@@ -49,6 +50,8 @@ export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
   const length = edition?.audioMinutes ? formatMinutes(edition.audioMinutes) : edition?.pageCount ? `${edition.pageCount} p.` : null;
   const time = timeToReadText(timeToRead(edition, format, ctx.priors));
   const p = ctx.gate?.on ? predict(book, ctx) : null;
+  // Said once: when At hand is one of the reasons, the line leaves the copy's place out
+  const where = queueWhereabouts(book.editions, book.atHandCopyId, ctx.today);
   return {
     workId: book.id,
     title: book.title,
@@ -57,7 +60,7 @@ export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
     cover: edition?.thumbnail ?? book.cover ?? book.editions.find((e) => e.thumbnail)?.thumbnail ?? null,
     editionId: edition?.id ?? null,
     isPoison: book.isPoison,
-    line: [length, queueWhereabouts(book.editions, book.atHandCopyId, ctx.today), time].filter(Boolean).join(" · "),
+    line: [length, s.reasons.includes(where) ? null : where, time].filter(Boolean).join(" · "),
     reasons: s.reasons,
     prediction: p ? predictionText(p) : null,
     predictionSource: p ? predictionSource(p) : null,

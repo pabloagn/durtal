@@ -190,6 +190,11 @@ describe("shelf time, at hand, Up Next and recent copies", () => {
     expect(digital.copies.some((c) => isAtHand(c, HOME))).toBe(true);
     const onKindle = book("Kindle", { editions: [digital], atHandCopyId: digital.copies[0].id });
     expect(feature("atHand").compute(onKindle, context([onKindle]))).toMatchObject({ reason: "Digital", score: 1 });
+    // Said once: the reason says "Digital", so the card's line leaves it out
+    const kindleCtx = context([onKindle]);
+    const row = suggestionRow(scoreBook(onKindle, kindleCtx), kindleCtx);
+    expect(row.reasons).toContain("Digital");
+    expect(row.line.split(" · ")).not.toContain("Digital");
   });
 
   it("weighs Up Next by place and says when a copy came", () => {
@@ -284,7 +289,11 @@ describe("candidates, feedback and constraints", () => {
     const shorter = book("Short", { editions: [edition(180)], firstAcquired: "2020-01-01" });
     const longer = book("Long", { editions: [edition(900)], firstAcquired: "2020-01-01" });
     const ctx = context([lanark, shorter, longer]);
-    expect(feature("feedback").compute(shorter, ctx)).toMatchObject({ reason: "Shorter than Lanark, which you passed on as too long", meets: true });
+    expect(feature("feedback").compute(shorter, ctx)).toMatchObject({ reason: "Shorter than Lanark, which you passed on as too long", meets: false });
+    // It raises the shorter book and shows in Why this?, never as a card reason
+    const short = scoreBook(shorter, ctx);
+    expect(short.contributions.find((c) => c.key === "feedback")?.value).toBeGreaterThan(0);
+    expect(short.reasons).not.toContain("Shorter than Lanark, which you passed on as too long");
     const s = scoreBook(longer, ctx);
     expect(s.contributions.find((c) => c.key === "feedback")).toMatchObject({ factor: 0.5 });
     expect(s.score).toBeCloseTo(s.contributions.reduce((t, c) => t + c.value, 0) * 0.5, 10);

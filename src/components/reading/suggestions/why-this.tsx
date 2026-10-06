@@ -49,7 +49,7 @@ export function WhyThis({ title, parts, prediction }: { title: string; parts: Wh
         popover="auto"
         role="dialog"
         aria-label={`Why ${title}`}
-        className="glass fixed inset-auto m-0 overflow-hidden border-0 p-0 text-xs text-fg-primary"
+        className="glass fixed inset-auto m-0 overflow-hidden border-0 bg-transparent p-0 text-xs text-fg-primary"
         data-why-popover=""
       >
         <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
