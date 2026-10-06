@@ -142,12 +142,14 @@ export function LocationCard({
               {!isActive && <Badge variant="red">Inactive</Badge>}
             </Link>
 
-            {/* The row carries the count's type: the buttons sit on its
-                cap-height center */}
-            <div className="flex items-start gap-2 font-mono text-xs">
-              <span className="text-fg-secondary">
-                {instanceCount} {instanceCount === 1 ? "item" : "items"}
-              </span>
+            {/* The row carries the title's type: the count and the buttons
+                sit on the title's cap-height center */}
+            <div className="type-item-title flex items-start gap-2">
+              <CapAligned height={20}>
+                <span className="block font-mono text-xs text-fg-secondary">
+                  {instanceCount} {instanceCount === 1 ? "item" : "items"}
+                </span>
+              </CapAligned>
               <CapAligned height={24} coarseHeight={44}>
                 <div className="flex gap-2">
                   <button

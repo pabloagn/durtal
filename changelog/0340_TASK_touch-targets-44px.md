@@ -72,3 +72,17 @@ desktop look as it was.
 - `python3 scripts/qa/test-local.py`: 213 files, 2,376 tests.
 - Not covered: the media managers' small tile controls (inside a dialog,
   three controls on one thumbnail); their delete stays hover-only there.
+
+### Review fixes (PR #117)
+
+- Location cards: the item count and the edit and delete buttons sat 3.3 to
+  3.4px below the title's cap-height center, which every phone saw once the
+  buttons showed on touch. The right-hand group now carries the title's type,
+  and the count (`CapAligned height={20}`, its own 20px line) and the buttons
+  (`CapAligned height={24} coarseHeight={44}`) sit on the title's cap-height
+  center: 0.31px off at 1440 and 1024 hovered and at 390 coarse. The count
+  moves up 3.1px and the hover buttons 3.0px on desktop; every card keeps its
+  size.
+- `globals.css`: chip-button's comment is back above `@utility chip-button`.
+- `alignment-audit.js` on `/locations`, a card hovered at 1440 and 1024 (Chrome,
+  WebKit, Firefox) and on touch at 390 (Chrome, WebKit): no finding.
