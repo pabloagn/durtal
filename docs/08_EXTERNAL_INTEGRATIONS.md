@@ -193,7 +193,33 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 - **Scope**: a provider serves one collection and names the record levels it describes: `work` and `edition` for books, `work` and `formulation` for perfumes, `work`, `version` and `release` for films, `work` and `art_object` for paintings. It declares the fields it may propose for each level.
 - **Calls**: `search` (a query for one level), `detail` (one item by the provider's id) and `normalize` (pure: a detail becomes proposed values). `searchProvider` and `fetchProviderDetail` in `run.ts` make every call: each waits at most the provider's time limit, calls to one provider keep the gap its terms ask for, and an answer is checked before anything reads it. A `429` answer is reported as rate limited. Results past the provider's limit are dropped, and so are results the contract cannot read.
 - **Review**: `recordProviderDetail` registers the provider's id (provider, kind and id are unique) and keeps the detail as a pending source observation. It changes nothing on the record. `reviewProposal` fills only empty fields: a field that has a value, a field the person locked and every field of a locked record (a locked observation of this provider, or locked edition metadata) come back as conflicts for the person to settle.
-- **Registry**: `src/lib/providers/registry.ts` lists the providers this Durtal may call, each permitted by its own documented terms; none is a scraper. It is empty until a collection's enrichment task adds one. Catalogue writes, imports and exports never import a provider (a test checks this), so manual entry is complete without one.
+- **Registry**: `src/lib/providers/registry.ts` lists the providers this Durtal may call, each permitted by its own documented terms; none is a scraper. Catalogue writes, imports and exports never import a provider (a test checks this), so manual entry is complete without one. Only the source lookup actions call providers.
+
+### Perfume sources (SLN-377)
+
+| Source | Access | Why | What it has |
+|---|---|---|---|
+| Wikidata | Looked up (`wikidata-perfumes.ts`) | Documented public API; CC0 data | Name, brand, manufacturer, perfumers and launch date of well-known perfumes. No notes, no concentrations, few recent or niche releases |
+| Fragrantica | Cited by hand | No public API; Durtal does not read its pages | Notes, perfumers, launch years, concentrations |
+| Basenotes | Cited by hand | No public API; Durtal does not read its pages | Notes, perfumers, launch years |
+| Parfumo | Cited by hand | No public API; Durtal does not read its pages | Notes, perfumers, launch years, batch codes |
+
+Not used: Open Beauty Facts (an open product database by barcode; it names products and sizes, rarely the fragrance), and house websites (cited by hand like any page).
+
+### Museum sources (SLN-378)
+
+| Source | Access | Why | What it has |
+|---|---|---|---|
+| Art Institute of Chicago | Looked up (`artic`) | Documented open API, no key; CC0 data, public-domain images | Title, attribution, date, medium, size in cm (`dimensions_detail`), reference number, credit line, `is_on_view` and gallery, IIIF image |
+| The Met | Looked up (`metmuseum`) | Documented open API, no key; CC0 data, public-domain images | Title, attribution, date, medium, size in cm (`measurements`), accession number, credit line, gallery number when on view, image |
+| Cleveland Museum of Art | Cited by hand | Open API without a key, not connected yet | Its collection, with the current gallery |
+| Rijksmuseum | Cited by hand | Its API needs a personal key | Its collection |
+| Smithsonian Open Access | Cited by hand | Its API needs an api.data.gov key | The Smithsonian collections |
+| Wikidata | Not for paintings | Collection and location statements carry no dates | Owning collections, inventory numbers |
+
+Calls: the Art Institute's `GET /api/v1/artworks/search` and `GET /api/v1/artworks/{id}` with the fields Durtal reads and an `AIC-User-Agent` header (60 requests a minute anonymous); the Met's `GET /public/collection/v1.1/search` with `offset` and `limit` (v1/search was retired on 2026-10-01; ids only, so up to eight objects are read for a result list) and `GET /public/collection/v1/objects/{id}`. One call a second at most per museum. An Art Institute work without `is_on_view` is "does not say"; a Met object with an empty gallery number is "not on view". Neither answer says where an object is when it is not shown, so neither ever moves it. The institution is matched to Organizations by its Wikidata id (Art Institute Q239303, The Met Q160236), then by one exact name.
+
+Wikidata calls: `wbsearchentities` then `wbgetentities` for a search (items whose P31 is Q131746, perfume), and `wbgetentities` for an item and the labels of its brand (P1716), manufacturer (P176) and perfumers (P14539); the launch date is P571, else P577, at its own precision (a decade is a range). One call a second at most, 12 s each. A brand is proposed as a brand and a manufacturer as a manufacturer, never as each other.
 
 ---
 
@@ -204,3 +230,5 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 | Google Books | API key | 1,000/day | Metadata search, cover images |
 | Open Library | None | Respectful use | Fallback metadata, cover images |
 | Nominatim | None | 1 req/sec | Location geocoding |
+| Wikidata (perfumes) | None | 1 req/sec | Perfume identity lookup, reviewed before saving |
+| Art Institute of Chicago, The Met | None | 1 req/sec | Painting and original lookup; location only from "on view" |

@@ -133,7 +133,7 @@ function Section({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary"
+        className="flex w-full items-center gap-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
       >
         {open ? (
           <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
@@ -274,7 +274,7 @@ export function InstanceForm({
 
         {isPhysicalFormat && (
           <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-xs text-fg-secondary">
+            <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
               <input
                 type="checkbox"
                 checked={value.hasDustJacket === true}
@@ -283,7 +283,7 @@ export function InstanceForm({
               />
               Dust jacket
             </label>
-            <label className="flex items-center gap-2 text-xs text-fg-secondary">
+            <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
               <input
                 type="checkbox"
                 checked={value.hasSlipcase === true}
@@ -443,7 +443,7 @@ export function InstanceForm({
         {/* Collector Details */}
         <Section title="Collector details">
           <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-xs text-fg-secondary">
+            <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
               <input
                 type="checkbox"
                 checked={value.isSigned}
@@ -452,7 +452,7 @@ export function InstanceForm({
               />
               Signed
             </label>
-            <label className="flex items-center gap-2 text-xs text-fg-secondary">
+            <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
               <input
                 type="checkbox"
                 checked={value.isFirstPrinting}

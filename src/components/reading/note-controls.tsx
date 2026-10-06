@@ -69,7 +69,6 @@ export function NoteControls({ note, book, edition = null }: { note: NoteEdit; b
       <FavouriteToggle
         favourite={note.isFavourite}
         name={`this ${noun}`}
-        className="pointer-coarse:p-3.5"
         onToggle={async () => {
           try {
             await toggleNoteFavourite({ id: note.id });

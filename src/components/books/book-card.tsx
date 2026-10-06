@@ -197,7 +197,8 @@ export function BookCard({
         </Link>
 
         {/* Copy button — hidden until hover, like the three-dot menu; stays visible with keyboard focus */}
-        {!isSelecting && <div className="absolute bottom-1 right-8 z-20 hover-reveal-glass @[220px]:bottom-2 @[220px]:right-10">
+        {/* On touch the copy chip moves left, so its 44px press area and the menu's do not overlap */}
+        {!isSelecting && <div className="absolute bottom-1 right-8 z-20 hover-reveal-glass @[220px]:bottom-2 @[220px]:right-10 pointer-coarse:right-[52px]">
           <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
         </div>}
 

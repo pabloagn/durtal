@@ -75,7 +75,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-rose-text">
           {p.name}
         </h3>
-        <CapAligned height={32} className="relative z-20 -mr-2">
+        <CapAligned height={32} coarseHeight={44} className="relative z-20 icon-hit-end">
           <FavouriteToggle
             favourite={p.isFavourite}
             target={{ entity: "publisher", id: p.id }}

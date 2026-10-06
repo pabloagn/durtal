@@ -363,7 +363,7 @@ export function FilterDropdown({
         }}
         onPointerEnter={onIntent}
         onFocus={onIntent}
-        className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs transition-colors ${
+        className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
           activeCount > 0
             ? "bg-accent-plum/20 text-fg-primary"
             : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"

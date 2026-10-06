@@ -61,7 +61,7 @@ export function AuthorCardActionsMenu({
         side="top"
         label="Actions"
         trigger={
-          <button className="flex h-7 w-7 items-center justify-center rounded-[2px] border glass-chip text-fg-primary hover:glass-chip-lift">
+          <button className="flex h-7 w-7 items-center justify-center rounded-[2px] border glass-chip text-fg-primary hover:glass-chip-lift touch-hit">
             <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
           </button>
         }

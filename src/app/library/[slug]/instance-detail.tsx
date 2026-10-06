@@ -78,7 +78,7 @@ export function InstanceDetail({
   return (
     <div className="rounded-sm border border-glass-border bg-bg-primary px-4 py-3 text-xs">
       {/* Location row */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 pointer-coarse:gap-y-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-fg-primary">
             {instance.location.name}

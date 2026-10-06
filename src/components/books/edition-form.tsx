@@ -141,7 +141,7 @@ function Section({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary"
+        className="flex w-full items-center gap-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
       >
         {open ? (
           <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
@@ -382,7 +382,7 @@ export function EditionForm({
 
       {/* Section 2: Publication */}
       <Section title="Publication" defaultOpen>
-        <label className="flex items-center gap-2 text-sm text-fg-secondary">
+        <label className="flex items-center gap-2 text-sm text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
             disabled={initialValues.publishers !== undefined}
@@ -490,7 +490,7 @@ export function EditionForm({
           onChange={(e) => update("printingNumber", e.target.value)}
         />
         <div className="flex gap-4">
-          <label className="flex items-center gap-2 text-xs text-fg-secondary">
+          <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
             <input
               type="checkbox"
               checked={values.isFirstEdition}
@@ -499,7 +499,7 @@ export function EditionForm({
             />
             First edition
           </label>
-          <label className="flex items-center gap-2 text-xs text-fg-secondary">
+          <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
             <input
               type="checkbox"
               checked={values.isLimitedEdition}
@@ -530,7 +530,7 @@ export function EditionForm({
           onChange={(e) => update("language", e.target.value)}
           options={languageOptions(initialValues.language)}
         />
-        <label className="flex items-center gap-2 text-xs text-fg-secondary">
+        <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
             checked={values.isTranslated}
@@ -794,7 +794,7 @@ export function EditionForm({
 
       {/* Section 10: Metadata */}
       <Section title="Metadata">
-        <label className="flex items-center gap-2 text-xs text-fg-secondary">
+        <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
             checked={values.metadataLocked}

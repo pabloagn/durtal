@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import {
   createTaxonomyItem,
   replaceTaxonomyAssignments,
@@ -122,7 +122,8 @@ function FamilyAssignment({
               <span className="text-fg-secondary">{item.parentName} ›</span>
             )}
             {item.name}
-            <CapAligned height={16}>
+            {/* CapAlignedControls clips nothing, so the button's 44px press area reaches past the chip on touch */}
+            <CapAlignedControls height={16}>
               <button
                 type="button"
                 aria-label={`Remove ${item.name} from ${family.name}`}
@@ -132,11 +133,11 @@ function FamilyAssignment({
                   refocus.current = true;
                   save(items.filter((i) => i.id !== item.id));
                 }}
-                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose"
+                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose touch-hit"
               >
                 <X className="h-3 w-3" strokeWidth={1.5} />
               </button>
-            </CapAligned>
+            </CapAlignedControls>
           </span>
         ))}
         {searching ? (
@@ -156,7 +157,7 @@ function FamilyAssignment({
             disabled={saving}
             onClick={() => setSearching(true)}
             aria-label={`Add to ${family.name}`}
-            className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
+            className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <CapAligned height={12}>
               <Plus className="h-3 w-3" strokeWidth={1.5} />

@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { cache } from "react";
 import { compareWorks } from "@/lib/utils/title-order";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { loadFamily, loadItem } from "../load";
 import Link from "next/link";
 import { Tag } from "lucide-react";
 import { db } from "@/lib/db";
 import { works, workAuthors } from "@/lib/db/schema";
 import { inArray, asc } from "drizzle-orm";
-import {
-  getTaxonomyFamily,
-  getTaxonomyItem,
-} from "@/lib/actions/taxonomy-families";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -241,10 +237,6 @@ async function ItemContent({
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
-
-/** One read per request for the page and its title */
-const loadFamily = cache(getTaxonomyFamily);
-const loadItem = cache(getTaxonomyItem);
 
 export async function generateMetadata({
   params,

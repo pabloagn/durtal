@@ -208,6 +208,7 @@ export function EditionDetailCard({
                     <ImageAdjustButton
                       source={mediaUrl((edition.coverS3Key || edition.thumbnailS3Key)!)}
                       label="Adjust edition cover"
+                      className="touch-hit"
                     />
                   )}
                   {workId && (

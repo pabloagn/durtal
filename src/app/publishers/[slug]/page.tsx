@@ -223,7 +223,7 @@ export default async function PublisherPage({
         <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
           <Link
             href="/publishers"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
             Back to publishers

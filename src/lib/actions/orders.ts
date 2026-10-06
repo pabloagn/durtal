@@ -47,6 +47,8 @@ import {
   BOOK_IN_HAND_STATUSES,
   UNSPENT_STATUSES,
   getValidTransitions,
+  orderStatusLabel,
+  acquisitionMethodLabel,
 } from "@/lib/constants/orders";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -765,7 +767,7 @@ export async function updateOrderStatus(
   );
   if (!valid.includes(newStatus)) {
     throw new Error(
-      `Invalid transition from "${current.status}" to "${newStatus}" for method "${current.acquisitionMethod}"`,
+      `Invalid transition from "${orderStatusLabel(current.status)}" to "${orderStatusLabel(newStatus)}" for "${acquisitionMethodLabel(current.acquisitionMethod)}"`,
     );
   }
 
@@ -873,7 +875,7 @@ export async function deleteOrder(id: string) {
   // M2: guard against all book-in-hand statuses, not just "delivered"
   if (BOOK_IN_HAND_STATUSES.includes(order.status as OrderStatus)) {
     throw new Error(
-      `Cannot delete a "${order.status}" order. Consider updating its status instead.`,
+      `Cannot delete a "${orderStatusLabel(order.status)}" order. Consider updating its status instead.`,
     );
   }
 
@@ -889,7 +891,7 @@ export async function deleteOrder(id: string) {
   // C2: sync work status after removing order
   await syncWorkCatalogueStatusFromAllOrders(
     order.workId,
-    `Order deleted (was "${order.status}")`,
+    `Order deleted (was "${orderStatusLabel(order.status)}")`,
   );
 
   invalidate(CACHE_TAGS.orders);

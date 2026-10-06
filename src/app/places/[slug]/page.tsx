@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { cache } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { SectionHeading } from "@/components/shared/section-heading";
 import {
@@ -12,9 +11,11 @@ import {
 } from "@/components/shared/detail-layout";
 import { Prose } from "@/components/shared/prose";
 import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
+import { openingHoursRows } from "@/lib/catalogue/opening-hours";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import { notFound } from "next/navigation";
+import { loadVenue } from "./load";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,7 +27,6 @@ import {
   AtSign,
   Tag,
 } from "lucide-react";
-import { getVenueBySlug } from "@/lib/actions/venues";
 import {
   getVenueArt,
   getVenueInstitutions,
@@ -102,7 +102,8 @@ async function PlaceContent({ slug }: { slug: string }) {
     venue.instagramHandle
   );
   const hasVisits = !!(venue.firstVisitDate || venue.lastVisitDate);
-  const hasHours = venue.openingHours != null;
+  // Stored hours shown as days; hours that cannot be read are not shown (SLN-292)
+  const hours = openingHoursRows(venue.openingHours);
 
   return (
     <>
@@ -110,7 +111,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Back navigation */}
       <Link
         href="/places"
-        className="mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <CapAligned height={12}><ArrowLeft className="h-3 w-3" strokeWidth={1.5} /></CapAligned>
         Back to places
@@ -153,7 +154,7 @@ async function PlaceContent({ slug }: { slug: string }) {
               <h1 className="type-page-title min-w-0 break-words">
                 {venue.name}
               </h1>
-              <CapAligned height={32}>
+              <CapAligned height={32} coarseHeight={44}>
                 <FavouriteToggle
                   favourite={venue.isFavorite}
                   target={{ entity: "venue", id: venue.id }}
@@ -226,7 +227,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Reading column and, from lg up, the record on the right */}
       <DetailColumns
         record={
-          hasContact || hasHours || hasVisits ? (
+          hasContact || hours || hasVisits ? (
             <RecordPanel>
               {hasContact && (
                 <RecordGroup title="Contact">
@@ -276,11 +277,21 @@ async function PlaceContent({ slug }: { slug: string }) {
                   </div>
                 </RecordGroup>
               )}
-              {hasHours && (
+              {hours && (
                 <RecordGroup title="Opening hours">
-                  <pre className="whitespace-pre-wrap break-words font-mono text-xs text-fg-secondary">
-                    {JSON.stringify(venue.openingHours, null, 2)}
-                  </pre>
+                  <RecordFields>
+                    {hours.map((row) => (
+                      <RecordField key={row.day} label={row.day}>
+                        {/* A line breaks between a day's ranges, never inside one */}
+                        {row.hours.split(", ").map((span, i, all) => (
+                          <Fragment key={i}>
+                            <span className="inline-block">{i < all.length - 1 ? `${span},` : span}</span>
+                            {i < all.length - 1 && " "}
+                          </Fragment>
+                        ))}
+                      </RecordField>
+                    ))}
+                  </RecordFields>
                 </RecordGroup>
               )}
               {hasVisits && (
@@ -356,9 +367,6 @@ async function PlaceContent({ slug }: { slug: string }) {
     </>
   );
 }
-
-/** One read per request for the page and its title */
-const loadVenue = cache(getVenueBySlug);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const venue = await loadVenue((await params).slug);

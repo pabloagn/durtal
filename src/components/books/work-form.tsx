@@ -528,7 +528,7 @@ export function WorkForm({
                     value={authorSearch}
                     onChange={(e) => setAuthorSearch(e.target.value)}
                     placeholder="Search author by name..."
-                    className="mb-2 h-8 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+                    className="mb-2 h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
                     onKeyDown={(e) => {
                       if (e.key === "Escape" && !isComposing(e)) {
                         // The author search closes; the dialog stays

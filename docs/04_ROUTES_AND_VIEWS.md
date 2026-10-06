@@ -261,7 +261,8 @@ and image; `?formulation=` chooses one and the facts and notes above show its
 own values); Bottles and samples (formulation, size, what is left, status,
 storage place, acquisition); Wanted (see below); Retailers (listings with
 recorded prices);
-Gallery; Sources (cited sources, and sources a reader adds); Your notes;
+Gallery; Sources (cited sources, and sources a reader adds; "Look up" asks
+Wikidata, see below); Your notes;
 related perfumes ("More from {house}", "More by {perfumer}", "Shared notes").
 
 Create and edit share `PerfumeForm`: title, houses (house, brand, manufacturer),
@@ -272,6 +273,21 @@ samples, retailer listings and prices, and sources. A perfume with bottles,
 samples or listings cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each bottle, sample or decant added, changed (status, amount left, condition, location) or removed.
 Keyboard: `⌘Enter` saves the form or dialog in front; arrow keys and Enter pick
 in the house, people and note pickers; Escape closes a dialog.
+
+Sources while entering (SLN-377). On create, the form starts with an optional
+source link. Durtal reads the address, never the page: a Fragrantica,
+Basenotes or Parfumo address names the perfume, its house and often its
+concentration ("Use the name" takes the name; a switch adds that formulation
+with the perfume). A Wikidata address can be looked up: its launch date,
+description, and the brand and perfumers already in the library fill the
+empty fields ("Use these"). Saving keeps the link as the perfume's source.
+On the page, "Look up" in Sources searches Wikidata for perfumes, then shows
+what the item says beside what the perfume has: an empty field can be filled,
+a different or locked value stays, and a brand, manufacturer or perfumer can
+be added (made when not in the library, credited as attributed). Saving
+keeps Wikidata as an accepted source. When the notes are edited, the notes
+added cite the source chosen above them; two sources that place one note in
+different tiers are both kept, and the pyramid names the note under it.
 
 ### Films (`/films`)
 
@@ -394,6 +410,22 @@ or uncertain location, or edits a record; places are a venue, a private place,
 unknown, lost or destroyed. A move closes the current location on its date.
 "Checked today" stamps the record. A painting with objects you own cannot be
 deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed, and each location recorded ("Moved from Louvre, Paris to Tokyo Gallery (on loan for an exhibition, confirmed)").
+
+Museum sources (SLN-378). "Look up" in Sources asks the Art Institute of
+Chicago or The Met (open APIs without a key) for a title, then shows the
+museum's answer beside the painting and its original: date, painter (credited
+as attributed, never in place of a painter here), accession number, owner and
+size (compared across units within 0.5 cm). An empty field can be filled; a
+different or locked value stays. With no original, saving can add it, owned by
+the museum. The location comes only from the museum's own dated answer that
+the work is on view: with no location here it records one at the museum's
+venue (the venue its organization operates) since an unknown day; at that
+venue it marks the record checked; elsewhere (a loan) it offers a move on the
+day of the answer, off by default. A museum that does not show the work, or
+does not say, changes no location. The museum's public-domain image can be
+added to the original with its credit, license and source. A later look shows
+how old the last answer is (stale after a year) and what the museum changed
+since; the new answer follows the old one, which stays.
 
 ### Linked works (every detail page)
 
@@ -814,7 +846,7 @@ A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 - **Perfumes sold here**: listings for this branch, then the online listings of the retailer that runs it, each with its formulation, the last offer seen and its date ("Checked 1 Oct 2026 (3 days ago)", with "may have changed" once stale).
 - **Orders**: orders placed at this venue, newest first, with a link to all orders.
 - **Bought here**: perfume bottles, film copies and art objects whose acquisition names this venue, with the date bought and their status.
-- Specialties and tags, notes, and the record column (contact, opening hours, visits).
+- Specialties and tags, notes, and the record column (contact, opening hours, visits). Opening hours show one row per day, Monday first (`openingHoursRows`, `src/lib/catalogue/opening-hours.ts`): Google's day lines when stored, else its periods ("9:00–13:00, 14:30–18:00", "Closed", "Open 24 hours"). Hours that cannot be read are left out, never shown as raw JSON (SLN-292).
 - Each part lists up to 100 rows (orders 50) and says when there are more.
 
 ### Wanted (films, perfumes, paintings)

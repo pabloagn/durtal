@@ -4,6 +4,7 @@ import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-
 import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
 import { bronzeMediaKey, type MediaEntityType } from "@/lib/s3/keys";
 import { getPresignedUploadUrl } from "@/lib/s3/covers";
+import { readS3Object } from "@/lib/s3/read-object";
 import { IMAGE_EXTENSIONS, isAllowedImageType } from "@/lib/validations/media-security";
 import type { MediaType } from "@/lib/types";
 import { isUuid } from "@/lib/utils/uuid";
@@ -110,16 +111,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch the raw image from S3
-    const { S3_BUCKET } = await import("@/lib/s3/client");
-    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
-    const { s3 } = await import("@/lib/s3/client");
-
-    const obj = await s3.send(
-      new GetObjectCommand({ Bucket: S3_BUCKET, Key: bronzeKey }),
-    );
-    const bytes = await obj.Body!.transformToByteArray();
-    const buffer = Buffer.from(bytes);
+    // The raw image
+    const buffer = await readS3Object(bronzeKey);
 
     const media = await ingestMedia({
       owner: { type: entityType, id: entityId },

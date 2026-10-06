@@ -732,7 +732,7 @@ export function AddBookWizard({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
-                className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-9 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+                className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-9 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
                 autoFocus
               />
               {isSearching && (
@@ -847,7 +847,7 @@ export function AddBookWizard({
           <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-4">
             <button
               onClick={() => setStep("details")}
-              className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+              className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Enter details manually

@@ -666,6 +666,60 @@ Deletes the import's readings not edited since (their `updated_at` equals their 
 
 ---
 
+## Perfume sources (`src/lib/actions/perfume-sources.ts`, SLN-377)
+
+Wikidata is the one perfume source with a documented public API
+(`src/lib/providers/wikidata-perfumes.ts`, through the provider contract of
+`src/lib/providers/run.ts`). Fragrantica, Basenotes and Parfumo have none: they
+are cited, and `readPerfumeLink` (`src/lib/catalogue/perfume-sources.ts`) reads
+only their addresses. Every action returns `{ error }` instead of throwing when
+Wikidata cannot be reached, so manual entry goes on.
+
+- `searchPerfumeSource(text)`: Wikidata items that are perfumes (instance of
+  Q131746), at most ten, and what Wikidata covers.
+- `reviewPerfumeSource({ perfumeId | null, externalId })`: the item's title,
+  description and launch date set against the perfume, each `fill`, `same`,
+  `conflict` or `locked`; its brands, manufacturers and perfumers, matched to
+  the library by Wikidata id, then by one exact name (two of a name match
+  none). Reads only.
+- `applyPerfumeSource({ perfumeId, fingerprint, externalId, fields,
+  organizations, perfumers })`: fetches the item again, keeps it as an
+  accepted source with its id (an id another perfume holds refuses the save),
+  fills the chosen empty fields, and adds the chosen organizations and
+  perfumers (created when missing, credited as attributed, with their
+  Wikidata ids). Nothing on the perfume is replaced. A locked Wikidata source
+  refuses the save.
+- `recordPerfumeEntrySource({ perfumeId, link, retrievedOn })`: a new
+  perfume's source: a Wikidata item as an accepted observation, any other
+  link cited as the person's own source, without reading it.
+
+## Painting sources (`src/lib/actions/painting-sources.ts`, SLN-378)
+
+Museums with documented open APIs and no key: the Art Institute of Chicago
+(`artic`) and The Met (`metmuseum`), in `src/lib/providers/museums.ts`, through
+the provider contract. `src/lib/catalogue/painting-sources.ts` lists the
+museums considered and why the others are not looked up. Every action returns
+`{ error }` instead of throwing when a museum cannot be reached.
+
+- `searchPaintingSource({ museum, text })`: up to ten works of that museum.
+- `reviewPaintingSource({ museum, paintingId, externalId, objectId? })`: the
+  answer set against the painting (title, date, painter) and its original
+  (accession number, owner, size), each `fill`, `same`, `conflict` or
+  `locked`; the location evidence (`on_view`, `not_on_view`, `unknown`) with
+  the day it was given and what saving would do (`record`, `verify`, `move` or
+  nothing); the last answer of this museum, its age and what changed. Reads
+  only.
+- `applyPaintingSource(...)`: fetches the answer again and checks the
+  painting's, the original's and the location history's fingerprints. Keeps
+  the answer as an accepted source (the successor of the museum's previous
+  answer, which stays). Fills the chosen empty fields, credits the painter as
+  attributed, adds the original when asked (owned by the museum, which is
+  created in Organizations when missing, with its Wikidata id). A location is
+  written only from an "on view" answer, through `recordWhereabouts` or
+  `updateWhereabouts`: a first record at the museum's venue, a check of the
+  current one, or a move dated the day of the answer. A locked source stops
+  the save.
+
 ## Taxonomy (`src/lib/actions/taxonomy.ts`)
 
 Reads only. Subjects, genres, tags and every other family are created, renamed, merged and deleted through the family registry in `src/lib/actions/taxonomy-families.ts` (`createTaxonomyItem`, `updateTaxonomyItem`, `deleteTaxonomyItem` and the rest).

@@ -24,6 +24,7 @@ import {
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
+import { PaintingSourceLookup } from "@/components/paintings/source-lookup";
 import type { StorageLocation } from "@/components/catalogue/holding-fields";
 import { PaintingImage } from "@/components/paintings/painting-image";
 import { PaintingActions } from "@/components/paintings/painting-actions";
@@ -407,7 +408,7 @@ export default async function PaintingPage({
 
         <Link
           href="/paintings"
-          className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
           Back to paintings
@@ -620,6 +621,15 @@ export default async function PaintingPage({
               name: "The museum's collection page, a catalogue raisonné",
               says: "Date, owner, accession number, where it hangs",
             }}
+            lookup={
+              <PaintingSourceLookup
+                key="lookup"
+                painting={{ id: painting.id, title: painting.title, fingerprint: painting.fingerprint }}
+                originals={painting.objects
+                  .filter((o) => o.kind === "original")
+                  .map((o) => ({ id: o.id, label: o.label ?? o.accessionNumber ?? "The original" }))}
+              />
+            }
           />
 
           <PersonalNotes

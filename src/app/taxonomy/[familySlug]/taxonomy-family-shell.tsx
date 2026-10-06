@@ -210,7 +210,7 @@ export function TaxonomyFamilyShell({
       {/* Back link */}
       <Link
         href="/taxonomy"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
         Taxonomy
@@ -280,7 +280,7 @@ export function TaxonomyFamilyShell({
             value={searchQuery}
             onChange={(e) => setFilter("q", e.target.value)}
             placeholder="Filter items..."
-            className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-8 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+            className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-8 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
           />
         </div>
 
@@ -289,7 +289,7 @@ export function TaxonomyFamilyShell({
           aria-label="Sort"
           value={sortMode}
           onChange={(e) => setFilter("sort", e.target.value)}
-          className="h-8 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-sm text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"
+          className="h-8 pointer-coarse:h-11 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-sm text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"
         >
           <option value="manual">Manual order</option>
           <option value="alphabetical">Alphabetical</option>

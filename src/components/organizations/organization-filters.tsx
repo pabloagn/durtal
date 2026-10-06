@@ -12,7 +12,7 @@ import {
 } from "@/lib/catalogue/organizations";
 
 const CHIP =
-  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-sm border px-3 text-sm transition-colors";
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11";
 
 /**
  * The directory's search (by name or other name) and its role filter: one
@@ -88,7 +88,7 @@ export function OrganizationFilters({
             clearTimeout(timer.current);
             timer.current = setTimeout(() => router.push(hrefWith("q", value)), 300);
           }}
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
         />
       </div>
       <nav aria-label="Roles" className="flex flex-wrap gap-2">

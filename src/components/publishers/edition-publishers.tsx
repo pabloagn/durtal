@@ -76,12 +76,12 @@ export function EditionPublishers({
   }
   return (
     <div className="space-y-2 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-5">
         {linked.map((p) => (
           <Link
             key={p.id}
             href={`/publishers/${p.slug}`}
-            className="text-accent-blue hover:underline"
+            className="text-accent-blue hover:underline touch-hit"
           >
             {p.name}
           </Link>

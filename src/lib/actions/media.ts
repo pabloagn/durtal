@@ -153,13 +153,10 @@ export async function setActiveMedia(id: string) {
   // Backfill color palette if this is a work poster without one
   if (item.workId && item.type === "poster" && !item.colorPalette && item.s3Key) {
     try {
-      const { s3, S3_BUCKET } = await import("@/lib/s3/client");
-      const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+      const { readS3Object } = await import("@/lib/s3/read-object");
       const { extractColorPalette } = await import("@/lib/color/extract-palette");
-      const obj = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: item.s3Key }));
-      const bytes = await obj.Body!.transformToByteArray();
       const { mediaPaletteFields } = await import("@/lib/color/color-buckets");
-      const palette = await extractColorPalette(Buffer.from(bytes));
+      const palette = await extractColorPalette(await readS3Object(item.s3Key));
       if (palette) {
         await db.update(media).set(mediaPaletteFields(palette)).where(eq(media.id, id));
       }
