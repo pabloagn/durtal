@@ -3,7 +3,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { and, desc, eq, inArray, notExists, or, sql } from "drizzle-orm";
 import { atomicOn } from "@/lib/db/atomic";
 import type { Db } from "@/lib/catalogue/work-store";
-import { claimEvidence, editions, sourceRecords } from "@/lib/db/schema";
+import { editions, sourceRecords } from "@/lib/db/schema";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { providerSchema, sourceUrlSchema } from "@/lib/catalogue/provenance";
 import { sourcePayloadHash } from "@/lib/publishers/enrichment";
@@ -312,7 +312,8 @@ export async function readEvidencePage(record: Pick<StoredEvidence, "payload">, 
  */
 export async function undoEvidenceRun(database: Db, runId: string): Promise<{ deleted: number; kept: string[] }> {
   const rows = await database
-    .select({ id: sourceRecords.id, cited: sql<boolean>`exists (select 1 from ${claimEvidence} where ${claimEvidence.sourceRecordId} = ${sourceRecords.id})` })
+    // In a select list drizzle leaves columns unqualified, so the subquery names its tables in full
+    .select({ id: sourceRecords.id, cited: sql<boolean>`exists (select 1 from claim_evidence ce where ce.source_record_id = source_records.id)` })
     .from(sourceRecords)
     .where(and(isEvidence, sql`${sourceRecords.payload} ->> 'runId' = ${runId}`));
   const uncited = rows.filter((r) => !r.cited).map((r) => r.id);

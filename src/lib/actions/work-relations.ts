@@ -144,7 +144,7 @@ export async function getWorkSourceChoices(workId: string) {
     .from(sourceRecords)
     .where(and(eq(sourceRecords.entityKind, work.kind), eq(sourceRecords.workId, workId)))
     .orderBy(
-      desc(sql`${sourceRecords.payload} ->> 'entry' = 'manual'`),
+      desc(sql`(${sourceRecords.payload} ->> 'entry') is not distinct from 'manual'`),
       desc(sourceRecords.retrievedAt),
       desc(sourceRecords.id),
     )

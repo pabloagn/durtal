@@ -103,7 +103,8 @@ describe.skipIf(!url)("the evidence store", () => {
       outletName: () => "London Review of Books",
     });
   const book = async (title: string, kind = "book") => {
-    const [w] = await c`insert into works(title, slug, kind) values (${title}, ${`${title.toLowerCase().replace(/\W+/g, "-")}-${randomUUID().slice(0, 8)}`}, ${kind}) returning id`;
+    // Only a book has an original language
+    const [w] = await c`insert into works(title, slug, kind, original_language) values (${title}, ${`${title.toLowerCase().replace(/\W+/g, "-")}-${randomUUID().slice(0, 8)}`}, ${kind}, ${kind === "book" ? "en" : null}) returning id`;
     return w.id as string;
   };
 
