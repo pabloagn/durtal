@@ -12,8 +12,9 @@ import {
 } from "@/components/shared/detail-layout";
 import { Prose } from "@/components/shared/prose";
 import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
+import { openingHoursRows } from "@/lib/catalogue/opening-hours";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -102,7 +103,8 @@ async function PlaceContent({ slug }: { slug: string }) {
     venue.instagramHandle
   );
   const hasVisits = !!(venue.firstVisitDate || venue.lastVisitDate);
-  const hasHours = venue.openingHours != null;
+  // Stored hours shown as days; hours that cannot be read are not shown (SLN-292)
+  const hours = openingHoursRows(venue.openingHours);
 
   return (
     <>
@@ -226,7 +228,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Reading column and, from lg up, the record on the right */}
       <DetailColumns
         record={
-          hasContact || hasHours || hasVisits ? (
+          hasContact || hours || hasVisits ? (
             <RecordPanel>
               {hasContact && (
                 <RecordGroup title="Contact">
@@ -276,11 +278,21 @@ async function PlaceContent({ slug }: { slug: string }) {
                   </div>
                 </RecordGroup>
               )}
-              {hasHours && (
+              {hours && (
                 <RecordGroup title="Opening hours">
-                  <pre className="whitespace-pre-wrap break-words font-mono text-xs text-fg-secondary">
-                    {JSON.stringify(venue.openingHours, null, 2)}
-                  </pre>
+                  <RecordFields>
+                    {hours.map((row) => (
+                      <RecordField key={row.day} label={row.day}>
+                        {/* A line breaks between a day's ranges, never inside one */}
+                        {row.hours.split(", ").map((span, i, all) => (
+                          <Fragment key={i}>
+                            <span className="inline-block">{i < all.length - 1 ? `${span},` : span}</span>
+                            {i < all.length - 1 && " "}
+                          </Fragment>
+                        ))}
+                      </RecordField>
+                    ))}
+                  </RecordFields>
                 </RecordGroup>
               )}
               {hasVisits && (
