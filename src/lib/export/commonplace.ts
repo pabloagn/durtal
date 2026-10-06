@@ -1,5 +1,6 @@
 import type { NoteKind } from "@/lib/reading/constants";
 import { noteWhereText, notesCountText } from "@/lib/reading/notes-text";
+import type { NoteEdition } from "@/lib/reading/edition-label";
 
 /*
  * The commonplace book as Markdown (SLN-458): one heading per book (title,
@@ -17,9 +18,14 @@ export interface CommonplaceNote {
   /** His thought about a quote, as plain text */
   thought: string | null;
   page: number | null;
+  /** The last page of a passage over a page turn, and whether the pages are roman (SLN-480) */
+  endPage: number | null;
+  pageRoman: boolean;
   chapter: string | null;
   percent: number | null;
   isFavourite: boolean;
+  /** The edition, named by its short label; null without one */
+  edition: NoteEdition | null;
 }
 
 /** Text that Markdown would read as markup keeps its characters: \, *, _ and ` are escaped, and a line that starts a heading, list or quote */
@@ -53,7 +59,9 @@ export function commonplaceMarkdown(notes: CommonplaceNote[], today: string): st
       lines.push("", `## ${plain(note.title)}`);
       if (note.author) lines.push("", plain(note.author));
     }
-    const where = [note.kind === "note" ? "Note" : null, noteWhereText(note), note.isFavourite ? "★ Favourite" : null].filter(Boolean).join(" · ");
+    // "p. 212 · Penguin Classics, 2003 · ch. 7", as the pages cite a note
+    const place = noteWhereText(note, note.edition ?? undefined);
+    const where = [note.kind === "note" ? "Note" : null, place, note.isFavourite ? "★ Favourite" : null].filter(Boolean).join(" · ");
     if (note.kind === "quote") {
       lines.push("", ...plain(note.body.trim()).split("\n").map((line) => (line ? `> ${line}` : ">")));
       if (where) lines.push("", where);

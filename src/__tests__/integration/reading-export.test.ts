@@ -43,7 +43,7 @@ import { createReadingImport } from "@/lib/reading/import/store";
 import { commitReadingImport } from "@/lib/actions/reading-import";
 import { parseImportFile } from "@/lib/reading/import/parse";
 import { parseCsv } from "@/lib/reading/import/csv";
-import { READING_EXPORT_COLUMNS, readingExportRows } from "@/lib/export/reading";
+import { NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, readingExportRows } from "@/lib/export/reading";
 import { countedPagesSql } from "@/lib/reading/summary";
 import { readingToday } from "@/lib/reading/day";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
@@ -143,7 +143,13 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const formula = await book("=Equals");
     const formulaId = await reading(formula, { status: "finished", finished_on: "2020-02-02", finished_precision: "day" });
     await session(formulaId, { read_on: "2020-02-02", end_percent: 100, pages_total: 300 });
-    await q(`insert into reading_notes(work_id, reading_id, kind, body, page) values ($1, $2, 'quote', '=SUM(A1)', 12)`, [formula.workId, formulaId]);
+    // A passage over a page turn in a known edition (SLN-480)
+    await q(`update editions set publication_year = 1999 where id = $1`, [formula.editionId]);
+    await q(`insert into reading_notes(work_id, reading_id, edition_id, kind, body, page, end_page) values ($1, $2, $3, 'quote', '=SUM(A1)', 12, 13)`, [
+      formula.workId,
+      formulaId,
+      formula.editionId,
+    ]);
     const queued = await book("Up next", { rating: 4.5 });
     await q(`insert into reading_queue(work_id, position) values ($1, 1)`, [queued.workId]);
     // Pages: 0 to 30% of 200 pages counts 60; going back to 20% counts 0; the running timer counts nothing
@@ -247,6 +253,11 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(md.name).toMatch(/\.md"$/);
     expect(md.text).toContain("## =Equals");
     expect(md.text).toContain("> =SUM(A1)");
+    expect(md.text).toContain("pp. 12–13 · 1999");
+    const [noteHeader, noteRow] = parseCsv((await exportFile("reading-notes", { filters: "kind=quote" })).text);
+    expect(noteHeader).toEqual([...NOTE_EXPORT_COLUMNS]);
+    const cell = (name: string) => noteRow[noteHeader.indexOf(name)];
+    expect([cell("page"), cell("end_page"), cell("page_roman"), cell("edition_label"), cell("body")]).toEqual(["12", "13", "no", "1999", "=SUM(A1)"]);
     expect((await exportFile("reading-notes", { filters: "kind=note" })).text.split("\n")).toHaveLength(1);
     // Markdown is the commonplace book's only; the Goodreads file is CSV only
     expect((await exportFile("readings", { all: true }, "md")).status).toBe(400);

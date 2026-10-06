@@ -8,6 +8,7 @@ import { countedPagesSql, readingStateSql } from "@/lib/reading/summary";
 import { notesCondition, type NotesFilter } from "@/lib/reading/notes-conditions";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { appTimeZone } from "@/lib/utils/date";
+import { editionShortLabel, type NoteEdition } from "@/lib/reading/edition-label";
 import type { CommonplaceNote } from "./commonplace";
 import type { GoodreadsBook } from "./goodreads";
 
@@ -64,11 +65,14 @@ export const NOTE_EXPORT_COLUMNS = [
   "body",
   "thought",
   "page",
+  "end_page",
+  "page_roman",
   "chapter",
   "percent",
   "favourite",
   "reading_id",
   "edition_id",
+  "edition_label",
   "edition_title",
   "translators",
   "source",
@@ -149,6 +153,10 @@ interface NoteRow {
   body: string;
   comment_html: string | null;
   page: number | null;
+  end_page: number | null;
+  page_roman: boolean;
+  /** The edition as its label reads it (SLN-480): null without one */
+  label_edition: { title: string; language: string | null; publisher: string | null; year: number | null; translators: string[] } | null;
   chapter: string | null;
   percent: number | null;
   is_favourite: boolean;
@@ -159,21 +167,40 @@ async function noteRows(filter: NotesFilter): Promise<NoteRow[]> {
   const condition = notesCondition(filter);
   return resultRows<NoteRow>(
     await db.execute(sql`select n.id::text as note_id, n.work_id::text as work_id, w.title, ${authorsOf(sql`w.id`)} as authors,
-        n.kind, n.body, n.comment_html, n.page, n.chapter, n.percent::float8 as percent, n.is_favourite,
+        n.kind, n.body, n.comment_html, n.page, n.end_page, n.page_roman, n.chapter, n.percent::float8 as percent, n.is_favourite,
         n.reading_id::text as reading_id, n.edition_id::text as edition_id, e.title as edition_title,
-        ${translatorsOf(sql`n.edition_id`)} as translators, n.source, to_json(n.created_at)#>>'{}' as created_at
+        ${translatorsOf(sql`n.edition_id`)} as translators, n.source, to_json(n.created_at)#>>'{}' as created_at,
+        case when e.id is not null then jsonb_build_object('title', e.title, 'language', e.language, 'year', e.publication_year,
+          'publisher', coalesce((select ph.name from edition_publishers ep join publishing_houses ph on ph.id = ep.publisher_id
+            where ep.edition_id = e.id order by ph.name limit 1), e.publisher),
+          'translators', coalesce((select jsonb_agg(a.name order by ec.sort_order, a.name) from edition_contributors ec
+            join authors a on a.id = ec.author_id where ec.edition_id = e.id and ec.role = 'translator'), '[]'::jsonb)) end as label_edition
       from reading_notes n join works w on w.id = n.work_id left join editions e on e.id = n.edition_id
       where w.kind = 'book' ${condition ? sql`and ${condition}` : sql``}
       order by search_normalize(w.title), w.id, n.page asc nulls last, n.percent asc nulls last, n.created_at, n.id`),
   );
 }
 
+/** The edition's short label ("Penguin Classics, 2003, tr. Edith Grossman"), as the pages name it */
+const editionLabelOf = (n: Pick<NoteRow, "edition_id" | "label_edition" | "title">) =>
+  n.edition_id && n.label_edition ? editionShortLabel({ id: n.edition_id, ...n.label_edition }, n.title) : null;
+
+/** The edition as the commonplace book cites it */
+function noteEditionOf(n: NoteRow): NoteEdition | null {
+  const label = editionLabelOf(n);
+  if (!label || !n.label_edition) return null;
+  const { title, publisher, year, translators } = n.label_edition;
+  return { label, title, publisher, year, translators };
+}
+
 /** One row per quote or note; his thought as plain text */
 export async function noteExportRows(filter: NotesFilter): Promise<Row[]> {
-  return (await noteRows(filter)).map(({ comment_html, is_favourite, ...row }) => ({
+  return (await noteRows(filter)).map(({ comment_html, is_favourite, page_roman, label_edition, ...row }) => ({
     ...row,
     thought: comment_html ? stripHtmlToText(comment_html).trim() : null,
     favourite: is_favourite ? "yes" : "no",
+    page_roman: page_roman ? "yes" : "no",
+    edition_label: editionLabelOf({ ...row, label_edition }),
   }));
 }
 
@@ -188,9 +215,12 @@ export async function commonplaceNotes(filter: NotesFilter): Promise<Commonplace
     body: n.body,
     thought: n.comment_html ? stripHtmlToText(n.comment_html).trim() : null,
     page: n.page,
+    endPage: n.end_page,
+    pageRoman: n.page_roman,
     chapter: n.chapter,
     percent: n.percent,
     isFavourite: n.is_favourite,
+    edition: noteEditionOf(n),
   }));
 }
 

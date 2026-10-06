@@ -11,9 +11,12 @@ const note = (over: Partial<CommonplaceNote>): CommonplaceNote => ({
   body: "Who am I?",
   thought: null,
   page: null,
+  endPage: null,
+  pageRoman: false,
   chapter: null,
   percent: null,
   isFavourite: false,
+  edition: null,
   ...over,
 });
 
@@ -61,6 +64,19 @@ describe("commonplaceMarkdown", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  it("cites a page range, roman pages and the edition as the pages do (SLN-480)", () => {
+    const edition = { label: "Gallimard, 1928", title: "Nadja", publisher: "Gallimard", year: 1928, translators: [] };
+    const md = commonplaceMarkdown(
+      [
+        note({ page: 212, endPage: 213, chapter: "7", edition }),
+        note({ page: 14, endPage: 16, pageRoman: true }),
+      ],
+      "2026-10-06",
+    );
+    expect(md).toContain("\npp. 212–213 · Gallimard, 1928 · ch. 7\n");
+    expect(md).toContain("\npp. xiv–xvi\n");
   });
 
   it("says so when there is nothing", () => {
