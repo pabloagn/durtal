@@ -85,8 +85,9 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
   const log = async (readingId: string, input: Record<string, unknown>) =>
     logProgress({ readingId, fingerprint: await fp(readingId), timeZone: "Europe/Amsterdam", ...input } as never);
   /** Moves the running timer's start back, as if it had run that long */
+  // On the app's clock, the one the timer reads (SLN-519)
   const backdate = (sessionId: string, minutes: number) =>
-    q(`update reading_sessions set started_at = now() - interval '1 minute' * $2::float8 where id = $1`, [sessionId, minutes]);
+    q(`update reading_sessions set started_at = $2::timestamptz where id = $1`, [sessionId, new Date(Date.now() - minutes * 60_000).toISOString()]);
   const sessionsOf = (readingId: string) =>
     q(`select id, source, start_page, end_page, duration_seconds, ended_at, paused_seconds, read_on::text as read_on, time_zone from reading_sessions where reading_id = $1 order by read_on, coalesce(ended_at, started_at, created_at), created_at`, [readingId]);
   const counted = async (readingId: string) =>
@@ -98,13 +99,22 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       const b = await started("La Curée");
       const { sessionId } = await startTimer({ readingId: a.reading.id, timeZone: "Europe/Amsterdam" });
       await expect(startTimer({ readingId: b.reading.id })).rejects.toThrow("A timer is running for Nadja. Stop it first");
-      const paused = await pauseTimer({ sessionId });
-      expect(paused?.pausedAt).not.toBeNull();
-      expect((await pauseTimer({ sessionId }))?.pausedAt).toBe(paused?.pausedAt);
-      await q(`update reading_sessions set paused_at = paused_at - interval '5 minutes' where id = $1`, [sessionId]);
-      const resumed = await resumeTimer({ sessionId });
+      // A pause of exactly 5 minutes on the app's clock is 300 seconds,
+      // whatever the database's clock says (SLN-519)
+      const pausedAtMs = Date.now();
+      vi.useFakeTimers({ toFake: ["Date"], now: pausedAtMs });
+      let resumed: Awaited<ReturnType<typeof resumeTimer>>;
+      try {
+        const paused = await pauseTimer({ sessionId });
+        expect(new Date(paused!.pausedAt!).getTime()).toBe(pausedAtMs);
+        expect((await pauseTimer({ sessionId }))?.pausedAt).toBe(paused?.pausedAt);
+        vi.setSystemTime(pausedAtMs + 5 * 60_000 + 400);
+        resumed = await resumeTimer({ sessionId });
+      } finally {
+        vi.useRealTimers();
+      }
       expect(resumed?.pausedAt).toBeNull();
-      expect(resumed!.pausedSeconds).toBeGreaterThanOrEqual(300);
+      expect(resumed!.pausedSeconds).toBe(300);
       await backdate(sessionId, 30);
       const stop = await stopTimer({ sessionId, page: 140 });
       expect(stop.session).toMatchObject({ id: sessionId, source: "timer", startPage: 100, endPage: 140 });
@@ -125,7 +135,7 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       expect(Math.round(stop.session.durationSeconds! / 60)).toBe(40);
       const again = await startTimer({ readingId: a.reading.id });
       await backdate(again.sessionId, 30);
-      await q(`update reading_sessions set paused_at = now() - interval '10 minutes' where id = $1`, [again.sessionId]);
+      await q(`update reading_sessions set paused_at = $2::timestamptz where id = $1`, [again.sessionId, new Date(Date.now() - 10 * 60_000).toISOString()]);
       const stopped = await stopTimer({ sessionId: again.sessionId, page: 130 });
       expect(Math.round(stopped.session.durationSeconds! / 60)).toBe(20);
     });
