@@ -420,6 +420,7 @@ Rules:
 - An image placeholder (an empty cover, an empty collection, a card with no photo) may use a larger, decorative icon at low contrast, 20-40px; it is not an interface icon
 - No emoji anywhere in the interface
 - Icons inherit text color. A mark or status icon takes its accent: rare in gold, poison in red
+- An icon or drawing that repeats on every card of a grid stays light (page weight, SLN-481). The star draws the page's star symbol (`<svg><use href="#favourite-star"/></svg>`, `favourite-star.tsx`, in the root layout): the favourite toggle and the card rating (`CardRating`) both do. A drawing's colors go in a CSS utility, not inline on each shape: the stand-in flacon (`Flacon`) uses `flacon` in `globals.css`. A Lucide icon inline costs about 650 bytes a card, its symbol about 100
 
 ---
 

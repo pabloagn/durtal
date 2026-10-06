@@ -2157,7 +2157,7 @@ Real-world and online establishments where works are acquired, browsed, seen or 
 | `google_place_id` | TEXT | nullable | Google Places API identifier |
 | `phone` | TEXT | nullable | Phone number |
 | `email` | TEXT | nullable | Contact email |
-| `opening_hours` | JSONB | nullable | Structured opening hours |
+| `opening_hours` | JSONB | nullable | Opening hours as Google Places gives them: `regularOpeningHours`, or its `weekdayDescriptions` and `periods` (days numbered from Sunday, 0). The venue page reads it with `openingHoursRows`. Nothing fills it yet: the create dialog does not call `/api/venues/place-details` |
 | `timezone` | TEXT | nullable | IANA timezone identifier |
 | `poster_s3_key` | TEXT | nullable | S3 key for venue poster image |
 | `thumbnail_s3_key` | TEXT | nullable | S3 key for thumbnail image |

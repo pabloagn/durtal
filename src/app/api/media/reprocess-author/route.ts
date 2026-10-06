@@ -11,8 +11,8 @@ import {
   commitDisplay,
   displayFraming,
   editorCrop,
-  readS3Object,
 } from "@/lib/media/display";
+import { readS3Object } from "@/lib/s3/read-object";
 
 /**
  * POST /api/media/reprocess-author

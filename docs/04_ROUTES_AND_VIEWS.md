@@ -826,7 +826,7 @@ A venue around what it holds and sells (`src/lib/actions/venue-pages.ts`):
 - **Perfumes sold here**: listings for this branch, then the online listings of the retailer that runs it, each with its formulation, the last offer seen and its date ("Checked 1 Oct 2026 (3 days ago)", with "may have changed" once stale).
 - **Orders**: orders placed at this venue, newest first, with a link to all orders.
 - **Bought here**: perfume bottles, film copies and art objects whose acquisition names this venue, with the date bought and their status.
-- Specialties and tags, notes, and the record column (contact, opening hours, visits).
+- Specialties and tags, notes, and the record column (contact, opening hours, visits). Opening hours show one row per day, Monday first (`openingHoursRows`, `src/lib/catalogue/opening-hours.ts`): Google's day lines when stored, else its periods ("9:00–13:00, 14:30–18:00", "Closed", "Open 24 hours"). Hours that cannot be read are left out, never shown as raw JSON (SLN-292).
 - Each part lists up to 100 rows (orders 50) and says when there are more.
 
 ### Wanted (films, perfumes, paintings)

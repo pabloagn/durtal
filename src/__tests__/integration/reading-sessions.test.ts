@@ -289,6 +289,41 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       ).rejects.toThrow("The start and end times must fall on the session's day");
     });
 
+    it("refuses a session that shares time with another, by hand or by an edit", async () => {
+      const a = await started();
+      const tz = "Europe/Amsterdam";
+      const add = async (startedAt: string, minutes: number, page: number) =>
+        addSession({ readingId: a.reading.id, fingerprint: await fp(a.reading.id), readOn: "2026-09-15", startedAt: new Date(startedAt), durationSeconds: minutes * 60, to: { page }, timeZone: tz });
+      await add("2026-09-15T12:00:00Z", 45, 150); // 14:00 to 14:45 in Amsterdam
+      await expect(add("2026-09-15T12:30:00Z", 30, 170)).rejects.toThrow("Overlaps the session from 14:00 to 14:45. Change the start time or the time read.");
+      await expect(add("2026-09-15T11:30:00Z", 31, 170)).rejects.toThrow("Overlaps the session from 14:00 to 14:45");
+      // One that starts as the other ends is fine
+      const after = await add("2026-09-15T12:45:00Z", 15, 170);
+      expect(await value(`select count(*)::int from reading_sessions where reading_id = $1`, [a.reading.id])).toBe(2);
+      await expect(
+        updateSession({ sessionId: after.session.id, fingerprint: await fp(a.reading.id), startedAt: new Date("2026-09-15T12:40:00Z"), endedAt: new Date("2026-09-15T12:55:00Z") }),
+      ).rejects.toThrow("Overlaps the session from 14:00 to 14:45");
+      // A session without a start time takes no time on the clock
+      await addSession({ readingId: a.reading.id, fingerprint: await fp(a.reading.id), readOn: "2026-09-15", durationSeconds: 1800, to: { page: 190 }, timeZone: tz });
+    });
+
+    it("still edits a session that already shares time, unless the edit takes new time", async () => {
+      const a = await started();
+      const tz = "Europe/Amsterdam";
+      const add = async (startedAt: string, minutes: number, page: number) =>
+        addSession({ readingId: a.reading.id, fingerprint: await fp(a.reading.id), readOn: "2026-09-15", startedAt: new Date(startedAt), durationSeconds: minutes * 60, to: { page }, timeZone: tz });
+      await add("2026-09-15T12:00:00Z", 45, 150);
+      await add("2026-09-15T14:00:00Z", 30, 200);
+      const third = await add("2026-09-15T13:00:00Z", 30, 170);
+      // Saved before the rule: move it over the first session
+      await q(`update reading_sessions set started_at = '2026-09-15T12:30:00Z' where id = $1`, [third.session.id]);
+      await updateSession({ sessionId: third.session.id, fingerprint: await fp(a.reading.id), note: "Kept" });
+      expect(await value(`select note from reading_sessions where id = $1`, [third.session.id])).toBe("Kept");
+      await expect(
+        updateSession({ sessionId: third.session.id, fingerprint: await fp(a.reading.id), endedAt: new Date("2026-09-15T14:10:00Z") }),
+      ).rejects.toThrow("Overlaps the session from 16:00 to 16:30");
+    });
+
     it("deletes a session and restores the same row and position", async () => {
       const a = await started();
       await log(a.reading.id, { page: 150, readOn: "2026-09-10" });

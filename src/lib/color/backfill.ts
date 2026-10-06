@@ -16,7 +16,7 @@
 import { and, asc, count, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { editions, media } from "@/lib/db/schema";
-import { getS3Object } from "@/lib/s3/covers";
+import { readS3Object } from "@/lib/s3/read-object";
 import type { ColorPalette } from "@/lib/types";
 import { extractColorPalette } from "./extract-palette";
 import { colorBucketOfPalette, editionCoverPaletteFields, mediaPaletteFields } from "./color-buckets";
@@ -44,9 +44,7 @@ const posterWithout = and(eq(media.type, "poster"), isNull(media.colorPalette));
 const coverWithout = and(isNotNull(editions.thumbnailS3Key), isNull(editions.coverPalette));
 
 async function paletteOf(key: string): Promise<ColorPalette> {
-  const object = await getS3Object(key);
-  if (!object.body) throw new Error("The image is empty");
-  return extractColorPalette(Buffer.from(await object.body.transformToByteArray()));
+  return extractColorPalette(await readS3Object(key));
 }
 
 export async function backfillCoverColors({

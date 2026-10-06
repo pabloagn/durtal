@@ -30,7 +30,9 @@ const bucket = vi.hoisted(() => ({
   bodies: new Map<string, Buffer>(),
   failPut: new Set<string>(),
 }));
-vi.mock("@/lib/s3/covers", () => ({
+// The real reads (getS3Object), through the mocked client below
+vi.mock("@/lib/s3/covers", async (original) => ({
+  ...(await original<typeof import("@/lib/s3/covers")>()),
   uploadToS3: vi.fn(async (key: string, body: Buffer) => {
     if ([...bucket.failPut].some((part) => key.includes(part))) throw new Error("Storage refused the upload");
     bucket.objects.add(key);

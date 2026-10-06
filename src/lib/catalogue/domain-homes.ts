@@ -1,10 +1,9 @@
-import { getFilmCount, getFilms } from "@/lib/actions/films";
-import { getPaintingCount, getPaintings } from "@/lib/actions/paintings";
-import { getPerfumeCount, getPerfumes } from "@/lib/actions/perfumes";
+import { getFilms } from "@/lib/actions/films";
+import { getPaintings } from "@/lib/actions/paintings";
+import { getPerfumes } from "@/lib/actions/perfumes";
 import { FILM_SORTS } from "@/lib/validations/films";
 import { PAINTING_SORTS } from "@/lib/validations/paintings";
 import { PERFUME_SORTS } from "@/lib/validations/perfumes";
-import { parsePagination, type ListSearchParams } from "@/lib/utils/pagination";
 import { catalogueDateYears } from "./dates";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -69,23 +68,15 @@ function tile(
 }
 
 interface HomeQuery {
-  search?: string;
   sort: string;
   order?: "asc" | "desc";
   limit: number;
   offset: number;
 }
 
-const SOURCES: Record<
-  HomeKind,
-  {
-    sorts: readonly string[];
-    list: (query: HomeQuery) => Promise<DomainTile[]>;
-    count: (search?: string) => Promise<number>;
-  }
-> = {
+/** Each collection's cards as tiles, for the dashboard */
+const SOURCES: Record<HomeKind, { list: (query: HomeQuery) => Promise<DomainTile[]> }> = {
   perfume: {
-    sorts: PERFUME_SORTS,
     list: async (query) =>
       (
         await getPerfumes({
@@ -99,10 +90,8 @@ const SOURCES: Record<
           ...cardFields(perfume),
         }),
       ),
-    count: (search) => getPerfumeCount({ search }),
   },
   film: {
-    sorts: FILM_SORTS,
     list: async (query) =>
       (
         await getFilms({
@@ -116,10 +105,8 @@ const SOURCES: Record<
           ...cardFields(film),
         }),
       ),
-    count: (search) => getFilmCount({ search }),
   },
   painting: {
-    sorts: PAINTING_SORTS,
     list: async (query) =>
       (
         await getPaintings({
@@ -133,30 +120,8 @@ const SOURCES: Record<
           ...cardFields(painting),
         }),
       ),
-    count: (search) => getPaintingCount({ search }),
   },
 };
-
-/** A page of a collection home, from its URL: search, sort, order and page. */
-export async function loadDomainHome(kind: HomeKind, params: ListSearchParams) {
-  const source = SOURCES[kind];
-  const first = (key: string) => {
-    const value = params[key];
-    return Array.isArray(value) ? value[0] : value;
-  };
-  const search = first("q")?.trim() || undefined;
-  const sortParam = first("sort");
-  const sort = sortParam && source.sorts.includes(sortParam) ? sortParam : "title";
-  const orderParam = first("order");
-  const order =
-    orderParam === "asc" || orderParam === "desc" ? orderParam : undefined;
-  const { page, perPage, offset } = parsePagination(params);
-  const [tiles, total] = await Promise.all([
-    source.list({ search, sort, order, limit: perPage, offset }),
-    source.count(search),
-  ]);
-  return { tiles, total, page, perPage, search };
-}
 
 /** The newest records of a collection, for the dashboard. */
 export function loadRecentTiles(kind: HomeKind, limit: number) {
