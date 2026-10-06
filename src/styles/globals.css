@@ -352,7 +352,8 @@ dialog::backdrop {
   @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border text-fg-primary hover:glass-chip-lift touch-hit;
 }
 
-/* An icon button's padding around a 16px icon: 32px, 44px on touch. The
+/* An icon button's padding around a 16px icon: 32px, 44px on touch, in rem
+   so it grows with the reader's font size like the spacing scale. The
    favourite star on every card and row; one class, not two (page weight) */
 @utility icon-hit {
   padding: 0.5rem;

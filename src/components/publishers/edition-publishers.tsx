@@ -81,7 +81,7 @@ export function EditionPublishers({
           <Link
             key={p.id}
             href={`/publishers/${p.slug}`}
-            className="text-accent-blue hover:underline"
+            className="text-accent-blue hover:underline touch-hit"
           >
             {p.name}
           </Link>

@@ -120,7 +120,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
               {pages > 1 && (
                 <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-sm" data-suggestions-pages="">
                   {page > 1 ? (
-                    <Link href={pageHref(page - 1)} className="text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:py-3">
+                    <Link href={pageHref(page - 1)} className="text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:py-3 touch-hit">
                       Previous
                     </Link>
                   ) : (
@@ -130,7 +130,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
                     Page {page} of {pages}
                   </span>
                   {page < pages ? (
-                    <Link href={pageHref(page + 1)} className="text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:py-3">
+                    <Link href={pageHref(page + 1)} className="text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:py-3 touch-hit">
                       Next
                     </Link>
                   ) : (
