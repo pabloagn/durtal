@@ -355,6 +355,24 @@ Goals and the rhythm never nag (SLN-455): no word says "behind", "lost" or "fail
 - **The rhythm** (`src/components/reading/rhythm.tsx`): seven 16px squares in the week's order, filled sage on a reading day, outlined otherwise, today with an outline 2px out; the day's initial under each; "4 of 5 days this week". Under it, 12 bars 8px wide, 4 to 32px tall by reading days, sage when the week reached the target, `bg-tertiary` otherwise, and "kept 9 of the last 12 weeks".
 - Both are drawn on the server with its reading day and redrawn in the browser with the browser's, at the same height.
 
+### Charts
+
+The reading charts (SLN-456, `src/components/reading/charts/`) are hand-drawn SVG, no chart library: bars (`BarChart`), the calendar (`CalendarHeatmap`), and ranked lists in HTML (`RankList`, a thin sage bar under each row's text).
+
+- **One tab stop.** Each chart sits in `ChartFrame`: an HTML wrapper with `tabIndex={0}`, `role="group"`, an `aria-label` naming the chart and `aria-describedby` pointing at its caption line. Its only other control is "Show as table".
+- **Arrow keys** move a focus point: Left and Right by one bar or day, Up and Down by a week in the calendar (by one in a bar chart), Home and End to the first and last (`moveFocus`, `src/lib/reading/charts.ts`). The focused mark has a rose outline. Focus leaving the chart clears it.
+- **Caption line and live region.** Under the chart, a 14px `fg-secondary` line says the focused value ("March 2025: 4 books"), or the whole chart in words before a point is chosen; a polite live region says the same as the focus moves.
+- **The SVG** inside has `role="img"` with the summary as its `aria-label`, and nothing focusable in it. Hover shows a mark's exact value through `data-tooltip` on the mark; the keyboard value is the caption line, never a tooltip.
+- **"Show as table"** (a button with `aria-expanded`) shows the same numbers as a table under the chart.
+- **Never scaled.** No text is scaled through `viewBox`: the SVG's width is measured with a `ResizeObserver` and its height is fixed per chart, so nothing moves when it measures. Labels are 12px (`text-micro`) or 14px (`text-xs`) in `fg-secondary`.
+- **Colors**: sage and blue fills, `bg-tertiary` tracks, `glass-border` grid lines; never color alone, since every value is also text. Calendar shades are sage at 30, 55, 80 and 100%, against the year's busiest day.
+- **Narrow screens and many bars**: under 480px of width, or when its labels would not fit side by side (`barsFit`: about 7px a character, 8px apart), a bar chart turns into horizontal bars; the calendar (four blocks of week rows) scrolls inside its own box under 600px, never the page.
+- Dates in labels use fixed English month and weekday names (no `Intl`), so the server and the browser write the same text.
+
+### Print
+
+Every page prints light and without the app around it (SLN-456, `@media print` in `globals.css`): the colour tokens switch to dark text on white, the sidebar and the phone bar are `print:hidden`, the page takes the full width, and colours print as drawn. A page hides its own controls with `print:hidden` and keeps blocks whole with `break-inside-avoid` (the Year in review).
+
 ### Quotes and notes
 
 A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453) looks the same on the book page, on `/reading/notes` and on the hub.
@@ -444,6 +462,7 @@ A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-a
 ### Keyboard, touch and motion
 
 - Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
+- Search: `S` opens the command palette from any page but the e-book reader (where `S` opens the reader's settings), as `⌘K` does; `/` goes to the page's own search field. Escape closes every search surface, one layer per press: the palette, a popover or menu, then the dialog around it. A list under a search field closes first (the field's text clears, as in the publisher and place pickers), and focus goes back to where it was. In a search field on a page, Escape leaves the field and keeps its text.
 - On a touch screen, a control is at least 24px, or spaced so that a 24px circle on its center touches no other control (WCAG 2.5.8). A link inside running text is exempt. A control that shows on hover also shows on a touch screen. The rating input has 44px whole-star targets there (see Ratings).
 - A menu beside text goes in `CapAlignedControls`, never in `CapAligned`: `CapAligned`'s box clips, so a menu drawn inside it opens as a sliver whose items cannot be clicked. `CapAlignedControls` takes the same `height` and `coarseHeight` and clips nothing. `src/__tests__/cap-aligned-menus.test.ts` fails on a menu inside `CapAligned`.
 - With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.

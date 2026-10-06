@@ -198,6 +198,10 @@ Guard: `getDb()` (`src/lib/db/index.ts`) throws when called during `next build` 
 
 Reference data read through `cached()` (`src/lib/cache.ts`, `unstable_cache` with tags) is still cached per request; the matching server actions invalidate its tags.
 
+### Collections Open by Switch
+
+Books, perfumes, films and paintings share the `works` table, told apart by `works.kind`. Each collection is an entry in `WORK_DOMAINS` (`src/lib/catalogue/domains.ts`): its labels, routes, capabilities and an `enabled` switch. Navigation, menus, search, the dashboard and every collection page read `getEnabledWorkKinds()` and `canUseWorkCapability()`, so a closed collection answers 404 and no page names it. The database has its own gate: `works_kind_enabled_check` lists the kinds a row may have, and only an activation migration widens it (`0053_open_perfumes`, `0054_film_kind_enabled`, `0055_open_paintings`). A collection opens when both say so; closing one is the switch alone, so its rows stay valid and come back when it opens again (see `docs/11_DEPLOYMENT.md`, Release order and Rolling back a collection).
+
 ### Cascading Deletes
 
 Foreign keys use `onDelete: "cascade"` throughout the schema. Deleting a work removes all its editions; deleting an edition removes all its instances. This matches the domain model: if a work does not exist, neither do its publications or copies.

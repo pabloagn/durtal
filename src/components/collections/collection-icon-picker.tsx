@@ -16,6 +16,7 @@ import { Shapes } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { setCollectionIcon } from "@/lib/actions/collections";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 // Holds the whole icon set: loaded only when the picker opens.
 const IconPickerPanel = lazy(() => import("./icon-picker-panel"));
@@ -78,7 +79,10 @@ export function CollectionIconPicker({
         setPosition(null);
     }
     function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") close(true);
+      if (event.key !== "Escape" || isComposing(event)) return;
+      // The panel closes; the dialog around it stays (one layer per Esc)
+      event.preventDefault();
+      close(true);
     }
     function scrolled(event: Event) {
       // The panel scrolls its own grid; only page scrolls close it.

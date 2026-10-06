@@ -7,6 +7,7 @@
  * "shift", "enter", "esc", or the character itself.
  */
 
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 
 export type Keys = string[];
@@ -96,6 +97,8 @@ export const EDIT_KEYS = {
 
 export const SHORTCUTS = {
   palette: ["mod", "k"],
+  /** S: the palette from any page but the e-book reader (SLN-477) */
+  openSearch: ["s"],
   search: ["/"],
   addMenu: ["a"],
   goMenu: ["g"],
@@ -125,6 +128,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.editMenu, label: "Edit this page" },
       { keys: SHORTCUTS.readingMenu, label: "Reading (a book)" },
       { keys: SHORTCUTS.palette, label: "Search books, people, commands" },
+      { keys: SHORTCUTS.openSearch, label: "Search, from any page" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
     ],
@@ -136,7 +140,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.confirm, label: "Pick, confirm, next step, Fast Track" },
       { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
       { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
-      { keys: SHORTCUTS.close, label: "Close" },
+      { keys: SHORTCUTS.close, label: "Close a search, a list, a menu or a dialog" },
     ],
   },
   {
@@ -215,9 +219,22 @@ const NOT_TEXT = new Set([
 ]);
 
 /** The user types into this element: single-key shortcuts must not fire */
+/**
+ * A key that belongs to an input method composing text (Japanese, Chinese,
+ * Korean): an Esc there ends the composition and must close nothing. Safari
+ * sends the key that ends a composition with keyCode 229 and isComposing
+ * false, so both count (SLN-477).
+ */
+export function isComposing(event: KeyboardEvent | ReactKeyboardEvent): boolean {
+  const native = "nativeEvent" in event ? event.nativeEvent : event;
+  return native.isComposing || native.keyCode === 229;
+}
+
 export function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   if (el.isContentEditable) return true;
+  // A combobox takes letters itself (type to find an option)
+  if (el.getAttribute("role") === "combobox") return true;
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)
     return true;
   return el instanceof HTMLInputElement && !NOT_TEXT.has(el.type);

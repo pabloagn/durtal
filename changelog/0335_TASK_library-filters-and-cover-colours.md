@@ -104,3 +104,13 @@ section, a chip for each chosen filter, and a filter by cover colour.
   images the last one could not read instead of retrying them first forever.
   Test through the route: a dry run, then four calls with `limit=1` over two
   broken covers and a red one. Docs 05 and 07.
+- Merge with main after the interchange format (#111): the format leaves the
+  derived colour columns out (`DERIVED_COLUMNS` in
+  `src/lib/interchange/columns.ts`: `editions.cover_palette`,
+  `editions.cover_color_bucket`, `media.color_bucket`), so version 1's pinned
+  columns stay as #111 pinned them and no new version is needed; an import
+  leaves them empty and the cover-colour backfill fills them. Test: a cover
+  colour stays out of the exported file and is empty after an import. The
+  filter-dropdown conflict keeps #106's Esc handling and this PR's sections,
+  swatches and placement.
+

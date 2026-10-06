@@ -16,7 +16,7 @@ export const MobileNavBar = forwardRef<
 >(function MobileNavBar({ navOpen, onOpenNav, onSearch }, menuButtonRef) {
   return (
     <header
-      className="glass-bar fixed inset-x-0 top-0 z-40 flex h-12 items-center border-b border-glass-border px-1 md:hidden"
+      className="glass-bar fixed inset-x-0 top-0 z-40 flex h-12 items-center border-b border-glass-border px-1 print:hidden md:hidden"
       // Behind the open drawer, the bar takes no focus
       inert={navOpen}
     >

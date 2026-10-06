@@ -15,19 +15,25 @@ export const READING_TABS = [
   { href: "/reading/next", label: "Up next", ready: true },
   { href: "/reading/journal", label: "Journal", ready: true },
   { href: "/reading/notes", label: "Notes", ready: true },
-  { href: "/reading/stats", label: "Stats", ready: false },
+  { href: "/reading/stats", label: "Stats", ready: true, also: "/reading/year" },
   { href: "/reading/suggestions", label: "Suggestions", ready: false },
   { href: "/reading/import", label: "Import", ready: true },
 ] as const;
 
-/** The tabs to show and which one is current: Now only on /reading itself, the others on their path and below */
-export function readingTabs(pathname: string, tabs: readonly { href: string; label: string; ready: boolean }[] = READING_TABS) {
+const under = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+/**
+ * The tabs to show and which one is current: Now only on /reading itself, the
+ * others on their path and below, and on `also` and below (Stats on the Year
+ * in review)
+ */
+export function readingTabs(pathname: string, tabs: readonly { href: string; label: string; ready: boolean; also?: string }[] = READING_TABS) {
   return tabs
     .filter((t) => t.ready)
     .map((t) => ({
       href: t.href,
       label: t.label,
-      current: t.href === "/reading" ? pathname === "/reading" : pathname === t.href || pathname.startsWith(`${t.href}/`),
+      current: t.href === "/reading" ? pathname === "/reading" : under(pathname, t.href) || (t.also !== undefined && under(pathname, t.also)),
     }));
 }
 

@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { SlidersHorizontal, ChevronDown, Search, Check } from "lucide-react";
 import { RangeSlider } from "@/components/ui/range-slider";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 import { inkOn } from "@/lib/color/color-math";
 import { CapAligned } from "./cap-aligned";
 
@@ -157,6 +158,7 @@ export function FilterDropdown({
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [groupSearchTerms, setGroupSearchTerms] = useState<Record<string, string>>({});
   const [section, setSection] = useState<string | null>(null);
@@ -228,6 +230,20 @@ export function FilterDropdown({
 
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [open]);
+
+  // Esc closes the panel, from its search fields too, and focus goes back to
+  // the Filter button (SLN-477). The page's search field keeps its own Esc.
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
   }, [open]);
 
   // The panel hangs from the button's right edge; on a narrow window it
@@ -340,6 +356,7 @@ export function FilterDropdown({
     <div ref={containerRef} className="relative">
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         onClick={() => {
           onIntent?.();
           setOpen((prev) => !prev);
