@@ -6,6 +6,10 @@ Server actions are called directly by server components and client components wi
 
 ---
 
+## New books queue an identity job (SLN-464)
+
+After its save commits, each of these actions queues the book's identity job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
+
 ## Works (`src/lib/actions/works.ts`)
 
 ### `getWorks(opts?)`
