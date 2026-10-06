@@ -10,7 +10,7 @@ import {
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
@@ -250,6 +250,30 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(one.map((x) => x.workId)).toEqual([meridian.id]);
     expect((await getSeriesSuggestions(rulfo.id))[0].authors).toBe("Author");
     expect(await getSeriesSuggestions(trilogy.id)).toHaveLength(2);
+  });
+
+  it("keeps the suggestion query's estimate under jit_above_cost for a library of 85 series and 700 books (SLN-487)", async () => {
+    await db.execute(
+      sql`insert into series(title, slug) select 'Saga ' || i || ': Tome ' || i || 'a, Tome ' || i || 'b, and Tome ' || i || 'c', 'saga-' || i from generate_series(1, 85) i`,
+    );
+    await db.execute(
+      sql`insert into works(title, slug) select 'Tome ' || i || x, 'tome-' || i || x from generate_series(1, 85) i, unnest(array['a', 'b', 'c']) x`,
+    );
+    await db.execute(sql`insert into works(title, slug) select 'Other book ' || i, 'tome-other-' || i from generate_series(1, 445) i`);
+    // One author a book, as in a real library, then fresh statistics
+    await db.execute(sql`insert into authors(name, slug) select 'Writer ' || i, 'writer-' || i from generate_series(1, 85) i`);
+    await db.execute(
+      sql`insert into work_authors(work_id, author_id) select w.id, a.id from works w join authors a on a.slug = 'writer-' || (substring(w.slug from '[0-9]+')::int % 85 + 1) where w.slug like 'tome-%'`,
+    );
+    for (const table of ["series", "works", "authors", "work_authors"]) await db.execute(sql.raw(`analyze ${table}`));
+    const execute = vi.spyOn(db, "execute");
+    expect(await getSeriesSuggestions()).toHaveLength(255);
+    const query = execute.mock.calls[0][0] as SQL;
+    execute.mockRestore();
+    const plan = (await db.execute(sql`explain (format json) ${query}`)) as unknown as { "QUERY PLAN": { Plan: { "Total Cost": number } }[] }[];
+    const [limit] = (await db.execute(sql`select current_setting('jit_above_cost')::float as cost`)) as unknown as { cost: number }[];
+    // regexp_split_to_table was estimated at 1,000 parts a title: on a preview a cost of 472,000 and JIT on every request
+    expect(plan[0]["QUERY PLAN"][0].Plan["Total Cost"]).toBeLessThan(limit.cost);
   });
 
   it("lists series with counts and covers, and finds books for the picker", async () => {
