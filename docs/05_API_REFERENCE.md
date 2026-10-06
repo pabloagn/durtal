@@ -883,7 +883,7 @@ Creates one note through `createReadingNote`. Body: `body` (the passage) and `ki
 
 - `editionId`: the edition gives its book.
 - `isbn` (ISBN-10 or ISBN-13): resolved to an edition and its book by `editionByIsbn` (`src/lib/api/readings.ts`, shared with `POST /api/readings`). A 979 ISBN has no ISBN-10, so it matches `isbn_13` only.
-- `workId`: the edition is the named reading's (`readingId`), else the open reading's, else the book's only edition when it has exactly one, else none. The API never guesses among several editions.
+- `workId`: the edition is the named reading's (`readingId`) when it has one, else the open reading's, else the book's only edition when it has exactly one, else none. The API never guesses among several editions.
 - `readingId`: `null` is no reading; left out, the book's open reading, whatever its edition.
 - `commentHtml` is sanitized as the dialog's thought is; `comment_json` stays null (the editor opens a thought from its HTML).
 

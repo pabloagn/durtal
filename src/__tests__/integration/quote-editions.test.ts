@@ -355,6 +355,9 @@ describe.skipIf(!url)("quotes tied to editions with PostgreSQL", () => {
       // A named reading files the note under its own edition, not the open one's
       const past = await reading(w, e, 480, "finished");
       expect((await answer(await postNote(request("POST", "/api/readings/notes", { workId: w, readingId: past, body: "x", page: 48 })))).body.note).toMatchObject({ editionId: e, readingId: past, percent: 10 });
+      // A named reading with no edition falls back as the book does: here to the open reading's
+      const bare = await reading(w, null, null, "finished");
+      expect((await answer(await postNote(request("POST", "/api/readings/notes", { workId: w, readingId: bare, body: "x" })))).body.note).toMatchObject({ editionId: e2, readingId: bare });
       // A 979 ISBN has no ISBN-10: an edition with an empty one is not a match
       await q(`update editions set isbn_10 = '' where id = $1`, [e2]);
       expect(await answer(await postNote(request("POST", "/api/readings/notes", { isbn: "9791090636071", body: "x" })))).toMatchObject({ status: 404, body: { message: "Not in Durtal yet" } });

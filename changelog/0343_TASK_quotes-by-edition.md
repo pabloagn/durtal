@@ -146,7 +146,9 @@ from the phone by ISBN. Migration `0074_quote_editions` adds two
 - `POST /api/readings/notes` with `workId` and a `readingId` files the note
   under that reading's edition, as the note actions do; it took the open
   reading's edition before (a quote on the finished Penguin read went under
-  the open Ecco one, with Ecco's citation and percent).
+  the open Ecco one, with Ecco's citation and percent). A named reading with
+  no edition (an import can lack one) falls back to the open reading's
+  edition, then the book's only one.
 - `endPage` or `pageRoman` with no page answers 400 ("Send the first page
   with the last", "A roman page starts at i") on create and on edit; it was
   dropped with a 201. A backwards range says "The second page comes before
