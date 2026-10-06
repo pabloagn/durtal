@@ -46,7 +46,9 @@ SLN-461.
   vocabulary loader (plan by default on a read-only session; `--apply` with a
   backup under an hour old and Pablo's approval link; `--undo VERSION`).
 - `src/lib/enrichment/governance.ts`: hand edits of governed items through
-  `workTaxonomyQueries` (`updateWorkTaxonomy` and the wizard).
+  `workTaxonomyQueries` (`updateWorkTaxonomy` and the wizard) and
+  `replaceTaxonomyAssignments` (the book page's in-place edit), for system
+  and custom families alike.
 - `src/lib/actions/enrichment.ts`: `getWorkEnrichment`,
   `acceptEnrichmentClaims`, `rejectEnrichmentClaims`,
   `createHumanEnrichmentClaim`, `undoEnrichmentApplication`,
@@ -66,7 +68,7 @@ SLN-461.
 ## Completion Notes
 
 - Tests: `enrichment-services.test.ts` (database
-  `sln462_enrichment_services`, 20 tests) loads the fixture vocabulary and
+  `sln462_enrichment_services`, 22 tests) loads the fixture vocabulary and
   covers the loader (a plan writes nothing; an unknown example work stops it,
   a merged one is followed; items created in their family with category and
   parent, an existing one reused by slug; rules off; `--apply` refused
@@ -79,9 +81,10 @@ SLN-461.
   single-value replacement and its undo, undo refused after a change, Pablo's
   edit and its undo, the identifier target's refusals, a target without a
   writer, undo reopening only claims that keep evidence), every rule refusal
-  and the daily cap, hand edits through `updateWorkTaxonomy`, and the job
-  queue (no shared job, rerun, abandoned leases, backoff, holds, filters,
-  outcome). `services.test.ts` (14 unit tests): value kinds, skip rules,
+  and the daily cap, hand edits through `updateWorkTaxonomy` and, on a custom
+  family, through `replaceTaxonomyAssignments`, and the job queue (no shared
+  job, rerun with its attempts back at zero, a hold dropping a pending rerun,
+  abandoned leases, backoff, holds, filters, outcome). `services.test.ts` (14 unit tests): value kinds, skip rules,
   caps, backoff, the target registry and the seed schema on the fixture.
   `book-domain-isolation` refuses `createHumanEnrichmentClaim` on a film.
 - Full suite (`scripts/qa/test-local.py`) on 36559803: 2,678 tests in 240
