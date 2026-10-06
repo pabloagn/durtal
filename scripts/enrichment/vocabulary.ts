@@ -19,7 +19,7 @@
 import { parseArgs } from "node:util";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
-import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -27,6 +27,7 @@ import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/catalogue/work-store";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
 import { applyVocabulary, planVocabulary, undoVocabulary, type VocabularyPlan } from "@/lib/enrichment/loader";
+import { recentBackup } from "@/lib/enrichment/backup";
 
 const { values } = parseArgs({
   options: {
@@ -48,19 +49,6 @@ const writes = values.apply || !!values.undo;
 // Outside --apply and --undo, the session itself refuses writes
 const client = postgres(url, { max: 1, onnotice: () => {}, connection: writes ? {} : { default_transaction_read_only: true } });
 
-
-/** A pg_dump custom-format file (it starts with PGDMP) written in the last hour */
-function recentBackup(file: string | undefined) {
-  if (!file || !existsSync(file)) return false;
-  const head = Buffer.alloc(5);
-  const fd = openSync(file, "r");
-  try {
-    readSync(fd, head, 0, 5, 0);
-  } finally {
-    closeSync(fd);
-  }
-  return head.toString("latin1") === "PGDMP" && Date.now() - statSync(file).mtimeMs < 3600_000;
-}
 
 function report(plan: VocabularyPlan) {
   const list = (label: string, items: string[]) => console.log(`${label} (${items.length})${items.length ? `: ${items.join(", ")}` : ""}`);

@@ -114,6 +114,10 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
     ).toEqual([
       { event_key: "work.created", metadata: { newValue: "The Magic Mountain" } },
     ]);
+    // Its identity job, after the save (SLN-464): a tracked book comes last
+    expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id=${work.id}`).toEqual([
+      { kind: "identity", priority: 100, reason: "created" },
+    ]);
   });
 
   it("numbers the slug of a second book with the same title and author", async () => {

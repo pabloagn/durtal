@@ -145,13 +145,17 @@ export async function holdEnrichmentJob(input: { id: string; worker: string; rea
 
 /**
  * Releases the holds a stage's next run may retry: quota, rate limit and
- * budget. A book's cost ceiling waits for Pablo.
+ * budget. A book's cost ceiling waits for Pablo: only a run he names the
+ * book for (`jobIds`) releases it.
  */
-export async function releaseHeldEnrichmentJobs(kind?: EnrichmentJobKind, conn: Db = appDb) {
+export async function releaseHeldEnrichmentJobs(kind?: EnrichmentJobKind, conn: Db = appDb, options: { jobIds?: string[] } = {}) {
   const k = kind ? jobKindSchema.parse(kind) : null;
+  const named = options.jobIds?.length
+    ? sql`or (held_reason = 'work_cost_ceiling' and id in (${sql.join(options.jobIds.map((id) => sql`${id}::uuid`), sql`, `)}))`
+    : sql``;
   const released = resultRows<{ id: string }>(
     await conn.execute(sql`update enrichment_jobs set status = 'queued', held_reason = null, updated_at = now()
-      where status = 'held' and held_reason in ('quota', 'rate_limited', 'budget') ${k ? sql`and kind = ${k}` : sql``}
+      where status = 'held' and (held_reason in ('quota', 'rate_limited', 'budget') ${named}) ${k ? sql`and kind = ${k}` : sql``}
       returning id`),
   );
   return released.length;

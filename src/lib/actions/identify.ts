@@ -41,6 +41,7 @@ import {
   planRecord,
   saveMatch,
 } from "@/lib/match/save";
+import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 export interface QueueCopy {
   location: string;
@@ -265,6 +266,8 @@ export async function identifyEdition(
     accepted: rows.filter((r) => r.checked).map((r) => ({ field: r.field, value: r.next })),
     coverOptional: true,
   });
+  // The placeholder has its ISBN: the book's identity job (SLN-464)
+  await queueNewBookEnrichment(edition.workId);
   return {
     title: record.title,
     publisher: record.publisher,

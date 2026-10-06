@@ -74,6 +74,7 @@ import {
   readCountSql,
 } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
+import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 /**
  * Build a search condition that matches works by title, author, ISBN,
@@ -467,6 +468,8 @@ export async function createWork(input: CreateWorkInput) {
   });
   const plan = await planBookWork(parsed, primaryAuthor?.name ?? "unknown");
   await atomic(plan.queries);
+  // Book enrichment (SLN-464): its identity job, after the save
+  await queueNewBookEnrichment(plan.id);
   invalidate(CACHE_TAGS.works, CACHE_TAGS.series);
   return (await db.query.works.findFirst({ where: eq(works.id, plan.id) }))!;
 }
