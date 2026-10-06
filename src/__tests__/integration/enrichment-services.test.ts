@@ -38,6 +38,10 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: effects.recordActivity }));
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: vi.fn(async () => false),
+}));
 import { vocabularySeedSchema, type VocabularySeed } from "@/lib/validations/enrichment";
 import { applyVocabulary, planVocabulary, undoVocabulary } from "@/lib/enrichment/loader";
 import { applyClaim, proposeClaims, type ProposalResult } from "@/lib/enrichment/claims";
@@ -57,6 +61,7 @@ import {
   undoEnrichmentApplication,
 } from "@/lib/actions/enrichment";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
+import { deleteEdition } from "@/lib/actions/editions";
 import { GET as listWorks } from "@/app/api/works/route";
 
 /*
@@ -328,6 +333,24 @@ describe.skipIf(!url)("the enrichment services", () => {
       const again = await accept(steady);
       await c`delete from work_attributes where work_id = ${b}`;
       expect((await undoEnrichmentApplication(again)).failed[0].reason).toBe("The value changed since it was applied; undo it from its newer apply first");
+    });
+
+    it("reopens on undo only the superseded proposals that still have evidence", async () => {
+      const b = await book("Lost evidence");
+      const [edition] = await c`insert into editions(work_id, title) values (${b}, 'Edition') returning id`;
+      const json = JSON.stringify({ labels: { en: "Dark" } });
+      const [fromEdition] = await c`insert into source_records(entity_kind, edition_id, provider, retrieved_at, payload, payload_hash, review_status)
+        values ('edition', ${edition.id}, 'wikidata', now(), ${json}::jsonb, ${sha(json)}, 'accepted') returning id`;
+      const s = await source(b, { labels: { en: "Dark" } });
+      const [slow] = await propose([b, "pace", { term: "slow" }, [[s, "Dark", ["labels", "en"]]]]);
+      const [fast] = await propose([b, "pace", { term: "fast" }, [[fromEdition.id, "Dark", ["labels", "en"]]]]);
+      const accepted = await acceptEnrichmentClaims([{ claimId: claimId(slow), fingerprint: await fingerprint(b, claimId(slow)) }]);
+      expect((await c`select status from enrichment_claims where id = ${claimId(fast)}`)[0].status).toBe("superseded");
+      // The edition goes, and with it the superseded proposal's only evidence
+      await deleteEdition(edition.id);
+      expect((await undoEnrichmentApplication(accepted.applied[0].applicationId)).failed).toEqual([]);
+      expect((await c`select status from enrichment_claims where id = ${claimId(fast)}`)[0].status).toBe("superseded");
+      expect((await c`select status from enrichment_claims where id = ${claimId(slow)}`)[0].status).toBe("proposed");
     });
 
     it("applies Pablo's edit at once, superseding the value it replaces; undo rejects it", async () => {

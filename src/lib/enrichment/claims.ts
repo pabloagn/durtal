@@ -383,6 +383,12 @@ export async function createHumanClaim(input: HumanClaimInput, conn: Db = appDb,
 // ── Undo ────────────────────────────────────────────────────────────────────
 
 /**
+ * A claim that still has evidence: an edition delete may have taken it (and
+ * an open or accepted API or agent claim needs evidence at commit)
+ */
+const HAS_EVIDENCE = sql`exists (select 1 from claim_evidence e where e.claim_id = c.id)`;
+
+/**
  * Restores an apply's `before`: the target's value and the claim statuses.
  * Superseded proposals reopen, except one whose value has a newer open
  * claim; a human claim the apply created becomes rejected (`undone`).
@@ -407,12 +413,12 @@ export async function undoApplication(applicationId: string, conn: Db = appDb) {
   const restore = (d: Db, s: ClaimState) =>
     s.status === "proposed"
       ? d.execute(sql`update enrichment_claims c set status = 'proposed', decided_by = null, decided_at = null, rule_id = null, superseded_by_claim_id = null
-          where c.id = ${uuid(s.id)} and c.status = 'superseded' and not exists (
+          where c.id = ${uuid(s.id)} and c.status = 'superseded' and ${HAS_EVIDENCE} and not exists (
             select 1 from enrichment_claims n where n.status = 'proposed' and n.id <> c.id and n.work_id = c.work_id and n.dimension_id = c.dimension_id
               and (n.edition_id, n.term_id, n.number_value, n.text_value, n.place_id, n.person_id) is not distinct from (c.edition_id, c.term_id, c.number_value, c.text_value, c.place_id, c.person_id))`)
-      : d.execute(sql`update enrichment_claims set status = ${s.status}, decided_by = ${s.decidedBy}, decided_at = ${s.decidedAt}::timestamptz,
+      : d.execute(sql`update enrichment_claims c set status = ${s.status}, decided_by = ${s.decidedBy}, decided_at = ${s.decidedAt}::timestamptz,
           rule_id = ${s.ruleId}::uuid, superseded_by_claim_id = ${s.supersededByClaimId}::uuid
-          where id = ${uuid(s.id)} and status = 'superseded'`);
+          where c.id = ${uuid(s.id)} and c.status = 'superseded' and (c.method = 'human' or ${HAS_EVIDENCE})`);
   await withReadableErrors(() =>
     atomicOn(conn, (d) => [
       d.execute(sql`select id from works where id = ${uuid(claim.workId)} for update`),
