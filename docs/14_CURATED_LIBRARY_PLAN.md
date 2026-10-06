@@ -458,5 +458,13 @@ perfume: it fills empty fields, adds brands and perfumers with their source,
 and leaves different or locked values as they are. Note claims cite their
 source, and two placements of one note are both kept. No schema change.
 
+Museum sources (SLN-378, task 0333): the Art Institute of Chicago and The Met
+are looked up through open APIs without a key. An answer is reviewed against
+the painting and its original; it fills empty fields, credits the painter as
+attributed and may add the original. A location is taken only from a dated
+"on view" answer, through the same history rules as a manual record, and a
+museum that does not show the work changes nothing. Later answers follow the
+earlier ones, with the changes and the age shown. No schema change.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

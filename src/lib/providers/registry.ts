@@ -1,6 +1,7 @@
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { adapterProblems, type ProviderAdapter, type ProviderLevel } from "./contract";
 import { wikidataPerfumes } from "./wikidata-perfumes";
+import { articArtworks, metArtworks } from "./museums";
 
 /*
  * The providers this Durtal may call (SLN-375). Each one is permitted by its
@@ -9,8 +10,10 @@ import { wikidataPerfumes } from "./wikidata-perfumes";
  *
  * Perfumes: Wikidata (SLN-377). Fragrantica, Basenotes and Parfumo have no
  * public API; they are cited by hand (`src/lib/catalogue/perfume-sources.ts`).
+ * Paintings: the Art Institute of Chicago and The Met (SLN-378), open APIs
+ * without a key; `src/lib/catalogue/painting-sources.ts` lists the others.
  */
-const PROVIDERS: readonly ProviderAdapter[] = [wikidataPerfumes as unknown as ProviderAdapter];
+const PROVIDERS: readonly ProviderAdapter[] = [wikidataPerfumes, articArtworks, metArtworks] as unknown as ProviderAdapter[];
 
 for (const adapter of PROVIDERS) {
   const problems = adapterProblems(adapter);
