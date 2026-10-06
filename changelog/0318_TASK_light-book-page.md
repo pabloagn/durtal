@@ -60,21 +60,22 @@ scope grew to both causes, agreed with the coordinator.
 ## Completion Notes
 
 Measured on a production build with the live-data rehearsal seed, before
-(#126 head) and after (this branch on main):
+(#126 head) and after (this branch merged with main at 7abd5c87):
 
 | Book page | Before | After |
 |---|---|---|
-| Don Quixote QA, 200 quotes | 872 KB | 336 KB |
-| Ten Notes QA, 10 quotes | 313 KB | 127 KB |
-| Journey Reading, 2 quotes | 336 KB | 153 KB |
+| Don Quixote QA, 200 quotes | 872 KB | 335 KB |
+| Ten Notes QA, 10 quotes | 313 KB | 126 KB |
+| Journey Reading, 2 quotes | 336 KB | 152 KB |
 
 - page-weight.js: before, the 200-quote book fails (872 / 400 KB); after,
-  on main, it passes (336 / 400 KB). `/library` fails at 300 / 300 KB on
-  main with the QA seed. This task does not change `/library`, which was
-  299 KB before #128 merged.
-- `test-local.py` on the final head: 231 files, 2,586 tests. Typecheck,
+  every route passes (the book 335 / 400 KB). `/library` is at the edge
+  with the QA seed: it failed at 300 / 300 KB before #130 merged and
+  passes after. This task does not change `/library`.
+- `test-local.py` on the merged head: 237 files, 2,622 tests. Typecheck,
   deadcode and lint (0 errors) are clean.
-- Three browsers headless (Chrome, Firefox, WebKit) at 1440, 768 and 390:
+- Three browsers headless (Chrome, Firefox, WebKit) at 1440, 768 and 390,
+  on the merged head:
   groups at 10 with Show all (0 px of scroll, 0.00 px between the button
   and the 11th note, the focus on the 11th), a note's address (in view),
   Edit taxonomy (2,228 items, the book's subject checked), Edit work, a
@@ -88,4 +89,4 @@ Measured on a production build with the live-data rehearsal seed, before
   three book pages, and the interaction audit no failures on
   `/library/journey-reading` and `/library/ten-notes-qa`.
 - Journeys: `perfumes`, `films`, `paintings`, `reading` and `import` pass
-  before the rebase; `reading` passes again on the final build.
+  before the rebase; `reading` passes again on the merged head.
