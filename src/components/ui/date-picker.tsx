@@ -96,11 +96,12 @@ export function DatePicker({
             error ? "border-accent-red" : ""
           } ${open ? "border-accent-rose" : ""}`}
         >
-          <span className={value ? "text-fg-primary" : "text-fg-secondary"}>
+          {/* One line: a narrow field would break "YYYY-MM-DD" at its hyphens, off the icon's line */}
+          <span className={`min-w-0 truncate ${value ? "text-fg-primary" : "text-fg-secondary"}`}>
             {value || placeholder}
           </span>
           <CalendarDays
-            className="h-3.5 w-3.5 text-fg-muted"
+            className="h-3.5 w-3.5 shrink-0 text-fg-muted"
             strokeWidth={1.5}
           />
         </button>

@@ -281,7 +281,7 @@ A work's rating is 0.5 to 5 in half steps, the same for books, films, perfumes a
 - 4px corners, the glass edge and its shadow
 - The header stays in view; the body scrolls when the dialog reaches 90% of the screen height
 - Backdrop clicks close the modal
-- A dialog whose lists load as it opens (`OptionsNotice`, `src/components/shared/options-notice.tsx`, SLN-510) shows the chosen items in them at once and never an empty list. A load under 200 ms shows nothing; a longer one puts "Loading the lists…" in 12px `fg-secondary` at the footer's start, beside the buttons, so nothing moves. A failed load puts "Could not load the lists." in `accent-red-text` there, with Retry. An empty list section says "Loading…" until its list arrives, not "No themes available"
+- A dialog whose lists load as it opens (`OptionsNotice`, `src/components/shared/options-notice.tsx`, SLN-510) shows the chosen items in them at once and never an empty list. A load under 200 ms shows nothing; a longer one puts "Loading the lists…" in 12px `fg-secondary` at the footer's start, beside the buttons, so nothing moves. A failed load puts "Could not load the lists." in `accent-red-text` there, with Retry. An empty list section says "Loading…" until its list arrives, or "Not loaded" after a failed load, never "No themes available"
 
 ### Badges
 

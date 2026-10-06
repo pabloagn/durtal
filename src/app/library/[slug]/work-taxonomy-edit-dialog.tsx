@@ -110,7 +110,7 @@ export function WorkTaxonomyEditDialog({
               items={withChosen(lists.options[s.group], chosen[s.group])}
               selectedIds={selected[s.group]}
               onChange={(ids) => setSelected((prev) => ({ ...prev, [s.group]: ids }))}
-              loading={lists.loading}
+              emptyText={lists.failed ? "Not loaded" : lists.loading ? "Loading…" : undefined}
             />
           ))}
         </div>
