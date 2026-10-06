@@ -118,12 +118,28 @@ External URL (Google Books, Open Library)
     - gold/covers/{editionId}/thumb.webp
        |
        v
+  Read the colour palette from the thumbnail (extractColorPalette;
+  a failure stores the cover without one)
+       |
+       v
   Update edition record:
     - coverS3Key = "gold/covers/{editionId}/cover.webp"
     - thumbnailS3Key = "gold/covers/{editionId}/thumb.webp"
+    - coverPalette, coverColorBucket (editionCoverPaletteFields)
 ```
 
-Implementation: `processAndUploadCover()` in `src/lib/s3/covers.ts`. Uses Sharp with dynamic import (native module compatibility).
+Implementation: `processAndUploadCover()` in `src/lib/s3/covers.ts`. Uses Sharp with dynamic import (native module compatibility). It returns the palette with the keys; the three callers (new book, edition edit, metadata match) write both.
+
+### Cover colours
+
+Every palette is stored with the named colour of its dominant tone (SLN-405): `media.color_bucket` beside a poster's `color_palette`, `editions.cover_color_bucket` beside a cover's `cover_palette`. The library filters by it. Covers and posters stored before migration `0071_cover_colors` get theirs from the backfill, which reads each image once (the thumbnail) and gives stored palettes their colour without a download:
+
+```bash
+node --env-file=.env.local --import tsx scripts/maintenance/backfill-cover-colors.ts --dry-run
+node --env-file=.env.local --import tsx scripts/maintenance/backfill-cover-colors.ts
+```
+
+The dry run only counts. `POST /api/media/backfill-palettes?limit=50` does the same in batches (admin token): call it again with `after` set to the answer's `next` until `next` is null, so an image that cannot be read is passed, not retried; `dryRun=1` only counts.
 
 ---
 

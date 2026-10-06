@@ -498,6 +498,13 @@
       "when": 1791216149288,
       "tag": "0070_reading_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1791231732005,
+      "tag": "0071_cover_colors",
+      "breakpoints": true
     }
   ]
 }

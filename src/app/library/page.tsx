@@ -20,60 +20,20 @@ import {
 import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop } from "@/lib/utils/media-style";
-import { parseMarks } from "@/lib/constants/marks";
-import { parseRatingParam } from "@/lib/utils/rating";
+import { hasBookFilters, parseBookFilters } from "@/lib/library/filter-params";
 import { LIBRARY_SORTS, hasReadingFilters, parseReadingFilters } from "@/lib/reading/filter-params";
 import { cardReadingOf } from "@/lib/reading/card";
 
 export const metadata = { title: "Library" };
 
+/** Search, sort, page and every filter (`parseReadingFilters`, `parseBookFilters`) */
+type LibraryParams = Record<string, string | undefined>;
+
 interface PageProps {
-  searchParams: Promise<{
-    q?: string;
-    sort?: string;
-    order?: string;
-    status?: string;
-    priority?: string;
-    rare?: string;
-    mark?: string;
-    publisher?: string;
-    rating?: string;
-    location?: string;
-    poster?: string;
-    reading?: string;
-    readFrom?: string;
-    readTo?: string;
-    reread?: string;
-    holding?: string;
-    page?: string;
-    perPage?: string;
-  }>;
+  searchParams: Promise<LibraryParams>;
 }
 
-async function LibraryContent({
-  searchParams,
-}: {
-  searchParams: {
-    q?: string;
-    sort?: string;
-    order?: string;
-    status?: string;
-    priority?: string;
-    rare?: string;
-    mark?: string;
-    publisher?: string;
-    rating?: string;
-    location?: string;
-    poster?: string;
-    reading?: string;
-    readFrom?: string;
-    readTo?: string;
-    reread?: string;
-    holding?: string;
-    page?: string;
-    perPage?: string;
-  };
-}) {
+async function LibraryContent({ searchParams }: { searchParams: LibraryParams }) {
   const search = searchParams.q;
   // Reading, holding, status and sort (SLN-449): unknown values are dropped here,
   // so `status=owned` never reaches the enum's SQL
@@ -82,54 +42,13 @@ async function LibraryContent({
   const order = searchParams.order === "asc" || searchParams.order === "desc" ? searchParams.order : undefined;
   const { page, perPage: limit, offset } = parsePagination(searchParams);
 
-  const priorityFilter = searchParams.priority?.split(",").filter(Boolean);
-  // One "Marks" group; the old `rare=true` link still selects Rare
-  const markFilter = parseMarks(
-    [searchParams.mark, searchParams.rare === "true" ? "rare" : ""].join(","),
-  );
-  const ratingParam = searchParams.rating;
-  const minRating = parseRatingParam(ratingParam);
-  const locationId = searchParams.location || undefined;
-  const posterParam = searchParams.poster;
-  const hasPoster =
-    posterParam === "has"
-      ? true
-      : posterParam === "missing"
-        ? false
-        : undefined;
+  // Every other filter (SLN-405); unknown values are dropped the same way
+  const { filters: book } = parseBookFilters(searchParams);
+  const filters = { ...reading, ...book };
 
   const [works, total] = await Promise.all([
-    getWorks({
-      search,
-      sort,
-      order,
-      limit,
-      offset,
-      filters: {
-        ...reading,
-        marks: markFilter,
-        publisherIds: searchParams.publisher
-          ?.split(",")
-          .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
-        acquisitionPriority: priorityFilter?.length
-          ? priorityFilter
-          : undefined,
-        minRating,
-        locationId,
-        hasPoster,
-      },
-    }),
-    getWorkCount(search, {
-      ...reading,
-      marks: markFilter,
-      publisherIds: searchParams.publisher
-        ?.split(",")
-        .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
-      acquisitionPriority: priorityFilter?.length ? priorityFilter : undefined,
-      minRating,
-      locationId,
-      hasPoster,
-    }),
+    getWorks({ search, sort, order, limit, offset, filters }),
+    getWorkCount(search, filters),
   ]);
 
   if (page > lastPage(total, limit)) redirect(pageHref("/library", searchParams, lastPage(total, limit)));
@@ -146,16 +65,7 @@ async function LibraryContent({
         <NoResults
           noun="books"
           search={search}
-          hasFilters={
-            !!(
-              hasReadingFilters(reading) ||
-              priorityFilter?.length ||
-              markFilter.length > 0 ||
-              ratingParam ||
-              locationId ||
-              posterParam
-            )
-          }
+          hasFilters={hasReadingFilters(reading) || hasBookFilters(book)}
           clearHref={clearedListHref("/library", params)}
         />
       );
@@ -227,16 +137,7 @@ async function LibraryContent({
     <>
       <LibraryShell
         books={books}
-        timelineQuery={{
-          search,
-          filters: {
-            ...reading,
-            marks: markFilter,
-            publisherIds: searchParams.publisher
-              ?.split(",")
-              .filter((v) => /^[0-9a-f-]{36}$/i.test(v)),
-          },
-        }}
+        timelineQuery={{ search, filters }}
         pagination={{ page, perPage: limit, total }}
       />
     </>

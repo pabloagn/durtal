@@ -24,6 +24,7 @@ import {
 } from "@/lib/validations";
 import { parseId } from "@/lib/validations/helpers";
 import { processAndUploadCover } from "@/lib/s3/covers";
+import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
@@ -91,6 +92,7 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
       updates.coverS3Key = result.coverKey;
       updates.thumbnailS3Key = result.thumbnailKey;
       updates.coverSourceUrl = coverSourceUrl;
+      Object.assign(updates, editionCoverPaletteFields(result.palette));
     }
   }
 

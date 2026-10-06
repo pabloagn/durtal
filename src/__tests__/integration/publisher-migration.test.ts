@@ -75,13 +75,16 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
       expect((await c`select * from instances where id=${copy.id}`)[0]).toEqual(
         copy,
       );
+      // A cover's palette and colour (0071, SLN-405) start empty
+      const noColour = { cover_palette: null, cover_color_bucket: null };
       expect((await c`select * from editions where id=${e.id}`)[0]).toEqual({
         ...e,
         publisher_links_confirmed: false,
+        ...noColour,
       });
       expect(
         (await c`select * from editions where id=${unresolved.id}`)[0],
-      ).toEqual({ ...unresolved, publisher_links_confirmed: false });
+      ).toEqual({ ...unresolved, publisher_links_confirmed: false, ...noColour });
       expect((await c`select * from orders where id=${order.id}`)[0]).toEqual({
         ...order,
         acquisition_target_id: null,

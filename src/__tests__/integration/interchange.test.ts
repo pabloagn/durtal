@@ -178,6 +178,25 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     expect(history!.current?.venueId).toBe(ids.tokyo);
   });
 
+  it("leaves a cover's derived colour out of the file; an import leaves it empty for the backfill (PR #113)", async () => {
+    await library();
+    await c`update editions set cover_palette = ${JSON.stringify({ dominant: { hex: "#882828", rgb: [136, 40, 40] } })}::jsonb, cover_color_bucket = 'red' where id = ${ids.chosenEdition}`;
+    const file = clone(await exportInterchange());
+    const editions = recordOf(file, "book").sections.realizations!.editions;
+    expect(editions.length).toBeGreaterThan(0);
+    for (const row of editions) {
+      expect(row).not.toHaveProperty("cover_palette");
+      expect(row).not.toHaveProperty("cover_color_bucket");
+    }
+
+    await wipe();
+    const run = await importInterchange(file, { policy: "keep", dryRun: false });
+    expect(run.counts.failed).toBe(0);
+    expect(await c`select cover_palette, cover_color_bucket from editions where id = ${ids.chosenEdition}`).toEqual([
+      { cover_palette: null, cover_color_bucket: null },
+    ]);
+  });
+
   it("writes nothing more when the same file comes again", async () => {
     await library();
     const file = clone(await exportInterchange());

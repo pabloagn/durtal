@@ -184,14 +184,20 @@ the page offers it; any other value shows the grid.
 - Sort (`sort`, `order`): Recent, Title, Year, Rating (the book's rating, unrated last), Author (first), Author (last), Last read (SLN-449: the later of the last progress and the last finish, never-read books last), Up Next order (`sort=queue`, SLN-452: the queue position, books not queued last, ties on the id)
 - Pagination: 48 items per page by default
 
-**Filters** (the Filters panel; every one is in the URL and read by `parseReadingFilters`, `src/lib/reading/filter-params.ts`, for the page and `GET /api/works`; an unknown value is dropped here and answered 400 by the API):
-- Marks (`mark`): Rare, Poison, Favourite; the old `rare=true` still selects Rare
-- Reading (`reading`, SLN-449): Unread, Reading, Paused, Read, Abandoned (`readingStateSql`), and In Up Next (`queued`, SLN-452; not a reading state: a queued book can be read or unread); several match any of them
-- Holding (`holding`): Owned or Not owned. Owned is a copy that is not deaccessioned (`ownedBookCondition`); both values, or neither, is no holding filter. "Unread I own" is `/library?reading=unread&holding=owned`
-- Re-read (`reread=true`): two finished readings or more
-- Read in (`readFrom`, `readTo`): a year range on the finish date of a finished reading, at any precision; reversed years are swapped
-- Status (`status`): the catalogue status (Accessioned, Wanted, Shortlisted, Tracked, On Order, Deaccessioned), checked against the enum. There is no `status=owned`: Owned is the Holding filter
-- Priority (`priority`), Min Rating (`rating`: 5, 4.5+, 4+, 3.5+, 3+; the book's rating), Media (`poster`), Publisher (`publisher`), Location (`location`)
+**Filters** (SLN-405). Every filter is in the URL, so a filtered view can be shared or reloaded. Reading, holding and status are read by `parseReadingFilters` (`src/lib/reading/filter-params.ts`), every other filter by `parseBookFilters` (`src/lib/library/filter-params.ts`), for the page, the timeline and `GET /api/works`. An unknown value is dropped by the page and answered 400 by the API. The conditions are `readingFilterConditions` and `bookFilterConditions` (`src/lib/library/filter-conditions.ts`): the list, its count and the timeline share them, so filtering happens before pagination and the count matches the list. Within a group any one value matches; every group must match.
+
+The Filter button opens one panel with a rail of six sections (`FilterDropdown` with `sections`); it opens on the first section with a chosen value, and each section and group shows how many values are chosen. The options load when the pointer reaches the button (`getLibraryFilterOptions`, `src/lib/actions/library-filters.ts`): only values the books use, each with its number of books.
+
+- **Collection**: Status (`status`: Accessioned, Wanted, Shortlisted, Tracked, On Order, Deaccessioned, checked against the enum; there is no `status=owned`), Holding (`holding`: Owned or Not owned; Owned is a copy that is not deaccessioned, `ownedBookCondition`; one replaces the other), Priority (`priority`), Location (`location`, ids), Format (`format`: Hardcover, Paperback, Ebook, Audiobook, PDF, EPUB, Other) and Copy (`copy`: `signed`, `first` for a first printing). Location, format and copy match one held copy together: "a signed first printing in the study" is one copy
+- **Reading** (SLN-449): Reading (`reading`: Unread, Reading, Paused, Read, Abandoned, and In Up Next, `queued`, SLN-452, not a reading state), Re-read (`reread=true`: two finished readings or more), Read in (`readFrom`, `readTo`: a finished reading in these years, at any precision; reversed years are swapped). "Unread I own" is `/library?reading=unread&holding=owned`
+- **Marks**: Marks (`mark`: Rare, Anathema, Favourite; the old `rare=true` still selects Rare) and Min rating (`rating`: 5, 4.5+, 4+, 3.5+, 3+, one at a time)
+- **Book**: Language (`lang`: an edition in that language), Original language (`origLang`), First published (`yearFrom`, `yearTo`: the work's original year), Series (`series`: `in` or `none`, one at a time) and Publisher (`publisher`, ids; a house matches its imprints)
+- **Subjects**: Subjects (`subject`), Categories (`category`), Themes (`theme`), Literary movements (`movement`), Art types (`artType`), Art movements (`artMovement`), Keywords (`keyword`), Attributes (`attribute`), all item ids; only the taxonomies books use are shown. A broader category, theme or movement matches the books under its narrower ones; its option shows "Fiction › Gothic" for a narrower item
+- **Cover**: Colour (`color`: red, orange, yellow, green, blue, purple, pink, brown, beige, white, grey, black, as swatches; a colour no cover has cannot be chosen) and Picture (`poster`: `has` or `missing`)
+
+**Cover colour**: each cover falls under one named colour, the colour of its dominant tone (`colorBucketOf`, `src/lib/color/color-buckets.ts`). A book matches the colour of the cover its card shows: the active poster's, else its first edition's cover (`coverColorSql`). A book with no cover, or a cover whose colour is not read yet, matches no colour.
+
+**Active filters**: under the filter bar, one chip per chosen value ("Language French", "First published 1850–1920"; `ActiveFilters`, `src/components/shared/active-filters.tsx`). A click on a chip removes that filter; "Clear all" removes every filter and keeps the search and the sort.
 
 **Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status). "Add to Up Next" (SLN-452) appends the selected books in their page order and says what it skipped: "Added 5 · 2 already in Up Next · 1 being read".
 
@@ -202,7 +208,7 @@ the page offers it; any other value shows the grid.
 - Title (serif) and the primary author
 - The info row: the status, or while a reading is open `CardReading` in its place ("Reading 44%" with a blue dot, "Paused 44%" with a secondary one; its tooltip is the status's with the reading: "Accessioned · High priority · 2 copies · Reading, 44%"), the language, the rating and the year as the card's width allows. A card carries only `reading: { state, percent }` for an open reading; finished books show nothing more on cards.
 
-**List and table reading** (SLN-449): the list adds a badge after the status ("Reading 44%" blue, "Read" or "Read 3×" sage, "Abandoned" muted); the table offers Reading, Last read, Times read and Progress columns (hidden until chosen in the column dialog; a saved choice gets them hidden too). Both load `getReadingSummaries` only while the list or table shows, so the grid sends nothing more. The table keeps the server's sort until a header is clicked. The timeline view takes the reading and holding filters.
+**List and table reading** (SLN-449): the list adds a badge after the status ("Reading 44%" blue, "Read" or "Read 3×" sage, "Abandoned" muted); the table offers Reading, Last read, Times read and Progress columns (hidden until chosen in the column dialog; a saved choice gets them hidden too). Both load `getReadingSummaries` only while the list or table shows, so the grid sends nothing more. The table keeps the server's sort until a header is clicked. The timeline view takes every filter.
 
 ---
 

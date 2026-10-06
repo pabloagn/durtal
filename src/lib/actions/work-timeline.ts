@@ -2,17 +2,17 @@
 
 import { bookCondition } from "@/lib/catalogue/book-boundary";
 
-import { publisherWorkCondition } from "@/lib/publishers/conditions";
 import { readingFiltersSchema, type ReadingFilterParams } from "@/lib/reading/filter-params";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
 import { db } from "@/lib/db";
 import { works, editions } from "@/lib/db/schema";
-import { and, eq, asc, ilike, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, asc, ilike, isNotNull } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
 import type { SQL } from "drizzle-orm";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
-import { marksCondition } from "@/lib/actions/utils/work-marks";
-import type { WorkMarkKey } from "@/lib/constants/marks";
+import { bookFilterConditions } from "@/lib/library/filter-conditions";
+import { bookFiltersSchema, type BookFilterParams } from "@/lib/library/filter-params";
+import { z } from "zod/v4";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface WorkEditionTimelineItem {
@@ -37,17 +37,17 @@ export interface WorkTimelineItem {
 
 export async function getWorksForTimeline(opts?: {
   search?: string;
-  filters?: ReadingFilterParams & {
-    isRare?: boolean;
-    isPoison?: boolean;
-    marks?: WorkMarkKey[];
-    publisherIds?: string[];
-    language?: string[];
-  };
+  filters?: ReadingFilterParams &
+    BookFilterParams & {
+      isRare?: boolean;
+      isPoison?: boolean;
+    };
 }): Promise<WorkTimelineItem[]> {
   const { search, filters } = opts ?? {};
   // The browser sends the page's parsed filters back: check them again
   const reading = filters ? readingFiltersSchema.parse(filters) : undefined;
+  const book = filters ? bookFiltersSchema.parse(filters) : undefined;
+  const flags = z.object({ isRare: z.boolean().optional(), isPoison: z.boolean().optional() }).parse(filters ?? {});
 
   const conditions: SQL[] = [bookCondition, isNotNull(works.originalYear)];
 
@@ -55,33 +55,12 @@ export async function getWorksForTimeline(opts?: {
     conditions.push(ilike(works.title, containsPattern(search)));
   }
 
-  if (filters?.publisherIds?.length)
-    conditions.push(publisherWorkCondition(filters.publisherIds));
-  if (filters?.isRare !== undefined) {
-    conditions.push(eq(works.isRare, filters.isRare));
-  }
-  if (filters?.isPoison !== undefined) {
-    conditions.push(eq(works.isPoison, filters.isPoison));
-  }
-  const marks = marksCondition(filters?.marks ?? []);
-  if (marks) conditions.push(marks);
+  if (flags.isRare !== undefined) conditions.push(eq(works.isRare, flags.isRare));
+  if (flags.isPoison !== undefined) conditions.push(eq(works.isPoison, flags.isPoison));
+  // The list's conditions: marks, publishers, copies, languages, taxonomy, colour (SLN-405)
+  conditions.push(...bookFilterConditions(book));
   // Status, reading state, holding, read in, re-read (SLN-449)
   conditions.push(...readingFilterConditions(works.id, reading));
-
-  // Language filter: find works that have at least one edition in the requested
-  // language(s), then restrict the work IDs accordingly.
-  if (filters?.language?.length) {
-    const matchingEditions = await db
-      .select({ workId: editions.workId })
-      .from(editions)
-      .where(inArray(editions.language, filters.language));
-    const workIds = [...new Set(matchingEditions.map((r) => r.workId))];
-    if (workIds.length > 0) {
-      conditions.push(inArray(works.id, workIds));
-    } else {
-      return [];
-    }
-  }
 
   const where = and(...conditions);
 
