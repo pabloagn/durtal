@@ -39,3 +39,12 @@ reader's font size (36px, not 40px, at a 20px default).
 - `alignment-audit.js` and `design-audit.js` on the same four pages at 1440,
   768 and 390: no finding.
 - `python3 scripts/qa/test-local.py`: 223 files, 2,498 tests.
+
+### Review fixes (PR #128)
+
+- Publisher links that wrap on a phone sit 20px apart on a coarse pointer
+  (`pointer-coarse:gap-y-5`), so their 44px press areas meet and no longer
+  overlap the next line's; one line looks as before.
+- The copy's location row wraps with 10px between its lines on a coarse
+  pointer (`pointer-coarse:gap-y-2.5`), so the status button's press area no
+  longer reaches into Edit and Delete.
