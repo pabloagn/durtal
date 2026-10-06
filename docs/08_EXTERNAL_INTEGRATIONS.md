@@ -204,6 +204,17 @@ Calibre-Web handles OPDS and Kobo sync, so Durtal does not replicate those featu
 
 ---
 
+## Provider Contract
+
+Metadata providers for perfumes, films and paintings meet one contract (SLN-375, `src/lib/providers/`). The book searches above keep their own code.
+
+- **Scope**: a provider serves one collection and names the record levels it describes: `work` and `edition` for books, `work` and `formulation` for perfumes, `work`, `version` and `release` for films, `work` and `art_object` for paintings. It declares the fields it may propose for each level.
+- **Calls**: `search` (a query for one level), `detail` (one item by the provider's id) and `normalize` (pure: a detail becomes proposed values). `searchProvider` and `fetchProviderDetail` in `run.ts` make every call: each waits at most the provider's time limit, calls to one provider keep the gap its terms ask for, and an answer is checked before anything reads it. A `429` answer is reported as rate limited. Results past the provider's limit are dropped, and so are results the contract cannot read.
+- **Review**: `recordProviderDetail` registers the provider's id (provider, kind and id are unique) and keeps the detail as a pending source observation. It changes nothing on the record. `reviewProposal` fills only empty fields: a field that has a value, a field the person locked and every field of a locked record (a locked observation of this provider, or locked edition metadata) come back as conflicts for the person to settle.
+- **Registry**: `src/lib/providers/registry.ts` lists the providers this Durtal may call, each permitted by its own documented terms; none is a scraper. It is empty until a collection's enrichment task adds one. Catalogue writes, imports and exports never import a provider (a test checks this), so manual entry is complete without one.
+
+---
+
 ## Integration Summary
 
 | Service | Auth | Rate Limit | Used For |

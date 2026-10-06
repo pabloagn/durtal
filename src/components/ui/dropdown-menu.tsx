@@ -14,6 +14,7 @@ import {
   type KeyboardEvent,
   type Ref,
 } from "react";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 /* ── Context ────────────────────────────────────────────────────────────── */
 
@@ -95,7 +96,9 @@ export function DropdownMenu({
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !isComposing(e)) {
+        // The menu closes; the dialog around it stays (one layer per Esc)
+        e.preventDefault();
         setOpen(false);
         triggerRef.current?.focus();
       }

@@ -25,8 +25,10 @@ import {
   ADD,
   COPY_KEYS,
   GO_TO,
+  isComposing,
   isConfirmField,
   isMacPlatform,
+  isPickerField,
   isTyping,
   pageSearchField,
   pickerOptions,
@@ -382,7 +384,7 @@ export function ShortcutsProvider({
 
     function onKeyDown(event: KeyboardEvent) {
       // A handler on the page took the key, or an input method is composing
-      if (event.defaultPrevented || event.isComposing || event.keyCode === 229)
+      if (event.defaultPrevented || isComposing(event))
         return;
       const target = event.target as HTMLElement | null;
       const mod = mac ? event.metaKey : event.ctrlKey;
@@ -397,7 +399,29 @@ export function ShortcutsProvider({
         return;
       }
       if (paletteOpen) {
-        if (event.key === "Escape") onPaletteOpenChange(false);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onPaletteOpenChange(false);
+        } else if (event.repeat && plain && key === "s") {
+          // The S that opened the palette, held down: its repeats would
+          // type "ssss" into the palette's field
+          event.preventDefault();
+        }
+        return;
+      }
+
+      // Esc in a search field on the page (no dialog around it, and no list
+      // or popover of its own that took the key): leave the field, keep the
+      // text. Inside a dialog, Esc closes the dialog.
+      if (
+        event.key === "Escape" &&
+        target instanceof HTMLInputElement &&
+        isTyping(target) &&
+        (target.hasAttribute("data-shortcut-search") || isPickerField(target)) &&
+        !target.closest("dialog")
+      ) {
+        event.preventDefault();
+        target.blur();
         return;
       }
 
@@ -450,8 +474,10 @@ export function ShortcutsProvider({
         return;
       }
 
-      // Single keys: never while typing, in a dialog, or in the reader
+      // Single keys: never while typing, in a dialog, or in the reader; a
+      // held key (auto-repeat) never runs one again (SLN-477)
       if (
+        event.repeat ||
         mod ||
         otherMod ||
         event.altKey ||
@@ -477,6 +503,13 @@ export function ShortcutsProvider({
       }
       // "?" and "/" may need Shift; letters never do
       if (event.shiftKey || event.key.length !== 1) return;
+
+      // S: the palette, whatever the page (SLN-477). A capital S does nothing
+      if (key === "s") {
+        event.preventDefault();
+        onPaletteOpenChange(true);
+        return;
+      }
 
       const pageShortcut = pageShortcuts.findLast((s) => s.key === key);
       if (pageShortcut) {

@@ -12,7 +12,7 @@ The write routes for works, editions, orders, copies and collections (the routes
 
 Every `/api/readings` route checks the same token, its GET included (see Readings). An Authelia rule lets these paths through without a session for the phone (docs/11, Phone shortcuts), so the token is their only lock.
 
-The media, S3, comments, export, reader and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
+The interchange import checks the same token. The media, S3, comments, export, reader and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
@@ -401,6 +401,57 @@ Download books, authors, perfumes, films or paintings as a file. Used by the exp
 **Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
 **Response** `400`: a bad entity, format or id list. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+
+## Interchange
+
+The Durtal interchange file (SLN-375): one JSON document that carries records of every collection whole, for a backup, a move to another Durtal, or a review by hand. The book CSV, TSV and Parquet export above and the reading CSV stay as they are.
+
+The file is `{ "format": "durtal.interchange", "version": 1, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
+
+| Section | What it holds |
+|---|---|
+| `identity` | The work, and the perfume, film or painting profile (film countries and languages) |
+| `credits` | Book authors and edition contributors, shared credits, perfume houses and perfumers, film companies, art object credits |
+| `realizations` | Editions and their publishers, formulations and their overrides, film versions and releases, art objects |
+| `holdings` | Book copies, bottles and samples, film copies |
+| `history` | Copy and work status history, art object location records |
+| `taxonomy` | Every classification of the work and of its editions, formulations and objects; note pyramids |
+| `sources`, `dates` | The work's identifiers and source observations, the sources and dates its rows cite |
+| `retail` | Perfume retailer links and their dated offers |
+| `curation` | Recommenders |
+| `collections` | The collections that hold the work, or one of its editions, with their order |
+| `relations` | Links that start from the work (adaptation, remake, flanker, inspiration) |
+
+`shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried in version 1: images and their files, comments, activity, readings, orders and acquisition targets, Calibre links.
+
+A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one.
+
+### `POST /api/interchange/export`
+
+Downloads the interchange file. No token. Reads only.
+
+| Field | Type | Description |
+|---|---|---|
+| `domains` | (`"book"` \| `"perfume"` \| `"film"` \| `"painting"`)[] | These collections only. Every open collection when absent |
+| `ids` | string[] | These works only (at most 5000) |
+
+**Response** `200`: the file, `durtal-interchange-{date}.json`. `404`: no record matched.
+
+### `POST /api/interchange/import`
+
+Imports an interchange file. Needs the write token.
+
+| Field | Type | Description |
+|---|---|---|
+| `policy` | `"keep"` \| `"add"` \| `"fail"` | Required. What to do with a work that is here and differs from the file. `keep`: write nothing to it. `add`: add the rows it lacks (a bottle, a location record) and keep the rows it has. `fail`: report it as an error |
+| `dryRun` | boolean | Default `true`: check everything, write nothing. Send `false` to write |
+| `document` | object | The file |
+
+Each record is one transaction: a record that fails writes nothing, and the others still import. A row that is here already is never changed, so curated edits here always win; running the same file again writes nothing. Records are matched by id. People, organizations, venues and the other shared rows are matched by id and added when missing; one the import adds brings its identifiers and sources, and one already here keeps what it has. Publisher links are relinked once at the end of the import, not after every publisher written. Vocabularies are matched by natural key (a country by its ISO code, a taxonomy family by slug, a taxonomy item by family and slug), so another Durtal's ids do not matter; a missing country, language, credit role or taxonomy family fails the records that need it. Records that link to each other are written in order; a cycle is written in one transaction. A dry run takes the same steps and rolls each transaction back.
+
+**Response** `200`: `{ "dryRun", "policy", "counts", "records": [...] }`. Each record reports `outcome`: `created`, `unchanged`, `added`, `kept` (left as it is here) or `failed`; `written` (rows by table); `differences` (file rows that differ from the rows here, by table, key and columns); `absent` (rows a kept record lacks); `problems` (why it failed, row by row).
+
+**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 2; this Durtal reads version 1" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
 
 ---
 
