@@ -67,7 +67,11 @@ Manual entry stays complete without any source. No schema change.
 - The three providers answered live once (Wikidata Q820507: Chanel brand,
   Ernest Beaux, 1921).
 - `python3 scripts/qa/test-local.py` on the stacked SLN-378 branch, which
-  holds this branch unchanged: 2,322 tests in 209 files passed, none skipped.
+  holds this branch unchanged, on main 4f5642e: 2,473 tests passed, none
+  skipped. Typecheck and lint of the changed files are clean.
+- Production build preview: `page-weight.js` within every budget; the one
+  failing row, `/organizations/*`, has nothing to measure (the preview seed
+  has no organization). `/perfumes/new` 56 KB, a perfume page 88 KB.
 - Headless Chrome, Firefox and WebKit at 1440 and 390 px: the add form, a
   Fragrantica link, a Wikidata look-up, the perfume page, notes in edit, the
   look-up dialog, results and review. No alignment deviation over 0.5 px, no
