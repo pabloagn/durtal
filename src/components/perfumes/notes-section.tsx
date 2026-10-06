@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { updatePerfume } from "@/lib/actions/perfumes";
 import type { NotePosition } from "@/lib/catalogue/perfume-labels";
@@ -29,6 +30,7 @@ export function NotesSection({
   notes,
   editable,
   scope,
+  sources = [],
 }: {
   perfumeId: string;
   fingerprint: string;
@@ -36,11 +38,24 @@ export function NotesSection({
   editable: boolean;
   /** Which notes these are, when a formulation is chosen */
   scope?: string;
+  /** The perfume's sources, to cite one for the notes added */
+  sources?: { id: string; label: string }[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<NoteEntry[]>([]);
+  const [source, setSource] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * Notes added now cite the chosen source; notes already there keep theirs.
+   * Two sources can place one note differently: each placement stays, with
+   * its own source, until the person removes one.
+   */
+  function change(next: NoteEntry[]) {
+    const known = new Set(draft.map((n) => `${n.itemId}:${n.position}`));
+    setDraft(next.map((n) => (known.has(`${n.itemId}:${n.position}`) ? n : { ...n, sourceRecordId: source })));
+  }
 
   function startEditing() {
     setDraft(
@@ -96,7 +111,18 @@ export function NotesSection({
       />
       {editing ? (
         <div className="space-y-4" data-shortcut-scope="">
-          <NotePyramidEditor value={draft} onChange={setDraft} />
+          {sources.length > 0 && (
+            <div className="max-w-sm">
+              <Select
+                label="Source of the notes you add"
+                value={source ?? ""}
+                placeholder="No source"
+                onChange={(e) => setSource(e.target.value || null)}
+                options={sources.map((s) => ({ value: s.id, label: s.label }))}
+              />
+            </div>
+          )}
+          <NotePyramidEditor value={draft} onChange={change} />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" disabled={saving} onClick={() => setEditing(false)}>
               Cancel

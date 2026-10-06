@@ -211,7 +211,20 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 - **Scope**: a provider serves one collection and names the record levels it describes: `work` and `edition` for books, `work` and `formulation` for perfumes, `work`, `version` and `release` for films, `work` and `art_object` for paintings. It declares the fields it may propose for each level.
 - **Calls**: `search` (a query for one level), `detail` (one item by the provider's id) and `normalize` (pure: a detail becomes proposed values). `searchProvider` and `fetchProviderDetail` in `run.ts` make every call: each waits at most the provider's time limit, calls to one provider keep the gap its terms ask for, and an answer is checked before anything reads it. A `429` answer is reported as rate limited. Results past the provider's limit are dropped, and so are results the contract cannot read.
 - **Review**: `recordProviderDetail` registers the provider's id (provider, kind and id are unique) and keeps the detail as a pending source observation. It changes nothing on the record. `reviewProposal` fills only empty fields: a field that has a value, a field the person locked and every field of a locked record (a locked observation of this provider, or locked edition metadata) come back as conflicts for the person to settle.
-- **Registry**: `src/lib/providers/registry.ts` lists the providers this Durtal may call, each permitted by its own documented terms; none is a scraper. It is empty until a collection's enrichment task adds one. Catalogue writes, imports and exports never import a provider (a test checks this), so manual entry is complete without one.
+- **Registry**: `src/lib/providers/registry.ts` lists the providers this Durtal may call, each permitted by its own documented terms; none is a scraper. Catalogue writes, imports and exports never import a provider (a test checks this), so manual entry is complete without one. Only the source lookup actions call providers.
+
+### Perfume sources (SLN-377)
+
+| Source | Access | Why | What it has |
+|---|---|---|---|
+| Wikidata | Looked up (`wikidata-perfumes.ts`) | Documented public API; CC0 data | Name, brand, manufacturer, perfumers and launch date of well-known perfumes. No notes, no concentrations, few recent or niche releases |
+| Fragrantica | Cited by hand | No public API; Durtal does not read its pages | Notes, perfumers, launch years, concentrations |
+| Basenotes | Cited by hand | No public API; Durtal does not read its pages | Notes, perfumers, launch years |
+| Parfumo | Cited by hand | No public API; Durtal does not read its pages | Notes, perfumers, launch years, batch codes |
+
+Not used: Open Beauty Facts (an open product database by barcode; it names products and sizes, rarely the fragrance), and house websites (cited by hand like any page).
+
+Wikidata calls: `wbsearchentities` then `wbgetentities` for a search (items whose P31 is Q131746, perfume), and `wbgetentities` for an item and the labels of its brand (P1716), manufacturer (P176) and perfumers (P14539); the launch date is P571, else P577, at its own precision (a decade is a range). One call a second at most, 12 s each. A brand is proposed as a brand and a manufacturer as a manufacturer, never as each other.
 
 ---
 
@@ -223,3 +236,4 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 | Open Library | None | Respectful use | Fallback metadata, cover images |
 | Nominatim | None | 1 req/sec | Location geocoding |
 | Calibre-Web | Internal network | N/A | Digital book deep links |
+| Wikidata (perfumes) | None | 1 req/sec | Perfume identity lookup, reviewed before saving |
