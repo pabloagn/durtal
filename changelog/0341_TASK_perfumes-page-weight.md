@@ -43,3 +43,9 @@ each of its 48 cards (107 KB of 310 KB):
   Chrome, WebKit and Firefox, and compared pixel by pixel: every crop is
   identical. Computed colors of the flacon's shapes, the frame and the star
   are the same (the star's stroke now sits on the symbol's path).
+- `page-weight.js`: every route is in its size budget. Server times went over
+  on a few untouched routes (`/people`, `/settings/reading`) with the Mac at a
+  load of 8; the touched routes were in their time budgets.
+- `alignment-audit.js` and `design-audit.js` on `/`, `/library`, `/perfumes`,
+  a perfume, `/films` and `/paintings` at 1440 and 390: no finding.
+- `python3 scripts/qa/test-local.py`: 214 files, 2,379 tests.
