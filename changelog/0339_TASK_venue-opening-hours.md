@@ -35,3 +35,9 @@ opening hours with `JSON.stringify` in a `<pre>`.
 - `src/__tests__/catalogue/opening-hours.test.ts`: day lines with and
   without `regularOpeningHours`, periods with split and closed days, always
   open, and eight unreadable values that give nothing.
+- Chrome, Firefox and WebKit, headless, at 1440 and 390 (390 also with a
+  coarse pointer), on a preview with three venues: Google day lines, periods
+  with a split day, and unreadable hours. The first two show seven day rows,
+  the third shows no Opening hours group; no raw JSON on any; no alignment,
+  contrast, naming or overflow finding.
+
