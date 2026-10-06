@@ -255,8 +255,9 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const md = await exportFile("reading-notes", { filters: "kind=quote" }, "md");
     expect(md.status).toBe(200);
     expect(md.name).toMatch(/\.md"$/);
-    expect(md.text).toContain("## =Equals");
-    expect(md.text).toContain("> =SUM(A1)");
+    // A leading = is escaped, as it could underline a heading; it reads "=Equals"
+    expect(md.text).toContain("## \\=Equals");
+    expect(md.text).toContain("> \\=SUM(A1)");
     expect(md.text).toContain("pp. 12–13 · 1999");
     const [noteHeader, noteRow] = parseCsv((await exportFile("reading-notes", { filters: "kind=quote" })).text);
     expect(noteHeader).toEqual([...NOTE_EXPORT_COLUMNS]);

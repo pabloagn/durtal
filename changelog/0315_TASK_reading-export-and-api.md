@@ -116,4 +116,7 @@ duplicated. `GET /api/stats` and the TUI's dashboard know about reading.
   import it; a title that starts with `-` or `=` arrives unchanged. The
   spreadsheet exports keep both.
 - The export menu says "Exporting…" with one ellipsis character.
+- A line of only spaces between two stanzas stays blank, so it still parts
+  them; only the spaces before a line's text become no-break spaces. The
+  database test expects the escaped leading `=` (`## \\=Equals`).
 

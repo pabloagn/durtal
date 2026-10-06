@@ -31,9 +31,10 @@ export interface CommonplaceNote {
 /**
  * Text that Markdown would read as markup keeps its characters: \, *, _, `,
  * brackets, < and >, &, ~ and | are escaped, and so is the first mark of a
- * line that would start a heading, a rule, a list or a quote. A line's
- * leading spaces become no-break spaces, so an indented verse shows as
- * indented text, never as a code block.
+ * line that would start a heading, a rule, a list or a quote. The spaces
+ * before a line's text become no-break spaces, so an indented verse shows as
+ * indented text, never as a code block; a line of only spaces stays blank,
+ * so it still parts two stanzas.
  */
 function plain(text: string): string {
   return text
@@ -41,7 +42,7 @@ function plain(text: string): string {
     .split("\n")
     // A backslash escapes punctuation only: "1." becomes "1\.", never "\1."
     .map((line) => line.replace(/^(\s*)([#+=-])/, "$1\\$2").replace(/^(\s*)(\d+)([.)])/, "$1$2\\$3"))
-    .map((line) => line.replace(/^[ \t]+/, (space) => space.replace(/\t/g, "    ").replace(/ /g, "\u00a0")))
+    .map((line) => line.replace(/^[ \t]+(?=\S)/, (space) => space.replace(/\t/g, "    ").replace(/ /g, "\u00a0")))
     .join("\n");
 }
 

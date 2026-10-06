@@ -91,6 +91,11 @@ describe("commonplaceMarkdown", () => {
     expect(md).toContain("> The first line\n>\n> \u00a0\u00a0\u00a0\u00a0an indented verse\n> \u00a0\u00a0\u00a0\u00a0and a tabbed one");
   });
 
+  it("keeps a line of only spaces between stanzas as a stanza break", () => {
+    const md = commonplaceMarkdown([note({ body: "The first stanza\n   \n\t\nThe second" })], "2026-10-06");
+    expect(md).toContain("> The first stanza\n>    \n> \t\n> The second");
+  });
+
   it("says so when there is nothing", () => {
     expect(commonplaceMarkdown([], "2026-10-06")).toBe("# Commonplace book\n\nExported from Durtal on 6 October 2026: No quotes or notes.\n");
   });
