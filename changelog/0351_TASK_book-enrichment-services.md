@@ -65,4 +65,28 @@ SLN-461.
 
 ## Completion Notes
 
-RESULTS
+- Tests: `enrichment-services.test.ts` (database
+  `sln462_enrichment_services`, 21 tests) loads the fixture vocabulary and
+  covers the loader (a plan writes nothing; an unknown example work stops it,
+  a merged one is followed; items created in their family with category and
+  parent, an existing one reused by slug; rules off; `--apply` refused
+  without a recent backup or an approval link; a version that changes a
+  dimension turns its enabled rule off; `--undo` refused while used, then
+  complete), proposals (created, merged with two sources, the skip and
+  refusal rules, a human proposal only from the export, two concurrent
+  proposals as one claim), the actions (accept into a taxonomy link that
+  `GET /api/works?theme=` finds with the same total, stale fingerprints,
+  single-value replacement and its undo, undo refused after a change, Pablo's
+  edit and its undo, the identifier target's refusals, a target without a
+  writer, undo reopening only claims that keep evidence), every rule refusal
+  and the daily cap, hand edits through `updateWorkTaxonomy`, and the job
+  queue (no shared job, rerun, abandoned leases, backoff, holds, filters,
+  outcome). `services.test.ts` (14 unit tests): value kinds, skip rules,
+  caps, backoff, the target registry and the seed schema on the fixture.
+  `book-domain-isolation` refuses `createHumanEnrichmentClaim` on a film.
+- Full suite (`scripts/qa/test-local.py`) on 36559803: 2,678 tests in 240
+  files passed, none skipped. Main was merged after it (#133, a reading
+  timer fix that touches none of these files). `pnpm typecheck`,
+  `pnpm lint` (0 errors) and `pnpm deadcode` are clean.
+- Live: nothing to run. The v1 vocabulary and its load wait for Joris's
+  approval of SLN-461 (PR 3).
