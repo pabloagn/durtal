@@ -60,3 +60,13 @@ SLN-484 and SLN-486. A fifth, SLN-485 (`/api/s3/read` in a preview), is in
 - `python3 scripts/qa/test-local.py`: 215 files, 2,385 tests. New: the order
   delete message (`order-status-sync.test.ts`), overlaps by hand and by an
   edit (`reading-sessions.test.ts`), `session-overlap.test.ts`.
+
+### Review fixes (PR #120)
+
+- An edit to a session that already shared time with another (one saved
+  before this rule) was refused, even for a note, and the dialog kept Save
+  off. `newOverlap` leaves out the sessions the stored one already crossed:
+  `updateSession` and the dialog refuse an edit only for time it newly takes;
+  `addSession` is unchanged. Tests: `session-overlap.test.ts` (keep, stretch,
+  move, new) and `reading-sessions.test.ts` (a note on an overlapping session
+  saves; a new end over another session is refused).

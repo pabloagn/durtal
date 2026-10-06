@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { overlapMessage, overlappingSession, sessionSpan } from "@/lib/reading/session-overlap";
+import { newOverlap, overlapMessage, overlappingSession, sessionSpan } from "@/lib/reading/session-overlap";
 
 /* Two sessions of one reading never share time */
 
@@ -33,6 +33,16 @@ describe("session overlap", () => {
     const timer = session("t", "16:00", null, null, "timer");
     expect(overlappingSession([timer], sessionSpan(session("n", "16:30", "16:40")), undefined, at("17:00"))?.id).toBe("t");
     expect(overlappingSession([timer], sessionSpan(session("n", "16:30", "16:40")), undefined, at("16:20"))).toBeNull();
+  });
+
+  it("lets an edit keep time it already shared, and refuses new time", () => {
+    // Saved before the rule: d already crosses a
+    const d = session("d", "12:30", "13:00");
+    const all = [...sessions, d];
+    expect(newOverlap(all, sessionSpan(d), d, "d")).toBeNull();
+    expect(newOverlap(all, sessionSpan(session("d", "12:35", "13:05")), d, "d")).toBeNull();
+    expect(newOverlap(all, sessionSpan(session("d", "14:50", "15:10")), d, "d")?.id).toBe("b");
+    expect(newOverlap(sessions, sessionSpan(d), null)?.id).toBe("a");
   });
 
   it("names the other session's times in the reader's zone", () => {

@@ -31,7 +31,7 @@ import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
 import { progressEvent, readingEvent } from "@/lib/reading/activity";
 import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
 import { TIMER_GONE } from "@/lib/reading/timer";
-import { overlapMessage, overlappingSession, sessionSpan, type TimedSession } from "@/lib/reading/session-overlap";
+import { newOverlap, overlapMessage, sessionSpan, type TimedSession } from "@/lib/reading/session-overlap";
 import {
   discardTimerRow,
   pauseTimerRow,
@@ -889,7 +889,7 @@ export async function updateSession(input: SessionPatchInput) {
     endedAt: patch.endedAt !== undefined ? patch.endedAt : session.endedAt,
   } as Session;
   if (updated.startedAt && updated.endedAt && updated.endedAt < updated.startedAt) throw new Error("The session ends before it starts");
-  refuseOverlap(sessions, updated, updated.timeZone, updated.id);
+  refuseOverlap(sessions, updated, updated.timeZone, updated.id, session);
   // A session moved after today would hold the position until that day, as in logProgress
   const ahead = (at: Date | null | undefined) => !!at && at.getTime() - Date.now() > 60_000;
   if (updated.readOn > readingDay(new Date(), updated.timeZone, 0) || ahead(patch.startedAt) || ahead(patch.endedAt)) throw new Error(FUTURE_SESSION);
@@ -923,9 +923,13 @@ export async function updateSession(input: SessionPatchInput) {
   return (await loadReading(reading.id))!;
 }
 
-/** Two sessions of a reading never share time: a session that crosses another's is refused, with that one's times */
-function refuseOverlap(sessions: Session[], session: Omit<TimedSession, "id">, zone: string, exceptId?: string) {
-  const other = overlappingSession(sessions, sessionSpan(session), exceptId);
+/**
+ * Two sessions of a reading never share time: a session that crosses
+ * another's is refused, with that one's times. An edit (`was`, the session as
+ * stored) is refused only for time it newly takes
+ */
+function refuseOverlap(sessions: Session[], session: Omit<TimedSession, "id">, zone: string, exceptId?: string, was?: Session) {
+  const other = newOverlap(sessions, sessionSpan(session), was ?? null, exceptId);
   if (other) throw new Error(`${overlapMessage(other, zone)}. Change the start time or the time read.`);
 }
 

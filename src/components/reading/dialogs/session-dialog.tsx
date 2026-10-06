@@ -12,7 +12,7 @@ import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { formatMinutes, parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
 import { atText } from "../session-list";
 import { atWallTime, durationWords, wallTime } from "@/lib/reading/timer";
-import { overlapMessage, overlappingSession, sessionSpan } from "@/lib/reading/session-overlap";
+import { newOverlap, overlapMessage, sessionSpan } from "@/lib/reading/session-overlap";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
@@ -151,9 +151,9 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const chapter = coarse ? fields.chapter.trim() || null : editing?.endChapter ?? null;
   const textError = !coarse && parsed && !parsed.ok ? parsed.error : !coarse && text.trim() && !to ? "Give where the session ended: a page, a percent or a time" : null;
   const endsBefore = !editing && start && input && below(input, start.at);
-  // Two sessions never share time; saving checks it again
+  // Two sessions never share time; saving checks it again. An edited session only takes no new time
   const span = sessionSpan({ startedAt, endedAt: null, durationSeconds });
-  const overlap = sessions ? overlappingSession([...sessions, ...(running ? [running] : [])], span, editing?.id) : null;
+  const overlap = sessions ? newOverlap([...sessions, ...(running ? [running] : [])], span, editing, editing?.id) : null;
   const overlapError = overlap ? overlapMessage(overlap, zone) : null;
 
   async function save(e: React.FormEvent) {

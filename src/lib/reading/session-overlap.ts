@@ -48,6 +48,23 @@ export function overlappingSession<T extends TimedSession>(
   return null;
 }
 
+/**
+ * The session an edit would newly share time with. Sessions the edited one
+ * already crossed (one saved before this rule) are left out, so it can still
+ * take a note or an end without moving.
+ */
+export function newOverlap<T extends TimedSession>(
+  sessions: T[],
+  span: { start: number; end: number } | null,
+  was: Omit<TimedSession, "id"> | null,
+  exceptId?: string,
+  now = new Date(),
+): T | null {
+  const before = was ? sessionSpan(was, now) : null;
+  const others = before ? sessions.filter((s) => !overlappingSession([s], before, exceptId, now)) : sessions;
+  return overlappingSession(others, span, exceptId, now);
+}
+
 /** "Overlaps the session from 14:00 to 14:45" */
 export function overlapMessage(other: TimedSession, zone: string, now = new Date()): string {
   const time = sessionSpan(other, now)!;
