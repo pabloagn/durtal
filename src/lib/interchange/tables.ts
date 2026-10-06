@@ -4,7 +4,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import { tableShape, type TableShape } from "./columns";
 
 /*
- * The tables of interchange format version 2 (SLN-375, SLN-490), in the order an
+ * The tables of interchange format version 3 (SLN-375, SLN-490, SLN-462), in the order an
  * import writes them. Three kinds:
  *
  * - record: belongs to one work and travels inside that work's record, in a

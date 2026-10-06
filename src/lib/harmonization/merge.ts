@@ -3,6 +3,12 @@ import { bookCreditMergeQueries } from "./book-credit-merge";
 import { workRelationMergeQueries } from "./work-relation-merge";
 import { readingQueueMergeQueries } from "./reading-queue-merge";
 import { recommendationFeedbackMergeQueries } from "./recommendation-feedback-merge";
+import {
+  enrichmentMergeBlockers,
+  enrichmentMergeQueries,
+  loadEnrichmentMergeContext,
+  type EnrichmentMergeContext,
+} from "./enrichment-merge";
 import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
@@ -140,9 +146,12 @@ export function mergeBlockers(
   source: Row,
   target: Row,
   snapshot: Snapshot,
+  enrichment?: EnrichmentMergeContext,
 ): string[] {
   const entity = entityDefinition(entityKey);
   const blockers: string[] = [];
+  // Book enrichment (SLN-462): conflicting accepted values, a running job, a governed item
+  blockers.push(...enrichmentMergeBlockers(entityKey, source, target, snapshot, enrichment));
   // A work merges only with a work of its own collection: a film is never a book
   if (entityKey === "works" && source.kind !== target.kind)
     blockers.push(
@@ -311,7 +320,13 @@ export async function previewMerge(
     target: recordRef(entity, target, context),
     fingerprint,
     fields,
-    blockers: mergeBlockers(entityKey, source, target, data),
+    blockers: mergeBlockers(
+      entityKey,
+      source,
+      target,
+      data,
+      await loadEnrichmentMergeContext(entityKey, [sourceId, targetId]),
+    ),
     relationships: mergeReferences(entity.table)
       .filter((ref) => !DETAIL_TABLE_NAMES.includes(ref.table))
       .map((ref) => ({
@@ -419,7 +434,13 @@ export async function executeMerge(input: {
     target = data.records.find((r) => r.id === input.targetId);
   if (!source || !target || source.id === target.id)
     throw new Error("Choose two existing, different records");
-  const blockers = mergeBlockers(input.entity, source, target, data);
+  const blockers = mergeBlockers(
+    input.entity,
+    source,
+    target,
+    data,
+    await loadEnrichmentMergeContext(input.entity, [source.id, target.id]),
+  );
   if (blockers.length) throw new Error(blockers[0]);
   const detailTable = mergedDetail(input.entity, source, target);
   const workChoices: Record<string, "source" | "target"> = {};
@@ -505,8 +526,12 @@ export async function executeMerge(input: {
     ];
     const junction =
       primary.length > 1 && primary.some((c) => ref.columns.includes(c.name));
-    const creditQueries =
-      ref.table === "work_relations"
+    const enrichmentQueries =
+      ref.columns.length === 1
+        ? enrichmentMergeQueries(ref.table, ref.columns[0], source.id, target.id)
+        : undefined;
+    const creditQueries = enrichmentQueries ??
+      (ref.table === "work_relations"
         ? workRelationMergeQueries(source.id, target.id)
         : ref.table === "reading_queue" && ref.columns[0] === "work_id"
           ? readingQueueMergeQueries(source.id, target.id)
@@ -516,7 +541,7 @@ export async function executeMerge(input: {
           ? workCreditMergeQueries(source.id, target.id)
           : ref.columns.length === 1
           ? bookCreditMergeQueries(ref.table, ref.columns[0], source.id, target.id)
-          : undefined;
+          : undefined);
     if (creditQueries) {
       queries.push(...creditQueries);
     } else if (junction) {

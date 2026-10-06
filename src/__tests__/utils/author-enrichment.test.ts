@@ -19,6 +19,7 @@ import {
   placeChain,
   planAuthor,
   planDate,
+  roleCheck,
   sameTitle,
   settlementOf,
   type AuthorEvidence,
@@ -51,6 +52,7 @@ const author = (over: Partial<AuthorEvidence>): AuthorEvidence => ({
   goodreadsId: null,
   zodiacSign: null,
   works: [],
+  roles: [],
   ...over,
 });
 
@@ -245,6 +247,24 @@ describe("author dates", () => {
     expect(differs.disagreements[0]).toMatch(/day/);
   });
 
+  it("reads a Julian day in the Gregorian calendar the catalogue keeps", () => {
+    // Pushkin: Wikidata gives 26 May 1799 (Julian); the catalogue holds 6 June
+    const pushkin = planDate("birth", { ...NO_DATE, year: 1799, month: 6, day: 6 }, [day(1799, 5, 26, true)]);
+    expect(pushkin.dayAgrees).toBe(true);
+    expect(pushkin.disagreements).toEqual([]);
+    expect(pushkin.fill).toEqual({ gregorian: 1799 });
+    // A stored day without its month gains the Gregorian month
+    expect(planDate("birth", { ...NO_DATE, year: 1799, day: 6 }, [day(1799, 5, 26, true)]).fill).toEqual({ month: 6, gregorian: 1799 });
+    // The Julian day itself still agrees
+    expect(planDate("birth", { ...NO_DATE, year: 1799, day: 26 }, [day(1799, 5, 26, true)]).fill).toEqual({ month: 5, gregorian: 1799 });
+    // A Gregorian statement is not converted
+    expect(planDate("birth", { ...NO_DATE, year: 1799, day: 6 }, [day(1799, 5, 26)]).dayAgrees).toBe(false);
+    // 25 December 1642 (Julian) is 4 January 1643: the calendars disagree on the year, so the day stays a disagreement
+    const newton = planDate("birth", { ...NO_DATE, year: 1642, day: 4 }, [day(1642, 12, 25, true)]);
+    expect(newton.dayAgrees).toBe(false);
+    expect(newton.disagreements[0]).toMatch(/day/);
+  });
+
   it("puts back a missing minus sign, and never changes a year that differs", () => {
     const lie = planDate("birth", { ...NO_DATE, year: 450 }, [yearOnly(-450)]);
     expect(lie.fill).toEqual({ year: -450 });
@@ -366,6 +386,34 @@ describe("matching", () => {
     expect(dup.held[0]).toMatch(/same person as italo-calvino/);
     const accepted = chooseMatch(author({}), ctx({ review: { name: "x", accept: "Q154756", note: "researched" } }));
     expect(accepted.match?.confidence).toBe("reviewed");
+  });
+});
+
+describe("roles", () => {
+  const labels = {
+    QP: { id: "QP", label: "painter", description: null },
+    QF: { id: "QF", label: "association football player", description: null },
+  };
+  const painter = person("Q1", { label: "John Smith", occupations: ["QP"], description: "English painter" });
+  const footballer = person("Q2", { label: "John Smith", occupations: ["QF"], description: "English footballer" });
+
+  it("checks the catalogue's roles against Wikidata's occupations", () => {
+    expect(roleCheck(["Painter"], painter, labels)).toMatchObject({ agrees: true, known: true });
+    expect(roleCheck(["Painter"], footballer, labels)).toMatchObject({ agrees: false, known: true });
+    // A role that names no profession, or a person Wikidata says nothing about
+    expect(roleCheck(["Patron"], footballer, labels).known).toBe(false);
+    expect(roleCheck(["Painter"], person("Q3", {}), labels).known).toBe(false);
+    expect(roleCheck(["Theorist"], person("Q4", { description: "French philosopher" }), labels).agrees).toBe(true);
+  });
+
+  it("takes the one person whose occupation fits the roles, and holds a misfit", () => {
+    const ctxRoles = (people: PersonItem[]) =>
+      ctx({ people: Object.fromEntries(people.map((p) => [p.id, p])), candidates: people.map((p) => p.id), labels });
+    const a = author({ name: "John Smith", sortName: null, roles: ["Painter"] });
+    expect(chooseMatch(a, ctxRoles([painter, footballer])).match).toMatchObject({ id: "Q1", confidence: "medium" });
+    const held = chooseMatch(a, ctxRoles([footballer]));
+    expect(held.match).toBeNull();
+    expect(held.held[0]).toMatch(/role: catalogue Painter/);
   });
 });
 

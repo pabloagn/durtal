@@ -72,9 +72,20 @@ describe("reading a file", () => {
     );
   });
 
+  it("reads a version 2 file: its works have no original title", () => {
+    const work = { id: randomUUID(), title: "Los detectives salvajes" };
+    const read = readEnvelope({
+      ...envelope,
+      version: 2,
+      records: [{ domain: "book", id: work.id, title: work.title, sections: { identity: { works: [work] } } }],
+    });
+    const works = (read.records[0] as { sections: { identity: { works: Record<string, unknown>[] } } }).sections.identity.works;
+    expect(works).toEqual([{ ...work, original_title: null }]);
+  });
+
   it("refuses another format or version as a whole", () => {
     expect(() => readEnvelope({ ...envelope, format: "goodreads" })).toThrow("This is not a Durtal interchange file");
-    expect(() => readEnvelope({ ...envelope, version: 3 })).toThrow("This file is interchange version 3; this Durtal reads versions 1 and 2");
+    expect(() => readEnvelope({ ...envelope, version: 4 })).toThrow("This file is interchange version 4; this Durtal reads versions 1 to 3");
     expect(() => readEnvelope({ ...envelope, version: "1" })).toThrow("The file does not say which interchange version it is");
     expect(() => readEnvelope(null)).toThrow(InterchangeFileError);
     expect(() => readShared({ wines: [] })).toThrow("The shared section has rows this Durtal cannot read");
@@ -114,7 +125,7 @@ describe("reading a file", () => {
       problems: [
         "sections.holdings.film_holdings: a perfume record cannot carry it",
         "sections.history.editions: is not part of this section",
-        "sections.moods: is not a section of version 2",
+        "sections.moods: is not a section of version 3",
       ],
     });
 

@@ -30,6 +30,8 @@ export const works = pgTable("works", {
 
   // Work-level metadata
   title: text("title").notNull(),
+  /** The title in the original language (SLN-462); books only */
+  originalTitle: text("original_title"),
   slug: text("slug").unique(),
   originalLanguage: text("original_language").default("en"),
   originalYear: smallint("original_year"),
@@ -84,6 +86,7 @@ export const works = pgTable("works", {
   unique("works_id_kind_unique").on(t.id, t.kind),
   check("works_book_series_check", sql`${t.kind} = 'book' OR (${t.seriesId} IS NULL AND ${t.seriesName} IS NULL AND ${t.seriesPosition} IS NULL)`),
   check("works_nonbook_lifecycle_check", sql`${t.kind} = 'book' OR (${t.catalogueStatus} = 'tracked' AND ${t.acquisitionPriority} = 'none' AND NOT ${t.isRare} AND ${t.huntAssessedOn} IS NULL)`),
+  check("works_original_title_check", sql`${t.originalTitle} is null or (${t.kind} = 'book' and ${t.originalTitle} = btrim(${t.originalTitle}) and length(${t.originalTitle}) between 1 and 500)`),
   check("works_language_domain_check", sql`(${t.kind}='book' and ${t.originalLanguage} is not null) or (${t.kind}<>'book' and ${t.originalLanguage} is null)`),
   index("works_catalogue_status_idx").on(t.catalogueStatus),
   index("works_series_id_idx").on(t.seriesId),

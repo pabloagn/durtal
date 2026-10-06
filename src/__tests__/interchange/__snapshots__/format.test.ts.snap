@@ -844,6 +844,7 @@ exports[`interchange format version 1 > pins every column it carries: a change t
     "id:uuid",
     "kind:text(book|film|perfume|painting)",
     "title:text",
+    "original_title:text?",
     "slug:text?",
     "original_language:text?",
     "original_year:integer?",

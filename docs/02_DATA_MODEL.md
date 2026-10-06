@@ -383,6 +383,74 @@ Shared measurement validation keeps dimensions (mm/cm/m/in), perfume volumes
 It rejects nonfinite/nonpositive values, foreign units and ambiguous fluid ounces.
 Domain models retain the specific measurement meaning and original unit as needed.
 
+## Book enrichment
+
+Migration `0077_book_enrichment` (SLN-462) adds the tables of the book
+enrichment pipeline (SLN-460): proposed values with their evidence, the approved
+vocabulary, the apply log with undo, auto-accept rules, popularity snapshots and
+the job queue. It reuses `source_records` for every fetched document and API
+answer, and `catalogue_identifiers` for work (`entity_kind 'book'`) and edition
+(`'edition'`) external IDs. It adds no external-ID table.
+
+**Where accepted values live.** An accepted term is a row in the existing
+taxonomy junction tables (`work_subjects`, `work_themes`, `work_categories`,
+`work_literary_movements`, `work_attributes`, `work_keywords`, `work_art_types`,
+`work_art_movements` or `custom_taxonomy_item_works`), so the library filters,
+`GET /api/works`, the book page, `/taxonomy` and the suggestion engine show it.
+A term is the governance record of one taxonomy item. Items without a term stay
+usable by hand, and the pipeline never proposes them. `work_enrichment_values`
+keeps only accepted values that have no column: setting places and numbers.
+Other accepted values are written to their column (`works.original_title`,
+`original_language`, `original_year`) or to `catalogue_identifiers`.
+
+| Table | Identity and fields | Integrity |
+| --- | --- | --- |
+| `enrichment_vocabulary_versions` | SMALLINT `version` (from 1); approval time and URL (Pablo's approval comment), document URL, SHA-256 of the seed file, load time, notes | HTTPS links; one row per loaded seed |
+| `enrichment_dimensions` | UUID; unique slug `key`, label, definition; `layer` (`identity`, `facts`, `length`, `experience`, `popularity`); `value_kind` (`term`, `terms`, `scale`, `number`, `text`, `identifier`, `place`, `person`); `entity_level` (`work`, `edition`); `provider` (identifier dimensions only); `apply_target`; taxonomy family and, for `attributes`, its category; `requires_independent_sources`, `auto_accept_eligible`, `unknown_handling` (`exclude`, `include_as_unknown`); JSON `parameters`; introduced and retired version | The kind fits the target (`APPLY_TARGET_RULES`, `src/lib/enrichment/model.ts`); a family exactly for the `taxonomy` target, work-level and applying to books; key, kind, level, provider, target and family never change; one current dimension per family and category (partial unique index, `NULLS NOT DISTINCT`) |
+| `enrichment_terms` | UUID; dimension; slug `key`, label, definition, applies when, does not apply when; JSON `examples` (`{ workId }` or `{ title, author }`); `scale_value` (scale anchors); introduced and retired version, replacing term; the governed item: `custom_item_id` (FK, RESTRICT), `system_item_id` (no FK) or `work_type_id`; parent term | Exactly one item, of the dimension's family (a trigger checks a system item in the family's table, and an attribute's category); at least three examples (one anchor for a scale point); one current term per dimension and key, and per item; only its retirement changes |
+| `enrichment_claims` | UUID; work, edition (edition-level dimensions), dimension; value in exactly the column of the kind (`term_id`, `number_value`, `text_value` trimmed 1–500, `place_id`, `person_id`; a scale claim sets the anchor and its value); `method` (`api`, `agent`, `human`), `confidence` 0–1 (a human claim is 1), vocabulary version; `status` (`proposed`, `accepted`, `rejected`, `superseded`), `decided_by` (`pablo`, `rule`, `check`), rule, decision time, superseding claim, `decision_reason`; run (required for `api` and `agent`), job, note, timestamps | Book only; the term is current in the claim's version and belongs to its dimension; no claim on a `none` target; value, method, run and version never change; confidence changes only while proposed; a rejection is final; one proposed claim per work, edition, dimension and value (partial unique index, `NULLS NOT DISTINCT`) |
+| `claim_evidence` | UUID; claim; source record (plain key, `DEFERRABLE INITIALLY DEFERRED`); `outlet` (the record's provider); extractor version; run; `locator` `text` (excerpt, start and end offsets in code points of the stored NFC text, its SHA-256) or `payload` (excerpt and a path into the payload); excerpt SHA-256 | Never changes (R3); excerpt 1–1,000 characters; its hash matches; a payload excerpt equals `payload #>> payload_path`; a text excerpt's length equals its offsets and its text hash equals the record's `payload.textSha256`; the record belongs to the claim's book or one of its editions; unique `(claim_id, source_record_id, excerpt_sha256)` |
+| `work_enrichment_values` | UUID; work, dimension, `number_value` or `place_id`, the claim that set it (unique), apply time | Book only; at commit it holds its accepted claim's value; one row per work and dimension for a number, per work, dimension and place for a place; indexes `(dimension_id, number_value, work_id)` and `(dimension_id, place_id, work_id)` |
+| `enrichment_applications` | UUID; claim, work, edition, dimension, target; JSON `before` and `after` (the target's value and every claim status the apply changed); `applied_by` (`pablo`, `rule`), rule, batch, note; apply and undo times | Book only; names its claim's book, edition, dimension and target; written once, then only its undo time; index on `applied_at` (the daily cap) |
+| `enrichment_auto_accept_rules` | UUID; dimension (unique); `basis` (`exact_identifier_match`, `evaluation_gate`); `enabled` (default off), minimum confidence, gold-set version, measured precision, sample size, minimum sample, gate time, approval URL, enable time | Only on an `auto_accept_eligible` dimension, and an exact-identifier rule only on identity; enabled only with Pablo's approval URL and an enable time, and a gated rule only at 95% precision or more on at least the minimum sample (R8) |
+| `work_popularity_snapshots` | UUID; work, `metric`, `month` (first day), `value` (0 or more), source record (deferred key, not null) | Book only; unique `(work_id, metric, month)`; index `(metric, month)` |
+| `enrichment_jobs` | UUID; work, `kind` (`identity`, `facts`, `length`, `popularity`, `research`, `extract`), `status` (`queued`, `running`, `done`, `failed`, `held`); priority (lower first, default 100), attempts, run after, lock time and worker, `held_reason` (`quota`, `rate_limited`, `budget`, `work_cost_ceiling`), last error (500 characters); JSON `payload` (reason, dimension keys, vocabulary version, outcome), `rerun`, cost; timestamps, finish time | Book only; `running` exactly when locked; `held` exactly with a reason; finished exactly when done or failed; at most one open job (`queued`, `running`, `held`) per work and kind |
+
+**Guards at commit.** Constraint triggers check, at commit, that a `proposed` or
+`accepted` claim from an API or an agent has evidence (R1, R2), again when
+evidence is deleted. A `human` claim is Pablo's own: without evidence it is
+inserted only as `accepted` by `pablo`; inserted as `proposed`, all its evidence
+cites his `storygraph_export` source records. A claim that is no longer
+`accepted` keeps no value row. The two deferred source-record keys let a work
+delete remove source records, claims and evidence in one statement, while a
+script that deletes a cited source record fails at commit.
+
+**Governed items.** A trigger on each of the ten system taxonomy tables refuses
+deleting an item a term governs, and a governed attribute keeps its category. A
+custom item's key is RESTRICT. The junction tables get no new trigger: hand
+edits stay possible.
+
+**Merges.** Harmonize merges of works, authors and places move claims through
+`enrichmentMergeQueries` (`src/lib/harmonization/enrichment-merge.ts`), which
+the claim and application guards allow only inside the audited merge
+(`harmonization_allows_move`). Before the move, a claim that repeats an open or
+accepted claim of the kept record is superseded by it, a repeated value row and
+a snapshot of a month the kept book has go, and an open job joins the kept
+book's open job of its kind. Evidence does not move: its source records move
+with the merge. `mergeBlockers` refuses a merge of two books with different
+accepted values for one single-value dimension, a merge while the merged book
+has a running job, and a merge of a taxonomy item a current term governs (Pablo
+retires the term first). A retired term follows its custom item to the kept
+one; a system item id and an example work id keep the merged id, which readers
+resolve through `harmonization_redirects`.
+
+**Deletes.** `deleteWork` removes every enrichment row with the work, in one
+statement. `deleteEdition` is one unit: it refuses while an accepted claim's
+evidence all cites the edition's source records ("An accepted enrichment value
+rests only on this edition's sources. Undo that value first."), otherwise it
+deletes the evidence that cites them, rejects the proposals left with none
+(`check`, `evidence_deleted`) and deletes the edition with its own claims.
+
 ## Three-Tier Model
 
 ```
@@ -532,6 +600,7 @@ The abstract intellectual creation. A work exists independently of any particula
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
 | `title` | TEXT | NOT NULL | Canonical title of the work |
+| `original_title` | TEXT | nullable; books only, trimmed, 1–500 characters (`works_original_title_check`) | The title in the original language (SLN-462). Nothing backfills it; book enrichment proposes values |
 | `kind` | `work_kind_enum` | NOT NULL, default `book`; immutable; currently book-only CHECK | Stable domain identity, independent of work-type taxonomy |
 | `slug` | TEXT | UNIQUE, nullable | Human-readable URL slug. Books: `{title}-by-{author}`, with `-2`, `-3`... when taken; it follows the title and primary author, so a work rename, a new primary author, an author rename or an author merge refreshes it (`src/lib/works/slug.ts`, books only). Perfumes: `{title}-by-{house}` (the house, else the brand; `{title}` with neither), with `-2`, `-3`... when taken, set at creation and unchanged by renames. Films: `{title}-by-{director}` (the first director, by name or as credited; `{title}` with none), with `-2`, `-3`... when taken, set at creation and unchanged by renames. Paintings: `{title}-{uuid}`, unchanged by renames. Old slugs do not redirect |
 | `original_language` | TEXT | nullable, default `'en'`; required for books and null for other domains (`works_language_domain_check`) | Language code; stored form set by trigger (see `languages`). An absent value stays absent |
@@ -756,8 +825,18 @@ API, answers cached). A person is taken only when they are human (P31 Q5), the
 name fits (the label or an alias is a form of the author's name, or the same
 family name with fitting given names or initials), nothing the catalogue knows
 contradicts them (gender, birth and death years, a book older than the person),
-and there is evidence: one of the author's books among the person's works, or
-dates that agree. A match fills only empty columns: dates to the precision
+and there is evidence: one of the author's books among the person's works,
+dates that agree, or a role that fits. Roles (pass 2, SLN-410) are the
+catalogue's `author_contribution_types` (Author, Theorist, Director, Painter…)
+checked against the person's Wikidata occupations and description: a fit
+counts as evidence, a misfit holds the match, and among several close
+candidates the medium pick is the one whose occupation fits. A day of the
+month is compared in both calendars: a Julian statement whose Gregorian day is
+the stored one agrees, and a missing month is the Gregorian one. The second
+pass (`--scope canon`, `CANON_SCOPE_SQL`) takes the people without books who
+belong to books: in the book directory, and not credited only on films,
+paintings or perfumes (`work_credits`, `perfume_variant_perfumers`,
+`art_object_credits`) without an edition credit. A match fills only empty columns: dates to the precision
 Wikidata gives (circa and decades set the approximate flag; centuries are not
 taken), the zodiac sign, gender (P21 only), nationality (the one citizenship
 that is a country today, or the description's demonym), birth and death
