@@ -31,6 +31,7 @@ import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
 import { progressEvent, readingEvent } from "@/lib/reading/activity";
 import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
 import { TIMER_GONE } from "@/lib/reading/timer";
+import { newOverlap, overlapMessage, sessionSpan, type TimedSession } from "@/lib/reading/session-overlap";
 import {
   discardTimerRow,
   pauseTimerRow,
@@ -888,6 +889,7 @@ export async function updateSession(input: SessionPatchInput) {
     endedAt: patch.endedAt !== undefined ? patch.endedAt : session.endedAt,
   } as Session;
   if (updated.startedAt && updated.endedAt && updated.endedAt < updated.startedAt) throw new Error("The session ends before it starts");
+  refuseOverlap(sessions, updated, updated.timeZone, updated.id, session);
   // A session moved after today would hold the position until that day, as in logProgress
   const ahead = (at: Date | null | undefined) => !!at && at.getTime() - Date.now() > 60_000;
   if (updated.readOn > readingDay(new Date(), updated.timeZone, 0) || ahead(patch.startedAt) || ahead(patch.endedAt)) throw new Error(FUTURE_SESSION);
@@ -922,6 +924,16 @@ export async function updateSession(input: SessionPatchInput) {
 }
 
 /**
+ * Two sessions of a reading never share time: a session that crosses
+ * another's is refused, with that one's times. An edit (`was`, the session as
+ * stored) is refused only for time it newly takes
+ */
+function refuseOverlap(sessions: Session[], session: Omit<TimedSession, "id">, zone: string, exceptId?: string, was?: Session) {
+  const other = newOverlap(sessions, sessionSpan(session), was ?? null, exceptId);
+  if (other) throw new Error(`${overlapMessage(other, zone)}. Change the start time or the time read.`);
+}
+
+/**
  * Adds a session by hand (SLN-451): always one new session, in its place in
  * the session order. The next session's start follows; the position moves
  * only when it is the newest, so a backdated session never moves it back.
@@ -935,6 +947,7 @@ export async function addSession(input: AddSessionInput) {
     if (at && readingDay(at, data.timeZone, hour) !== data.readOn) throw new Error("The start and end times must fall on the session's day");
   const durationSeconds =
     data.durationSeconds ?? (data.startedAt && data.endedAt ? Math.max(1, Math.round((data.endedAt.getTime() - data.startedAt.getTime()) / 1000)) : null);
+  refuseOverlap(await loadSessions(before.id), { startedAt: data.startedAt ?? null, endedAt: data.endedAt ?? null, durationSeconds }, data.timeZone);
   const result = await recordProgress(
     {
       readingId: data.readingId,

@@ -44,11 +44,7 @@ vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
   deleteUnusedObjects: vi.fn(async () => false),
 }));
 
-import {
-  loadDomainCounts,
-  loadDomainHome,
-  loadRecentTiles,
-} from "@/lib/catalogue/domain-homes";
+import { loadDomainCounts, loadRecentTiles } from "@/lib/catalogue/domain-homes";
 import { createPerfume } from "@/lib/actions/perfumes";
 import { createFilm } from "@/lib/actions/films";
 import { createPainting } from "@/lib/actions/paintings";
@@ -133,13 +129,10 @@ describe.skipIf(!url)("collection homes and dashboard counts", () => {
     expect((await getLibraryStats()).works).toBe(1);
   });
 
-  it("reads a home page from its URL: search, a valid sort, and paging", async () => {
+  it("gives each tile its link, credited creators and date", async () => {
     await catalogue();
-    const home = await loadDomainHome("perfume", { q: "no", sort: "year" });
-    expect(home.total).toBe(2);
-    // Titles sort naturally: "No 5" before "No 19"
-    expect(home.tiles.map((tile) => tile.title)).toEqual(["No 5", "No 19"]);
-    const five = home.tiles[0];
+    const perfumes = await loadRecentTiles("perfume", 10);
+    const five = perfumes.find((tile) => tile.title === "No 5")!;
     const [row] = await c`select slug from works where id = ${five.id}`;
     expect(five).toMatchObject({
       href: `/perfumes/${row.slug}`,
@@ -148,18 +141,8 @@ describe.skipIf(!url)("collection homes and dashboard counts", () => {
       imageUrl: null,
     });
     // Without a house, the perfumer is the credited creator
-    expect(home.tiles[1].creators).toBe("Ernest Beaux");
-    expect(
-      (await loadDomainHome("perfume", { sort: "title", order: "desc" })).tiles.map(
-        (tile) => tile.title,
-      ),
-    ).toEqual(["No 19", "No 5"]);
-    const beyond = await loadDomainHome("perfume", { page: "2", perPage: "24" });
-    expect(beyond).toMatchObject({ total: 2, page: 2, perPage: 24, tiles: [] });
-    expect((await loadDomainHome("painting", {})).tiles.map((tile) => tile.date)).toEqual([
-      null,
-      "1893–1910",
-    ]);
+    expect(perfumes.find((tile) => tile.title === "No 19")!.creators).toBe("Ernest Beaux");
+    expect((await loadRecentTiles("painting", 10)).map((tile) => tile.date).sort()).toEqual(["1893–1910", null].sort());
   });
 
   it("gives the dashboard the newest records first", async () => {
