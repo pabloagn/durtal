@@ -30,7 +30,10 @@
  * its list, and the review in print (no sidebar, no Print button, white).
  * Then suggestions (SLN-457): empty Up Next and follow "See suggestions", set
  * about 500 pages at hand in Amsterdam, Why this?, Not now, Not for me with a
- * reason, Undo one in the Hidden view, and Pick one for me, started.
+ * reason, Undo one in the Hidden view, and Pick one for me, started. On the
+ * way, a long notes group (SLN-510): Show all draws the rest in place, a
+ * note's own address opens its group, and Edit taxonomy shows the book's
+ * subject at once and the full list as it loads.
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
@@ -605,6 +608,43 @@ async function readingJourney() {
     await step("see it as the passage of the day", async () => {
       await go("/reading");
       await waitFor(`document.querySelector('[data-hub-passage]')?.textContent.includes(${JSON.stringify(PASSAGE)})`, "the passage of the day");
+    });
+    // A long notes group, and the edit dialogs' lists (SLN-510)
+    const notesPath = "/library/journey-notes";
+    const drawn = "document.querySelectorAll('[data-notes-section] [data-note]').length";
+    await step("open a long notes group with Show all, in place", async () => {
+      await go(notesPath);
+      await waitFor(`${drawn} === 10 && document.querySelector('[data-notes-show-all]')?.textContent === 'Show all 14'`, "the group at its first 10 notes");
+      await evaluate("document.querySelector('[data-notes-show-all]').scrollIntoView({ block: 'center' }), true");
+      await sleep(300);
+      const before = await evaluate("({ y: scrollY, top: document.querySelector('[data-notes-show-all]').parentElement.getBoundingClientRect().top })");
+      await evaluate("document.querySelector('[data-notes-show-all]').click(), true");
+      await waitFor(`${drawn} === 14 && !document.querySelector('[data-notes-show-all]')`, "all 14 notes");
+      const after = await evaluate("({ y: scrollY, top: document.activeElement.getBoundingClientRect().top, note: document.activeElement.querySelector('[data-note]')?.textContent ?? '' })");
+      if (after.y !== before.y) throw new Error(`The page moved from ${before.y} to ${after.y}`);
+      if (Math.abs(after.top - before.top) > 0.5) throw new Error(`The 11th note is at ${after.top}, the button was at ${before.top}`);
+      if (!after.note.includes("Journey note 11")) throw new Error(`The focus is on "${after.note.slice(0, 40)}", not the 11th note`);
+    });
+    await step("a note's own address opens its group", async () => {
+      const id = await evaluate("document.querySelectorAll('[data-notes-section] li')[12].id");
+      await go("/reading");
+      await go(`${notesPath}#${id}`);
+      await waitFor(`${drawn} === 14 && (() => { const r = document.getElementById(${JSON.stringify(id)}).getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; })()`, "the 13th note in view");
+    });
+    await step("edit the taxonomy: the book's subject at once, the full list as it loads", async () => {
+      await go(notesPath);
+      await click("Actions", "document.querySelector('main')");
+      await click("Edit Taxonomy");
+      const subject = (name) => `[...${DIALOG}.querySelectorAll('label')].find((l) => l.textContent.trim() === ${JSON.stringify(name)})?.querySelector('input')`;
+      await waitFor(`${subject("Journey Decadence")}?.checked`, "the book's subject, checked");
+      await waitFor(`${subject("Journey Symbolism")} && !${DIALOG}.querySelector('[data-options-loading], [data-options-failed]')`, "the full list of subjects");
+      await evaluate(`${subject("Journey Symbolism")}.click(), true`);
+      await save("Save");
+      await go(notesPath);
+      await click("Actions", "document.querySelector('main')");
+      await click("Edit Taxonomy");
+      await waitFor(`${subject("Journey Decadence")}?.checked && ${subject("Journey Symbolism")}?.checked`, "both subjects saved");
+      await click("Cancel", DIALOG);
     });
     // Goals and the rhythm (SLN-455)
     const goalCount = "Number(document.querySelector('[data-goal-card=books] [data-goal-title]')?.textContent.split(' ')[0].replace(/,/g, ''))";

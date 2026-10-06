@@ -56,8 +56,6 @@ interface EditionDetailCardProps {
   workId?: string;
   authorName?: string;
   availableLocations?: LocationWithSubLocations[];
-  availableGenres?: { id: string; name: string }[];
-  availableTags?: { id: string; name: string }[];
   /** The edition's quotes and notes, on a book that allows reading (SLN-480): its Quotes row, and the delete's warning */
   quotes?: { quotes: number; notes: number; href: string };
   /** The e-book linked to each copy, by copy id */
@@ -84,8 +82,6 @@ export function EditionDetailCard({
   workId,
   authorName,
   availableLocations = [],
-  availableGenres = [],
-  availableTags = [],
   quotes,
   ebooksByCopy,
 }: EditionDetailCardProps) {
@@ -220,11 +216,7 @@ export function EditionDetailCard({
                       currentMetadataSource={edition.metadataSource}
                     />
                   )}
-                  <EditionEditDialog
-                    edition={edition}
-                    availableGenres={availableGenres}
-                    availableTags={availableTags}
-                  />
+                  <EditionEditDialog edition={edition} />
                   <InstanceAddDialog
                     editionId={edition.id}
                     editionTitle={edition.title}

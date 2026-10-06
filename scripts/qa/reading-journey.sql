@@ -1,11 +1,13 @@
 -- The reading journey's book (scripts/qa/journeys.mjs reading), for a
 -- disposable preview database only (SLN-447): a book with two print editions
 -- of different page counts and an audiobook, a paperback on a shelf in
--- Amsterdam, and a series whose next volume has a copy on that shelf.
+-- Amsterdam, and a series whose next volume has a copy on that shelf. And a
+-- book with 14 notes and one of two subjects, for the long notes group and
+-- the edit dialogs' lists (SLN-510).
 --   docker exec -i <container> psql -U durtal_preview -d durtal_preview < scripts/qa/reading-journey.sql
 do $$
 declare
-  ams uuid; shelf uuid; audible uuid; s uuid; w uuid; nxt uuid; e600 uuid; e480 uuid; eaudio uuid; enext uuid;
+  ams uuid; shelf uuid; audible uuid; s uuid; w uuid; nxt uuid; e600 uuid; e480 uuid; eaudio uuid; enext uuid; subj uuid;
 begin
   select id into ams from locations where name = 'Amsterdam' and type = 'physical' limit 1;
   if ams is null then
@@ -29,4 +31,12 @@ begin
     insert into editions(work_id, title, language, page_count) values (w, 'Queue Journey', 'en', 100 * i) returning id into e600;
     insert into instances(edition_id, location_id, sub_location_id, format, status) values (e600, ams, shelf, 'paperback', 'available');
   end loop;
+  -- Notes, not quotes: the passage of the day stays the journey's own quote
+  insert into works(title, slug) values ('Journey Notes', 'journey-notes') returning id into w;
+  insert into editions(work_id, title, language, page_count) values (w, 'Journey Notes', 'en', 200) returning id into e600;
+  insert into reading_notes(work_id, edition_id, kind, body, page)
+    select w, e600, 'note', 'Journey note ' || i, i * 10 from generate_series(1, 14) i;
+  insert into subjects(name, slug) values ('Journey Decadence', 'journey-decadence') returning id into subj;
+  insert into subjects(name, slug) values ('Journey Symbolism', 'journey-symbolism');
+  insert into work_subjects(work_id, subject_id) values (w, subj);
 end $$;

@@ -32,6 +32,8 @@ import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";
 import { deleteWork } from "@/lib/actions/works";
 import { workDeleteCascadeMessage } from "@/components/books/delete-cascade";
+import { preloadEditOptions } from "@/hooks/use-edit-options";
+import { EDIT_OPTION_GROUPS, type EditOption, type TaxonomyGroup } from "@/lib/catalogue/edit-options";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
 
@@ -62,26 +64,11 @@ interface WorkAuthorRow {
   role: string;
 }
 
-interface TaxonomyIds {
-  subjectIds: string[];
-  categoryIds: string[];
-  themeIds: string[];
-  literaryMovementIds: string[];
-  artTypeIds: string[];
-  artMovementIds: string[];
-  keywordIds: string[];
-  attributeIds: string[];
-}
-
-interface TaxonomyOptions {
-  subjects: { id: string; name: string }[];
-  categories: { id: string; name: string }[];
-  themes: { id: string; name: string }[];
-  literaryMovements: { id: string; name: string }[];
-  artTypes: { id: string; name: string }[];
-  artMovements: { id: string; name: string }[];
-  keywords: { id: string; name: string }[];
-  attributes: { id: string; name: string }[];
+/** The work's own choices, shown at once; every list loads when its dialog opens (SLN-510) */
+interface ChosenOptions extends Record<TaxonomyGroup, EditOption[]> {
+  series: EditOption[];
+  workTypes: EditOption[];
+  recommenders: EditOption[];
 }
 
 interface WorkActionsMenuProps {
@@ -95,13 +82,7 @@ interface WorkActionsMenuProps {
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
-  taxonomyIds: TaxonomyIds;
-  availableSeries: { id: string; title: string }[];
-  availableWorkTypes: { id: string; name: string }[];
-  availableRecommenders: { id: string; name: string }[];
-  availableGenres: { id: string; name: string }[];
-  availableTags: { id: string; name: string }[];
-  taxonomyOptions: TaxonomyOptions;
+  chosen: ChosenOptions;
 }
 
 export function WorkActionsMenu({
@@ -114,13 +95,7 @@ export function WorkActionsMenu({
   posterCount: _posterCount,
   backgroundCount: _backgroundCount,
   galleryCount: _galleryCount,
-  taxonomyIds,
-  availableSeries,
-  availableWorkTypes,
-  availableRecommenders,
-  availableGenres,
-  availableTags,
-  taxonomyOptions,
+  chosen,
 }: WorkActionsMenuProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -237,37 +212,27 @@ export function WorkActionsMenu({
           align="end"
           size="sm"
         />
-        <EntityActionMenu items={actionItems} />
+        {/* A hand on the menu starts its dialogs' lists, so they open full */}
+        <div
+          className="contents"
+          onPointerEnter={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
+          onFocus={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
+        >
+          <EntityActionMenu items={actionItems} />
+        </div>
       </div>
 
       <WorkEditDialog
         work={work}
         authors={workAuthors}
-        availableSeries={availableSeries}
-        availableWorkTypes={availableWorkTypes}
-        availableRecommenders={availableRecommenders}
+        chosen={chosen}
         open={editOpen}
         onOpenChange={setEditOpen}
       />
 
       <WorkTaxonomyEditDialog
         workId={work.id}
-        currentSubjectIds={taxonomyIds.subjectIds}
-        currentCategoryIds={taxonomyIds.categoryIds}
-        currentThemeIds={taxonomyIds.themeIds}
-        currentLiteraryMovementIds={taxonomyIds.literaryMovementIds}
-        currentArtTypeIds={taxonomyIds.artTypeIds}
-        currentArtMovementIds={taxonomyIds.artMovementIds}
-        currentKeywordIds={taxonomyIds.keywordIds}
-        currentAttributeIds={taxonomyIds.attributeIds}
-        subjects={taxonomyOptions.subjects}
-        categories={taxonomyOptions.categories}
-        themes={taxonomyOptions.themes}
-        literaryMovements={taxonomyOptions.literaryMovements}
-        artTypes={taxonomyOptions.artTypes}
-        artMovements={taxonomyOptions.artMovements}
-        keywords={taxonomyOptions.keywords}
-        attributes={taxonomyOptions.attributes}
+        chosen={chosen}
         open={taxonomyOpen}
         onOpenChange={setTaxonomyOpen}
       />
@@ -282,8 +247,6 @@ export function WorkActionsMenu({
       <EditionAddDialog
         workId={work.id}
         workTitle={work.title}
-        availableGenres={availableGenres}
-        availableTags={availableTags}
         open={addEditionOpen}
         onOpenChange={setAddEditionOpen}
       />

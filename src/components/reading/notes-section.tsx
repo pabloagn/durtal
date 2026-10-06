@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/shared/section-heading";
 import type { NoteEdit } from "@/lib/actions/reading-notes";
@@ -17,19 +18,115 @@ export function noteMeta(note: NoteEdit) {
     .join(" · ");
 }
 
+/** A group this long opens with its first OPEN_AT notes and "Show all" (SLN-510): the page draws every note's markup */
+export const LONG_GROUP = 12;
+export const OPEN_AT = 10;
+
+/** A note's own anchor: `#note-<id>` opens its group and goes to it */
+export const noteAnchor = (id: string) => `note-${id}`;
+
+/** The id in the address, when it names a note */
+function hashNote() {
+  const hash = typeof window === "undefined" ? "" : decodeURIComponent(window.location.hash.slice(1));
+  return hash.startsWith("note-") ? hash.slice(5) : null;
+}
+
+/** The reader's own moves, after which a note is no longer held in view */
+const LET_GO = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+
+/**
+ * Brings a note into view and holds it there while the page settles: the
+ * passages above can still reflow (at 768px wide they did after the scroll
+ * and left the note 1,722px above the screen). It lets go after 5 seconds,
+ * or at the reader's first scroll, key or touch.
+ */
+function goToNote(id: string) {
+  const note = () => document.getElementById(noteAnchor(id));
+  if (!note()) return false;
+  note()!.scrollIntoView({ block: "start" });
+  if (typeof ResizeObserver === "undefined") return true;
+  const hold = new ResizeObserver(() => note()?.scrollIntoView({ block: "start" }));
+  const letGo = () => {
+    hold.disconnect();
+    for (const event of LET_GO) removeEventListener(event, letGo);
+  };
+  hold.observe(document.body);
+  for (const event of LET_GO) addEventListener(event, letGo, { passive: true });
+  setTimeout(letGo, 5000);
+  return true;
+}
+
 function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; editions: Record<string, NoteEdition> }) {
+  const long = notes.length >= LONG_GROUP;
+  const [all, setAll] = useState(!long);
+  const firstNew = useRef<HTMLLIElement>(null);
+  const focusNew = useRef(false);
+  // A note named in the address that the group draws only once open
+  const goTo = useRef<string | null>(null);
+  const shown = all ? notes : notes.slice(0, OPEN_AT);
+
+  // A note named in the address comes into view, its group opened first when it hides the note: on load and on a new hash only, so a later delete, edit or new note in the group does not bring the page back to it
+  const openNamed = useEffectEvent(() => {
+    const id = hashNote();
+    if (!id || !notes.some((n) => n.id === id) || goToNote(id)) return;
+    goTo.current = id;
+    setAll(true);
+  });
+  useEffect(() => {
+    const open = () => openNamed();
+    const first = requestAnimationFrame(open);
+    window.addEventListener("hashchange", open);
+    return () => {
+      cancelAnimationFrame(first);
+      window.removeEventListener("hashchange", open);
+    };
+  }, []);
+
+  // Once the group is open: the note named in the address comes into view, or after "Show all" the
+  // first new note takes the focus where the button was, without scrolling
+  useEffect(() => {
+    if (!all) return;
+    if (goTo.current) goToNote(goTo.current);
+    else if (focusNew.current) firstNew.current?.focus({ preventScroll: true });
+    goTo.current = null;
+    focusNew.current = false;
+  }, [all]);
+
   return (
-    <ul>
-      {notes.map((note) => (
-        <li key={note.id} className="border-t border-glass-border py-5 first:border-t-0 first:pt-0">
-          <NoteItemView
-            note={note}
-            meta={noteMeta(note)}
-            controls={<NoteControls note={note} book={book} edition={note.editionId ? (editions[note.editionId] ?? null) : null} />}
-          />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul>
+        {shown.map((note, i) => (
+          <li
+            key={note.id}
+            id={noteAnchor(note.id)}
+            ref={i === OPEN_AT ? firstNew : undefined}
+            tabIndex={i === OPEN_AT ? -1 : undefined}
+            className="scroll-mt-8 border-t border-glass-border py-5 first:border-t-0 first:pt-0"
+          >
+            <NoteItemView
+              note={note}
+              meta={noteMeta(note)}
+              controls={<NoteControls note={note} book={book} edition={note.editionId ? (editions[note.editionId] ?? null) : null} />}
+            />
+          </li>
+        ))}
+      </ul>
+      {!all && (
+        <div className="border-t border-glass-border pt-4">
+          <button
+            type="button"
+            onClick={() => {
+              focusNew.current = true;
+              setAll(true);
+            }}
+            className="text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:-my-3.5 pointer-coarse:py-3.5"
+            data-notes-show-all=""
+          >
+            Show all {notes.length}
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -37,7 +134,8 @@ function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; e
  * The book page's "Quotes and notes" (SLN-453), after the Reading section
  * and only when the book has some. Grouped by edition (SLN-480), each group
  * under its edition's heading with its count; one group is named in the
- * section's description instead.
+ * section's description instead. A long group opens at its first ten notes
+ * (SLN-510).
  */
 export function NotesSection({
   notes,

@@ -46,22 +46,8 @@ import {
 } from "@/lib/actions/works";
 import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
 import { getOrdersForWork } from "@/lib/actions/orders";
-import { getSeries, getOtherWorksInSeries } from "@/lib/actions/series";
-import {
-  getWorkTypes,
-  getSubjects,
-  getCategories,
-  getThemes,
-  getLiteraryMovements,
-  getArtTypes,
-  getArtMovements,
-  getKeywords,
-  getAttributes,
-  getGenres,
-  getTags,
-} from "@/lib/actions/taxonomy";
+import { getOtherWorksInSeries } from "@/lib/actions/series";
 import { getLocations } from "@/lib/actions/locations";
-import { getRecommenders } from "@/lib/actions/recommenders";
 import { getEbooksForWork } from "@/lib/ebooks/queries";
 import { formatLabel } from "@/lib/ebooks/formats";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
@@ -125,6 +111,9 @@ function catalogueStatusVariant(
   }
 }
 
+/** A chosen item as its dialog lists it */
+const option = (x: { id: string; name: string }) => ({ id: x.id, name: x.name });
+
 /** One read per request for the page and its title */
 const loadWork = cache(getWorkBySlug);
 
@@ -140,39 +129,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   // ?then=start or ?then=past: open that reading dialog on arrival (SLN-448)
   const { then } = addBookParams((await searchParams) ?? {});
 
-  const [
-    work,
-    allSeries,
-    allWorkTypes,
-    allSubjects,
-    allCategories,
-    allThemes,
-    allLiteraryMovements,
-    allArtTypes,
-    allArtMovements,
-    allKeywords,
-    allAttributes,
-    allLocations,
-    allGenres,
-    allTags,
-    allRecommenders,
-  ] = await Promise.all([
-    loadWork(slug),
-    getSeries(),
-    getWorkTypes(),
-    getSubjects(),
-    getCategories(),
-    getThemes(),
-    getLiteraryMovements(),
-    getArtTypes(),
-    getArtMovements(),
-    getKeywords(),
-    getAttributes(),
-    getLocations(),
-    getGenres(),
-    getTags(),
-    getRecommenders(),
-  ]);
+  // The edit dialogs' lists load when a dialog opens (SLN-510), not with the page
+  const [work, allLocations] = await Promise.all([loadWork(slug), getLocations()]);
 
   if (!work) notFound();
 
@@ -464,79 +422,18 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                     posterCount={allPosters.length}
                     backgroundCount={allBackgrounds.length}
                     galleryCount={galleryMedia.length}
-                    taxonomyIds={{
-                      subjectIds: work.workSubjects.map((ws) => ws.subject.id),
-                      categoryIds: work.workCategories.map(
-                        (wc) => wc.category.id,
-                      ),
-                      themeIds: work.workThemes.map((wt) => wt.theme.id),
-                      literaryMovementIds: work.workLiteraryMovements.map(
-                        (wlm) => wlm.literaryMovement.id,
-                      ),
-                      artTypeIds: work.workArtTypes.map(
-                        (wat) => wat.artType.id,
-                      ),
-                      artMovementIds: work.workArtMovements.map(
-                        (wam) => wam.artMovement.id,
-                      ),
-                      keywordIds: work.workKeywords.map((wk) => wk.keyword.id),
-                      attributeIds: work.workAttributes.map(
-                        (wa) => wa.attribute.id,
-                      ),
-                    }}
-                    availableSeries={allSeries.map((s) => ({
-                      id: s.id,
-                      title: s.title,
-                    }))}
-                    availableWorkTypes={allWorkTypes.map((wt) => ({
-                      id: wt.id,
-                      name: wt.name,
-                    }))}
-                    availableRecommenders={allRecommenders.map((r) => ({
-                      id: r.id,
-                      name: r.name,
-                    }))}
-                    availableGenres={allGenres.map((g) => ({
-                      id: g.id,
-                      name: g.name,
-                    }))}
-                    availableTags={allTags.map((t) => ({
-                      id: t.id,
-                      name: t.name,
-                    }))}
-                    taxonomyOptions={{
-                      subjects: allSubjects.map((s) => ({
-                        id: s.id,
-                        name: s.name,
-                      })),
-                      categories: allCategories.map((c) => ({
-                        id: c.id,
-                        name: c.name,
-                      })),
-                      themes: allThemes.map((t) => ({
-                        id: t.id,
-                        name: t.name,
-                      })),
-                      literaryMovements: allLiteraryMovements.map((lm) => ({
-                        id: lm.id,
-                        name: lm.name,
-                      })),
-                      artTypes: allArtTypes.map((at) => ({
-                        id: at.id,
-                        name: at.name,
-                      })),
-                      artMovements: allArtMovements.map((am) => ({
-                        id: am.id,
-                        name: am.name,
-                      })),
-                      keywords: allKeywords.map((k) => ({
-                        id: k.id,
-                        name: k.name,
-                      })),
-                      attributes: allAttributes.map((a) => ({
-                        id: a.id,
-                        name: a.name,
-                      })),
+                    chosen={{
+                      series: work.series ? [{ id: work.series.id, name: work.series.title }] : [],
+                      workTypes: work.workType ? [{ id: work.workType.id, name: work.workType.name }] : [],
+                      recommenders: work.workRecommenders.map((wr) => option(wr.recommender)),
+                      subjects: work.workSubjects.map((ws) => option(ws.subject)),
+                      categories: work.workCategories.map((wc) => option(wc.category)),
+                      themes: work.workThemes.map((wt) => option(wt.theme)),
+                      literaryMovements: work.workLiteraryMovements.map((wlm) => option(wlm.literaryMovement)),
+                      artTypes: work.workArtTypes.map((wat) => option(wat.artType)),
+                      artMovements: work.workArtMovements.map((wam) => option(wam.artMovement)),
+                      keywords: work.workKeywords.map((wk) => option(wk.keyword)),
+                      attributes: work.workAttributes.map((wa) => option(wa.attribute)),
                     }}
                   />
                 </CapAlignedControls>
@@ -734,12 +631,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
             title="Editions"
             count={work.editions.length}
             action={
-              <EditionAddDialog
-              workId={work.id}
-              workTitle={work.title}
-              availableGenres={allGenres.map((g) => ({ id: g.id, name: g.name }))}
-              availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
-            />
+              <EditionAddDialog workId={work.id} workTitle={work.title} />
             }
           />
 
@@ -752,11 +644,6 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 workId={work.id}
                 authorName={primaryAuthor?.name}
                 availableLocations={allLocations}
-                availableGenres={allGenres.map((g) => ({
-                  id: g.id,
-                  name: g.name,
-                }))}
-                availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
                 quotes={canRead ? editionQuotes(edition.id) : undefined}
                 ebooksByCopy={ebooksByCopy}
               />

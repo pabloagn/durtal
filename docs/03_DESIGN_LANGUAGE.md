@@ -281,6 +281,7 @@ A work's rating is 0.5 to 5 in half steps, the same for books, films, perfumes a
 - 4px corners, the glass edge and its shadow
 - The header stays in view; the body scrolls when the dialog reaches 90% of the screen height
 - Backdrop clicks close the modal
+- A dialog whose lists load as it opens (`OptionsNotice`, `src/components/shared/options-notice.tsx`, SLN-510) shows the chosen items in them at once and never an empty list. A load under 200 ms shows nothing; a longer one puts "Loading the lists…" in 12px `fg-secondary` at the footer's start, beside the buttons, so nothing moves. A failed load puts "Could not load the lists." in `accent-red-text` there, with Retry. An empty list section says "Loading…" until its list arrives, or "Not loaded" after a failed load, never "No themes available"
 
 ### Badges
 
@@ -389,6 +390,7 @@ A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453
 - His thought sits under it in 14px `fg-secondary` text, aligned with the passage's text (18px in for a quote).
 - Then one 12px line: where it is ("p. 212 · ch. 7 · 2nd read"; on `/reading/notes` the book's title first, a link), with the star (`FavouriteToggle`) and the menu at its right in `CapAlignedControls height={32} coarseHeight={44}`: 32px targets, 44px on touch. On touch, "Show all" grows to a 48px target with negative margins, so the line keeps its height.
 - Items are separated by a `glass-border` rule and 20px above and below; the first has no rule.
+- **A long group** on the book page (12 or more) opens at its first 10, then a `glass-border` rule and "Show all 200" in 12px `fg-secondary`, 16px under the rule; on touch it grows to a 48px target with negative margins (SLN-510).
 - **The passage of the day** on `/reading` is the same quote layout under a `SectionHeading` "Passage of the day" with "Another" at its right, then a caption: the book (a link), author and page. A passage over 600 characters opens at 8 lines with "Show all".
 - **The note dialog** is a `max-w-lg` dialog: Quote / Note (`SegmentedControl`), the labelled text area, page and chapter side by side, the reading, "Your thought" (`TiptapEditor`) for a quote, and a Favourite switch. On touch the empty text area has a one-line hint, "To copy a printed page, tap and hold here, then Scan Text."
 

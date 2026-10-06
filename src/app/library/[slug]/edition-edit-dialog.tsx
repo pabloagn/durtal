@@ -11,14 +11,15 @@ import {
   editionPayload,
   type EditionFormValues,
 } from "@/components/books/edition-form";
+import { OptionsNotice } from "@/components/shared/options-notice";
 import { updateEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { EditionWithRelations } from "@/lib/types/index";
+import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
+import { EDITION_GROUPS, withChosen } from "@/lib/catalogue/edit-options";
 
 interface EditionEditDialogProps {
   edition: EditionWithRelations;
-  availableGenres: { id: string; name: string }[];
-  availableTags: { id: string; name: string }[];
 }
 
 function editionToFormValues(edition: EditionWithRelations): EditionFormValues {
@@ -78,14 +79,12 @@ function editionToFormValues(edition: EditionWithRelations): EditionFormValues {
   };
 }
 
-export function EditionEditDialog({
-  edition,
-  availableGenres,
-  availableTags,
-}: EditionEditDialogProps) {
+export function EditionEditDialog({ edition }: EditionEditDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  // The genres and tags load as the dialog opens (SLN-510); the edition's own show at once
+  const lists = useEditOptions(EDITION_GROUPS, open);
 
   const existingCoverUrl = edition.thumbnailS3Key
     ? `/api/s3/read?key=${encodeURIComponent(edition.thumbnailS3Key)}`
@@ -113,6 +112,8 @@ export function EditionEditDialog({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
+        onPointerEnter={() => preloadEditOptions(EDITION_GROUPS)}
+        onFocus={() => preloadEditOptions(EDITION_GROUPS)}
         data-tooltip="Edit edition"
       >
         <Pencil className="h-4 w-4" strokeWidth={1.5} />
@@ -129,13 +130,15 @@ export function EditionEditDialog({
         <div className="max-h-[75vh] overflow-y-auto">
           <EditionForm
             initialValues={editionToFormValues(edition)}
-            availableGenres={availableGenres}
-            availableTags={availableTags}
+            availableGenres={withChosen(lists.options.genres, edition.editionGenres.map((eg) => eg.genre))}
+            availableTags={withChosen(lists.options.tags, edition.editionTags.map((et) => et.tag))}
             onSubmit={handleSubmit}
             onCancel={() => setOpen(false)}
             submitLabel="Save changes"
             isPending={isPending}
             existingCoverUrl={existingCoverUrl}
+            notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
+            listsNote={lists.failed ? "Not loaded" : lists.loading ? "Loading…" : undefined}
           />
         </div>
       </Dialog>

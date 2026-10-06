@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
@@ -122,6 +122,10 @@ interface EditionFormProps {
   submitLabel: string;
   isPending: boolean;
   existingCoverUrl?: string | null;
+  /** A line at the footer's start, such as the lists' loading state */
+  notice?: ReactNode;
+  /** What Genres & Tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
+  listsNote?: string;
 }
 
 // ── Section helper ─────────────────────────────────────────────────────────
@@ -222,6 +226,8 @@ export function EditionForm({
   submitLabel,
   isPending,
   existingCoverUrl,
+  notice,
+  listsNote,
 }: EditionFormProps) {
   const [values, setValues] = useState<EditionFormValues>(initialValues);
   const [newContributorName, setNewContributorName] = useState("");
@@ -742,6 +748,9 @@ export function EditionForm({
 
       {/* Section 9: Genres & Tags */}
       <Section title="Genres & Tags">
+        {listsNote && availableGenres.length === 0 && availableTags.length === 0 && (
+          <p className="text-xs text-fg-secondary">{listsNote}</p>
+        )}
         {availableGenres.length > 0 && (
           <div>
             <p className="mb-2 text-xs text-fg-secondary">Genres</p>
@@ -813,6 +822,7 @@ export function EditionForm({
 
       {/* Submit */}
       <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        {notice && <div className="mr-auto min-w-0">{notice}</div>}
         {onCancel && (
           <Button
             type="button"
