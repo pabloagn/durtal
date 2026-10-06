@@ -55,4 +55,34 @@ location stays unknown. No schema change.
 
 ## Completion Notes
 
-See the PR for test and browser results.
+- `src/__tests__/integration/painting-sources.test.ts` (7 tests, local
+  PostgreSQL, The Met answered by a fixture): results from the museum's
+  collection; an original owned by the museum and on loan elsewhere is moved
+  back only when the person takes the step, on the day of the answer, and the
+  loan closes; a work the museum does not show fills the owner and accession
+  number but no location, which stays unknown; a size in inches matches the
+  museum's centimetres, a different size stays, an empty one fills; an
+  attribution the museum changed and an answer 401 days old are shown, the new
+  answer follows the old one and the painter here stays; a locked source
+  refuses the save and the museum unreachable leaves manual entry working; a
+  painting with no original gets one with its owner and a first location.
+  One museum object belongs to one painting.
+- `src/__tests__/catalogue/painting-sources.test.ts` (6): the evaluation, both
+  museums' answers, proposals without a location, sizes across units, answer
+  diffs.
+- Both museums answered live once through the adapters (Art Institute 27992,
+  Met 437394). The Met's `v1/search` answered 410: it was retired on
+  2026-10-01, so the adapter uses `v1.1/search`.
+- `python3 scripts/qa/test-local.py` on main 4f5642e: 2,473 tests passed,
+  none skipped. Typecheck and lint of the changed files are clean.
+- Headless Chrome, Firefox and WebKit at 1440 and 390 px: the painting page,
+  the look-up dialog, The Met's results and the review of a real answer. No
+  alignment deviation over 0.5 px, no low contrast, no unnamed or nested
+  control, no overflow. Fixed on the way: a fixed two-line height under each
+  value, and a key warning on the lookup control.
+- Production build preview: `page-weight.js` within every budget except
+  `/organizations/*`, which has nothing to measure (no organization in the
+  preview seed). A painting page 90 KB.
+- Limitations: each museum knows its own collection only and places an object
+  only when it shows it. The steps of a save are each atomic, not one
+  transaction.
