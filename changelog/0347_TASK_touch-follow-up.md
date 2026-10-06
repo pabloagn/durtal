@@ -38,3 +38,4 @@ reader's font size (36px, not 40px, at a 20px default).
   and `/library/journey-reading`, in headless Chrome, WebKit and Firefox.
 - `alignment-audit.js` and `design-audit.js` on the same four pages at 1440,
   768 and 390: no finding.
+- `python3 scripts/qa/test-local.py`: 223 files, 2,498 tests.
