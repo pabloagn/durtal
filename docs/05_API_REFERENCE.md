@@ -862,15 +862,15 @@ Lists notes through `searchNotes`, with the `/reading/notes` parameters parsed b
 Creates one note through `createReadingNote`. Body: `body` (the passage) and `kind` (default `quote`), the book given in exactly one of three ways, and optional `readingId`, `page`, `endPage`, `pageRoman`, `chapter`, `percent`, `commentHtml` and `isFavourite`.
 
 - `editionId`: the edition gives its book.
-- `isbn` (ISBN-10 or ISBN-13): resolved to an edition and its book by `editionByIsbn` (`src/lib/api/readings.ts`, shared with `POST /api/readings`).
-- `workId`: the edition is the open reading's edition, else the book's only edition when it has exactly one, else none. The API never guesses among several editions.
+- `isbn` (ISBN-10 or ISBN-13): resolved to an edition and its book by `editionByIsbn` (`src/lib/api/readings.ts`, shared with `POST /api/readings`). A 979 ISBN has no ISBN-10, so it matches `isbn_13` only.
+- `workId`: the edition is the named reading's (`readingId`), else the open reading's, else the book's only edition when it has exactly one, else none. The API never guesses among several editions.
 - `readingId`: `null` is no reading; left out, the book's open reading, whatever its edition.
 - `commentHtml` is sanitized as the dialog's thought is; `comment_json` stays null (the editor opens a thought from its HTML).
 
 | Status | Body |
 |---|---|
 | `201` | `{ "message": "Saved a quote from Don Quixote, p. 212", "note" }` |
-| `400` | "Send one of editionId, isbn or workId", "That is not an ISBN", "This edition belongs to another book", "This reading belongs to another book", "Send a page or a percent, not both", "The last page comes after the first", "A roman page starts at i", "Only a quote carries a thought", or the validation's first issue (an unknown field included) |
+| `400` | "Send one of editionId, isbn or workId", "That is not an ISBN", "This edition belongs to another book", "This reading belongs to another book", "Send a page or a percent, not both", "The last page comes after the first", "Send the first page with the last" (`endPage` with no `page`), "A roman page starts at i" (also `pageRoman` with no `page`), "Enter a page such as 212, 212-213 or xiv", "The second page comes before the first", "Only a quote carries a thought", or the validation's first issue (an unknown field included) |
 | `404` | `{ "message": "Not in Durtal yet", "addUrl": "/library/new?isbn=…" }`, "This edition no longer exists", "This reading no longer exists", "No such book in Durtal" |
 
 #### `GET /api/readings/notes/[id]`

@@ -72,8 +72,8 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/readings/notes: keeps a quote (or a note). The book comes from
  * exactly one of `editionId`, `isbn` (a scanned barcode) or `workId`; with
- * `workId` the edition is the open reading's, else the book's only one,
- * never a guess among several.
+ * `workId` the edition is the named reading's, else the open reading's, else
+ * the book's only one, never a guess among several.
  */
 export async function POST(req: NextRequest) {
   const refused = requireReadingsToken(req);
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     const { editionId: givenEdition, isbn, workId: givenWork, readingId: givenReading, kind, ...fields } = parsed.data;
     if ([givenEdition, isbn, givenWork].filter((v) => v !== undefined).length !== 1) return spoken(400, ONE_BOOK);
 
-    let editionId: string | null = givenEdition ?? null;
+    let editionId: string | null | undefined = givenEdition ?? null;
     let workId = givenWork ?? null;
     if (givenEdition) {
       const [edition] = resultRows<{ workId: string }>(await db.execute(sql`select work_id::text as "workId" from editions where id = ${givenEdition}::uuid`));
@@ -105,7 +105,8 @@ export async function POST(req: NextRequest) {
         from works w where w.id = ${workId}::uuid`),
     );
     if (!book || book.kind !== "book") return spoken(404, "No such book in Durtal");
-    if (givenWork) editionId = book.open?.editionId ?? book.onlyEdition;
+    // A named reading files the note under its own edition, as the note actions do
+    if (givenWork) editionId = givenReading ? undefined : (book.open?.editionId ?? book.onlyEdition);
 
     const created = await createReadingNote({
       workId: workId!,

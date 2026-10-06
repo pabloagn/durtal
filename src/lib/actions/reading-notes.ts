@@ -228,12 +228,13 @@ export async function updateReadingNote(input: z.input<typeof updateReadingNoteS
   const values: Partial<typeof readingNotes.$inferInsert> = { kind, readingId: refs.reading?.id ?? null, editionId: refs.editionId };
   if (patch.body !== undefined) values.body = patch.body;
   if (patch.chapter !== undefined) values.chapter = patch.chapter || null;
-  // The page fields as they will be stored: no page, no range and no roman
+  // The page fields as they will be stored: taking the page away takes its
+  // range and numerals with it; a range or numerals sent with no page is refused
   const page = patch.page !== undefined ? patch.page : note.page;
   const place = {
     page,
-    endPage: page == null ? null : patch.endPage !== undefined ? patch.endPage : note.endPage,
-    pageRoman: page == null ? false : patch.pageRoman !== undefined ? patch.pageRoman : note.pageRoman,
+    endPage: patch.endPage !== undefined ? patch.endPage : page == null ? null : note.endPage,
+    pageRoman: patch.pageRoman !== undefined ? patch.pageRoman : page == null ? false : note.pageRoman,
   };
   const placeError = pagePlaceError(place);
   if (placeError) throw new Error(placeError);

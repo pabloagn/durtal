@@ -11,8 +11,8 @@ import { formatMinutes } from "@/lib/reading/positions";
 import { isbn10To13, validIsbn10, validIsbn13 } from "@/lib/match/plan";
 import type { NoteWithBook } from "@/lib/actions/reading-notes";
 import type { NoteEdition } from "@/lib/reading/edition-label";
-import { noteCitation, PAGE_INPUT_ERROR } from "@/lib/reading/notes-text";
-import { END_PAGE_RULE, PAGE_AND_PERCENT, ROMAN_PAGE_RULE } from "@/lib/validations/reading-notes";
+import { noteCitation, PAGE_INPUT_ERROR, PAGE_REVERSED_ERROR } from "@/lib/reading/notes-text";
+import { END_PAGE_RULE, FIRST_PAGE_RULE, PAGE_AND_PERCENT, ROMAN_PAGE_RULE } from "@/lib/validations/reading-notes";
 
 /*
  * The phone's routes, /api/readings (SLN-451). An Authelia rule lets these
@@ -130,7 +130,7 @@ export async function editionByIsbn(
       select e.work_id::text as "workId", e.id::text as "editionId",
         coalesce((select jsonb_agg(i.id::text) from instances i where i.edition_id = e.id and i.status <> 'deaccessioned'), '[]'::jsonb) as copies
       from editions e join works w on w.id = e.work_id and w.kind = 'book'
-      where e.isbn_13 = ${thirteen ?? ""} or e.isbn_10 = ${ten ?? ""}
+      where e.isbn_13 = ${thirteen ?? ""} or (${ten !== null} and e.isbn_10 = ${ten ?? ""})
       order by e.created_at limit 1`),
   );
   return match ? { found: true, ...match } : { found: false, invalid: false, isbn: thirteen ?? ten! };
@@ -168,8 +168,10 @@ const NOTE_REFUSALS = new Set([
   "Only a quote carries a thought",
   PAGE_AND_PERCENT,
   END_PAGE_RULE,
+  FIRST_PAGE_RULE,
   ROMAN_PAGE_RULE,
   PAGE_INPUT_ERROR,
+  PAGE_REVERSED_ERROR,
 ]);
 const NOTE_GONE = new Set(["This note no longer exists", "This edition no longer exists", "Book not found: this action only accepts existing books"]);
 

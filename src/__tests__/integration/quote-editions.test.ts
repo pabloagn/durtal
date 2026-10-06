@@ -167,6 +167,9 @@ describe.skipIf(!url)("quotes tied to editions with PostgreSQL", () => {
         });
       // No page: no range and no roman
       expect(await updateReadingNote({ id: n.id, page: null })).toMatchObject({ page: null, endPage: null, pageRoman: false });
+      await expect(updateReadingNote({ id: n.id, endPage: 30 })).rejects.toThrow("Send the first page with the last");
+      await expect(updateReadingNote({ id: n.id, pageRoman: true })).rejects.toThrow("A roman page starts at i");
+      await expect(createReadingNote({ workId: w, kind: "quote", body: "x", editionId: e, endPage: 30 })).rejects.toThrow("Send the first page with the last");
     });
 
     it("puts a deleted note back with its range and roman pages", async () => {
@@ -349,6 +352,12 @@ describe.skipIf(!url)("quotes tied to editions with PostgreSQL", () => {
       const r = await reading(w, e2);
       expect((await answer(await postNote(request("POST", "/api/readings/notes", { workId: w, body: "x" })))).body.note).toMatchObject({ editionId: e2, readingId: r });
       expect((await answer(await postNote(request("POST", "/api/readings/notes", { editionId: e, readingId: null, body: "x" })))).body.note.readingId).toBeNull();
+      // A named reading files the note under its own edition, not the open one's
+      const past = await reading(w, e, 480, "finished");
+      expect((await answer(await postNote(request("POST", "/api/readings/notes", { workId: w, readingId: past, body: "x", page: 48 })))).body.note).toMatchObject({ editionId: e, readingId: past, percent: 10 });
+      // A 979 ISBN has no ISBN-10: an edition with an empty one is not a match
+      await q(`update editions set isbn_10 = '' where id = $1`, [e2]);
+      expect(await answer(await postNote(request("POST", "/api/readings/notes", { isbn: "9791090636071", body: "x" })))).toMatchObject({ status: 404, body: { message: "Not in Durtal yet" } });
     });
 
     it("answers 400 and 404 for what it cannot take", async () => {
@@ -360,6 +369,9 @@ describe.skipIf(!url)("quotes tied to editions with PostgreSQL", () => {
       expect(await post({ editionId: e, workId: w, body: "x" })).toMatchObject({ status: 400 });
       expect(await post({ isbn: "9780000000019", body: "x" })).toMatchObject({ status: 404, body: { message: "Not in Durtal yet", addUrl: "/library/new?isbn=9780000000019" } });
       expect(await post({ editionId: e, body: "x", page: 12, percent: 20 })).toMatchObject({ status: 400, body: { message: "Send a page or a percent, not both" } });
+      // A range or roman numerals with no page are refused, not dropped
+      expect(await post({ editionId: e, body: "x", endPage: 13 })).toMatchObject({ status: 400, body: { message: "Send the first page with the last" } });
+      expect(await post({ editionId: e, body: "x", pageRoman: true })).toMatchObject({ status: 400, body: { message: "A roman page starts at i" } });
       expect(await post({ editionId: e, body: "x", source: "import" })).toMatchObject({ status: 400 });
       const n = (await post({ editionId: e, body: "x" })).body.note;
       const patch = async (body: unknown) => answer(await patchNote(request("PATCH", `/api/readings/notes/${n.id}`, body), params(n.id)));

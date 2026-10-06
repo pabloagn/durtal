@@ -31,28 +31,34 @@ const fields = {
 
 export const PAGE_AND_PERCENT = "Send a page or a percent, not both";
 export const END_PAGE_RULE = "The last page comes after the first";
+export const FIRST_PAGE_RULE = "Send the first page with the last";
 export const ROMAN_PAGE_RULE = "A roman page starts at i";
 
 /** The page rules, on a note's page fields as they will be stored */
 export function pagePlaceError(p: { page: number | null; endPage: number | null; pageRoman: boolean }): string | null {
-  if (p.endPage != null && (p.page == null || p.endPage <= p.page)) return END_PAGE_RULE;
+  if (p.endPage != null && p.page == null) return FIRST_PAGE_RULE;
+  if (p.endPage != null && p.endPage <= p.page!) return END_PAGE_RULE;
   if (p.pageRoman && (p.page == null || p.page < 1)) return ROMAN_PAGE_RULE;
   return null;
 }
 
-/** What was sent breaks a rule on its own: a page with a percent, a range or roman pages without a page */
+/**
+ * What was sent breaks a rule on its own: a page with a percent, a range or
+ * roman pages without a page. An edit that leaves the page out keeps the
+ * stored one, so the action checks it there; a new note has none.
+ */
 function sentRules(v: { page?: number | null; percent?: number | null; endPage?: number | null; pageRoman?: boolean }, ctx: z.RefinementCtx) {
   if (v.page != null && v.percent != null) ctx.addIssue({ code: "custom", message: PAGE_AND_PERCENT, path: ["percent"] });
   if (v.page !== undefined) {
     const error = pagePlaceError({ page: v.page, endPage: v.endPage ?? null, pageRoman: v.pageRoman ?? false });
-    if (error) ctx.addIssue({ code: "custom", message: error, path: [error === END_PAGE_RULE ? "endPage" : "pageRoman"] });
+    if (error) ctx.addIssue({ code: "custom", message: error, path: [error === ROMAN_PAGE_RULE ? "pageRoman" : "endPage"] });
   }
 }
 
 export const createReadingNoteSchema = z
   .object({ workId: z.uuid(), kind: z.enum(NOTE_KINDS), body, ...fields })
   .strict()
-  .superRefine(sentRules);
+  .superRefine((v, ctx) => sentRules({ ...v, page: v.page ?? null }, ctx));
 
 export const updateReadingNoteSchema = z
   .object({ id: z.uuid(), kind: z.enum(NOTE_KINDS).optional(), body: body.optional(), ...fields })

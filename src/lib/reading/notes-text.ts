@@ -66,6 +66,7 @@ export function fromRoman(text: string): number | null {
 }
 
 export const PAGE_INPUT_ERROR = "Enter a page such as 212, 212-213 or xiv";
+export const PAGE_REVERSED_ERROR = "The second page comes before the first";
 
 /**
  * The page field as typed: "212", "212-213" (a hyphen, an en dash or an em
@@ -93,7 +94,7 @@ export function parsePageInput(text: string): { ok: true; value: PagePlace } | {
     last = parts[1] === undefined ? null : fromRoman(parts[1]);
     if (first === null || (parts[1] !== undefined && last === null)) return { ok: false, error: PAGE_INPUT_ERROR };
   }
-  if (last !== null && last < first!) return { ok: false, error: PAGE_INPUT_ERROR };
+  if (last !== null && last < first!) return { ok: false, error: PAGE_REVERSED_ERROR };
   if (first! > 1_000_000 || (last ?? 0) > 1_000_000) return { ok: false, error: PAGE_INPUT_ERROR };
   return { ok: true, value: { page: first, endPage: last !== null && last !== first ? last : null, pageRoman: roman } };
 }

@@ -201,9 +201,13 @@ describe("parsePageInput and formatPageInput", () => {
     expect(ok("XIV-xvi")).toEqual({ page: 14, endPage: 16, pageRoman: true });
     expect([fromRoman("mcmxcix"), fromRoman("iiii"), fromRoman("vx"), toRoman(1999), toRoman(4)]).toEqual([1999, null, null, "mcmxcix", "iv"]);
   });
-  it("refuses a malformed roman numeral, a mixed range and a backwards range", () => {
-    for (const text of ["iiii", "vx", "xiv-20", "20-xiv", "213-212", "213-1", "xvi-xiv", "p. 12", "12-13-14", "-12"])
+  it("refuses a malformed roman numeral and a mixed range", () => {
+    for (const text of ["iiii", "vx", "xiv-20", "20-xiv", "p. 12", "12-13-14", "-12"])
       expect(parsePageInput(text)).toEqual({ ok: false, error: "Enter a page such as 212, 212-213 or xiv" });
+  });
+  it("says so when a range runs backwards", () => {
+    for (const text of ["300-200", "213-212", "213-1", "xvi-xiv"])
+      expect(parsePageInput(text)).toEqual({ ok: false, error: "The second page comes before the first" });
   });
   it("shows a stored place as typed, and as words", () => {
     expect(formatPageInput({ page: 212, endPage: 213, pageRoman: false })).toBe("212–213");
