@@ -1,5 +1,5 @@
-import { Star } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { FAVOURITE_STAR_ID } from "@/components/shared/favourite-star";
 import { PRIORITY_CONFIG, STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { AcquisitionPriority, CatalogueStatus } from "@/lib/types";
 import { formatRating } from "@/lib/utils/rating";
@@ -108,13 +108,10 @@ export function CardRating({ rating }: { rating?: number | null }) {
       data-tooltip={`Rated ${formatRating(rating)}/5`}
     >
       <CapAligned height={12}>
-        <Star
-          className="block h-3 w-3"
-          strokeWidth={1.5}
-          fill="currentColor"
-          fillOpacity={0.25}
-          aria-hidden="true"
-        />
+        {/* The page's star symbol: one path for a grid of 48 cards */}
+        <svg className="block h-3 w-3" fill="currentColor" fillOpacity={0.25} aria-hidden="true">
+          <use href={`#${FAVOURITE_STAR_ID}`} />
+        </svg>
       </CapAligned>
       <span>{formatRating(rating)}</span>
     </span>
