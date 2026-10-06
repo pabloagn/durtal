@@ -148,7 +148,7 @@ export function LocationCard({
               <span className="text-fg-secondary">
                 {instanceCount} {instanceCount === 1 ? "item" : "items"}
               </span>
-              <CapAligned height={24}>
+              <CapAligned height={24} coarseHeight={44}>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditOpen(true)}

@@ -77,14 +77,14 @@ export function HorizontalCarousel({
           (canScrollLeft || canScrollRight) && (
             // Carries the title's type: the arrows sit on the title's
             // cap-height center
-            <CapAligned height={24} className={headingRole(as)}>
+            <CapAligned height={24} coarseHeight={44} className={headingRole(as)}>
               <div className="flex gap-1">
                 <button
                   onClick={() => scroll("left")}
                   disabled={!canScrollLeft}
                   aria-label="Scroll left"
                   data-tooltip="Scroll left"
-                  className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30"
+                  className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30 pointer-coarse:p-3.5"
                 >
                   <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
                 </button>
@@ -93,7 +93,7 @@ export function HorizontalCarousel({
                   disabled={!canScrollRight}
                   aria-label="Scroll right"
                   data-tooltip="Scroll right"
-                  className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30"
+                  className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30 pointer-coarse:p-3.5"
                 >
                   <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
                 </button>
