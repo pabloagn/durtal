@@ -275,8 +275,8 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
   it("refuses an unknown version or format whole, and an unknown collection by name", async () => {
     await library();
     const file = clone(await exportInterchange());
-    await expect(importInterchange({ ...file, version: 3 }, { policy: "keep", dryRun: true })).rejects.toThrow(
-      "This file is interchange version 3; this Durtal reads versions 1 and 2",
+    await expect(importInterchange({ ...file, version: 4 }, { policy: "keep", dryRun: true })).rejects.toThrow(
+      "This file is interchange version 4; this Durtal reads versions 1 to 3",
     );
     await expect(importInterchange({ ...file, format: "other" }, { policy: "keep", dryRun: true })).rejects.toThrow(InterchangeFileError);
     await expect(
@@ -388,6 +388,9 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     const v1 = clone(file) as unknown as { version: number; records: { domain: string; sections: { holdings?: { instances?: Record<string, unknown>[] } } }[] };
     v1.version = 1;
     for (const record of v1.records) for (const row of record.sections.holdings?.instances ?? []) Object.assign(row, { calibre_id: null, calibre_url: null });
+    // and no original title on works (SLN-462)
+    for (const record of v1.records as { sections: { identity?: { works?: Record<string, unknown>[] } } }[])
+      for (const row of record.sections.identity?.works ?? []) delete row.original_title;
     await wipe();
     const report = await importInterchange(v1, { policy: "keep", dryRun: false });
     expect(report.records.flatMap((r) => r.problems)).toEqual([]);

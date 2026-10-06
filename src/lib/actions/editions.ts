@@ -3,6 +3,8 @@
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import { atomic } from "@/lib/db/atomic";
+import { withReadableErrors } from "@/lib/db/errors";
+import { assertSql } from "@/lib/harmonization/store";
 import { editionContributorQueries } from "@/lib/catalogue/book-credits";
 import {
   newAuthorQueries,
@@ -182,26 +184,56 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
 }
 
 export async function deleteEdition(id: string) {
-  const [edition] = await db
-    .delete(editions)
-    .where(eq(editions.id, id))
-    .returning({
-      workId: editions.workId,
-      title: editions.title,
-      coverS3Key: editions.coverS3Key,
-      thumbnailS3Key: editions.thumbnailS3Key,
-    });
-  if (!edition) return { id, cleanupPending: false };
+  // Book enrichment (SLN-462): a work's claims may cite this edition's source
+  // records, which go with it. One unit: refuse while an accepted value rests
+  // only on them, drop that evidence, withdraw the proposals left with none,
+  // then delete. The edition's own claims go with it.
+  const edition = sql`${id}::uuid`;
+  const theirs = sql`select s.id from source_records s where s.edition_id = ${edition}`;
+  const citing = sql`c.work_id = (select work_id from editions where id = ${edition}) and c.edition_id is distinct from ${edition}`;
+  const results = await withReadableErrors(() =>
+    atomic((d) => [
+      d.execute(sql`select id from editions where id = ${edition} for update`),
+      d.execute(
+        assertSql(
+          sql`not exists (select 1 from enrichment_claims c where ${citing} and c.status = 'accepted'
+            and exists (select 1 from claim_evidence e where e.claim_id = c.id)
+            and not exists (select 1 from claim_evidence e where e.claim_id = c.id and e.source_record_id not in (${theirs})))`,
+          "An accepted enrichment value rests only on this edition's sources. Undo that value first.",
+        ),
+      ),
+      d.execute(
+        sql`delete from claim_evidence e using enrichment_claims c where c.id = e.claim_id and ${citing} and e.source_record_id in (${theirs})`,
+      ),
+      d.execute(
+        sql`update enrichment_claims c set status = 'rejected', decided_by = 'check', decision_reason = 'evidence_deleted', decided_at = now()
+          where ${citing} and c.status = 'proposed' and not exists (select 1 from claim_evidence e where e.claim_id = c.id)`,
+      ),
+      d.delete(editions).where(eq(editions.id, id)).returning({
+        workId: editions.workId,
+        title: editions.title,
+        coverS3Key: editions.coverS3Key,
+        thumbnailS3Key: editions.thumbnailS3Key,
+      }),
+    ]),
+  );
+  const [deleted] = results.at(-1) as {
+    workId: string;
+    title: string | null;
+    coverS3Key: string | null;
+    thumbnailS3Key: string | null;
+  }[];
+  if (!deleted) return { id, cleanupPending: false };
 
-  recordActivity("work", edition.workId, "work.edition_deleted", {
-    targetName: edition.title ?? undefined,
+  recordActivity("work", deleted.workId, "work.edition_deleted", {
+    targetName: deleted.title ?? undefined,
     targetId: id,
   });
 
   const cleanupPending = await deleteUnusedObjects(
     {
       keys: keysOf([
-        { cover: edition.coverS3Key, thumb: edition.thumbnailS3Key },
+        { cover: deleted.coverS3Key, thumb: deleted.thumbnailS3Key },
       ]),
       prefixes: ownedPrefixes.edition(id),
     },

@@ -3,6 +3,7 @@ import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { rowProblems, type Row } from "./columns";
 import { InterchangeFileError } from "./errors";
 import { recordsFromVersion1 } from "./version-1";
+import { recordsFromVersion2 } from "./version-2";
 import { SECTIONS, TABLES, carries, entityOwner, references, type Section } from "./tables";
 
 export { InterchangeFileError };
@@ -18,7 +19,7 @@ export { InterchangeFileError };
 
 export const INTERCHANGE_FORMAT = "durtal.interchange";
 /** Version 2 (SLN-490): copies no longer carry links to the old e-book library. Version 1 files still read */
-export const INTERCHANGE_VERSION = 2;
+export const INTERCHANGE_VERSION = 3;
 
 export interface InterchangeRecord {
   domain: WorkKind;
@@ -42,15 +43,17 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 export function readEnvelope(input: unknown): { records: unknown[]; shared: Record<string, unknown> } {
   if (!isObject(input) || input.format !== INTERCHANGE_FORMAT)
     throw new InterchangeFileError("This is not a Durtal interchange file");
-  if (input.version !== INTERCHANGE_VERSION && input.version !== 1)
+  if (input.version !== INTERCHANGE_VERSION && input.version !== 1 && input.version !== 2)
     throw new InterchangeFileError(
       typeof input.version === "number" && Number.isInteger(input.version)
-        ? `This file is interchange version ${input.version}; this Durtal reads versions 1 and ${INTERCHANGE_VERSION}`
+        ? `This file is interchange version ${input.version}; this Durtal reads versions 1 to ${INTERCHANGE_VERSION}`
         : "The file does not say which interchange version it is",
     );
   if (!Array.isArray(input.records)) throw new InterchangeFileError("The file has no list of records");
   if (!isObject(input.shared)) throw new InterchangeFileError("The file has no shared section");
-  const records = input.version === 1 ? recordsFromVersion1(input.records) : input.records;
+  // Each older version reads as the next: 1 as 2, then 2 as 3
+  const v2 = input.version === 1 ? recordsFromVersion1(input.records) : input.records;
+  const records = input.version === INTERCHANGE_VERSION ? v2 : recordsFromVersion2(v2);
   return { records, shared: input.shared };
 }
 

@@ -165,6 +165,24 @@ export { ebooks, ebooksRelations, ebookFiles, ebookFilesRelations } from "./eboo
 export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
 export { ebookAnnotations, ebookAnnotationsRelations } from "./ebook-annotations";
 
+// ── Book enrichment (SLN-462) ───────────────────────────────────────────────
+export {
+  enrichmentVocabularyVersions,
+  enrichmentDimensions,
+  enrichmentDimensionsRelations,
+  enrichmentTerms,
+  enrichmentTermsRelations,
+  enrichmentClaims,
+  enrichmentClaimsRelations,
+  claimEvidence,
+  claimEvidenceRelations,
+  workEnrichmentValues,
+  enrichmentApplications,
+  enrichmentAutoAcceptRules,
+  workPopularitySnapshots,
+  enrichmentJobs,
+} from "./enrichment";
+
 // ── Activity events ─────────────────────────────────────────────────────────
 export { activityEvents } from "./activity-events";
 

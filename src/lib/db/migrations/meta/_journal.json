@@ -540,6 +540,13 @@
       "when": 1791293733948,
       "tag": "0076_ebook_catalogue",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1791323056348,
+      "tag": "0077_book_enrichment",
+      "breakpoints": true
     }
   ]
 }
