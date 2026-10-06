@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { InstanceDetail } from "./instance-detail";
 import { EditionEditDialog } from "./edition-edit-dialog";
 import { EditionDeleteButton } from "./edition-delete-button";
+import { EditionQuotes } from "./edition-quotes";
 import { InstanceAddDialog } from "./instance-add-dialog";
 import { EditionMatchButton } from "./edition-match-button";
 import { formatDimensions, formatDate } from "@/lib/utils/format";
@@ -57,6 +58,8 @@ interface EditionDetailCardProps {
   availableLocations?: LocationWithSubLocations[];
   availableGenres?: { id: string; name: string }[];
   availableTags?: { id: string; name: string }[];
+  /** The edition's quotes and notes, on a book that allows reading (SLN-480): its Quotes row, and the delete's warning */
+  quotes?: { quotes: number; notes: number; href: string };
 }
 
 interface DetailRowProps {
@@ -81,6 +84,7 @@ export function EditionDetailCard({
   availableLocations = [],
   availableGenres = [],
   availableTags = [],
+  quotes,
 }: EditionDetailCardProps) {
   const dimensions = formatDimensions(
     edition.heightMm,
@@ -227,6 +231,8 @@ export function EditionDetailCard({
                     editionId={edition.id}
                     editionTitle={edition.title}
                     instanceCount={edition.instances.length}
+                    quoteCount={quotes?.quotes ?? 0}
+                    noteCount={quotes?.notes ?? 0}
                   />
                 </TitleLineActions>
               )}
@@ -375,6 +381,8 @@ export function EditionDetailCard({
           </div>
         </div>
       )}
+
+      {quotes && <EditionQuotes editionId={edition.id} {...quotes} />}
 
       {/* Instances */}
       <CardContent>

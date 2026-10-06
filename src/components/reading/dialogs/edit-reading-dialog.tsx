@@ -11,6 +11,7 @@ import { RatingInput } from "@/components/shared/rating";
 import { TiptapEditor, type RichValue } from "@/components/shared/tiptap-editor";
 import { updateReading } from "@/lib/actions/reading";
 import { ABANDON_REASONS, ABANDON_REASON_LABELS, type AbandonReason, type ReadingDatePrecision, type ReadingFormat } from "@/lib/reading/constants";
+import { notesCountText } from "@/lib/reading/notes-text";
 import { formatMinutes, percentOf, remapPosition } from "@/lib/reading/positions";
 import { showError } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
@@ -57,6 +58,10 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
 
   const edition = data.editions.find((e) => e.id === editionId) ?? null;
   const editionSwitched = (editionId || null) !== r.editionId;
+  // Its notes on its own edition (or with none) can follow a new edition (SLN-480): unchecked by default, checked from none
+  const ownNotes = row!.ownEditionQuoteCount + row!.ownEditionNoteCount;
+  const [moveNotes, setMoveNotes] = useState(!r.editionId);
+  const offerMove = editionSwitched && !!editionId && ownNotes > 0;
   const newTotal = readNumber(pages);
   const dateError = done ? finishDateError({ startedOn: start.date, startedPrecision: start.precision }, finish) : null;
   // A page count that is not a whole number above 0 is an error, never a cleared count
@@ -77,6 +82,7 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
     if (dateError || totalError || lengthError) return;
     const patch: Parameters<typeof updateReading>[0] = { readingId: r.id, fingerprint: row!.fingerprint };
     if (editionSwitched) patch.editionId = editionId || null;
+    if (offerMove && moveNotes) patch.moveNotes = true;
     if ((instanceId || null) !== r.instanceId) patch.instanceId = instanceId || null;
     if (format !== r.format) patch.format = format;
     if ((homeId || null) !== r.locationId) patch.locationId = homeId || null;
@@ -130,6 +136,14 @@ export function EditReadingDialog({ data, row, onClose, changed }: ReadingDialog
               options={[{ value: "", label: "No edition" }, ...data.editions.map((ed) => ({ value: ed.id, label: ed.label }))]}
             />
             {editionSwitched && <p className="text-xs text-fg-secondary">{switchPreview(r, edition?.pageCount ?? null)}</p>}
+            {offerMove && (
+              <label className="flex items-start gap-2 pt-1 text-xs text-fg-secondary pointer-coarse:min-h-11 pointer-coarse:items-center" data-edit-move-notes="">
+                <input type="checkbox" checked={moveNotes} onChange={(e) => setMoveNotes(e.target.checked)} className="mt-0.5 rounded-sm pointer-coarse:mt-0" />
+                {r.editionId
+                  ? `Also file its ${notesCountText(row!.ownEditionQuoteCount, row!.ownEditionNoteCount)} under the new edition (pages stay as typed)`
+                  : `Also file its ${notesCountText(row!.ownEditionQuoteCount, row!.ownEditionNoteCount)} with no edition under this edition`}
+              </label>
+            )}
           </div>
         )}
         {edition && edition.copies.length > 0 && (

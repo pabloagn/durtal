@@ -21,6 +21,10 @@ export interface NotesQuery {
   q?: string;
   workId?: string;
   authorId?: string;
+  /** An edition's notes, or "none" for those with no edition recorded (SLN-480) */
+  editionId?: string;
+  /** The notes on editions this person translated */
+  translatorId?: string;
   kind?: NoteKind;
   favourites: boolean;
   year?: number;
@@ -52,6 +56,8 @@ export function parseNotesQuery(raw: ListSearchParams | URLSearchParams): NotesQ
     q,
     workId: uuid(params.get("book")),
     authorId: uuid(params.get("author")),
+    editionId: params.get("edition") === "none" ? "none" : uuid(params.get("edition")),
+    translatorId: uuid(params.get("translator")),
     kind: (NOTE_KINDS as readonly string[]).includes(kind) ? (kind as NoteKind) : undefined,
     favourites: params.get("fav") === "1",
     year,
@@ -69,6 +75,8 @@ export function notesHref(query: Partial<NotesQuery>, base = "/reading/notes") {
   if (query.q) params.set("q", query.q);
   if (query.workId) params.set("book", query.workId);
   if (query.authorId) params.set("author", query.authorId);
+  if (query.editionId) params.set("edition", query.editionId);
+  if (query.translatorId) params.set("translator", query.translatorId);
   if (query.kind) params.set("kind", query.kind);
   if (query.favourites) params.set("fav", "1");
   if (query.year) params.set("year", String(query.year));

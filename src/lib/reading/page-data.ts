@@ -1,4 +1,5 @@
 import { copyWhereabouts, homeOptions, isAtHand, type CopyPlace } from "./at-hand";
+import { editionLabels, labelEditionOf } from "./edition-label";
 import { languageName } from "@/lib/utils/language";
 
 /*
@@ -17,8 +18,10 @@ export interface CopyOption extends CopyPlace {
 export interface EditionOption {
   id: string;
   title: string;
-  /** "English · Penguin, 2003 · 480 p." */
+  /** For pickers: "English · Penguin Classics, 2003, tr. Edith Grossman · 480 p." */
   label: string;
+  /** Its short name among the book's editions (SLN-480): "Penguin Classics, 2003, tr. Edith Grossman" */
+  short: string;
   pageCount: number | null;
   language: string | null;
   translators: string[];
@@ -40,10 +43,13 @@ interface EditionRow {
   pageCount: number | null;
   publicationYear: number | null;
   publisher?: string | null;
+  binding?: string | null;
+  isbn13?: string | null;
+  isbn10?: string | null;
   coverS3Key: string | null;
   thumbnailS3Key: string | null;
   publisherLinks?: { publisher: { name: string } | null }[];
-  contributors?: { role: string; author: { name: string } | null }[];
+  contributors?: { role: string; sortOrder?: number; author: { name: string } | null }[];
   instances: {
     id: string;
     status: string;
@@ -71,8 +77,21 @@ export function formatWord(format: string | null) {
   return FORMAT_WORDS[format] ?? format.charAt(0).toUpperCase() + format.slice(1).replace(/_/g, " ");
 }
 
-/** The book's editions for the reading dialogs, owned ones first, at-hand copies first */
-export function readingEditions(editions: EditionRow[], { today, homeId }: { today: string; homeId: string | null }): EditionOption[] {
+/**
+ * The book's editions for the reading dialogs, owned ones first, at-hand
+ * copies first. Each is named as editionLabels names it, so every edition
+ * picker in the tracker names the translator; the picker's label keeps the
+ * language first and the page count last.
+ */
+export function readingEditions(
+  editions: EditionRow[],
+  { today, homeId, workTitle }: { today: string; homeId: string | null; workTitle: string },
+): EditionOption[] {
+  const shorts = editionLabels(
+    editions.map((e) => labelEditionOf({ ...e, title: e.title ?? "" })),
+    workTitle,
+    { language: false },
+  );
   const options = editions.map((e) => {
     const copies = e.instances
       .filter((i) => i.status !== "deaccessioned")
@@ -89,21 +108,19 @@ export function readingEditions(editions: EditionRow[], { today, homeId }: { tod
         return { ...place, id: i.id, format: i.format, line: `${formatWord(i.format)} · ${copyWhereabouts(place, { today })}` };
       })
       .sort((a, b) => Number(isAtHand(b, homeId)) - Number(isAtHand(a, homeId)));
-    const publisher = e.publisherLinks?.find((l) => l.publisher)?.publisher?.name ?? e.publisher ?? null;
-    const label = [
-      languageName(e.language) ?? e.language,
-      [publisher, e.publicationYear].filter(Boolean).join(", ") || null,
-      e.pageCount ? `${e.pageCount} p.` : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const short = shorts.get(e.id)!;
+    const label = [languageName(e.language) ?? e.language, short, e.pageCount ? `${e.pageCount} p.` : null].filter(Boolean).join(" · ");
     return {
       id: e.id,
       title: e.title ?? "",
-      label: label || e.title || "Edition",
+      label,
+      short,
       pageCount: e.pageCount,
       language: e.language,
-      translators: (e.contributors ?? []).filter((c) => c.role === "translator" && c.author).map((c) => c.author!.name),
+      translators: (e.contributors ?? [])
+        .filter((c) => c.role === "translator" && c.author)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((c) => c.author!.name),
       cover: e.thumbnailS3Key ?? e.coverS3Key,
       owned: copies.length > 0,
       copies,

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
 import { useOptionalTimer } from "../timer-provider";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
-import { parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
+import { parseProgressInput, percentOf, type ProgressInput } from "@/lib/reading/positions";
 import { logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
@@ -104,9 +104,21 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const parsed = coarse ? null : text.trim() ? parseProgressInput(text, { unit, ...totals }) : null;
   const input: ProgressInput | null = coarse ? segmentInput(segment, fields) : parsed?.ok ? parsed.value : null;
   const preview = logPreview(r, input, session);
-  // The page a quote added from here starts at: the one typed, else where the reading is
-  const quotePage =
-    !session && input?.kind === "page" ? input.page : !session && input?.kind === "addPages" ? (r.currentPage ?? 0) + input.pages : undefined;
+  // A quote added from here: on this reading's edition at the page typed (else where the reading is), or on the session's
+  // other edition (SLN-480) at its page, or as a percent of it for a session counted in percent or time
+  const quotePlace: { editionId?: string; page?: number; percent?: number | null } = !session
+    ? { page: input?.kind === "page" ? input.page : input?.kind === "addPages" ? (r.currentPage ?? 0) + input.pages : undefined }
+    : session.unit === "pages"
+      ? { editionId: session.id, page: input?.kind === "page" ? input.page : undefined }
+      : {
+          editionId: session.id,
+          percent:
+            input?.kind === "percent"
+              ? input.percent
+              : input?.kind === "minutes"
+                ? percentOf({ minutes: input.minutes }, { totalPages: null, totalMinutes: session.totalMinutes })
+                : null,
+        };
   const error = !coarse && parsed && !parsed.ok ? parsed.error : null;
 
   /** +5 pages (or +5% or +15 min) from where the reading is */
@@ -291,7 +303,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
                   kind: "note",
                   noteKind: "quote",
                   readingId: r.id,
-                  page: quotePage,
+                  ...quotePlace,
                   back: {
                     kind: "progress",
                     readingId: r.id,

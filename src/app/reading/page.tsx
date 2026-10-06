@@ -175,7 +175,7 @@ export default async function ReadingPage() {
               </ol>
             </section>
           )}
-          {passage && <PassageOfTheDay day={day.today} initial={passage.note} candidates={passage.candidates} />}
+          {passage && <PassageOfTheDay day={day.today} initial={passage.note} initialEdition={passage.edition} candidates={passage.candidates} />}
           {paused.length > 0 && (
             <section>
               <SectionHeading title="Paused" count={paused.length} />

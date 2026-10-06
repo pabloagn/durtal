@@ -838,6 +838,53 @@ Starts reading a book, for a Shortcut that scans the barcode. Body `{ "isbn": st
 | `404` | `{ "message": "Not in Durtal yet", "addUrl": "/library/new?isbn=9780802130303" }`, or "No such book in Durtal" |
 | `409` | "Nadja is already being read", with `readingId` |
 
+### Quotes and notes
+
+The commonplace book from the phone (SLN-480): `src/app/api/readings/notes/route.ts` and `src/app/api/readings/notes/[id]/route.ts`, under `/api/readings` so the same Authelia rule lets a Shortcut through. Every route checks the token first, GETs included (`401`, `503`), and answers with a spoken `message`. Writes go through the note actions (`src/lib/actions/reading-notes.ts`): a note made here is `source` `manual` and records the same `work.notes_added` activity; `source`, `sourceKey` and `importId` are never accepted.
+
+A note, as every route answers it:
+
+```json
+{ "id", "workId", "editionId", "readingId", "kind", "body", "commentHtml", "page", "endPage", "pageRoman",
+  "chapter", "percent", "isFavourite", "source", "createdAt", "updatedAt",
+  "book": { "title", "slug" }, "edition": { "label", "title", "publisher", "year", "translators" } | null,
+  "citation": "Miguel de Cervantes, Don Quixote, tr. Edith Grossman (Ecco, 2003), p. 212" }
+```
+
+`citation` is Copy's second line (`noteCitation`).
+
+#### `GET /api/readings/notes`
+
+Lists notes through `searchNotes`, with the `/reading/notes` parameters parsed by `parseNotesQuery`: `q`, `book`, `author`, `edition` (an id, or `none`), `translator`, `kind`, `fav`, `year`, `sort`, `order`, `page` (the results page) and `perPage`. Answers `200` with `{ "message": "12 quotes and notes", "items", "total", "page", "pageCount" }`.
+
+#### `POST /api/readings/notes`
+
+Creates one note through `createReadingNote`. Body: `body` (the passage) and `kind` (default `quote`), the book given in exactly one of three ways, and optional `readingId`, `page`, `endPage`, `pageRoman`, `chapter`, `percent`, `commentHtml` and `isFavourite`.
+
+- `editionId`: the edition gives its book.
+- `isbn` (ISBN-10 or ISBN-13): resolved to an edition and its book by `editionByIsbn` (`src/lib/api/readings.ts`, shared with `POST /api/readings`). A 979 ISBN has no ISBN-10, so it matches `isbn_13` only.
+- `workId`: the edition is the named reading's (`readingId`) when it has one, else the open reading's, else the book's only edition when it has exactly one, else none. The API never guesses among several editions.
+- `readingId`: `null` is no reading; left out, the book's open reading, whatever its edition.
+- `commentHtml` is sanitized as the dialog's thought is; `comment_json` stays null (the editor opens a thought from its HTML).
+
+| Status | Body |
+|---|---|
+| `201` | `{ "message": "Saved a quote from Don Quixote, p. 212", "note" }` |
+| `400` | "Send one of editionId, isbn or workId", "That is not an ISBN", "This edition belongs to another book", "This reading belongs to another book", "Send a page or a percent, not both", "The last page comes after the first", "Send the first page with the last" (`endPage` with no `page`), "A roman page starts at i" (also `pageRoman` with no `page`), "Enter a page such as 212, 212-213 or xiv", "The second page comes before the first", "Only a quote carries a thought", or the validation's first issue (an unknown field included) |
+| `404` | `{ "message": "Not in Durtal yet", "addUrl": "/library/new?isbn=…" }`, "This edition no longer exists", "This reading no longer exists", "No such book in Durtal" |
+
+#### `GET /api/readings/notes/[id]`
+
+Answers `200` with `{ "message", "note" }`, or `404` "This note no longer exists".
+
+#### `PATCH /api/readings/notes/[id]`
+
+Changes one note through `updateReadingNote`. The schema is strict: an unknown field, `workId` included (a note never changes book), answers `400`. The same `400` messages as POST; `404` for a note that no longer exists. Answers `200` with `{ "message": "Saved the quote from Don Quixote", "note" }`.
+
+#### `DELETE /api/readings/notes/[id]`
+
+Deletes one note through `deleteReadingNote`. Answers `200` with `{ "message": "Deleted the quote from Don Quixote" }`, or `404`.
+
 ### iPhone Shortcut
 
 Works once the access rule in docs/11 is in place.
@@ -847,6 +894,7 @@ Works once the access rule in docs/11 is in place.
 - The reading id: `GET /api/readings/open` once, or a Choose from List over its `readings`.
 - Timer: `POST /api/readings/timer/start` with `tz`, and `POST /api/readings/timer/stop` with the dictated `text`. On a `409` for a forgotten timer, Ask for Input (a time) and send it again as `endedAt`.
 - Barcode: Scan Barcode, then `POST /api/readings` with `isbn`; on `404`, Open URLs with the host plus `addUrl`.
+- A quote from the book in hand (SLN-480; confirm the action names on the phone): Scan QR or Barcode (the book's barcode); Take Photo, then Extract Text from Image (the passage); Ask for Input, a number (the page); then Get Contents of URL: `POST <host>/api/readings/notes`, header `Authorization: Bearer <token>`, JSON body `isbn`, `body` and `page`. Speak the answer's `message`; on `404`, Open URLs with the host plus `addUrl`.
 
 ---
 

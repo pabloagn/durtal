@@ -206,6 +206,11 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       if ("reading_suggest_hide_anathema" in row) expect(row.reading_suggest_hide_anathema, "app_settings.reading_suggest_hide_anathema").toBe(false);
       if ("reading_prediction_gate" in row) expect(row.reading_prediction_gate, "app_settings.reading_prediction_gate").toBeNull();
     }
+    // 0074 (SLN-480): a note's page has no range and is not front matter
+    for (const row of projected.reading_notes ?? []) {
+      if ("end_page" in row) expect(row.end_page, "reading_notes.end_page").toBeNull();
+      if ("page_roman" in row) expect(row.page_roman, "reading_notes.page_roman").toBe(false);
+    }
     for (const table of [
       "app_settings",
       "credit_roles",

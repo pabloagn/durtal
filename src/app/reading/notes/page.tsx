@@ -28,6 +28,8 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
     q: query.q,
     workId: query.workId,
     authorId: query.authorId,
+    editionId: query.editionId,
+    translatorId: query.translatorId,
     kind: query.kind,
     favourites: query.favourites || undefined,
     year: query.year,
@@ -41,7 +43,7 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
       <NoResults
         noun="quotes or notes"
         search={query.q}
-        hasFilters={Boolean(query.workId || query.authorId || query.kind || query.favourites || query.year)}
+        hasFilters={Boolean(query.workId || query.authorId || query.editionId || query.translatorId || query.kind || query.favourites || query.year)}
         clearHref={clearedListHref("/reading/notes", search)}
       />
     );
@@ -53,7 +55,7 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
         {filtered ? `${result.total.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}` : `${total.toLocaleString("en-US")} quotes and notes`}
       </p>
       <div id="list-start">
-        <NotesList rows={result.items.map(listRow)} byBook={query.sort === "book"} />
+        <NotesList rows={result.items.map(listRow)} byBook={query.sort === "book"} editions={result.noteEditions} />
       </div>
       <div className="mt-8">
         <Pagination page={result.page} perPage={query.perPage} total={result.total} noun="quotes and notes" />
@@ -65,11 +67,12 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
 /**
  * The commonplace book (SLN-453): every quote and note, found by a few
  * remembered words (accents and typos forgiven), by book, author, kind,
- * star or year added.
+ * star or year added, and by edition or translator (SLN-480).
  */
 export default async function ReadingNotesPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
   const params = await searchParams;
-  const facets = await getNotesFacets();
+  // The chosen book's editions feed the Edition filter (SLN-480)
+  const facets = await getNotesFacets(parseNotesQuery(params).workId);
   return (
     <>
       <PageHeader title="Reading" actions={<AddQuoteButton variant="primary" />} tabs={<ReadingTabs />} />

@@ -265,10 +265,13 @@ export async function commitNotes(importId: string) {
     await withReadableErrors(() =>
       atomic((d) => [
         d.execute(sql`
-          insert into reading_notes (id, work_id, reading_id, kind, body, source, import_id, source_key)
-          select x.id, x.work_id, (select r.id from readings r where r.id = x.reading_id and r.work_id = x.work_id),
+          insert into reading_notes (id, work_id, reading_id, edition_id, kind, body, source, import_id, source_key)
+          select x.id, x.work_id, r.id,
+            -- A note on a reading is on its edition (SLN-480), kept only on the note's book
+            (select e.id from editions e where e.id = r.edition_id and e.work_id = x.work_id),
             'note', x.body, 'import', ${importId}::uuid, x.key
-          from jsonb_to_recordset(${JSON.stringify(notes)}::jsonb) as x(id uuid, row_no int, work_id uuid, reading_id uuid, body text, key text)`),
+          from jsonb_to_recordset(${JSON.stringify(notes)}::jsonb) as x(id uuid, row_no int, work_id uuid, reading_id uuid, body text, key text)
+          left join readings r on r.id = x.reading_id and r.work_id = x.work_id`),
         d.execute(sql`
           update reading_import_rows r
           set written = coalesce(r.written, '{"readings": [], "bookRating": null, "identifiers": []}'::jsonb) || jsonb_build_object('noteIds', v.ids)
