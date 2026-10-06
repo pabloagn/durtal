@@ -10,7 +10,8 @@ import { NotesList, type NotesListRow } from "@/components/reading/notes-list";
 import { getNotesFacets, searchNotes, type NoteWithBook } from "@/lib/actions/reading-notes";
 import { parseNotesQuery } from "@/lib/reading/notes-params";
 import { slimNote } from "@/lib/reading/notes-text";
-import { clearedListHref, firstPageHref, hasListQuery } from "@/lib/utils/list-params";
+import { clearedListHref, firstPageHref, hasListQuery, exportFilters } from "@/lib/utils/list-params";
+import { ExportMenu } from "@/components/shared/export-menu";
 import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { NotesFilters } from "./notes-filters";
 
@@ -49,9 +50,13 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
   const filtered = hasListQuery(search) && result.total !== total;
   return (
     <>
-      <p className="mb-6 text-sm text-fg-secondary" data-notes-summary="">
-        {filtered ? `${result.total.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}` : `${total.toLocaleString("en-US")} quotes and notes`}
-      </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-fg-secondary" data-notes-summary="">
+          {filtered ? `${result.total.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}` : `${total.toLocaleString("en-US")} quotes and notes`}
+        </p>
+        {/* Every note the filters keep, not only this page */}
+        <ExportMenu entity="reading-notes" ids={{ filters: exportFilters(search) }} noun="quotes and notes" align="end" side="bottom" />
+      </div>
       <div id="list-start">
         <NotesList rows={result.items.map(listRow)} byBook={query.sort === "book"} />
       </div>

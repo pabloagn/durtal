@@ -26,12 +26,85 @@ import {
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { formatRating } from "@/lib/utils/rating";
+import {
+  READING_EXPORT_COLUMNS,
+  SESSION_EXPORT_COLUMNS,
+  NOTE_EXPORT_COLUMNS,
+  commonplaceNotes,
+  loadGoodreadsBooks,
+  noteExportRows,
+  readingExportRows,
+  sessionExportRows,
+} from "@/lib/export/reading";
+import { goodreadsRow } from "@/lib/export/goodreads";
+import { commonplaceMarkdown } from "@/lib/export/commonplace";
+import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
+import { parseJournalQuery } from "@/lib/reading/journal-params";
+import { journalReadingIds } from "@/lib/reading/journal";
+import { parseNotesQuery } from "@/lib/reading/notes-params";
 
-const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet"];
-const VALID_ENTITIES = ["works", "authors", "perfumes", "films", "paintings"] as const;
+const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet", "md"];
+const VALID_ENTITIES = [
+  "works",
+  "authors",
+  "perfumes",
+  "films",
+  "paintings",
+  "readings",
+  "reading-sessions",
+  "reading-notes",
+  "goodreads",
+] as const;
 type EntityType = (typeof VALID_ENTITIES)[number];
 const isCollection = (entity: EntityType): entity is CollectionExport =>
   entity in COLLECTION_EXPORTS;
+
+/** The reading exports (SLN-458): whole files with a fixed header, written even with no rows */
+const READING_ENTITIES = ["readings", "reading-sessions", "reading-notes", "goodreads"] as const;
+type ReadingEntity = (typeof READING_ENTITIES)[number];
+const isReading = (entity: EntityType): entity is ReadingEntity => (READING_ENTITIES as readonly string[]).includes(entity);
+
+/** The formats each export offers: Markdown is the commonplace book only, the Goodreads file is CSV */
+const ENTITY_FORMATS: Partial<Record<EntityType, ExportFormat[]>> = {
+  "reading-notes": ["csv", "tsv", "parquet", "md"],
+  goodreads: ["csv"],
+};
+const formatsOf = (entity: EntityType) => ENTITY_FORMATS[entity] ?? ["csv", "tsv", "parquet"];
+
+/** The journal and the commonplace book export what their filters show: their own URL query */
+const FILTERED_ENTITIES: EntityType[] = ["readings", "reading-notes"];
+
+const FILE_NAMES: Record<ReadingEntity, string> = {
+  readings: "readings",
+  "reading-sessions": "reading-sessions",
+  "reading-notes": "reading-notes",
+  goodreads: "goodreads",
+};
+
+/**
+ * A reading export's rows and header, or the Markdown commonplace book.
+ * `filters` is the journal's or the commonplace book's URL query, parsed by
+ * the page's own parser; null exports everything.
+ */
+async function readingExport(
+  entity: ReadingEntity,
+  format: ExportFormat,
+  filters: string | null,
+): Promise<{ rows: Record<string, unknown>[]; headers: readonly string[] } | { markdown: string }> {
+  const params = new URLSearchParams(filters ?? "");
+  if (entity === "readings") {
+    const ids = filters === null ? null : await journalReadingIds(parseJournalQuery(Object.fromEntries(params.entries())));
+    return { rows: await readingExportRows(ids), headers: READING_EXPORT_COLUMNS };
+  }
+  if (entity === "reading-sessions") return { rows: await sessionExportRows(null), headers: SESSION_EXPORT_COLUMNS };
+  if (entity === "reading-notes") {
+    const query = filters === null ? {} : parseNotesQuery(params);
+    if (format === "md") return { markdown: commonplaceMarkdown(await commonplaceNotes(query), todayLocal()) };
+    return { rows: await noteExportRows(query), headers: NOTE_EXPORT_COLUMNS };
+  }
+  const rows = (await loadGoodreadsBooks()).flatMap((book) => goodreadsRow(book) ?? []);
+  return { rows, headers: GOODREADS_EXPORT_HEADER };
+}
 
 /** The books with these ids, or every book (null) */
 async function fetchWorksForExport(ids: string[] | null) {
@@ -147,11 +220,13 @@ async function fetchAuthorsForExport(ids: string[] | null) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { entity, ids, all, format } = body as {
+    const { entity, ids, all, filters, format } = body as {
       entity?: string;
       ids?: string[];
       /** Every book, or every book author, instead of a list of ids */
       all?: boolean;
+      /** The journal's or the commonplace book's URL query: what the page shows */
+      filters?: string;
       format?: string;
     };
 
@@ -167,6 +242,49 @@ export async function POST(req: NextRequest) {
       !WORK_DOMAINS[COLLECTION_EXPORTS[entity as CollectionExport]].enabled
     ) {
       return NextResponse.json({ error: "This collection is not open." }, { status: 404 });
+    }
+
+    if (filters !== undefined) {
+      if (typeof filters !== "string" || filters.length > 2000)
+        return NextResponse.json({ error: "filters must be a URL query of at most 2,000 characters." }, { status: 400 });
+      if (!FILTERED_ENTITIES.includes(entity as EntityType))
+        return NextResponse.json({ error: "Only readings and reading notes take filters." }, { status: 400 });
+    }
+    if (!format || !VALID_FORMATS.includes(format as ExportFormat) || !formatsOf(entity as EntityType).includes(format as ExportFormat)) {
+      return NextResponse.json(
+        { error: `Invalid format. Must be one of: ${formatsOf(entity as EntityType).map((f) => `'${f}'`).join(", ")}.` },
+        { status: 400 },
+      );
+    }
+
+    // A reading export is a whole file: every reading, or what a page's filters show
+    if (isReading(entity as EntityType)) {
+      if (all !== true && filters === undefined)
+        return NextResponse.json({ error: "all must be true, or filters given." }, { status: 400 });
+      const fmt = format as ExportFormat;
+      const name = FILE_NAMES[entity as ReadingEntity];
+      const result = await readingExport(entity as ReadingEntity, fmt, filters ?? null);
+      const disposition = (ext: string) => `attachment; filename="durtal-${name}-${todayLocal()}${ext}"`;
+      if ("markdown" in result)
+        return new NextResponse(result.markdown, {
+          status: 200,
+          headers: { "Content-Type": FORMAT_MIME.md, "Content-Disposition": disposition(".md") },
+        });
+      if (fmt === "csv" || fmt === "tsv") {
+        // An empty export still has its header
+        const text = fmt === "csv" ? toCSV(result.rows, result.headers) : toTSV(result.rows, result.headers);
+        return new NextResponse(text, {
+          status: 200,
+          headers: { "Content-Type": `${FORMAT_MIME[fmt]}; charset=utf-8`, "Content-Disposition": disposition(FORMAT_EXT[fmt]) },
+        });
+      }
+      if (result.rows.length === 0) return NextResponse.json({ error: "No records found." }, { status: 404 });
+      const ordered = result.rows.map((row) => Object.fromEntries(result.headers.map((h) => [h, row[h]])));
+      const buf = await toParquet(ordered);
+      return new NextResponse(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as unknown as BodyInit, {
+        status: 200,
+        headers: { "Content-Type": FORMAT_MIME.parquet, "Content-Disposition": disposition(FORMAT_EXT.parquet) },
+      });
     }
 
     if (all !== true && (!ids || !Array.isArray(ids) || ids.length === 0)) {
@@ -185,13 +303,6 @@ export async function POST(req: NextRequest) {
 
     if (all !== true && !ids!.every(isUuid)) {
       return NextResponse.json({ error: "Every id must be a UUID." }, { status: 400 });
-    }
-
-    if (!format || !VALID_FORMATS.includes(format as ExportFormat)) {
-      return NextResponse.json(
-        { error: "Invalid format. Must be 'csv', 'tsv', or 'parquet'." },
-        { status: 400 },
-      );
     }
 
     const fmt = format as ExportFormat;

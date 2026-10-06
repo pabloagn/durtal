@@ -108,6 +108,26 @@ export default async function DataSettingsPage() {
           label="People"
           description="Every person: names, dates, nationality, biography and the number of books."
         />
+        <ExportRow
+          entity="readings"
+          label="Readings"
+          description="Every reading as a Durtal reading CSV, which imports back with nothing duplicated, then its edition, copy, sessions, minutes and pages read."
+        />
+        <ExportRow
+          entity="reading-sessions"
+          label="Reading sessions"
+          description="Every session: day, times, time zone, duration, start and end, pages counted, edition and format. A running timer is left out."
+        />
+        <ExportRow
+          entity="reading-notes"
+          label="Quotes and notes"
+          description="Every quote and note with its book, page, chapter and thought. Markdown gives your commonplace book, one heading per book."
+        />
+        <ExportRow
+          entity="goodreads"
+          label="Goodreads file"
+          description="Your shelves and reads in Goodreads' own export format, which Goodreads and StoryGraph import. Half stars round up, and only exact dates go out."
+        />
         {WORK_DOMAINS.perfume.enabled && (
           <ExportRow
             entity="perfumes"
