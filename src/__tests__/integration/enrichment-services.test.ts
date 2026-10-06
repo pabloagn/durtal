@@ -61,6 +61,7 @@ import {
   undoEnrichmentApplication,
 } from "@/lib/actions/enrichment";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
+import { replaceTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { deleteEdition } from "@/lib/actions/editions";
 import { GET as listWorks } from "@/app/api/works/route";
 
@@ -456,6 +457,28 @@ describe.skipIf(!url)("the enrichment services", () => {
       expect(await propose([h, "tone", { term: "light" }, [[s, "Dark", ["labels", "en"]]]])).toEqual([{ status: "skipped", reason: "rejected for good" }]);
       expect((await c`select count(*)::int as n from enrichment_claims where work_id = ${h}`)[0].n).toBe(2);
     });
+
+    it("does the same for a custom family edited in place on the book page", async () => {
+      const m = await book("Moody");
+      const s = await source(m, { labels: { en: "Melancholy" } });
+      const id = claimId((await propose([m, "mood", { term: "melancholy" }, [[s, "Melancholy", ["labels", "en"]]]]))[0]);
+      expect((await acceptEnrichmentClaims([{ claimId: id, fingerprint: await fingerprint(m, id) }])).failed).toEqual([]);
+      const mood = async (slug: string) =>
+        (await c`select i.id from custom_taxonomy_items i join taxonomy_families f on f.id = i.family_id where f.slug = 'moods' and i.slug = ${slug}`)[0].id as string;
+      expect(await c`select item_id from custom_taxonomy_item_works where work_id = ${m}`).toEqual([{ item_id: await mood("melancholy") }]);
+      const edit = (itemIds: string[]) => replaceTaxonomyAssignments({ familySlug: "moods", kind: "book", level: "work", ownerId: m, itemIds });
+      await edit([]);
+      expect((await c`select status, decision_reason, note from enrichment_claims where id = ${id}`)[0]).toEqual({
+        status: "rejected",
+        decision_reason: "wrong_value",
+        note: "removed by hand",
+      });
+      await edit([await mood("joyful")]);
+      const [mine] = await c`select c.id, c.status, c.decided_by, t.key from enrichment_claims c join enrichment_terms t on t.id = c.term_id
+        where c.work_id = ${m} and c.method = 'human'`;
+      expect(mine).toMatchObject({ status: "accepted", decided_by: "pablo", key: "joyful" });
+      expect(await c`select applied_by, note from enrichment_applications where claim_id = ${mine.id}`).toEqual([{ applied_by: "pablo", note: "added by hand" }]);
+    });
   });
 
   describe("jobs", () => {
@@ -525,6 +548,27 @@ describe.skipIf(!url)("the enrichment services", () => {
         { status: "held", held_reason: "work_cost_ceiling" },
         { status: "queued", held_reason: null },
       ]);
+    });
+
+    it("starts a rerun with its attempts back at zero, and a hold drops a pending rerun", async () => {
+      const w = await book("Rerun");
+      const job = (await enqueueEnrichmentJob({ workId: w, kind: "popularity", reason: "created" }, conn))!;
+      const claim = () => claimNextEnrichmentJob({ worker: "w", kinds: ["popularity"], jobIds: [job.id] }, conn);
+      const rerun = () => enqueueEnrichmentJob({ workId: w, kind: "popularity", reason: "manual" }, conn);
+      for (let run = 1; run <= 5; run++) {
+        expect((await claim())!.attempts).toBe(1);
+        await rerun();
+        expect(await finishEnrichmentJob({ id: job.id, worker: "w" }, conn)).toMatchObject({ status: "queued", attempts: 0 });
+      }
+      await claim();
+      expect(await failEnrichmentJob({ id: job.id, worker: "w", error: "boom" }, conn)).toMatchObject({ status: "queued", attempts: 1 });
+      await c`update enrichment_jobs set run_after = now() where id = ${job.id}`;
+      await claim();
+      await rerun();
+      expect(await holdEnrichmentJob({ id: job.id, worker: "w", reason: "quota" }, conn)).toMatchObject({ status: "held", rerun: false });
+      await releaseHeldEnrichmentJobs("popularity", conn);
+      await claim();
+      expect(await finishEnrichmentJob({ id: job.id, worker: "w" }, conn)).toMatchObject({ status: "done" });
     });
   });
 
