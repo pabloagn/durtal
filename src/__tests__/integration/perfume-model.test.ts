@@ -295,7 +295,10 @@ describe.skipIf(!url)("perfume relational model", () => {
     // A second formulation with its own perfumers and its own notes; a third with nothing of its own
     const [own, plain] = await testDb!
       .insert(schema.perfumeVariants)
-      .values([perfumeVariantSchema.parse({ workId }), perfumeVariantSchema.parse({ workId })])
+      .values([
+        perfumeVariantSchema.parse({ workId, formulationLabel: "2019 reformulation" }),
+        perfumeVariantSchema.parse({ workId, formulationLabel: "Travel edition" }),
+      ])
       .returning();
     await c`update perfume_variants set perfumers_override=true where id=${own.id}`;
     await c`insert into perfume_variant_perfumers(variant_id,person_id,sort_order) values (${own.id},${reformulator.id},0)`;
