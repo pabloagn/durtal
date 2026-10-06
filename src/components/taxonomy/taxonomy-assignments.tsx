@@ -133,7 +133,7 @@ function FamilyAssignment({
                   refocus.current = true;
                   save(items.filter((i) => i.id !== item.id));
                 }}
-                className="relative flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose touch-hit"
+                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose touch-hit"
               >
                 <X className="h-3 w-3" strokeWidth={1.5} />
               </button>
@@ -157,7 +157,7 @@ function FamilyAssignment({
             disabled={saving}
             onClick={() => setSearching(true)}
             aria-label={`Add to ${family.name}`}
-            className="relative inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+            className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <CapAligned height={12}>
               <Plus className="h-3 w-3" strokeWidth={1.5} />

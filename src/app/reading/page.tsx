@@ -112,7 +112,7 @@ export default async function ReadingPage() {
               <SectionHeading
                 title="Up next"
                 action={
-                  <Link href="/reading/next" className="relative flex items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
+                  <Link href="/reading/next" className="flex items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
                     View all
                     <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
                   </Link>

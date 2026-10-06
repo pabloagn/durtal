@@ -95,7 +95,7 @@ export function VenueCard({
                 {VENUE_TYPE_LABELS[type]}
               </Badge>
             </span>
-            <CapAligned height={32} coarseHeight={44} className="-mr-2 pointer-coarse:-mr-3.5">
+            <CapAligned height={32} coarseHeight={44} className="icon-hit-end">
               <FavouriteToggle
                 favourite={isFavorite}
                 target={{ entity: "venue", id }}

@@ -123,7 +123,7 @@ function HistoryList({
   if (!object.history.length) return null;
   return (
     <details className="group mt-3 border-t border-glass-border pt-2" open={object.history.length <= 3}>
-      <summary className="relative cursor-pointer list-none text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
+      <summary className="cursor-pointer list-none text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
         Location history ({object.history.length})
       </summary>
       <ol className="mt-1 space-y-2">

@@ -86,3 +86,18 @@ desktop look as it was.
 - `globals.css`: chip-button's comment is back above `@utility chip-button`.
 - `alignment-audit.js` on `/locations`, a card hovered at 1440 and 1024 (Chrome,
   WebKit, Firefox) and on touch at 390 (Chrome, WebKit): no finding.
+- Page weight on live data: the merging thread measured `/library` at
+  307,329 bytes on today's dump with #118 and this PR, 129 bytes over the
+  300 KB budget (about 4 KB added by this PR). Each book card carried about
+  104 more bytes. Now: `touch-hit` positions its control itself, so the 27
+  `relative touch-hit` pairs lose `relative`; `chip-button` includes the
+  press area, so the cover's menu and copy chips carry neither class;
+  `icon-hit` (the favourite star's padding, 8px and 14px on touch) and
+  `icon-hit-end` (its margin at a column's end) replace two classes each.
+  About 70 bytes less a card: on the seeded preview `/library` 90,736 →
+  90,307 bytes (main 88,351), `/perfumes` 313,915 → 312,370, `/people`
+  213,220 → 211,258. Doc 03 names the new utilities.
+- Checks after the trim: `touch-audit.js` at 390 on a coarse pointer, 31
+  routes in Chrome and 11 card-heavy routes in WebKit and Firefox: 0
+  controls under 44px. `alignment-audit.js` at 1440 and 390 on 31 routes: no finding.
+

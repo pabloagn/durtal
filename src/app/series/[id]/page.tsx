@@ -79,7 +79,7 @@ export default async function SeriesDetailPage({
       <CopyShortcuts name={s.title} />
       <Link
         href="/series"
-        className="relative mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
         Back to series

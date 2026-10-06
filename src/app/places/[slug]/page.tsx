@@ -110,7 +110,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Back navigation */}
       <Link
         href="/places"
-        className="relative mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+        className="mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <CapAligned height={12}><ArrowLeft className="h-3 w-3" strokeWidth={1.5} /></CapAligned>
         Back to places

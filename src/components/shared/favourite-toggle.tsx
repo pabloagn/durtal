@@ -19,7 +19,7 @@ function FavouriteShortcut({ run }: { run: () => void }) {
 
 const VARIANTS = {
   /** A 32px target around the 16px star (44px on touch): cards, rows, headers */
-  icon: "block shrink-0 p-2 pointer-coarse:p-3.5",
+  icon: "block shrink-0 icon-hit",
   /** A bordered 32px box (44px on touch): detail-page title rows with other boxed controls */
   boxed:
     "flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] border border-glass-border bg-bg-tertiary/50 transition-colors hover:bg-bg-tertiary pointer-coarse:size-11",

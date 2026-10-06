@@ -207,7 +207,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
         <div className={bgMedia ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           <Link
             href="/people"
-            className="relative mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
             Back to people

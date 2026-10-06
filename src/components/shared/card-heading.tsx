@@ -66,7 +66,7 @@ export function CardHeading({
     <div className="type-item-title flex items-start gap-2">
       {heading}
       {/* 44px on touch; the star keeps its place at the column's edge */}
-      <CapAligned height={32} coarseHeight={44} className="relative z-20 -mr-2 pointer-coarse:-mr-3.5">
+      <CapAligned height={32} coarseHeight={44} className="relative z-20 icon-hit-end">
         {action}
       </CapAligned>
     </div>
