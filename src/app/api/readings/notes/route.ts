@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     const { editionId: givenEdition, isbn, workId: givenWork, readingId: givenReading, kind, ...fields } = parsed.data;
     if ([givenEdition, isbn, givenWork].filter((v) => v !== undefined).length !== 1) return spoken(400, ONE_BOOK);
 
-    let editionId: string | null | undefined = givenEdition ?? null;
+    let editionId: string | null = givenEdition ?? null;
     let workId = givenWork ?? null;
     if (givenEdition) {
       const [edition] = resultRows<{ workId: string }>(await db.execute(sql`select work_id::text as "workId" from editions where id = ${givenEdition}::uuid`));
@@ -97,16 +97,17 @@ export async function POST(req: NextRequest) {
       workId = match.workId;
       editionId = match.editionId;
     }
-    const [book] = resultRows<{ kind: string; open: { id: string; editionId: string | null } | null; onlyEdition: string | null }>(
+    const [book] = resultRows<{ kind: string; open: { id: string; editionId: string | null } | null; onlyEdition: string | null; namedEdition: string | null }>(
       await db.execute(sql`select w.kind,
           (select jsonb_build_object('id', r.id, 'editionId', r.edition_id) from readings r
             where r.work_id = w.id and r.status in ('reading', 'paused') order by r.started_on desc nulls last limit 1) as open,
-          (select case when count(*) = 1 then min(e.id::text) end from editions e where e.work_id = w.id) as "onlyEdition"
+          (select case when count(*) = 1 then min(e.id::text) end from editions e where e.work_id = w.id) as "onlyEdition",
+          (select r.edition_id::text from readings r where r.id = ${givenReading ?? null}::uuid and r.work_id = w.id) as "namedEdition"
         from works w where w.id = ${workId}::uuid`),
     );
     if (!book || book.kind !== "book") return spoken(404, "No such book in Durtal");
-    // A named reading files the note under its own edition, as the note actions do
-    if (givenWork) editionId = givenReading ? undefined : (book.open?.editionId ?? book.onlyEdition);
+    // A named reading files the note under its own edition, as the note actions do; a reading with none falls back to the open reading's, then the only one
+    if (givenWork) editionId = book.namedEdition ?? book.open?.editionId ?? book.onlyEdition;
 
     const created = await createReadingNote({
       workId: workId!,
