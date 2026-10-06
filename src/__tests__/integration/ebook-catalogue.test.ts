@@ -208,7 +208,7 @@ describe.skipIf(!url)("the e-book catalogue", () => {
     });
 
     it("sends an e-book back to review, with its files, when its copy is removed", async () => {
-      const linked = await ebook({ instance_id: book.copy, match_state: "linked", match_method: "isbn", match_probability: 0.98, matched_at: new Date() });
+      const linked = await ebook({ instance_id: book.copy, match_state: "linked", match_method: "isbn", match_probability: 0.98, matched_at: new Date().toISOString() });
       await file(linked.id, 1);
       await file(linked.id, 2, { format: "pdf", content_type: "application/pdf", s3_key: "files/2.pdf" });
       await c`delete from instances where id = ${book.copy}`;
@@ -261,7 +261,7 @@ describe.skipIf(!url)("the e-book catalogue", () => {
           file_id: fileId,
           device_id: device,
           device_label: device === "phone" ? "iPhone · Safari" : "Mac · Firefox",
-          locator: { v: 1 },
+          locator: JSON.stringify({ v: 1 }),
           progression,
           furthest_progression: progression,
           chapter: `Chapter at ${progression}`,
