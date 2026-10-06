@@ -55,4 +55,25 @@ the outlet seed or fetches a live page: those steps wait for Pablo's yes.
 
 ## Completion Notes
 
-To be written when the checks have run.
+- `scripts/qa/test-local.py`: 244 files, 2,727 tests, all passed, with the
+  Python tests. New: `evidence-store.test.ts` (`/sln468_evidence_store`),
+  `safe-fetch-page.test.ts` (13 cases on local servers), `robots.test.ts`,
+  `enrichment/evidence.test.ts`; cases added to the S3 keys, cleanup,
+  hardening, S3 cleanup, work-kind migration and book-domain suites.
+  `safe-fetch.test.ts` passes unchanged.
+- The database suites found three bugs, fixed: a Harmonize merge had no
+  strategy for `enrichment_costs.work_id`; the undo's cited check read an
+  unqualified column (drizzle leaves columns unqualified in a select list) and
+  deleted cited rows; the source picker sorted null before true.
+- Settings, Integrations and Data on a production build: alignment and design
+  audits with 0 findings in headless Chrome, WebKit and Firefox at 1440, 768
+  and 390; the phone and interaction audits pass; every measured route is
+  within its page budget (`/organizations/*` has no record in an empty
+  preview).
+- `--propose-outlets` on a disposable copy of the newest backup: 35
+  publishers with a website, no translator with a website, and original
+  languages en 207, es 3, fr 1, ru 1 (not reliable). Robots.txt of each seed
+  outlet read once with the DurtalBot User-Agent; terms read where found.
+- Waits for Pablo: the extractor's packages, the outlet list and weights, the
+  publishers to add, the retention, and the live steps (migration, seed
+  apply, smoke test).
