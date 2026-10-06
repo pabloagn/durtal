@@ -143,10 +143,24 @@ export function likeness(a: SuggestBook, b: SuggestBook): number {
   return Math.min(1, sim);
 }
 
+/** A number from a string (FNV-1a, 32 bits): the same string, the same number */
+function hash(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return h >>> 0;
+}
+
+/**
+ * Equal scores in an order of the day: the same all day, another tomorrow.
+ * With no ratings most books score alike, and by title the top ten would
+ * always be the books that start with A.
+ */
+export const dayOrder = (day: string) => (s: Scored) => hash(`${day}:${s.book.id}`);
+
 /** Maximal marginal relevance: each next pick weighs its score (λ) against its likeness to those picked before (1 − λ) */
-export function diversify(items: Scored[], lambda = MMR_LAMBDA): Scored[] {
+export function diversify(items: Scored[], lambda = MMR_LAMBDA, tie: (s: Scored) => number = () => 0): Scored[] {
   const max = Math.max(...items.map((i) => i.score), 0);
-  const rest = [...items].sort((a, b) => b.score - a.score || a.book.title.localeCompare(b.book.title));
+  const rest = [...items].sort((a, b) => b.score - a.score || tie(a) - tie(b) || a.book.title.localeCompare(b.book.title));
   const picked: Scored[] = [];
   const nearest = new Map(rest.map((i) => [i, 0]));
   while (rest.length) {
@@ -172,6 +186,8 @@ export function suggest(ctx: SuggestContext, p: SuggestionParams): Scored[] {
     candidates(ctx)
       .filter((b) => passes(b, ctx, p))
       .map((b) => scoreBook(b, ctx)),
+    MMR_LAMBDA,
+    dayOrder(ctx.today),
   );
 }
 

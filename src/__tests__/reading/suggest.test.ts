@@ -252,6 +252,23 @@ describe("scoring and reasons", () => {
     // By score alone the four Zolas lead; MMR brings the other book up to second
     expect(ranked.map((s) => s.book.title).slice(0, 2)).toEqual(["Zola A", "Other"]);
   });
+
+  it("orders equal scores by the day, not by title: the same all day, another the next", () => {
+    // No ratings: every book is at hand and nothing else, so all score alike
+    const books = "ABCDEFGHIJKLMNOPQRST".split("").map((t) => book(`${t} book`, { editions: [edition(300, [{}])] }));
+    books.forEach((b) => (b.atHandCopyId = b.editions[0].copies[0].id));
+    const titles = (today: string) => suggest(context(books, { today }), DEFAULT_SUGGESTION_PARAMS).map((s) => s.book.title);
+    const monday = titles("2026-10-05");
+    expect(new Set(suggest(context(books), DEFAULT_SUGGESTION_PARAMS).map((s) => s.score)).size).toBe(1);
+    expect(monday).toHaveLength(20);
+    expect(titles("2026-10-05")).toEqual(monday);
+    expect(titles("2026-10-06")).not.toEqual(monday);
+    expect(monday.slice(0, 10)).not.toEqual(books.slice(0, 10).map((b) => b.title));
+    // A higher score still leads, whatever the day
+    const series = book("Z book", { editions: [edition(300, [{}])], queuePlace: 1 });
+    series.atHandCopyId = series.editions[0].copies[0].id;
+    expect(suggest(context([...books, series], { today: "2026-10-06", queueLength: 1 }), DEFAULT_SUGGESTION_PARAMS)[0].book.title).toBe("Z book");
+  });
 });
 
 describe("candidates, feedback and constraints", () => {
