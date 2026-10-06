@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { compareSizes, convertSize, PAINTING_SOURCES, sizeText, sourceChanges } from "@/lib/catalogue/painting-sources";
 import { adapterProblems, type ProviderAdapter } from "@/lib/providers/contract";
 import { providersFor } from "@/lib/providers/registry";
@@ -69,6 +69,23 @@ describe("museum sources", () => {
     });
     expect(shown).toMatchObject({ onView: true, gallery: "Gallery 822", dimensions: { heightCm: 73.2, widthCm: 93.4 }, accessionNumber: "1993.132" });
     expect(metArtwork({ objectID: 1, GalleryNumber: "" }).onView).toBe(false);
+  });
+
+  it("keeps the Met's other results when one object is gone, and reads only whole-number ids", async () => {
+    vi.stubGlobal("fetch", async (input: string | URL) => {
+      const address = String(input);
+      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      if (address.includes("/v1.1/search?")) return json({ total: 4, objectIDs: [1, 2, "3", 4] });
+      const id = Number(address.split("/").pop());
+      if (id === 2) return json({ message: "Not a valid object" }, 404);
+      return json({ objectID: id, title: `Object ${id}`, objectURL: `https://www.metmuseum.org/art/collection/search/${id}` });
+    });
+    try {
+      const hits = (await metArtworks.search({ text: "portrait", level: "work" }, { signal: new AbortController().signal })) as { externalId: string }[];
+      expect(hits.map((h) => h.externalId)).toEqual(["1", "4"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("proposes the work and the object apart, and never a location", () => {

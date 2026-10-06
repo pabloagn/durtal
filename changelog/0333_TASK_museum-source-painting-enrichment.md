@@ -83,6 +83,13 @@ location stays unknown. No schema change.
 - Production build preview: `page-weight.js` within every budget except
   `/organizations/*`, which has nothing to measure (no organization in the
   preview seed). A painting page 90 KB.
+- Review fixes (PR #124): the Met's search can list an object whose
+  `/objects/{id}` answers 404, and that failed the whole search; such an
+  object is now skipped and the others are kept. Only whole-number ids are
+  read, so a malformed answer cannot request odd paths. The objects of a
+  result list are read in parallel (the Met allows 80 requests a second; the
+  1 s gap applies between provider calls, not inside one), so a slow answer no
+  longer runs the search past its 15 s limit. A unit test covers both.
 - Limitations: each museum knows its own collection only and places an object
   only when it shows it. The steps of a save are each atomic, not one
   transaction.

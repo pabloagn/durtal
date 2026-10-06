@@ -1,4 +1,4 @@
-import { fetchOk } from "@/lib/api/external-fetch";
+import { ExternalFetchError, fetchOk } from "@/lib/api/external-fetch";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { ProviderError, type ProviderAdapter, type ProviderDetail, type ProviderProposal } from "./contract";
 
@@ -203,20 +203,31 @@ export const metArtworks: ProviderAdapter<"painting"> = {
   async search({ text: query }, { signal }) {
     // v1/search was retired on 2026-10-01; v1.1 pages its answer
     const url = `${MET_SEARCH}?${new URLSearchParams({ q: query, offset: "0", limit: "8" })}`;
-    const body = (await (await fetchOk(url, { signal })).json()) as { objectIDs?: number[] | null };
-    // The search answers ids only: each one is read, a few at most
-    const hits = [];
-    for (const id of (body.objectIDs ?? []).slice(0, 8)) {
-      const object = (await (await fetchOk(`${MET}/objects/${id}`, { signal })).json()) as Record<string, unknown>;
-      const artwork = metArtwork(object);
-      hits.push({
-        externalId: artwork.id,
-        title: artwork.title ?? artwork.id,
-        detail: [artwork.artist, artwork.date.display, text(object.classification)].filter(Boolean).join(", ") || null,
-        url: text(object.objectURL),
+    const body = (await (await fetchOk(url, { signal })).json()) as { objectIDs?: unknown };
+    const ids = (Array.isArray(body.objectIDs) ? body.objectIDs : []).filter((id): id is number => Number.isInteger(id)).slice(0, 8);
+    // The search answers ids only: each one is read, all at once (the Met allows 80 requests a second)
+    const objects = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return (await (await fetchOk(`${MET}/objects/${id}`, { signal })).json()) as Record<string, unknown>;
+        } catch (error) {
+          // The search can list an object the Met no longer shows: skip it, keep the others
+          if (error instanceof ExternalFetchError && error.status === 404) return null;
+          throw error;
+        }
+      }),
+    );
+    return objects
+      .filter((object): object is Record<string, unknown> => !!object)
+      .map((object) => {
+        const artwork = metArtwork(object);
+        return {
+          externalId: artwork.id,
+          title: artwork.title ?? artwork.id,
+          detail: [artwork.artist, artwork.date.display, text(object.classification)].filter(Boolean).join(", ") || null,
+          url: text(object.objectURL),
+        };
       });
-    }
-    return hits;
   },
 
   async detail(externalId, { signal }) {
