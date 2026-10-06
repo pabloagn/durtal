@@ -94,7 +94,7 @@ describe("apply targets", () => {
       expect(ENRICHMENT_APPLY_TARGETS.some((t) => APPLY_TARGET_RULES[t].kinds.includes(kind)), kind).toBe(true);
   });
   it("refuses a target without a writer, and a measurement", () => {
-    for (const target of ["edition.open_library_key", "edition.lccn", "edition.oclc", "edition.translator"] as const) {
+    for (const target of ["edition.open_library_key", "edition.oclc", "edition.translator"] as const) {
       expect(APPLY_TARGETS[target].writer).toBe(false);
       expect(() => APPLY_TARGETS[target].current({} as ApplyContext)).toThrow(new NoWriterError(`No writer for ${target}`));
     }

@@ -122,8 +122,11 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
   if (report.stopped) report.lines.push(`Stopped after ${fetched} of ${set.length} jobs: ${report.stopped}`);
 
   const plans = new Map<string, { plan: unknown; summary: string }>();
-  if (!report.stopped)
+  if (!report.stopped) {
     for (const job of set) plans.set(job.id, await stages.find((s) => s.kind === job.kind)!.plan(conn, job, ctx));
+    for (const stage of stages)
+      report.lines.push(...(stage.summarize?.(set.filter((j) => j.kind === stage.kind).map((j) => plans.get(j.id)!.plan)) ?? []));
+  }
 
   if (!options.apply) {
     for (const stage of stages)

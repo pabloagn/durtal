@@ -4,9 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { atomic } from "@/lib/db/atomic";
-import { withReadableErrors } from "@/lib/db/errors";
-import { assertSql, resultRows } from "@/lib/harmonization/store";
+import { resultRows } from "@/lib/harmonization/store";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { recordActivity } from "@/lib/activity/record";
 import { CACHE_TAGS, invalidate } from "@/lib/cache";
@@ -21,6 +19,7 @@ import {
   applyClaim,
   createHumanClaim,
   currentFingerprint,
+  rejectClaim,
   undoApplication,
   workEnrichment,
 } from "@/lib/enrichment/claims";
@@ -72,15 +71,7 @@ export async function rejectEnrichmentClaims(items: z.input<typeof rejectClaimsS
     try {
       if ((await currentFingerprint(db, item.claimId)) !== item.fingerprint)
         throw new Error("The claim, its evidence or the book's value changed. Review it again.");
-      await withReadableErrors(() =>
-        atomic((d) => [
-          d.execute(sql`select id from enrichment_claims where id = ${item.claimId}::uuid for update`),
-          d.execute(assertSql(sql`exists (select 1 from enrichment_claims where id = ${item.claimId}::uuid and status = 'proposed')`, "Only a proposed claim can be rejected")),
-          d.execute(sql`update enrichment_claims set status = 'rejected', decided_by = 'pablo', decided_at = now(),
-              decision_reason = ${item.reason}, note = coalesce(${item.note ?? null}, note)
-            where id = ${item.claimId}::uuid`),
-        ]),
-      );
+      await rejectClaim(item.claimId, { reason: item.reason, note: item.note });
       rejected.push(item.claimId);
     } catch (error) {
       failed.push({ claimId: item.claimId, reason: message(error) });

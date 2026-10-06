@@ -1,6 +1,7 @@
 import type { Db } from "@/lib/catalogue/work-store";
 import type { EnrichmentJobKind } from "./model";
 import type { SourceCache } from "./source-cache";
+import { identityStage } from "./identity-stage";
 
 /*
  * The enrichment stages the worker runs (SLN-464), one per job kind. A stage
@@ -8,7 +9,7 @@ import type { SourceCache } from "./source-cache";
  * cache, and writes that plan in the job's transaction. Its steps run before
  * the jobs of an apply, each in its own transaction (a review file, a sweep,
  * a re-queue). Its undo removes what it wrote in a run besides the applies.
- * SLN-464's second PR registers `identity`; later stages register theirs.
+ * SLN-464 registers `identity`; later stages register theirs.
  */
 
 export interface StageJob {
@@ -55,11 +56,15 @@ export interface EnrichmentStage<Plan = unknown> {
   steps: StageStep[];
   /** Removes what the stage wrote in a run besides its applies, which the worker undoes first */
   undo(tx: Db, runId: string): Promise<string[]>;
+  /** Lines on the run's plans as a whole (for example what each source found) */
+  summarize?(plans: Plan[]): string[];
   /** Lines the report ends with, read from the database (for example the unresolved books) */
   epilogue?(conn: Db): Promise<string[]>;
 }
 
-export const ENRICHMENT_STAGES: Partial<Record<EnrichmentJobKind, EnrichmentStage>> = {};
+export const ENRICHMENT_STAGES: Partial<Record<EnrichmentJobKind, EnrichmentStage>> = {
+  identity: identityStage() as EnrichmentStage,
+};
 
 /** The stages of the kinds a run names; a kind without a stage is refused */
 export function stagesFor(kinds: EnrichmentJobKind[], stages: Partial<Record<EnrichmentJobKind, EnrichmentStage>> = ENRICHMENT_STAGES) {

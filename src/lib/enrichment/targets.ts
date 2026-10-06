@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { taxonomyStorage } from "@/lib/catalogue/taxonomy-storage";
+import { assertSql } from "@/lib/harmonization/store";
 import type { EnrichmentApplyTarget, EnrichmentValueKind } from "./model";
 import { APPLY_TARGET_RULES, SINGLE_VALUE_KINDS } from "./model";
 
@@ -188,6 +189,45 @@ const identifier: ApplyTargetDefinition = {
   },
 };
 
+/** The only edition columns an identity claim may fill (SLN-464) */
+const EDITION_IDENTIFIER_COLUMNS = ["lccn"] as const;
+
+/**
+ * An edition's identifier column (SLN-464): the apply registers the edition's
+ * identifier, with the identifier target's refusals, and fills the column
+ * only while it is empty; a column that holds another value is kept, and
+ * `after` shows it. A locked edition is refused. Undo removes the identifier,
+ * and clears the column only when the apply filled it and it still holds the
+ * value.
+ */
+function editionIdentifier(column: (typeof EDITION_IDENTIFIER_COLUMNS)[number]): ApplyTargetDefinition {
+  if (!EDITION_IDENTIFIER_COLUMNS.includes(column)) throw new Error(`Refusing to write editions.${column}`);
+  const col = sql.identifier(column);
+  const edition = (ctx: ApplyContext) => uuid(ctx.editionId!);
+  return {
+    kinds: APPLY_TARGET_RULES[`edition.${column}`].kinds,
+    writer: true,
+    current: (ctx) =>
+      sql`select jsonb_build_object('id', i.id, 'externalId', i.external_id, 'column', e.${col}) as value from editions e
+        left join lateral (select id, external_id from catalogue_identifiers where entity_kind = 'edition' and edition_id = e.id
+          and provider = ${ctx.dimension.provider} order by created_at, id limit 1) i on true
+        where e.id = ${edition(ctx)}`,
+    filled: identifier.filled,
+    refuseFilled: identifier.refuseFilled,
+    write: (d, ctx, current) => [
+      d.execute(assertSql(sql`not (select metadata_locked from editions where id = ${edition(ctx)})`, "The edition is locked; unlock it first")),
+      ...identifier.write(d, ctx, current),
+      d.execute(sql`update editions set ${col} = ${ctx.textValue}, updated_at = now() where id = ${edition(ctx)} and ${col} is null`),
+    ],
+    restore: (d, ctx, before, after) => [
+      ...identifier.restore(d, ctx, before, after),
+      ...(before.column === null
+        ? [d.execute(sql`update editions set ${col} = null, updated_at = now() where id = ${edition(ctx)} and ${col} = ${String(after.externalId)}`)]
+        : []),
+    ],
+  };
+}
+
 function noWriter(target: EnrichmentApplyTarget, message = `No writer for ${target}`): ApplyTargetDefinition {
   const refuse = () => {
     throw new NoWriterError(message);
@@ -212,7 +252,7 @@ export const APPLY_TARGETS: Record<EnrichmentApplyTarget, ApplyTargetDefinition>
   identifier,
   none: noWriter("none", "Nothing is applied for a measurement"),
   "edition.open_library_key": noWriter("edition.open_library_key"),
-  "edition.lccn": noWriter("edition.lccn"),
+  "edition.lccn": editionIdentifier("lccn"),
   "edition.oclc": noWriter("edition.oclc"),
   "edition.translator": noWriter("edition.translator"),
 };
