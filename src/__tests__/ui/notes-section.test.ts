@@ -146,6 +146,20 @@ describe("long quote groups", () => {
     vi.unstubAllGlobals();
   });
 
+  it("does not bring the addressed note back when the group's notes change", async () => {
+    await address("#note-n3");
+    draw(notes(14));
+    await settle();
+    expect(wentTo()).toEqual([noteAnchor("n3")]);
+    scrolled.length = 0;
+    // A delete, then its Undo
+    draw(notes(14).filter((n) => n.id !== "n9"));
+    await settle();
+    draw(notes(14));
+    await settle();
+    expect(scrolled).toEqual([]);
+  });
+
   it("opens the group when the address changes to a hidden note", async () => {
     draw(notes(200));
     await settle();

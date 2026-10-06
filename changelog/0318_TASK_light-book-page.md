@@ -35,7 +35,7 @@ scope grew to both causes, agreed with the coordinator.
   server action like the others: behind Authelia, origin checked by Next)
   returns the asked lists as `{ id, name }`; an empty or unknown group is
   refused before any read. `useEditOptions(groups, open)`
-  (`src/hooks/use-edit-options.ts`) shares one cache for the page: one
+  (`src/hooks/use-edit-options.ts`) shares one cache for the tab: one
   request for the lists not loaded yet, a fresh load on an open a minute
   later with the old copy shown meanwhile, and `preloadEditOptions` on a
   pointer or focus on the actions menu and the edition buttons.
@@ -90,3 +90,16 @@ Measured on a production build with the live-data rehearsal seed, before
   `/library/journey-reading` and `/library/ten-notes-qa`.
 - Journeys: `perfumes`, `films`, `paintings`, `reading` and `import` pass
   before the rebase; `reading` passes again on the merged head.
+
+## Review fixes
+
+- After arriving at a note's own address, any change to its group (a
+  delete, its Undo, a new quote, an edit of a page) brought the page back
+  to that note: the address effect ran again on every change to the
+  group's notes. It now runs on load and on a new hash only
+  (`useEffectEvent`). A test deletes a note and undoes it with the address
+  still set: nothing scrolls.
+- Add edition's Genres & Tags says "Loading…" (or "Not loaded") while its
+  lists load, as Edit taxonomy does.
+- The docs say the lists stay for the tab, not the page: the cache
+  survives a move to another page.

@@ -6,8 +6,8 @@ import type { EditOption, EditOptionGroup, EditOptions } from "@/lib/catalogue/e
 
 /*
  * The edit dialogs' choices (SLN-510), loaded when a dialog opens and shared
- * by every dialog on the page: one request for the lists not loaded yet, kept
- * for the page's life and checked again on an open a minute later.
+ * by every dialog: one request for the lists not loaded yet, kept while the
+ * tab stays in the app and checked again on an open a minute later.
  */
 
 const FRESH_MS = 60_000;

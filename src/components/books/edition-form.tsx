@@ -124,6 +124,8 @@ interface EditionFormProps {
   existingCoverUrl?: string | null;
   /** A line at the footer's start, such as the lists' loading state */
   notice?: ReactNode;
+  /** What Genres & Tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
+  listsNote?: string;
 }
 
 // ── Section helper ─────────────────────────────────────────────────────────
@@ -225,6 +227,7 @@ export function EditionForm({
   isPending,
   existingCoverUrl,
   notice,
+  listsNote,
 }: EditionFormProps) {
   const [values, setValues] = useState<EditionFormValues>(initialValues);
   const [newContributorName, setNewContributorName] = useState("");
@@ -745,6 +748,9 @@ export function EditionForm({
 
       {/* Section 9: Genres & Tags */}
       <Section title="Genres & Tags">
+        {listsNote && availableGenres.length === 0 && availableTags.length === 0 && (
+          <p className="text-xs text-fg-secondary">{listsNote}</p>
+        )}
         {availableGenres.length > 0 && (
           <div>
             <p className="mb-2 text-xs text-fg-secondary">Genres</p>

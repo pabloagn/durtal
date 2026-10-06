@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/shared/section-heading";
 import type { NoteEdit } from "@/lib/actions/reading-notes";
@@ -64,24 +64,23 @@ function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; e
   // A note named in the address that the group draws only once open
   const goTo = useRef<string | null>(null);
   const shown = all ? notes : notes.slice(0, OPEN_AT);
-  // The group's notes as one value: the effect below runs when they change, not on every render
-  const ids = notes.map((n) => n.id).join(",");
 
-  // A note named in the address comes into view, its group opened first when it hides the note: on load and on a new hash
+  // A note named in the address comes into view, its group opened first when it hides the note: on load and on a new hash only, so a later delete, edit or new note in the group does not bring the page back to it
+  const openNamed = useEffectEvent(() => {
+    const id = hashNote();
+    if (!id || !notes.some((n) => n.id === id) || goToNote(id)) return;
+    goTo.current = id;
+    setAll(true);
+  });
   useEffect(() => {
-    const open = () => {
-      const id = hashNote();
-      if (!id || !ids.split(",").includes(id) || goToNote(id)) return;
-      goTo.current = id;
-      setAll(true);
-    };
+    const open = () => openNamed();
     const first = requestAnimationFrame(open);
     window.addEventListener("hashchange", open);
     return () => {
       cancelAnimationFrame(first);
       window.removeEventListener("hashchange", open);
     };
-  }, [ids]);
+  }, []);
 
   // Once the group is open: the note named in the address comes into view, or after "Show all" the
   // first new note takes the focus where the button was, without scrolling

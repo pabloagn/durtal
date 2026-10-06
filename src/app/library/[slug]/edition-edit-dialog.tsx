@@ -138,6 +138,7 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
             isPending={isPending}
             existingCoverUrl={existingCoverUrl}
             notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
+            listsNote={lists.failed ? "Not loaded" : lists.loading ? "Loading…" : undefined}
           />
         </div>
       </Dialog>
