@@ -182,6 +182,8 @@ export {
   workPopularitySnapshots,
   enrichmentJobs,
 } from "./enrichment";
+// ── Evidence store and cost meter (SLN-468) ─────────────────────────────────
+export { evidenceOutlets, enrichmentCosts } from "./evidence";
 
 // ── Activity events ─────────────────────────────────────────────────────────
 export { activityEvents } from "./activity-events";

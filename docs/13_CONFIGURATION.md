@@ -35,6 +35,7 @@ All environment variables are listed in `.env.example`. Copy it to `.env.local` 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `ENRICHMENT_CONTACT` | For enrichment | — | The contact every enrichment request names in its User-Agent, `DurtalBot/1.0 (personal book catalogue; <contact>)` (`src/lib/enrichment/user-agent.ts`). Not set: the evidence fetcher refuses to start. Keep it in `.env.local` only |
+| `ENRICHMENT_MONTHLY_CAP_USD` | No | — | The monthly cap of metered enrichment calls (search and model providers), in US dollars, a decimal such as `20` or `7.50`. The month is the calendar month in `APP_TIMEZONE`. `0` lets free-tier calls through (they are still metered) and stops every paid call. Not set: every metered call stops. See the cost meter in [02_DATA_MODEL.md](02_DATA_MODEL.md) (`enrichment_costs`) |
 
 ### Application
 

@@ -15,7 +15,19 @@ import {
   goldMediaThumbnailKey,
   goldMediaOriginalKey,
   goldCommentAttachmentKey,
+  evidenceRawKey,
+  evidenceTextKey,
 } from "@/lib/s3/keys";
+
+// ── Evidence keys (SLN-468) ─────────────────────────────────────────────────
+
+describe("evidence keys", () => {
+  it("names a page and a text by their content hash, under the private prefix", () => {
+    const hash = "a".repeat(64);
+    expect(evidenceRawKey(hash)).toBe(`bronze/evidence/${hash}.raw.gz`);
+    expect(evidenceTextKey(hash)).toBe(`bronze/evidence/${hash}.txt`);
+  });
+});
 
 // ── Bronze keys ──────────────────────────────────────────────────────────────
 

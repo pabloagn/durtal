@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { eq, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { withReadableErrors } from "@/lib/db/errors";
 import { sourceRecords, workRelations, works } from "@/lib/db/schema";
@@ -19,7 +19,7 @@ import {
 } from "@/lib/catalogue/work-relations";
 import { sourceUrlSchema } from "@/lib/catalogue/provenance";
 import { textSearchCondition } from "./utils/text-search";
-import { citeSource, deleteCitedSource, getCatalogueProvenance } from "./catalogue-provenance";
+import { citeSource, deleteCitedSource } from "./catalogue-provenance";
 
 /** The address of a work's page, whatever its collection */
 function workHref(kind: WorkKind, slug: string | null, id: string) {
@@ -137,11 +137,19 @@ export async function getWorkSourceChoices(workId: string) {
     columns: { kind: true },
   });
   if (!work) return [];
-  const provenance = await getCatalogueProvenance({
-    owner: { kind: work.kind, id: workId },
-    limit: 100,
-  });
-  return provenance.observations.map((o) => ({
+  // The 100 newest observations, the user's own citations first: evidence
+  // pages of the book enrichment (SLN-468) never push them out of the list
+  const observations = await db
+    .select({ id: sourceRecords.id, provider: sourceRecords.provider, attribution: sourceRecords.attribution })
+    .from(sourceRecords)
+    .where(and(eq(sourceRecords.entityKind, work.kind), eq(sourceRecords.workId, workId)))
+    .orderBy(
+      desc(sql`${sourceRecords.payload} ->> 'entry' = 'manual'`),
+      desc(sourceRecords.retrievedAt),
+      desc(sourceRecords.id),
+    )
+    .limit(100);
+  return observations.map((o) => ({
     id: o.id,
     label: o.attribution ?? o.provider,
   }));

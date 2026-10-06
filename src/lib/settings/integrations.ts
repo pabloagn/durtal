@@ -7,7 +7,11 @@ import {
 } from "@/lib/api/google-books-quota";
 import { count, eq, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ebookFiles, ebooks, sourceRecords } from "@/lib/db/schema";
+import { ebookFiles, ebooks, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
+import { enrichmentSpend, evidenceCacheStats } from "@/lib/settings/data";
+import { createPageFetcher } from "@/lib/net/safe-fetch-page";
+import { outletForUrl } from "@/lib/enrichment/outlets";
+import { loadOutlets } from "@/lib/enrichment/outlet-registry";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import {
@@ -33,6 +37,8 @@ export const INTEGRATION_IDS = [
   "nominatim",
   "mapbox",
   "wikidata",
+  "evidenceFetcher",
+  "enrichmentBudget",
 ] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 
@@ -78,9 +84,11 @@ const formatDate = (date: Date) =>
     timeZoneName: "short",
   }).format(date);
 
+const usd = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+
 /** The services, what each is for and how it is set up; the e-books; the tokens. */
 export async function integrationsOverview(): Promise<IntegrationsOverview> {
-  const [[wikidata], [books], [files]] = await Promise.all([
+  const [[wikidata], [books], [files], policies, evidence, spend] = await Promise.all([
     db
       .select({ records: count(), last: max(sourceRecords.retrievedAt) })
       .from(sourceRecords)
@@ -89,7 +97,15 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       .select({ ebooks: count(), linked: count(ebooks.instanceId), last: max(ebooks.createdAt) })
       .from(ebooks),
     db.select({ files: count() }).from(ebookFiles),
+    db
+      .select({ policy: evidenceOutlets.fetchPolicy, outlets: count() })
+      .from(evidenceOutlets)
+      .where(eq(evidenceOutlets.status, "active"))
+      .groupBy(evidenceOutlets.fetchPolicy),
+    evidenceCacheStats(),
+    enrichmentSpend(),
   ]);
+  const outlets = (policy: string) => policies.find((p) => p.policy === policy)?.outlets ?? 0;
   const services: IntegrationInfo[] = [
     {
       id: "database",
@@ -176,6 +192,31 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
             ? `${formatDate(wikidata.last)} (${wikidata.records} records)`
             : "Never",
         },
+      ],
+    },
+    {
+      id: "evidenceFetcher",
+      name: "Evidence fetcher",
+      purpose: "Fetches review and publisher pages of the outlet registry for the book enrichment, politely, and keeps a private copy to check quotes.",
+      env: [{ name: "ENRICHMENT_CONTACT", set: isSet("ENRICHMENT_CONTACT") }],
+      checkFrom: "server",
+      facts: [
+        { label: "Active outlets", value: `${outlets("fetch")} fetched, ${outlets("snippet_only")} snippets only, ${outlets("excluded")} excluded` },
+        { label: "Documents stored", value: evidence.documents.toLocaleString("en-GB") },
+        { label: "Last fetch", value: evidence.lastFetch ? formatDate(evidence.lastFetch) : "Never" },
+      ],
+    },
+    {
+      id: "enrichmentBudget",
+      name: "Enrichment budget",
+      purpose: "The monthly cap on paid search and model calls. Every metered call reserves its cost first and stops at the cap.",
+      env: [{ name: "ENRICHMENT_MONTHLY_CAP_USD", set: isSet("ENRICHMENT_MONTHLY_CAP_USD") }],
+      checkFrom: "server",
+      facts: [
+        { label: "Spent this month", value: usd(spend.spent) },
+        { label: "Open reservations", value: `${spend.openReservations} (${usd(spend.reserved)})` },
+        { label: "Cap", value: spend.cap === null ? "Not set" : usd(spend.cap) },
+        { label: "Last paid call", value: spend.lastPaidAt ? formatDate(spend.lastPaidAt) : "Never" },
       ],
     },
   ];
@@ -405,6 +446,31 @@ function checkWikidata(): Promise<CheckResult> {
   );
 }
 
+/** The robots.txt of the first active outlet that may be fetched, through the evidence fetcher */
+async function checkEvidenceFetcher(): Promise<CheckResult> {
+  if (!isSet("ENRICHMENT_CONTACT")) return off("ENRICHMENT_CONTACT is not set");
+  const outlets = await loadOutlets();
+  const first = outlets.find((o) => o.status === "active" && o.fetchPolicy === "fetch");
+  if (!first) return warning("No outlet may be fetched yet");
+  const fetcher = createPageFetcher({ outletFor: (url) => outletForUrl(url, outlets) });
+  const start = performance.now();
+  const robots = await fetcher.readRobots(`https://${first.domains[0]}/`);
+  if (!robots.readable) return failure(`The robots.txt of ${first.name} could not be read`);
+  return ok(`Read the robots.txt of ${first.name} in ${since(start)} ms (HTTP ${robots.status})`);
+}
+
+/** The ledger against the cap, without a call */
+async function checkEnrichmentBudget(): Promise<CheckResult> {
+  const spend = await enrichmentSpend();
+  if (spend.cap === null) return off("ENRICHMENT_MONTHLY_CAP_USD is not set: every metered call stops");
+  const used = spend.spent + spend.reserved;
+  if (spend.cap === 0) return ok("Cap of $0: free-tier calls only");
+  const text = `${usd(used)} of ${usd(spend.cap)} this month`;
+  if (used >= spend.cap) return failure(`At the cap: ${text}`);
+  if (used >= spend.cap * 0.8) return warning(`Over 80% of the cap: ${text}`);
+  return ok(text);
+}
+
 const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult>> = {
   database: checkDatabase,
   storage: checkStorage,
@@ -414,6 +480,8 @@ const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult
   googlePlaces: checkGooglePlaces,
   nominatim: checkNominatim,
   wikidata: checkWikidata,
+  evidenceFetcher: checkEvidenceFetcher,
+  enrichmentBudget: checkEnrichmentBudget,
 };
 
 /** A live check of one service. Mapbox is checked by the browser. */

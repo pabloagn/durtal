@@ -42,6 +42,10 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3/covers", () => ({ processAndUploadCover: vi.fn() }));
+import { db } from "@/lib/db";
+import type { Db } from "@/lib/catalogue/work-store";
+import { storeEvidencePage } from "@/lib/enrichment/evidence-store";
+import { metered } from "@/lib/enrichment/meter";
 import {
   getWorks,
   getWorkCount,
@@ -97,6 +101,11 @@ import { createHumanEnrichmentClaim } from "@/lib/actions/enrichment";
 import { POST as exportCatalogue } from "@/app/api/export/route";
 import { recordActivity } from "@/lib/activity/record";
 import { processAndUploadCover } from "@/lib/s3/covers";
+
+/** Never called: the store and the meter refuse a non-book first */
+const evidenceFetch = vi.fn();
+const evidenceUpload = vi.fn();
+const meteredCall = vi.fn();
 
 describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
   const c = client!;
@@ -347,12 +356,39 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
         () => createReadingNote({ workId: other.id, kind: "quote", body: "Invalid" }),
         () => setSuggestionFeedback({ workId: other.id, verdict: "never" }),
         () => createHumanEnrichmentClaim({ workId: other.id, dimension: "original_title", value: { text: "Invalid" } }),
+        // The evidence store and the cost meter (SLN-468): refused before any fetch, upload or row
+        () =>
+          storeEvidencePage({
+            database: db as unknown as Db,
+            owner: { kind: "book", workId: other.id },
+            url: "https://www.lrb.co.uk/x",
+            runId: crypto.randomUUID(),
+            fetchPage: evidenceFetch,
+            extractor: { name: "test", version: "1", extract: () => null },
+            objects: { putIfMissing: evidenceUpload, get: async () => null },
+            outletName: () => "LRB",
+          }),
+        () =>
+          metered(
+            {
+              provider: "search",
+              operation: "query",
+              estimate: { queries: 1 },
+              workId: other.id,
+              capUsd: 100,
+              prices: [{ provider: "search", operation: "query", usdPerUnit: { queries: 0 }, source: "https://example.com", readOn: "2026-10-07" }],
+            },
+            meteredCall,
+          ),
       ];
       for (const attempt of attempts)
         await expect(attempt()).rejects.toThrow(/(?:Book|Work) not found/);
       expect(await snapshot()).toEqual(before);
       expect(recordActivity).not.toHaveBeenCalled();
       expect(processAndUploadCover).not.toHaveBeenCalled();
+      expect(evidenceFetch).not.toHaveBeenCalled();
+      expect(evidenceUpload).not.toHaveBeenCalled();
+      expect(meteredCall).not.toHaveBeenCalled();
     },
   );
   it.each(["film", "perfume", "painting"])(
@@ -421,6 +457,9 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
             await c`insert into enrichment_jobs(work_id,kind,status,finished_at) values (${books[0]},'facts','done',now()) returning id`;
           return c`update enrichment_jobs set work_id = ${other.id} where id = ${job.id}`;
         },
+        // The cost ledger (SLN-468)
+        () =>
+          c`insert into enrichment_costs(provider,operation,estimated_units,estimated_cost_usd,price_version,work_id) values ('search','query','{}'::jsonb,0,'v',${other.id})`,
       ];
       for (const statement of statements)
         await expect(statement()).rejects.toMatchObject({

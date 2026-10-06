@@ -37,6 +37,11 @@ const serverSchema = z.object({
   DURTAL_API_TOKEN: optional,
   /** The contact in the enrichment User-Agent (SLN-460) */
   ENRICHMENT_CONTACT: optional,
+  /** The monthly cap of metered enrichment calls, in US dollars; 0 lets only free-tier calls through */
+  ENRICHMENT_MONTHLY_CAP_USD: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().regex(/^\d+(\.\d+)?$/, { error: "must be an amount in US dollars, such as 20 or 7.50" }).optional(),
+  ),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),

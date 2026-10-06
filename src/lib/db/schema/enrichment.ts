@@ -242,6 +242,8 @@ export const enrichmentJobs = pgTable(
       .on(t.workId, t.kind)
       .where(sql.raw(`status in (${sqlList(OPEN_JOB_STATUSES)})`)),
     index("enrichment_job_queue_idx").on(t.status, t.priority, t.runAfter),
+    // Done and failed jobs pile up: a work's delete or merge finds its jobs here
+    index("enrichment_job_work_idx").on(t.workId),
   ],
 );
 
