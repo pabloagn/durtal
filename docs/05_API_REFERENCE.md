@@ -12,7 +12,7 @@ The write routes for works, editions, orders, copies and collections (the routes
 
 Every `/api/readings` route checks the same token, its GET included (see Readings). An Authelia rule lets these paths through without a session for the phone (docs/11, Phone shortcuts), so the token is their only lock.
 
-The interchange import checks the same token. The media, S3, comments, export, reader and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
+The interchange import checks the same token. The media, S3, comments, export and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
@@ -45,7 +45,7 @@ Health check endpoint used by Docker healthcheck and monitoring.
 
 ### `GET /api/stats`
 
-Library statistics for dashboard and TUI.
+Library statistics for dashboard and TUI. Since SLN-458 it also carries `reading` (`readingApiStats`, `src/lib/reading/api-stats.ts`): the open readings, the year's numbers and the year's goals. The year is the current reading day's year in `appTimeZone()`. `pagesThisYear` sums `countedPagesSql` over the year's days, then rounds; `hoursThisYear` sums ended sessions' durations (never the running timer), one decimal; percents are numbers (`float8`). `goals` has one entry per goal of the year (`reading_goals`, progress as `getGoalProgress` counts it), and is empty without one. Computed per request.
 
 **Response** `200`:
 ```json
@@ -65,7 +65,15 @@ Library statistics for dashboard and TUI.
       "editions": [...],
       "workAuthors": [...]
     }
-  ]
+  ],
+  "reading": {
+    "year": 2026,
+    "open": [{ "title": "The Recognitions", "status": "reading", "percent": 44.5 }],
+    "finishedThisYear": 12,
+    "pagesThisYear": 3456,
+    "hoursThisYear": 85.5,
+    "goals": [{ "metric": "books", "target": 30, "progress": 12 }]
+  }
 }
 ```
 
@@ -398,26 +406,38 @@ Fetch a single author with works and edition contributions.
 
 ### `POST /api/export`
 
-Download books, authors, perfumes, films or paintings as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
+Download books, authors, perfumes, films, paintings, or reading as a file. Used by the export menus of the book and author pages, the bulk toolbars, the reading journal and the commonplace book, and Settings → Data. No token.
 
 **Body**:
 
 | Field | Type | Description |
 |---|---|---|
-| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` | Books, authors of books, or the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes) |
-| `ids` | string[] | 1–500 ids to export. Not needed with `all` |
+| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` \| `"readings"` \| `"reading-sessions"` \| `"reading-notes"` \| `"goodreads"` | Books, authors of books, the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes), or reading (below) |
+| `ids` | string[] | 1–500 ids to export. Not needed with `all`; the reading exports take `all` or `filters` |
 | `all` | boolean | `true`: every record of the entity instead of `ids` |
-| `format` | `"csv"` \| `"tsv"` \| `"parquet"` | File format |
+| `filters` | string | `readings` and `reading-notes` only: the journal's or the commonplace book's URL query (at most 2,000 characters), parsed by the page's own parser (`parseJournalQuery`, `parseNotesQuery`); the file holds every record the filters keep, in the page's order, not cut at 500 |
+| `format` | `"csv"` \| `"tsv"` \| `"parquet"` \| `"md"` | File format. `md` is `reading-notes` only; `goodreads` is `csv` only |
 
 **Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
-**Response** `400`: a bad entity, format or id list. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format, id list or `filters`. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+
+**Every CSV and TSV** (`src/lib/utils/export.ts`): a text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet never runs it; numbers are never changed. The reading importer strips that `'` again (`src/lib/reading/import/csv.ts`). A CSV value with a comma, a double quote, a newline or a carriage return is quoted. CSV starts with a UTF-8 byte order mark, so Excel opens accents correctly. The Goodreads file is the exception: it is for Goodreads and StoryGraph to import, so its cells go as stored, with no guard and no byte order mark (`toCSV(..., { forImport: true })`).
+
+**The reading exports** (SLN-458, `src/lib/export/reading.ts`) are whole files with a fixed header, written even with no rows (CSV, TSV and Markdown answer `200` with the header only; Parquet with no rows keeps `404`). Files are `durtal-readings-{date}`, `durtal-reading-sessions-…`, `durtal-reading-notes-…` and `durtal-goodreads-…`. Pages come only from `countedPagesSql`, summed per reading or session, then rounded; the running timer is not exported and counts no minutes; ratings and percents are numbers (`4`, `4.5`, `44.5`).
+
+| Entity | Formats | Content |
+|---|---|---|
+| `readings` | CSV, TSV, Parquet | Exactly the Durtal reading CSV: `DURTAL_READING_COLUMNS` (`src/lib/reading/import/durtal-format.ts`) in its order, then read-only columns the importer ignores: `edition_title`, `edition_language`, `translators`, `copy_location`, `session_count`, `minutes_read`, `pages_read`. `rating` is the read's own rating, `review_html` the stored HTML, `authors` the names joined with `; `. `source_key` is the stored key, else `durtal:<reading_id>`. Importing the file back writes nothing: every row is "Already in Durtal" |
+| `reading-sessions` | CSV, TSV, Parquet | One row per session: `session_id`, `reading_id`, `work_title`, `day`, `started_at`, `ended_at`, `time_zone`, `duration_seconds`, start and end page, percent and minutes, `end_chapter`, `pages_counted`, `edition_title`, `format`, `source` |
+| `reading-notes` | CSV, TSV, Parquet, Markdown | One row per quote or note: `note_id`, `work_id`, `title`, `authors`, `kind`, `body`, `thought` (plain text), `page`, `end_page` and `page_roman` (a passage over a page turn, front matter in roman numerals; SLN-480), `chapter`, `percent`, `favourite`, `reading_id`, `edition_id`, `edition_label` (the edition's short label, `editionShortLabel`: "Penguin Classics, 2003, tr. Edith Grossman"), `edition_title`, `translators`, `source`, `created_at`. Markdown is the commonplace book (`commonplaceMarkdown`, `src/lib/export/commonplace.ts`): one heading per book with its author, the passages in page order cited as the pages cite them (`noteWhereText`: "pp. 212–213 · Gallimard, 1928 · ch. 7"), his thought under each, favourites marked ★ |
+| `goodreads` | CSV | Goodreads' own export header (`GOODREADS_EXPORT_HEADER`), one row per book with a reading or in Up Next (`goodreadsRow`, `src/lib/export/goodreads.ts`); StoryGraph imports the same file. The shelf follows `readingStateSql`: `currently-reading` (plus `paused` in Bookshelves), `read`, `did-not-finish`, or `to-read` for an unread book in Up Next. My Rating is the book's rating rounded up to whole stars, 0 when unrated or never finished nor abandoned. Date Read is the last finish (or for did-not-finish the last stop) at day precision only, as `YYYY/MM/DD`; Read Count counts finished readings; Book Id comes from the latest reading's edition, any edition, a `goodreads` identifier, then the book's Goodreads link. Lossy by design; importing it back through the Goodreads importer writes nothing |
 
 ## Interchange
 
 The Durtal interchange file (SLN-375): one JSON document that carries records of every collection whole, for a backup, a move to another Durtal, or a review by hand. The book CSV, TSV and Parquet export above and the reading CSV stay as they are.
 
-The file is `{ "format": "durtal.interchange", "version": 1, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
+The file is `{ "format": "durtal.interchange", "version": 2, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
 
 | Section | What it holds |
 |---|---|
@@ -433,9 +453,9 @@ The file is `{ "format": "durtal.interchange", "version": 1, "exportedAt", "reco
 | `collections` | The collections that hold the work, or one of its editions, with their order |
 | `relations` | Links that start from the work (adaptation, remake, flanker, inspiration) |
 
-`shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried in version 1: images and their files, comments, activity, readings, orders and acquisition targets, Calibre links. Nor are the colours derived from a cover (`editions.cover_palette`, `editions.cover_color_bucket`, `media.color_bucket`, `DERIVED_COLUMNS` in `src/lib/interchange/columns.ts`): the cover-colour backfill recomputes them after an import.
+`shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried: images and their files, comments, activity, readings, orders and acquisition targets, e-books. Nor are the colours derived from a cover (`editions.cover_palette`, `editions.cover_color_bucket`, `media.color_bucket`, `DERIVED_COLUMNS` in `src/lib/interchange/columns.ts`): the cover-colour backfill recomputes them after an import.
 
-A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one.
+A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one. Version 2 (SLN-490) drops two link columns of the old e-book library from book copies; `src/lib/interchange/version-1.ts` reads a version 1 file when they are empty on every copy and refuses it otherwise.
 
 ### `POST /api/interchange/export`
 
@@ -462,7 +482,7 @@ Each record is one transaction: a record that fails writes nothing, and the othe
 
 **Response** `200`: `{ "dryRun", "policy", "counts", "records": [...] }`. Each record reports `outcome`: `created`, `unchanged`, `added`, `kept` (left as it is here) or `failed`; `written` (rows by table); `differences` (file rows that differ from the rows here, by table, key and columns); `absent` (rows a kept record lacks); `problems` (why it failed, row by row).
 
-**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 2; this Durtal reads version 1" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
+**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 3; this Durtal reads versions 1 and 2" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
 
 ---
 
@@ -895,42 +915,6 @@ Works once the access rule in docs/11 is in place.
 - Timer: `POST /api/readings/timer/start` with `tz`, and `POST /api/readings/timer/stop` with the dictated `text`. On a `409` for a forgotten timer, Ask for Input (a time) and send it again as `endedAt`.
 - Barcode: Scan Barcode, then `POST /api/readings` with `isbn`; on `404`, Open URLs with the host plus `addUrl`.
 - A quote from the book in hand (SLN-480; confirm the action names on the phone): Scan QR or Barcode (the book's barcode); Take Photo, then Extract Text from Image (the passage); Ask for Input, a number (the page); then Get Contents of URL: `POST <host>/api/readings/notes`, header `Authorization: Bearer <token>`, JSON body `isbn`, `body` and `page`. Speak the answer's `message`; on `404`, Open URLs with the host plus `addUrl`.
-
----
-
-## Reader
-
-Endpoints for the Calibre e-book reader. `[calibreId]` is the integer Calibre ID.
-
-### `GET /api/reader/[calibreId]/cover`
-
-Streams the book cover from S3. `Cache-Control: private, max-age=604800`.
-
-**Error** `400`: ID is not a number. **Error** `404`: No cover.
-
-### `GET /api/reader/[calibreId]/file`
-
-Streams the book file from S3, inline.
-
-**Query parameters**: `format` (optional): `epub`, `pdf`, `mobi` or `azw3`. Without it, the server takes the first available format in that order.
-
-**Error** `400`: ID is not a number. **Error** `404`: Book or file not found.
-
-### `GET /api/reader/[calibreId]/progress`
-
-**Response** `200`: `{ "progress": { ...reading_progress row } }`, or `{ "progress": null }`.
-
-### `POST /api/reader/[calibreId]/progress`
-
-Saves the reading position.
-
-**Request body** (all fields optional):
-```json
-{ "cfi": "epubcfi(...)", "page": 42, "progressPercent": 0.35, "currentChapter": "Chapter 3" }
-```
-
-`progressPercent` is clamped to 0–1. **Response** `200`: `{ "ok": true }`.
-**Error** `400`: Bad ID or invalid JSON. **Error** `404`: Book not found.
 
 ---
 

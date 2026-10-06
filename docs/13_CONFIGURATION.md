@@ -45,7 +45,6 @@ All environment variables are listed in `.env.example`. Copy it to `.env.local` 
 |---|---|---|---|
 | `DATABASE_URL`, `AWS_*`, `S3_BUCKET` | — | — | Same as above |
 | `INGEST_EXCEL_PATH` | For ingestion | `~/dev/phantom/.../knowledge_base.xlsx` | Absolute path to `knowledge_base.xlsx` |
-| `CALIBRE_LIBRARY_PATH` | No | `/mnt/data/Books-Library` | Calibre library root for `scripts/calibre_sync` |
 | `DURTAL_API_URL` | No | `http://localhost:3003` | API base URL for the TUI client (loaded from `.env.local`) |
 
 ### Tests

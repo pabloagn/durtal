@@ -369,8 +369,6 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           c`insert into orders(work_id,acquisition_method,order_date) values (${other.id},'gift','2026-09-30')`,
         () => c`update orders set work_id = ${other.id} where id = ${order}`,
         () =>
-          c`insert into calibre_books(calibre_id,title,path,work_id) values (99,'Invalid','path',${other.id})`,
-        () =>
           c`insert into work_status_history(work_id,to_status) values (${other.id},'accessioned')`,
         () =>
           c`insert into readings(work_id,started_precision) values (${other.id},'unknown')`,
@@ -412,6 +410,24 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           code: "23514",
           constraint_name: "book_parent_required",
         });
+      // An e-book is only ever a copy of a book (SLN-490). No copy of this work can
+      // exist, so one is forced past the edition rule, refused, and removed again.
+      const forced = await c.begin(async (t) => {
+        await t.unsafe("set local session_replication_role = replica");
+        const [e] = await t.unsafe("insert into editions(work_id,title) values ($1,'Forced') returning id", [other.id]);
+        const [place] = await t.unsafe("insert into locations(name,type) values ('Forced','digital') returning id");
+        const [copy] = await t.unsafe("insert into instances(edition_id,location_id) values ($1,$2) returning id", [e.id, place.id]);
+        return { edition: e.id as string, place: place.id as string, copy: copy.id as string };
+      });
+      await expect(
+        c`insert into ebooks(title,instance_id,match_state,import_source) values ('Invalid',${forced.copy},'linked','folder')`,
+      ).rejects.toMatchObject({ code: "23514", constraint_name: "ebook_book_instance" });
+      await c.begin(async (t) => {
+        await t.unsafe("set local session_replication_role = replica");
+        await t.unsafe("delete from instances where id = $1", [forced.copy]);
+        await t.unsafe("delete from editions where id = $1", [forced.edition]);
+        await t.unsafe("delete from locations where id = $1", [forced.place]);
+      });
       await expect(
         c`update works set series_id = ${series} where id = ${other.id}`,
       ).rejects.toMatchObject({ constraint_name: "works_book_series_check" });

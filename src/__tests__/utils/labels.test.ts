@@ -28,7 +28,7 @@ describe("labels (SLN-400)", () => {
   it("labels other stored keys", () => {
     expect(enumLabel("lent_out")).toBe("Lent out");
     expect(enumLabel("very_good")).toBe("Very good");
-    expect(enumLabel("ebook")).toBe("E-book");
+    expect(enumLabel("ebook")).toBe("eBook");
     expect(enumLabel("male")).toBe("Male");
   });
 

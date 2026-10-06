@@ -2,48 +2,77 @@
 import { ParquetSchema, ParquetWriter } from "@dsnp/parquetjs";
 import { Writable } from "stream";
 
-export type ExportFormat = "csv" | "tsv" | "parquet";
+export type ExportFormat = "csv" | "tsv" | "parquet" | "md";
+
+/**
+ * A text cell a spreadsheet would read as a formula: one that begins with
+ * =, +, -, @, a tab or a carriage return. Exports write it with a leading '
+ * (the reading importer strips it again, src/lib/reading/import/csv.ts).
+ * Numbers are never changed: -2 stays -2.
+ */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+function cellText(value: unknown, guard = true): string {
+  if (value == null) return "";
+  if (typeof value === "number" || typeof value === "bigint") return String(value);
+  const str = String(value);
+  return guard && FORMULA_START.test(str) ? `'${str}` : str;
+}
+
+/**
+ * A file another app imports rather than a spreadsheet opens (the Goodreads
+ * file) goes out as stored: no formula guard, no byte order mark.
+ */
+export interface CsvOptions {
+  forImport?: boolean;
+}
+
+/** A UTF-8 byte order mark, so Excel opens accents correctly; the importers skip it */
+const BOM = "\uFEFF";
 
 /**
  * Escape a value for CSV (RFC 4180): wrap in double-quotes if it contains
  * a comma, double-quote, or newline. Double-quotes inside the value are doubled.
  */
-function escapeCSV(value: unknown): string {
-  const str = value == null ? "" : String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+function escapeCSV(value: unknown, guard = true): string {
+  const str = cellText(value, guard);
+  if (/[,"\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
 }
 
 function escapeTSV(value: unknown): string {
-  const str = value == null ? "" : String(value);
+  const str = cellText(value);
   // Tabs and newlines replaced with spaces
   return str.replace(/[\t\n\r]/g, " ");
 }
 
 /**
- * Convert an array of flat objects to CSV string.
+ * Convert an array of flat objects to a CSV string, with a byte order mark.
+ * With `headers`, those columns in that order, and the header row even when
+ * there are no rows; without, the first row's keys, and "" for no rows.
  */
-export function toCSV(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
+export function toCSV(rows: Record<string, unknown>[], headers?: readonly string[], { forImport = false }: CsvOptions = {}): string {
+  if (rows.length === 0 && !headers) return "";
+  const columns = headers ?? Object.keys(rows[0]);
+  const cell = (value: unknown) => escapeCSV(value, !forImport);
   const lines = [
-    headers.map(escapeCSV).join(","),
-    ...rows.map((row) => headers.map((h) => escapeCSV(row[h])).join(",")),
+    columns.map(cell).join(","),
+    ...rows.map((row) => columns.map((h) => cell(row[h])).join(",")),
   ];
-  return lines.join("\n");
+  return (forImport ? "" : BOM) + lines.join("\n");
 }
 
 /**
- * Convert an array of flat objects to TSV string.
+ * Convert an array of flat objects to a TSV string; `headers` as for toCSV.
  */
-export function toTSV(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
+export function toTSV(rows: Record<string, unknown>[], headers?: readonly string[]): string {
+  if (rows.length === 0 && !headers) return "";
+  const columns = headers ?? Object.keys(rows[0]);
   const lines = [
-    headers.map(escapeTSV).join("\t"),
-    ...rows.map((row) => headers.map((h) => escapeTSV(row[h])).join("\t")),
+    columns.map(escapeTSV).join("\t"),
+    ...rows.map((row) => columns.map((h) => escapeTSV(row[h])).join("\t")),
   ];
   return lines.join("\n");
 }
@@ -95,6 +124,7 @@ export const FORMAT_MIME: Record<ExportFormat, string> = {
   csv: "text/csv",
   tsv: "text/tab-separated-values",
   parquet: "application/vnd.apache.parquet",
+  md: "text/markdown; charset=utf-8",
 };
 
 /**
@@ -104,4 +134,5 @@ export const FORMAT_EXT: Record<ExportFormat, string> = {
   csv: ".csv",
   tsv: ".tsv",
   parquet: ".parquet",
+  md: ".md",
 };

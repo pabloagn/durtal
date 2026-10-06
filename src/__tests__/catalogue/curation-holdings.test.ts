@@ -23,8 +23,6 @@ function instance(
     id: randomUUID(),
     status,
     format: null,
-    calibreId: null,
-    calibreUrl: null,
     fileSizeBytes: null,
     lentTo: null,
     lentDate: null,

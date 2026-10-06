@@ -8,8 +8,8 @@ import * as schema from "@/lib/db/schema";
 
 /**
  * The write routes no other suite covers, against PostgreSQL:
- * POST /api/works/refresh-slugs and the reader's progress
- * (GET and POST /api/reader/[calibreId]/progress).
+ * POST /api/works/refresh-slugs. (The old reader's progress route went with
+ * it in SLN-490; the new reader's routes have their own suites.)
  */
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_MAINTENANCE_ROUTES_TEST_DATABASE_URL;
@@ -41,10 +41,6 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 import { POST as refreshSlugs } from "@/app/api/works/refresh-slugs/route";
-import {
-  GET as getProgress,
-  POST as postProgress,
-} from "@/app/api/reader/[calibreId]/progress/route";
 
 const TOKEN = "test-rest-token";
 const post = (path: string, body?: unknown, token: string | null = TOKEN) =>
@@ -56,7 +52,6 @@ const post = (path: string, body?: unknown, token: string | null = TOKEN) =>
     },
     body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
   });
-const calibre = (id: string) => ({ params: Promise.resolve({ calibreId: id }) });
 
 describe.skipIf(!url)("maintenance write routes with PostgreSQL", () => {
   const db = testDb!;
@@ -70,7 +65,7 @@ describe.skipIf(!url)("maintenance write routes with PostgreSQL", () => {
     vi.stubEnv("DURTAL_API_TOKEN", TOKEN);
     vi.spyOn(console, "error").mockImplementation(() => {});
     invalidate.mockClear();
-    await db.execute(sql`truncate works, authors, calibre_books cascade`);
+    await db.execute(sql`truncate works, authors cascade`);
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -145,76 +140,6 @@ describe.skipIf(!url)("maintenance write routes with PostgreSQL", () => {
       const body = await (await refreshSlugs(post("/api/works/refresh-slugs"))).json();
       expect(body.changed).toBe(0);
       expect(await slugOf(film.id)).toBe("old-film-slug");
-    });
-  });
-
-  describe("/api/reader/[calibreId]/progress", () => {
-    let bookId: string;
-    beforeEach(async () => {
-      const [row] = await db
-        .insert(schema.calibreBooks)
-        .values({ calibreId: 42, title: "À rebours", path: "Huysmans/A rebours (42)" })
-        .returning();
-      bookId = row.id;
-    });
-    const progress = async () =>
-      (await db.select().from(schema.readingProgress).where(eq(schema.readingProgress.calibreBookId, bookId)))[0];
-
-    it("has no progress before the first read", async () => {
-      const res = await getProgress(post("/x"), calibre("42"));
-      expect(await res.json()).toEqual({ progress: null });
-    });
-
-    it("saves the position, and a later save changes only the fields it sends", async () => {
-      const first = await postProgress(
-        post("/x", { cfi: "epubcfi(/6/4!/4/2)", page: 12.6, progressPercent: 0.25, currentChapter: "I" }),
-        calibre("42"),
-      );
-      expect(await first.json()).toEqual({ ok: true });
-      expect(await progress()).toMatchObject({
-        currentCfi: "epubcfi(/6/4!/4/2)",
-        currentPage: 13,
-        progressPercent: 0.25,
-        currentChapter: "I",
-      });
-      await postProgress(post("/x", { progressPercent: 0.5 }), calibre("42"));
-      expect(await progress()).toMatchObject({
-        currentCfi: "epubcfi(/6/4!/4/2)",
-        currentPage: 13,
-        progressPercent: 0.5,
-        currentChapter: "I",
-      });
-      const read = await (await getProgress(post("/x"), calibre("42"))).json();
-      expect(read.progress).toMatchObject({ progressPercent: 0.5 });
-      expect(await db.select().from(schema.readingProgress)).toHaveLength(1);
-    });
-
-    it("keeps values inside their limits", async () => {
-      await postProgress(
-        post("/x", { page: -4, progressPercent: 1.7, cfi: "x".repeat(2500), currentChapter: "c".repeat(600) }),
-        calibre("42"),
-      );
-      const row = await progress();
-      expect(row).toMatchObject({ currentPage: 0, progressPercent: 1 });
-      expect(row.currentCfi).toHaveLength(2000);
-      expect(row.currentChapter).toHaveLength(500);
-      await postProgress(post("/x", { progressPercent: -1 }), calibre("42"));
-      expect((await progress()).progressPercent).toBe(0);
-    });
-
-    it("ignores fields of the wrong type", async () => {
-      await postProgress(post("/x", { progressPercent: 0.3 }), calibre("42"));
-      await postProgress(post("/x", { progressPercent: "0.9", page: "7", cfi: 5 }), calibre("42"));
-      expect(await progress()).toMatchObject({ progressPercent: 0.3, currentPage: null, currentCfi: null });
-    });
-
-    it("answers 400 for a bad id or body and 404 for an unknown book", async () => {
-      expect((await postProgress(post("/x", { page: 1 }), calibre("abc"))).status).toBe(400);
-      expect((await postProgress(post("/x", "not json"), calibre("42"))).status).toBe(400);
-      expect((await postProgress(post("/x", "null"), calibre("42"))).status).toBe(400);
-      expect((await postProgress(post("/x", { page: 1 }), calibre("7"))).status).toBe(404);
-      expect((await getProgress(post("/x"), calibre("7"))).status).toBe(404);
-      expect(await db.select().from(schema.readingProgress)).toEqual([]);
     });
   });
 });

@@ -5,7 +5,7 @@ import { draftsToCreate, newCopyLocationId } from "@/lib/utils/instance-drafts";
 
 describe("newCopyLocationId", () => {
   const locations = [
-    { id: "cal", name: "Calibre" },
+    { id: "cal", name: "eBooks" },
     { id: "ams", name: "Amsterdam" },
   ];
 

@@ -21,7 +21,7 @@ import { readNumber } from "./start-reading-dialog";
 
 const FORMATS = [
   { value: "print", label: "Print" },
-  { value: "ebook", label: "E-book" },
+  { value: "ebook", label: "eBook" },
   { value: "audio", label: "Audio" },
 ] as const;
 

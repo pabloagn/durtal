@@ -20,6 +20,10 @@ export const appSettings = pgTable(
     newCopyLocationId: uuid("new_copy_location_id").references(() => locations.id, {
       onDelete: "set null",
     }),
+    /** The digital location new e-book copies go to ("eBooks"); cleared when the location is deleted (SLN-490) */
+    ebookLocationId: uuid("ebook_location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
     /** INSTANCE_FORMATS value a new copy starts with; null: none */
     newCopyFormat: text("new_copy_format").default("paperback"),
     /** INSTANCE_CONDITIONS value a new copy starts with; null: none */

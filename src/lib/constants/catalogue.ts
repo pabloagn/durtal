@@ -55,7 +55,7 @@ export function priorityVariant(
 export const COPY_FORMAT_LABELS: Record<InstanceFormat, string> = {
   hardcover: "Hardcover",
   paperback: "Paperback",
-  ebook: "E-book",
+  ebook: "eBook",
   audiobook: "Audiobook",
   pdf: "PDF",
   epub: "EPUB",

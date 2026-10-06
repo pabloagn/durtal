@@ -4,7 +4,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import { tableShape, type TableShape } from "./columns";
 
 /*
- * The tables of interchange format version 1 (SLN-375), in the order an
+ * The tables of interchange format version 2 (SLN-375, SLN-490), in the order an
  * import writes them. Three kinds:
  *
  * - record: belongs to one work and travels inside that work's record, in a
@@ -20,9 +20,9 @@ import { tableShape, type TableShape } from "./columns";
  *   missing; `forExisting` parts are also added to an entity that is already
  *   here, because records need them (a perfume house needs that role).
  *
- * Not carried in version 1: images and their files, comments, activity,
- * readings (the Durtal reading CSV carries them), orders and acquisition
- * targets, Calibre links and harmonization history; nor the colours derived
+ * Not carried: images and their files, comments, activity, readings (the
+ * Durtal reading CSV carries them), orders and acquisition targets, e-books
+ * and harmonization history; nor the colours derived
  * from a cover (`DERIVED_COLUMNS` in `./columns.ts`), which the cover-colour
  * backfill recomputes.
  *

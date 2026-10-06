@@ -34,9 +34,8 @@ export function keyHash(...parts: (string | null | undefined)[]): string {
 }
 
 /**
- * Every key prefix in one table: a source that changes (a new importer, a
- * reader that no longer depends on Calibre) changes here, and the fixture
- * with it.
+ * Every key prefix in one table: a source that changes (a new importer, the
+ * e-book reader) changes here, and the fixture with it.
  */
 const PREFIXES = {
   goodreads: "goodreads",

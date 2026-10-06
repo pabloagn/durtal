@@ -51,18 +51,13 @@ export function s3ImageSource(key: string): string {
 }
 
 /** Only app-owned image routes are editable. Never fetch an arbitrary supplied URL. */
-export function imageSourceIdentity(
-  source: string,
-): { key: string } | { calibreId: number } | null {
+export function imageSourceIdentity(source: string): { key: string } | null {
   if (!source.startsWith("/") || source.startsWith("//")) return null;
   const url = new URL(source, "https://durtal.invalid");
   if (url.pathname === "/api/s3/read") {
     const key = url.searchParams.get("key");
     return key && key.length <= 1024 ? { key } : null;
   }
-  const reader = url.pathname.match(/^\/api\/reader\/(\d+)\/cover$/);
-  if (reader && Number.isSafeInteger(Number(reader[1])))
-    return { calibreId: Number(reader[1]) };
   return null;
 }
 

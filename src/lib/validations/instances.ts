@@ -28,9 +28,7 @@ export const createInstanceSchema = z.object({
   acquisitionPrice: z.string().nullable().optional(),
   acquisitionCurrency: z.string().max(3).nullable().optional(),
 
-  // Digital
-  calibreId: z.number().int().nullable().optional(),
-  calibreUrl: z.string().url().nullable().optional(),
+  // Digital: an e-book names the copy it is (ebooks.instance_id)
   fileSizeBytes: z.number().int().nullable().optional(),
 
   // Disposition (for deaccessioned instances)

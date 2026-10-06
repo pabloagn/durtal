@@ -153,8 +153,6 @@ describe("update schemas", () => {
       hasDustJacket: true,
       hasSlipcase: null,
       conditionNotes: null,
-      calibreId: null,
-      calibreUrl: null,
       fileSizeBytes: null,
       notes: null,
       lentTo: null,

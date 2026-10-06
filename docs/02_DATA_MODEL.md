@@ -29,8 +29,7 @@ tables are introduced. No current IDs, slugs, edition/copy relations or media ke
 Migration `0038_book_boundaries` preserves that separation after future domain
 activation. The `book_parent_required` triggers reject non-book parents on
 insert and reparenting of `editions`, `work_authors`, `acquisition_targets`,
-`orders`, `calibre_books`, and `work_status_history`. Calibre links may remain
-null. Existing foreign keys retain their deletion behavior; immutable work
+`orders`, and `work_status_history`. Existing foreign keys retain their deletion behavior; immutable work
 kind keeps the validated relationship valid for its lifetime. These triggers
 are maintained as custom SQL in the Drizzle migration and validated on populated
 data, since Drizzle snapshots do not represent triggers.
@@ -413,7 +412,7 @@ Domain models retain the specific measurement meaning and original unit as neede
   │INSTANCE │ │INSTANCE │ │INSTANCE │
   │(copy A) │ │(copy B) │ │(copy C) │
   │         │ │         │ │         │
-  │Mexico   │ │Calibre  │ │Amsterdam│
+  │Mexico   │ │eBooks   │ │Amsterdam│
   │hardcover│ │epub     │ │hardcover│
   │fine     │ │—        │ │good     │
   └─────────┘ └─────────┘ └─────────┘
@@ -457,7 +456,7 @@ Given a work W, its editions E[], their instances I[] (excluding deaccessioned),
       Physical instances only → OWNED — PHYSICAL
       Digital instances only → OWNED — DIGITAL
       Both → OWNED — PHYSICAL & DIGITAL
-    → Location detail: list of locations with instance counts and Calibre URLs for digital
+    → Location detail: list of locations with instance counts; a digital copy shows its linked e-book
 
   IF W.catalogue_status = 'deaccessioned'
     → DEACCESSIONED: all copies formally removed, record preserved
@@ -643,8 +642,6 @@ A physical or digital copy at a specific location. This is where ownership lives
 | `acquisition_source` | TEXT | nullable | Store, person, or event |
 | `acquisition_price` | NUMERIC(10,2) | nullable | |
 | `acquisition_currency` | TEXT | nullable | ISO 4217 code |
-| `calibre_id` | INTEGER | nullable | Calibre library ID (digital) |
-| `calibre_url` | TEXT | nullable | Deep link to Calibre-Web |
 | `file_size_bytes` | BIGINT | nullable | Digital file size |
 | `notes` | TEXT | nullable | |
 | `status` | `instance_status_enum` | NOT NULL, default `'available'` | Current status of this copy |
@@ -1663,7 +1660,7 @@ Default locations seeded during ingestion:
 |---|---|
 | Mexico City | physical |
 | Amsterdam | physical |
-| Calibre | digital |
+| eBooks | digital |
 | Kindle | digital |
 | iPad | digital |
 | iPhone | digital |
@@ -1698,6 +1695,7 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
 | `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0073_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
 | `reading_prediction_gate` | JSONB | nullable (migration `0073_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
+| `ebook_location_id` | UUID | nullable, FK → `locations.id`, SET NULL (migration `0076_ebook_catalogue`, SLN-490). The digital location new e-book copies go to: "eBooks" |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The four reading columns are changed from Settings → Reading (`/settings/reading`).
@@ -1804,7 +1802,7 @@ Shared display-only settings for stored image assets (migration `0027_shared_ima
 
 Exposure uses stops (-2 to +2); brightness/contrast/saturation use 0–200% with neutral 100%; grayscale/sepia use 0–100% with neutral 0%; softness uses 0–8px with neutral 0. Author assets force grayscale 100%, saturation 100%, and sepia 0, including Reset. Color originals used by the existing author processing pipeline are not editable through this feature.
 
-A single shared editor resolves registered assets from media, editions, author photos, venues, collections, image attachments and Calibre covers. The app provider applies the same filter as the preview to exact asset URLs across cards, lightboxes and thumbnails. Only explicitly saved images receive rules. Preview images opt out to avoid double application. For media, existing brightness/contrast values seed the editor and are synchronized atomically on save; framed posters/backgrounds retain their crop controls. Gallery and other images receive filters without introducing unsupported cropping. Originals and extracted ambient palettes are never rewritten. Reset restores neutral display settings, not the pre-processing color original.
+A single shared editor resolves registered assets from media, editions, author photos, venues, collections and image attachments; e-book covers are not adjusted. The app provider applies the same filter as the preview to exact asset URLs across cards, lightboxes and thumbnails. Only explicitly saved images receive rules. Preview images opt out to avoid double application. For media, existing brightness/contrast values seed the editor and are synchronized atomically on save; framed posters/backgrounds retain their crop controls. Gallery and other images receive filters without introducing unsupported cropping. Originals and extracted ambient palettes are never rewritten. Reset restores neutral display settings, not the pre-processing color original.
 
 Collection posters, backgrounds and distinct legacy covers have separate identities. Entries are keyed by image identity rather than entity ID: replacing an image with a new S3 key starts neutral; deleting a file leaves harmless display metadata whose exact URLs no longer render. Settings are internal presentation metadata and are not baked into exported/downloaded files.
 
@@ -2049,6 +2047,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
 | Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
+| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations` | — |
 | Settings | `app_settings` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
@@ -2066,7 +2065,7 @@ Default locations seeded during ingestion:
 |---|---|---|---|
 | Mexico City | physical | `map-pin` | `#c0a36e` |
 | Amsterdam | physical | `map-pin` | `#648493` |
-| Calibre | digital | `book-open` | `#76946a` |
+| eBooks | digital | `book-open` | `#76946a` |
 | Kindle | digital | `tablet` | `#586e75` |
 | Audiobook | digital | `headphones` | `#7d3d52` |
 
@@ -2190,61 +2189,129 @@ Real-world and online establishments where works are acquired, browsed, seen or 
 
 ---
 
-## Calibre Integration (Reader)
+## eBooks (SLN-490)
 
-### `calibre_books`
+The e-book catalogue (the e-book epic, SLN-489). An e-book is one text in one or
+more files. Linked, it **is** a digital copy: `ebooks.instance_id` names the copy,
+and its edition and work come through the copy (`instance_id` → `instances.edition_id`
+→ `editions.work_id`). An e-book links only to a copy of a book. A copy that is
+deleted or merged away sends its e-book back to review; its files are never lost.
+Migration `0075_ebook_library_guards` renamed the old e-book library's digital
+location to "eBooks" in place (its copies stay), or made one, after checking that
+the old library's tables and the copies' links to it were empty; migration
+`0076_ebook_catalogue` added these tables and dropped the old ones. Reads live in
+`src/lib/ebooks/queries.ts`; formats in `src/lib/ebooks/formats.ts`.
 
-Mirrors metadata from the Calibre ebook library for in-app reading. Not all entries link to a Durtal work; the Reader tab can browse the full Calibre catalogue independently.
-
-| Column | Type | Constraints | Notes |
-|---|---|---|---|
-| `id` | UUID | PK, auto | |
-| `calibre_id` | INTEGER | NOT NULL, UNIQUE | Primary key from Calibre's `books.id` |
-| `calibre_uuid` | TEXT | nullable | Calibre's internal UUID |
-| `title` | TEXT | NOT NULL | Book title from Calibre |
-| `author_sort` | TEXT | nullable | "Last, First" author sort from Calibre |
-| `path` | TEXT | NOT NULL | Relative path within Calibre library (e.g. `Author/Title (id)`) |
-| `has_cover` | BOOLEAN | NOT NULL, default `false` | Whether `cover.jpg` exists in Calibre |
-| `cover_s3_key` | TEXT | nullable | S3 key for the cover image (e.g. `gold/calibre/{id}/cover.jpg`) |
-| `isbn` | TEXT | nullable | First ISBN found in Calibre identifiers |
-| `formats` | JSONB | nullable | Array of `{ format, fileName, sizeBytes, s3Key }` |
-| `pubdate` | TEXT | nullable | Publication date from Calibre |
-| `work_id` | UUID | FK -> `works.id`, nullable, SET NULL | Link to Durtal catalogue (via ISBN match or manual linking) |
-| `last_synced` | TIMESTAMPTZ | NOT NULL, auto | When this record was last synced from Calibre |
-| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
-
-**Relations**: `work` (N:1 -> `works`, optional)
-
-**File path resolution**: `{CALIBRE_LIBRARY_PATH}/{path}/{formats[n].fileName}.{formats[n].format}`
-
-### `reading_progress`
-
-Tracks reading position, bookmarks, and per-book reader settings. One record per Calibre book.
+### `ebooks`
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
-| `calibre_book_id` | UUID | NOT NULL, UNIQUE, FK -> `calibre_books.id` CASCADE | |
-| `current_cfi` | TEXT | nullable | EPUB CFI string for current position |
-| `current_page` | INTEGER | nullable | PDF page number |
-| `progress_percent` | REAL | nullable | 0.0 to 1.0 |
-| `current_chapter` | TEXT | nullable | Human-readable chapter name |
-| `total_reading_seconds` | INTEGER | default `0` | Cumulative reading time |
-| `started_at` | TIMESTAMPTZ | NOT NULL, auto | When reading began |
-| `last_read_at` | TIMESTAMPTZ | NOT NULL, auto | Most recent reading session |
-| `finished_at` | TIMESTAMPTZ | nullable | When the book was completed |
-| `bookmarks` | JSONB | nullable | Array of `{ cfi, label?, contextText?, createdAt }` |
-| `reader_settings` | JSONB | nullable | Per-book overrides: `{ fontSize, fontFamily, lineHeight, margin, textAlign }` |
-| `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
-| `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+| `title` | TEXT | NOT NULL | |
+| `title_sort` | TEXT | nullable | Normalised for natural sort |
+| `subtitle` | TEXT | nullable | |
+| `authors` | TEXT[] | NOT NULL, default `{}` | Natural order: "Jorge Luis Borges" |
+| `author_sort` | TEXT | nullable | |
+| `language` | TEXT | nullable | ISO 639-1 where one exists, else 639-2/3: the file's declared language |
+| `isbns` | TEXT[] | NOT NULL, default `{}`, GIN index | Valid ISBN-13s only, canonical |
+| `identifiers` | JSONB | NOT NULL, default `{}` | Other ids (asin, goodreads, google, openlibrary, oclc, doi, uuid), each a list of strings |
+| `series`, `series_index`, `publisher`, `published_year`, `description` | | nullable | `published_year` null when unknown |
+| `cover_key` | TEXT | nullable | The preferred file's derived cover; an S3 key in `KEY_COLUMNS` |
+| `preferred_file_id` | UUID | nullable, FK → `ebook_files.id`, SET NULL | The file the reader opens first |
+| `instance_id` | UUID | nullable, UNIQUE, FK → `instances.id`, SET NULL | The digital copy this e-book is |
+| `match_state` | TEXT | NOT NULL, default `'pending'`, CHECK in (`pending`, `linked`, `standalone`, `excluded`) | `linked` exactly when `instance_id` is set (CHECK `ebooks_linked_check`) |
+| `match_method` | TEXT | nullable | `isbn`, `identifier`, `score`, `manual`, `accession` |
+| `match_probability` | REAL | nullable | |
+| `matched_at` | TIMESTAMPTZ | nullable | |
+| `import_source` | TEXT | NOT NULL | `folder` or `upload` |
+| `import_ref` | TEXT | nullable | A sidecar `metadata.opf` uuid; UNIQUE (`import_source`, `import_ref`) where set |
+| `search_text` | TEXT | NOT NULL, default `''` | Trigram index `ebooks_search_text_trgm_idx` |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
-**Relations**: `calibreBook` (N:1 -> `calibre_books`)
+`match_state`: `pending`, no decision yet; `linked`, a copy is set; `standalone`, kept
+as an e-book without a book record (readable, not catalogued); `excluded`, not a
+book, a duplicate or junk, hidden and never deleted.
 
-`reading_progress` stays the e-book reader's own position, owned by the reader
-epic: the reader keeps where it is in a file. Readings alone hold read status,
-dates and ratings: a read-through, with its dates, sessions and rating, is a
-`readings` row (below); sub-issue 10 of the reading tracker feeds reader
-sessions into it.
+Triggers (custom SQL in migration `0076_ebook_catalogue`):
+
+- `ebook_book_instance_required` (BEFORE INSERT OR UPDATE OF `instance_id`,
+  function `require_ebook_book_instance()`): a copy must belong to a work of kind
+  `book`, else SQLSTATE `23514`, constraint `ebook_book_instance`, "An eBook can
+  only be a copy of a book". The e-book form of `book_parent_required`.
+- `ebook_copy_removed` (BEFORE UPDATE OF `instance_id`, function
+  `ebook_copy_removed()`): when the copy goes (the foreign key's SET NULL) while
+  the e-book is `linked`, it becomes `pending` and loses `match_method`,
+  `match_probability` and `matched_at`.
+
+### `ebook_files`
+
+One stored file, keyed by its bytes. No work id: it reaches a work only through its e-book.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, RESTRICT, index | |
+| `sha256` | TEXT | NOT NULL, UNIQUE, CHECK 64 lowercase hex | |
+| `format` | TEXT | NOT NULL, CHECK in `EBOOK_FORMATS` | Readable: epub, kepub, pdf, mobi, azw, azw3, fb2, fbz, cbz |
+| `size_bytes` | BIGINT | NOT NULL | |
+| `content_type` | TEXT | NOT NULL | |
+| `original_filename` | TEXT | nullable | |
+| `s3_key` | TEXT | NOT NULL, UNIQUE | In `KEY_COLUMNS` |
+| `status` | TEXT | NOT NULL, CHECK in (`stored`, `verified`, `missing`, `quarantined`, `replaced`) | |
+| `verified_at` | TIMESTAMPTZ | nullable | |
+| `drm` | TEXT | nullable | A DRM file is stored and listed, never opened |
+| `source_host`, `source_path`, `source_mtime` | | nullable | Where the file was found |
+| `metadata` | JSONB | NOT NULL, default `{}` | What the file itself says |
+| `word_count`, `char_count`, `front_back_word_count`, `page_estimate`, `text_language`, `text_tool_version` | | nullable | Text counts, agreed with the book enrichment epic |
+| `manifest_key`, `cover_key` | TEXT | nullable | Derived objects; in `KEY_COLUMNS` |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+### `ebook_positions`
+
+The reader's place in one file, per device. Created empty; the reader writes it from sub-issue 3.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK, auto |
+| `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, CASCADE |
+| `file_id` | UUID | NOT NULL, FK → `ebook_files.id`, CASCADE |
+| `device_id`, `device_label` | TEXT | NOT NULL |
+| `locator` | JSONB | NOT NULL (a `DurtalLocator`) |
+| `progression`, `furthest_progression` | REAL | NOT NULL, CHECK 0–1 |
+| `chapter` | TEXT | nullable |
+| `client_updated_at` | TIMESTAMPTZ | NOT NULL |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
+
+UNIQUE (`file_id`, `device_id`); index (`ebook_id`, `updated_at` desc).
+
+### `ebook_annotations`
+
+Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK, auto |
+| `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, RESTRICT |
+| `file_id` | UUID | NOT NULL, FK → `ebook_files.id`, RESTRICT |
+| `kind` | TEXT | NOT NULL, CHECK in (`highlight`, `bookmark`) |
+| `style` | TEXT | NOT NULL, default `'highlight'`, CHECK in (`highlight`, `underline`, `quote`) |
+| `color` | TEXT | nullable, CHECK in (`ochre`, `sage`, `slate`, `rose`, `violet`) |
+| `locator` | JSONB | NOT NULL |
+| `progression` | REAL | NOT NULL |
+| `chapter`, `note` | TEXT | nullable |
+| `text` | TEXT | nullable, CHECK at most 10,000 characters |
+| `anchor_state` | TEXT | NOT NULL, default `'exact'`, CHECK in (`exact`, `healed`, `approximate`, `orphaned`) |
+| `device_id` | TEXT | nullable |
+| `client_updated_at` | TIMESTAMPTZ | NOT NULL |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
+| `deleted_at` | TIMESTAMPTZ | nullable (a tombstone for sync) |
+
+Index (`ebook_id`, `deleted_at`, `progression`).
+
+Readings alone hold read status, dates and ratings: a read-through, with its
+dates, sessions and rating, is a `readings` row (below). The reader keeps its
+place in `ebook_positions`; sub-issue 10 of the reading tracker feeds reader
+sessions into readings.
 
 ## Reading tracker (SLN-444)
 
@@ -2415,7 +2482,7 @@ Which rating feeds what: the book's rating is `works.rating` (library filters an
 
 ### Source keys and duplicates
 
-`src/lib/reading/source-keys.ts` builds every key: `goodreads:<Book Id>#<n>` (else `goodreads:isbn13:<ISBN>#<n>`, else `goodreads:title:<hash>#<n>`), `storygraph:<hash>#<n>`, `seed:<hash>`, `durtal:<reading id>`, `durtal-import:<hash of the row>`, `reader:<e-book id>` (the reader's own e-book record, an opaque id; no Calibre key), the Up Next keys `goodreads-to-read:` and `storygraph-to-read:` (SLN-452), and the note key `goodreads-note:` (SLN-453). A hash is the SHA-256 of the normalized parts (NFKD, marks dropped, lower case, runs of non-letters and non-digits as one space) joined with `|`. `src/lib/reading/duplicates.ts` holds the one duplicate rule: the same reading or source key; the same read (same status, the same finish date at the coarser precision); an undated read against that status's unmatched readings (imports create only the undated reads beyond those already there; elsewhere it is a possible duplicate, written only when chosen). Each existing reading matches one row at most.
+`src/lib/reading/source-keys.ts` builds every key: `goodreads:<Book Id>#<n>` (else `goodreads:isbn13:<ISBN>#<n>`, else `goodreads:title:<hash>#<n>`), `storygraph:<hash>#<n>`, `seed:<hash>`, `durtal:<reading id>`, `durtal-import:<hash of the row>`, `reader:<e-book id>` (the reader's own e-book record, an opaque id), the Up Next keys `goodreads-to-read:` and `storygraph-to-read:` (SLN-452), and the note key `goodreads-note:` (SLN-453). A hash is the SHA-256 of the normalized parts (NFKD, marks dropped, lower case, runs of non-letters and non-digits as one space) joined with `|`. `src/lib/reading/duplicates.ts` holds the one duplicate rule: the same reading or source key; the same read (same status, the same finish date at the coarser precision); an undated read against that status's unmatched readings (imports create only the undated reads beyond those already there; elsewhere it is a possible duplicate, written only when chosen). Each existing reading matches one row at most.
 
 ## Activity & Comments
 

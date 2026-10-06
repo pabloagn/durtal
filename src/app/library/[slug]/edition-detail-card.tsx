@@ -5,7 +5,7 @@ import { EditionPublishers } from "@/components/publishers/edition-publishers";
 import type { PublisherOption } from "@/components/publishers/publisher-picker";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { InstanceDetail } from "./instance-detail";
+import { InstanceDetail, type CopyEbook } from "./instance-detail";
 import { EditionEditDialog } from "./edition-edit-dialog";
 import { EditionDeleteButton } from "./edition-delete-button";
 import { EditionQuotes } from "./edition-quotes";
@@ -58,6 +58,8 @@ interface EditionDetailCardProps {
   availableLocations?: LocationWithSubLocations[];
   /** The edition's quotes and notes, on a book that allows reading (SLN-480): its Quotes row, and the delete's warning */
   quotes?: { quotes: number; notes: number; href: string };
+  /** The e-book linked to each copy, by copy id */
+  ebooksByCopy?: Record<string, CopyEbook>;
 }
 
 interface DetailRowProps {
@@ -81,6 +83,7 @@ export function EditionDetailCard({
   authorName,
   availableLocations = [],
   quotes,
+  ebooksByCopy,
 }: EditionDetailCardProps) {
   const dimensions = formatDimensions(
     edition.heightMm,
@@ -392,6 +395,7 @@ export function EditionDetailCard({
                 key={instance.id}
                 instance={instance}
                 availableLocations={availableLocations}
+                ebook={ebooksByCopy?.[instance.id] ?? null}
               />
             ))}
           </div>

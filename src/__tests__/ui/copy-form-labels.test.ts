@@ -44,13 +44,14 @@ describe("copy form labels", () => {
         }),
       ),
     );
-    expect(options("inst-0-format")).toEqual(["Hardcover", "Paperback", "E-book", "Audiobook", "PDF", "EPUB", "Other"]);
+    expect(options("inst-0-format")).toEqual(["Hardcover", "Paperback", "eBook", "Audiobook", "PDF", "EPUB", "Other"]);
     expect(options("inst-0-condition")).toContain("Very good");
     expect(options("inst-0-status")).toContain("Lent out");
     expect(options("inst-0-disposition-type")).toEqual([
       "Sold", "Donated", "Gifted", "Traded", "Lost", "Stolen", "Destroyed", "Returned", "Expired",
     ]);
     const all = ["inst-0-format", "inst-0-condition", "inst-0-status", "inst-0-disposition-type"].flatMap(options);
-    expect(all.filter((t) => /_|^[a-z]/.test(t))).toEqual([]);
+    // "eBook" is written so on purpose (SLN-490); every other label starts with a capital
+    expect(all.filter((t) => /_|^[a-z]/.test(t) && t !== "eBook")).toEqual([]);
   });
 });

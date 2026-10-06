@@ -29,7 +29,7 @@ A self-hosted, single-user book catalogue ("Radarr for books"). Not a reading tr
 
 - Next.js 16 (App Router), React 19, TypeScript strict, Tailwind CSS 4, shadcn/ui.
 - Drizzle ORM on Neon Postgres. Images on AWS S3 (bronze/silver/gold layers).
-- Python 3.12 scripts under `scripts/` (ingestion, TUI, Calibre sync, enrichment). Managed by `uv`.
+- Python 3.12 scripts under `scripts/` (ingestion, TUI, enrichment). Managed by `uv`.
 
 ### Data model (three tiers)
 
@@ -75,7 +75,7 @@ pnpm db:migrate     # nothing pending right now
 - Docker works through Colima (`colima start` after each reboot).
 - `.env` and `.env.local` exist, are identical, and are gitignored. They hold real secrets. Never print or commit them.
   - Set: `DATABASE_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (eu-north-1), `S3_BUCKET` (durtal), `NEXT_PUBLIC_MAPBOX_TOKEN`, `GOOGLE_PLACES_API_KEY`, `ISBNDN_API_KEY`.
-  - Not set (all optional in code): `GOOGLE_BOOKS_API_KEY`, `CALIBRE_WEB_URL`, `NEXT_PUBLIC_APP_URL`, `NODE_ENV`, `INGEST_EXCEL_PATH`, `INGEST_PARQUET_PATH`.
+  - Not set (all optional in code): `GOOGLE_BOOKS_API_KEY`, `NEXT_PUBLIC_APP_URL`, `NODE_ENV`, `INGEST_EXCEL_PATH`, `INGEST_PARQUET_PATH`.
 - Database connects: 334 works, 335 editions, 2,080 authors, 174 instances.
 - Migrations: Drizzle sees nothing pending. (Bookkeeping oddity: `0000` and `0001` are not recorded in `drizzle.__drizzle_migrations`, but the schema is current. Do not "fix" this without asking.)
 - S3: the `durtal-app` IAM user can list the bucket. It cannot call `GetBucketLocation` (not needed by the app).

@@ -271,7 +271,7 @@ Script: `scripts/ingest/seed_books.py` (same as Step 5, or separate pass)
 |---|---|---|
 | `Library_Physical_MEX` | Mexico City (physical) | Format inferred from `Book_Type` |
 | `Library_Physical_EUR` | Amsterdam (physical) | Same |
-| `Library_Digital_Main` | Calibre (digital) | Format: `epub` or `pdf` |
+| `Library_Digital_Main` | eBooks (digital) | Format: `epub` or `pdf` |
 | `Library_Mobile_Kindle` | Kindle (digital) | Format: `mobi` or `azw3` |
 | `Library_Mobile_iPad` | iPad (digital) | Format: `epub` or `pdf` |
 | `Library_Mobile_iPhone` | iPhone (digital) | Format: `epub` or `pdf` |
@@ -352,7 +352,7 @@ Output:
 | (derived) | `editions.metadata_source` | Set to `'phantom_canon'` for all imported records |
 | `Library_Physical_MEX` | `instances` | Create instance at Mexico City |
 | `Library_Physical_EUR` | `instances` | Create instance at Amsterdam |
-| `Library_Digital_Main` | `instances` | Create instance at Calibre |
+| `Library_Digital_Main` | `instances` | Create instance at eBooks |
 | `Library_Mobile_Kindle` | `instances` | Create instance at Kindle |
 | `Library_Mobile_iPad` | `instances` | Create instance at iPad |
 | `Library_Mobile_iPhone` | `instances` | Create instance at iPhone |

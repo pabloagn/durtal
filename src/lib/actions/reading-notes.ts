@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, sql, type SQL } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
@@ -15,6 +15,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { readingToday } from "@/lib/reading/day";
 import { percentOf } from "@/lib/reading/positions";
 import { readingOrdinalSql } from "@/lib/reading/summary";
+import { notesCondition } from "@/lib/reading/notes-conditions";
 import { choosePassage, passageCandidates } from "@/lib/reading/passage";
 import { noteEditionsOf, type LabelEdition, type NoteEdition } from "@/lib/reading/edition-label";
 import type { NoteKind, NoteSource } from "@/lib/reading/constants";
@@ -366,28 +367,14 @@ export async function getNoteEditions(editionIds: string[]): Promise<Record<stri
 export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
   const query = searchNotesSchema.parse(input);
   const haystack = sql`n.search_text`;
-  const conditions: SQL[] = [];
-  const text = query.q ? textSearchCondition(haystack, query.q) : undefined;
-  if (text) conditions.push(text);
-  if (query.workId) conditions.push(sql`n.work_id = ${query.workId}::uuid`);
-  if (query.authorId)
-    conditions.push(sql`exists (select 1 from work_authors wa where wa.work_id = n.work_id and wa.author_id = ${query.authorId}::uuid)`);
-  if (query.editionId === "none") conditions.push(sql`n.edition_id is null`);
-  else if (query.editionId) conditions.push(sql`n.edition_id = ${query.editionId}::uuid`);
-  if (query.translatorId)
-    conditions.push(
-      sql`exists (select 1 from edition_contributors ec where ec.edition_id = n.edition_id and ec.role = 'translator' and ec.author_id = ${query.translatorId}::uuid)`,
-    );
-  if (query.kind) conditions.push(sql`n.kind = ${query.kind}`);
-  if (query.favourites) conditions.push(sql`n.is_favourite`);
-  if (query.year) conditions.push(sql`extract(year from n.created_at at time zone ${appTimeZone()}) = ${query.year}`);
-  const where = conditions.length ? sql`where ${sql.join(conditions, sql` and `)}` : sql``;
+  const condition = notesCondition(query);
+  const where = condition ? sql`where ${condition}` : sql``;
   const direction = sql.raw(query.order === "asc" ? "asc" : query.order === "desc" ? "desc" : query.sort === "book" ? "asc" : "desc");
   // By book: the title, then the edition groups in the book page's order (no edition last), then each group's order
   const order =
     query.sort === "book"
       ? sql`w.title ${direction}, w.id asc, (n.edition_id is null) asc, ne.publication_year desc nulls first, ne.id asc, ${IN_GROUP_ORDER}`
-      : query.sort === "relevance" && text
+      : query.sort === "relevance" && query.q && textSearchCondition(haystack, query.q)
         ? sql`${textSearchRank(haystack, sql`left(n.body, 300)`, query.q!)} desc, n.created_at desc, n.id asc`
         : sql`n.created_at ${direction}, n.id asc`;
   const offset = (query.page - 1) * query.perPage;

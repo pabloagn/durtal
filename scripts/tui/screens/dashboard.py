@@ -8,9 +8,10 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Label
+from textual.widgets import Footer, Header, Label, Static
 
 from scripts.tui.api_client import DurtalClient
+from scripts.tui.reading_panel import reading_panel_lines
 from scripts.tui.widgets.stat_card import StatCard
 from scripts.tui.widgets.work_table import WorkTable
 
@@ -44,6 +45,10 @@ class DashboardScreen(Screen):
                 yield StatCard("Authors", id="stat-authors")
 
             yield Label("", classes="spacer")
+            yield Label("[bold]Reading[/bold]", classes="label-subtitle")
+            yield Static("", id="reading-panel", markup=False)
+
+            yield Label("", classes="spacer")
             yield Label("[bold]Recent Additions[/bold]", classes="label-subtitle")
             yield WorkTable(id="recent-table")
 
@@ -75,6 +80,9 @@ class DashboardScreen(Screen):
             )
             self.query_one("#stat-authors", StatCard).update_value(
                 stats.get("authors", 0)
+            )
+            self.query_one("#reading-panel", Static).update(
+                "\n".join(reading_panel_lines(stats))
             )
             table = self.query_one("#recent-table", WorkTable)
             table.load_works(stats.get("recentWorks", []))

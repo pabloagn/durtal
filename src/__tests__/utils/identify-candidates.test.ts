@@ -89,7 +89,7 @@ describe("ranking", () => {
       "9780226043883",
       "9780571289219",
     ]);
-    expect(ranked.at(-1)?.notes).toContain("E-book");
+    expect(ranked.at(-1)?.notes).toContain("eBook");
   });
 
   it("puts e-books first when every copy is digital", () => {

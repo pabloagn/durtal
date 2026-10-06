@@ -139,7 +139,9 @@ insert into works(title,slug,original_language,original_year) values
 insert into work_authors(work_id,author_id,role,sort_order)
  select w.id,a.id,'author',0 from works w join authors a on w.slug like '%-by-' || a.slug;
 insert into editions(work_id,title,language) select id,title,original_language from works;
-insert into locations(name,type) values ('Study','physical'),('Calibre','digital');
+insert into locations(name,type) values ('Study','physical');
+-- Migration 0075 already made the digital "eBooks" location on an empty database
+insert into locations(name,type) select 'eBooks','digital' where not exists (select 1 from locations where name='eBooks' and type='digital');
 insert into venues(name,slug,type) values ('Shakespeare and Company','shakespeare-and-company','bookshop');
 """
 

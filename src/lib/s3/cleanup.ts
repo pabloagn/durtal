@@ -19,22 +19,17 @@ export const KEY_COLUMNS = {
   editions: ["cover_s3_key", "thumbnail_s3_key"],
   authors: ["photo_s3_key"],
   venues: ["poster_s3_key", "thumbnail_s3_key"],
-  calibre_books: ["cover_s3_key"],
+  ebooks: ["cover_key"],
+  ebook_files: ["s3_key", "manifest_key", "cover_key"],
   comment_attachments: ["s3_key"],
   imports: ["s3_bronze_key", "s3_silver_key"],
 } as const;
 
 // Constant identifiers only; the keys themselves are bound parameters.
 const IN_USE = sql.raw(
-  [
-    ...Object.entries(KEY_COLUMNS).map(
-      ([table, columns]) =>
-        `exists(select 1 from ${table} where k in (${columns.join(", ")}))`,
-    ),
-    // Calibre ebook files are listed in a JSON array on the book row.
-    // Containment is false (not an error) for a row whose formats is not an array.
-    `exists(select 1 from calibre_books where formats @> jsonb_build_array(jsonb_build_object('s3Key', k)))`,
-  ].join(" or "),
+  Object.entries(KEY_COLUMNS)
+    .map(([table, columns]) => `exists(select 1 from ${table} where k in (${columns.join(", ")}))`)
+    .join(" or "),
 );
 
 /** What a deleted record leaves in the bucket. */

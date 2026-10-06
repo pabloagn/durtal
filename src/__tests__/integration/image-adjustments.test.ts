@@ -92,7 +92,7 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
   });
   beforeEach(async () => {
     await db.execute(
-      sql`truncate image_adjustments, works, authors, collections, venues, comments, calibre_books cascade`,
+      sql`truncate image_adjustments, works, authors, collections, venues, comments cascade`,
     );
   });
   async function poster(author = false, type: "poster" | "gallery" = "poster") {
@@ -276,28 +276,10 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
         })
       ).monochrome,
     ).toBe(true);
-    await db
-      .insert(schema.calibreBooks)
-      .values({
-        calibreId: 42,
-        title: "Digital",
-        path: "local-fixture",
-        coverS3Key: "reader.jpg",
-      });
-    const saved = await saveImagePresentation("/api/reader/42/cover", {
-      settings: { exposure: 1 },
-    });
-    expect(saved.sources).toContain(s3ImageSource("reader.jpg"));
-    expect(
-      (await getImagePresentation(s3ImageSource("reader.jpg"))).settings
-        .exposure,
-    ).toBe(1);
-    // gold/calibre/ also holds ebooks, so /api/s3/read refuses it: the editor shows the Reader route
-    for (const opened of ["/api/reader/42/cover", s3ImageSource("reader.jpg")]) {
-      const shown = await getImagePresentation(opened);
-      expect(shown.source).toBe("/api/reader/42/cover");
-      expect(shown.preview).toBe("/api/reader/42/cover");
-    }
+    // An e-book cover has no adjustments (SLN-490): its route is not an editable source
+    await expect(
+      saveImagePresentation("/api/reader/42/cover", { settings: { exposure: 1 } }),
+    ).rejects.toThrow("This image is not a stored Durtal asset");
   });
   it("supports image attachments but never treats documents as editable pictures", async () => {
     const [work] = await db

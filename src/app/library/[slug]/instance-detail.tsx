@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatFileSize, formatPrice, formatDate } from "@/lib/utils/format";
 import { InstanceEditDialog } from "./instance-edit-dialog";
@@ -18,9 +19,18 @@ interface LocationOption {
   subLocations: { id: string; name: string }[];
 }
 
+/** The e-book linked to a copy: it is that digital copy (SLN-490) */
+export interface CopyEbook {
+  id: string;
+  /** "EPUB, PDF" */
+  formats: string;
+  sizeBytes: number;
+}
+
 interface InstanceDetailProps {
   instance: InstanceWithLocation;
   availableLocations?: LocationOption[];
+  ebook?: CopyEbook | null;
 }
 
 const DIGITAL_FORMATS = new Set(["ebook", "audiobook", "pdf", "epub"]);
@@ -32,6 +42,7 @@ function isDigitalFormat(format: string | null): boolean {
 export function InstanceDetail({
   instance,
   availableLocations = [],
+  ebook = null,
 }: InstanceDetailProps) {
   const hasAcquisition =
     instance.acquisitionType ||
@@ -41,11 +52,7 @@ export function InstanceDetail({
 
   const isDigital = isDigitalFormat(instance.format);
 
-  const hasDigital =
-    isDigital &&
-    (instance.calibreId ||
-      instance.calibreUrl ||
-      instance.fileSizeBytes != null);
+  const hasDigital = !!ebook || (isDigital && instance.fileSizeBytes != null);
 
   const isDeaccessioned = instance.status === "deaccessioned";
   const hasDisposition =
@@ -235,26 +242,22 @@ export function InstanceDetail({
             Digital
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
-            {instance.calibreId && (
+            {ebook && (
               <>
-                <dt className="text-fg-secondary">Calibre ID</dt>
-                <dd className="font-mono text-fg-secondary">
-                  {instance.calibreId}
-                </dd>
-              </>
-            )}
-            {instance.calibreUrl && (
-              <>
-                <dt className="text-fg-secondary">Calibre</dt>
-                <dd>
-                  <a
-                    href={instance.calibreUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-fg-secondary transition-colors hover:text-accent-rose-text"
+                <dt className="text-fg-secondary">eBook</dt>
+                <dd className="text-fg-secondary">
+                  <span className="font-mono">
+                    {/* The size keeps its number and unit on one line; an e-book with no file has none */}
+                    {[ebook.formats, ebook.sizeBytes ? formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0") : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                  <Link
+                    href={`/reader/${ebook.id}`}
+                    className="ml-3 text-fg-primary transition-colors hover:text-accent-rose-text"
                   >
-                    {instance.calibreUrl}
-                  </a>
+                    Open
+                  </Link>
                 </dd>
               </>
             )}

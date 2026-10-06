@@ -1,7 +1,11 @@
 import { WORK_KINDS, isWorkKind, type WorkKind } from "@/lib/catalogue/kinds";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { rowProblems, type Row } from "./columns";
+import { InterchangeFileError } from "./errors";
+import { recordsFromVersion1 } from "./version-1";
 import { SECTIONS, TABLES, carries, entityOwner, references, type Section } from "./tables";
+
+export { InterchangeFileError };
 
 /*
  * The Durtal interchange file (SLN-375): one JSON document that carries
@@ -13,7 +17,8 @@ import { SECTIONS, TABLES, carries, entityOwner, references, type Section } from
  */
 
 export const INTERCHANGE_FORMAT = "durtal.interchange";
-export const INTERCHANGE_VERSION = 1;
+/** Version 2 (SLN-490): copies no longer carry links to the old e-book library. Version 1 files still read */
+export const INTERCHANGE_VERSION = 2;
 
 export interface InterchangeRecord {
   domain: WorkKind;
@@ -30,17 +35,6 @@ export interface InterchangeDocument {
   shared: Record<string, Row[]>;
 }
 
-/** A file this Durtal cannot read at all; `issues` name each place */
-export class InterchangeFileError extends Error {
-  constructor(
-    message: string,
-    readonly issues: string[] = [],
-  ) {
-    super(message);
-    this.name = "InterchangeFileError";
-  }
-}
-
 const isObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -48,15 +42,16 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 export function readEnvelope(input: unknown): { records: unknown[]; shared: Record<string, unknown> } {
   if (!isObject(input) || input.format !== INTERCHANGE_FORMAT)
     throw new InterchangeFileError("This is not a Durtal interchange file");
-  if (input.version !== INTERCHANGE_VERSION)
+  if (input.version !== INTERCHANGE_VERSION && input.version !== 1)
     throw new InterchangeFileError(
       typeof input.version === "number" && Number.isInteger(input.version)
-        ? `This file is interchange version ${input.version}; this Durtal reads version ${INTERCHANGE_VERSION}`
+        ? `This file is interchange version ${input.version}; this Durtal reads versions 1 and ${INTERCHANGE_VERSION}`
         : "The file does not say which interchange version it is",
     );
   if (!Array.isArray(input.records)) throw new InterchangeFileError("The file has no list of records");
   if (!isObject(input.shared)) throw new InterchangeFileError("The file has no shared section");
-  return { records: input.records, shared: input.shared };
+  const records = input.version === 1 ? recordsFromVersion1(input.records) : input.records;
+  return { records, shared: input.shared };
 }
 
 /** The shared rows, checked table by table; any problem refuses the whole file */

@@ -29,7 +29,6 @@ dependencies = [
   # ── Image Processing (cover images) ──────────────────
   "pillow>=10.3",
   # ── AWS S3 (cover uploads) ───────────────────────────
-  "boto3>=1.34",
   # ── Environment ──────────────────────────────────────
   "python-dotenv>=1.0",
   # ── ISBN Handling ────────────────────────────────────

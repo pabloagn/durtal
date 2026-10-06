@@ -166,11 +166,18 @@ describe("S opens the search", () => {
   });
 
   it("leaves S to the e-book reader, which opens its settings with it", () => {
-    nav.pathname = "/reader/42";
+    nav.pathname = "/reader/0b6f1c52-3f7e-4d5a-9c1e-6a2b8d4e7f90";
     const onPalette = renderApp();
     const event = press("s");
     expect(onPalette).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("opens the search on /reader, which is not an e-book (SLN-490)", () => {
+    nav.pathname = "/reader/42";
+    const onPalette = renderApp();
+    press("s");
+    expect(onPalette).toHaveBeenCalledWith(true);
   });
 
   it("keeps G S (Series) and R S (start reading): an open menu takes the key", () => {

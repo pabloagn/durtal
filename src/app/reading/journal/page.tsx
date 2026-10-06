@@ -12,7 +12,8 @@ import { getJournalFacets, queryJournal, type JournalRow } from "@/lib/reading/j
 import { journalGroup, parseJournalQuery } from "@/lib/reading/journal-params";
 import { formatReadingSpan } from "@/lib/reading/dates";
 import { readingToday } from "@/lib/reading/day";
-import { clearedListHref, firstPageHref, hasListQuery } from "@/lib/utils/list-params";
+import { clearedListHref, firstPageHref, hasListQuery, exportFilters } from "@/lib/utils/list-params";
+import { ExportMenu } from "@/components/shared/export-menu";
 import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { languageName } from "@/lib/utils/language";
 import { JournalFilters } from "./journal-filters";
@@ -74,14 +75,18 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
   if (rows.length === 0) return <PageOutOfRange firstPageHref={firstPageHref("/reading/journal", search)} />;
   return (
     <>
-      <p className="mb-4 text-sm text-fg-secondary" data-journal-summary="">
-        {[
-          count(summary.readings, "reading"),
-          `${summary.finished.toLocaleString("en-US")} finished`,
-          `${summary.abandoned.toLocaleString("en-US")} abandoned`,
-          count(summary.rereads, "re-read"),
-        ].join(" · ")}
-      </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-fg-secondary" data-journal-summary="">
+          {[
+            count(summary.readings, "reading"),
+            `${summary.finished.toLocaleString("en-US")} finished`,
+            `${summary.abandoned.toLocaleString("en-US")} abandoned`,
+            count(summary.rereads, "re-read"),
+          ].join(" · ")}
+        </p>
+        {/* Every reading the filters keep, not only this page */}
+        <ExportMenu entity="readings" ids={{ filters: exportFilters(search) }} noun="readings" align="end" side="bottom" />
+      </div>
       <div className="space-y-8" id="list-start">
         {grouped(rows, query.sort === "finished").map((group, i) => (
           <section key={`${group.title}-${i}`}>

@@ -4,7 +4,6 @@ import {
   text,
   boolean,
   date,
-  integer,
   numeric,
   bigint,
   timestamp,
@@ -54,9 +53,7 @@ export const instances = pgTable("instances", {
   acquisitionPrice: numeric("acquisition_price", { precision: 10, scale: 2 }),
   acquisitionCurrency: text("acquisition_currency"),
 
-  // Digital-specific
-  calibreId: integer("calibre_id"),
-  calibreUrl: text("calibre_url"),
+  // Digital-specific: an e-book (ebooks.instance_id) names the copy it is
   fileSizeBytes: bigint("file_size_bytes", { mode: "number" }),
 
   // Disposition (populated when status = 'deaccessioned')

@@ -270,9 +270,10 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
       acquisitionMethod: "gift",
       orderDate: "2026-01-01",
     });
+    // An e-book is the copy: it follows the copy into the kept work (SLN-490)
     await db
-      .insert(schema.calibreBooks)
-      .values({ calibreId: 1, title: "Agua Viva", path: "book", workId: a.id });
+      .insert(schema.ebooks)
+      .values({ title: "Agua Viva", instanceId: i.id, matchState: "linked", importSource: "folder" });
     await db
       .insert(schema.workStatusHistory)
       .values({ workId: a.id, toStatus: "tracked" });
@@ -287,7 +288,9 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
       edition_id: e.id,
       instance_id: i.id,
     });
-    expect((await client!`select * from calibre_books`)[0].work_id).toBe(b.id);
+    expect(await client!`select e.work_id from ebooks eb join instances i on i.id = eb.instance_id join editions e on e.id = i.edition_id`).toEqual([
+      { work_id: b.id },
+    ]);
     expect((await client!`select * from work_status_history`)[0].work_id).toBe(
       b.id,
     );

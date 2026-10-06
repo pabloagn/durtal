@@ -33,8 +33,6 @@
 /reading/year/[year]        One year's review, made to print
 /reading/import             Import reading history: upload, past imports
 /reading/import/[id]        One import's preview, decisions, commit and undo
-/reader                     Calibre e-book library
-/reader/[calibreId]         E-book reader for one Calibre book
 /series                     Series index
 /series/[id]                Series detail
 /series/suggestions         Books that match a series by title
@@ -132,7 +130,7 @@ The root `Shell` component wraps all page content:
 - Wraps everything in `ShortcutsProvider` (`src/components/shortcuts/`): Cmd+K → palette (searches books and authors), `S` → the palette too, from any page but the e-book reader (SLN-477), `/` → list search, Esc → close the innermost search surface (a list, a popover, the palette, then a dialog; in a page search field it leaves the field and keeps the text), `A` → the Add menu (one entry per open collection, then author, publisher, recommender, series, collection, place), `G` → the Go to menu (an open collection's home is `G` then its `keys.go`: Books is `G B`), `Y` → the Copy menu (the page's name, title, ISBN, address and link; pages give theirs with `CopyShortcuts`), `E` → the Edit menu (the page's edit actions, given with `useEditActions`; on the book page `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy; on a page with no edit actions `E` does nothing), `R` → the Reading menu (a book page's reading actions, given with `useReadingActions`), `G R` → Reading (`/reading`), ↑ ↓ and Enter → pick in any search list, Enter / Cmd+Enter → confirm or save in dialogs and the Add Book steps (on the Details step both run Fast Track), `?` → the shortcut sheet. The list lives in `src/lib/shortcuts/shortcuts.ts`
 - Renders `CommandPalette` and `Toaster` (sonner)
 - Wraps the page and the palette in `TimerProvider` (`src/components/reading/timer-provider.tsx`, SLN-451): the one running timer, its ticking time and Start, Pause, Resume and Discard for every page; it also renders `TimerAlerts` (the forgotten-timer question, "A timer is running for Nadja" with "Stop it and start this one", and the discard confirmation)
-- Wraps the page and the palette in `ReadingDialogsProvider` (`src/components/reading/reading-dialogs-provider.tsx`), in both branches (the reader view at `/reader/[calibreId]` too): `useReadingDialogs()` opens Start reading, Log progress, Finish, Abandon, Log a past read, Edit and Delete for any book from any page, and the book picker. A dialog loads its book's data when it opens (`getReadingDialogData`) and each dialog's code on first use; a dialog on a reading sends the fingerprint its caller holds, so a reading changed elsewhere gets the server's "This reading changed elsewhere; reload before saving", then the page refreshes
+- Wraps the page and the palette in `ReadingDialogsProvider` (`src/components/reading/reading-dialogs-provider.tsx`), in both branches: `useReadingDialogs()` opens Start reading, Log progress, Finish, Abandon, Log a past read, Edit and Delete for any book from any page, and the book picker. A dialog loads its book's data when it opens (`getReadingDialogData`) and each dialog's code on first use; a dialog on a reading sends the fingerprint its caller holds, so a reading changed elsewhere gets the server's "This reading changed elsewhere; reload before saving", then the page refreshes
 
 ---
 
@@ -502,7 +500,7 @@ The detail page for a single work. Displays the work and all its editions and in
 
 **Reading menu** (`R`, on a book page): `R S` starts (or re-reads), `R P` logs progress, `R U` pauses or resumes, `R F` finishes, `R A` abandons, `R T` starts or stops the timer, `R N` adds the book to Up Next or takes it off, `R Q` adds a quote (on the open reading), `R L` logs a past read, `R H` goes to the Reading section. It never opens while a dialog is open. The command palette lists the same actions under "This page".
 
-**External links**: Open Library, Google Books, Calibre-Web (if digital instance with calibre_url exists).
+**External links**: Open Library, Google Books.
 
 ---
 
@@ -529,7 +527,7 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 **Step 4 — Instance Creation**:
 - Location assignment: select one or more locations
 - For each location: format, condition, acquisition details, collector flags
-- Multiple instances can be created at once (e.g., hardcover in Amsterdam + EPUB in Calibre)
+- Multiple instances can be created at once (e.g., hardcover in Amsterdam + EPUB in eBooks)
 
 **Step 5 — Categorization** (optional):
 - Subjects (work-level)
@@ -554,7 +552,6 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 Interface for importing books in bulk from external sources. Reading history (Goodreads, StoryGraph, the seed spreadsheet) is imported at `/reading/import`; a line under the header links there.
 
 **Supported sources**:
-- Calibre library export
 - Custom CSV
 
 **Interface**:
@@ -753,10 +750,10 @@ The books he wants to read next, in his order (SLN-452), from `getQueue` (one qu
 
 ### Notes (`/reading/notes`)
 
-The commonplace book (SLN-453): every quote and note, from `parseNotesQuery` (`src/lib/reading/notes-params.ts`, bad values dropped; the filtered export of a later step reads the same parameters) and `searchNotes`. `PageHeader` "Reading" with "Add a quote" (the book picker, then the note dialog) and `ReadingTabs`.
+The commonplace book (SLN-453): every quote and note, from `parseNotesQuery` (`src/lib/reading/notes-params.ts`, bad values dropped) and `searchNotes`, whose filter is `notesCondition` (`src/lib/reading/notes-conditions.ts`), shared with the export. `PageHeader` "Reading" with "Add a quote" (the book picker, then the note dialog) and `ReadingTabs`.
 - The search (`q`) runs on `reading_notes.search_text` with `textSearchCondition`: "melancolie" finds "mélancolie", and a one-letter typo in a word of four letters or more still finds the passage. A search lists the best match first ("Best match", `sort=relevance`) unless he chose a sort.
 - Filters in the URL: Kind (`kind=quote|note`), Favourites only (`fav=1`), Book (`book`, a work id), Edition (`edition`, an edition id or `none`; SLN-480: shown when a book is chosen and its notes span two groups or more, the book's editions with notes by label then "No edition recorded"; with no book, only "No edition recorded"; another book clears it), Author (`author`), Translator (`translator`, a person credited as translator on a note's edition; shown with two or more), Year added (`year`, in the app's zone). A single value still works through the URL, as from a person's page. Sorts (`sort`, `order`): Newest (`newest`, the default) and Book and page (`book`: by title, then the edition groups in the book page's order with no edition last, then each group's order, grouped under the book's title and author). 48 per page (`page`), or the size saved with the page's size control (`perPage`).
-- A summary: "312 quotes and notes", or "12 of 312" when filtered. The list is drawn in the browser from slim rows (`NotesList`), so a note is sent once. Each item: the passage in `Prose` (a quote with a rule at its left), his thought, then "Nadja · André Breton · p. 212 · Gallimard, 1928 · ch. 7 · 2nd read" (a page with no edition: "edition not recorded"; SLN-480) with the title linking to the book, the star and the menu (Edit, Copy, Delete). Each edition comes once with the page (`noteEditions`).
+- A summary: "312 quotes and notes", or "12 of 312" when filtered, with an Export menu at its right (SLN-458: CSV, TSV, Parquet or Markdown, the commonplace book) that exports every note the filters keep, not only the page (`POST /api/export` with `filters`). The list is drawn in the browser from slim rows (`NotesList`), so a note is sent once. Each item: the passage in `Prose` (a quote with a rule at its left), his thought, then "Nadja · André Breton · p. 212 · Gallimard, 1928 · ch. 7 · 2nd read" (a page with no edition: "edition not recorded"; SLN-480) with the title linking to the book, the star and the menu (Edit, Copy, Delete). Each edition comes once with the page (`noteEditions`).
 - Empty: "No quotes yet" with "Add a quote". No match: the usual "No quotes or notes match" with Clear.
 - A passage over 600 characters opens at 8 lines with "Show all", here and on the book page.
 
@@ -808,7 +805,7 @@ A year's reading, or all time (SLN-456), from `src/lib/reading/stats.ts`: a hand
 ### Reading journal (`/reading/journal`)
 
 Every reading (SLN-448), from `parseJournalQuery` (`src/lib/reading/journal-params.ts`) and `queryJournal` (`src/lib/reading/journal.ts`).
-- A summary of the filtered readings: "212 readings · 187 finished · 9 abandoned · 4 re-reads".
+- A summary of the filtered readings: "212 readings · 187 finished · 9 abandoned · 4 re-reads", with an Export menu at its right (SLN-458: CSV, TSV or Parquet, the Durtal reading CSV) that exports every reading the filters keep, in the page's order (`journalReadingIds`, `POST /api/export` with `filters`).
 - With the Finished sort, rows sit in groups: "In progress", then each year of finish (the stop date of an abandoned read; a month or year date sits in its year), then "Date unknown".
 - Each row: cover, title, author, dates (`formatReadingSpan`), outcome ("Finished · re-read"), the edition's language when it is a translation, the format, the read's rating, and a menu with Edit and Delete (with Undo).
 - Filters in the URL: Status (`status`), Year range (`yearMin`, `yearMax`, on the finish or stop date), Format (`format`), Minimum rating (`minRating`, half stars), Re-reads only (`rereads=1`), and the search (`q`, title and author, accents ignored). Sorts (`sort`, `order`): Finished (newest first, unknown dates last), Started, Rating (unrated last), Title (accents ignored). Ties on the reading's id. 48 per page.
@@ -829,20 +826,6 @@ What an import will do, before anything is written (SLN-450), from `getImportPre
 - Each row: what the file says (title, author, latest read, rating), the Durtal book (cover, title, author, a link), the reason ("Same ISBN", "Same Goodreads id", "Same Goodreads link", "Same Durtal book", "Same source" for a book an earlier import of the file wrote to, "Title and author, 92%", "Chosen by you"), what will be written ("Finished 14 Apr 2019 · 4 stars · review · +2 earlier reads, dates unknown"), the book rating line ("Book rating set to 4: the book has none", or "Book rating 3 kept (the file says 4)" with "Use the file's rating"), and Import, Skip and Choose another book (the book picker). To choose rows show their candidates as buttons. Not in Durtal rows have "Add this book" (`/library/new?isbn=` or `?q=`, in a new tab); the page matches again when it becomes visible after that. A row already in Durtal only through the undated count offers "Import anyway". After the commit each row shows its outcome.
 - Decisions are saved at once, one row each. Defaults: Exact rows import, and Want to read rows whose book is neither queued nor being read; Already in Durtal, Cannot import and Not imported rows skip; the rest wait.
 - **Private notes** (SLN-453), after the sections: every row whose Goodreads `Private Notes` is not empty, 50 at a time ("Show 50 more", `?notes=100`). Each: the row's title and author, the book it matched (or "Choose this row's book first"), the note's first three lines (at most 300 characters), and Import and Skip (`decideImportNote`, one UPDATE of `note_decision`), or what happened: "Imported", "Already in Durtal (Same source)", "Too long to import (12,400 characters; at most 10,000)". "Import all private notes" sets every note with a book to import in one UPDATE. A note's decision is its own: a row whose readings are already in Durtal still brings its note. Default on upload: import for rows in Exact, pending otherwise; an import uploaded before this step shows its notes pending. The commit writes each note to import as a note on its book (`source` import, the row's latest read in Durtal, the key `goodreads-note:<Book Id>`), never twice; undo removes the notes not edited since and lists the kept ones.
-
-### Reader (`/reader`)
-
-Library of Calibre e-books (`calibre_books` table): recently read books (6), then a paginated grid of all books.
-
-**Features**: Search by title through the `q` query parameter.
-
----
-
-### Reader View (`/reader/[calibreId]`)
-
-In-app e-book reader for one Calibre book. It opens the EPUB format first, then PDF, then the first format available. The file comes from `/api/reader/[calibreId]/file`. The position is saved to `/api/reader/[calibreId]/progress`.
-
----
 
 ### Places (`/places`)
 
@@ -918,9 +901,9 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
   - New copies: location (or "pick for each copy"), format, condition (the wizard's copies step and the Add copy dialog; the default location sorts first).
   - Orders: home currency (new orders start in it; spending totals list it first).
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
-- **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. The same cookie as the reader's own panel.
+- **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. Saved in a cookie in this browser, for the e-book reader (SLN-489).
 - **Reading** (`/settings/reading`, SLN-451): saved in `app_settings` for every device. "A reading day ends at" (midnight to 06:00; "Past days stay as they were"), "A reading week starts on" (Monday or Sunday), "Days I'd like to read each week" (Off, or 1 to 7; "5 of 7 leaves room for rest days", SLN-455), "Reading goals" (the goal dialog's button), "Ask “Still reading?” after" (15 minutes to 8 hours).
-- **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). The Calibre library (books, linked, last sync) and whether the REST and media maintenance routes ask for a token.
-- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; refresh cached data.
+- **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). eBooks (e-books, linked to a book, files stored, last added) and whether the REST and media maintenance routes ask for a token.
+- **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; reading (SLN-458): Readings (the Durtal reading CSV), Reading sessions, Quotes and notes (also as the Markdown commonplace book) and the Goodreads file (CSV only; when it carries half-star ratings, a dialog first says "12 half-star ratings will be rounded up", from `getGoodreadsExportNotice`); refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.
