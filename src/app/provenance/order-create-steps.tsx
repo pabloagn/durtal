@@ -163,7 +163,7 @@ export function WorkSearchStep({
           <button
             type="button"
             onClick={() => setShowCreate(false)}
-            className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             Back to search
           </button>
@@ -207,7 +207,7 @@ export function WorkSearchStep({
               placeholder="Author name"
               // ↑ ↓ and Enter pick from the author suggestions
               data-picker=""
-              className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+              className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
             />
             {isSearchingAuthors && (
               <Loader2
@@ -311,7 +311,7 @@ export function WorkSearchStep({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by title..."
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+          className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
           autoFocus
         />
         {isSearching && (

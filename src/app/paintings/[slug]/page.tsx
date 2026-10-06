@@ -407,7 +407,7 @@ export default async function PaintingPage({
 
         <Link
           href="/paintings"
-          className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
           Back to paintings

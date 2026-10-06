@@ -166,7 +166,7 @@ export default function IconPickerPanel({
           }}
           placeholder={`Search ${ICON_COUNT.toLocaleString("en")} icons`}
           aria-label="Search icons"
-          className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-2 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+          className="h-8 pointer-coarse:h-11 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-2 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
         />
         {value && (
           <button

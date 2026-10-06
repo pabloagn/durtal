@@ -366,7 +366,7 @@ export default async function PerfumePage({
       />
       <Link
         href="/perfumes"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
         Back to perfumes
@@ -498,7 +498,7 @@ export default async function PerfumePage({
                           href={current ? base : `${base}?formulation=${v.id}`}
                           scroll={false}
                           aria-current={current ? "true" : undefined}
-                          className={`rounded-sm border px-2 py-0.5 text-xs leading-5 transition-colors ${
+                          className={`rounded-sm border px-2 py-0.5 text-xs leading-5 transition-colors pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center ${
                             current
                               ? "border-accent-rose/40 bg-accent-plum text-fg-primary"
                               : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"

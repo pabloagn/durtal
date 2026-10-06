@@ -50,7 +50,7 @@ export default async function RecommenderPage({
       <CopyShortcuts name={recommender.name} />
       <Link
         href="/recommenders"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
         Back to recommenders
@@ -95,7 +95,7 @@ export default async function RecommenderPage({
           </div>
         </div>
         {/* On the cap-height center of the name's first line */}
-        <CapAlignedControls height={32} className="type-page-title">
+        <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
           <FavouriteToggle
             favourite={recommender.isFavourite}
             target={{ entity: "recommender", id: recommender.id }}

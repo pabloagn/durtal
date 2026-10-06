@@ -390,7 +390,7 @@ export function CollectionButton({
           e.stopPropagation();
           setOpen(true);
         }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted hover:bg-bg-tertiary hover:text-fg-primary"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:size-11"
       >
         <FolderPlus size={14} strokeWidth={1.5} />
       </button>

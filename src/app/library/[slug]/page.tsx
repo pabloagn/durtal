@@ -361,7 +361,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
           {/* Back link */}
           <Link
             href="/library"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
             Back to books
@@ -386,7 +386,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   {work.title}
                 </h1>
                 {/* On the cap-height center of the title's first line */}
-                <CapAlignedControls height={32} className="type-page-title">
+                <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
                   <FavouriteToggle
                     favourite={work.isFavourite}
                     target={{ entity: "work", id: work.id }}
@@ -554,11 +554,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 )}
                 {/* Marks: one group; the negative margin cancels the
                     buttons' padding so every icon sits 12px from its neighbour */}
-                <CapAligned height={28}>
+                <CapAligned height={28} coarseHeight={44}>
                   <div
                     role="group"
                     aria-label={MARKS_LABEL}
-                    className="-mx-1.5 flex items-center"
+                    className="-mx-1.5 flex items-center pointer-coarse:mx-0"
                   >
                     <HuntAssessmentControl
                       workId={work.id}

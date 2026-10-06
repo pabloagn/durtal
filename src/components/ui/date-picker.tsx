@@ -92,7 +92,7 @@ export function DatePicker({
           type="button"
           id={id}
           onClick={() => setOpen((prev) => !prev)}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-rose focus:outline-none focus:glass-input-focus ${
+          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-rose focus:outline-none focus:glass-input-focus pointer-coarse:h-11 ${
             error ? "border-accent-red" : ""
           } ${open ? "border-accent-rose" : ""}`}
         >
