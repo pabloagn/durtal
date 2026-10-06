@@ -615,6 +615,12 @@ Books finished or started on these days' calendar dates in earlier years, day pr
 ### `yearReview(year)`
 The year's numbers, its finished books in finish order with their covers and month (null when dated only by the year), the first and last book (day or month precision), the longest, the highest rated, the most re-read, the busiest month and the favourite passage.
 
+## Reading export (`src/lib/actions/reading-export.ts`, SLN-458)
+
+### `getGoodreadsExportNotice()`
+
+What the Goodreads export says before it downloads: `{ books, halfStars }`, the books the file holds and how many of the ratings it carries are half stars, which Goodreads rounds up (`roundsHalfStar`, `src/lib/export/goodreads.ts`). A book never finished nor abandoned carries no rating, so it is not counted. Reads only. The files themselves come from `POST /api/export` (docs/05).
+
 ## Quotes and notes (`src/lib/actions/reading-notes.ts`, SLN-453)
 
 The commonplace book. Each write parses its input with zod (`src/lib/validations/reading-notes.ts`), writes books only (`requireBookWork`), reads and checks the reading and edition against the book ("This reading belongs to another book", "This edition belongs to another book"), runs one `atomic` inside `withReadableErrors`, then records activity and invalidates `works` and `reading`. `source`, `sourceKey` and `importId` are never taken from a page: page actions write `source: "manual"`. No event per note: at most one `work.notes_added` per book per reading day ("Added 3 quotes and 1 note"), recorded after the write; the first note of the day records it and later ones add to its counts. Notes an import writes record none. Pure rules: `src/lib/reading/notes-text.ts` (`joinHyphenatedLines`, `formatNoteForCopy`), `src/lib/reading/notes-params.ts` (`parseNotesQuery`) and `src/lib/reading/passage.ts` (`choosePassage`).
