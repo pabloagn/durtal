@@ -437,7 +437,7 @@ Download books, authors, perfumes, films, paintings, or reading as a file. Used 
 
 The Durtal interchange file (SLN-375): one JSON document that carries records of every collection whole, for a backup, a move to another Durtal, or a review by hand. The book CSV, TSV and Parquet export above and the reading CSV stay as they are.
 
-The file is `{ "format": "durtal.interchange", "version": 2, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
+The file is `{ "format": "durtal.interchange", "version": 3, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
 
 | Section | What it holds |
 |---|---|
@@ -455,7 +455,7 @@ The file is `{ "format": "durtal.interchange", "version": 2, "exportedAt", "reco
 
 `shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried: images and their files, comments, activity, readings, orders and acquisition targets, e-books. Nor are the colours derived from a cover (`editions.cover_palette`, `editions.cover_color_bucket`, `media.color_bucket`, `DERIVED_COLUMNS` in `src/lib/interchange/columns.ts`): the cover-colour backfill recomputes them after an import.
 
-A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one. Version 2 (SLN-490) drops two link columns of the old e-book library from book copies; `src/lib/interchange/version-1.ts` reads a version 1 file when they are empty on every copy and refuses it otherwise.
+A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one. Version 2 (SLN-490) drops two link columns of the old e-book library from book copies; `src/lib/interchange/version-1.ts` reads a version 1 file when they are empty on every copy and refuses it otherwise. Version 3 (SLN-462) adds `works.original_title`; `src/lib/interchange/version-2.ts` reads a version 2 file, and a version 1 file after its own reader, with the original title empty.
 
 ### `POST /api/interchange/export`
 
@@ -482,7 +482,7 @@ Each record is one transaction: a record that fails writes nothing, and the othe
 
 **Response** `200`: `{ "dryRun", "policy", "counts", "records": [...] }`. Each record reports `outcome`: `created`, `unchanged`, `added`, `kept` (left as it is here) or `failed`; `written` (rows by table); `differences` (file rows that differ from the rows here, by table, key and columns); `absent` (rows a kept record lacks); `problems` (why it failed, row by row).
 
-**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 3; this Durtal reads versions 1 and 2" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
+**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 4; this Durtal reads versions 1 to 3" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
 
 ---
 

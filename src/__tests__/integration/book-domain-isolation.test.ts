@@ -404,6 +404,21 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
           await c`insert into recommendation_feedback(work_id,verdict) values (${books[0]},'not_now') on conflict (work_id) do nothing`;
           return c`update recommendation_feedback set work_id = ${other.id} where work_id = ${books[0]}`;
         },
+        // Book enrichment (SLN-462): every table that holds a work refuses a non-book first
+        () =>
+          c`insert into enrichment_claims(work_id,dimension_id,term_id,method,confidence,vocabulary_version,run_id) values (${other.id},gen_random_uuid(),gen_random_uuid(),'api',0.5,1,gen_random_uuid())`,
+        () =>
+          c`insert into work_enrichment_values(work_id,dimension_id,number_value,claim_id) values (${other.id},gen_random_uuid(),1,gen_random_uuid())`,
+        () =>
+          c`insert into enrichment_applications(claim_id,work_id,dimension_id,target,before,after,applied_by) values (gen_random_uuid(),${other.id},gen_random_uuid(),'values','{}'::jsonb,'{}'::jsonb,'pablo')`,
+        () =>
+          c`insert into work_popularity_snapshots(work_id,metric,month,value,source_record_id) values (${other.id},'reviews_found','2026-10-01',1,gen_random_uuid())`,
+        () => c`insert into enrichment_jobs(work_id,kind) values (${other.id},'identity')`,
+        async () => {
+          const [job] =
+            await c`insert into enrichment_jobs(work_id,kind,status,finished_at) values (${books[0]},'facts','done',now()) returning id`;
+          return c`update enrichment_jobs set work_id = ${other.id} where id = ${job.id}`;
+        },
       ];
       for (const statement of statements)
         await expect(statement()).rejects.toMatchObject({

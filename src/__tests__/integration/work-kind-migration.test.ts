@@ -72,6 +72,11 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         expect(work.is_favourite).toBe(false);
         delete work.is_favourite;
       }
+      // 0077 (SLN-462): no book has an original title until enrichment proposes one
+      if ("original_title" in work) {
+        expect(work.original_title, "works.original_title").toBeNull();
+        delete work.original_title;
+      }
     }
     // Migration 0062 adds a house's founding year and city, empty for every row
     for (const row of projected.publishing_houses ?? [])
@@ -268,6 +273,16 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "ebook_files",
       "ebook_positions",
       "ebook_annotations",
+      "enrichment_vocabulary_versions",
+      "enrichment_dimensions",
+      "enrichment_terms",
+      "enrichment_claims",
+      "claim_evidence",
+      "work_enrichment_values",
+      "enrichment_applications",
+      "enrichment_auto_accept_rules",
+      "work_popularity_snapshots",
+      "enrichment_jobs",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
