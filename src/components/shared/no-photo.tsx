@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { FadeImage } from "@/components/shared/fade-image";
 
 /**
@@ -160,57 +161,20 @@ export function Flacon({ name, initials = true }: { name: string; initials?: boo
     words.length > 1 ? `${words[0][0]}${words[1][0]}` : (words[0]?.slice(0, 1) ?? "")
   ).toUpperCase();
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center"
-      style={tint(tone, 10)}
-      aria-hidden
-    >
-      <svg viewBox="0 0 64 96" className="h-[64%] w-auto overflow-visible">
+    <div className="flacon" style={{ "--tone": `var(${tone})` } as CSSProperties} aria-hidden>
+      {/* Colors and type in the flacon utility (globals.css), by element order */}
+      <svg viewBox="0 0 64 96">
         {/* Cap and neck */}
-        <rect
-          x="22"
-          y="4"
-          width="20"
-          height="16"
-          rx="1.5"
-          style={{ fill: "color-mix(in oklab, var(--color-fg-muted) 45%, var(--color-bg-tertiary))" }}
-        />
-        <rect
-          x="27"
-          y="20"
-          width="10"
-          height="6"
-          style={{ fill: "color-mix(in oklab, var(--color-fg-muted) 25%, var(--color-bg-tertiary))" }}
-        />
+        <rect x="22" y="4" width="20" height="16" rx="1.5" />
+        <rect x="27" y="20" width="10" height="6" />
         {/* Glass: shoulders and body */}
-        <path
-          d="M27 26H37L52 33Q54 34 54 36V89Q54 92 51 92H13Q10 92 10 89V36Q10 34 12 33Z"
-          style={{
-            fill: `color-mix(in oklab, var(${tone}) 26%, var(--color-bg-tertiary))`,
-            stroke: "rgb(255 255 255 / 0.06)",
-            strokeWidth: 0.75,
-          }}
-        />
+        <path d="M27 26H37L52 33Q54 34 54 36V89Q54 92 51 92H13Q10 92 10 89V36Q10 34 12 33Z" />
         {/* A line of light down the glass */}
-        <rect x="14.5" y="40" width="1.5" height="44" rx="0.75" fill="rgb(255 255 255 / 0.07)" />
+        <rect x="14.5" y="40" width="1.5" height="44" rx="0.75" />
         {/* Label */}
-        <rect
-          x="17"
-          y="52"
-          width="30"
-          height="22"
-          rx="1"
-          style={{ fill: "var(--color-bg-secondary)", stroke: "rgb(255 255 255 / 0.08)", strokeWidth: 0.5 }}
-        />
+        <rect x="17" y="52" width="30" height="22" rx="1" />
         {initials && letters && (
-          <text
-            x="32"
-            y="63"
-            textAnchor="middle"
-            dominantBaseline="central"
-            className="font-serif"
-            style={{ fill: "var(--color-fg-secondary)", fontSize: 11, letterSpacing: "0.04em" }}
-          >
+          <text x="32" y="63">
             {letters}
           </text>
         )}
