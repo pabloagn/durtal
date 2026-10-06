@@ -148,7 +148,7 @@ function Lookup({ perfume, onDone }: { perfume: { id: string; title: string; fin
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-fg-primary">{f.label}</p>
-                  <p className="lines-2 text-fg-secondary">{f.source}</p>
+                  <p className="line-clamp-2 break-words text-fg-secondary">{f.source}</p>
                   <p className="text-xs text-fg-secondary">
                     {VERDICTS[f.verdict]}
                     {f.verdict === "conflict" && f.here ? ` (${f.here})` : ""}

@@ -628,7 +628,7 @@ export default async function PerfumePage({
           name: "Fragrantica, the house's website, a book and page",
           says: "Launch year, perfumer",
         }}
-        lookup={<PerfumeSourceLookup perfume={{ id: perfume.id, title: perfume.title, fingerprint: perfume.fingerprint }} />}
+        lookup={<PerfumeSourceLookup key="lookup" perfume={{ id: perfume.id, title: perfume.title, fingerprint: perfume.fingerprint }} />}
       />
 
       <PersonalNotes notes={curation?.notes ?? null} placeholder="How it wears on you, when you reach for it" />
