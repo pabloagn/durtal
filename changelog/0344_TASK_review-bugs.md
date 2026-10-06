@@ -45,3 +45,18 @@ SLN-484 and SLN-486. A fifth, SLN-485 (`/api/s3/read` in a preview), is in
   hand-made fixture settles, so it waits for a real export.
 
 ## Completion Notes
+
+- Statuses with curl on a seeded preview: `/places/no-such-place`,
+  `/taxonomy/no-such-family` and `/taxonomy/art-movements/no-such-item`
+  answer 404; `/places/seed-museum-1`, `/taxonomy/art-movements` and
+  `/taxonomy/art-movements/baroque` answer 200. Before, all six answered 200.
+- The session dialog in headless Chrome, WebKit and Firefox, on the reading
+  journey's book: after a session at 06:00 for 30 minutes, a new one at 06:15
+  for 30 minutes shows "Overlaps the session from 06:00 to 06:30" under the
+  start time and Add session is off; at 06:30 for 10 minutes the message goes
+  and Add session is on.
+- `alignment-audit.js` and `design-audit.js` on a place, a taxonomy family, a
+  taxonomy item and the reading journey's book at 1440 and 390: no finding.
+- `python3 scripts/qa/test-local.py`: 215 files, 2,385 tests. New: the order
+  delete message (`order-status-sync.test.ts`), overlaps by hand and by an
+  edit (`reading-sessions.test.ts`), `session-overlap.test.ts`.
