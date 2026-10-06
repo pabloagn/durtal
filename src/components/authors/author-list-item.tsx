@@ -142,7 +142,7 @@ export function AuthorListItem({
       {/* Actions menu, on the name's cap-height center; visible on hover */}
       {!isSelecting && (
         <div
-          className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+          className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           <CapAlignedControls height={28} className="type-item-title">

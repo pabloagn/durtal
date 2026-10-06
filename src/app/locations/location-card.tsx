@@ -131,7 +131,7 @@ export function LocationCard({
           <div className="flex items-center justify-between">
             <Link
               href={`/library?location=${id}`}
-              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-rose-text"
+              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-rose-text pointer-coarse:min-h-11"
             >
               <h3 className="type-item-title group-hover:text-accent-rose-text">
                 {name}
@@ -152,7 +152,7 @@ export function LocationCard({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditOpen(true)}
-                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100 focus-visible:opacity-100"
+                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-bg-tertiary hover:text-fg-secondary group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:p-3.5 pointer-coarse:opacity-100"
                     aria-label="Edit location"
                     data-tooltip="Edit location"
                   >
@@ -160,7 +160,7 @@ export function LocationCard({
                   </button>
                   <button
                     onClick={() => setDeleteOpen(true)}
-                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100"
+                    className="block rounded-sm p-1 text-fg-muted opacity-0 transition-all hover:bg-accent-red/10 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:p-3.5 pointer-coarse:opacity-100"
                     aria-label="Delete location"
                     data-tooltip="Delete location"
                   >

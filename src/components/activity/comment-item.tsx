@@ -102,11 +102,12 @@ export function CommentItem({
               </div>
 
               {/* Hover actions */}
-              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              {/* Shown on hover; a touch screen has none, so there they always show */}
+              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
                   Edit
                 </button>
@@ -114,7 +115,7 @@ export function CommentItem({
                   type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text disabled:opacity-50"
+                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
                   {isDeleting ? "..." : "Delete"}
                 </button>

@@ -539,11 +539,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 )}
                 {/* Marks: one group; the negative margin cancels the
                     buttons' padding so every icon sits 12px from its neighbour */}
-                <CapAligned height={28}>
+                <CapAligned height={28} coarseHeight={44}>
                   <div
                     role="group"
                     aria-label={MARKS_LABEL}
-                    className="-mx-1.5 flex items-center"
+                    className="-mx-1.5 flex items-center pointer-coarse:mx-0"
                   >
                     <HuntAssessmentControl
                       workId={work.id}

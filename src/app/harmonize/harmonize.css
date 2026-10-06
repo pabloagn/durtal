@@ -1053,3 +1053,32 @@
     letter-spacing: 0.09em;
   }
 }
+
+/* Touch targets: 44px on a coarse pointer (docs/03, Keyboard, touch and motion) */
+@media (pointer: coarse) {
+  .h-button,
+  .h-filter,
+  .h-toolbar input,
+  .h-toolbar select {
+    min-height: 44px;
+    height: auto;
+  }
+  .h-toolbar select {
+    min-width: 44px;
+  }
+  .h-tabs button {
+    min-height: 44px;
+  }
+  .h-text-button {
+    position: relative;
+  }
+  .h-text-button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
