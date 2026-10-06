@@ -14,7 +14,7 @@ A book enters Durtal one of three ways:
 
 1. **ISBN Lookup** — Enter an ISBN or search by title/author. Durtal fetches metadata from external APIs (Google Books, Open Library), populates all fields, and downloads the cover. Like Radarr matching against TMDB. Review and confirm.
 2. **Manual Entry** — Fill in all fields by hand. For rare, out-of-print, or unindexed books.
-3. **Bulk Import** — Upload a Goodreads CSV export, Calibre library export, or custom CSV. Data flows through the S3 medallion pipeline: raw file lands in bronze, gets parsed and cleaned in silver, and loads into the production database from gold.
+3. **Bulk Import** — Upload a Goodreads CSV export or a custom CSV. Data flows through the S3 medallion pipeline: raw file lands in bronze, gets parsed and cleaned in silver, and loads into the production database from gold.
 
 Once catalogued, the user assigns the book to one or more locations (physical or digital) and sets its status. The UI provides instant filtering, search, and visualization across the entire library.
 
@@ -108,7 +108,7 @@ See [12_DEVELOPMENT.md](12_DEVELOPMENT.md) for the full command reference.
 | [05_API_REFERENCE.md](05_API_REFERENCE.md) | REST API endpoints: methods, parameters, payloads, responses |
 | [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md) | Server-side business logic: every action by module |
 | [07_STORAGE.md](07_STORAGE.md) | S3 medallion architecture, cover and media pipelines |
-| [08_EXTERNAL_INTEGRATIONS.md](08_EXTERNAL_INTEGRATIONS.md) | Google Books, Open Library, Nominatim geocoding, Calibre-Web |
+| [08_EXTERNAL_INTEGRATIONS.md](08_EXTERNAL_INTEGRATIONS.md) | Google Books, Open Library, Nominatim geocoding, Wikidata, museums |
 | [09_INGESTION_PIPELINE.md](09_INGESTION_PIPELINE.md) | Python ETL: source files, field mappings, execution order |
 | [10_TUI.md](10_TUI.md) | Terminal UI: screens, widgets, API client |
 | [11_DEPLOYMENT.md](11_DEPLOYMENT.md) | Docker, CI/CD, osmium.rh, Traefik, Authelia, Tailscale |
@@ -124,7 +124,7 @@ Explicitly out of scope:
 - **Social features** — No friends, no feed, no sharing. Single user.
 - **Recommendations from outside** — Suggestions come only from the owner's own catalogue and history, explained, with no external service or machine-learning model.
 - **Automated downloading** — No integration with book download services. This is not Readarr.
-- **E-reader sync** — No Kobo/Kindle sync. Calibre-Web handles OPDS/Kobo.
+- **E-reader sync** — No Kobo/Kindle sync. E-books are read in Durtal's own reader (the e-book epic, SLN-489).
 - **Multi-user** — Single owner. Authelia provides the auth gate.
 - **Mobile app** — Responsive web only. PWA if needed later.
 - **Light mode** — Dark mode only. No theme toggle.

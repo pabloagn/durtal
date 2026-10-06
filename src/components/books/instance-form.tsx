@@ -38,8 +38,6 @@ export interface InstanceDraft {
   hasDustJacket: boolean | null;
   hasSlipcase: boolean | null;
   conditionNotes: string;
-  calibreId: string;
-  calibreUrl: string;
   fileSizeBytes: string;
   notes: string;
   lentTo: string;
@@ -71,8 +69,6 @@ export const EMPTY_INSTANCE: InstanceDraft = {
   hasDustJacket: null,
   hasSlipcase: null,
   conditionNotes: "",
-  calibreId: "",
-  calibreUrl: "",
   fileSizeBytes: "",
   notes: "",
   lentTo: "",
@@ -172,8 +168,6 @@ export function instancePayload(draft: InstanceDraft) {
     hasDustJacket: draft.hasDustJacket,
     hasSlipcase: draft.hasSlipcase,
     conditionNotes: draft.conditionNotes || null,
-    calibreId: draft.calibreId ? parseInt(draft.calibreId, 10) : null,
-    calibreUrl: draft.calibreUrl || null,
     fileSizeBytes: draft.fileSizeBytes ? parseInt(draft.fileSizeBytes, 10) : null,
     notes: draft.notes || null,
     lentTo: draft.lentTo || null,
@@ -496,20 +490,6 @@ export function InstanceForm({
         {/* Digital Details */}
         {isDigitalFormat && (
           <Section title="Digital details">
-            <Input
-              label="Calibre ID"
-              id={`inst-${index}-calibre-id`}
-              type="number"
-              value={value.calibreId}
-              onChange={(e) => update("calibreId", e.target.value)}
-            />
-            <Input
-              label="Calibre URL"
-              id={`inst-${index}-calibre-url`}
-              value={value.calibreUrl}
-              onChange={(e) => update("calibreUrl", e.target.value)}
-              placeholder="http://calibre-web:8083/book/..."
-            />
             <Input
               label="File size (bytes)"
               id={`inst-${index}-file-size`}

@@ -62,7 +62,8 @@ import {
 } from "@/lib/actions/taxonomy";
 import { getLocations } from "@/lib/actions/locations";
 import { getRecommenders } from "@/lib/actions/recommenders";
-import { getCalibreBooksByWorkId } from "@/lib/calibre/queries";
+import { getEbooksForWork } from "@/lib/ebooks/queries";
+import { formatLabel } from "@/lib/ebooks/formats";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
@@ -175,7 +176,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
 
   if (!work) notFound();
 
-  // Get orders, calibre books, and related works for this work
+  // Get orders, e-books, and related works for this work
   const primaryAuthor = work.workAuthors[0]?.author;
   const [
     workOrders,
@@ -191,7 +192,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     readingNotes,
   ] = await Promise.all([
     getOrdersForWork(work.id),
-    getCalibreBooksByWorkId(work.id),
+    getEbooksForWork(work.id),
     primaryAuthor
       ? getWorksByAuthorId(primaryAuthor.id, work.id, 12)
       : Promise.resolve([]),
@@ -226,6 +227,19 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       href: groupedNotes ? `#${quotesAnchor(editionId)}` : "#quotes",
     };
   };
+  // The e-book each copy is, for its row
+  const ebooksByCopy = Object.fromEntries(
+    digitalBooks
+      .filter((e) => e.instanceId)
+      .map((e) => [
+        e.instanceId!,
+        {
+          id: e.id,
+          formats: [...new Set(e.files.map((f) => formatLabel(f.format)))].join(", "),
+          sizeBytes: e.files.reduce((sum, f) => sum + f.sizeBytes, 0),
+        },
+      ]),
+  );
   const readingCounts = {
     readings: readingRows.length,
     sessions: readingRows.reduce((sum, r) => sum + r.sessionCount, 0),
@@ -591,11 +605,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 )}
               </div>
 
-              {/* The reading control, and the Read button for digital editions */}
+              {/* The reading control, and the Read button for an e-book */}
               {(canRead || digitalBooks.length > 0) && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {canRead && <ReadingControl />}
-                  {digitalBooks.length > 0 && <ReadButton calibreBooks={digitalBooks} />}
+                  {digitalBooks.length > 0 && <ReadButton ebooks={digitalBooks} />}
                 </div>
               )}
               {prediction && (
@@ -744,6 +758,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 }))}
                 availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
                 quotes={canRead ? editionQuotes(edition.id) : undefined}
+                ebooksByCopy={ebooksByCopy}
               />
             ))}
           </div>

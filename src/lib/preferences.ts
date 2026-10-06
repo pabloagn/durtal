@@ -62,7 +62,6 @@ export const LIST_PREFERENCES = {
     grid: { key: "durtal-grid-columns", fallback: 6 },
     columns: { key: "durtal-column-config" },
   },
-  reader: { label: "Reader", path: "/reader" },
   authors: {
     label: "People",
     path: "/people",

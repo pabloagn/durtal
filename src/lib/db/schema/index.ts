@@ -160,9 +160,10 @@ export {
   orderStatusHistoryRelations,
 } from "./order-status-history";
 
-// ── Calibre / Reader ─────────────────────────────────────────────────────────
-export { calibreBooks, calibreBooksRelations } from "./calibre-books";
-export { readingProgress, readingProgressRelations } from "./reading-progress";
+// ── eBooks ───────────────────────────────────────────────────────────────────
+export { ebooks, ebooksRelations, ebookFiles, ebookFilesRelations } from "./ebooks";
+export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
+export { ebookAnnotations, ebookAnnotationsRelations } from "./ebook-annotations";
 
 // ── Activity events ─────────────────────────────────────────────────────────
 export { activityEvents } from "./activity-events";

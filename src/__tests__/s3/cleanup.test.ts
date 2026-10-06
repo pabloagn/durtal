@@ -25,6 +25,9 @@ describe("S3 cleanup reference check", () => {
     expect(stored.length).toBeGreaterThan(0);
     // A new key column must join the reference check, or cleanup could delete its files.
     expect(stored.filter((column) => !listed.has(column))).toEqual([]);
+    // E-book keys do not all say "s3" (SLN-490): no e-book object is ever reported unused
+    for (const column of ["ebooks.cover_key", "ebook_files.s3_key", "ebook_files.manifest_key", "ebook_files.cover_key"])
+      expect(listed.has(column), column).toBe(true);
   });
 
   it("owned folders end with a slash so one id never matches another", () => {

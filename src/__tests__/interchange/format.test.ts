@@ -57,9 +57,24 @@ describe("interchange format version 1", () => {
 describe("reading a file", () => {
   const envelope = { format: "durtal.interchange", version: 1, exportedAt: "2026-10-05T00:00:00Z", records: [], shared: {} };
 
+  it("reads a version 1 file: its copies' old e-book library links must be empty", () => {
+    const copy = (link: unknown) => ({ id: randomUUID(), edition_id: randomUUID(), calibre_id: link, calibre_url: null });
+    const v1 = (rows: unknown[]) => ({
+      ...envelope,
+      version: 1,
+      records: [{ domain: "book", id: randomUUID(), title: "Là-bas", sections: { holdings: { instances: rows } } }],
+    });
+    const read = readEnvelope(v1([copy(null), copy(null)]));
+    const instances = (read.records[0] as { sections: { holdings: { instances: Record<string, unknown>[] } } }).sections.holdings.instances;
+    expect(instances.every((row) => !("calibre_id" in row) && !("calibre_url" in row))).toBe(true);
+    expect(() => readEnvelope(v1([copy(73), copy(null)]))).toThrow(
+      "This file has Calibre links on 1 copy, which this Durtal no longer keeps",
+    );
+  });
+
   it("refuses another format or version as a whole", () => {
     expect(() => readEnvelope({ ...envelope, format: "goodreads" })).toThrow("This is not a Durtal interchange file");
-    expect(() => readEnvelope({ ...envelope, version: 2 })).toThrow("This file is interchange version 2; this Durtal reads version 1");
+    expect(() => readEnvelope({ ...envelope, version: 3 })).toThrow("This file is interchange version 3; this Durtal reads versions 1 and 2");
     expect(() => readEnvelope({ ...envelope, version: "1" })).toThrow("The file does not say which interchange version it is");
     expect(() => readEnvelope(null)).toThrow(InterchangeFileError);
     expect(() => readShared({ wines: [] })).toThrow("The shared section has rows this Durtal cannot read");
@@ -99,7 +114,7 @@ describe("reading a file", () => {
       problems: [
         "sections.holdings.film_holdings: a perfume record cannot carry it",
         "sections.history.editions: is not part of this section",
-        "sections.moods: is not a section of version 1",
+        "sections.moods: is not a section of version 2",
       ],
     });
 

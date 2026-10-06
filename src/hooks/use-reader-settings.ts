@@ -5,7 +5,7 @@ import {
   type ReaderThemeSettings,
   READER_DEFAULTS,
   readerSettings,
-} from "@/components/reader/epub-theme";
+} from "@/lib/reader/settings-cookie";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { READER_SETTINGS_KEY } from "@/lib/preferences";
 

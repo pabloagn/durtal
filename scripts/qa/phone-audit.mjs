@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 const ROUTES = [
   "/", "/library", "/authors", "/publishers", "/recommenders", "/series",
   "/places", "/provenance", "/locations", "/collections", "/taxonomy",
-  "/harmonize", "/settings", "/reader",
+  "/harmonize", "/settings",
 ];
 const WIDTHS = [375, 390];
 

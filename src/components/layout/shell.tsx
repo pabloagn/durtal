@@ -14,8 +14,8 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { SIDEBAR, sidebarWidth } from "@/lib/preferences";
 import { lockPageScroll } from "@/lib/utils/scroll-lock";
 
-/** Reader view: /reader/{calibreId} (numeric) — full viewport, no sidebar */
-const READER_VIEW_RE = /^\/reader\/\d+/;
+/** Reader view: /reader/{ebookId}, full viewport, no sidebar (the reading view, eBooks sub-issue 3) */
+const READER_VIEW_RE = /^\/reader\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|$)/i;
 
 /** Below Tailwind `md` the sidebar is a drawer, opened from the phone navigation bar. */
 const PHONE_QUERY = "(max-width: 767.98px)";

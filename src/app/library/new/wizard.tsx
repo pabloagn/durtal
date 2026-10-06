@@ -554,10 +554,6 @@ export function AddBookWizard({
           acquisitionSource: draft.acquisitionSource || undefined,
           acquisitionPrice: draft.acquisitionPrice || undefined,
           acquisitionCurrency: draft.acquisitionCurrency || undefined,
-          calibreId: draft.calibreId
-            ? parseInt(draft.calibreId, 10)
-            : undefined,
-          calibreUrl: draft.calibreUrl || undefined,
           fileSizeBytes: draft.fileSizeBytes
             ? parseInt(draft.fileSizeBytes, 10)
             : undefined,

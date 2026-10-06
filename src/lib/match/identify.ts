@@ -111,7 +111,7 @@ export function rankCandidates(
     if (!titleMatch) notes.push("Another title");
     if (authorMatch === false) notes.push("Another author");
     const format = candidateFormat(r.bindingText);
-    if (format === "ebook") notes.push("E-book");
+    if (format === "ebook") notes.push("eBook");
     if (format === "audio") notes.push("Audiobook");
     if (r.language && r.language !== context.language)
       notes.push("Another language");

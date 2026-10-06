@@ -158,7 +158,7 @@ export function IntegrationChecks({ overview }: { overview: IntegrationsOverview
     runAll();
   }, [runAll]);
 
-  const { calibre, access } = overview;
+  const { ebooks, access } = overview;
   return (
     <>
       <SettingsIntro>
@@ -180,13 +180,11 @@ export function IntegrationChecks({ overview }: { overview: IntegrationsOverview
         ))}
       </SettingsGroup>
 
-      <SettingsGroup
-        title="Calibre library"
-        description="The sync script (scripts/calibre_sync) copies the ebooks of a Calibre library to storage for the reader. It runs on the machine that holds the library."
-      >
-        <SettingFact label="Books">{calibre.books}</SettingFact>
-        <SettingFact label="Linked to a book in the catalogue">{calibre.linked}</SettingFact>
-        <SettingFact label="Last sync">{calibre.lastSynced ?? "Never"}</SettingFact>
+      <SettingsGroup title="eBooks" description="E-book files kept in AWS for the reader.">
+        <SettingFact label="eBooks">{ebooks.ebooks}</SettingFact>
+        <SettingFact label="Linked to a book">{ebooks.linked}</SettingFact>
+        <SettingFact label="Files stored">{ebooks.files}</SettingFact>
+        <SettingFact label="Last added">{ebooks.lastAdded ?? "Never"}</SettingFact>
       </SettingsGroup>
 
       <SettingsGroup title="Access">

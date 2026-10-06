@@ -9,7 +9,6 @@ import {
   editions,
   venues,
   commentAttachments,
-  calibreBooks,
   imageAdjustments,
 } from "@/lib/db/schema";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -29,37 +28,15 @@ import {
   editorCrop,
 } from "@/lib/media/display";
 
-/**
- * The stored image behind an editor source. `shown` is the URL the editor
- * displays when /api/s3/read does not serve the key: a Reader cover lives
- * under gold/calibre/, beside the ebook files, so it shows through its own
- * route.
- */
+/** The stored image behind an editor source. E-book covers have no adjustments. */
 async function resolveImage(source: string): Promise<{
   assetKey: string;
   sources: string[];
   monochrome: boolean;
   media: typeof media.$inferSelect | null;
-  shown?: string;
 }> {
   const identity = imageSourceIdentity(z.string().max(4096).parse(source));
   if (!identity) throw new Error("This image is not a stored Durtal asset");
-  if ("calibreId" in identity) {
-    const row = await db.query.calibreBooks.findFirst({
-      where: eq(calibreBooks.calibreId, identity.calibreId),
-    });
-    if (!row?.coverS3Key) throw new Error("Image not found");
-    return {
-      assetKey: row.coverS3Key,
-      sources: [
-        s3ImageSource(row.coverS3Key),
-        `/api/reader/${row.calibreId}/cover`,
-      ],
-      monochrome: false,
-      media: null,
-      shown: `/api/reader/${row.calibreId}/cover`,
-    };
-  }
   const key = identity.key;
   // The uncropped key also resolves, so an editor opened before a crop still saves
   const item = await db.query.media.findFirst({
@@ -80,7 +57,7 @@ async function resolveImage(source: string): Promise<{
     };
 
   // Collection posters and backgrounds are media rows, resolved above.
-  const [author, edition, venue, attachment, calibre] =
+  const [author, edition, venue, attachment] =
     await Promise.all([
       db.query.authors.findFirst({
         where: eq(authors.photoS3Key, key),
@@ -104,27 +81,19 @@ async function resolveImage(source: string): Promise<{
         ),
         columns: { s3Key: true },
       }),
-      db.query.calibreBooks.findFirst({
-        where: eq(calibreBooks.coverS3Key, key),
-        columns: { coverS3Key: true, calibreId: true },
-      }),
     ]);
   let keys: (string | null)[];
   if (author) keys = [author.photoS3Key];
   else if (edition) keys = [edition.coverS3Key, edition.thumbnailS3Key];
   else if (venue) keys = [venue.posterS3Key, venue.thumbnailS3Key];
   else if (attachment) keys = [attachment.s3Key];
-  else if (calibre) keys = [calibre.coverS3Key];
   else throw new Error("Image not found");
   const validKeys = [...new Set(keys.filter((k): k is string => !!k))];
-  const sources = validKeys.map(s3ImageSource);
-  if (calibre) sources.push(`/api/reader/${calibre.calibreId}/cover`);
   return {
     assetKey: validKeys[0],
-    sources,
+    sources: validKeys.map(s3ImageSource),
     monochrome: !!author,
     media: null,
-    shown: calibre ? `/api/reader/${calibre.calibreId}/cover` : undefined,
   };
 }
 
@@ -155,9 +124,9 @@ export async function getImagePresentation(source: string) {
   const crop = framed ? editorCrop(framed) : null;
   return {
     assetKey: asset.assetKey,
-    source: asset.shown ?? s3ImageSource(asset.assetKey),
+    source: s3ImageSource(asset.assetKey),
     // The editor crops the uncropped image; every other view shows the crop
-    preview: asset.shown ?? s3ImageSource(framed?.uncroppedS3Key ?? asset.assetKey),
+    preview: s3ImageSource(framed?.uncroppedS3Key ?? asset.assetKey),
     monochrome: asset.monochrome,
     settings: enforceImagePolicy(settings, asset.monochrome),
     crop: crop

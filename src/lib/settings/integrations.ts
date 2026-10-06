@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/google-books-quota";
 import { count, eq, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { calibreBooks, sourceRecords } from "@/lib/db/schema";
+import { ebookFiles, ebooks, sourceRecords } from "@/lib/db/schema";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import {
@@ -56,8 +56,8 @@ export interface IntegrationInfo {
 
 export interface IntegrationsOverview {
   services: IntegrationInfo[];
-  /** The Calibre library, as the sync script last left it */
-  calibre: { books: number; linked: number; lastSynced: string | null };
+  /** The e-book catalogue: e-books, those linked to a book, files stored, the newest */
+  ebooks: { ebooks: number; linked: number; files: number; lastAdded: string | null };
   /** Whether the REST write routes and the media maintenance routes ask for a token */
   access: { restToken: boolean; adminToken: boolean };
 }
@@ -78,20 +78,17 @@ const formatDate = (date: Date) =>
     timeZoneName: "short",
   }).format(date);
 
-/** The services, what each is for and how it is set up; the Calibre sync; the tokens. */
+/** The services, what each is for and how it is set up; the e-books; the tokens. */
 export async function integrationsOverview(): Promise<IntegrationsOverview> {
-  const [[wikidata], [calibre]] = await Promise.all([
+  const [[wikidata], [books], [files]] = await Promise.all([
     db
       .select({ records: count(), last: max(sourceRecords.retrievedAt) })
       .from(sourceRecords)
       .where(eq(sourceRecords.provider, "wikidata")),
     db
-      .select({
-        books: count(),
-        linked: count(calibreBooks.workId),
-        last: max(calibreBooks.lastSynced),
-      })
-      .from(calibreBooks),
+      .select({ ebooks: count(), linked: count(ebooks.instanceId), last: max(ebooks.createdAt) })
+      .from(ebooks),
+    db.select({ files: count() }).from(ebookFiles),
   ]);
   const services: IntegrationInfo[] = [
     {
@@ -105,7 +102,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
     {
       id: "storage",
       name: "Amazon S3",
-      purpose: "Keeps covers, photos, attachments and Calibre files.",
+      purpose: "Keeps covers, photos, attachments and eBook files.",
       env: [
         { name: "AWS_ACCESS_KEY_ID", set: isSet("AWS_ACCESS_KEY_ID") },
         { name: "AWS_SECRET_ACCESS_KEY", set: isSet("AWS_SECRET_ACCESS_KEY") },
@@ -184,10 +181,11 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
   ];
   return {
     services,
-    calibre: {
-      books: calibre?.books ?? 0,
-      linked: calibre?.linked ?? 0,
-      lastSynced: calibre?.last ? formatDate(calibre.last) : null,
+    ebooks: {
+      ebooks: books?.ebooks ?? 0,
+      linked: books?.linked ?? 0,
+      files: files?.files ?? 0,
+      lastAdded: books?.last ? formatDate(books.last) : null,
     },
     access: { restToken: isSet("DURTAL_API_TOKEN"), adminToken: isSet("ADMIN_TOKEN") },
   };

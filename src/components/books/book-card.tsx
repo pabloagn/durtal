@@ -41,7 +41,7 @@ interface BookCardProps {
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  /** Whether a digital edition exists in Calibre for this work */
+  /** Whether an e-book is linked to one of the work's copies */
   hasDigitalEdition?: boolean;
   /** When true, show a checkbox overlay instead of navigation on click */
   isSelecting?: boolean;

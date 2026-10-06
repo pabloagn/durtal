@@ -22,7 +22,7 @@ import { EstimateLine } from "./estimate-line";
 import { clockText } from "@/lib/reading/timer";
 
 const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, ebook: Tablet, audio: Headphones };
-const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "E-book", audio: "Audiobook" };
+const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
 
 /** A read's rating: its own, else the book's when it is the book's only finished read */
 export function readRating(row: ReadingRow, rows: ReadingRow[], bookRating: number | null) {

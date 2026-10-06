@@ -49,8 +49,6 @@ function instanceToDraft(instance: InstanceWithLocation): InstanceDraft {
     hasDustJacket: instance.hasDustJacket ?? null,
     hasSlipcase: instance.hasSlipcase ?? null,
     conditionNotes: instance.conditionNotes ?? "",
-    calibreId: instance.calibreId != null ? String(instance.calibreId) : "",
-    calibreUrl: instance.calibreUrl ?? "",
     fileSizeBytes: instance.fileSizeBytes != null ? String(instance.fileSizeBytes) : "",
     notes: instance.notes ?? "",
     lentTo: instance.lentTo ?? "",

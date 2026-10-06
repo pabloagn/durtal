@@ -186,24 +186,6 @@ The geocode API route supports three location input modes:
 
 ---
 
-## Calibre-Web
-
-**Purpose**: Deep linking to digital library entries.
-
-**Integration type**: URL linking (no API calls).
-
-**Configuration**: `CALIBRE_WEB_URL` environment variable (e.g., `http://calibre-web:8083` on the Docker network).
-
-When a digital instance has a `calibreId` set, the UI can construct a deep link to the book in Calibre-Web:
-
-```
-{CALIBRE_WEB_URL}/book/{calibreId}
-```
-
-Calibre-Web handles OPDS and Kobo sync, so Durtal does not replicate those features.
-
----
-
 ## Provider Contract
 
 Metadata providers for perfumes, films and paintings meet one contract (SLN-375, `src/lib/providers/`). The book searches above keep their own code.
@@ -222,4 +204,3 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 | Google Books | API key | 1,000/day | Metadata search, cover images |
 | Open Library | None | Respectful use | Fallback metadata, cover images |
 | Nominatim | None | 1 req/sec | Location geocoding |
-| Calibre-Web | Internal network | N/A | Digital book deep links |
