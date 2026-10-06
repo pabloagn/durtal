@@ -79,6 +79,8 @@ export interface AuthorEvidence {
   goodreadsId: string | null;
   zodiacSign: string | null;
   works: { title: string; year: number | null }[];
+  /** The roles the catalogue gives the person (author_contribution_types) */
+  roles: string[];
 }
 
 // ── Names ───────────────────────────────────────────────────────────────────
@@ -328,9 +330,20 @@ export function planDate(
     return plan;
   }
   const approx = time.circa || time.precision < 9;
-  const month = time.precision >= 10 ? time.month : null;
+  let month = time.precision >= 10 ? time.month : null;
   const day = time.precision >= 11 ? time.day : null;
-  if (day !== null && cat.day !== null) plan.dayAgrees = day === cat.day;
+  if (day !== null && cat.day !== null) {
+    plan.dayAgrees = day === cat.day;
+    // The catalogue keeps days in the Gregorian calendar: a Julian statement
+    // whose Gregorian day is the stored one agrees (Pushkin: 26 May 1799
+    // Julian is 6 June), and a missing month is the Gregorian one. Not when
+    // the calendars put the day in different years.
+    const greg = time.julian && month !== null ? gregorianDate(dayNumber(time.year, month, day, true)) : null;
+    if (!plan.dayAgrees && greg && greg.year === time.year && greg.day === cat.day && (cat.month ?? greg.month) === greg.month) {
+      plan.dayAgrees = true;
+      month = greg.month;
+    }
+  }
 
   if (cat.year === null) {
     plan.fill.year = time.year;
@@ -522,6 +535,97 @@ export const isWriter = (p: PersonItem) =>
 export const isLiterary = (p: PersonItem) =>
   isWriter(p) || p.occupations.some((o) => SCHOLARS.has(o)) || SCHOLAR_TEXT.test(p.description ?? "");
 
+// ── Scope ───────────────────────────────────────────────────────────────────
+
+/**
+ * The people of pass 2 (`--scope canon`), as a condition on `authors a`: no
+ * book of their own (no `work_authors` row), in the book directory
+ * (`person_domains` 'book'), and not a person whose only credits are on
+ * films, paintings or perfumes: `work_credits` holds non-book works only, so
+ * a person there needs an edition credit (`edition_contributors`) to stay.
+ */
+export const CANON_SCOPE_SQL = `not exists (select 1 from work_authors wa where wa.author_id = a.id)
+  and exists (select 1 from person_domains pd where pd.person_id = a.id and pd.kind = 'book')
+  and (not exists (select 1 from work_credits wc where wc.person_id = a.id)
+    or exists (select 1 from edition_contributors ec where ec.author_id = a.id))`;
+
+// ── Roles ───────────────────────────────────────────────────────────────────
+
+const LETTERS =
+  "writer|novelist|poet|author|essayist|journalist|playwright|dramatist|screenwriter|critic|philosopher|historian|translator|diarist|memoirist|lyricist|biographer|chronicler|columnist|theologian|literary|scholar|storyteller|satirist|aphorist|prosaist|man of letters|woman of letters";
+const ARTIST = "artist|painter|sculptor|illustrator|printmaker|engraver";
+/**
+ * The occupations that fit each catalogue role, as words in Wikidata's
+ * occupation labels or description. Roles that name no profession (patron,
+ * subject, interviewee, collaborator, performer) are not checked.
+ */
+const ROLE_FIT: Record<string, RegExp> = {
+  author: new RegExp(`\\b(${LETTERS})`, "i"),
+  theorist: new RegExp(
+    `\\b(${LETTERS}|theorist|sociologist|psychoanalyst|psychologist|psychiatrist|linguist|anthropologist|economist|semiotician|political scientist|academic|professor|mathematician|physicist|scientist|architect|musicologist|feminist|activist|thinker|ethnologist|archaeologist|geographer|urbanist)`,
+    "i",
+  ),
+  director: /\b(director|filmmaker|film|cinematographer|animator)/i,
+  screenwriter: /\b(screenwriter|writer|director|filmmaker)/i,
+  playwright: /\b(playwright|dramatist|writer|poet)/i,
+  librettist: /\b(librettist|writer|poet|lyricist)/i,
+  translator: /\b(translator|writer|poet)/i,
+  editor: /\b(editor|publisher|writer|journalist)/i,
+  painter: new RegExp(`\\b(${ARTIST})`, "i"),
+  sculptor: new RegExp(`\\b(${ARTIST})`, "i"),
+  illustrator: new RegExp(`\\b(${ARTIST}|cartoonist|comics)`, "i"),
+  printmaker: new RegExp(`\\b(${ARTIST}|lithographer)`, "i"),
+  "installation artist": /\bartist/i,
+  "performance artist": /\bartist/i,
+  "digital artist": /\bartist/i,
+  "sound artist": /\b(artist|composer|musician)/i,
+  "cover artist": new RegExp(`\\b(${ARTIST}|cartoonist|comics)`, "i"),
+  colorist: /\b(artist|colorist|comics)/i,
+  letterer: /\b(letterer|artist|comics)/i,
+  calligrapher: /\b(calligrapher|artist)/i,
+  ceramist: /\b(ceramist|potter|artist)/i,
+  composer: /\b(composer|musician|pianist)/i,
+  arranger: /\b(arranger|composer|musician)/i,
+  orchestrator: /\b(orchestrator|composer|musician)/i,
+  conductor: /\b(conductor|composer|musician)/i,
+  musician: /\b(musician|singer|composer|guitarist|pianist|songwriter|violinist|drummer|rapper)/i,
+  choreographer: /\b(choreographer|dancer|ballet)/i,
+  dancer: /\b(dancer|choreographer|ballet)/i,
+  actor: /\b(actor|actress)/i,
+  photographer: /\bphotographer/i,
+  model: /\bmodel/i,
+  architect: /\b(architect|urban planner|urbanist)/i,
+  designer: /\b(designer|architect|artist)/i,
+  "fashion designer": /\b(fashion|designer|couturier)/i,
+  "graphic designer": /\b(designer|typographer|artist)/i,
+  typographer: /\b(typographer|type designer|designer)/i,
+  cartographer: /\b(cartographer|geographer)/i,
+  perfumer: /\bperfumer/i,
+  programmer: /\b(programmer|computer scientist|engineer|developer)/i,
+  binder: /\bbookbinder/i,
+  conservator: /\b(conservator|restorer)/i,
+  curator: /\b(curator|art historian|critic|museum)/i,
+};
+
+/**
+ * Whether the person's occupations fit one of the catalogue's roles. Unknown
+ * when the catalogue gives no checkable role, or Wikidata gives neither an
+ * occupation nor a description.
+ */
+export function roleCheck(
+  roles: string[],
+  p: PersonItem,
+  labels: Record<string, LabelItem | null>,
+): { agrees: boolean; known: boolean; seen: string[] } {
+  const fits = roles.map((r) => ROLE_FIT[r.trim().toLowerCase()]).filter((re): re is RegExp => !!re);
+  const occupations = p.occupations
+    .map((o) => labels[o]?.label)
+    .filter((l): l is string => !!l);
+  const seen = [...occupations, ...(p.description ? [p.description] : [])];
+  if (!fits.length || !seen.length) return { agrees: false, known: false, seen };
+  return { agrees: fits.some((re) => seen.some((t) => re.test(t))), known: true, seen };
+}
+
 // ── Works ───────────────────────────────────────────────────────────────────
 
 const TITLE_FILLER = new Set([
@@ -633,8 +737,8 @@ export interface AuthorReviewDecision {
 }
 
 export interface AuthorCorrection {
-  birth?: { year?: number; month?: number; day?: number };
-  death?: { year?: number; month?: number; day?: number };
+  birth?: { year?: number; month?: number; day?: number; approximate?: boolean };
+  death?: { year?: number; month?: number; day?: number; approximate?: boolean };
   /** ISO 3166-1 alpha-2 */
   nationality?: string;
 }
@@ -654,7 +758,7 @@ function describeCorrection(a: AuthorEvidence, c: AuthorCorrection, note: string
   const out: string[] = [];
   for (const kind of ["birth", "death"] as const)
     for (const [k, v] of Object.entries(c[kind] ?? {}))
-      out.push(`${kind} ${k} ${a[kind][k as "year" | "month" | "day"] ?? "empty"} → ${v} (${note})`);
+      out.push(`${kind} ${k} ${a[kind][k as "year" | "month" | "day" | "approximate"] ?? "empty"} → ${v} (${note})`);
   if (c.nationality) out.push(`nationality ${a.nationality ?? "empty"} → ${c.nationality} (${note})`);
   return out;
 }
@@ -715,6 +819,15 @@ export function evaluate(a: AuthorEvidence, p: PersonItem, ctx: PlanContext, for
       c.score += 2;
     } else if (stated.length)
       c.soft.push(`nationality: catalogue ${a.nationality}, Wikidata ${stated.join("/")}`);
+  }
+
+  if (a.roles.length) {
+    const role = roleCheck(a.roles, p, ctx.labels);
+    if (role.agrees) {
+      c.evidence.push("role agrees");
+      c.score += 2;
+    } else if (role.known)
+      c.soft.push(`role: catalogue ${a.roles.join("/")}, Wikidata ${role.seen.slice(0, 3).join("; ")}`);
   }
 
   c.works = matchedWorks(
@@ -818,10 +931,14 @@ export function chooseMatch(
   // Medium: the one writer whose name fits well, or the only person whose
   // name fits well with a fact the catalogue holds; nothing else fits as well
   const close = candidates.filter((c) => c.rank >= 3 && c.level !== "excluded");
-  const writers = close.filter((c) => isWriter(ctx.people[c.id]!));
+  // With roles in the catalogue, the one person whose occupation fits them;
+  // without, the one writer
+  const fitting = a.roles.some((r) => ROLE_FIT[r.trim().toLowerCase()])
+    ? close.filter((c) => c.evidence.includes("role agrees"))
+    : close.filter((c) => isWriter(ctx.people[c.id]!));
   const pick =
-    writers.length === 1 && writers[0].level === "medium"
-      ? writers[0]
+    fitting.length === 1 && fitting[0].level === "medium"
+      ? fitting[0]
       : close.length === 1 && close[0].level === "medium" && hasFact(close[0])
         ? close[0]
         : null;
@@ -1153,6 +1270,7 @@ export function nextAuthorRow(
     if (c?.year !== undefined) next[`${kind}_year`] = c.year;
     if (c?.month !== undefined) next[`${kind}_month`] = c.month;
     if (c?.day !== undefined) next[`${kind}_day`] = c.day;
+    if (c?.approximate !== undefined) next[`${kind}_year_is_approximate`] = c.approximate;
   }
   if (correct.nationalityId) next.nationality_id = correct.nationalityId;
   return next;
