@@ -519,6 +519,29 @@ describe.skipIf(!url)("the book enrichment model", () => {
       expect((await c`select s.work_id from claim_evidence e join source_records s on s.id = e.source_record_id where e.claim_id = ${mergedOpen.id}`)[0].work_id).toBe(kept);
     });
 
+    it("supersedes a repeated claim that a rule accepted", async () => {
+      const kept = await book("Kept by rule");
+      const merged = await book("Merged by rule");
+      const [rule] =
+        await c`insert into enrichment_auto_accept_rules(dimension_id, basis) values (${ids.wikidata}, 'exact_identifier_match') on conflict (dimension_id) do update set updated_at = now() returning id`;
+      const qid = async (workId: string) => {
+        const row = await claim({ work_id: workId, dimension_id: ids.wikidata, text_value: "Q42" }, [await source({ work: workId }, "wikidata", { id: "Q42" })], {
+          excerpt: "Q42",
+          path: ["id"],
+        });
+        await c`update enrichment_claims set status = 'accepted', decided_by = 'rule', rule_id = ${rule.id}, decided_at = now() where id = ${row.id}`;
+        return row.id;
+      };
+      const [keptClaim, mergedClaim] = [await qid(kept), await qid(merged)];
+      await merge("works", merged, kept);
+      expect((await c`select status, superseded_by_claim_id, decided_by, rule_id from enrichment_claims where id = ${mergedClaim}`)[0]).toEqual({
+        status: "superseded",
+        superseded_by_claim_id: keptClaim,
+        decided_by: "check",
+        rule_id: null,
+      });
+    });
+
     it("refuses two books with different accepted values for one single-value dimension, and a merged book's running job", async () => {
       const kept = await book("Kept mood");
       const merged = await book("Merged mood");
