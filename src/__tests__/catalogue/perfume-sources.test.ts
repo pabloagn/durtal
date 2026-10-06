@@ -41,6 +41,7 @@ describe("perfume sources", () => {
       externalId: null,
       hints: { title: null, house: null, concentration: null },
     });
+    expect(readPerfumeLink("https://www.parfumo.com/Perfumes/Chanel/no-5%")).toMatchObject({ hints: { title: "No 5%", house: "Chanel" } });
     expect(readPerfumeLink("not a link")).toBeNull();
     expect(readPerfumeLink("ftp://example.org/x")).toBeNull();
     expect(readPerfumeLink("https://user:secret@example.org/x")).toBeNull();

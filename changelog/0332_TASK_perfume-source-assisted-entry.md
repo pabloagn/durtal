@@ -79,5 +79,9 @@ Manual entry stays complete without any source. No schema change.
   fixed two-line height under each proposed value and a missing key; both are
   fixed. Wikidata answered 429 when the checks called it too fast; the dialog
   showed "Wikidata asks to wait before the next call".
+- Review fixes (PR #123): a link whose path holds a stray "%" (not an
+  escape) threw a URIError in the field's change handler, so Add perfume
+  refused the text and logged an error. `readPerfumeLink` now keeps such a
+  part as it is ("No 5%"); a unit test covers it.
 - Limitations: Wikidata covers well-known perfumes only, without notes or
   concentrations. Fragrantica, Basenotes and Parfumo are read by address only.

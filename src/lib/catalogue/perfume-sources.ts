@@ -80,8 +80,16 @@ export function splitConcentration(name: string): { title: string; concentration
   return { title: clean, concentration: null };
 }
 
+/** A path part as text; a stray "%" (not an escape) is kept as it is */
+function decoded(part: string) {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return part;
+  }
+}
 const words = (slug: string) =>
-  decodeURIComponent(slug)
+  decoded(slug)
     .replace(/[-_+]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
