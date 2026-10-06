@@ -1696,8 +1696,8 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
 | `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
 | `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
-| `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0071_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
-| `reading_prediction_gate` | JSONB | nullable (migration `0071_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
+| `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0073_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
+| `reading_prediction_gate` | JSONB | nullable (migration `0073_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The four reading columns are changed from Settings → Reading (`/settings/reading`).
@@ -2384,7 +2384,7 @@ Unique `(year, metric)` (`reading_goal_year_metric_unique`): a books goal and an
 
 ### `recommendation_feedback`
 
-Suggestion feedback (SLN-457, migration `0071_reading_suggestions`), shared with the book enrichment epic and defined once in the reading tracker's parent issue: Not now (until a date), Never, and Not for me with reasons. One row a book. Every write is an upsert on `work_id`: the newer verdict replaces the older one; `reasons`, `note` and `until` are replaced, not merged; `source` becomes the latest writer. Removing the row (Undo in the Hidden view) makes the book a candidate again. `book_parent_required` keeps it on books; a book merge keeps the newer row (`recommendationFeedbackMergeQueries`).
+Suggestion feedback (SLN-457, migration `0073_reading_suggestions`), shared with the book enrichment epic and defined once in the reading tracker's parent issue: Not now (until a date), Never, and Not for me with reasons. One row a book. Every write is an upsert on `work_id`: the newer verdict replaces the older one; `reasons`, `note` and `until` are replaced, not merged; `source` becomes the latest writer. Removing the row (Undo in the Hidden view) makes the book a candidate again. `book_parent_required` keeps it on books; a book merge keeps the newer row (`recommendationFeedbackMergeQueries`).
 
 | Column | Type | Notes |
 | -- | -- | -- |
