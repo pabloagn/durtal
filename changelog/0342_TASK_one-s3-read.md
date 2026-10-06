@@ -29,8 +29,9 @@ client with dynamic imports.
 - `display.ts`'s reader is gone; `logo-card`, `reprocess-author` and
   `author-monochrome.ts` import the shared one.
 - Tests: `src/__tests__/s3/read-object.test.ts` (S3, the preview's folder, a
-  file with no body). `hardening.test.ts` keeps the real `getS3Object`
-  behind its mocked client; `logo-cards.test.ts` mocks the new module.
+  file with no body). `hardening.test.ts` and `media-ingest.test.ts` keep
+  the real `getS3Object` behind their mocked client; `logo-cards.test.ts`
+  mocks the new module.
 
 ## Completion Notes
 
@@ -38,3 +39,9 @@ client with dynamic imports.
   `setActiveMedia` (`src/lib/actions/media.ts`). PR #113 rewrites the first
   and edits the lines around the second; they move to `readS3Object` once
   #113 is on main.
+- `python3 scripts/qa/test-local.py`: 215 files. The first run failed 3
+  tests in `media-ingest.test.ts`, whose S3 mock had no `getS3Object`; with
+  the fix above, it and the other media suites (`image-adjustments`,
+  `logo-cards`, `hardening`, `read-object`) rerun green: 6 files, 65 tests.
+- `/api/media/upload`, `/from-url` and `/process` still give the same rows
+  and keys: `media-ingest.test.ts` covers the three on the test database.
