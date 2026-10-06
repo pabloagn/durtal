@@ -8,17 +8,23 @@ import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { deleteEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { keptNotesText } from "@/lib/reading/notes-text";
 
 interface EditionDeleteButtonProps {
   editionId: string;
   editionTitle: string;
   instanceCount: number;
+  /** Its quotes and notes, which stay with the book without the edition (SLN-480) */
+  quoteCount?: number;
+  noteCount?: number;
 }
 
 export function EditionDeleteButton({
   editionId,
   editionTitle,
   instanceCount,
+  quoteCount = 0,
+  noteCount = 0,
 }: EditionDeleteButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -49,7 +55,7 @@ export function EditionDeleteButton({
         onClose={() => setOpen(false)}
         onConfirm={handleConfirm}
         title="Delete edition"
-        description="Are you sure you want to delete this edition? This action cannot be undone."
+        description={`Are you sure you want to delete this edition? This action cannot be undone.${keptNotesText(quoteCount, noteCount, ", without this edition")}`}
         itemName={editionTitle}
         cascade={
           instanceCount > 0

@@ -455,7 +455,8 @@ for (const route of expanded) {
 }
 ws.close();
 chrome.kill();
-rmSync(profile, { recursive: true, force: true });
+// Chrome may still be writing its profile as it exits: retry the removal instead of losing the report
+rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 for (const n of notes) console.log(`  ${n}`);
 console.log("");
 for (const f of failures) console.log(`FAIL  ${f}`);

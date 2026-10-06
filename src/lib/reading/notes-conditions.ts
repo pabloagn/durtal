@@ -8,6 +8,10 @@ export interface NotesFilter {
   q?: string;
   workId?: string;
   authorId?: string;
+  /** An edition's notes, or "none" for those with no edition recorded (SLN-480) */
+  editionId?: string;
+  /** The notes on editions this person translated */
+  translatorId?: string;
   kind?: NoteKind;
   favourites?: boolean;
   year?: number;
@@ -25,6 +29,12 @@ export function notesCondition(filter: NotesFilter): SQL | null {
   if (filter.workId) conditions.push(sql`n.work_id = ${filter.workId}::uuid`);
   if (filter.authorId)
     conditions.push(sql`exists (select 1 from work_authors wa where wa.work_id = n.work_id and wa.author_id = ${filter.authorId}::uuid)`);
+  if (filter.editionId === "none") conditions.push(sql`n.edition_id is null`);
+  else if (filter.editionId) conditions.push(sql`n.edition_id = ${filter.editionId}::uuid`);
+  if (filter.translatorId)
+    conditions.push(
+      sql`exists (select 1 from edition_contributors ec where ec.edition_id = n.edition_id and ec.role = 'translator' and ec.author_id = ${filter.translatorId}::uuid)`,
+    );
   if (filter.kind) conditions.push(sql`n.kind = ${filter.kind}`);
   if (filter.favourites) conditions.push(sql`n.is_favourite`);
   if (filter.year) conditions.push(sql`extract(year from n.created_at at time zone ${appTimeZone()}) = ${filter.year}`);

@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { getReadingsForWork } from "@/lib/actions/reading";
 import { getNotesForWork } from "@/lib/actions/reading-notes";
 import { NotesSection } from "@/components/reading/notes-section";
-import { slimNote } from "@/lib/reading/notes-text";
+import { noteGroups, quotesAnchor, slimNote } from "@/lib/reading/notes-text";
+import { labelEditionOf, noteEditionsOf } from "@/lib/reading/edition-label";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { getQueuePlace } from "@/lib/actions/reading-queue";
 import { ReadingProvider } from "@/components/reading/reading-provider";
@@ -212,6 +213,19 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     // Quotes and notes (SLN-453): books only
     canUseWorkCapability(work.kind, "reading") ? getNotesForWork(work.id) : Promise.resolve([]),
   ]);
+  // Quotes by edition (SLN-480): each edition named once for the browser, the groups in the Editions section's order
+  const slimNotes = readingNotes.map(slimNote);
+  const noteEditions = noteEditionsOf(work.editions.map(labelEditionOf), work.title);
+  const editionOrder = work.editions.map((e) => e.id);
+  const groupedNotes = noteGroups(slimNotes, editionOrder, noteEditions).length > 1;
+  const editionQuotes = (editionId: string) => {
+    const mine = readingNotes.filter((n) => n.editionId === editionId);
+    return {
+      quotes: mine.filter((n) => n.kind === "quote").length,
+      notes: mine.filter((n) => n.kind === "note").length,
+      href: groupedNotes ? `#${quotesAnchor(editionId)}` : "#quotes",
+    };
+  };
   const readingCounts = {
     readings: readingRows.length,
     sessions: readingRows.reduce((sum, r) => sum + r.sessionCount, 0),
@@ -236,7 +250,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     bookRating: work.rating ?? null,
     dayStartHour,
     rows: readingRows,
-    editions: readingEditions(work.editions, { today, homeId: homeCookie && homeCookie !== "none" ? homeCookie : null }),
+    editions: readingEditions(work.editions, { today, homeId: homeCookie && homeCookie !== "none" ? homeCookie : null, workTitle: work.title }),
     homes: readingHomes(allLocations),
     today,
     zone,
@@ -684,7 +698,12 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         {canRead && <ReadingSection />}
 
         {canRead && readingNotes.length > 0 && (
-          <NotesSection notes={readingNotes.map(slimNote)} book={{ title: work.title, author: primaryAuthor?.name ?? null }} />
+          <NotesSection
+            notes={slimNotes}
+            book={{ title: work.title, author: primaryAuthor?.name ?? null }}
+            editions={noteEditions}
+            editionOrder={editionOrder}
+          />
         )}
 
         {(acquisitionTargets.length > 0 ||
@@ -724,6 +743,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   name: g.name,
                 }))}
                 availableTags={allTags.map((t) => ({ id: t.id, name: t.name }))}
+                quotes={canRead ? editionQuotes(edition.id) : undefined}
               />
             ))}
           </div>

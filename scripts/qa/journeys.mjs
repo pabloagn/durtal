@@ -328,7 +328,7 @@ async function readingJourney() {
       await menu("Resume");
       await expectLabel("Reading ·");
       await menu("Edit reading");
-      await choose("Edition", "English · 2010 · 480 p.");
+      await choose("Edition", "English · Journey Reading, pocket, 2010 · 480 p.");
       await waitFor(`${DIALOG}.textContent.includes('p. 200 of 600 becomes p. 160 of 480')`, "the remap line");
       await save("Save");
       await expectLabel("p\\. 160 of 480");
@@ -336,7 +336,7 @@ async function readingJourney() {
     await step("a sitting in the audiobook", async () => {
       await menu("Log progress");
       await click("Read in another edition or format", DIALOG);
-      await choose("Read in another edition or format", "English · 2015");
+      await choose("Read in another edition or format", "English · Journey Reading, audio, 2015");
       await fill("Where are you?", "50%");
       await waitFor(`${DIALOG}.textContent.includes('the reading moves to p. 240 of 480')`, "the move line");
       await save("Log");

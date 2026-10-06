@@ -71,7 +71,7 @@ export interface DialogRequest {
   timer?: StopRequest;
   /** The session dialog edits this session; without one it adds a session (SLN-451) */
   session?: SessionRow;
-  /** Start reading with this edition: the one queued in Up Next (SLN-452) */
+  /** Start reading: the edition queued in Up Next (SLN-452). The note dialog: the edition the quote is filed under (SLN-480) */
   editionId?: string;
   /** The note dialog (SLN-453): a quote or a note, on `readingId` when given */
   noteKind?: NoteKind;
@@ -79,6 +79,8 @@ export interface DialogRequest {
   note?: NoteEdit;
   /** The page to fill, from Log progress */
   page?: number | null;
+  /** The percent to fill, from Log progress on a session counted in percent or time: the note dialog opens in Percent, even for null (SLN-480) */
+  percent?: number | null;
   /** The dialog to go back to once the note dialog closes (Log progress) */
   back?: DialogRequest;
   /** Log progress on the way back from the note dialog: what was typed there */

@@ -647,7 +647,7 @@ export async function addPastReading(input: AddPastReadingInput) {
 
 /** Edits a reading: edition or copy (the place is mapped), format, home, totals, dates, rating, review */
 export async function updateReading(input: UpdateReadingInput) {
-  const { readingId, fingerprint, ...patch } = updateReadingSchema.parse(input);
+  const { readingId, fingerprint, moveNotes, ...patch } = updateReadingSchema.parse(input);
   const reading = await readingFor(readingId, fingerprint);
   await requireBookWork(reading.workId);
   const values: Partial<typeof readings.$inferInsert> = {};
@@ -746,10 +746,14 @@ export async function updateReading(input: UpdateReadingInput) {
     if (patch.abandonNote !== undefined) values.abandonNote = patch.abandonNote;
   }
   const now = new Date();
+  // Its notes on the old edition (or with none) follow it to the new one when asked; pages stay as typed, updated_at stays
+  const refile = !!moveNotes && editionChanged && !!editionId;
+  const onOldEdition = reading.editionId ? eq(readingNotes.editionId, reading.editionId) : isNull(readingNotes.editionId);
   await withReadableErrors(() =>
     atomic((d) => [
       ...guardReading(d, reading.id, fingerprint),
       d.update(readings).set({ ...values, updatedAt: now }).where(eq(readings.id, reading.id)),
+      ...(refile ? [d.update(readingNotes).set({ editionId }).where(and(eq(readingNotes.readingId, reading.id), onOldEdition))] : []),
     ]),
   );
   const fresh = (await loadReading(reading.id))!;
@@ -1054,6 +1058,9 @@ export async function getReadingsForWork(workId: string) {
     /** Its quotes and notes (SLN-453), which a delete leaves with the book */
     quoteCount: number;
     noteCount: number;
+    /** Those filed under its own edition, or with none when it has none (SLN-480): what Edit reading can refile */
+    ownEditionQuoteCount: number;
+    ownEditionNoteCount: number;
     edition: { id: string; title: string; coverS3Key: string | null; thumbnailS3Key: string | null; pageCount: number | null; language: string | null; translators: string[] } | null;
     copy: { id: string; location: string | null; shelf: string | null } | null;
     home: { id: string; name: string } | null;
@@ -1064,6 +1071,10 @@ export async function getReadingsForWork(workId: string) {
         (select coalesce(sum(s.duration_seconds), 0)::int from reading_sessions s where s.reading_id = r.id) as "totalSeconds",
         (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'quote') as "quoteCount",
         (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'note') as "noteCount",
+        (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'quote'
+          and n.edition_id is not distinct from r.edition_id) as "ownEditionQuoteCount",
+        (select count(*)::int from reading_notes n where n.reading_id = r.id and n.kind = 'note'
+          and n.edition_id is not distinct from r.edition_id) as "ownEditionNoteCount",
         (select jsonb_build_object('id', e.id, 'title', e.title, 'coverS3Key', e.cover_s3_key, 'thumbnailS3Key', e.thumbnail_s3_key,
             'pageCount', e.page_count, 'language', e.language,
             'translators', coalesce((select jsonb_agg(a.name order by ec.sort_order) from edition_contributors ec join authors a on a.id = ec.author_id
@@ -1263,7 +1274,7 @@ export async function getReadingDialogData(workId: string, homeId: string | null
     bookRating: work.rating ?? null,
     dayStartHour,
     rows,
-    editions: readingEditions(work.editions, { today, homeId: home }),
+    editions: readingEditions(work.editions, { today, homeId: home, workTitle: work.title }),
     homes: readingHomes(locations),
     today,
     zone,
