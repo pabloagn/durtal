@@ -30,6 +30,12 @@ All environment variables are listed in `.env.example`. Copy it to `.env.local` 
 | `ISBNDB_API_KEY` | No | ISBNdb API key. Without it, ISBNdb search is skipped. The misspelled `ISBNDN_API_KEY` is still accepted, with a warning, for one release |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | No | Mapbox public token for the authors map. Inlined into the client bundle at build time |
 
+### Book enrichment
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `ENRICHMENT_CONTACT` | For enrichment | — | The contact every enrichment request names in its User-Agent, `DurtalBot/1.0 (personal book catalogue; <contact>)` (`src/lib/enrichment/user-agent.ts`). Not set: the evidence fetcher refuses to start. Keep it in `.env.local` only |
+
 ### Application
 
 | Variable | Required | Default | Description |
