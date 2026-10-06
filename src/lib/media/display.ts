@@ -10,12 +10,11 @@
  * - Replaced files are deleted only after the database points at the new
  *   ones, and only when no row uses them (`deleteUnusedObjects`).
  */
-import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { and, eq, sql } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
 import { media } from "@/lib/db/schema";
-import { s3, S3_BUCKET } from "@/lib/s3/client";
 import { uploadToS3 } from "@/lib/s3/covers";
+import { readS3Object } from "@/lib/s3/read-object";
 import { goldMediaVersionKeys } from "@/lib/s3/keys";
 import { deleteUnusedObjects } from "@/lib/s3/cleanup";
 import type { MediaType } from "@/lib/types";
@@ -250,11 +249,6 @@ export async function buildDisplayFiles(
   }
 }
 
-export async function readS3Object(key: string): Promise<Buffer> {
-  const object = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }));
-  if (!object.Body) throw new Error("Image not found in storage");
-  return Buffer.from(await object.Body.transformToByteArray());
-}
 
 
 function version(): string {

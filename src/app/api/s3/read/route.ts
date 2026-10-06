@@ -3,6 +3,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import { isMediaWidth } from "@/lib/s3/media-url";
 import { contentHeaders, isReadableKey, READ_SAFETY_HEADERS } from "@/lib/s3/read-headers";
+import { bodyBytes } from "@/lib/s3/read-object";
 
 /** Prevent Next.js from caching this route handler's response. */
 export const dynamic = "force-dynamic";
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
 
     if (width) {
       const sharp = (await import("sharp")).default;
-      const input = Buffer.from(await obj.Body!.transformToByteArray());
+      const input = await bodyBytes(obj.Body, key);
       const { width: sourceWidth = 0 } = await sharp(input).metadata();
       // Already that narrow: send the stored bytes, not a second compression
       if (sourceWidth <= width) {

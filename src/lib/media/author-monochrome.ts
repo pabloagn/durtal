@@ -34,8 +34,8 @@ import {
   commitDisplay,
   displayFraming,
   editorCrop,
-  readS3Object,
 } from "./display";
+import { readS3Object } from "@/lib/s3/read-object";
 import { ingestMedia } from "./ingest";
 
 type MediaRow = typeof media.$inferSelect;
