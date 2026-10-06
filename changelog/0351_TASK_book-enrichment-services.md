@@ -66,7 +66,7 @@ SLN-461.
 ## Completion Notes
 
 - Tests: `enrichment-services.test.ts` (database
-  `sln462_enrichment_services`, 21 tests) loads the fixture vocabulary and
+  `sln462_enrichment_services`, 20 tests) loads the fixture vocabulary and
   covers the loader (a plan writes nothing; an unknown example work stops it,
   a merged one is followed; items created in their family with category and
   parent, an existing one reused by slug; rules off; `--apply` refused
