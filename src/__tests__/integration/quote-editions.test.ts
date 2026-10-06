@@ -139,7 +139,8 @@ describe.skipIf(!url)("quotes tied to editions with PostgreSQL", () => {
       expect(typeof note.percent).toBe("number");
       expect((await updateReadingNote({ id: note.id, editionId: a })).percent).toBe(30);
       expect((await updateReadingNote({ id: note.id, page: 200 })).percent).toBe(50);
-      expect((await updateReadingNote({ id: note.id, readingId: null })).percent).toBe(57.14);
+      // No reading: the note keeps its edition, and its percent is of that edition's page count
+      expect(await updateReadingNote({ id: note.id, readingId: null })).toMatchObject({ editionId: a, percent: 57.14 });
       // Front matter has no percent; a range's end does not count
       expect((await updateReadingNote({ id: note.id, page: 14, endPage: 16, pageRoman: true })).percent).toBeNull();
       expect((await updateReadingNote({ id: note.id, page: 70, endPage: 71, pageRoman: false })).percent).toBe(20);

@@ -113,8 +113,8 @@ async function noteOrThrow(id: string) {
   return row;
 }
 
-/** The reading and the edition a note may point at, checked against its book */
-async function references(workId: string, readingId: string | null | undefined, editionId: string | null | undefined) {
+/** The reading and the edition a note may point at, checked against its book; `fallback` is the edition kept when none is named and the reading has none */
+async function references(workId: string, readingId: string | null | undefined, editionId: string | null | undefined, fallback: string | null = null) {
   let reading: { id: string; editionId: string | null; totalPages: number | null } | null = null;
   if (readingId) {
     const [row] = await db
@@ -126,7 +126,7 @@ async function references(workId: string, readingId: string | null | undefined, 
     reading = row;
   }
   // A note on a reading is on its edition unless it names another
-  const edition = editionId === undefined ? (reading?.editionId ?? null) : editionId;
+  const edition = editionId === undefined ? (reading?.editionId ?? fallback) : editionId;
   let pageCount: number | null = null;
   if (edition) {
     const [row] = await db.select({ workId: editions.workId, pageCount: editions.pageCount }).from(editions).where(eq(editions.id, edition));
@@ -217,12 +217,13 @@ export async function updateReadingNote(input: z.input<typeof updateReadingNoteS
   const { id, ...patch } = updateReadingNoteSchema.parse(input);
   const note = await noteOrThrow(id);
   const kind = patch.kind ?? note.kind;
-  // Another reading brings its edition, unless one is sent; the same reading keeps the note's
+  // Another reading brings its edition, unless one is sent; no reading, or one with no edition, keeps the note's (SLN-480)
   const readingChanged = patch.readingId !== undefined && patch.readingId !== note.readingId;
   const refs = await references(
     note.workId,
     patch.readingId === undefined ? note.readingId : patch.readingId,
     patch.editionId !== undefined ? patch.editionId : readingChanged ? undefined : note.editionId,
+    note.editionId,
   );
   const values: Partial<typeof readingNotes.$inferInsert> = { kind, readingId: refs.reading?.id ?? null, editionId: refs.editionId };
   if (patch.body !== undefined) values.body = patch.body;
