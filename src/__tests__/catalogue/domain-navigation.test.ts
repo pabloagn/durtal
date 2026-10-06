@@ -23,9 +23,10 @@ import PaintingsLayout from "@/app/paintings/layout";
 
 
 describe("reading navigation (SLN-448)", () => {
-  it("puts Reading before the e-book reader, and G R opens it", () => {
+  it("lists Reading, without the old reader (SLN-490), and G R opens it", () => {
     const labels = NAV_SECTIONS.map((s) => s.label);
-    expect(labels.indexOf("Reading")).toBe(labels.indexOf("Reader") - 1);
+    expect(labels).toContain("Reading");
+    expect(labels).not.toContain("Reader");
     expect(GO_TO.find((g) => g.key === "r")).toEqual({ key: "r", label: "Reading", href: "/reading" });
     expect(GO_TO.some((g) => g.href === "/reader")).toBe(false);
     const keys = GO_TO.map((g) => g.key);

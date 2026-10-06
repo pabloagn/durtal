@@ -72,9 +72,12 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
       // Later migrations may add work columns; every existing value must survive.
       // The reading tracker makes the rating numeric(2,1), which returns as text.
       expect((await c`select * from works where id=${w.id}`)[0]).toMatchObject({ ...w, rating: "5.0" });
-      expect((await c`select * from instances where id=${copy.id}`)[0]).toEqual(
-        copy,
-      );
+      // 0076 (SLN-490) drops two link columns of the old e-book library, empty here
+      const keptCopy = (await c`select * from instances where id=${copy.id}`)[0];
+      const droppedColumns = Object.keys(copy).filter((k) => !(k in keptCopy));
+      expect(droppedColumns).toHaveLength(2);
+      expect(droppedColumns.every((k) => copy[k] === null)).toBe(true);
+      expect(keptCopy).toEqual(Object.fromEntries(Object.entries(copy).filter(([k]) => k in keptCopy)));
       // A cover's palette and colour (0071, SLN-405) start empty
       const noColour = { cover_palette: null, cover_color_bucket: null };
       expect((await c`select * from editions where id=${e.id}`)[0]).toEqual({
