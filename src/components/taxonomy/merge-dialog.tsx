@@ -108,7 +108,7 @@ export function MergeDialog({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items..."
-            className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+            className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
           />
           <div className="max-h-40 overflow-y-auto rounded-sm border border-glass-border bg-bg-primary/40">
             {filteredTargets.length === 0 ? (

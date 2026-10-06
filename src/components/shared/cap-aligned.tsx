@@ -1,5 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 
+/** The box's heights for the cap-touch utility; 44px on touch is its default */
+function capTouchStyle(height: number, coarseHeight: number): CSSProperties {
+  const style: Record<string, string> = { "--cap-box": `${height}px` };
+  if (coarseHeight !== 44) style["--cap-box-coarse"] = `${coarseHeight}px`;
+  return style;
+}
+
 /**
  * Centers a fixed-height box (an icon, a small button or button group) on the
  * cap height of the first text line beside it: the optical center of
@@ -44,8 +51,8 @@ export function CapAligned({
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="cap-box h-(--cap-box) [margin-block:calc(var(--cap-box)/-2)] pointer-coarse:h-(--cap-box-coarse) pointer-coarse:[margin-block:calc(var(--cap-box-coarse)/-2)]"
-        style={{ "--cap-box": `${height}px`, "--cap-box-coarse": `${coarseHeight}px` } as CSSProperties}
+        className="cap-box cap-touch"
+        style={capTouchStyle(height, coarseHeight)}
       >
         {children}
       </span>
@@ -94,10 +101,10 @@ export function CapAlignedControls({
   return (
     <span className={`block h-[1lh] shrink-0 ${className}`}>
       <span
-        className="inline-block h-(--cap-box) align-[0.5cap] [margin-block:calc(var(--cap-box)/-2)] pointer-coarse:h-(--cap-box-coarse) pointer-coarse:[margin-block:calc(var(--cap-box-coarse)/-2)]"
-        style={{ "--cap-box": `${height}px`, "--cap-box-coarse": `${coarseHeight}px` } as CSSProperties}
+        className="inline-block cap-touch align-[0.5cap]"
+        style={capTouchStyle(height, coarseHeight)}
       >
-        <span className={`${controls} h-(--cap-box) pointer-coarse:h-(--cap-box-coarse)`}>
+        <span className={`${controls} h-(--cap-h)`}>
           {children}
         </span>
       </span>

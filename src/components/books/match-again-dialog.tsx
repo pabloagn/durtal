@@ -230,7 +230,7 @@ export function MatchAgainDialog({
           <button
             onClick={backToResults}
             disabled={confirming}
-            className="flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
             Back to results

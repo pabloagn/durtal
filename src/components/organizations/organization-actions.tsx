@@ -29,7 +29,7 @@ export function OrganizationActions({
   const close = () => setOpen(null);
   return (
     <>
-      <CapAlignedControls height={32} className="type-page-title">
+      <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
         <EntityActionMenu
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit") },

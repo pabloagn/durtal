@@ -16,7 +16,8 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
         max={8}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
-        className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent-rose [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-rose"
+        // On touch the slider is 44px tall: its track stays a 4px line drawn by the background
+        className="h-1 w-20 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent-rose [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-rose pointer-coarse:h-11 pointer-coarse:rounded-none pointer-coarse:bg-transparent pointer-coarse:bg-[linear-gradient(var(--color-bg-tertiary),var(--color-bg-tertiary))] pointer-coarse:bg-[length:100%_4px] pointer-coarse:bg-center pointer-coarse:bg-no-repeat"
       />
     </div>
   );

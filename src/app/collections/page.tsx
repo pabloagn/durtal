@@ -102,11 +102,11 @@ export default async function CollectionsPage({
             defaultValue={typeof params.q === "string" ? params.q : ""}
             aria-label="Find collections"
             placeholder="Find collections…"
-            className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm"
+            className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm pointer-coarse:h-11"
           />
           <button
             type="submit"
-            className="rounded-sm border border-glass-border px-3 text-sm"
+            className="rounded-sm border border-glass-border px-3 text-sm pointer-coarse:min-h-11"
           >
             Search
           </button>

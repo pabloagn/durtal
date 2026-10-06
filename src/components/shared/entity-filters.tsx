@@ -105,7 +105,7 @@ export function EntityFilters({
               300,
             );
           }}
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
         />
       </div>
 
@@ -133,7 +133,7 @@ export function EntityFilters({
               }
       router.push(firstPageHref(basePath, params));
             }}
-            className={`rounded-sm px-2.5 py-1 text-xs transition-colors ${
+            className={`rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
               currentSort === opt.value
                 ? "bg-accent-plum text-fg-primary"
                 : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"

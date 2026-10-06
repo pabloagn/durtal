@@ -164,7 +164,7 @@ export function AuthorDetailHeader({
               )}
             </div>
             {/* On the cap-height center of the name's first line */}
-            <CapAlignedControls height={32} className="type-page-title">
+            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
               <FavouriteToggle
                 favourite={isFavourite}
                 target={{ entity: "author", id: authorId }}

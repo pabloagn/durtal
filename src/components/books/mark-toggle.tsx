@@ -169,7 +169,7 @@ export function MarkToggle({
             card.current?.querySelector<HTMLElement>("button, input")?.focus();
           }
         }}
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary disabled:opacity-50 ${marked ? tone : "text-fg-muted/70 hover:text-fg-secondary"}`}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:size-11 ${marked ? tone : "text-fg-muted/70 hover:text-fg-secondary"}`}
       >
         <Icon
           className="h-4 w-4"

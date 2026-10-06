@@ -76,7 +76,7 @@ export function PublisherHeader({
           <div className="type-page-title flex items-start gap-4">
             <h1 className="type-page-title min-w-0 flex-1 break-words">{name}</h1>
             {/* On the cap-height center of the name's first line */}
-            <CapAlignedControls height={32} className="type-page-title">
+            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
               <FavouriteToggle
                 favourite={favourite}
                 target={{ entity: "publisher", id }}

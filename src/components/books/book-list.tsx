@@ -175,7 +175,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           </Link>
           {/* On the title's cap-height center, beside the first line */}
           {(book.isFavourite !== undefined || !isSelecting) && (
-            <CapAlignedControls height={32} className="type-item-title">
+            <CapAlignedControls height={32} coarseHeight={44} className="type-item-title">
               {book.isFavourite !== undefined && (
                 <FavouriteToggle
                   favourite={book.isFavourite}
