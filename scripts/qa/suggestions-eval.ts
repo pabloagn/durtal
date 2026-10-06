@@ -32,7 +32,8 @@ if (!parsed || !["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.p
   process.exit(2);
 }
 
-const client = postgres(url, { max: 2, onnotice: () => {}, connection: { default_transaction_read_only: "on" } });
+// No JIT, as the app runs the book query (SLN-487)
+const client = postgres(url, { max: 2, onnotice: () => {}, connection: { default_transaction_read_only: "on", jit: "off" } });
 const db = drizzle(client);
 const execute = (query: Parameters<typeof db.execute>[0]) => db.execute(query);
 

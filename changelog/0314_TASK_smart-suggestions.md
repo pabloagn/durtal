@@ -81,12 +81,22 @@ service and no language model. Migration `0073_reading_suggestions`
   coverage 92.6%, MAE 0.673, baseline MAE 0.654: the prediction is not 10%
   better than the mean, so the gate stays off. Forced on for the UI checks,
   the book page reads "You would likely rate it 3.5 to 4".
-- Server time on the backup (690 books, 9 requests each): `/reading/suggestions`
-  140 to 156 ms median (135 to 214 ms), `/reading` 141 to 156 ms; nearly all
-  of it is `getSuggestionContext`, whose one book query takes 136 to 172 ms.
-  Of that, Postgres 16's JIT takes about 90 ms: on the seeded preview the
-  query runs in 161 ms with JIT and 71 ms with `jit = off`. Under the 300 ms
-  of the issue either way.
+- Server time on the backup (690 books, 9 requests each, the final code):
+  `/reading/suggestions` 143 ms median (140 to 190 ms), `/reading` 140 ms
+  (133 to 155 ms); nearly all of it is `getSuggestionContext`, whose one book
+  query takes about 115 ms in psql with its rows sent. Under the issue's
+  300 ms.
+- JIT (SLN-487): the book query runs with `set local jit = off` in its own
+  transaction. Its plan cost (226,000 on 695 books) is over
+  `jit_above_cost`. Today JIT about pays for itself end to end (113 to 127 ms
+  with it, about 116 ms without; `explain analyze` showed 142 to 155 ms
+  against 64 to 69 ms, but it leaves out building and sending the rows), so
+  the page moved only from 150 to 145 ms median. The cost grows with the
+  catalogue, and past `jit_optimize_above_cost` (500,000) the optimized
+  compile alone takes about 200 ms, as on `/series`. With it, `explain
+  (analyze)` shows no JIT section. The coordinator's suggested fix, `unnest`
+  in place of a set-returning function, does not apply: the cost comes from
+  the per-book subqueries.
 - Page weight on a production-build preview with the same seeds before
   (#110) and after: `/` 264 KB both, `/reading` 93 then 111 KB (the three
   suggestions), `/reading/next` 46 then 47 KB, `/library` 299 KB both.
@@ -125,8 +135,8 @@ service and no language model. Migration `0073_reading_suggestions`
 - Seen on the way, not changed here (SLN-487): `/series` takes about 220
   ms on a preview whose statistics are fresh, because Postgres JIT-compiles
   `getSeriesSuggestions` (it estimates 1,000 rows for each
-  `regexp_split_to_table`); the suggestion query's JIT is in the same
-  ticket.
+  `regexp_split_to_table`): 218 to 232 ms with JIT against 5 ms without, end
+  to end. Another thread fixes it on main.
 - Tests: `scripts/qa/test-local.py` (every suite, a disposable PostgreSQL
   16), on the branch merged with main at 25b2438: 220 files and 2,480 tests,
   none skipped. New: the database suite `reading-suggestions` (12: the
