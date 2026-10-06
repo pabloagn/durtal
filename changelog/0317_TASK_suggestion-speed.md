@@ -32,4 +32,22 @@ result.
 
 ## Completion Notes
 
-RESULTS
+- Same results: on a preview of the 5 Oct backup with the QA seeds (695
+  books), the new book query returns the same 695 rows as the old, field by
+  field, with and without a home; `suggest()` returns the same list, in the
+  same order with the same scores, for the Owned scope (168 suggestions) and
+  for All (613).
+- `suggest()`, median of 9: Owned 4 then 2 ms, All 33 then 14 ms. The book
+  query, its rows sent (`jit = off`): 120 to 127 ms then 113 to 121 ms.
+- Pages, 9 requests each, on production builds of main (a663ed3c) and this
+  branch with the same data: `/reading/suggestions` 154 then 141 ms median,
+  `/reading/suggestions?scope=all` 186 then 155 ms, `/reading` 158 then
+  143 ms. Page weight is unchanged (`/reading/suggestions` 247 KB,
+  `/reading` 111 KB).
+- Review measured larger gains on its preview (`suggest()` 210 then 80 ms on
+  711 books, the query 161 then 73 ms). Here most of the query's time is
+  building and sending its rows, which the grouped CTEs leave as they are.
+- Tests: `scripts/qa/test-local.py` (every suite, a disposable PostgreSQL
+  16): 223 files and 2,498 tests, none skipped, the suggestion suites
+  (`reading-suggestions`, `suggest`) included. `pnpm typecheck` and
+  `pnpm deadcode` are clean; `pnpm lint` has 81 warnings, as on main.
