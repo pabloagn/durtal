@@ -35,6 +35,8 @@ const serverSchema = z.object({
   ISBNDB_API_KEY: optional,
   ADMIN_TOKEN: optional,
   DURTAL_API_TOKEN: optional,
+  /** The contact in the enrichment User-Agent (SLN-460) */
+  ENRICHMENT_CONTACT: optional,
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
