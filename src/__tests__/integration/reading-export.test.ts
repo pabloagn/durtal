@@ -110,7 +110,9 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const res = await exportRoute(
       new NextRequest("http://localhost/api/export", { method: "POST", body: JSON.stringify({ entity, format, ...body }) }),
     );
-    return { status: res.status, text: await res.text(), type: res.headers.get("content-type"), name: res.headers.get("content-disposition") };
+    // The bytes as sent: Response.text() would drop the byte order mark
+    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(await res.arrayBuffer());
+    return { status: res.status, text, type: res.headers.get("content-type"), name: res.headers.get("content-disposition") };
   }
   const sections = async (importId: string) =>
     (await q(`select match from reading_import_rows where import_id = $1 order by row_no`, [importId])).map((r) => (r.match as ImportMatch).section);
@@ -148,7 +150,7 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     await q(`update readings set total_pages = 200 where id = $1`, [openId]);
     await session(openId, { read_on: today, end_percent: 30, pages_total: 200, duration_seconds: 1800 });
     await session(openId, { read_on: today, end_percent: 20, pages_total: 200, duration_seconds: 1800 });
-    await session(openId, { read_on: today, source: "timer", started_at: new Date(), pages_total: 200 });
+    await session(openId, { read_on: today, source: "timer", started_at: new Date().toISOString(), pages_total: 200 });
     return { openId, formula };
   }
 
