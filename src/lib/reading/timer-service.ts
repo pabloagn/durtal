@@ -18,7 +18,9 @@ import { durationWords, elapsedSeconds, TIMER_GONE } from "./timer";
  * nothing while it runs: the session order, the position, counted pages and
  * pace leave it out. Starting, pausing and resuming touch only its row, so
  * the reading's fingerprint does not change; stopping goes through
- * `recordProgress` with `timerSessionId`.
+ * `recordProgress` with `timerSessionId`. Every step reads one clock, the
+ * app's: the database's `now()` can differ by a few milliseconds and cut a
+ * pause short by a second (SLN-519).
  */
 
 export interface RunningTimer {
@@ -150,12 +152,13 @@ export async function pauseTimerRow(sessionId: string) {
 export async function resumeTimerRow(sessionId: string) {
   const row = await runningRow(sessionId);
   if (!row.pausedAt) return row;
+  const now = new Date();
   const [updated] = await db
     .update(readingSessions)
     .set({
-      pausedSeconds: sql`least(${readingSessions.pausedSeconds} + greatest(0, floor(extract(epoch from (now() - ${readingSessions.pausedAt}))))::int, 86400)`,
+      pausedSeconds: sql`least(${readingSessions.pausedSeconds} + greatest(0, floor(extract(epoch from (${now.toISOString()}::timestamptz - ${readingSessions.pausedAt}))))::int, 86400)`,
       pausedAt: null,
-      updatedAt: new Date(),
+      updatedAt: now,
     })
     .where(and(eq(readingSessions.id, sessionId), isNull(readingSessions.endedAt), sql`${readingSessions.pausedAt} is not null`))
     .returning();
