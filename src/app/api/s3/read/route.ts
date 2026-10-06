@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, type GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import { isMediaWidth } from "@/lib/s3/media-url";
 import { contentHeaders, isReadableKey, READ_SAFETY_HEADERS } from "@/lib/s3/read-headers";
 import { bodyBytes } from "@/lib/s3/read-object";
+import { previewGet, previewS3Dir } from "@/lib/s3/preview-dir";
 
 /** Prevent Next.js from caching this route handler's response. */
 export const dynamic = "force-dynamic";
@@ -27,6 +28,23 @@ function s3EtagFrom(ifNoneMatch: string | null, width: number | null) {
   return ifNoneMatch.endsWith(suffix)
     ? `${ifNoneMatch.slice(0, -suffix.length)}"`
     : undefined;
+}
+
+/**
+ * The stored object: from S3, which answers 304 for the browser's ETag, or
+ * from a preview's folder (DURTAL_PREVIEW_S3_DIR), as every other S3 path
+ * reads it. A preview's file has no ETag.
+ */
+async function readObject(key: string, ifNoneMatch: string | undefined) {
+  const dir = previewS3Dir();
+  if (!dir) return s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key, IfNoneMatch: ifNoneMatch }));
+  const file = await previewGet(dir, key);
+  return {
+    Body: file.body as unknown as GetObjectCommandOutput["Body"],
+    ContentType: file.contentType,
+    ContentLength: file.contentLength,
+    ETag: undefined as string | undefined,
+  };
 }
 
 /**
@@ -57,13 +75,7 @@ export async function GET(req: NextRequest) {
   const ifNoneMatch = req.headers.get("if-none-match");
 
   try {
-    const obj = await s3.send(
-      new GetObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: key,
-        IfNoneMatch: s3EtagFrom(ifNoneMatch, width),
-      }),
-    );
+    const obj = await readObject(key, s3EtagFrom(ifNoneMatch, width));
 
     const headers: Record<string, string> = {
       "Cache-Control": cacheControl,

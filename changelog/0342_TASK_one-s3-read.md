@@ -33,6 +33,12 @@ client with dynamic imports.
   the real `getS3Object` behind their mocked client; `logo-cards.test.ts`
   mocks the new module.
 
+- `/api/s3/read` also reads a preview's S3 folder (`DURTAL_PREVIEW_S3_DIR`),
+  as every other S3 path does: before, a preview made with `--s3-dir` stored
+  its images but showed none. A preview's file has no ETag, so it answers 200
+  each time, never 304. Test in `read-route.test.ts`: a stored file, its type
+  and length, a missing file's 404, and no call to S3.
+
 ## Completion Notes
 
 - Two reads stay for now: `/api/media/backfill-palettes` and
