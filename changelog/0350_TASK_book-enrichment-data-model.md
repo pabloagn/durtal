@@ -78,4 +78,27 @@ popularity snapshots and jobs: the new tables.
 
 ## Completion Notes
 
-RESULTS
+- Tests: `enrichment-model.test.ts` (database `sln462_enrichment_model`)
+  has 18 tests: every guard of section 4 by direct SQL (non-book, wrong
+  kind, other dimension's term, retired term, wrong scale value, measurement,
+  immutable value, confidence, final rejection, evidence at commit and after
+  its delete, the human-claim rules, changed evidence, payload and text
+  excerpts, outlet and owner, one open claim per value with
+  `NULLS NOT DISTINCT` and two concurrent proposals, value rows, term items,
+  governed-item delete and category, the rule gate, jobs, snapshots, the
+  original title), the deferred source-record key, `deleteWork`,
+  `deleteEdition`, and Harmonize merges of books, people, places and
+  taxonomy items. `work-kind-migration` and `book-domain-isolation` cover
+  the new tables and column; the interchange tests cover version 3.
+- Full suite (`scripts/qa/test-local.py`) on the final head: 2,642 tests in
+  238 files passed, none skipped (before a last change of the two term
+  self-references to NO ACTION, after which the enrichment model and
+  migration suites passed again, 25 tests). `pnpm typecheck`, `pnpm lint`
+  (0 errors), `pnpm deadcode` and `pnpm test` (1,853 tests) are clean.
+- Rehearsal: `scripts/qa/preview-local.py --from-dump` on
+  `live-before-0075-0076-20261006-201324.dump` applied 0075, 0076 and 0077.
+  701 works before and after, none with an original title; the ten tables
+  empty; 25 new triggers; both source-record keys deferrable. The row
+  reconciliation (118 tables, 21,839 rows) shows only the changes of 0075
+  and 0076, which live already has.
+- Live is not migrated here: the merging thread runs 0077 with Joris's yes.
