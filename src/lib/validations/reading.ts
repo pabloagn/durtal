@@ -274,6 +274,8 @@ export const updateReadingSchema = z
     ...reviewFields,
     abandonReason: z.enum(ABANDON_REASONS).nullable().optional(),
     abandonNote: z.string().trim().max(2000).nullable().optional(),
+    /** With a new edition: file the reading's notes on its old edition (or with none) under the new one (SLN-480) */
+    moveNotes: z.boolean().optional(),
   })
   .strict();
 export type UpdateReadingInput = z.input<typeof updateReadingSchema>;

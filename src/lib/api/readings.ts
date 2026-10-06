@@ -8,6 +8,11 @@ import { isTimeZone } from "@/lib/reading/dates";
 import { parseProgressInput } from "@/lib/reading/positions";
 import { MAX_SESSION_MESSAGE, TIMER_GONE } from "@/lib/reading/timer";
 import { formatMinutes } from "@/lib/reading/positions";
+import { isbn10To13, validIsbn10, validIsbn13 } from "@/lib/match/plan";
+import type { NoteWithBook } from "@/lib/actions/reading-notes";
+import type { NoteEdition } from "@/lib/reading/edition-label";
+import { noteCitation, PAGE_INPUT_ERROR } from "@/lib/reading/notes-text";
+import { END_PAGE_RULE, PAGE_AND_PERCENT, ROMAN_PAGE_RULE } from "@/lib/validations/reading-notes";
 
 /*
  * The phone's routes, /api/readings (SLN-451). An Authelia rule lets these
@@ -108,6 +113,66 @@ export function positionWords(title: string, r: { unit: string; currentPage: num
   return `${pct ?? "your place"} of ${title}`;
 }
 
+/**
+ * The edition an ISBN-10 or ISBN-13 names, on a book, with its copies still
+ * held: "invalid" when it is not an ISBN, "unknown" with the ISBN-13 (else
+ * the ISBN-10) when Durtal has no such edition.
+ */
+export async function editionByIsbn(
+  text: string,
+): Promise<{ found: false; invalid: boolean; isbn: string | null } | { found: true; workId: string; editionId: string; copies: string[] }> {
+  const digits = text.replace(/[^0-9Xx]/g, "").toUpperCase();
+  const thirteen = validIsbn13(digits) ?? (validIsbn10(digits) ? isbn10To13(validIsbn10(digits)!) : null);
+  const ten = validIsbn10(digits);
+  if (!thirteen && !ten) return { found: false, invalid: true, isbn: null };
+  const [match] = resultRows<{ workId: string; editionId: string; copies: string[] }>(
+    await db.execute(sql`
+      select e.work_id::text as "workId", e.id::text as "editionId",
+        coalesce((select jsonb_agg(i.id::text) from instances i where i.edition_id = e.id and i.status <> 'deaccessioned'), '[]'::jsonb) as copies
+      from editions e join works w on w.id = e.work_id and w.kind = 'book'
+      where e.isbn_13 = ${thirteen ?? ""} or e.isbn_10 = ${ten ?? ""}
+      order by e.created_at limit 1`),
+  );
+  return match ? { found: true, ...match } : { found: false, invalid: false, isbn: thirteen ?? ten! };
+}
+
+/** A quote or note as the routes answer it (SLN-480), with its book, its edition's summary and its citation */
+export function noteJson(note: NoteWithBook, edition: NoteEdition | null) {
+  return {
+    id: note.id,
+    workId: note.workId,
+    editionId: note.editionId,
+    readingId: note.readingId,
+    kind: note.kind,
+    body: note.body,
+    commentHtml: note.commentHtml,
+    page: note.page,
+    endPage: note.endPage,
+    pageRoman: note.pageRoman,
+    chapter: note.chapter,
+    percent: note.percent,
+    isFavourite: note.isFavourite,
+    source: note.source,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
+    book: { title: note.book.title, slug: note.book.slug },
+    edition,
+    citation: noteCitation(note, { title: note.book.title, author: note.book.author }, edition),
+  };
+}
+
+/** The notes routes' refusals (SLN-480): what was sent breaks a rule (400), or names something gone (404) */
+const NOTE_REFUSALS = new Set([
+  "This edition belongs to another book",
+  "This reading belongs to another book",
+  "Only a quote carries a thought",
+  PAGE_AND_PERCENT,
+  END_PAGE_RULE,
+  ROMAN_PAGE_RULE,
+  PAGE_INPUT_ERROR,
+]);
+const NOTE_GONE = new Set(["This note no longer exists", "This edition no longer exists", "Book not found: this action only accepts existing books"]);
+
 /** A thrown error as a spoken answer, with the status that fits it */
 export function spokenError(err: unknown, fallback: string): NextResponse {
   if (err instanceof z.ZodError) return spoken(400, err.issues[0]?.message ?? "Check what you sent", { issues: err.issues });
@@ -119,6 +184,8 @@ export function spokenError(err: unknown, fallback: string): NextResponse {
   if (message.startsWith("Your timer for")) return spoken(409, message.replace("When did you stop?", "Say when you stopped, or stop it in Durtal"));
   if (/^(Page \d+ is past|.* is past the end|The end time|Give one position|Enter )/.test(message)) return spoken(400, message);
   if (message === "This reading no longer exists") return spoken(404, message);
+  if (NOTE_REFUSALS.has(message)) return spoken(400, message);
+  if (NOTE_GONE.has(message)) return spoken(404, message.startsWith("Book not found") ? "No such book in Durtal" : message);
   console.error(`[api/readings] ${fallback}:`, err);
   return spoken(500, fallback);
 }

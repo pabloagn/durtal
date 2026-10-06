@@ -281,6 +281,10 @@ export const readingNotes = pgTable(
     /** The same thought as a Tiptap document */
     commentJson: jsonb("comment_json"),
     page: integer("page"),
+    /** The last page of a passage over a page turn (SLN-480): after `page` */
+    endPage: integer("end_page"),
+    /** `page` and `end_page` are front matter, printed in roman numerals (xiv is stored as 14) */
+    pageRoman: boolean("page_roman").notNull().default(false),
     chapter: text("chapter"),
     percent: numeric("percent", { precision: 5, scale: 2, mode: "number" }),
     isFavourite: boolean("is_favourite").notNull().default(false),
@@ -310,6 +314,12 @@ export const readingNotes = pgTable(
     ),
     // Only quotes carry a thought
     check("reading_note_comment_check", sql`${t.kind} = 'quote' or (${t.commentHtml} is null and ${t.commentJson} is null)`),
+    // A range ends after it starts; roman pages start at i (SLN-480)
+    check(
+      "reading_note_page_range_check",
+      sql`(${t.endPage} is null or (${t.page} is not null and ${t.endPage} > ${t.page}))
+        and (not ${t.pageRoman} or (${t.page} is not null and ${t.page} >= 1))`,
+    ),
   ],
 );
 

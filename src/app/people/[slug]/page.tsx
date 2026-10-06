@@ -7,6 +7,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { getAuthorBySlug, getPersonWorkCredits } from "@/lib/actions/authors";
+import { getPersonNoteCounts } from "@/lib/actions/reading-notes";
+import { notesHref } from "@/lib/reading/notes-params";
+import { notesCountText } from "@/lib/reading/notes-text";
 import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +63,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
 
   // Every collection's credits: the summary in the record, and a section for
   // each collection other than books (books keep their cards below)
-  const credits = await getPersonWorkCredits(author.id);
+  const [credits, noteCounts] = await Promise.all([getPersonWorkCredits(author.id), getPersonNoteCounts(author.id)]);
   const byKind = new Map<WorkKind, typeof credits>();
   for (const c of credits) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c]);
   const creditSummary = DOMAIN_ORDER.filter((kind) => byKind.has(kind)).map((kind) => {
@@ -167,7 +170,10 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       href: `https://www.goodreads.com/author/show/${author.goodreadsId}`,
     },
   ].filter((link): link is { label: string; href: string } => !!link);
-  const hasReadingRecord = record.read > 0;
+  // Quotes on their books, and from editions they translated (SLN-480)
+  const quotesText = notesCountText(noteCounts.quotes, noteCounts.notes);
+  const translatedText = notesCountText(noteCounts.translatedQuotes, noteCounts.translatedNotes);
+  const hasReadingRecord = record.read > 0 || !!quotesText || !!translatedText;
   const hasRecord =
     metadataFields.length > 0 || links.length > 0 || creditSummary.length > 0 || hasReadingRecord;
   const hasReading =
@@ -251,13 +257,27 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
               {hasReadingRecord && (
                 <RecordGroup title="Reading">
                   <RecordFields>
-                    <RecordField label="Read">{`${record.read} of ${record.total}`}</RecordField>
+                    {record.read > 0 && <RecordField label="Read">{`${record.read} of ${record.total}`}</RecordField>}
                     {record.rereads > 0 && (
                       <RecordField label="Re-read">{`${record.rereads} ${record.rereads === 1 ? "book" : "books"}`}</RecordField>
                     )}
                     {record.average !== null && <RecordField label="Your average">{formatRating(record.average)}</RecordField>}
                     {record.lastReadAt && (
                       <RecordField label="Last read">{formatReadingDate(record.lastReadAt.slice(0, 10), "day")}</RecordField>
+                    )}
+                    {quotesText && (
+                      <RecordField label="Quotes">
+                        <Link href={notesHref({ authorId: author.id })} className="transition-colors hover:text-accent-rose-text" data-person-quotes="">
+                          {quotesText}
+                        </Link>
+                      </RecordField>
+                    )}
+                    {translatedText && (
+                      <RecordField label="From translations">
+                        <Link href={notesHref({ translatorId: author.id })} className="transition-colors hover:text-accent-rose-text" data-person-translated-quotes="">
+                          {translatedText}
+                        </Link>
+                      </RecordField>
                     )}
                   </RecordFields>
                 </RecordGroup>

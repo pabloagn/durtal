@@ -389,7 +389,8 @@ const workDetailWith = {
     with: { subject: true },
   },
   editions: {
-    orderBy: desc(editions.publicationYear),
+    // The id breaks ties, so the Editions section and the quotes' edition groups (SLN-480) agree
+    orderBy: [desc(editions.publicationYear), asc(editions.id)] as SQL[],
     with: {
       publisherLinks: { with: { publisher: true } },
       instances: {

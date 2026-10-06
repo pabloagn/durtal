@@ -3,15 +3,9 @@
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { deleteReading, restoreReading } from "@/lib/actions/reading";
 import { ordinalRead } from "@/lib/reading/labels";
-import { notesCountText } from "@/lib/reading/notes-text";
+import { keptNotesText } from "@/lib/reading/notes-text";
 import { showError, undoToast } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
-
-/** " Its 3 quotes and notes stay with the book." when it has any (SLN-453) */
-function keptNotesText(quotes: number, notes: number) {
-  const n = quotes + notes;
-  return n ? ` Its ${notesCountText(quotes, notes)} ${n === 1 ? "stays" : "stay"} with the book.` : "";
-}
 
 /** Delete a reading with its sessions and history; Undo puts it back with the same ids */
 export function DeleteReadingDialog({ data, row, onClose, changed }: ReadingDialogProps) {

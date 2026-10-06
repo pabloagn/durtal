@@ -4,11 +4,10 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { readJson } from "@/lib/api/rest";
-import { requireReadingsToken, spoken, spokenError, zoneOf } from "@/lib/api/readings";
+import { editionByIsbn, requireReadingsToken, spoken, spokenError, zoneOf } from "@/lib/api/readings";
 import { CACHE_TAGS, invalidate } from "@/lib/cache";
 import { readingEvent } from "@/lib/reading/activity";
 import { createReading, openReadingOf } from "@/lib/reading/service";
-import { isbn10To13, validIsbn10, validIsbn13 } from "@/lib/match/plan";
 
 const bodySchema = z
   .object({ isbn: z.string().trim().min(10).max(20).optional(), workId: z.uuid().optional(), tz: z.unknown().optional() })
@@ -32,20 +31,9 @@ export async function POST(req: NextRequest) {
     let editionId: string | null = null;
     let instanceId: string | null = null;
     if (parsed.data.isbn) {
-      const digits = parsed.data.isbn.replace(/[^0-9Xx]/g, "").toUpperCase();
-      const thirteen = validIsbn13(digits) ?? (validIsbn10(digits) ? isbn10To13(validIsbn10(digits)!) : null);
-      const ten = validIsbn10(digits);
-      if (!thirteen && !ten) return spoken(400, "That is not an ISBN");
-      const [match] = resultRows<{ workId: string; editionId: string; copies: string[] }>(
-        await db.execute(sql`
-          select e.work_id::text as "workId", e.id::text as "editionId",
-            coalesce((select jsonb_agg(i.id::text) from instances i where i.edition_id = e.id and i.status <> 'deaccessioned'), '[]'::jsonb) as copies
-          from editions e join works w on w.id = e.work_id and w.kind = 'book'
-          where e.isbn_13 = ${thirteen ?? ""} or e.isbn_10 = ${ten ?? ""}
-          order by e.created_at limit 1`),
-      );
-      const isbn = thirteen ?? ten!;
-      if (!match) return spoken(404, "Not in Durtal yet", { addUrl: `/library/new?isbn=${isbn}` });
+      const match = await editionByIsbn(parsed.data.isbn);
+      if (!match.found && match.invalid) return spoken(400, "That is not an ISBN");
+      if (!match.found) return spoken(404, "Not in Durtal yet", { addUrl: `/library/new?isbn=${match.isbn}` });
       workId = match.workId;
       editionId = match.editionId;
       instanceId = match.copies.length === 1 ? match.copies[0] : null;

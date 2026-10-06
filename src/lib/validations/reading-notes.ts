@@ -18,6 +18,10 @@ const fields = {
   readingId: z.uuid().nullable().optional(),
   editionId: z.uuid().nullable().optional(),
   page: page.nullable().optional(),
+  /** The last page of a passage over a page turn (SLN-480) */
+  endPage: page.nullable().optional(),
+  /** The pages are front matter in roman numerals */
+  pageRoman: z.boolean().optional(),
   chapter: chapter.nullable().optional(),
   percent: percent.nullable().optional(),
   commentHtml: z.string().max(200_000).nullable().optional(),
@@ -25,13 +29,35 @@ const fields = {
   isFavourite: z.boolean().optional(),
 };
 
+export const PAGE_AND_PERCENT = "Send a page or a percent, not both";
+export const END_PAGE_RULE = "The last page comes after the first";
+export const ROMAN_PAGE_RULE = "A roman page starts at i";
+
+/** The page rules, on a note's page fields as they will be stored */
+export function pagePlaceError(p: { page: number | null; endPage: number | null; pageRoman: boolean }): string | null {
+  if (p.endPage != null && (p.page == null || p.endPage <= p.page)) return END_PAGE_RULE;
+  if (p.pageRoman && (p.page == null || p.page < 1)) return ROMAN_PAGE_RULE;
+  return null;
+}
+
+/** What was sent breaks a rule on its own: a page with a percent, a range or roman pages without a page */
+function sentRules(v: { page?: number | null; percent?: number | null; endPage?: number | null; pageRoman?: boolean }, ctx: z.RefinementCtx) {
+  if (v.page != null && v.percent != null) ctx.addIssue({ code: "custom", message: PAGE_AND_PERCENT, path: ["percent"] });
+  if (v.page !== undefined) {
+    const error = pagePlaceError({ page: v.page, endPage: v.endPage ?? null, pageRoman: v.pageRoman ?? false });
+    if (error) ctx.addIssue({ code: "custom", message: error, path: [error === END_PAGE_RULE ? "endPage" : "pageRoman"] });
+  }
+}
+
 export const createReadingNoteSchema = z
   .object({ workId: z.uuid(), kind: z.enum(NOTE_KINDS), body, ...fields })
-  .strict();
+  .strict()
+  .superRefine(sentRules);
 
 export const updateReadingNoteSchema = z
   .object({ id: z.uuid(), kind: z.enum(NOTE_KINDS).optional(), body: body.optional(), ...fields })
-  .strict();
+  .strict()
+  .superRefine(sentRules);
 
 export const noteIdSchema = z.object({ id: z.uuid() }).strict();
 
@@ -46,6 +72,9 @@ export const noteSnapshotSchema = z.object({
   commentHtml: z.string().nullable(),
   commentJson: z.unknown().nullable(),
   page: z.number().int().nullable(),
+  // A snapshot from before SLN-480 has neither
+  endPage: z.number().int().nullable().default(null),
+  pageRoman: z.boolean().default(false),
   chapter: z.string().nullable(),
   percent: z.number().nullable(),
   isFavourite: z.boolean(),
@@ -62,6 +91,10 @@ export const searchNotesSchema = z
     q: z.string().trim().max(200).optional(),
     workId: z.uuid().optional(),
     authorId: z.uuid().optional(),
+    /** An edition's notes, or "none" for the notes with no edition recorded (SLN-480) */
+    editionId: z.union([z.uuid(), z.literal("none")]).optional(),
+    /** The notes on editions this person translated */
+    translatorId: z.uuid().optional(),
     kind: z.enum(NOTE_KINDS).optional(),
     favourites: z.boolean().optional(),
     year: z.number().int().min(1900).max(2999).optional(),

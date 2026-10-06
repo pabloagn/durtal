@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/compone
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { deleteReadingNote, restoreReadingNote, toggleNoteFavourite, type NoteEdit } from "@/lib/actions/reading-notes";
+import type { NoteEdition } from "@/lib/reading/edition-label";
 import { formatNoteForCopy, type CopyBook } from "@/lib/reading/notes-text";
 import { showError, undoToast } from "./reading-client";
 import { useReadingDialogs } from "./reading-dialogs-provider";
@@ -18,9 +19,10 @@ const menuButton =
 /**
  * A quote's or note's star and menu (SLN-453): Edit opens the note dialog
  * (the book page's own, else the shared one), Copy puts the passage and its
- * source on the clipboard, Delete has a 10-second Undo.
+ * source on the clipboard (the edition's translator, publisher and year,
+ * SLN-480), Delete has a 10-second Undo.
  */
-export function NoteControls({ note, book }: { note: NoteEdit; book: CopyBook }) {
+export function NoteControls({ note, book, edition = null }: { note: NoteEdit; book: CopyBook; edition?: NoteEdition | null }) {
   const router = useRouter();
   const dialogs = useReadingDialogs();
   const page = useOptionalReading();
@@ -38,7 +40,7 @@ export function NoteControls({ note, book }: { note: NoteEdit; book: CopyBook })
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(formatNoteForCopy(note, book));
+      await navigator.clipboard.writeText(formatNoteForCopy(note, book, edition));
       toast.success(note.kind === "quote" ? "Quote copied" : "Note copied");
     } catch {
       toast.error("Could not copy. Allow clipboard access and try again.");

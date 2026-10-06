@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-// The note dialog (SLN-453), with the server actions and the editor mocked.
+// The note dialog (SLN-453; editions and pages, SLN-480), with the server actions and the editor mocked.
 
 const actions = vi.hoisted(() => ({
   createReadingNote: vi.fn(async (_input: Record<string, unknown>) => ({})),
@@ -80,7 +80,20 @@ const reading = {
   currentMinutes: null,
   currentChapter: "7",
 };
-const row = { reading, fingerprint: "a".repeat(32), ordinal: 2, sessionCount: 1, totalSeconds: 0, quoteCount: 0, noteCount: 0, edition: null, copy: null, home: null };
+const row = {
+  reading,
+  fingerprint: "a".repeat(32),
+  ordinal: 2,
+  sessionCount: 1,
+  totalSeconds: 0,
+  quoteCount: 0,
+  noteCount: 0,
+  ownEditionQuoteCount: 0,
+  ownEditionNoteCount: 0,
+  edition: null,
+  copy: null,
+  home: null,
+};
 const data = { workId: "w1", workTitle: "Nadja", bookRating: null, dayStartHour: 4, rows: [row], editions: [], homes: [], today: "2026-10-05", zone: "Europe/Amsterdam" };
 const opened: unknown[] = [];
 const props = (over: Partial<ReadingDialogProps> = {}): ReadingDialogProps => ({
@@ -121,7 +134,10 @@ describe("the note dialog", () => {
       kind: "quote",
       body: "Beauty will be convulsive",
       readingId: "r1",
+      editionId: null,
       page: 212,
+      endPage: null,
+      pageRoman: false,
       chapter: "7",
       isFavourite: false,
       commentHtml: "<p><strong>Why</strong></p>",
@@ -171,7 +187,8 @@ describe("the note dialog", () => {
     const hint = doc().querySelector("[data-note-scan-hint]")!;
     expect(hint.textContent).toBe("To copy a printed page, tap and hold here, then Scan Text.");
     expect(body().getAttribute("aria-describedby")).toBe(hint.id);
-    expect((doc().querySelector("[data-note-position]") as HTMLInputElement).inputMode).toBe("numeric");
+    // A text keyboard: ranges (212-13) and roman pages (xiv) need a hyphen and letters (SLN-480)
+    expect((doc().querySelector("[data-note-position]") as HTMLInputElement).inputMode).toBe("text");
     write(body(), "Typed");
     expect(doc().querySelector("[data-note-scan-hint]")).toBeNull();
   });
@@ -219,7 +236,22 @@ describe("the note dialog", () => {
   });
 
   it("keeps a quote's thought on a page-only edit, and sends it once the editor changes it", async () => {
-    const note = { id: "n1", workId: "w1", kind: "quote" as const, body: "Beauty", commentHtml: "<p>Why</p>", page: 12, chapter: null, percent: 2.5, isFavourite: false, readingId: "r1", readingOrdinal: 1 };
+    const note = {
+      id: "n1",
+      workId: "w1",
+      kind: "quote" as const,
+      body: "Beauty",
+      commentHtml: "<p>Why</p>",
+      page: 12,
+      endPage: null,
+      pageRoman: false,
+      chapter: null,
+      percent: 2.5,
+      isFavourite: false,
+      readingId: "r1",
+      readingOrdinal: 1,
+      editionId: null,
+    };
     act(() => root.render(createElement(NoteDialog, props({ request: { kind: "note", readingId: "r1", note } }))));
     write(doc().querySelector("[data-note-position]") as HTMLInputElement, "14");
     await submit();
@@ -232,6 +264,178 @@ describe("the note dialog", () => {
     act(() => (doc().querySelector('[data-editor="Your thought"]') as HTMLButtonElement).click());
     await submit();
     expect(actions.updateReadingNote.mock.calls[1][0]).toMatchObject({ commentHtml: "<p><strong>Why</strong></p>", commentJson: { type: "doc" } });
+  });
+});
+
+describe("the note dialog's edition and page (SLN-480)", () => {
+  const copy = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    status: "available",
+    format: "paperback",
+    locationId: "home-a",
+    locationType: "physical",
+    locationName: "Amsterdam",
+    subLocationName: null,
+    lentTo: null,
+    lentDate: null,
+    line: "Paperback · On your shelf in Amsterdam",
+    ...over,
+  });
+  const edition = (id: string, short: string, pageCount: number | null, copies: unknown[] = []) => ({
+    id,
+    title: "Nadja",
+    label: `French · ${short}${pageCount ? ` · ${pageCount} p.` : ""}`,
+    short,
+    pageCount,
+    language: "fr",
+    translators: [],
+    cover: null,
+    owned: copies.length > 0,
+    copies,
+  });
+  // e1 is the open reading's; e2 has the copy at hand in Amsterdam; e3 has no copy
+  const editions = [edition("e1", "Gallimard, 1928", 480), edition("e2", "Folio, 1964", 300, [copy("i2")]), edition("e3", "Grove, 1960", null)];
+  const second = { ...row, ordinal: 1, reading: { ...reading, id: "r2", editionId: "e3", status: "finished", currentPage: 150 } };
+  const withEditions = (over: Record<string, unknown> = {}) => ({ ...data, editions, homes: [{ id: "home-a", name: "Amsterdam" }], ...over }) as never;
+  const field = (label: string) =>
+    doc().getElementById([...doc().querySelectorAll("label")].find((l) => l.textContent === label)!.htmlFor) as HTMLElement;
+  const options = (label: string) => {
+    act(() => field(label).click());
+    const list = [...field(label).parentElement!.parentElement!.querySelectorAll('[role="option"]')].map((o) => o.textContent!.replace(/\s*✓\s*/, ""));
+    act(() => field(label).click());
+    return list;
+  };
+  const choose = (label: string, start: string) => {
+    act(() => field(label).click());
+    const option = [...field(label).parentElement!.parentElement!.querySelectorAll('[role="option"]')].find((o) =>
+      o.textContent!.replace(/\s*✓\s*/, "").startsWith(start),
+    ) as HTMLElement;
+    act(() => option.click());
+  };
+  const shown = (label: string) => field(label).textContent!;
+  const position = () => doc().querySelector("[data-note-position]") as HTMLInputElement;
+
+  it("files a new quote under the caller's edition, else the reading's, else the edition Start reading would pick", () => {
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions(), request: { kind: "note", noteKind: "quote", readingId: "r1", editionId: "e3" } }))));
+    expect(shown("Edition")).toContain("Grove, 1960");
+    act(() => root.unmount());
+    root = createRoot(host);
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions() }))));
+    expect(shown("Edition")).toContain("Gallimard, 1928");
+    act(() => root.unmount());
+    root = createRoot(host);
+    // No reading: the edition with a copy at hand in the "I'm at" home
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions({ rows: [] }), request: { kind: "note", noteKind: "quote" }, home: "home-a" }))));
+    expect(shown("Edition")).toContain("Folio, 1964");
+  });
+
+  it('offers no "none" when adding, and "Not recorded" only when editing a note that has none', () => {
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions() }))));
+    expect(options("Edition")).toEqual(editions.map((e) => e.label));
+    act(() => root.unmount());
+    root = createRoot(host);
+    const note = { id: "n1", workId: "w1", kind: "quote" as const, body: "B", commentHtml: null, page: 12, endPage: null, pageRoman: false, chapter: null, percent: null, isFavourite: false, readingId: null, readingOrdinal: null, editionId: null };
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions(), request: { kind: "note", note } }))));
+    expect(shown("Edition")).toContain("Not recorded");
+    expect(options("Edition")).toEqual(["Not recorded", ...editions.map((e) => e.label)]);
+  });
+
+  it("follows a change of Reading while it holds a default, never an edition passed or picked", () => {
+    const rows = [row, second];
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions({ rows }) }))));
+    expect(shown("Edition")).toContain("Gallimard");
+    choose("Reading", "1st read");
+    expect(shown("Edition")).toContain("Grove");
+    // Picked by hand: it stays
+    choose("Edition", "French · Folio");
+    choose("Reading", "2nd read");
+    expect(shown("Edition")).toContain("Folio");
+    act(() => root.unmount());
+    root = createRoot(host);
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions({ rows }), request: { kind: "note", noteKind: "quote", readingId: "r1", editionId: "e2" } }))));
+    choose("Reading", "1st read");
+    expect(shown("Edition")).toContain("Folio");
+  });
+
+  it("names each reading's edition when the book has more than one", () => {
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions({ rows: [row, second] }) }))));
+    expect(options("Reading")).toEqual(["None", "2nd read · Gallimard, 1928 · reading now", "1st read · Grove, 1960 · finished"]);
+  });
+
+  it("clears the filled-in page when the edition changes, but keeps a page he typed", () => {
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions() }))));
+    expect(position().value).toBe("212");
+    choose("Edition", "French · Folio");
+    expect(position().value).toBe("");
+    write(position(), "88");
+    choose("Edition", "French · Grove");
+    expect(position().value).toBe("88");
+  });
+
+  it("opens in Percent for a Log progress request that carries a percent, even none", () => {
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions(), request: { kind: "note", noteKind: "quote", readingId: "r1", editionId: "e3", percent: 37.5 } }))));
+    expect(position().value).toBe("37.5");
+    expect(position().inputMode).toBe("decimal");
+    act(() => root.unmount());
+    root = createRoot(host);
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions(), request: { kind: "note", noteKind: "quote", readingId: "r1", editionId: "e3", percent: null } }))));
+    expect([position().value, position().inputMode]).toEqual(["", "decimal"]);
+  });
+
+  it("reads a range and a roman page, hints at the edition's page count, and sends the edition", async () => {
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions() }))));
+    write(position(), "212-13");
+    expect(doc().querySelector("[data-note-page-hint]")!.textContent).toBe("Of 480 pages");
+    write(position(), "500");
+    expect(doc().querySelector("[data-note-page-hint]")!.textContent).toBe("This edition has 480 pages");
+    write(position(), "iiii");
+    expect(doc().body.textContent).toContain("Enter a page such as 212, 212-213 or xiv");
+    write(position(), "XIV–xvi");
+    write(body(), "A preface");
+    await submit();
+    expect(actions.createReadingNote.mock.calls[0][0]).toMatchObject({ editionId: "e1", page: 14, endPage: 16, pageRoman: true });
+  });
+
+  it("shows a stored range as typed when editing", () => {
+    const note = { id: "n1", workId: "w1", kind: "quote" as const, body: "B", commentHtml: null, page: 14, endPage: 16, pageRoman: true, chapter: null, percent: null, isFavourite: false, readingId: "r1", readingOrdinal: 2, editionId: "e1" };
+    act(() => root.render(createElement(NoteDialog, props({ data: withEditions(), request: { kind: "note", note } }))));
+    expect(position().value).toBe("xiv–xvi");
+    expect(shown("Edition")).toContain("Gallimard");
+  });
+});
+
+describe("Log progress's Add a quote with another edition (SLN-480)", () => {
+  const other = { id: "e2", title: "Nadja", label: "French · Folio, 1964 · 300 p.", short: "Folio, 1964", pageCount: 300, language: "fr", translators: [], cover: null, owned: false, copies: [] };
+  const audio = { ...other, id: "e9", label: "French · Audible, 2020", short: "Audible, 2020", pageCount: null, copies: [{ id: "a1", status: "available", format: "audiobook", locationId: "d", locationType: "digital", locationName: "Audible", subLocationName: null, lentTo: null, lentDate: null, line: "Audiobook · Digital" }] };
+  const open = (editionsList: unknown[]) =>
+    act(() =>
+      root.render(
+        createElement(LogProgressDialog, props({ data: { ...data, editions: [{ ...other, id: "e1", label: "French · Gallimard, 1928 · 480 p.", short: "Gallimard, 1928", pageCount: 480 }, ...editionsList] } as never, request: { kind: "progress", readingId: "r1" } })),
+      ),
+    );
+  const where = () => doc().getElementById([...doc().querySelectorAll("label")].find((l) => l.textContent === "Where are you?")!.htmlFor) as HTMLInputElement;
+
+  it("files the quote under the session's edition, at the page typed", () => {
+    open([other]);
+    act(() => ([...doc().querySelectorAll("button")].find((b) => b.textContent === "Read in another edition or format") as HTMLButtonElement).click());
+    const label = [...doc().querySelectorAll("label")].find((l) => l.textContent === "Read in another edition or format")!;
+    act(() => (doc().getElementById(label.htmlFor) as HTMLElement).click());
+    act(() => ([...doc().querySelectorAll('[role="option"]')].find((o) => o.textContent!.includes("Folio")) as HTMLElement).click());
+    write(where(), "120");
+    act(() => (doc().querySelector("[data-log-quote]") as HTMLButtonElement).click());
+    expect(opened.at(-1)).toMatchObject({ kind: "note", readingId: "r1", editionId: "e2", page: 120 });
+    expect(opened.at(-1)).not.toHaveProperty("percent");
+  });
+
+  it("passes a percent for a session counted in time, worked out from the minutes", () => {
+    open([audio]);
+    act(() => ([...doc().querySelectorAll("button")].find((b) => b.textContent === "Read in another edition or format") as HTMLButtonElement).click());
+    const label = [...doc().querySelectorAll("label")].find((l) => l.textContent === "Read in another edition or format")!;
+    act(() => (doc().getElementById(label.htmlFor) as HTMLElement).click());
+    act(() => ([...doc().querySelectorAll('[role="option"]')].find((o) => o.textContent!.includes("Audible")) as HTMLElement).click());
+    act(() => (doc().querySelector("[data-log-quote]") as HTMLButtonElement).click());
+    // No length known and nothing typed: Percent mode with no value
+    expect(opened.at(-1)).toMatchObject({ kind: "note", editionId: "e9", percent: null });
   });
 });
 
