@@ -65,15 +65,13 @@ describe("shared image presentation", () => {
     expect(imageSourceIdentity(s3ImageSource("gold/a & b.jpg"))).toEqual({
       key: "gold/a & b.jpg",
     });
-    expect(imageSourceIdentity("/api/reader/42/cover")).toEqual({
-      calibreId: 42,
-    });
     for (const source of [
       "https://example.com/a.jpg",
       "//example.com/a.jpg",
       "/api/s3/read",
       "/api/reader/1/file",
-      "/api/reader/9007199254740993/cover",
+      // An e-book cover is not adjusted (SLN-490)
+      "/api/reader/42/cover",
       "data:image/svg+xml,test",
     ])
       expect(imageSourceIdentity(source)).toBeNull();
@@ -82,7 +80,6 @@ describe("shared image presentation", () => {
     const sources = [
       s3ImageSource("gold/full.jpg"),
       s3ImageSource("gold/thumb.jpg"),
-      "/api/reader/42/cover",
     ];
     const css = imageAdjustmentStyles([
       {

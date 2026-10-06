@@ -18,7 +18,7 @@ import { DialogFooter, parseLength, ReadingDateField, type ReadingDate } from ".
 
 const FORMATS = [
   { value: "print", label: "Print" },
-  { value: "ebook", label: "E-book" },
+  { value: "ebook", label: "eBook" },
   { value: "audio", label: "Audio" },
 ] as const;
 

@@ -1,43 +1,35 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
-import type { CalibreBookRow } from "@/lib/calibre/queries";
+import type { EbookRow } from "@/lib/ebooks/queries";
+import { formatLabel, isReadableFormat } from "@/lib/ebooks/formats";
 
 interface ReadButtonProps {
-  calibreBooks: CalibreBookRow[];
+  ebooks: EbookRow[];
 }
 
+/** A file the reader can open: a readable format, stored or verified, without DRM */
+const openable = (f: EbookRow["files"][number]) =>
+  isReadableFormat(f.format) && (f.status === "stored" || f.status === "verified") && !f.drm;
+
 /**
- * "Read" button shown on book detail pages when the work has
- * a matched digital edition in the Calibre library.
- *
- * If multiple Calibre books are linked, opens the first EPUB-capable one.
+ * "Read" on a book page when an e-book is linked to one of its copies. It
+ * opens the first e-book the reader can open, in /reader/[ebookId].
  */
-export function ReadButton({ calibreBooks }: ReadButtonProps) {
-  if (calibreBooks.length === 0) return null;
-
-  // Prefer the book with an EPUB format available
-  const preferred =
-    calibreBooks.find((b) =>
-      b.formats?.some((f) => f.format.toLowerCase() === "epub"),
-    ) ?? calibreBooks[0];
-
-  const formats = preferred.formats ?? [];
-  const formatLabels = formats.map((f) => f.format.toUpperCase()).join(", ");
+export function ReadButton({ ebooks }: ReadButtonProps) {
+  const preferred = ebooks.find((e) => e.files.some(openable));
+  if (!preferred) return null;
+  const formats = [...new Set(preferred.files.filter(openable).map((f) => formatLabel(f.format)))].join(", ");
 
   return (
     <Link
-      href={`/reader/${preferred.calibreId}`}
+      href={`/reader/${preferred.id}`}
       className="inline-flex h-8 items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary px-3 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
       data-read-button
-      data-tooltip={`Read (${formatLabels})`}
+      data-tooltip={`Read the eBook (${formats})`}
     >
       <BookOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
       <span>Read</span>
-      {formats.length > 0 && (
-        <span className="font-mono text-micro text-fg-secondary">
-          {formatLabels}
-        </span>
-      )}
+      <span className="font-mono text-micro text-fg-secondary">{formats}</span>
     </Link>
   );
 }

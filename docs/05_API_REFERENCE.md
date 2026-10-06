@@ -12,7 +12,7 @@ The write routes for works, editions, orders, copies and collections (the routes
 
 Every `/api/readings` route checks the same token, its GET included (see Readings). An Authelia rule lets these paths through without a session for the phone (docs/11, Phone shortcuts), so the token is their only lock.
 
-The interchange import checks the same token. The media, S3, comments, export, reader and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
+The interchange import checks the same token. The media, S3, comments, export and venues routes do not check this token. The app's own pages call them. The admin media jobs check `x-admin-token` instead (see Media).
 
 Errors: invalid input returns `400` with `{ "error": "Invalid input", "issues": [...] }`. Write bodies refuse unknown fields.
 
@@ -437,7 +437,7 @@ Download books, authors, perfumes, films, paintings, or reading as a file. Used 
 
 The Durtal interchange file (SLN-375): one JSON document that carries records of every collection whole, for a backup, a move to another Durtal, or a review by hand. The book CSV, TSV and Parquet export above and the reading CSV stay as they are.
 
-The file is `{ "format": "durtal.interchange", "version": 1, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
+The file is `{ "format": "durtal.interchange", "version": 2, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
 
 | Section | What it holds |
 |---|---|
@@ -453,9 +453,9 @@ The file is `{ "format": "durtal.interchange", "version": 1, "exportedAt", "reco
 | `collections` | The collections that hold the work, or one of its editions, with their order |
 | `relations` | Links that start from the work (adaptation, remake, flanker, inspiration) |
 
-`shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried in version 1: images and their files, comments, activity, readings, orders and acquisition targets, Calibre links. Nor are the colours derived from a cover (`editions.cover_palette`, `editions.cover_color_bucket`, `media.color_bucket`, `DERIVED_COLUMNS` in `src/lib/interchange/columns.ts`): the cover-colour backfill recomputes them after an import.
+`shared` holds what records point at, once: people, organizations with their roles, aliases, publisher specialties and ISBN prefixes, venues, places, storage locations, collections, series and vocabularies, and the identifiers and sources of those people, organizations and venues. Not carried: images and their files, comments, activity, readings, orders and acquisition targets, e-books. Nor are the colours derived from a cover (`editions.cover_palette`, `editions.cover_color_bucket`, `media.color_bucket`, `DERIVED_COLUMNS` in `src/lib/interchange/columns.ts`): the cover-colour backfill recomputes them after an import.
 
-A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one.
+A change to a carried table changes the format: `src/__tests__/interchange/format.test.ts` pins every column, and a change needs a new version with a reader for the old one. Version 2 (SLN-490) drops two link columns of the old e-book library from book copies; `src/lib/interchange/version-1.ts` reads a version 1 file when they are empty on every copy and refuses it otherwise.
 
 ### `POST /api/interchange/export`
 
@@ -482,7 +482,7 @@ Each record is one transaction: a record that fails writes nothing, and the othe
 
 **Response** `200`: `{ "dryRun", "policy", "counts", "records": [...] }`. Each record reports `outcome`: `created`, `unchanged`, `added`, `kept` (left as it is here) or `failed`; `written` (rows by table); `differences` (file rows that differ from the rows here, by table, key and columns); `absent` (rows a kept record lacks); `problems` (why it failed, row by row).
 
-**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 2; this Durtal reads version 1" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
+**Response** `400`: the body is not JSON, the policy is missing, or the file is of another format or version (`{ "error": "This file is interchange version 3; this Durtal reads versions 1 and 2" }`) or has shared rows this Durtal cannot read (`issues` names each). `413`: over 50 MB.
 
 ---
 
@@ -915,42 +915,6 @@ Works once the access rule in docs/11 is in place.
 - Timer: `POST /api/readings/timer/start` with `tz`, and `POST /api/readings/timer/stop` with the dictated `text`. On a `409` for a forgotten timer, Ask for Input (a time) and send it again as `endedAt`.
 - Barcode: Scan Barcode, then `POST /api/readings` with `isbn`; on `404`, Open URLs with the host plus `addUrl`.
 - A quote from the book in hand (SLN-480; confirm the action names on the phone): Scan QR or Barcode (the book's barcode); Take Photo, then Extract Text from Image (the passage); Ask for Input, a number (the page); then Get Contents of URL: `POST <host>/api/readings/notes`, header `Authorization: Bearer <token>`, JSON body `isbn`, `body` and `page`. Speak the answer's `message`; on `404`, Open URLs with the host plus `addUrl`.
-
----
-
-## Reader
-
-Endpoints for the Calibre e-book reader. `[calibreId]` is the integer Calibre ID.
-
-### `GET /api/reader/[calibreId]/cover`
-
-Streams the book cover from S3. `Cache-Control: private, max-age=604800`.
-
-**Error** `400`: ID is not a number. **Error** `404`: No cover.
-
-### `GET /api/reader/[calibreId]/file`
-
-Streams the book file from S3, inline.
-
-**Query parameters**: `format` (optional): `epub`, `pdf`, `mobi` or `azw3`. Without it, the server takes the first available format in that order.
-
-**Error** `400`: ID is not a number. **Error** `404`: Book or file not found.
-
-### `GET /api/reader/[calibreId]/progress`
-
-**Response** `200`: `{ "progress": { ...reading_progress row } }`, or `{ "progress": null }`.
-
-### `POST /api/reader/[calibreId]/progress`
-
-Saves the reading position.
-
-**Request body** (all fields optional):
-```json
-{ "cfi": "epubcfi(...)", "page": 42, "progressPercent": 0.35, "currentChapter": "Chapter 3" }
-```
-
-`progressPercent` is clamped to 0–1. **Response** `200`: `{ "ok": true }`.
-**Error** `400`: Bad ID or invalid JSON. **Error** `404`: Book not found.
 
 ---
 

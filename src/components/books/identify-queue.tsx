@@ -58,7 +58,7 @@ function CandidateCard({
   const format =
     bindingLabel(candidate.binding) ??
     (candidate.format === "ebook"
-      ? "E-book"
+      ? "eBook"
       : candidate.format === "audio"
         ? "Audiobook"
         : null);

@@ -27,7 +27,7 @@ const SOURCE: Record<SessionSource, { icon: typeof Timer; label: string }> = {
   import: { icon: Download, label: "Imported" },
 };
 const MIN_PACE_SECONDS = 5 * 60;
-const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "E-book", audio: "Audiobook" };
+const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
 
 /** "p. 180", "44%", "3:12", in the reading's unit */
 export function atText(at: { page: number | null; percent: number | null; minutes: number | null }, unit: string): string {

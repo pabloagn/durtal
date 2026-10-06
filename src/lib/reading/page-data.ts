@@ -65,13 +65,13 @@ interface EditionRow {
 const FORMAT_WORDS: Record<string, string> = {
   hardcover: "Hardback",
   paperback: "Paperback",
-  epub: "E-book",
+  epub: "eBook",
   pdf: "PDF",
-  ebook: "E-book",
+  ebook: "eBook",
   audiobook: "Audiobook",
 };
 
-/** "Paperback", "E-book"; an unknown format as it is stored */
+/** "Paperback", "eBook"; an unknown format as it is stored */
 export function formatWord(format: string | null) {
   if (!format) return "Copy";
   return FORMAT_WORDS[format] ?? format.charAt(0).toUpperCase() + format.slice(1).replace(/_/g, " ");

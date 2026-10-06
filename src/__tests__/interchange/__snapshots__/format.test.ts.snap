@@ -401,8 +401,6 @@ exports[`interchange format version 1 > pins every column it carries: a change t
     "acquisition_source:text?",
     "acquisition_price:number?",
     "acquisition_currency:text?",
-    "calibre_id:integer?",
-    "calibre_url:text?",
     "file_size_bytes:integer?",
     "disposition_type:text?(sold|donated|gifted|traded|lost|stolen|destroyed|returned|expired)",
     "disposition_date:date?",

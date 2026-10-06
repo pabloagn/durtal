@@ -156,8 +156,8 @@ export function useReadingActions(items: EditItem[]) {
   }, [context, signature]);
 }
 
-/** Reader view (/reader/{id}) keeps single keys for its own controls */
-const READER_VIEW_RE = /^\/reader\/\d+/;
+/** Reader view (/reader/{ebookId}) keeps single keys for its own controls */
+const READER_VIEW_RE = /^\/reader\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|$)/i;
 
 type MenuName = "add" | "go" | "copy" | "edit" | "reading";
 

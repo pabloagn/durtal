@@ -47,7 +47,7 @@ const count = (value: number, one: string, many = `${one}s`) => `${n(value)} ${M
 const lang = (code: string) => languageName(code) ?? code;
 const FORMATS: Record<string, string> = {
   print: "Print",
-  ebook: "E-book",
+  ebook: "eBook",
   audio: "Audio",
 };
 const PARTS: Record<string, string> = {

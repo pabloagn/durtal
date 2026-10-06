@@ -271,7 +271,7 @@ Every delete that removes rows with S3 keys also removes their files. The shared
 1. Read the keys first. A cascade removes the rows that name the files.
 2. Delete the rows. Multi-row deletes use `atomic()`.
 3. Delete the files. The candidates are the stored keys under `gold/`, plus every object under the folders that only the deleted record used.
-4. Keep every candidate that a remaining row still stores. `KEY_COLUMNS` lists the columns checked; Calibre `formats` JSON is checked too. A test fails if a new `*s3*` column is not in `KEY_COLUMNS`.
+4. Keep every candidate that a remaining row still stores. `KEY_COLUMNS` lists the columns checked, the e-book keys among them (`ebooks.cover_key`, `ebook_files.s3_key`, `manifest_key`, `cover_key`), so no e-book object is ever reported unused. A test fails if a new `*s3*` column is not in `KEY_COLUMNS`.
 5. Delete the rest in batches of 1000 with `DeleteObjects`, and delete their `image_adjustments` rows.
 
 | Delete | Stored keys | Folders swept |
@@ -316,7 +316,7 @@ No bronze or silver layers for single additions — those are only for bulk oper
 
 ## Data Flow: Bulk Import
 
-Bulk imports (Goodreads CSV, Calibre export, custom CSV) flow through all three medallion layers:
+Bulk imports (Goodreads CSV, custom CSV) flow through all three medallion layers:
 
 ```
 1. User uploads CSV → S3 bronze/imports/{id}/raw_file.csv

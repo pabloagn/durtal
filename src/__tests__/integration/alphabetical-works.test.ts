@@ -53,7 +53,6 @@ import {
 } from "@/lib/actions/works";
 import { getRecommender } from "@/lib/actions/recommenders";
 import { getPublisherCatalogue } from "@/lib/actions/publishers";
-import { getCalibreBooks } from "@/lib/calibre/queries";
 
 describe.skipIf(!url)("alphabetical browsing with PostgreSQL", () => {
   const db = testDb!;
@@ -65,7 +64,7 @@ describe.skipIf(!url)("alphabetical browsing with PostgreSQL", () => {
   });
   beforeEach(async () => {
     await db.execute(
-      sql`truncate works, authors, recommenders, publishing_houses, calibre_books cascade`,
+      sql`truncate works, authors, recommenders, publishing_houses cascade`,
     );
   });
   async function book(
@@ -238,35 +237,5 @@ describe.skipIf(!url)("alphabetical browsing with PostgreSQL", () => {
     expect(first.rows.at(-1)!.work.title).toBe("Volume: 24");
     expect(second.rows[0].work.title).toBe("Volume: 25");
     expect(second.rows).toHaveLength(12);
-  });
-
-  it("sorts reader cards before paging while preserving explicit recent order", async () => {
-    await db.insert(schema.calibreBooks).values([
-      {
-        calibreId: 10,
-        title: "Volume: 10",
-        path: "10",
-        lastSynced: new Date("2026-01-03"),
-      },
-      {
-        calibreId: 2,
-        title: "Volume: 2",
-        path: "2",
-        lastSynced: new Date("2026-01-02"),
-      },
-      {
-        calibreId: 1,
-        title: "Volume: 1",
-        path: "1",
-        lastSynced: new Date("2026-01-01"),
-      },
-    ]);
-    const result = await getCalibreBooks({ limit: 1, offset: 1 });
-    expect(titles(result.books)).toEqual(["Volume: 2"]);
-    expect(result.total).toBe(3);
-    expect(
-      titles((await getCalibreBooks({ sort: "recent", limit: 1 })).books),
-    ).toEqual(["Volume: 10"]);
-    expect((await getCalibreBooks({ query: "missing" })).books).toEqual([]);
   });
 });

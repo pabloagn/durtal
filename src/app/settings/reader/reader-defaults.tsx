@@ -16,7 +16,7 @@ import {
   READER_LINE_HEIGHTS,
   READER_MARGINS,
   type ReaderThemeSettings,
-} from "@/components/reader/epub-theme";
+} from "@/lib/reader/settings-cookie";
 import { useReaderSettings } from "@/hooks/use-reader-settings";
 
 const numbers = (values: number[], label: (value: number) => string) =>

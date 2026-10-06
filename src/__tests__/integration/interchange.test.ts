@@ -275,8 +275,8 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
   it("refuses an unknown version or format whole, and an unknown collection by name", async () => {
     await library();
     const file = clone(await exportInterchange());
-    await expect(importInterchange({ ...file, version: 2 }, { policy: "keep", dryRun: true })).rejects.toThrow(
-      "This file is interchange version 2; this Durtal reads version 1",
+    await expect(importInterchange({ ...file, version: 3 }, { policy: "keep", dryRun: true })).rejects.toThrow(
+      "This file is interchange version 3; this Durtal reads versions 1 and 2",
     );
     await expect(importInterchange({ ...file, format: "other" }, { policy: "keep", dryRun: true })).rejects.toThrow(InterchangeFileError);
     await expect(
@@ -379,6 +379,26 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     const report = await importInterchange(file, { policy: "keep", dryRun: false });
     expect(report.records.flatMap((r) => r.problems)).toEqual([]);
     expect(await c`select publisher_id from edition_publishers where edition_id = ${edition}`).toEqual([{ publisher_id: penguinId }]);
+  });
+
+  it("imports a version 1 file whose copies have no old e-book library links, and refuses one that has", async () => {
+    await library();
+    const file = clone(await exportInterchange());
+    // Version 1 (before SLN-490) carried two more columns on every copy
+    const v1 = clone(file) as unknown as { version: number; records: { domain: string; sections: { holdings?: { instances?: Record<string, unknown>[] } } }[] };
+    v1.version = 1;
+    for (const record of v1.records) for (const row of record.sections.holdings?.instances ?? []) Object.assign(row, { calibre_id: null, calibre_url: null });
+    await wipe();
+    const report = await importInterchange(v1, { policy: "keep", dryRun: false });
+    expect(report.records.flatMap((r) => r.problems)).toEqual([]);
+    expect(report.counts.created).toBe(4);
+    expect((await exportInterchange()).records).toEqual(file.records);
+
+    const linked = clone(v1);
+    linked.records.find((r) => r.domain === "book")!.sections.holdings!.instances![0].calibre_url = "http://localhost/book/1";
+    await expect(importInterchange(linked, { policy: "keep", dryRun: true })).rejects.toThrow(
+      "This file has Calibre links on 1 copy, which this Durtal no longer keeps",
+    );
   });
 
   it("exports one collection or a few works", async () => {

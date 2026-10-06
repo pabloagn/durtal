@@ -9,12 +9,12 @@ import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 
 /** Keys whose label is not their words in sentence case */
 const SPECIAL_LABELS: Record<string, string> = {
-  ebook: "E-book",
+  ebook: "eBook",
   pdf: "PDF",
   epub: "EPUB",
 };
 
-/** "lent_out" → "Lent out", "ebook" → "E-book" */
+/** "lent_out" → "Lent out", "ebook" → "eBook" */
 export function enumLabel(value: string | null | undefined): string {
   if (!value) return "";
   if (SPECIAL_LABELS[value]) return SPECIAL_LABELS[value];

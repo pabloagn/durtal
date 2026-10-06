@@ -211,6 +211,14 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       if ("end_page" in row) expect(row.end_page, "reading_notes.end_page").toBeNull();
       if ("page_roman" in row) expect(row.page_roman, "reading_notes.page_roman").toBe(false);
     }
+    // 0075 and 0076 (SLN-490): the old e-book library's tables and the copies'
+    // links to it go; they were emptied before 0075 (see the loop below)
+    delete projected.calibre_books;
+    delete projected.reading_progress;
+    for (const row of projected.instances ?? []) {
+      delete row.calibre_id;
+      delete row.calibre_url;
+    }
     for (const table of [
       "app_settings",
       "credit_roles",
@@ -256,6 +264,10 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "reading_notes",
       "reading_goals",
       "recommendation_feedback",
+      "ebooks",
+      "ebook_files",
+      "ebook_positions",
+      "ebook_annotations",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical
@@ -412,6 +424,21 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         expect(await c`select id, rating from works order by id`).toEqual(worksBefore);
         await c`delete from works where id=${odd.id}`;
       }
+      if (entry.tag.endsWith("_ebook_library_guards")) {
+        // A populated old e-book library stops the migration with its count, changing nothing
+        const failure = await migrate(db!, { migrationsFolder: folder }).then(
+          () => null,
+          (error) => error,
+        );
+        expect(String((failure?.cause ?? failure)?.message)).toMatch(
+          /^calibre_books holds 1 rows; this migration expects none \(live had none on 4 October 2026\)\. Ask the coordinator\./,
+        );
+        expect(await c`select count(*)::int as n from calibre_books`).toEqual([{ n: 1 }]);
+        expect(await c`select name from locations where id = ${digital.id}`).toEqual([{ name: "Calibre" }]);
+        // Emptied, as live was; the migration below then applies
+        await c`delete from calibre_books`;
+        await c`update instances set calibre_id = null where calibre_id is not null`;
+      }
       if (entry.tag === "0045_venues_retailer_observations") {
         // Legacy writes skipped validation: stop with a clear error, change nothing.
         const [invalid] =
@@ -429,6 +456,14 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         await c`delete from venues where id=${invalid.id}`;
       }
       await migrate(db!, { migrationsFolder: folder });
+      if (entry.tag.endsWith("_ebook_library_guards")) {
+        // The location keeps its id and its copy, and is renamed in place
+        expect(await c`select name, type from locations where id = ${digital.id}`).toEqual([{ name: "eBooks", type: "digital" }]);
+        expect(await c`select count(*)::int as n from instances where location_id = ${digital.id}`).toEqual([{ n: 1 }]);
+        for (const row of before.locations) if (row.id === digital.id) row.name = "eBooks";
+      }
+      if (entry.tag.endsWith("_ebook_catalogue"))
+        expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: digital.id }]);
       const fullStep = await snapshot();
       expect(fullStep.works.every((work) => work.kind === "book")).toBe(true);
       if (fullStep.taxonomy_applicability) {

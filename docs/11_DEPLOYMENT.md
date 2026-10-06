@@ -162,7 +162,6 @@ services:
       - AWS_REGION=${DURTAL_AWS_REGION}
       - S3_BUCKET=${DURTAL_S3_BUCKET}
       - GOOGLE_BOOKS_API_KEY=${DURTAL_GOOGLE_BOOKS_API_KEY}
-      - CALIBRE_WEB_URL=http://calibre-web:8083
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.durtal.rule=Host(`${SUBDOMAIN_DURTAL}.${DOMAIN}`)"
@@ -186,10 +185,6 @@ services:
 
 ```
 Internet --> Cloudflare DNS --> Tailscale --> Traefik --> Authelia --> Durtal (:3000)
-                                                                         |
-                                                               Docker internal network
-                                                                         |
-                                                                  Calibre-Web (:8083)
 ```
 
 - **Traefik**: Reverse proxy with automatic HTTPS via Let's Encrypt. Routes `library.{DOMAIN}` to the Durtal container.
@@ -287,4 +282,3 @@ The drill of 2026-10-04 (task 0267) ran this on disposable restores of `live-bef
 | AWS S3 | Over internet, IAM auth | Image and file storage |
 | Google Books API | Over internet, API key | Book metadata |
 | Open Library | Over internet, no auth | Fallback metadata |
-| Calibre-Web | Docker internal network | Digital library links |

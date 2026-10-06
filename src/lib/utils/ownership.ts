@@ -27,8 +27,6 @@ export interface InstanceWithLocation {
   id: string;
   status: InstanceStatusValue;
   format: string | null;
-  calibreId: number | null;
-  calibreUrl: string | null;
   fileSizeBytes: number | null;
   lentTo: string | null;
   lentDate: string | null;
@@ -57,21 +55,6 @@ export interface DerivedStatus {
   description: string;
   isPartiallyHeld: boolean;
   isInconsistent: boolean;
-}
-
-export interface LocationGroup {
-  locationId: string;
-  locationName: string;
-  locationType: "physical" | "digital";
-  locationColor: string | null;
-  locationIcon: string | null;
-  instances: {
-    id: string;
-    status: InstanceStatusValue;
-    format: string | null;
-    calibreUrl: string | null;
-    subLocationName: string | null;
-  }[];
 }
 
 // ── Ownership computation ───────────────────────────────────────────────────
@@ -200,73 +183,6 @@ export function computeDerivedStatus(
     isPartiallyHeld: false,
     isInconsistent: false,
   };
-}
-
-// ── Group instances by location ─────────────────────────────────────────────
-
-export function groupInstancesByLocation(
-  instances: InstanceWithLocation[],
-): { physical: LocationGroup[]; digital: LocationGroup[] } {
-  const locationMap = new Map<string, LocationGroup>();
-
-  for (const inst of instances) {
-    if (inst.status === "deaccessioned") continue;
-
-    let group = locationMap.get(inst.location.id);
-    if (!group) {
-      group = {
-        locationId: inst.location.id,
-        locationName: inst.location.name,
-        locationType: inst.location.type,
-        locationColor: inst.location.color,
-        locationIcon: inst.location.icon,
-        instances: [],
-      };
-      locationMap.set(inst.location.id, group);
-    }
-
-    group.instances.push({
-      id: inst.id,
-      status: inst.status,
-      format: inst.format,
-      calibreUrl: inst.calibreUrl,
-      subLocationName: inst.subLocation?.name ?? null,
-    });
-  }
-
-  const groups = Array.from(locationMap.values());
-  const physical = groups
-    .filter((g) => g.locationType === "physical")
-    .sort((a, b) => a.locationName.localeCompare(b.locationName));
-  const digital = groups
-    .filter((g) => g.locationType === "digital")
-    .sort((a, b) => a.locationName.localeCompare(b.locationName));
-
-  return { physical, digital };
-}
-
-// ── Calibre link aggregation ────────────────────────────────────────────────
-
-export function aggregateCalibreLinks(
-  instances: InstanceWithLocation[],
-): {
-  calibreUrl: string | null;
-  calibreId: number | null;
-  format: string | null;
-  locationName: string;
-}[] {
-  return instances
-    .filter(
-      (inst) =>
-        inst.location.type === "digital" &&
-        (inst.calibreUrl !== null || inst.calibreId !== null),
-    )
-    .map((inst) => ({
-      calibreUrl: inst.calibreUrl,
-      calibreId: inst.calibreId,
-      format: inst.format,
-      locationName: inst.location.name,
-    }));
 }
 
 // ── Status config maps ──────────────────────────────────────────────────────

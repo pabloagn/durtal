@@ -17,7 +17,7 @@ import {
   DomainAddLink,
   domainDescription,
 } from "@/components/domains/domain-add-link";
-import { getWorkIdsWithDigitalEditions } from "@/lib/calibre/queries";
+import { getWorkIdsWithEbooks } from "@/lib/ebooks/queries";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { hasBookFilters, parseBookFilters } from "@/lib/library/filter-params";
@@ -80,9 +80,9 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
     );
   }
 
-  // Check which works have digital editions in Calibre
+  // Which works have an e-book linked to one of their copies: one query for the page
   const workIds = works.map((w) => w.id);
-  const digitalWorkIds = await getWorkIdsWithDigitalEditions(workIds);
+  const digitalWorkIds = await getWorkIdsWithEbooks(workIds);
 
   const books = works.map((work) => {
     const firstEdition = work.editions[0];

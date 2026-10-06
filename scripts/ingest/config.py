@@ -25,7 +25,7 @@ METADATA_SOURCE = "phantom_canon"
 LOCATION_MAP: dict[str, dict] = {
     "Library_Physical_MEX": {"name": "Mexico City", "type": "physical", "format": "hardcover"},
     "Library_Physical_EUR": {"name": "Amsterdam", "type": "physical", "format": "hardcover"},
-    "Library_Digital_Main": {"name": "Calibre", "type": "digital", "format": "epub"},
+    "Library_Digital_Main": {"name": "eBooks", "type": "digital", "format": "epub"},
     "Library_Mobile_Kindle": {"name": "Kindle", "type": "digital", "format": "epub"},
     "Library_Mobile_iPad": {"name": "iPad", "type": "digital", "format": "epub"},
     "Library_Mobile_iPhone": {"name": "iPhone", "type": "digital", "format": "epub"},

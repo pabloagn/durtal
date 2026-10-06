@@ -112,7 +112,7 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
   });
   beforeEach(async () => {
     await db.execute(
-      sql`truncate works, authors, comments, activity_events, gallery_layouts, venues, calibre_books, image_adjustments, contribution_types cascade`,
+      sql`truncate works, authors, comments, activity_events, gallery_layouts, venues, ebook_files, ebooks, image_adjustments, contribution_types cascade`,
     );
     bucket.objects.clear();
     bucket.failDelete.clear();
@@ -334,27 +334,40 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     expect(bucket.objects.has(targetPhoto)).toBe(true);
   });
 
-  it("deleting an edition removes its cover but keeps a file Calibre still lists", async () => {
+  it("deleting an edition removes its cover but keeps every object an e-book still lists", async () => {
     const w = await work();
     const [edition] = await db
       .insert(schema.editions)
       .values({ workId: w.id, title: "E" })
       .returning();
     const cover = put(`gold/covers/${edition.id}/cover.webp`);
-    const ebook = put(`gold/covers/${edition.id}/book.epub`);
+    // Objects an e-book names, left under the edition's folder: none may go (SLN-490)
+    const file = put(`gold/covers/${edition.id}/book.epub`);
+    const manifest = put(`gold/covers/${edition.id}/manifest.json`);
+    const fileCover = put(`gold/covers/${edition.id}/cover-400.webp`);
+    const ebookCover = put(`gold/covers/${edition.id}/cover-240.webp`);
     await db
       .update(schema.editions)
       .set({ coverS3Key: cover })
       .where(eq(schema.editions.id, edition.id));
-    await db.insert(schema.calibreBooks).values({
-      calibreId: 1,
-      title: "E",
-      path: "E",
-      formats: [{ format: "EPUB", fileName: "book", sizeBytes: 1, s3Key: ebook }],
+    const [ebook] = await db
+      .insert(schema.ebooks)
+      .values({ title: "E", importSource: "folder", coverKey: ebookCover })
+      .returning();
+    await db.insert(schema.ebookFiles).values({
+      ebookId: ebook.id,
+      sha256: "a".repeat(64),
+      format: "epub",
+      sizeBytes: 1,
+      contentType: "application/epub+zip",
+      s3Key: file,
+      status: "stored",
+      manifestKey: manifest,
+      coverKey: fileCover,
     });
 
     expect(await deleteEdition(edition.id)).toEqual({ id: edition.id, cleanupPending: false });
-    expect([...bucket.objects]).toEqual([ebook]);
+    expect([...bucket.objects].sort()).toEqual([file, manifest, fileCover, ebookCover].sort());
   });
 
   it("deleting a comment removes its files and its timeline event only", async () => {

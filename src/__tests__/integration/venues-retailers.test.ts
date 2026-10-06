@@ -49,7 +49,8 @@ describe.skipIf(!url)("venues and dated retailer observations", () => {
       expect((await getVenue(venue.id))?.place?.type).toBe("address");
     }
     expect(await getVenueCount({ filters: { organizationId: museum.id } })).toBe(2);
-    expect(await c`select id from locations`).toHaveLength(0);
+    // Storage holds only the digital location every database gets (0075, SLN-490)
+    expect(await c`select name, type from locations`).toEqual([{ name: "eBooks", type: "digital" }]);
   });
   it("rolls back geographic point creation if the venue write fails", async () => {
     await c.unsafe(`create function reject_test_venue() returns trigger language plpgsql as $$ begin raise exception 'Injected failure'; end $$; create trigger reject_test_venue before insert on venues for each row execute function reject_test_venue()`);

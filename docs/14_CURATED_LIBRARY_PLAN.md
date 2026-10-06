@@ -13,7 +13,7 @@ The first delivery is the substrate and compatibility foundation. New domains ar
 ## Findings from the code
 
 - `works` is a useful common identity but currently includes book language defaults, anthology/series fields, Goodreads links and acquisition statuses. `work_type_id` is descriptive taxonomy, not a trustworthy discriminator; never infer medium from it or from art taxonomies already attached to books.
-- Book editions and instances carry ISBNs, publishing and Calibre semantics. Preserve this mature three-tier model for books. Other domains need equivalent conceptual distinctions where meaningful, not synthetic ISBN editions.
+- Book editions and instances carry ISBNs, publishing and digital-copy semantics. Preserve this mature three-tier model for books. Other domains need equivalent conceptual distinctions where meaningful, not synthetic ISBN editions.
 - `authors` already contains reusable person identity, biography, geography and media. Work credits currently allow only author/co-author in application validation. Film cast requires repeatable credits, billing order and characters; identity and profession must be separate.
 - `publishing_houses` has valuable aliases, publisher/imprint constraints and acquisition-target links. It cannot stand in for every organization by relabeling it.
 - `venues` already includes museum/gallery and physical/online establishments; `places` is geographic hierarchy; `locations` is personal storage. These three concepts must remain distinct.
@@ -117,7 +117,7 @@ Rollback disables new-domain reads/writes while retaining new data. Restoring an
 - Database: foreign keys/checks, all-or-nothing writes, duplicate IDs/slugs, stale concurrent updates, original-location intervals and venue-delete behavior. Execute against a disposable local database only.
 - Populated migration: counts, UUIDs, URLs, credit ordering, collection edition choices, ISBNs, acquisitions, media/S3 keys and notes preserved. Repeat migration is a no-op; no art-tagged book becomes a painting.
 - Workflow: create/edit/reload/search/filter/collect/export/delete each domain; one person across domains; house versus retailer; loaned original with separate owner; unknown creator/location; reproduction does not change original.
-- Books: wizard, manual/ISBN creation, editing, edition/copy lifecycle, publishers/imprints, orders, series, collections, Calibre, matching, harmonization and legacy API/TUI still work.
+- Books: wizard, manual/ISBN creation, editing, edition/copy lifecycle, publishers/imprints, orders, series, collections, e-books, matching, harmonization and legacy API/TUI still work.
 - UI: real browser at 390, 768 and 1440px, keyboard/dialog focus checks, portrait/landscape/square and missing images. Run `scripts/qa/alignment-audit.js` on changed pages and fix deviations over 0.5px.
 - Performance: indexed bounded queries, deterministic ordering before pagination, mixed-domain count consistency, no per-card N+1 queries, lazy heavy maps/timelines, warm/cold measurements at representative catalogue sizes.
 - Delivery: `pnpm typecheck`, lint for changed code, relevant unit/integration suites, production build and checked migrations. A skipped integration suite is not a passed database test.

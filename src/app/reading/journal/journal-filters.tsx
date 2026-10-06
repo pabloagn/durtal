@@ -24,7 +24,7 @@ const STATUS_OPTIONS = [
   { value: "abandoned", label: "Abandoned" },
 ];
 
-const FORMAT_LABELS: Record<ReadingFormat, string> = { print: "Print", ebook: "E-book", audio: "Audiobook" };
+const FORMAT_LABELS: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
 
 /** One choice only: a new tick replaces the old one */
 const SINGLE = new Set(["minRating"]);
