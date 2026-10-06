@@ -28,3 +28,8 @@ read, `readS3Object`, and left two reads that sat on lines #113 rewrote. With
   last commit.
 
 ## Completion Notes
+- New test in `library-filters.test.ts`: a poster made active is read
+  through `readS3Object` and gets its colour. The backfill tests pass
+  unchanged, including the broken image's error.
+- `python3 scripts/qa/test-local.py` on main (ade1912) with #119 and this
+  change: 219 files, 2,444 tests.
