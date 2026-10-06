@@ -88,7 +88,7 @@ service and no language model. Migration `0073_reading_suggestions`
   query runs in 161 ms with JIT and 71 ms with `jit = off`. Under the 300 ms
   of the issue either way.
 - Page weight on a production-build preview with the same seeds before
-  (#110) and after: `/` 264 KB both, `/reading` 93 then 112 KB (the three
+  (#110) and after: `/` 264 KB both, `/reading` 93 then 111 KB (the three
   suggestions), `/reading/next` 46 then 47 KB, `/library` 299 KB both.
   `/reading/suggestions` is 254 KB with the gate on and every section shown
   (220 KB with the gate off), 173 KB on the backup. Every route within
@@ -127,4 +127,23 @@ service and no language model. Migration `0073_reading_suggestions`
   `getSeriesSuggestions` (it estimates 1,000 rows for each
   `regexp_split_to_table`); the suggestion query's JIT is in the same
   ticket.
-- FINAL_TESTS
+- Tests: `scripts/qa/test-local.py` (every suite, a disposable PostgreSQL
+  16), on the branch merged with main at 25b2438: 220 files and 2,480 tests,
+  none skipped. New: the database suite `reading-suggestions` (12: the
+  context's numbers are numbers; the Owned scope leaves out a deaccessioned
+  copy; a copy added at the home is at hand on the next call; Never, Not now
+  and Not for me hide, Not now expires, removing a row brings the book back;
+  a second verdict replaces the first; the Hidden view; a merge keeps the
+  newer row; the gate is written at most once in 24 hours and read fresh for
+  the book page; the rated-books line equals its library link's count; the
+  API's 401, 400 and suggestions) and the unit suite `suggest` (27: each
+  feature and its threshold, the 15% reason rule, the weighted sum, MMR and
+  the order of the day, the constraints and their parser, the too-long and
+  author-pause rules, k-NN and the gate's hysteresis, re-reads, taste
+  evidence only, Pick one for me with no ratings). `pnpm typecheck` and
+  `pnpm deadcode` are clean; `pnpm lint` has 81 warnings, as on main.
+- Migration: generated with `pnpm db:generate` on main as
+  `0073_reading_suggestions` (after 0071 and 0072); its SQL is the same as
+  the first generation, with `book_parent_required` as custom SQL after a
+  statement breakpoint, and its snapshot chains to 0072. Every preview above
+  rehearsed it on the backup (`--from-dump`).
