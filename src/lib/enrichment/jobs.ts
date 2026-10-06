@@ -121,6 +121,19 @@ export async function finishEnrichmentJob(input: { id: string; worker: string; o
   );
 }
 
+/**
+ * A heartbeat: renews a running job's lease while its worker still holds it,
+ * so a job longer than the lease is never taken over. False when the job is
+ * no longer this worker's.
+ */
+export async function renewEnrichmentJobLease(input: { id: string; worker: string }, conn: Db = appDb) {
+  const renewed = resultRows<{ id: string }>(
+    await conn.execute(sql`update enrichment_jobs set locked_at = now()
+      where id = ${input.id}::uuid and status = 'running' and locked_by = ${input.worker} returning id`),
+  );
+  return renewed.length === 1;
+}
+
 /** A failed attempt: retried after 2^attempts minutes, failed for good after the last */
 export async function failEnrichmentJob(input: { id: string; worker: string; error: unknown }, conn: Db = appDb) {
   return one(
