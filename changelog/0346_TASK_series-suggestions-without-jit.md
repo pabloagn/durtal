@@ -50,3 +50,6 @@ Measured on disposable previews (Postgres 16, `jit = on`, `jit_above_cost`
   series, and then only its cheap emission step until about 5,000.
 - `SHOW jit` on the live database was not run: live database reads were
   refused in this session. The fix does not depend on it.
+- The new test fails on the old query (cost 1,708,728 against 100,000) and
+  passes on the new one.
+- `python3 scripts/qa/test-local.py`: 218 files, 2,441 tests.
