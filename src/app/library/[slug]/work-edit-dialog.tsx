@@ -6,6 +6,7 @@ import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { OptionsNotice } from "@/components/shared/options-notice";
 import { updateWork } from "@/lib/actions/works";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import {
@@ -14,6 +15,8 @@ import {
   workPayload,
   type WorkAuthorRow,
 } from "@/components/books/work-form";
+import { useEditOptions } from "@/hooks/use-edit-options";
+import { WORK_EDIT_GROUPS, withChosen, type EditOption } from "@/lib/catalogue/edit-options";
 
 interface WorkEditDialogProps {
   work: {
@@ -37,9 +40,8 @@ interface WorkEditDialogProps {
     recommenderIds: string[];
   };
   authors: WorkAuthorRow[];
-  availableSeries: { id: string; title: string }[];
-  availableWorkTypes: { id: string; name: string }[];
-  availableRecommenders: { id: string; name: string }[];
+  /** The work's own series, type and recommenders; the full lists load when the dialog opens (SLN-510) */
+  chosen: { series: EditOption[]; workTypes: EditOption[]; recommenders: EditOption[] };
   /** When provided, the dialog is externally controlled and no trigger button is rendered */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -48,9 +50,7 @@ interface WorkEditDialogProps {
 export function WorkEditDialog({
   work,
   authors: initialAuthors,
-  availableSeries,
-  availableWorkTypes,
-  availableRecommenders,
+  chosen,
   open: controlledOpen,
   onOpenChange,
 }: WorkEditDialogProps) {
@@ -64,6 +64,7 @@ export function WorkEditDialog({
     onOpenChange?.(next);
   }
   const [isPending, startTransition] = useTransition();
+  const lists = useEditOptions(WORK_EDIT_GROUPS, open);
   const current = () => workFormValues(work, work.recommenderIds, initialAuthors);
   const [values, setValues] = useState(current);
 
@@ -125,13 +126,14 @@ export function WorkEditDialog({
           idPrefix="edit"
           values={values}
           onChange={setValues}
-          workTypes={availableWorkTypes}
-          series={availableSeries}
-          recommenders={availableRecommenders}
+          workTypes={withChosen(lists.options.workTypes, chosen.workTypes)}
+          series={withChosen(lists.options.series, chosen.series).map((s) => ({ id: s.id, title: s.name }))}
+          recommenders={withChosen(lists.options.recommenders, chosen.recommenders)}
           seriesKey={`${open}-${work.id}`}
           pending={isPending}
           onCancel={closeDialog}
           onSubmit={handleSubmit}
+          notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
         />
       </Dialog>
     </>

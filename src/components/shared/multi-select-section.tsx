@@ -8,6 +8,8 @@ export interface MultiSelectSectionProps {
   items: { id: string; name: string }[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  /** The full list is on its way: an empty one is not yet "none available" */
+  loading?: boolean;
 }
 
 export function MultiSelectSection({
@@ -15,6 +17,7 @@ export function MultiSelectSection({
   items,
   selectedIds,
   onChange,
+  loading = false,
 }: MultiSelectSectionProps) {
   const [filter, setFilter] = useState("");
 
@@ -55,7 +58,7 @@ export function MultiSelectSection({
       )}
       {items.length === 0 ? (
         <p className="text-xs text-fg-secondary">
-          No {title.toLowerCase()} available
+          {loading ? "Loading…" : `No ${title.toLowerCase()} available`}
         </p>
       ) : (
         <div className="max-h-[200px] space-y-0.5 overflow-y-auto rounded-sm border border-glass-border bg-bg-primary p-2">

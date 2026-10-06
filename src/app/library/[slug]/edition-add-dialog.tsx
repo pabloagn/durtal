@@ -12,15 +12,16 @@ import {
   editionPayload,
   type EditionFormValues,
 } from "@/components/books/edition-form";
+import { OptionsNotice } from "@/components/shared/options-notice";
 import { createEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
+import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
+import { EDITION_GROUPS } from "@/lib/catalogue/edit-options";
 
 interface EditionAddDialogProps {
   workId: string;
   workTitle: string;
-  availableGenres: { id: string; name: string }[];
-  availableTags: { id: string; name: string }[];
   /** When provided, the dialog is externally controlled and no trigger button is rendered */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -29,8 +30,6 @@ interface EditionAddDialogProps {
 export function EditionAddDialog({
   workId,
   workTitle,
-  availableGenres,
-  availableTags,
   open: controlledOpen,
   onOpenChange,
 }: EditionAddDialogProps) {
@@ -45,6 +44,8 @@ export function EditionAddDialog({
   }
 
   const [isPending, setIsPending] = useState(false);
+  // The genres and tags load as the dialog opens (SLN-510); a new edition has none chosen yet
+  const lists = useEditOptions(EDITION_GROUPS, open);
   // A new edition starts in the new-book language (Settings, General)
   const { newBookLanguage } = useAppSettings();
 
@@ -86,6 +87,8 @@ export function EditionAddDialog({
           variant="ghost"
           size="sm"
           onClick={() => setOpen(true)}
+          onPointerEnter={() => preloadEditOptions(EDITION_GROUPS)}
+          onFocus={() => preloadEditOptions(EDITION_GROUPS)}
           className="h-7 gap-1 px-2"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -103,12 +106,13 @@ export function EditionAddDialog({
         <div className="max-h-[75vh] overflow-y-auto">
           <EditionForm
             initialValues={initialValues}
-            availableGenres={availableGenres}
-            availableTags={availableTags}
+            availableGenres={lists.options.genres ?? []}
+            availableTags={lists.options.tags ?? []}
             onSubmit={handleSubmit}
             onCancel={() => setOpen(false)}
             submitLabel="Create edition"
             isPending={isPending}
+            notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
           />
         </div>
       </Dialog>

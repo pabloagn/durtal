@@ -3,7 +3,9 @@
   "routes": [
     { "path": "/", "maxKB": 300, "maxMs": 1000 },
     { "path": "/library", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/library/*", "maxKB": 400, "maxMs": 1000, "skip": ["identify", "import"] },
+    { "path": "/library/new", "maxKB": 400, "maxMs": 1000 },
+    { "path": "/library/*", "maxKB": 400, "maxMs": 1000, "skip": ["identify", "import", "new"] },
+    { "path": "/library/*", "list": "/reading/notes", "pick": "most", "maxKB": 400, "maxMs": 1000, "ifNone": "no quotes" },
     { "path": "/people", "maxKB": 300, "maxMs": 1000 },
     { "path": "/people/*", "maxKB": 400, "maxMs": 1000 },
     { "path": "/collections", "maxKB": 300, "maxMs": 1000 },

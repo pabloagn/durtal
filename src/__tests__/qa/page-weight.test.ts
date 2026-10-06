@@ -13,6 +13,12 @@ const pages: Record<string, string> = {
   "/empty": "<main>No import yet</main>",
   "/full": '<main><a href="/full/abc">An import</a></main>',
   "/full/abc": "<main>The preview</main>",
+  // A list whose first link is the add page, and a notes page that quotes "two" most (SLN-510)
+  "/books": '<main><a href="/books/new">Add</a><a href="/books/one">One</a><a href="/books/two">Two</a></main>',
+  "/notes": '<main><a href="/books/one">One</a><a href="/books/two">Two</a><a href="/books/two">Two</a><a href="/books/one?x">One</a><a href="/books/two">Two</a></main>',
+  "/books/new": "<main>Add a book</main>",
+  "/books/one": "<main>One</main>",
+  "/books/two": "<main>Two</main>",
 };
 let server: Server;
 let base = "";
@@ -62,11 +68,32 @@ describe("page-weight.js", () => {
     expect(out).toContain("FAIL  /empty/*");
     expect(out).toContain("no link found on /empty");
   });
-  it("gives the import preview row and the Year in review row their notes, and no other row", async () => {
+  it("skips a slug such as the add page, and reads the most linked record from another page", async () => {
+    const skipped = await run([{ path: "/books/*", maxKB: 400, maxMs: 5000, skip: ["new"] }]);
+    expect(skipped.out).toMatch(/^ok {4}\/books\/one/m);
+    const most = await run([{ path: "/books/*", list: "/notes", pick: "most", maxKB: 400, maxMs: 5000 }]);
+    expect(most.out).toMatch(/^ok {4}\/books\/two/m);
+    const none = await run([{ path: "/books/*", list: "/empty", pick: "most", maxKB: 400, maxMs: 5000, ifNone: "no quotes" }]);
+    expect(none.out).toContain("skipped: no quotes (no link on /empty)");
+  });
+  it("measures a book, not the add page, and the book with the most quotes", async () => {
     const { readFileSync } = await import("node:fs");
-    const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; ifNone?: string }[] };
+    const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as {
+      routes: { path: string; ifNone?: string; skip?: string[]; list?: string; pick?: string }[];
+    };
+    const library = config.routes.filter((r) => r.path === "/library/*");
+    expect(library.map((r) => [r.skip?.includes("new") ?? false, r.list ?? null, r.pick ?? null])).toEqual([
+      [true, null, null],
+      [false, "/reading/notes", "most"],
+    ]);
+    expect(config.routes.some((r) => r.path === "/library/new")).toBe(true);
+  });
+  it("gives the quoted book, the import preview and the Year in review rows their notes, and no other row", async () => {
+    const { readFileSync } = await import("node:fs");
+    const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; ifNone?: string; list?: string }[] };
     expect(config.routes.find((r) => r.path === "/reading/import/*")?.ifNone).toBe("no import");
     expect(config.routes.find((r) => r.path === "/reading/year/*")?.ifNone).toBe("no finished year");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/reading/year/*", "/reading/import/*"]);
+    expect(config.routes.find((r) => r.list === "/reading/notes")?.ifNone).toBe("no quotes");
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*"]);
   });
 });

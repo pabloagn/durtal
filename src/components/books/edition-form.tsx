@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
@@ -122,6 +122,8 @@ interface EditionFormProps {
   submitLabel: string;
   isPending: boolean;
   existingCoverUrl?: string | null;
+  /** A line at the footer's start, such as the lists' loading state */
+  notice?: ReactNode;
 }
 
 // ── Section helper ─────────────────────────────────────────────────────────
@@ -222,6 +224,7 @@ export function EditionForm({
   submitLabel,
   isPending,
   existingCoverUrl,
+  notice,
 }: EditionFormProps) {
   const [values, setValues] = useState<EditionFormValues>(initialValues);
   const [newContributorName, setNewContributorName] = useState("");
@@ -813,6 +816,7 @@ export function EditionForm({
 
       {/* Submit */}
       <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        {notice && <div className="mr-auto min-w-0">{notice}</div>}
         {onCancel && (
           <Button
             type="button"

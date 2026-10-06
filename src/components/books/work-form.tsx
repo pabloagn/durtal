@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { X, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { SeriesFields } from "@/components/books/series-fields";
@@ -203,6 +203,7 @@ export function WorkForm({
   pending,
   onCancel,
   onSubmit,
+  notice,
 }: {
   idPrefix: string;
   values: WorkFormValues;
@@ -216,6 +217,8 @@ export function WorkForm({
   pending: boolean;
   onCancel: () => void;
   onSubmit: () => void;
+  /** A line at the footer's start, such as the lists' loading state */
+  notice?: ReactNode;
 }) {
   const set = <K extends keyof WorkFormValues>(key: K, value: WorkFormValues[K]) =>
     onChange((current) => ({ ...current, [key]: value }));
@@ -596,6 +599,7 @@ export function WorkForm({
 
       {/* Footer */}
       <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        {notice && <div className="mr-auto min-w-0">{notice}</div>}
         <Button variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>

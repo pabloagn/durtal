@@ -6,10 +6,13 @@
  *   node scripts/qa/page-weight.js [baseUrl]
  *
  * A path that ends in "/*" is a detail page: the first link under that path
- * on the list page is used ("/library/*" takes the first book on /library).
- * With no such link the route fails, unless it has an `ifNone` note: a
- * detail page that may have no record yet ("/reading/import/*" before the
- * first import) is then skipped with that note. Each route is requested once
+ * on the list page is used ("/library/*" takes the first book on /library;
+ * `skip` leaves out slugs such as "new"). `list` reads the links from another
+ * page, and `pick: "most"` takes the record linked most often there: the
+ * book with the most quotes on /reading/notes (SLN-510). With no such link
+ * the route fails, unless it has an `ifNone` note: a detail page that may
+ * have no record yet ("/reading/import/*" before the first import) is then
+ * skipped with that note. Each route is requested once
  * before it is measured, so dev-server compilation is not counted.
  *
  * PAGE_WEIGHT_CONFIG names another budget file (the script's own test).
@@ -42,14 +45,17 @@ async function get(path) {
 
 async function resolve(route) {
   if (!route.path.endsWith("/*")) return route.path;
-  const list = route.path.slice(0, -2);
-  const { body } = await get(list);
+  const base = route.path.slice(0, -2);
+  const { body } = await get(route.list ?? base);
   const skip = new Set(route.skip ?? []);
-  const pattern = new RegExp(`href="${list}/([^"/?#]+)"`, "g");
-  for (const [, slug] of body.matchAll(pattern)) {
-    if (!skip.has(slug)) return `${list}/${slug}`;
-  }
-  return null;
+  const pattern = new RegExp(`href="${base}/([^"/?#]+)"`, "g");
+  const slugs = [...body.matchAll(pattern)].map(([, slug]) => slug).filter((slug) => !skip.has(slug));
+  if (!slugs.length) return null;
+  if (route.pick !== "most") return `${base}/${slugs[0]}`;
+  // The record linked most often; the first one linked wins a tie
+  const counts = new Map();
+  for (const slug of slugs) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  return `${base}/${[...counts].sort((a, b) => b[1] - a[1])[0][0]}`;
 }
 
 let failed = 0;
@@ -59,10 +65,10 @@ for (const route of config.routes) {
   try {
     const path = await resolve(route);
     if (!path && route.ifNone) {
-      line = `skip  ${route.path.padEnd(40)} skipped: ${route.ifNone} (no link on ${route.path.slice(0, -2)})`;
+      line = `skip  ${route.path.padEnd(40)} skipped: ${route.ifNone} (no link on ${route.list ?? route.path.slice(0, -2)})`;
       skipped++;
     } else if (!path) {
-      line = `FAIL  ${route.path.padEnd(40)} no link found on ${route.path.slice(0, -2)}`;
+      line = `FAIL  ${route.path.padEnd(40)} no link found on ${route.list ?? route.path.slice(0, -2)}`;
       failed++;
     } else {
       await get(path);

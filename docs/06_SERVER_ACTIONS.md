@@ -744,6 +744,14 @@ Genres support hierarchy via `parentId`. Deleting a parent sets children's `pare
 getTags(): Promise<Tag[]>
 ```
 
+## Edit dialog lists (`src/lib/actions/edit-options.ts`, SLN-510)
+
+```typescript
+getEditOptions(groups: EditOptionGroup[]): Promise<Partial<Record<EditOptionGroup, { id: string; name: string }[]>>>
+```
+
+The lists the book page's edit dialogs choose from, loaded when a dialog opens: `series`, `workTypes`, `recommenders`, `genres`, `tags`, `subjects`, `categories`, `themes`, `literaryMovements`, `artTypes`, `artMovements`, `keywords`, `attributes` (`EDIT_OPTION_GROUPS`, `src/lib/catalogue/edit-options.ts`). Only the groups asked for, each item as `{ id, name }` (a series' title is its name), in the order the dialogs show them. An empty list or an unknown group is refused before anything is read. Like every action, it runs behind the host's Authelia session, and Next.js checks that the call comes from the app's own origin.
+
 ---
 
 ## Media (`src/lib/actions/media.ts`)
