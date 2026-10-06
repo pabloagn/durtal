@@ -115,6 +115,13 @@ export async function queryJournal(q: JournalQuery) {
   };
 }
 
+/** Every reading the journal's filters keep, in the page's order: the export of what it shows (SLN-458) */
+export async function journalReadingIds(q: JournalQuery): Promise<string[]> {
+  const rows = await db.execute(sql`select b.id::text as id from ${base} b join works w on w.id = b.work_id
+    where ${conditions(q)} order by ${orderBy(q)}`);
+  return resultRows<{ id: string }>(rows).map((r) => r.id);
+}
+
 /** The journal filters' choices, from every reading: the years of finish and the formats */
 export async function getJournalFacets() {
   const [[years], formats] = await Promise.all([

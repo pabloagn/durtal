@@ -7,18 +7,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SettingRow, settingDescriptionId } from "@/components/settings/settings-group";
+import { Dialog } from "@/components/ui/dialog";
 import {
   EXPORT_FORMAT_LABELS,
+  exportFormats,
   triggerExport,
   type ExportEntity,
   type ExportFormat,
 } from "@/components/shared/export-menu";
 import { refreshCachedData } from "@/lib/actions/settings";
-
-const FORMAT_OPTIONS = (Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map((format) => ({
-  value: format,
-  label: EXPORT_FORMAT_LABELS[format],
-}));
+import { getGoodreadsExportNotice } from "@/lib/actions/reading-export";
 
 /** Every record of one kind as one file, in the format picked beside it. */
 export function ExportRow({
@@ -31,10 +29,13 @@ export function ExportRow({
   description: string;
 }) {
   const id = `export-${entity}`;
+  const formats = exportFormats(entity);
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [exporting, setExporting] = useState(false);
+  /** The Goodreads file's half stars, said before it downloads */
+  const [halfStars, setHalfStars] = useState<number | null>(null);
 
-  async function download() {
+  async function save() {
     setExporting(true);
     try {
       await triggerExport(entity, "all", format);
@@ -46,6 +47,20 @@ export function ExportRow({
     }
   }
 
+  async function download() {
+    if (entity !== "goodreads") return save();
+    setExporting(true);
+    try {
+      const notice = await getGoodreadsExportNotice();
+      if (notice.halfStars > 0) return setHalfStars(notice.halfStars);
+    } catch {
+      // The count is a courtesy: the file still downloads
+    } finally {
+      setExporting(false);
+    }
+    await save();
+  }
+
   return (
     <SettingRow id={id} label={label} description={description} stacked>
       <div className="flex flex-wrap items-center gap-2">
@@ -53,9 +68,10 @@ export function ExportRow({
           <Select
             id={id}
             value={format}
-            options={FORMAT_OPTIONS}
+            options={formats.map((f) => ({ value: f, label: EXPORT_FORMAT_LABELS[f] }))}
             ariaDescribedby={settingDescriptionId(id)}
             onChange={(event) => setFormat(event.target.value as ExportFormat)}
+            disabled={formats.length === 1}
           />
         </div>
         <Button
@@ -71,6 +87,35 @@ export function ExportRow({
           Download
         </Button>
       </div>
+      <Dialog
+        open={halfStars !== null}
+        onClose={() => setHalfStars(null)}
+        title="Export for Goodreads"
+        className="max-w-md"
+        expandable={false}
+      >
+        <div className="space-y-4" data-goodreads-notice="">
+          <p className="text-sm text-fg-secondary">
+            {halfStars === 1 ? "1 half-star rating will be rounded up" : `${halfStars} half-star ratings will be rounded up`}: Goodreads
+            takes whole stars. Durtal keeps your ratings as they are.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" onClick={() => setHalfStars(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              data-shortcut="save"
+              onClick={() => {
+                setHalfStars(null);
+                void save();
+              }}
+            >
+              Download
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </SettingRow>
   );
 }

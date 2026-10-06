@@ -10,14 +10,36 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-export type ExportFormat = "csv" | "tsv" | "parquet";
+export type ExportFormat = "csv" | "tsv" | "parquet" | "md";
 
-/** What can be exported: books, authors, or one of the other collections */
-export type ExportEntity = "works" | "authors" | "perfumes" | "films" | "paintings";
+/** What can be exported: books, authors, one of the other collections, or reading (SLN-458) */
+export type ExportEntity =
+  | "works"
+  | "authors"
+  | "perfumes"
+  | "films"
+  | "paintings"
+  | "readings"
+  | "reading-sessions"
+  | "reading-notes"
+  | "goodreads";
+
+/** The formats an export offers: Markdown is the commonplace book only, the Goodreads file is CSV */
+export function exportFormats(entity: ExportEntity): ExportFormat[] {
+  if (entity === "reading-notes") return ["csv", "tsv", "parquet", "md"];
+  if (entity === "goodreads") return ["csv"];
+  return ["csv", "tsv", "parquet"];
+}
+
+/** What to export: these records, every one, or what a page's filters show (its URL query) */
+export type ExportSelection = string[] | "all" | { filters: string };
 
 interface ExportMenuProps {
   entity: ExportEntity;
-  ids: string[] | Set<string>;
+  /** The records, or the page's filters (the journal, the commonplace book) */
+  ids: string[] | Set<string> | { filters: string };
+  /** What the toast calls the records ("readings") */
+  noun?: string;
   /** Button variant — defaults to "ghost" */
   variant?: "ghost" | "primary";
   /** Button size — defaults to "sm" */
@@ -31,19 +53,24 @@ export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   csv: "CSV (.csv)",
   tsv: "TSV (.tsv)",
   parquet: "Parquet (.parquet)",
+  md: "Markdown (.md)",
 };
 
-/** Download an export: these records, or every one ("all"). */
+/** Download an export: these records, every one ("all"), or what a page's filters show. */
 export async function triggerExport(
   entity: ExportEntity,
-  ids: string[] | "all",
+  selection: ExportSelection,
   format: ExportFormat,
 ) {
   const res = await fetch("/api/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(
-      ids === "all" ? { entity, all: true, format } : { entity, ids, format },
+      selection === "all"
+        ? { entity, all: true, format }
+        : Array.isArray(selection)
+          ? { entity, ids: selection, format }
+          : { entity, filters: selection.filters, format },
     ),
   });
 
@@ -71,6 +98,7 @@ export async function triggerExport(
 export function ExportMenu({
   entity,
   ids,
+  noun,
   variant = "ghost",
   size = "sm",
   align = "center",
@@ -78,13 +106,17 @@ export function ExportMenu({
 }: ExportMenuProps) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const idArray = ids instanceof Set ? Array.from(ids) : ids;
+  const selection: ExportSelection = ids instanceof Set ? Array.from(ids) : ids;
 
   async function handleExport(format: ExportFormat) {
     setIsExporting(true);
     try {
-      await triggerExport(entity, idArray, format);
-      toast.success(`Exported ${idArray.length} ${entity} as ${format.toUpperCase()}`);
+      await triggerExport(entity, selection, format);
+      toast.success(
+        Array.isArray(selection)
+          ? `Exported ${selection.length} ${noun ?? entity} as ${format.toUpperCase()}`
+          : `Exported ${noun ?? entity} as ${format === "md" ? "Markdown" : format.toUpperCase()}`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -99,12 +131,12 @@ export function ExportMenu({
       trigger={
         <Button variant={variant} size={size} disabled={isExporting}>
           <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {isExporting ? "Exporting..." : "Export"}
+          {isExporting ? "Exporting…" : "Export"}
         </Button>
       }
     >
       <DropdownMenuLabel>Export as</DropdownMenuLabel>
-      {(Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map((fmt) => (
+      {exportFormats(entity).map((fmt) => (
         <DropdownMenuItem
           key={fmt}
           onClick={() => handleExport(fmt)}

@@ -46,3 +46,14 @@ export function hasListQuery(params: URLSearchParams | { toString(): string }): 
   }
   return false;
 }
+
+/**
+ * The list's query without its paging: what an export of the whole filtered
+ * list takes (the journal's and the commonplace book's export, SLN-458).
+ */
+export function exportFilters(params: URLSearchParams | { toString(): string }): string {
+  const query = new URLSearchParams(params.toString());
+  query.delete("page");
+  query.delete("perPage");
+  return query.toString();
+}

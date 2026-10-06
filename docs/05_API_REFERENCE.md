@@ -45,7 +45,7 @@ Health check endpoint used by Docker healthcheck and monitoring.
 
 ### `GET /api/stats`
 
-Library statistics for dashboard and TUI.
+Library statistics for dashboard and TUI. Since SLN-458 it also carries `reading` (`readingApiStats`, `src/lib/reading/api-stats.ts`): the open readings, the year's numbers and the year's goals. The year is the current reading day's year in `appTimeZone()`. `pagesThisYear` sums `countedPagesSql` over the year's days, then rounds; `hoursThisYear` sums ended sessions' durations (never the running timer), one decimal; percents are numbers (`float8`). `goals` has one entry per goal of the year (`reading_goals`, progress as `getGoalProgress` counts it), and is empty without one. Computed per request.
 
 **Response** `200`:
 ```json
@@ -65,7 +65,15 @@ Library statistics for dashboard and TUI.
       "editions": [...],
       "workAuthors": [...]
     }
-  ]
+  ],
+  "reading": {
+    "year": 2026,
+    "open": [{ "title": "The Recognitions", "status": "reading", "percent": 44.5 }],
+    "finishedThisYear": 12,
+    "pagesThisYear": 3456,
+    "hoursThisYear": 85.5,
+    "goals": [{ "metric": "books", "target": 30, "progress": 12 }]
+  }
 }
 ```
 
@@ -398,20 +406,32 @@ Fetch a single author with works and edition contributions.
 
 ### `POST /api/export`
 
-Download books, authors, perfumes, films or paintings as a file. Used by the export menus of the book and author pages, the bulk toolbars, and Settings → Data. No token.
+Download books, authors, perfumes, films, paintings, or reading as a file. Used by the export menus of the book and author pages, the bulk toolbars, the reading journal and the commonplace book, and Settings → Data. No token.
 
 **Body**:
 
 | Field | Type | Description |
 |---|---|---|
-| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` | Books, authors of books, or the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes) |
-| `ids` | string[] | 1–500 ids to export. Not needed with `all` |
+| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` \| `"readings"` \| `"reading-sessions"` \| `"reading-notes"` \| `"goodreads"` | Books, authors of books, the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes), or reading (below) |
+| `ids` | string[] | 1–500 ids to export. Not needed with `all`; the reading exports take `all` or `filters` |
 | `all` | boolean | `true`: every record of the entity instead of `ids` |
-| `format` | `"csv"` \| `"tsv"` \| `"parquet"` | File format |
+| `filters` | string | `readings` and `reading-notes` only: the journal's or the commonplace book's URL query (at most 2,000 characters), parsed by the page's own parser (`parseJournalQuery`, `parseNotesQuery`); the file holds every record the filters keep, in the page's order, not cut at 500 |
+| `format` | `"csv"` \| `"tsv"` \| `"parquet"` \| `"md"` | File format. `md` is `reading-notes` only; `goodreads` is `csv` only |
 
 **Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
-**Response** `400`: a bad entity, format or id list. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format, id list or `filters`. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+
+**Every CSV and TSV** (`src/lib/utils/export.ts`): a text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet never runs it; numbers are never changed. The reading importer strips that `'` again (`src/lib/reading/import/csv.ts`). A CSV value with a comma, a double quote, a newline or a carriage return is quoted. CSV starts with a UTF-8 byte order mark, so Excel opens accents correctly. The Goodreads file is the exception: it is for Goodreads and StoryGraph to import, so its cells go as stored, with no guard and no byte order mark (`toCSV(..., { forImport: true })`).
+
+**The reading exports** (SLN-458, `src/lib/export/reading.ts`) are whole files with a fixed header, written even with no rows (CSV, TSV and Markdown answer `200` with the header only; Parquet with no rows keeps `404`). Files are `durtal-readings-{date}`, `durtal-reading-sessions-…`, `durtal-reading-notes-…` and `durtal-goodreads-…`. Pages come only from `countedPagesSql`, summed per reading or session, then rounded; the running timer is not exported and counts no minutes; ratings and percents are numbers (`4`, `4.5`, `44.5`).
+
+| Entity | Formats | Content |
+|---|---|---|
+| `readings` | CSV, TSV, Parquet | Exactly the Durtal reading CSV: `DURTAL_READING_COLUMNS` (`src/lib/reading/import/durtal-format.ts`) in its order, then read-only columns the importer ignores: `edition_title`, `edition_language`, `translators`, `copy_location`, `session_count`, `minutes_read`, `pages_read`. `rating` is the read's own rating, `review_html` the stored HTML, `authors` the names joined with `; `. `source_key` is the stored key, else `durtal:<reading_id>`. Importing the file back writes nothing: every row is "Already in Durtal" |
+| `reading-sessions` | CSV, TSV, Parquet | One row per session: `session_id`, `reading_id`, `work_title`, `day`, `started_at`, `ended_at`, `time_zone`, `duration_seconds`, start and end page, percent and minutes, `end_chapter`, `pages_counted`, `edition_title`, `format`, `source` |
+| `reading-notes` | CSV, TSV, Parquet, Markdown | One row per quote or note: `note_id`, `work_id`, `title`, `authors`, `kind`, `body`, `thought` (plain text), `page`, `end_page` and `page_roman` (a passage over a page turn, front matter in roman numerals; SLN-480), `chapter`, `percent`, `favourite`, `reading_id`, `edition_id`, `edition_label` (the edition's short label, `editionShortLabel`: "Penguin Classics, 2003, tr. Edith Grossman"), `edition_title`, `translators`, `source`, `created_at`. Markdown is the commonplace book (`commonplaceMarkdown`, `src/lib/export/commonplace.ts`): one heading per book with its author, the passages in page order cited as the pages cite them (`noteWhereText`: "pp. 212–213 · Gallimard, 1928 · ch. 7"), his thought under each, favourites marked ★ |
+| `goodreads` | CSV | Goodreads' own export header (`GOODREADS_EXPORT_HEADER`), one row per book with a reading or in Up Next (`goodreadsRow`, `src/lib/export/goodreads.ts`); StoryGraph imports the same file. The shelf follows `readingStateSql`: `currently-reading` (plus `paused` in Bookshelves), `read`, `did-not-finish`, or `to-read` for an unread book in Up Next. My Rating is the book's rating rounded up to whole stars, 0 when unrated or never finished nor abandoned. Date Read is the last finish (or for did-not-finish the last stop) at day precision only, as `YYYY/MM/DD`; Read Count counts finished readings; Book Id comes from the latest reading's edition, any edition, a `goodreads` identifier, then the book's Goodreads link. Lossy by design; importing it back through the Goodreads importer writes nothing |
 
 ## Interchange
 
