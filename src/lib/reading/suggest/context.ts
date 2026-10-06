@@ -1,5 +1,6 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { atomic } from "@/lib/db/atomic";
 import { resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { getPaceContext } from "@/lib/actions/reading";
@@ -19,6 +20,18 @@ import type { SuggestContext } from "./types";
  * added, moved or lent shows on the next request. Only the prediction gate's
  * daily check is stored.
  */
+
+/**
+ * The book query without JIT (SLN-487). Its per-book subqueries put the
+ * planner's estimate (226,000 on 695 books) over `jit_above_cost`; today the
+ * compile about pays for itself, but the estimate grows with the catalogue,
+ * and past `jit_optimize_above_cost` the optimized compile alone takes 200 ms
+ * or more (as on /series). `set local` holds for this one transaction.
+ */
+async function withoutJit(query: SQL) {
+  const [, rows] = await atomic((d) => [d.execute(sql`set local jit = off`), d.execute(query)]);
+  return rows;
+}
 
 /** Runs the gate's daily check when it is due: one UPDATE asserting the old checkedAt, so two requests never both write it */
 async function ensureGate(ctx: SuggestContext, previous: PredictionGate | null, now: Date): Promise<PredictionGate | null> {
@@ -64,7 +77,7 @@ export async function getSuggestionContext({ homeId: stored = null, now = new Da
   const [today, settingsRows, rows, pace, queue] = await Promise.all([
     readingToday(),
     db.execute(sql`select reading_suggest_hide_anathema as "hideAnathema", reading_prediction_gate as gate from app_settings limit 1`),
-    loadBooks((q) => db.execute(q), homeId),
+    loadBooks(withoutJit, homeId),
     getPaceContext([]),
     db.execute(sql`select count(*)::int as n from reading_queue`),
   ]);

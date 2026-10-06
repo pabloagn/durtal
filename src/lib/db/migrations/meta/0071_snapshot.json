@@ -1,5 +1,5 @@
 {
-  "id": "4b4adc71-8368-48e0-8e62-690305dc2fa8",
+  "id": "5921269f-df96-41e0-96da-8d0104ea67a9",
   "prevId": "67a9f6db-33e7-412c-963a-68651580152d",
   "version": "7",
   "dialect": "postgresql",
@@ -645,19 +645,6 @@
         "reading_rhythm_days": {
           "name": "reading_rhythm_days",
           "type": "smallint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reading_suggest_hide_anathema": {
-          "name": "reading_suggest_hide_anathema",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "reading_prediction_gate": {
-          "name": "reading_prediction_gate",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -3463,6 +3450,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "cover_palette": {
+          "name": "cover_palette",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_color_bucket": {
+          "name": "cover_color_bucket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "metadata_source": {
           "name": "metadata_source",
           "type": "text",
@@ -3584,6 +3583,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "editions_cover_color_bucket_check": {
+          "name": "editions_cover_color_bucket_check",
+          "value": "\"editions\".\"cover_color_bucket\" is null or \"editions\".\"cover_color_bucket\" in ('red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'brown', 'beige', 'white', 'grey', 'black')"
+        },
         "editions_binding_check": {
           "name": "editions_binding_check",
           "value": "\"editions\".\"binding\" in ('hardcover', 'paperback', 'leather', 'cloth', 'boards', 'wrappers', 'spiral', 'saddle_stitch', 'other')"
@@ -5002,6 +5005,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "color_bucket": {
+          "name": "color_bucket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "smallint",
@@ -5325,6 +5334,10 @@
         "media_attribution_check": {
           "name": "media_attribution_check",
           "value": "(\"media\".\"alt_text\" is null or length(trim(\"media\".\"alt_text\")) between 1 and 1000)\n        and (\"media\".\"credit\" is null or length(trim(\"media\".\"credit\")) between 1 and 500)\n        and (\"media\".\"license\" is null or length(trim(\"media\".\"license\")) between 1 and 200)\n        and (\"media\".\"license_url\" is null or (length(\"media\".\"license_url\") <= 4000 and \"media\".\"license_url\" ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))\n        and (\"media\".\"source_url\" is null or (length(\"media\".\"source_url\") <= 4000 and \"media\".\"source_url\" ~ '^https?://[^[:space:]@/]+([/:?#][^[:space:]]*)?$'))"
+        },
+        "media_color_bucket_check": {
+          "name": "media_color_bucket_check",
+          "value": "\"media\".\"color_bucket\" is null or \"media\".\"color_bucket\" in ('red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'brown', 'beige', 'white', 'grey', 'black')"
         },
         "media_applied_crop_check": {
           "name": "media_applied_crop_check",
@@ -14964,105 +14977,6 @@
         "reading_note_check": {
           "name": "reading_note_check",
           "value": "\"readings\".\"abandon_note\" is null or length(\"readings\".\"abandon_note\") <= 2000"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.recommendation_feedback": {
-      "name": "recommendation_feedback",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "work_id": {
-          "name": "work_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "verdict": {
-          "name": "verdict",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reasons": {
-          "name": "reasons",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "until": {
-          "name": "until",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'suggestions'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "recommendation_feedback_work_id_works_id_fk": {
-          "name": "recommendation_feedback_work_id_works_id_fk",
-          "tableFrom": "recommendation_feedback",
-          "tableTo": "works",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "recommendation_feedback_work_id_unique": {
-          "name": "recommendation_feedback_work_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "work_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "recommendation_feedback_values_check": {
-          "name": "recommendation_feedback_values_check",
-          "value": "\"recommendation_feedback\".\"verdict\" in ('not_now','never','rejected') and \"recommendation_feedback\".\"source\" in ('suggestions','agent','enrichment')\n        and \"recommendation_feedback\".\"reasons\" <@ array['too_long','too_short','not_in_the_mood','prose','genre','too_popular','already_read','other']::text[]\n        and (\"recommendation_feedback\".\"note\" is null or length(\"recommendation_feedback\".\"note\") <= 500)"
         }
       },
       "isRLSEnabled": false

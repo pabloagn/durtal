@@ -16,6 +16,8 @@ import {
 } from "@/lib/types/index";
 import type { AppSettings } from "@/lib/actions/settings";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
+import { COPY_CONDITION_LABELS, COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
+import { enumLabel } from "@/lib/utils/labels";
 
 export interface InstanceDraft {
   locationId: string;
@@ -260,7 +262,7 @@ export function InstanceForm({
             placeholder="Select format..."
             options={INSTANCE_FORMATS.map((f) => ({
               value: f,
-              label: f.replace(/_/g, " "),
+              label: COPY_FORMAT_LABELS[f],
             }))}
           />
           <Select
@@ -271,7 +273,7 @@ export function InstanceForm({
             placeholder="Select condition..."
             options={INSTANCE_CONDITIONS.map((c) => ({
               value: c,
-              label: c.replace(/_/g, " "),
+              label: COPY_CONDITION_LABELS[c],
             }))}
           />
         </div>
@@ -307,7 +309,7 @@ export function InstanceForm({
           onChange={(e) => update("status", e.target.value)}
           options={INSTANCE_STATUSES.map((s) => ({
             value: s,
-            label: s.replace(/_/g, " "),
+            label: enumLabel(s),
           }))}
         />
 
@@ -341,7 +343,7 @@ export function InstanceForm({
               placeholder="Select..."
               options={DISPOSITION_TYPES.map((t) => ({
                 value: t,
-                label: t.replace(/_/g, " "),
+                label: enumLabel(t),
               }))}
             />
             <div className="grid grid-cols-2 gap-3">
@@ -404,7 +406,7 @@ export function InstanceForm({
               placeholder="Select..."
               options={ACQUISITION_TYPES.map((t) => ({
                 value: t,
-                label: t.replace(/_/g, " "),
+                label: enumLabel(t),
               }))}
             />
             <DatePicker

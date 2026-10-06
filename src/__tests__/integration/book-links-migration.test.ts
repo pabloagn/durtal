@@ -64,7 +64,8 @@ describe.skipIf(!url)("book links migration", () => {
         goodreads_url: null,
         storygraph_url: null,
       });
-      expect((await c`select * from editions`)[0]).toEqual(edition);
+      // A cover's palette and colour (0071, SLN-405) start empty
+      expect((await c`select * from editions`)[0]).toEqual({ ...edition, cover_palette: null, cover_color_bucket: null });
 
       // Re-running is a no-op.
       await migrate(db, { migrationsFolder: "src/lib/db/migrations" });

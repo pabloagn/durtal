@@ -14,6 +14,7 @@ import {
 import { authorNameEquals } from "@/lib/actions/utils/author-search";
 import { workSeriesPlan } from "@/lib/series/work-series";
 import { deleteFromS3, processAndUploadCover } from "@/lib/s3/covers";
+import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { defaultSortName } from "@/lib/utils/author-names";
 import { generateAuthorSlug, generateWorkSlug } from "@/lib/utils/slugify";
 import type { createEditionSchema } from "@/lib/validations/editions";
@@ -210,7 +211,11 @@ export async function planBookEdition(input: EditionInput) {
         publisherLinksConfirmed: publisherIds !== undefined,
         coverSourceUrl: coverSourceUrl ?? null,
         ...(cover
-          ? { coverS3Key: cover.coverKey, thumbnailS3Key: cover.thumbnailKey }
+          ? {
+              coverS3Key: cover.coverKey,
+              thumbnailS3Key: cover.thumbnailKey,
+              ...editionCoverPaletteFields(cover.palette),
+            }
           : {}),
       }),
       ...(publisherIds !== undefined

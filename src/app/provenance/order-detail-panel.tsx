@@ -23,7 +23,7 @@ import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { OrderStatus } from "@/lib/constants/orders";
-import { getValidTransitions } from "@/lib/constants/orders";
+import { getValidTransitions, orderStatusLabel } from "@/lib/constants/orders";
 import { OrderEditDialog } from "./order-edit-dialog";
 import { formatMoney } from "@/lib/utils/money";
 import {
@@ -84,7 +84,7 @@ export function OrderDetailPanel({
     setIsPending(true);
     try {
       await updateOrderStatus(order.id, newStatus);
-      toast.success(`Status updated to ${newStatus.replace(/_/g, " ")}`);
+      toast.success(`Status updated to ${orderStatusLabel(newStatus)}`);
       router.refresh();
     } catch (err) {
       toast.error(
@@ -203,7 +203,7 @@ export function OrderDetailPanel({
               <p className="mt-0.5 text-sm text-fg-secondary">{authorName}</p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
-                  {order.status.replace(/_/g, " ")}
+                  {orderStatusLabel(order.status)}
                 </Badge>
                 <Badge variant="muted">
                   {METHOD_LABELS[order.acquisitionMethod]}

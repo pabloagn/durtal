@@ -605,6 +605,8 @@ A specific published form of a work. Carries all publication-level metadata.
 | `cover_s3_key` | TEXT | nullable | S3 key for processed cover (gold/) |
 | `thumbnail_s3_key` | TEXT | nullable | S3 key for thumbnail (gold/) |
 | `cover_source_url` | TEXT | nullable | Original URL cover was fetched from |
+| `cover_palette` | JSONB | nullable | The cover's colour palette, the same shape as `media.color_palette`, read from the thumbnail when the cover is stored (migration `0071_cover_colors`, SLN-405) |
+| `cover_color_bucket` | TEXT | nullable, check: one of `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `brown`, `beige`, `white`, `grey`, `black` | The named colour of the cover's dominant tone (`colorBucketOf`, `src/lib/color/color-buckets.ts`), written with the palette (`editionCoverPaletteFields`). The library's colour filter reads it |
 | `metadata_source` | TEXT | nullable | `isbndb`, `google_books`, `open_library`; `phantom_canon` marks a placeholder of the old import (no ISBN, shown as "Edition not identified"); `manual` once the reader keeps a placeholder without an ISBN |
 | `metadata_last_fetched` | TIMESTAMPTZ | nullable | |
 | `metadata_locked` | BOOLEAN | NOT NULL, default `false` | Prevents automated overwrites |
@@ -816,7 +818,7 @@ Attribution values: `unspecified`, `confirmed`, `attributed`, `uncertain`,
 anonymous/unknown attribution. The same person and role may occur repeatedly.
 Only `film.cast` accepts character labels (each nonblank, at most 300 characters);
 cast roles do not infer gender. Database triggers validate work kind and role
-level. Indexes cover `(work_id, sort_order, id)` and `person_id`.
+level. Indexes cover `(work_id, sort_order, id)`, `person_id`, and `(role_id, person_id, work_id)` (migration `0072_work_credit_role_index`, SLN-381: a collection's credited people with their work counts, such as the film directors filter).
 
 Books continue to use the canonical junctions below; shared credit APIs adapt
 them rather than duplicate their data. Ordered replacement locks the owner,
@@ -1694,8 +1696,8 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
 | `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
 | `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
-| `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0071_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
-| `reading_prediction_gate` | JSONB | nullable (migration `0071_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
+| `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0073_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
+| `reading_prediction_gate` | JSONB | nullable (migration `0073_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The four reading columns are changed from Settings → Reading (`/settings/reading`).
@@ -1751,6 +1753,7 @@ Images attached to works, people, collections, organizations, art objects or per
 | `original_s3_key` | TEXT | nullable. The kept original: the colour original of an author portrait, or the full-resolution copy of a painting or art object image. |
 | `processing_params` | JSONB | nullable. Monochrome processing parameters: `{ grayscale: true, contrast: number, sharpness: number, gamma: number, brightness: number }`. Author media only. |
 | `color_palette` | JSONB | nullable. Extracted color palette for poster images. Contains raw Vibrant swatches (vibrant, muted, darkVibrant, darkMuted, lightVibrant, lightMuted), dominant color from sharp stats, and a post-processed `crystal` array of 3-4 colors ready for ambient rendering. Extracted at upload time via node-vibrant. |
+| `color_bucket` | TEXT | nullable, check: one of the named colours (migration `0071_cover_colors`, SLN-405). The named colour of the palette's dominant tone, written with the palette (`mediaPaletteFields`). The library's colour filter reads a book's active poster's |
 | `sort_order` | SMALLINT | NOT NULL, default `0` |
 | `caption` | TEXT | nullable |
 | `alt_text` | TEXT | nullable, 1–1000 characters. Describes the image for people who cannot see it |
@@ -2385,7 +2388,7 @@ Unique `(year, metric)` (`reading_goal_year_metric_unique`): a books goal and an
 
 ### `recommendation_feedback`
 
-Suggestion feedback (SLN-457, migration `0071_reading_suggestions`), shared with the book enrichment epic and defined once in the reading tracker's parent issue: Not now (until a date), Never, and Not for me with reasons. One row a book. Every write is an upsert on `work_id`: the newer verdict replaces the older one; `reasons`, `note` and `until` are replaced, not merged; `source` becomes the latest writer. Removing the row (Undo in the Hidden view) makes the book a candidate again. `book_parent_required` keeps it on books; a book merge keeps the newer row (`recommendationFeedbackMergeQueries`).
+Suggestion feedback (SLN-457, migration `0073_reading_suggestions`), shared with the book enrichment epic and defined once in the reading tracker's parent issue: Not now (until a date), Never, and Not for me with reasons. One row a book. Every write is an upsert on `work_id`: the newer verdict replaces the older one; `reasons`, `note` and `until` are replaced, not merged; `source` becomes the latest writer. Removing the row (Undo in the Hidden view) makes the book a candidate again. `book_parent_required` keeps it on books; a book merge keeps the newer row (`recommendationFeedbackMergeQueries`).
 
 | Column | Type | Notes |
 | -- | -- | -- |

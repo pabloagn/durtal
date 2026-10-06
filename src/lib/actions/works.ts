@@ -9,7 +9,6 @@ import {
   bookResult,
 } from "@/lib/catalogue/book-boundary";
 
-import { publisherWorkCondition } from "@/lib/publishers/conditions";
 import { bookAuthorQueries } from "@/lib/catalogue/book-credits";
 import { curationQueries } from "@/lib/catalogue/curation-store";
 import { planBookWork, workSubjectQueries } from "@/lib/catalogue/book-store";
@@ -25,7 +24,6 @@ import {
   publishingHouses,
   instances,
   authors,
-  media,
   comments,
   activityEvents,
   galleryLayouts,
@@ -40,9 +38,7 @@ import {
   and,
   or,
   inArray,
-  gte,
   isNotNull,
-  notInArray,
   ne,
 } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
@@ -63,12 +59,14 @@ import { authorOrderedBookIds } from "@/lib/actions/utils/author-ordered-books";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
 import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
-import { markColumn, marksCondition } from "@/lib/actions/utils/work-marks";
+import { markColumn } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import type { AnyColumn, SQL } from "drizzle-orm";
 import { countryDisplayName } from "@/lib/utils/labels";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
+import { bookFilterConditions } from "@/lib/library/filter-conditions";
+import type { BookFilterParams } from "@/lib/library/filter-params";
 import {
   lastFinishedOnSql,
   lastFinishedPrecisionSql,
@@ -76,9 +74,6 @@ import {
   readCountSql,
 } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
-
-type AcquisitionPriority =
-  (typeof works.acquisitionPriority.enumValues)[number];
 
 /**
  * Build a search condition that matches works by title, author, ISBN,
@@ -161,16 +156,11 @@ const buildSearchCondition = cache(async (search: string) => {
   return or(...orConditions)!;
 });
 
-export type WorkFilters = ReadingFilterParams & {
-  isRare?: boolean;
-  isPoison?: boolean;
-  marks?: WorkMarkKey[];
-  publisherIds?: string[];
-  acquisitionPriority?: string[];
-  minRating?: number;
-  locationId?: string;
-  hasPoster?: boolean;
-};
+export type WorkFilters = ReadingFilterParams &
+  BookFilterParams & {
+    isRare?: boolean;
+    isPoison?: boolean;
+  };
 
 /** The library cards' and the API's reading data, one correlated subquery each over the root work (SLN-449) */
 const readingExtras = (work: { id: AnyColumn }) => ({
@@ -187,65 +177,21 @@ const readingExtras = (work: { id: AnyColumn }) => ({
 async function buildWorkConditions(
   search: string | undefined,
   filters: WorkFilters | undefined,
-): Promise<SQL | undefined | null> {
+): Promise<SQL | undefined> {
   const conditions = [bookCondition];
   if (search) {
     conditions.push(await buildSearchCondition(search));
   }
-  if (filters?.publisherIds?.length)
-    conditions.push(publisherWorkCondition(filters.publisherIds));
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));
   }
   if (filters?.isPoison !== undefined) {
     conditions.push(eq(works.isPoison, filters.isPoison));
   }
-  const marks = marksCondition(filters?.marks ?? []);
-  if (marks) conditions.push(marks);
+  // Marks, publishers, copies, languages, years, taxonomy, colour (SLN-405)
+  conditions.push(...bookFilterConditions(filters));
   // Status, reading state, holding, read in, re-read (SLN-449)
   conditions.push(...readingFilterConditions(works.id, filters));
-  if (filters?.acquisitionPriority?.length) {
-    conditions.push(
-      inArray(
-        works.acquisitionPriority,
-        filters.acquisitionPriority as AcquisitionPriority[],
-      ),
-    );
-  }
-  if (filters?.minRating) {
-    conditions.push(gte(works.rating, filters.minRating));
-  }
-  if (filters?.locationId) {
-    const matchingInstances = await db
-      .select({ workId: editions.workId })
-      .from(instances)
-      .innerJoin(editions, eq(instances.editionId, editions.id))
-      .where(eq(instances.locationId, filters.locationId));
-    const workIds = [...new Set(matchingInstances.map((r) => r.workId))];
-    if (workIds.length === 0) return null;
-    conditions.push(inArray(works.id, workIds));
-  }
-  if (filters?.hasPoster !== undefined) {
-    const posterRows = await db
-      .select({ workId: media.workId })
-      .from(media)
-      .where(
-        and(
-          eq(media.type, "poster"),
-          eq(media.isActive, true),
-          isNotNull(media.workId),
-        ),
-      );
-    const posterWorkIds = [...new Set(posterRows.map((r) => r.workId!))];
-    if (filters.hasPoster) {
-      // Only works WITH a poster
-      if (posterWorkIds.length === 0) return null;
-      conditions.push(inArray(works.id, posterWorkIds));
-    } else if (posterWorkIds.length > 0) {
-      // Only works WITHOUT a poster; when no work has one, all works match
-      conditions.push(notInArray(works.id, posterWorkIds));
-    }
-  }
   return and(...conditions);
 }
 
@@ -305,7 +251,6 @@ export async function getWorks(opts?: {
   }[sort];
 
   const where = await buildWorkConditions(search, filters);
-  if (where === null) return [];
 
   const pageIds =
     sort === "title"
@@ -335,6 +280,8 @@ export async function getWorks(opts?: {
           language: true,
           updatedAt: true,
         },
+        // The card shows the first edition: the order `coverColorSql` reads
+        orderBy: [asc(editions.createdAt), asc(editions.id)],
         with: {
           instances: {
             columns: { id: true },
@@ -373,7 +320,6 @@ export async function getWorks(opts?: {
 
 export async function getWorkCount(search?: string, filters?: WorkFilters) {
   const where = await buildWorkConditions(search, filters);
-  if (where === null) return 0;
 
   const [result] = await db.select({ count: count() }).from(works).where(where);
   return result.count;

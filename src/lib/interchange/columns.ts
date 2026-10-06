@@ -35,7 +35,7 @@ export interface ForeignKeySpec {
 
 export interface TableShape {
   name: string;
-  /** Stored columns, without generated ones: the columns a file row carries */
+  /** Stored columns, without generated or derived ones: the columns a file row carries */
   columns: ColumnSpec[];
   primaryKey: string[];
   foreignKeys: ForeignKeySpec[];
@@ -69,11 +69,22 @@ function columnKind(column: { columnType: string; baseColumn?: { columnType: str
   throw new Error(`The interchange format cannot carry ${table}.${name} (${column.columnType})`);
 }
 
+/**
+ * Columns a file row never carries: derived from a cover image, and the
+ * palette backfill (`scripts/maintenance/backfill-cover-colors.ts`)
+ * recomputes them after an import (SLN-405).
+ */
+export const DERIVED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  editions: ["cover_palette", "cover_color_bucket"],
+  media: ["color_bucket"],
+};
+
 /** The shape of one table, from its Drizzle definition */
 export function tableShape(table: PgTable): TableShape {
   const config = getTableConfig(table);
+  const derived = DERIVED_COLUMNS[config.name] ?? [];
   const columns = config.columns
-    .filter((c) => !(c as { generated?: unknown }).generated)
+    .filter((c) => !(c as { generated?: unknown }).generated && !derived.includes(c.name))
     .map((c) => ({
       name: c.name,
       kind: columnKind(c as never, config.name, c.name),

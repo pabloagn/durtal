@@ -106,6 +106,9 @@ export const workCredits = pgTable(
     ),
     index("work_credit_work_order_idx").on(t.workId, t.sortOrder, t.id),
     index("work_credit_person_idx").on(t.personId),
+    // A collection's credited people with their work counts (cast, directors,
+    // perfumers) read this index alone (SLN-381)
+    index("work_credit_role_person_work_idx").on(t.roleId, t.personId, t.workId),
   ],
 );
 

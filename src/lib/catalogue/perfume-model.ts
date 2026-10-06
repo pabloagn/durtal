@@ -95,6 +95,55 @@ export async function loadPerfumePerfumers(
   `),
   );
 }
+type PerfumerRow = Awaited<ReturnType<typeof loadPerfumePerfumers>>[number];
+
+/**
+ * The effective perfumers and classification of several formulations of one
+ * perfume in two queries, not two per formulation (SLN-381): the same rows,
+ * in the same order, as `loadPerfumePerfumers` and `loadPerfumeClassification`
+ * for each one. The caller has just read the perfume and these formulations.
+ */
+export async function loadVariantsInheritance(workId: string, variantIds: string[]) {
+  const out = new Map<string, { perfumers: PerfumerRow[]; classification: PerfumeClassification[] }>(
+    variantIds.map((id) => [id, { perfumers: [], classification: [] }]),
+  );
+  if (!variantIds.length) return out;
+  const ids = sql`array[${sql.join(variantIds.map((id) => sql`${id}`), sql`, `)}]::uuid[]`;
+  const [perfumers, classification] = await Promise.all([
+    db.execute(sql`
+    with vs(variant_id) as (select unnest(${ids})), selected as (
+      select vs.variant_id,c.id,c.person_id,c.credited_as,c.attribution,c.sort_order,true as inherited,null::uuid as source_record_id
+      from vs join work_credits c on c.work_id=${workId}::uuid and c.role_id='perfume.perfumer'
+      where not exists(select 1 from perfume_variants v where v.id=vs.variant_id and v.perfumers_override)
+      union all
+      select vs.variant_id,p.id,p.person_id,p.credited_as,p.attribution,p.sort_order,false,p.source_record_id
+      from vs join perfume_variants v on v.id=vs.variant_id and v.perfumers_override join perfume_variant_perfumers p on p.variant_id=v.id
+    ) select s.variant_id as "variantId",s.id,s.person_id as "personId",a.name,s.credited_as as "creditedAs",s.attribution,s.sort_order as "sortOrder",s.inherited,s.source_record_id as "sourceRecordId"
+    from selected s left join authors a on a.id=s.person_id order by s.variant_id,s.sort_order,s.id
+  `),
+    db.execute(sql`
+    with vs(variant_id) as (select unnest(${ids})), work_values as (
+      select item_id,null::text as position,0 as sort_order,null::uuid as source_record_id from custom_taxonomy_item_works where work_id=${workId}::uuid
+      union all select item_id,position,sort_order,source_record_id from perfume_notes where work_id=${workId}::uuid
+    ), variant_values as (
+      select variant_id,item_id,null::text as position,0 as sort_order,source_record_id from perfume_variant_taxa where variant_id=any(${ids})
+      union all select variant_id,item_id,position,sort_order,source_record_id from perfume_variant_notes where variant_id=any(${ids})
+    ), selected as (
+      select vs.variant_id,w.item_id,w.position,w.sort_order,w.source_record_id,true as inherited
+      from vs cross join work_values w join custom_taxonomy_items i on i.id=w.item_id
+      where not exists(select 1 from perfume_variant_overrides o where o.variant_id=vs.variant_id and o.family_id=i.family_id)
+      union all select v.variant_id,v.item_id,v.position,v.sort_order,v.source_record_id,false from variant_values v
+    ) select s.variant_id as "variantId",f.id as "familyId",f.slug as "familySlug",i.id as "itemId",i.name,s.position,s.sort_order as "sortOrder",s.source_record_id as "sourceRecordId",s.inherited
+      from selected s join custom_taxonomy_items i on i.id=s.item_id join taxonomy_families f on f.id=i.family_id
+      order by s.variant_id,f.slug,case s.position when 'top' then 0 when 'heart' then 1 when 'base' then 2 else 3 end,s.sort_order,i.name,i.id
+  `),
+  ]);
+  for (const { variantId, ...row } of resultRows<PerfumerRow & { variantId: string }>(perfumers))
+    out.get(variantId)?.perfumers.push(row);
+  for (const { variantId, ...row } of resultRows<PerfumeClassification & { variantId: string }>(classification))
+    out.get(variantId)?.classification.push(row);
+  return out;
+}
 /** A replacement is per family; an explicit empty override never falls back. */
 export async function loadPerfumeClassification(
   workId: string,

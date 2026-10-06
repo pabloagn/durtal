@@ -130,7 +130,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         }
       }
     for (const row of projected.media)
-      for (const column of ["organization_id", "art_object_id", "perfume_variant_id", "alt_text", "credit", "license", "license_url", "source_url", "source_record_id"])
+      for (const column of ["organization_id", "art_object_id", "perfume_variant_id", "alt_text", "credit", "license", "license_url", "source_url", "source_record_id", "color_bucket"])
         if (column in row) {
           expect(row[column], column).toBeNull();
           delete row[column];
@@ -147,6 +147,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         }
     for (const row of projected.orders ?? [])
       for (const column of ["film_holding_id", "perfume_bottle_id", "art_object_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
+    // 0071 (SLN-405): no cover has a palette or a colour yet
+    for (const row of projected.editions ?? [])
+      for (const column of ["cover_palette", "cover_color_bucket"])
         if (column in row) {
           expect(row[column], column).toBeNull();
           delete row[column];
@@ -194,7 +201,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     // 0070 (SLN-455): no reading rhythm until he sets one
     for (const row of projected.app_settings ?? [])
       if ("reading_rhythm_days" in row) expect(row.reading_rhythm_days, "app_settings.reading_rhythm_days").toBeNull();
-    // 0071 (SLN-457): Anathema stays in suggestions, and the predicted rating has not been checked
+    // 0073 (SLN-457): Anathema stays in suggestions, and the predicted rating has not been checked
     for (const row of projected.app_settings ?? []) {
       if ("reading_suggest_hide_anathema" in row) expect(row.reading_suggest_hide_anathema, "app_settings.reading_suggest_hide_anathema").toBe(false);
       if ("reading_prediction_gate" in row) expect(row.reading_prediction_gate, "app_settings.reading_prediction_gate").toBeNull();

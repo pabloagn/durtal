@@ -365,7 +365,7 @@ export const readingsRelations = relations(readings, ({ one, many }) => ({
  * for both it and the book enrichment epic: one row per book, Not now (until
  * a date), Never, or rejected with reasons. Every write is an upsert on
  * work_id: the newer verdict replaces the older, and source is the latest
- * writer. book_parent_required keeps it on books (migration 0071_reading_suggestions).
+ * writer. book_parent_required keeps it on books (migration 0073_reading_suggestions).
  */
 export const recommendationFeedback = pgTable(
   "recommendation_feedback",

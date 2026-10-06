@@ -11,6 +11,8 @@ import { s3, S3_BUCKET } from "./client";
 import { goldCoverKey, goldThumbnailKey, bronzeCoverKey } from "./keys";
 import { safeFetchImage } from "@/lib/net/safe-fetch";
 import { previewDelete, previewGet, previewPut, previewS3Dir } from "./preview-dir";
+import { extractColorPalette } from "@/lib/color/extract-palette";
+import type { ColorPalette } from "@/lib/types";
 
 /** Upload a buffer to S3 */
 export async function uploadToS3(
@@ -101,12 +103,14 @@ let noChecksumClient: S3Client | null = null;
 /**
  * Download a cover image from a URL, process it with sharp,
  * and upload both full cover and thumbnail to S3 gold/.
- * Returns the S3 keys for both.
+ * Returns the S3 keys for both, and the cover's colour palette (null when it
+ * could not be read; the cover is stored all the same). Callers write the
+ * palette with the keys: `editionCoverPaletteFields(cover.palette)`.
  */
 export async function processAndUploadCover(
   editionId: string,
   sourceUrl: string,
-): Promise<{ coverKey: string; thumbnailKey: string } | null> {
+): Promise<{ coverKey: string; thumbnailKey: string; palette: ColorPalette | null } | null> {
   try {
     // Cover URLs come from the wizard's free-text field and from book APIs:
     // download through the SSRF, size and timeout guard. Some APIs still
@@ -131,12 +135,17 @@ export async function processAndUploadCover(
     const coverKey = goldCoverKey(editionId);
     const thumbnailKey = goldThumbnailKey(editionId);
 
-    await Promise.all([
+    const [palette] = await Promise.all([
+      // The thumbnail is plenty for the palette (SLN-405)
+      extractColorPalette(thumbBuffer).catch((error) => {
+        console.warn(`[covers] no palette for edition ${editionId}: ${(error as Error)?.message ?? error}`);
+        return null;
+      }),
       uploadToS3(coverKey, coverBuffer, "image/webp"),
       uploadToS3(thumbnailKey, thumbBuffer, "image/webp"),
     ]);
 
-    return { coverKey, thumbnailKey };
+    return { coverKey, thumbnailKey, palette };
   } catch (err) {
     console.warn(`[covers] cover not stored for edition ${editionId}: ${(err as Error)?.message ?? err}`);
     return null;

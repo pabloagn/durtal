@@ -1,0 +1,1 @@
+CREATE INDEX "work_credit_role_person_work_idx" ON "work_credits" USING btree ("role_id","person_id","work_id");
