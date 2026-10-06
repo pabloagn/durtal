@@ -135,12 +135,21 @@ export function likeness(a: SuggestBook, b: SuggestBook): number {
   if (a.authors.some((x) => b.authors.some((y) => y.id === x.id))) return 1;
   if (a.seriesId && a.seriesId === b.seriesId) return 1;
   let sim = a.originalLanguage && a.originalLanguage === b.originalLanguage ? 0.3 : 0;
-  const ta = new Set(a.terms.filter((t) => !t.key.startsWith("l:")).map((t) => t.key));
-  const tb = new Set(b.terms.filter((t) => !t.key.startsWith("l:")).map((t) => t.key));
-  const shared = [...ta].filter((k) => tb.has(k)).length;
-  const union = new Set([...ta, ...tb]).size;
+  const ta = likenessKeys(a);
+  const tb = likenessKeys(b);
+  let shared = 0;
+  for (const k of ta) if (tb.has(k)) shared++;
+  const union = ta.size + tb.size - shared;
   if (union) sim += 0.5 * (shared / union);
   return Math.min(1, sim);
+}
+
+/** A book's taxonomy keys for likeness, the language left out: built once per book, as diversify compares every pair */
+const keysByBook = new WeakMap<SuggestBook, Set<string>>();
+function likenessKeys(book: SuggestBook): Set<string> {
+  let keys = keysByBook.get(book);
+  if (!keys) keysByBook.set(book, (keys = new Set(book.terms.filter((t) => !t.key.startsWith("l:")).map((t) => t.key))));
+  return keys;
 }
 
 /** A number from a string (FNV-1a, 32 bits): the same string, the same number */
