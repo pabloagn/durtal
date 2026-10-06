@@ -50,4 +50,30 @@ Manual entry stays complete without any source. No schema change.
 
 ## Completion Notes
 
-See the PR for test and browser results.
+- `src/__tests__/integration/perfume-sources.test.ts` (6 tests, local
+  PostgreSQL, Wikidata answered by a fixture): search keeps perfumes only; a
+  review sets each field against the perfume; a save fills only empty fields,
+  adds a brand and a perfumer with their source and Wikidata ids, and the same
+  save again adds nothing; a different launch year and description stay, the
+  source keeps what Wikidata said, and a locked source refuses the save; one
+  Wikidata perfume cannot be given to a second perfume of the same name, and
+  two people of one name match neither; a Fragrantica link is cited without a
+  fetch, its formulation is added once, and two sources that place one note
+  differently are both kept; with Wikidata unreachable every action answers
+  with a message and manual entry works, and a lookup leaves a stale retailer
+  listing as it was.
+- `src/__tests__/catalogue/perfume-sources.test.ts` (5): the evaluation, link
+  reading for each source, concentrations, Wikidata dates and proposals.
+- The three providers answered live once (Wikidata Q820507: Chanel brand,
+  Ernest Beaux, 1921).
+- `python3 scripts/qa/test-local.py` on the stacked SLN-378 branch, which
+  holds this branch unchanged: 2,322 tests in 209 files passed, none skipped.
+- Headless Chrome, Firefox and WebKit at 1440 and 390 px: the add form, a
+  Fragrantica link, a Wikidata look-up, the perfume page, notes in edit, the
+  look-up dialog, results and review. No alignment deviation over 0.5 px, no
+  low contrast, no unnamed or nested control, no overflow. The checks found a
+  fixed two-line height under each proposed value and a missing key; both are
+  fixed. Wikidata answered 429 when the checks called it too fast; the dialog
+  showed "Wikidata asks to wait before the next call".
+- Limitations: Wikidata covers well-known perfumes only, without notes or
+  concentrations. Fragrantica, Basenotes and Parfumo are read by address only.
