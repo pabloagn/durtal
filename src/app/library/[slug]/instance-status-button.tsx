@@ -97,7 +97,7 @@ export function InstanceStatusButton({
         type="button"
         onClick={() => setOpen(!open)}
         disabled={isPending}
-        className={`inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors hover:bg-bg-tertiary disabled:opacity-50 ${statusColorClass}`}
+        className={`inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-xs transition-colors hover:bg-bg-tertiary disabled:opacity-50 touch-hit ${statusColorClass}`}
       >
         {enumLabel(currentStatus)}
         <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
