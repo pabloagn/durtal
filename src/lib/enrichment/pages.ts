@@ -47,7 +47,7 @@ function usableCount(min?: number, max?: number): SQL {
 }
 
 /** The work has an available copy at the location: the location rule speaks only of these works */
-function atLocation(workId: SQL | unknown, locationId: string): SQL {
+function atLocation(workId: SQL, locationId: string): SQL {
   return sql`exists (select 1 from editions e join instances i on i.edition_id = e.id
     where e.work_id = ${workId} and i.status = 'available' and i.location_id = ${locationId})`;
 }
@@ -62,7 +62,7 @@ export function pageRangeCondition({ min, max, locationId }: PageOptions & { min
 export function pagesUnknownCondition({ locationId }: PageOptions): SQL {
   const unknown = sql`not exists (select 1 from editions pe where pe.work_id = ${works.id}
     and ${countedEdition({ locationId })} and ${usableCount()})`;
-  return locationId ? sql`(${atLocation(works.id, locationId)} and ${unknown})` : unknown;
+  return locationId ? sql`(${atLocation(sql`${works.id}`, locationId)} and ${unknown})` : unknown;
 }
 
 /**

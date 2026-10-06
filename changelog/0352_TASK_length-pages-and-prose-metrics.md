@@ -62,3 +62,17 @@ and nothing writes `page_count`.
 - PR 2 waits for the reader module: `ebook_text_metrics`, `--apply`,
   `--undo`, `--cache`, `--limit`, `--only`, the e-book report sections and
   `getEbookTextMetrics`.
+
+## Review fixes (PR #134)
+
+- `proseMetrics` returns null for a text with no word made of letters (empty,
+  numbers only, a scene break), so no metric is NaN. A text whose every word
+  is capitalised gets `rareWordShare` null with `rareWordSkip` "names_only".
+  Two tests cover both; the three that read a field use optional chaining.
+- `atLocation` takes an SQL work id.
+- Words follow the vocabulary's rule: a run of letters and accent marks, with
+  apostrophes (' and ’) and hyphens kept inside it, so don't, l'homme, qu'il
+  and well-known each count as one word, and a number is not a word. Sentences
+  still come from `Intl.Segmenter`. Tests: a French sentence (apostrophe words
+  in the rare-word share and MATTR), a hyphen, and Hindi words with marks.
+  The frequency lookup of the part after an apostrophe waits for PR 2.

@@ -1,9 +1,17 @@
 /**
  * Prose metrics of a text (SLN-466): sentence length, rare-word share and
- * MATTR. They are raw numbers and never become a label here. Sentences and
- * words come from Node's Intl.Segmenter, so the ICU version decides the
- * segments. The text stays in memory: only the numbers are returned.
+ * MATTR. They are raw numbers and never become a label here. Sentences come
+ * from Node's Intl.Segmenter, so the ICU version decides them; words follow
+ * the vocabulary's rule (WORD). The text stays in memory: only the numbers
+ * are returned.
  */
+
+/**
+ * A word: a run of letters and accent marks, with apostrophes (' and ’) and
+ * hyphens kept inside it, so don't, l'homme, qu'il and well-known each count
+ * as one word. A number is not a word.
+ */
+const WORD = /[\p{L}\p{M}]+(?:['\u2019\u2010\u2011-][\p{L}\p{M}]+)*/gu;
 
 /** The moving window of MATTR, in word tokens */
 export const MATTR_WINDOW = 500;
@@ -30,7 +38,12 @@ export interface ProseMetrics {
   medianSentenceWords: number;
   /** The share of word tokens outside the list's top N forms; null with a reason when it cannot be measured */
   rareWordShare: number | null;
-  rareWordSkip: "language_unknown" | "no_list" | null;
+  rareWordSkip:
+    | "language_unknown"
+    | "no_list"
+    // Every word is capitalised, so the name rule leaves none to count
+    | "names_only"
+    | null;
   mattr: number;
   mattrWindow: number;
 }
@@ -39,12 +52,11 @@ export interface ProseMetrics {
 export function sentenceWords(text: string, language: string | null): string[][] {
   const locale = language ?? undefined;
   const sentences = new Intl.Segmenter(locale, { granularity: "sentence" });
-  const words = new Intl.Segmenter(locale, { granularity: "word" });
   return text
     .normalize("NFC")
     .split(/\n\s*\n/)
     .flatMap((paragraph) => [...sentences.segment(paragraph)])
-    .map((sentence) => [...words.segment(sentence.segment)].filter((w) => w.isWordLike).map((w) => w.segment))
+    .map((sentence) => sentence.segment.match(WORD) ?? [])
     .filter((sentence) => sentence.length > 0);
 }
 
@@ -71,13 +83,14 @@ export function mattr(tokens: readonly string[], window = MATTR_WINDOW): number 
   return total / (window * (tokens.length - window + 1));
 }
 
-export function proseMetrics(text: string, { language, list, cutoff, window = MATTR_WINDOW }: ProseOptions): ProseMetrics {
+/** The metrics of a text; null when it has no word made of letters, so nothing can be measured */
+export function proseMetrics(text: string, { language, list, cutoff, window = MATTR_WINDOW }: ProseOptions): ProseMetrics | null {
   const sentences = sentenceWords(text, language);
   const lengths = sentences.map((s) => s.length).sort((a, b) => a - b);
   const middle = Math.floor(lengths.length / 2);
-  // Word tokens: words made only of letters
-  const words = sentences.flat().filter((w) => /^\p{L}+$/u.test(w));
+  const words = sentences.flat();
   const tokens = words.map((w) => w.toLocaleLowerCase(language ?? undefined));
+  if (tokens.length === 0) return null;
   return {
     sentenceCount: sentences.length,
     meanSentenceWords: lengths.reduce((a, b) => a + b, 0) / lengths.length,
@@ -105,6 +118,7 @@ function rareWords(
   const common = new Set(list.forms.slice(0, cutoff));
   const lowerCase = new Set(words.filter((w, i) => w === tokens[i]));
   const counted = language.split("-")[0] === "de" ? tokens : tokens.filter((t) => lowerCase.has(t));
+  if (counted.length === 0) return { rareWordShare: null, rareWordSkip: "names_only" };
   const rare = counted.filter((t) => !common.has(t)).length;
   return { rareWordShare: rare / counted.length, rareWordSkip: null };
 }
