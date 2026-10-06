@@ -11,6 +11,7 @@ import {
   releaseHeldEnrichmentJobs,
   renewEnrichmentJobLease,
 } from "./jobs";
+import { JOB_LEASE_MINUTES } from "./rules";
 import { undoApplication } from "./claims";
 import { QuotaStop, type SourceCache } from "./source-cache";
 import { ENRICHMENT_STAGES, stagesFor, type EnrichmentStage, type StageContext, type StageJob } from "./stages";
@@ -71,7 +72,10 @@ export interface WorkerReport {
   jobs: { id: string; slug: string | null; outcome?: Record<string, unknown>; error?: string; skipped?: string }[];
 }
 
-/** The run's job set: due queued jobs and the holds step (a0) releases, or the named books' jobs */
+/**
+ * The run's job set: due queued jobs, the holds step (a0) releases and the
+ * jobs a stopped run left running past their lease, or the named books' jobs
+ */
 async function jobSet(conn: Db, kinds: EnrichmentJobKind[], only: string[] | undefined, limit: number | undefined) {
   const list = sql.join(kinds.map((k) => sql`${k}`), sql`, `);
   if (only?.length) {
@@ -81,9 +85,10 @@ async function jobSet(conn: Db, kinds: EnrichmentJobKind[], only: string[] | und
     const unknown = only.filter((s) => !known.includes(s));
     if (unknown.length) throw new Error(`Unknown book: ${unknown.join(", ")}`);
   }
+  const abandoned = sql`(j.status = 'running' and j.locked_at < now() - make_interval(mins => ${JOB_LEASE_MINUTES}))`;
   const scope = only?.length
-    ? sql`w.slug in (${sql.join(only.map((s) => sql`${s}`), sql`, `)}) and j.status in ('queued', 'held')`
-    : sql`((j.status = 'queued' and j.run_after <= now()) or (j.status = 'held' and j.held_reason in ('quota', 'rate_limited', 'budget')))`;
+    ? sql`w.slug in (${sql.join(only.map((s) => sql`${s}`), sql`, `)}) and (j.status in ('queued', 'held') or ${abandoned})`
+    : sql`((j.status = 'queued' and j.run_after <= now()) or (j.status = 'held' and j.held_reason in ('quota', 'rate_limited', 'budget')) or ${abandoned})`;
   return resultRows<StageJob>(
     await conn.execute(sql`select j.id, j.work_id as "workId", w.slug, w.title, j.kind, j.status, j.held_reason as "heldReason", j.priority, j.payload
       from enrichment_jobs j join works w on w.id = j.work_id
@@ -160,7 +165,9 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
       try {
         const outcome = await inTransaction(conn, async (tx) => {
           const result = await stage.write(tx, job, plans.get(job.id)!.plan, ctx);
-          await finishEnrichmentJob({ id: job.id, worker: options.worker, outcome: result }, tx);
+          // A job whose lease another worker took is no longer this run's to write
+          if (!(await finishEnrichmentJob({ id: job.id, worker: options.worker, outcome: result }, tx)))
+            throw new Error("Another worker took this job over; its write is rolled back");
           return result;
         });
         report.jobs.push({ id: job.id, slug: job.slug, outcome });

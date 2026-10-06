@@ -50,7 +50,7 @@ import { assertReadOnly, enqueueScope, runWorker, undoRun } from "@/lib/enrichme
 import { QuotaStop, SourceCache } from "@/lib/enrichment/source-cache";
 import type { EnrichmentStage } from "@/lib/enrichment/stages";
 import { BULK_ACCESSION_PRIORITY, queueNewBookEnrichment } from "@/lib/enrichment/queue";
-import { enqueueEnrichmentJob } from "@/lib/enrichment/jobs";
+import { claimNextEnrichmentJob, enqueueEnrichmentJob } from "@/lib/enrichment/jobs";
 import { applyClaim, proposeClaims } from "@/lib/enrichment/claims";
 import { applyVocabulary } from "@/lib/enrichment/loader";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
@@ -71,6 +71,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
     refuseAfter: null as number | null,
     during: null as null | (() => Promise<void>),
     writing: null as null | ((jobId: string) => Promise<void>),
+    takeover: false,
   };
   const stage: EnrichmentStage<{ title: string }> = {
     kind: "identity",
@@ -90,6 +91,8 @@ describe.skipIf(!url)("the enrichment worker", () => {
     async write(tx, job, plan, ctx) {
       if (plan.title === "Unreadable") throw new Error("The answer could not be read");
       await stub.writing?.(job.id);
+      // Another worker takes the job over while this write runs
+      if (stub.takeover) await client!`update enrichment_jobs set locked_by = 'other', locked_at = now() where id = ${job.id}`;
       await tx.execute(sql`update works set notes = ${`run ${ctx.runId}`} where id = ${job.workId}::uuid`);
       return { result: "resolved" };
     },
@@ -131,7 +134,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
   });
   beforeEach(async () => {
     await c`delete from enrichment_jobs`;
-    Object.assign(stub, { refuseAfter: null, during: null, writing: null });
+    Object.assign(stub, { refuseAfter: null, during: null, writing: null, takeover: false });
   });
 
   it("refuses a kind without a stage, and a stage that calls out without a contact", async () => {
@@ -225,6 +228,29 @@ describe.skipIf(!url)("the enrichment worker", () => {
     expect(report.jobs.map((j) => j.outcome)).toEqual([{ result: "resolved" }]);
     expect(leases[1]).toBeGreaterThan(leases[0]);
     expect((await job(w.id)).status).toBe("done");
+  });
+
+  it("works a job a crashed run left running once its lease is abandoned, and never one still leased", async () => {
+    const [a, b, live] = [await queued("Crashed one"), await queued("Crashed two"), await queued("Still running")];
+    // A run claimed these, then stopped before it finished them (Ctrl-C, a crash)
+    for (const [w, worker] of [[a, "gone"], [b, "gone"], [live, "alive"]] as const)
+      await claimNextEnrichmentJob({ worker, kinds: ["identity"], workIds: [w.id] }, conn);
+    await c`update enrichment_jobs set locked_at = now() - interval '31 minutes' where work_id in (${a.id}, ${b.id})`;
+    await run({ only: [b.slug] });
+    expect((await job(b.id)).status).toBe("done");
+    await run();
+    expect((await job(a.id)).status).toBe("done");
+    expect(await job(live.id)).toMatchObject({ status: "running" });
+    expect(await notes(live.id)).toBeNull();
+  });
+
+  it("rolls back a write whose job another worker took over", async () => {
+    const w = await queued("Taken over");
+    stub.takeover = true;
+    const report = await run();
+    expect(report.jobs[0].error).toBe("Another worker took this job over; its write is rolled back");
+    expect(await notes(w.id)).toBeNull();
+    expect((await c`select status, locked_by from enrichment_jobs where work_id = ${w.id}`)[0]).toEqual({ status: "running", locked_by: "other" });
   });
 
   it("undoes a run: its applies newest first, refusing one that changed since, and each stage's own writes", async () => {

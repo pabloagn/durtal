@@ -30,7 +30,9 @@ is PR 2; this PR has the loop, the registry the stages join, and the queue.
     with the backoff. The worker id carries the run id, so it is unique to
     the run. While a job's write runs, a heartbeat on a second connection
     renews its lease every 5 minutes (`renewEnrichmentJobLease`), so a long
-    job is never taken over. A source refusal (`QuotaStop`) during the fetch writes
+    job is never taken over. A run also works the jobs a stopped run left
+    running past their lease, and a write rolls back when another worker
+    took its job over. A source refusal (`QuotaStop`) during the fetch writes
     no job: they stay queued with no attempt, and the answers already
     fetched stay in the cache. The report starts with "Stopped after N of M
     jobs".
@@ -64,10 +66,11 @@ is PR 2; this PR has the loop, the registry the stages join, and the queue.
 - No stage is registered yet, so a run names a kind and stops with "No
   enrichment stage works identity jobs yet". The second SLN-464 PR registers
   `identity`.
-- `src/__tests__/integration/identity-resolution.test.ts` (10 tests) runs the
+- `src/__tests__/integration/identity-resolution.test.ts` (12 tests) runs the
   worker with a stub stage: plan writes nothing, apply in order (a0) to (d),
   a refusal stops the fetch and writes no job, a failed job is retried, the
-  lease heartbeat, undo
+  lease heartbeat, a job a crashed run left running, a write whose job
+  another worker took over, undo
   is newest first, the contact check, and the queue never failing a save.
 - Queue checks were added to the book-saves, fast-track, atomic-book-writes
   and publishers suites. The five touched suites: 90 passed.

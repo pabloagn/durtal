@@ -97,6 +97,6 @@ try {
   writeFileSync(values.report!, lines.join("\n") + "\n");
   console.log(lines.join("\n"));
 } finally {
-  await client.end();
-  await beatClient?.end();
+  // Both close, even when the first throws
+  await Promise.allSettled([client.end(), beatClient?.end()]);
 }
