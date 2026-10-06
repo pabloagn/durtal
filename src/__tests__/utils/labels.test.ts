@@ -7,6 +7,9 @@ import {
   priorityLabel,
 } from "@/lib/utils/labels";
 import { formatEventDescription } from "@/lib/activity/event-config";
+import { acquisitionMethodLabel, orderStatusLabel } from "@/lib/constants/orders";
+import { COPY_CONDITION_LABELS, COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
+import { STATUS_LABELS } from "@/app/provenance/order-model";
 
 describe("labels (SLN-400)", () => {
   it("labels catalogue statuses and priorities from their config", () => {
@@ -27,6 +30,16 @@ describe("labels (SLN-400)", () => {
     expect(enumLabel("very_good")).toBe("Very good");
     expect(enumLabel("ebook")).toBe("E-book");
     expect(enumLabel("male")).toBe("Male");
+  });
+
+  it("labels orders, and copies the way every other list says them", () => {
+    expect(orderStatusLabel("in_transit")).toBe("In transit");
+    expect(orderStatusLabel("bid")).toBe("Bid placed");
+    expect(orderStatusLabel("some_new_status")).toBe("Some new status");
+    expect(orderStatusLabel(null)).toBe("");
+    expect(acquisitionMethodLabel("in_store_purchase")).toBe("Bought in a shop");
+    expect(COPY_FORMAT_LABELS.ebook).toBe(enumLabel("ebook"));
+    expect(COPY_CONDITION_LABELS.very_good).toBe(enumLabel("very_good"));
   });
 
   it("shows the short country name", () => {
@@ -55,5 +68,11 @@ describe("labels (SLN-400)", () => {
     expect(
       formatEventDescription("work.language_changed", { newValue: "de" }),
     ).toBe("Set original language to German");
+  });
+
+  it("names an order status one way on every page and in the activity list (PR #114 review)", () => {
+    for (const [status, words] of Object.entries(STATUS_LABELS)) expect(words).toBe(orderStatusLabel(status));
+    expect(formatEventDescription("work.order_deleted", { oldValue: "in_transit" })).toBe("Deleted an order (was In transit)");
+    expect(formatEventDescription("work.order_deleted", { oldValue: "bid" })).toBe("Deleted an order (was Bid placed)");
   });
 });

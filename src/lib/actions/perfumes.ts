@@ -79,7 +79,7 @@ import {
 } from "@/lib/catalogue/work-store";
 import {
   loadPerfumeClassification,
-  loadPerfumePerfumers,
+  loadVariantsInheritance,
 } from "@/lib/catalogue/perfume-model";
 import { HOLDING_STATUS_LABELS, perfumeHoldings } from "@/lib/catalogue/holdings";
 import { CONTAINER_LABELS } from "@/lib/catalogue/perfume-labels";
@@ -352,7 +352,7 @@ async function loadVariants(
     .orderBy(asc(perfumeVariants.createdAt), asc(perfumeVariants.id));
   if (!rows.length) return [];
   const variantIds = rows.map(({ variant }) => variant.id);
-  const [dates, overrides, images] = await Promise.all([
+  const [dates, overrides, images, inheritance] = await Promise.all([
     loadDates(
       rows.flatMap(({ variant }) => [
         variant.releaseDateId,
@@ -380,16 +380,12 @@ async function loadVariants(
         ),
       )
       .orderBy(media.perfumeVariantId, desc(media.createdAt), asc(media.id)),
+    // Effective perfumers and classification of every formulation: two
+    // queries for all of them (SLN-381)
+    loadVariantsInheritance(workId, variantIds),
   ]);
-  // Effective values come from the shared inheritance queries, one pair per
-  // formulation of this fragrance.
-  return Promise.all(
-    rows.map(async ({ variant, fingerprint }) => {
-      // The formulation was just read with this perfume: no existence check
-      const [classification, perfumers] = await Promise.all([
-        loadPerfumeClassification(workId, variant.id, true),
-        loadPerfumePerfumers(workId, variant.id, true),
-      ]);
+  return rows.map(({ variant, fingerprint }) => {
+      const { classification, perfumers } = inheritance.get(variant.id)!;
       const image = images.find((row) => row.variantId === variant.id);
       return {
         ...variant,
@@ -412,8 +408,7 @@ async function loadVariants(
         ),
         fingerprint,
       };
-    }),
-  );
+    });
 }
 async function loadBottles(where: ReturnType<typeof eq>) {
   const rows = await db

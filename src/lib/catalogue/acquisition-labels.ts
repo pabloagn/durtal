@@ -3,6 +3,8 @@ import { FILM_MEDIUM_LABELS, FILM_RELEASE_FORMAT_LABELS, releaseTerritory, versi
 import { ART_OBJECT_KIND_LABELS, objectName } from "./painting-labels";
 import type { PerfumeConcentration, PerfumeContainer } from "./perfume-labels";
 import type { ArtObjectKind } from "./painting-labels";
+// The order words live with the order constants (SLN-400); kept here for older imports
+export { ORDER_STATUS_LABELS, ACQUISITION_METHOD_LABELS } from "@/lib/constants/orders";
 
 /*
  * What a film, perfume or painting acquisition target names, in words
@@ -75,27 +77,3 @@ export function orderCost(total: string | null, price: string | null, currency: 
   return amount !== null && currency ? formatPrice(Number(amount), currency) : null;
 }
 
-export const ORDER_STATUS_LABELS: Record<string, string> = {
-  placed: "Placed",
-  confirmed: "Confirmed",
-  processing: "Processing",
-  shipped: "Shipped",
-  in_transit: "In transit",
-  out_for_delivery: "Out for delivery",
-  delivered: "Delivered",
-  purchased: "Purchased",
-  received: "Received",
-  bid: "Bid placed",
-  won: "Won",
-  cancelled: "Cancelled",
-  returned: "Returned",
-};
-
-export const ACQUISITION_METHOD_LABELS: Record<string, string> = {
-  online_order: "Online order",
-  in_store_purchase: "Bought in a shop",
-  gift: "Gift",
-  digital_purchase: "Digital purchase",
-  auction: "Auction",
-  event_purchase: "Bought at an event",
-};

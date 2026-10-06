@@ -3,7 +3,9 @@ import { NextRequest } from "next/server";
 
 // The routes read no rows here: the guard is what is under test.
 vi.mock("@/lib/db", () => {
-  const chain = { from: () => chain, where: async () => [] };
+  // A select reads nothing: a list is empty, a count is 0
+  const rows = Object.assign(Promise.resolve([]), { orderBy: () => rows, limit: async () => [] });
+  const chain = { from: () => chain, where: () => rows };
   return {
     db: {
       query: { media: { findMany: vi.fn(async () => []) } },
@@ -62,7 +64,7 @@ describe("requireAdminToken", () => {
 
 describe.each([
   ["apply-crops", applyCrops, { total: 0, applied: 0, unchanged: 0, failed: [] }],
-  ["backfill-palettes", backfillPalettes, { processed: 0, failed: 0 }],
+  ["backfill-palettes", backfillPalettes, { colored: 0, posters: { processed: 0, failed: 0 }, covers: { processed: 0, failed: 0 } }],
   ["reprocess", reprocess, { total: 0, success: 0, failed: 0 }],
 ] as const)("POST /api/media/%s", (name, post, emptyRun) => {
   const path = `/api/media/${name}`;

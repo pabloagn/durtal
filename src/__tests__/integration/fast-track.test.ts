@@ -177,6 +177,7 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     vi.mocked(processAndUploadCover).mockResolvedValue({
       coverKey: "test-cover",
       thumbnailKey: "test-thumb",
+      palette: null,
     });
     const result = await fastTrackBook(input);
     expect(result.ok).toBe(true);
@@ -257,6 +258,7 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     vi.mocked(processAndUploadCover).mockResolvedValue({
       coverKey: "new-cover",
       thumbnailKey: "new-thumb",
+      palette: null,
     });
     const input = minimal();
     input.edition.coverSourceUrl = "https://example.com/cover.jpg";

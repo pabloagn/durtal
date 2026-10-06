@@ -217,6 +217,7 @@ describe.skipIf(!url)("atomic book writes", () => {
       vi.mocked(processAndUploadCover).mockImplementation(async (id) => ({
         coverKey: `covers/${id}.jpg`,
         thumbnailKey: `covers/${id}-thumb.jpg`,
+        palette: null,
       }));
       // A shelf that does not exist fails the second copy, near the end of the
       // batch: after the author, work, taxonomy, edition and first copy
@@ -348,6 +349,7 @@ describe.skipIf(!url)("atomic book writes", () => {
       vi.mocked(processAndUploadCover).mockImplementation(async (id) => ({
         coverKey: `covers/${id}.jpg`,
         thumbnailKey: `covers/${id}-thumb.jpg`,
+        palette: null,
       }));
       await expect(
         createEdition({

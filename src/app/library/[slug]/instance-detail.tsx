@@ -300,7 +300,7 @@ export function InstanceDetail({
             {instance.dispositionType && (
               <>
                 <dt className="text-fg-secondary">Type</dt>
-                <dd className="text-fg-secondary">{instance.dispositionType}</dd>
+                <dd className="text-fg-secondary">{enumLabel(instance.dispositionType)}</dd>
               </>
             )}
             {instance.dispositionDate && (

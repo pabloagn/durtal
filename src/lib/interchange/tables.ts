@@ -22,7 +22,9 @@ import { tableShape, type TableShape } from "./columns";
  *
  * Not carried in version 1: images and their files, comments, activity,
  * readings (the Durtal reading CSV carries them), orders and acquisition
- * targets, Calibre links and harmonization history.
+ * targets, Calibre links and harmonization history; nor the colours derived
+ * from a cover (`DERIVED_COLUMNS` in `./columns.ts`), which the cover-colour
+ * backfill recomputes.
  *
  * Changing any of these tables changes the format: the test in
  * `interchange-format.test.ts` pins every column, and a change needs a new

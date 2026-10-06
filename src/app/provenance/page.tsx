@@ -12,6 +12,7 @@ import { ProvenanceShell } from "./provenance-shell";
 import { OrderCreateDialog } from "./order-create-dialog";
 import type { OrderItem, ProvenanceStats } from "./provenance-shell";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { orderStatusLabel } from "@/lib/constants/orders";
 
 export const metadata = { title: "Provenance" };
 
@@ -94,7 +95,7 @@ async function OrderHistory({ params }: { params: ListSearchParams }) {
     <PaginatedSection page={page} perPage={perPage} total={total} noun="orders">
       <div className="space-y-2">{orders.map((order) => <Link key={order.id} href={workHref(order.work)} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-glass-border p-3 hover:bg-bg-secondary">
         <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-secondary">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>
-        <span className="font-mono text-xs text-fg-secondary">{order.orderDate} · {order.status.replace(/_/g, " ")}{order.venue ? ` · ${order.venue.name}` : ""}</span>
+        <span className="font-mono text-xs text-fg-secondary">{order.orderDate} · {orderStatusLabel(order.status)}{order.venue ? ` · ${order.venue.name}` : ""}</span>
       </Link>)}</div>
       {!total && <p className="py-6 text-sm text-fg-secondary">No acquisitions yet.</p>}
     </PaginatedSection>

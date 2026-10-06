@@ -1,5 +1,5 @@
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
-import { AUCTION_PIPELINE } from "@/lib/constants/orders";
+import { AUCTION_PIPELINE, ORDER_STATUS_LABELS } from "@/lib/constants/orders";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { formatMoney, type CurrencyTotal } from "@/lib/utils/money";
 
@@ -133,21 +133,8 @@ export const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   won: "shipped",
 };
 
-export const STATUS_LABELS: Record<OrderStatus, string> = {
-  placed: "Placed",
-  confirmed: "Confirmed",
-  processing: "Processing",
-  shipped: "Shipped",
-  in_transit: "In Transit",
-  out_for_delivery: "Out for Delivery",
-  delivered: "Delivered",
-  purchased: "Purchased",
-  received: "Received",
-  bid: "Bid",
-  won: "Won",
-  cancelled: "Cancelled",
-  returned: "Returned",
-};
+/** The app's order status words (SLN-400): the menu, "Mark as" and the toasts say what the badges say */
+export const STATUS_LABELS = ORDER_STATUS_LABELS;
 
 export function getPosterUrl(work: OrderWork): string | null {
   const poster = work.media.find((m) => m.type === "poster" && m.isActive);

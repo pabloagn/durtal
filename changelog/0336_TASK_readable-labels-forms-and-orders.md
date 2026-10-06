@@ -1,0 +1,67 @@
+# Task 0336: Readable labels in the copy and edition forms and on orders
+
+**Status**: Completed
+**Created**: 2026-10-05
+**Priority**: MEDIUM
+**Type**: Fix
+**Depends On**: SLN-400 (tasks of PRs #35 and #71)
+**Blocks**: None
+
+## Overview
+
+SLN-400 was closed with stored values still shown as text in a few places
+the book, place and order pages lead to: the copy form's selects ("very
+good", "lent out", "in store purchase"), the edition form's binding and role
+selects and its metadata source ("isbndb"), a sold copy's disposition
+("sold"), and every order status on the provenance pages ("in transit").
+This task gives them the app's words.
+
+## Implementation Details
+
+- `src/lib/constants/orders.ts`: `ORDER_STATUS_LABELS` and
+  `ACQUISITION_METHOD_LABELS` move here from
+  `src/lib/catalogue/acquisition-labels.ts` (which re-exports them), typed by
+  status and method, with `orderStatusLabel()` and `acquisitionMethodLabel()`
+  (an unknown value falls back to `enumLabel`).
+- Provenance list, order panel (status line and its toast), the provenance
+  page's orders, the place page's orders (its own `statusText` copy is gone)
+  and the book record's orders use them: "Bid placed", not "Bid".
+- Copy form: format and condition from `COPY_FORMAT_LABELS` and
+  `COPY_CONDITION_LABELS`; status, disposition and acquisition type through
+  `enumLabel`. Edition form: binding and contributor role through
+  `enumLabel`, the source through `metadataSourceLabel`. A copy's
+  disposition on the book page through `enumLabel`.
+- `COPY_FORMAT_LABELS.ebook` is "E-book", as every other list says it.
+
+## Completion Notes
+
+- `src/__tests__/utils/labels.test.ts`: order statuses and methods, and the
+  copy labels equal to `enumLabel`'s.
+- `src/__tests__/ui/copy-form-labels.test.ts`: the copy form's format,
+  condition, status and disposition selects list words, no stored key.
+- Chrome, Firefox and WebKit, headless, at 1440 and 390 on a preview with a
+  sold copy and two orders (in transit, a bid): the book page shows "Sold"
+  and "In transit", the provenance and place pages "In transit" and "Bid
+  placed". No new alignment or contrast finding. One audit hit on
+  `/provenance` is older than this change: the order row's chevron is
+  measured against the cover's placeholder letter.
+- SLN-402 checked on the same preview: a search with no result on
+  `/library`, `/people` and `/publishers` shows "No results" with a clear
+  action and no pagination; `/reader` with no books shows its empty state
+  alone.
+
+### Review fixes (PR #114)
+
+- Activity list: a deleted order's line names its status in words ("Deleted
+  an order (was In transit)", "(was Bid placed)") through
+  `orderStatusLabel`.
+- Provenance: `STATUS_LABELS` in `src/app/provenance/order-model.ts` is now
+  `ORDER_STATUS_LABELS`, so the status menu, "Mark as", the create dialog's
+  status step and the drag toast say what the badges say ("In transit", not
+  "In Transit"; "Bid placed", not "Bid").
+- Test: every provenance status word equals `orderStatusLabel`, and the
+  deleted-order activity line for an order in transit and a bid.
+- Tidy: the import in `orders.ts` above its header, the "C4" note back above
+  `TERMINAL_STATUSES`, one orders import in `provenance-shell.tsx`, one blank
+  line in `venue-parts.tsx`.
+

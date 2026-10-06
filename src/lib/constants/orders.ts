@@ -1,3 +1,5 @@
+import { enumLabel } from "@/lib/utils/labels";
+
 // ── Order Types and Constants ─────────────────────────────────────────────────
 // Extracted from actions/orders.ts because "use server" files
 // can only export async functions.
@@ -24,6 +26,45 @@ export type AcquisitionMethod =
   | "digital_purchase"
   | "auction"
   | "event_purchase";
+
+/** An order's status in words: "In transit", "Bid placed" */
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  placed: "Placed",
+  confirmed: "Confirmed",
+  processing: "Processing",
+  shipped: "Shipped",
+  in_transit: "In transit",
+  out_for_delivery: "Out for delivery",
+  delivered: "Delivered",
+  purchased: "Purchased",
+  received: "Received",
+  bid: "Bid placed",
+  won: "Won",
+  cancelled: "Cancelled",
+  returned: "Returned",
+};
+
+/** How an order was made, in words */
+export const ACQUISITION_METHOD_LABELS: Record<AcquisitionMethod, string> = {
+  online_order: "Online order",
+  in_store_purchase: "Bought in a shop",
+  gift: "Gift",
+  digital_purchase: "Digital purchase",
+  auction: "Auction",
+  event_purchase: "Bought at an event",
+};
+
+/** "in_transit" → "In transit"; an unknown status in sentence case */
+export function orderStatusLabel(status: string | null | undefined): string {
+  if (!status) return "";
+  return ORDER_STATUS_LABELS[status as OrderStatus] ?? enumLabel(status);
+}
+
+/** "in_store_purchase" → "Bought in a shop" */
+export function acquisitionMethodLabel(method: string | null | undefined): string {
+  if (!method) return "";
+  return ACQUISITION_METHOD_LABELS[method as AcquisitionMethod] ?? enumLabel(method);
+}
 
 // C4: removed "won" — auction orders must advance past won to shipped/delivered
 export const TERMINAL_STATUSES: OrderStatus[] = [

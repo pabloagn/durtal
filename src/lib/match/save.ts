@@ -7,6 +7,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { editions } from "@/lib/db/schema";
 import { processAndUploadCover } from "@/lib/s3/covers";
+import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions, resultRows } from "@/lib/publishers/resolution";
 import {
@@ -166,6 +167,7 @@ export async function saveMatch(
       updates.coverS3Key = cover.coverKey;
       updates.thumbnailS3Key = cover.thumbnailKey;
       updates.coverSourceUrl = coverUrl;
+      Object.assign(updates, editionCoverPaletteFields(cover.palette));
     } else if (input.coverOptional) {
       result.coverSkipped = true;
       delete result.before.cover;

@@ -130,7 +130,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         }
       }
     for (const row of projected.media)
-      for (const column of ["organization_id", "art_object_id", "perfume_variant_id", "alt_text", "credit", "license", "license_url", "source_url", "source_record_id"])
+      for (const column of ["organization_id", "art_object_id", "perfume_variant_id", "alt_text", "credit", "license", "license_url", "source_url", "source_record_id", "color_bucket"])
         if (column in row) {
           expect(row[column], column).toBeNull();
           delete row[column];
@@ -147,6 +147,13 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
         }
     for (const row of projected.orders ?? [])
       for (const column of ["film_holding_id", "perfume_bottle_id", "art_object_id"])
+        if (column in row) {
+          expect(row[column], column).toBeNull();
+          delete row[column];
+        }
+    // 0071 (SLN-405): no cover has a palette or a colour yet
+    for (const row of projected.editions ?? [])
+      for (const column of ["cover_palette", "cover_color_bucket"])
         if (column in row) {
           expect(row[column], column).toBeNull();
           delete row[column];
