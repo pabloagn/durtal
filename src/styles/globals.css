@@ -269,6 +269,19 @@ dialog::backdrop {
   }
 }
 
+/* CapAligned's box when it grows on a coarse pointer (coarseHeight): it is
+   --cap-box high, and --cap-box-coarse (44px unless set) on touch. --cap-h is
+   the height in use, for the controls inside it. One class, not five, on
+   every card (page weight) */
+@utility cap-touch {
+  --cap-h: var(--cap-box);
+  height: var(--cap-h);
+  margin-block: calc(var(--cap-h) / -2);
+  @media (pointer: coarse) {
+    --cap-h: var(--cap-box-coarse, 44px);
+  }
+}
+
 /* A 28px glass button on a card (copy, actions). The element keeps the
    glass-chip class itself: hover-reveal-glass looks for it */
 /* Touch targets (docs/03, Keyboard, touch and motion): on a coarse pointer a

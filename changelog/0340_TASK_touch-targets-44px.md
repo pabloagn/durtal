@@ -61,5 +61,14 @@ desktop look as it was.
   control, no sideways scroll. Every change but `relative` on the marks that
   take `touch-hit` and the view switch's centred buttons applies to a coarse
   pointer only.
+- Page weight: a card's touch box first took five long classes and two
+  style values, 11 KB more on each list page (`/perfumes` 314 KB). The
+  `cap-touch` utility (`globals.css`) now does it in one class with one
+  value, so the change adds 2.4–4.3 KB a page (`/library` 89 KB, `/people`
+  208 KB, `/films` 288 KB). `/perfumes` is 307 KB of 300 on the seeded
+  preview (`--seed-large 50`), and 303 KB on main with the same seed: it was
+  over its budget before this change. Server times were in budget on a quiet
+  run.
+- `python3 scripts/qa/test-local.py`: 213 files, 2,376 tests.
 - Not covered: the media managers' small tile controls (inside a dialog,
   three controls on one thumbnail); their delete stays hover-only there.
