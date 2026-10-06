@@ -355,18 +355,18 @@ dialog::backdrop {
 /* An icon button's padding around a 16px icon: 32px, 44px on touch. The
    favourite star on every card and row; one class, not two (page weight) */
 @utility icon-hit {
-  padding: 8px;
+  padding: 0.5rem;
   @media (pointer: coarse) {
-    padding: 14px;
+    padding: 0.875rem;
   }
 }
 
 /* The box of an icon-hit control at a column's end: its padding goes past the
    edge, so the icon itself lines up with the column (CardHeading) */
 @utility icon-hit-end {
-  margin-right: -8px;
+  margin-right: -0.5rem;
   @media (pointer: coarse) {
-    margin-right: -14px;
+    margin-right: -0.875rem;
   }
 }
 

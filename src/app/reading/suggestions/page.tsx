@@ -42,7 +42,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
   const hiddenLink = (
     <Link
       href={`/reading/suggestions${suggestionQuery({ ...params, page: 1, pick: undefined, view: params.view ? undefined : "hidden" })}`}
-      className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+      className="text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       data-suggestions-view=""
     >
       {params.view ? "Back to suggestions" : `Hidden (${n(hidden.length)})`}

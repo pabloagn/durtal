@@ -89,8 +89,9 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
       </Link>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex gap-1.5 text-sm">
-          <Link href={row.href} className="lines-1 min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text">
-            {row.title}
+          {/* The title cuts off inside the link: the link's touch area is not clipped */}
+          <Link href={row.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+            <span className="lines-1">{row.title}</span>
           </Link>
           {row.isPoison && (
             <CapAligned height={14}>

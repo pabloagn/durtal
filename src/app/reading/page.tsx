@@ -149,7 +149,7 @@ export default async function ReadingPage() {
               <SectionHeading
                 title="Suggestions"
                 action={
-                  <Link href="/reading/suggestions" className="flex items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary">
+                  <Link href="/reading/suggestions" className="flex items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
                     See all
                     <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
                   </Link>
@@ -162,8 +162,9 @@ export default async function ReadingPage() {
                       <Cover s3Key={row.cover} className="h-20 w-14" />
                     </Link>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <Link href={row.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
-                        {row.title}
+                      {/* The title cuts off inside the link: the link's touch area is not clipped */}
+                      <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                        <span className="lines-1">{row.title}</span>
                       </Link>
                       {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}
                       {row.reasons[0] && <p className="lines-2 text-xs text-fg-primary">{row.reasons[0]}</p>}
