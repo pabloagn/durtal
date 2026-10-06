@@ -517,7 +517,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             action={
               <Link
                 href="/library?reading=unread&holding=owned"
-                className="text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary"
+                className="text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
                 data-stats-pile-link=""
               >
                 See them

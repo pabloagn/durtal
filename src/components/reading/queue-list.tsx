@@ -102,7 +102,7 @@ function Row({
       </span>
       <Cover s3Key={row.cover} className="h-16 w-11" />
       <div className="min-w-0 flex-1 space-y-0.5">
-        <Link href={row.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+        <Link href={row.href} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
           {row.title}
         </Link>
         {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}

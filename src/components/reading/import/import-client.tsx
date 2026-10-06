@@ -236,7 +236,7 @@ export function ImportRows({ importId, rows }: { importId: string; rows: RowView
               <>
                 <Cover s3Key={row.book.cover} className="h-12 w-8" />
                 <div className="min-w-0">
-                  <Link href={row.book.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text" data-import-book="">
+                  <Link href={row.book.href} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text" data-import-book="">
                     {row.book.title}
                   </Link>
                   <p className="lines-1 text-xs text-fg-secondary">{row.book.line}</p>
@@ -316,7 +316,7 @@ export function ImportNoteRows({ importId, rows }: { importId: string; rows: Imp
             <div className="min-w-0">
               {row.book ? (
                 <>
-                  <Link href={row.book.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+                  <Link href={row.book.href} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
                     {row.book.title}
                   </Link>
                   <p className="lines-1 text-xs text-fg-secondary">{row.book.author ?? "Unknown author"}</p>

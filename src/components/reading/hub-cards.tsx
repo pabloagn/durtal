@@ -64,7 +64,7 @@ export function PausedRow({ open, day }: { open: OpenReading; day: DayContext })
     <li className="flex items-center gap-3 px-3 py-2" data-hub-paused={r.id}>
       <Cover s3Key={open.cover} className="h-12 w-8" />
       <div className="min-w-0 flex-1">
-        <Link href={bookHref(open.work)} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+        <Link href={bookHref(open.work)} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
           {open.work.title}
         </Link>
         <p className="lines-1 text-xs text-fg-secondary">

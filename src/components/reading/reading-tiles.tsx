@@ -52,12 +52,12 @@ export function FinishedCovers({ reads, className }: { reads: FinishedItem[]; cl
       {reads.map((read) => (
         <Link key={read.id} href={read.href} className="group block min-w-0" data-hub-finished={read.id}>
           <Cover s3Key={read.cover} className="aspect-[2/3] w-full" />
-          <span className="lines-1 mt-2 block text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{read.title}</span>
+          <span className="lines-1 mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{read.title}</span>
           {/* Stars, then the date: a narrow cover (six to a row) has no room for both on one line */}
           <span className="mt-1 flex h-5 items-center">
             <RatingStars value={read.rating} />
           </span>
-          <span className="lines-1 block font-mono text-micro text-fg-secondary">{read.date}</span>
+          <span className="lines-1 font-mono text-micro text-fg-secondary">{read.date}</span>
         </Link>
       ))}
     </div>
@@ -115,7 +115,7 @@ export function DashboardReading({
               <div key={tile.reading.readingId} className="flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3" data-dashboard-reading={tile.reading.readingId}>
                 <Cover s3Key={tile.cover} className="h-16 w-11" />
                 <div className="min-w-0 flex-1">
-                  <Link href={tile.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+                  <Link href={tile.href} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
                     {tile.title}
                   </Link>
                   <ProgressBar value={tile.percent} label={tile.progressLabel} className="mt-2" />
@@ -167,8 +167,9 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
           <li key={row.reading.readingId} className="flex items-center gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
             <Cover s3Key={row.cover} className="h-12 w-8" />
             <div className="min-w-0 flex-1">
-              <Link href={row.href} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
-                {row.title}
+              {/* The title cuts off inside the link: the link's touch area is not clipped */}
+              <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                <span className="lines-1">{row.title}</span>
               </Link>
               <p className="lines-1 text-xs text-fg-secondary">{row.line}</p>
             </div>

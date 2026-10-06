@@ -36,7 +36,7 @@ export default async function ReadingImportPage() {
               {imports.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3" data-import-item={i.id}>
                   <div className="min-w-0 flex-1">
-                    <Link href={`/reading/import/${i.id}`} className="lines-1 block text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
+                    <Link href={`/reading/import/${i.id}`} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
                       {i.fileName ?? "Reading history"}
                     </Link>
                     <p className="lines-1 text-xs text-fg-secondary">

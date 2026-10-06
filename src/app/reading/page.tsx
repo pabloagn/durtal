@@ -134,7 +134,7 @@ export default async function ReadingPage() {
                   <li key={item.workId} className="min-w-0" data-hub-next-item={item.workId}>
                     <Link href={`/library/${item.slug ?? item.workId}`} className="group block">
                       <Cover s3Key={item.cover} className="aspect-[2/3] w-full" />
-                      <span className="lines-1 mt-2 block text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{item.title}</span>
+                      <span className="lines-1 mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{item.title}</span>
                     </Link>
                     <div className="mt-1">
                       <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
