@@ -58,6 +58,7 @@ import { backfillCoverColors } from "@/lib/color/backfill";
 import { parseBookFilters } from "@/lib/library/filter-params";
 import { GET as listWorks } from "@/app/api/works/route";
 import { POST as backfillRoute } from "@/app/api/media/backfill-palettes/route";
+import { setActiveMedia } from "@/lib/actions/media";
 
 function palette(rgb: [number, number, number]) {
   return { dominant: { hex: "#000000", rgb }, crystal: [], extractedAt: "2026-10-05T00:00:00Z" };
@@ -341,6 +342,16 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("reads a poster made active through the shared S3 read, and stores its colour", async () => {
+    const a = await book("Two posters");
+    await poster(a, { key: "gold/media/blue.webp" });
+    await poster(a, { key: "gold/media/red-2.webp", active: false });
+    const second = await value(`select id from media where s3_key = 'gold/media/red-2.webp'`);
+    await setActiveMedia(second);
+    expect(await value(`select color_bucket from media where id = $1`, [second])).toBe("red");
+    expect(await titles({ colors: ["red"] })).toEqual(["Two posters"]);
   });
 
   it("refuses a colour outside the named ones", async () => {
