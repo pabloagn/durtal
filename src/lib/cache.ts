@@ -26,6 +26,8 @@ export const CACHE_TAGS = {
   venues: "ref:venues",
   places: "ref:places",
   settings: "ref:settings",
+  // The approved book enrichment vocabulary (SLN-462)
+  enrichmentVocabulary: "ref:enrichment-vocabulary",
 
   // Entity data (mutated more frequently)
   works: "data:works",

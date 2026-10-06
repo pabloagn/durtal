@@ -21,7 +21,7 @@ import {
   planBookWork,
   resolveBookCredits,
 } from "@/lib/catalogue/book-store";
-import { workTaxonomyQueries } from "@/lib/catalogue/work-taxonomy";
+import { readWorkTaxonomyGovernance, workTaxonomyQueries } from "@/lib/catalogue/work-taxonomy";
 import { addMembers, lockCollection } from "@/lib/collections/members";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -135,6 +135,7 @@ export async function createBookFromWizard(
     const copyIds = book.copies.map(() => randomUUID());
     const taxonomy = book.taxonomy ?? {};
     const classified = Object.values(taxonomy).some((list) => list?.length);
+    const governance = classified ? await readWorkTaxonomyGovernance(db, workId, taxonomy) : undefined;
 
     // ── One atomic write ──────────────────────────────────────────────────
     await atomic((d) => [
@@ -143,7 +144,7 @@ export async function createBookFromWizard(
       ...(work
         ? [
             ...work.queries(d),
-            ...workTaxonomyQueries(d, workId, taxonomy),
+            ...workTaxonomyQueries(d, workId, taxonomy, governance),
             ...(classified
               ? [
                   d.insert(activityEvents).values({

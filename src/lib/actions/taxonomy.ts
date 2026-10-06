@@ -10,6 +10,7 @@ import { atomic } from "@/lib/db/atomic";
 import { assertSql } from "@/lib/harmonization/store";
 import {
   WORK_TAXONOMY_FIELDS,
+  readWorkTaxonomyGovernance,
   workTaxonomyQueries,
   type WorkTaxonomyInput,
 } from "@/lib/catalogue/work-taxonomy";
@@ -180,6 +181,7 @@ export async function updateWorkTaxonomy(
   await requireBookWork(workId);
   // Snapshot current links so the activity log can record each change
   const before = await readWorkTaxonomyIds(workId, input);
+  const governance = await readWorkTaxonomyGovernance(db, workId, input);
   await atomic((d) => [
     d.execute(sql`select id from works where id=${workId}::uuid for update`),
     d.execute(
@@ -188,7 +190,7 @@ export async function updateWorkTaxonomy(
         "Book not found",
       ),
     ),
-    ...workTaxonomyQueries(d, workId, input),
+    ...workTaxonomyQueries(d, workId, input, governance),
     d.update(works).set({ updatedAt: new Date() }).where(eq(works.id, workId)),
   ]);
 

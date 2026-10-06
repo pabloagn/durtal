@@ -1,0 +1,292 @@
+{
+  "version": 1,
+  "documentUrl": "https://docs.example.org/book-enrichment-vocabulary-fixture",
+  "notes": "A small fixture vocabulary for the tests (SLN-462); never loaded on live.",
+  "dimensions": [
+    {
+      "key": "tone",
+      "label": "Tone",
+      "definition": "The feeling the prose leaves.",
+      "layer": "experience",
+      "valueKind": "terms",
+      "applyTarget": "taxonomy",
+      "family": "themes",
+      "requiresIndependentSources": true,
+      "autoAcceptEligible": true,
+      "parameters": {
+        "exclusiveTerms": [
+          [
+            "dark",
+            "light"
+          ]
+        ]
+      },
+      "rule": {
+        "basis": "evaluation_gate",
+        "minimumConfidence": 0.9,
+        "minimumSample": 50
+      },
+      "terms": [
+        {
+          "key": "dark",
+          "label": "Dark",
+          "definition": "Bleak, heavy, hopeless.",
+          "appliesWhen": "The book is dark throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is dark.",
+          "examples": [
+            {
+              "workId": "7c2f1d52-1b8e-4c5a-9d3e-2f6a8b1c4e90",
+              "slug": "the-fixture-book"
+            },
+            {
+              "title": "Nadja",
+              "author": "André Breton"
+            },
+            {
+              "title": "Là-bas",
+              "author": "J.-K. Huysmans"
+            }
+          ]
+        },
+        {
+          "key": "light",
+          "label": "Light",
+          "definition": "Warm and buoyant.",
+          "appliesWhen": "The book is light throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is light.",
+          "examples": [
+            {
+              "title": "Nadja",
+              "author": "André Breton"
+            },
+            {
+              "title": "Là-bas",
+              "author": "J.-K. Huysmans"
+            },
+            {
+              "title": "Malina",
+              "author": "Ingeborg Bachmann"
+            }
+          ]
+        },
+        {
+          "key": "gothic",
+          "label": "Gothic",
+          "definition": "Dark with decay, ruins and dread.",
+          "appliesWhen": "The book is gothic throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is gothic.",
+          "examples": [
+            {
+              "title": "Nadja",
+              "author": "André Breton"
+            },
+            {
+              "title": "Là-bas",
+              "author": "J.-K. Huysmans"
+            },
+            {
+              "title": "Malina",
+              "author": "Ingeborg Bachmann"
+            }
+          ],
+          "parent": "dark"
+        }
+      ]
+    },
+    {
+      "key": "pace",
+      "label": "Pace",
+      "definition": "How fast the story moves.",
+      "layer": "experience",
+      "valueKind": "scale",
+      "applyTarget": "taxonomy",
+      "family": "attributes",
+      "attributeCategory": "pace",
+      "parameters": {
+        "easierEnd": "high"
+      },
+      "terms": [
+        {
+          "key": "slow",
+          "label": "Slow",
+          "definition": "Long stretches with little happening.",
+          "appliesWhen": "The book is slow throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is slow.",
+          "examples": [
+            {
+              "title": "Nadja",
+              "author": "André Breton"
+            }
+          ],
+          "scaleValue": 1
+        },
+        {
+          "key": "steady",
+          "label": "Steady",
+          "definition": "Even, unhurried movement.",
+          "appliesWhen": "The book is steady throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is steady.",
+          "examples": [
+            {
+              "title": "Là-bas",
+              "author": "J.-K. Huysmans"
+            }
+          ],
+          "scaleValue": 2
+        },
+        {
+          "key": "fast",
+          "label": "Fast",
+          "definition": "Events press on one another.",
+          "appliesWhen": "The book is fast throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is fast.",
+          "examples": [
+            {
+              "title": "Malina",
+              "author": "Ingeborg Bachmann"
+            }
+          ],
+          "scaleValue": 3
+        }
+      ]
+    },
+    {
+      "key": "mood",
+      "label": "Mood",
+      "definition": "The mood a reader is in after it.",
+      "layer": "experience",
+      "valueKind": "term",
+      "applyTarget": "taxonomy",
+      "family": "moods",
+      "newFamily": {
+        "name": "Moods",
+        "hierarchical": false
+      },
+      "terms": [
+        {
+          "key": "melancholy",
+          "label": "Melancholy",
+          "definition": "A quiet sadness.",
+          "appliesWhen": "The book is melancholy throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is melancholy.",
+          "examples": [
+            {
+              "title": "Nadja",
+              "author": "André Breton"
+            },
+            {
+              "title": "Là-bas",
+              "author": "J.-K. Huysmans"
+            },
+            {
+              "title": "Malina",
+              "author": "Ingeborg Bachmann"
+            }
+          ]
+        },
+        {
+          "key": "joyful",
+          "label": "Joyful",
+          "definition": "A lasting gladness.",
+          "appliesWhen": "The book is joyful throughout, by the reviews' own words.",
+          "doesNotApplyWhen": "Only one scene is joyful.",
+          "examples": [
+            {
+              "title": "Nadja",
+              "author": "André Breton"
+            },
+            {
+              "title": "Là-bas",
+              "author": "J.-K. Huysmans"
+            },
+            {
+              "title": "Malina",
+              "author": "Ingeborg Bachmann"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "setting",
+      "label": "Setting",
+      "definition": "Where the story takes place.",
+      "layer": "facts",
+      "valueKind": "place",
+      "applyTarget": "values",
+      "parameters": {
+        "research": true
+      }
+    },
+    {
+      "key": "composition_year",
+      "label": "Composition year",
+      "definition": "The year the author finished it.",
+      "layer": "facts",
+      "valueKind": "number",
+      "applyTarget": "values"
+    },
+    {
+      "key": "original_title",
+      "label": "Original title",
+      "definition": "The title in the original language.",
+      "layer": "facts",
+      "valueKind": "text",
+      "applyTarget": "work.original_title"
+    },
+    {
+      "key": "wikidata",
+      "label": "Wikidata",
+      "definition": "The book's Wikidata item.",
+      "layer": "identity",
+      "valueKind": "identifier",
+      "provider": "wikidata",
+      "applyTarget": "identifier",
+      "autoAcceptEligible": true,
+      "rule": {
+        "basis": "exact_identifier_match",
+        "minimumConfidence": 1
+      }
+    },
+    {
+      "key": "translator",
+      "label": "Translator",
+      "definition": "Who translated the edition.",
+      "layer": "facts",
+      "valueKind": "person",
+      "entityLevel": "edition",
+      "applyTarget": "edition.translator"
+    },
+    {
+      "key": "readers",
+      "label": "Readers",
+      "definition": "How many people log the book each month.",
+      "layer": "popularity",
+      "valueKind": "number",
+      "applyTarget": "none",
+      "unknownHandling": "include_as_unknown",
+      "parameters": {
+        "bands": [
+          {
+            "key": "obscure",
+            "label": "Obscure",
+            "fromPercentile": 0,
+            "toPercentile": 25
+          },
+          {
+            "key": "known",
+            "label": "Known",
+            "fromPercentile": 25,
+            "toPercentile": 75
+          },
+          {
+            "key": "popular",
+            "label": "Popular",
+            "fromPercentile": 75,
+            "toPercentile": 100
+          }
+        ]
+      }
+    }
+  ]
+}

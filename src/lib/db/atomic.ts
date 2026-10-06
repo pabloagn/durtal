@@ -17,9 +17,17 @@ interface AtomicCapable {
  * `build` receives the connection to build the queries on; do not await them.
  */
 export async function atomic(build: (d: Db) => unknown[]): Promise<unknown[]> {
-  const conn = db as unknown as AtomicCapable;
+  return atomicOn(db, build);
+}
+
+/**
+ * `atomic` on a given connection: the app's database, or a script's
+ * postgres-js Drizzle connection (SLN-462's services run on both).
+ */
+export async function atomicOn(on: Db, build: (d: Db) => unknown[]): Promise<unknown[]> {
+  const conn = on as unknown as AtomicCapable;
   if (typeof conn.batch === "function") {
-    const queries = build(db);
+    const queries = build(on);
     return queries.length > 0 ? conn.batch(queries) : [];
   }
   return conn.transaction(async (tx) => {
