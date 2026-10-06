@@ -49,5 +49,8 @@ perfume), `next dev`, repeat requests:
 - `src/__tests__/integration/perfume-model.test.ts`: three formulations (one
   inheriting all, one with its own perfumers, notes and accords, one with
   nothing of its own) read the same in one batch as one by one.
+- `python3 scripts/qa/test-local.py`: 205 files, 2,292 tests; the first run
+  failed only the new test (its two new formulations shared one identity),
+  which passes after the fix with the rest of `perfume-model` (12 of 12).
 - The migration was generated on a branch without 0071 and 0072. At merge it
   must be regenerated as 0073 on top of main (no hand edits).
