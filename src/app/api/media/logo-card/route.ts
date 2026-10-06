@@ -12,7 +12,7 @@ import {
   renderLogoCard,
 } from "@/lib/media/logo-card";
 import { MAX_MEDIA_SIZE_BYTES, isAllowedImageType } from "@/lib/validations/media-security";
-import { readS3Object } from "@/lib/media/display";
+import { readS3Object } from "@/lib/s3/read-object";
 import { isUuid } from "@/lib/utils/uuid";
 
 /** A logo is a raster image, or an SVG (rasterized here, never stored as SVG) */
