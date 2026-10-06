@@ -96,7 +96,7 @@ function SectionHeader({
         href && (
           <Link
             href={href}
-            className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="relative flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             View all
             <ArrowRight className="h-3 w-3" strokeWidth={1.5} />

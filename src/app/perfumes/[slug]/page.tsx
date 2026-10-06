@@ -366,7 +366,7 @@ export default async function PerfumePage({
       />
       <Link
         href="/perfumes"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="relative mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
         Back to perfumes

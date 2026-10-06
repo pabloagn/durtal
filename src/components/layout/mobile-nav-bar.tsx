@@ -36,7 +36,7 @@ export const MobileNavBar = forwardRef<
             <Menu className="h-4 w-4" strokeWidth={1.5} />
           </button>
         </CapAligned>
-        <Link href="/" className="px-1 text-fg-primary">
+        <Link href="/" className="relative px-1 text-fg-primary touch-hit">
           Durtal
         </Link>
         <div className="ml-auto flex">

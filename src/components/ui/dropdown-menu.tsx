@@ -218,7 +218,7 @@ export function DropdownMenuItem({
   const { close } = useContext(DropdownMenuContext);
 
   const baseClass =
-    "flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors outline-none";
+    "flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors outline-none pointer-coarse:min-h-11";
   const variantClass =
     variant === "danger"
       ? "text-accent-red-text hover:bg-accent-red/10 focus:bg-accent-red/10"

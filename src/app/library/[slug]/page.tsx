@@ -346,7 +346,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
           {/* Back link */}
           <Link
             href="/library"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="relative mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
             Back to books
@@ -371,7 +371,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   {work.title}
                 </h1>
                 {/* On the cap-height center of the title's first line */}
-                <CapAlignedControls height={32} className="type-page-title">
+                <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
                   <FavouriteToggle
                     favourite={work.isFavourite}
                     target={{ entity: "work", id: work.id }}

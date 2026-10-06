@@ -163,7 +163,7 @@ export function WorkSearchStep({
           <button
             type="button"
             onClick={() => setShowCreate(false)}
-            className="text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="relative text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             Back to search
           </button>

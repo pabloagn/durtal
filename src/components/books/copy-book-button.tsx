@@ -38,7 +38,7 @@ export function CopyBookButton({ title, authorNames, authorName, className = "",
   const label = copied ? "Copied" : "Copy book title and author";
 
   return <button type="button" onClick={handleCopy} aria-label={label} data-tooltip={label}
-    className={`inline-flex ${glass ? "chip-button glass-chip" : "h-7 w-7 shrink-0 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"} ${className}`}>
+    className={`relative inline-flex touch-hit ${glass ? "chip-button glass-chip" : "h-7 w-7 shrink-0 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"} ${className}`}>
     {copied ? (
       <Check className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
     ) : (

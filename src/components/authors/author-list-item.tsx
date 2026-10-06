@@ -130,7 +130,7 @@ export function AuthorListItem({
 
       {/* On the name's cap-height center, like the actions menu */}
       {isFavourite !== undefined && (
-        <CapAlignedControls height={32} className="type-item-title">
+        <CapAlignedControls height={32} coarseHeight={44} className="type-item-title">
           <FavouriteToggle
             favourite={isFavourite}
             target={{ entity: "author", id }}

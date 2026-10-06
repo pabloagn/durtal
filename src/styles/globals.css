@@ -271,6 +271,25 @@ dialog::backdrop {
 
 /* A 28px glass button on a card (copy, actions). The element keeps the
    glass-chip class itself: hover-reveal-glass looks for it */
+/* Touch targets (docs/03, Keyboard, touch and motion): on a coarse pointer a
+   small control's press area grows to at least 44 x 44 px around it, with no
+   change to its look or to the layout. The control needs a position
+   (`relative`) and no overflow clip of its own; a cap-box clips, so a control
+   inside CapAligned grows through `coarseHeight` instead. */
+@utility touch-hit {
+  @media (pointer: coarse) {
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
 @utility chip-button {
   @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border text-fg-primary hover:glass-chip-lift;
 }

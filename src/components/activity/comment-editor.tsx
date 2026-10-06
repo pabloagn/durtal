@@ -151,7 +151,7 @@ export function CommentEditor({
         onClick={() => {
           setExpanded(true);
         }}
-        className="flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary/30 px-3 py-2 text-left transition-colors hover:border-fg-muted/20 hover:bg-bg-secondary/50"
+        className="flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-secondary/30 px-3 py-2 text-left transition-colors hover:border-fg-muted/20 hover:bg-bg-secondary/50 pointer-coarse:min-h-11"
       >
         <span className="flex-1 text-xs text-fg-secondary">
           Leave a comment...

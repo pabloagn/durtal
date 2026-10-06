@@ -79,7 +79,7 @@ export default async function SeriesDetailPage({
       <CopyShortcuts name={s.title} />
       <Link
         href="/series"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="relative mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
         Back to series
@@ -128,7 +128,7 @@ export default async function SeriesDetailPage({
           )}
         </div>
         {/* On the cap-height center of the title's first line */}
-        <CapAlignedControls height={32} className="type-page-title">
+        <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
         <FavouriteToggle
           favourite={s.isFavourite}
           target={{ entity: "series", id: s.id }}

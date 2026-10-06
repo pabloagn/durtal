@@ -110,7 +110,7 @@ async function PlaceContent({ slug }: { slug: string }) {
       {/* Back navigation */}
       <Link
         href="/places"
-        className="mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+        className="relative mb-6 inline-flex items-start gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <CapAligned height={12}><ArrowLeft className="h-3 w-3" strokeWidth={1.5} /></CapAligned>
         Back to places
@@ -153,7 +153,7 @@ async function PlaceContent({ slug }: { slug: string }) {
               <h1 className="type-page-title min-w-0 break-words">
                 {venue.name}
               </h1>
-              <CapAligned height={32}>
+              <CapAligned height={32} coarseHeight={44}>
                 <FavouriteToggle
                   favourite={venue.isFavorite}
                   target={{ entity: "venue", id: venue.id }}

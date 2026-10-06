@@ -301,7 +301,7 @@ export default async function CollectionPage({
         <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           <Link
             href="/collections"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+            className="relative mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
             Back to collections
@@ -346,7 +346,7 @@ export default async function CollectionPage({
                 <h1 className="type-page-title min-w-0 break-words">
                   {collection.name}
                 </h1>
-                <CapAligned height={32} className="ml-1.5">
+                <CapAligned height={32} coarseHeight={44} className="ml-1.5 pointer-coarse:ml-0">
                   <FavouriteToggle
                     favourite={collection.isFavourite}
                     target={{ entity: "collection", id: collection.id }}

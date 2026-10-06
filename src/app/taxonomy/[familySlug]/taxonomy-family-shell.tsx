@@ -210,7 +210,7 @@ export function TaxonomyFamilyShell({
       {/* Back link */}
       <Link
         href="/taxonomy"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+        className="relative mb-6 inline-flex items-center gap-1.5 text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
         Taxonomy
