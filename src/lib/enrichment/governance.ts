@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql, type SQL } from "drizzle-orm";
 import { resultRows } from "@/lib/harmonization/store";
-import { getSystemRegistry, type SystemFamilySlug } from "@/lib/db/taxonomy-resolver";
-import { getTableName } from "drizzle-orm";
+import { taxonomyStorage } from "@/lib/catalogue/taxonomy-storage";
 import type { Db } from "@/lib/catalogue/work-store";
 import { APPLY_TARGETS, type ApplyContext } from "./targets";
 import type { EnrichmentValueKind } from "./model";
@@ -17,7 +16,8 @@ import type { EnrichmentValueKind } from "./model";
  */
 
 export interface GovernedItem {
-  family: SystemFamilySlug;
+  /** The family's slug: a system family's registry key, or a custom family's */
+  family: string;
   itemId: string;
   termId: string;
   dimensionId: string;
@@ -33,32 +33,32 @@ export interface TaxonomyGovernance {
   items: GovernedItem[];
 }
 
-/** The governed items of the families an edit names, with the book's links and claims; read before the write */
-export async function readTaxonomyGovernance(conn: Db, workId: string, families: SystemFamilySlug[]): Promise<TaxonomyGovernance> {
+/** The governed items of the families an edit names (by slug), with the book's links and claims; read before the write */
+export async function readTaxonomyGovernance(conn: Db, workId: string, families: string[]): Promise<TaxonomyGovernance> {
   if (!families.length) return { version: null, items: [] };
-  const tables = families.map((f) => getTableName(getSystemRegistry(f).table));
   const [{ version }] = resultRows<{ version: number | null }>(await conn.execute(sql`select max(version) as version from enrichment_vocabulary_versions`));
   if (!version) return { version: null, items: [] };
-  const rows = resultRows<Omit<GovernedItem, "family" | "linked"> & { systemTable: string }>(
-    await conn.execute(sql`select t.system_item_id as "itemId", t.id as "termId", d.id as "dimensionId", d.value_kind as "valueKind",
-        t.scale_value::float8 as "scaleValue", f.system_table as "systemTable",
+  const rows = resultRows<Omit<GovernedItem, "linked">>(
+    await conn.execute(sql`select coalesce(t.system_item_id, t.custom_item_id) as "itemId", f.slug as family, t.id as "termId", d.id as "dimensionId",
+        d.value_kind as "valueKind", t.scale_value::float8 as "scaleValue",
         jsonb_build_object('id', f.id, 'isSystem', f.is_system, 'systemTable', f.system_table) as "familyRow",
         (select jsonb_build_object('id', c.id, 'decidedBy', c.decided_by, 'decidedAt', c.decided_at::text, 'ruleId', c.rule_id)
           from enrichment_claims c where c.work_id = ${workId}::uuid and c.term_id = t.id and c.status = 'accepted' order by c.decided_at desc limit 1) as accepted,
         coalesce((select jsonb_agg(jsonb_build_object('id', c.id) order by c.id) from enrichment_claims c
           where c.work_id = ${workId}::uuid and c.term_id = t.id and c.status = 'proposed'), '[]'::jsonb) as "openProposals"
       from enrichment_terms t join enrichment_dimensions d on d.id = t.dimension_id join taxonomy_families f on f.id = d.taxonomy_family_id
-      where t.retired_in is null and d.retired_in is null and t.system_item_id is not null
-        and f.system_table in (${sql.join(tables.map((t) => sql`${t}`), sql`, `)})`),
+      where t.retired_in is null and d.retired_in is null and coalesce(t.system_item_id, t.custom_item_id) is not null
+        and f.slug in (${sql.join(families.map((f) => sql`${f}`), sql`, `)})`),
   );
   const items: GovernedItem[] = [];
   for (const r of rows) {
-    const family = families.find((f) => getTableName(getSystemRegistry(f).table) === r.systemTable)!;
-    const reg = getSystemRegistry(family);
-    const [link] = resultRows<{ linked: boolean }>(
-      await conn.execute(sql`select exists (select 1 from ${reg.junction} where ${reg.junctionEntityCol} = ${workId}::uuid and ${reg.junctionItemCol} = ${r.itemId}::uuid) as linked`),
+    // A system family links through its junction, a custom one through custom_taxonomy_item_works
+    const link = taxonomyStorage(r.familyRow).links.find((l) => l.level === "work")!;
+    const [linked] = resultRows<{ linked: boolean }>(
+      await conn.execute(sql`select exists (select 1 from ${sql.identifier(link.table)}
+        where ${sql.identifier(link.owner)} = ${workId}::uuid and ${sql.identifier(link.item)} = ${r.itemId}::uuid) as linked`),
     );
-    items.push({ ...r, family, linked: link.linked });
+    items.push({ ...r, linked: linked.linked });
   }
   return { version, items };
 }
@@ -89,7 +89,7 @@ const stateOf = (id: string, status: string, s?: { decidedBy: string | null; dec
  * The claim writes of one family's hand edit, for the batch that replaces its
  * links: run after the links are written. `ids` is the family's new item list.
  */
-export function governedEditQueries(d: Db, workId: string, family: SystemFamilySlug, ids: string[], governance: TaxonomyGovernance | undefined): unknown[] {
+export function governedEditQueries(d: Db, workId: string, family: string, ids: string[], governance: TaxonomyGovernance | undefined): unknown[] {
   if (!governance?.version) return [];
   const queries: unknown[] = [];
   for (const item of governance.items.filter((i) => i.family === family)) {

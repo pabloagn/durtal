@@ -32,7 +32,7 @@ import { JOB_KINDS, type EnrichmentJobKind } from "@/lib/enrichment/model";
 import { ENRICHMENT_SCOPES, type EnrichmentScope } from "@/lib/enrichment/queue";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { SourceCache } from "@/lib/enrichment/source-cache";
-import { assertReadOnly, enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
+import { HEARTBEAT_MS, assertReadOnly, enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
 
 const { values } = parseArgs({
   options: {
@@ -67,6 +67,8 @@ if (values.apply && !recentBackup(values.backup))
 // Outside --apply, the session itself refuses writes
 const client = postgres(url, { max: 1, onnotice: () => {}, connection: values.apply ? {} : { default_transaction_read_only: true } });
 const conn = drizzle(client, { schema }) as unknown as Db;
+// An apply's heartbeat renews job leases on its own connection
+const beatClient = values.apply ? postgres(url, { max: 1, onnotice: () => {} }) : null;
 try {
   if (!values.apply) await assertReadOnly(conn);
   let lines: string[];
@@ -79,7 +81,8 @@ try {
     const runId = randomUUID();
     const result = await runWorker(conn, {
       runId,
-      worker: `${hostname()}:${process.pid}`,
+      // The run id makes the worker unique, also when a process id comes back
+      worker: `${hostname()}:${process.pid}:${runId}`,
       kinds: values.kinds!.split(",").map((k) => kind(k.trim())),
       apply: values.apply,
       cache: SourceCache.load(values.cache!),
@@ -87,6 +90,7 @@ try {
       contact: process.env.ENRICHMENT_CONTACT?.trim() || null,
       only,
       limit: values.limit ? Number(values.limit) : undefined,
+      heartbeat: beatClient ? { conn: drizzle(beatClient, { schema }) as unknown as Db, everyMs: HEARTBEAT_MS } : undefined,
     });
     lines = [`# Enrichment ${values.apply ? "run" : "plan"} ${runId}`, "", ...result.lines];
   }
@@ -94,4 +98,5 @@ try {
   console.log(lines.join("\n"));
 } finally {
   await client.end();
+  await beatClient?.end();
 }

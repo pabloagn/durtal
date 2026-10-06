@@ -101,7 +101,10 @@ export async function claimNextEnrichmentJob(input: { worker: string; kinds: Enr
   }
 }
 
-/** Finishes a running job, or queues it again when an enqueue asked for a rerun */
+/**
+ * Finishes a running job, or queues it again when an enqueue asked for a
+ * rerun: a rerun is new work, so its attempts start again at zero
+ */
 export async function finishEnrichmentJob(input: { id: string; worker: string; outcome?: Record<string, unknown> }, conn: Db = appDb) {
   const outcome = input.outcome ? JSON.stringify({ outcome: input.outcome }) : "{}";
   return one(
@@ -110,11 +113,25 @@ export async function finishEnrichmentJob(input: { id: string; worker: string; o
         status = case when rerun then 'queued' else 'done' end,
         finished_at = case when rerun then null else now() end,
         run_after = case when rerun then now() else run_after end,
+        attempts = case when rerun then 0 else attempts end,
         rerun = false, locked_at = null, locked_by = null, last_error = null,
         payload = payload || ${outcome}::jsonb, updated_at = now()
       where id = ${input.id}::uuid and status = 'running' and locked_by = ${input.worker}
       returning ${JOB}`,
   );
+}
+
+/**
+ * A heartbeat: renews a running job's lease while its worker still holds it,
+ * so a job longer than the lease is never taken over. False when the job is
+ * no longer this worker's.
+ */
+export async function renewEnrichmentJobLease(input: { id: string; worker: string }, conn: Db = appDb) {
+  const renewed = resultRows<{ id: string }>(
+    await conn.execute(sql`update enrichment_jobs set locked_at = now()
+      where id = ${input.id}::uuid and status = 'running' and locked_by = ${input.worker} returning id`),
+  );
+  return renewed.length === 1;
 }
 
 /** A failed attempt: retried after 2^attempts minutes, failed for good after the last */
@@ -131,13 +148,17 @@ export async function failEnrichmentJob(input: { id: string; worker: string; err
   );
 }
 
-/** Holds a running job (a quota, a rate limit, a budget, a book's cost ceiling): a hold is not a failure */
+/**
+ * Holds a running job (a quota, a rate limit, a budget, a book's cost
+ * ceiling): a hold is not a failure. A pending rerun is dropped: the job runs
+ * again from the start when its hold is released.
+ */
 export async function holdEnrichmentJob(input: { id: string; worker: string; reason: string }, conn: Db = appDb) {
   const reason = heldReasonSchema.parse(input.reason);
   return one(
     conn,
     sql`update enrichment_jobs set status = 'held', held_reason = ${reason}, attempts = greatest(attempts - 1, 0),
-        locked_at = null, locked_by = null, updated_at = now()
+        rerun = false, locked_at = null, locked_by = null, updated_at = now()
       where id = ${input.id}::uuid and status = 'running' and locked_by = ${input.worker}
       returning ${JOB}`,
   );

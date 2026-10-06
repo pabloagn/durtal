@@ -3,7 +3,14 @@ import { resultRows } from "@/lib/harmonization/store";
 import { databaseErrorCode } from "@/lib/db/errors";
 import type { Db } from "@/lib/catalogue/work-store";
 import type { EnrichmentJobKind } from "./model";
-import { claimNextEnrichmentJob, enqueueEnrichmentJob, failEnrichmentJob, finishEnrichmentJob, releaseHeldEnrichmentJobs } from "./jobs";
+import {
+  claimNextEnrichmentJob,
+  enqueueEnrichmentJob,
+  failEnrichmentJob,
+  finishEnrichmentJob,
+  releaseHeldEnrichmentJobs,
+  renewEnrichmentJobLease,
+} from "./jobs";
 import { undoApplication } from "./claims";
 import { QuotaStop, type SourceCache } from "./source-cache";
 import { ENRICHMENT_STAGES, stagesFor, type EnrichmentStage, type StageContext, type StageJob } from "./stages";
@@ -35,6 +42,7 @@ export async function assertReadOnly(conn: Db) {
 
 export interface WorkerOptions {
   runId: string;
+  /** Unique to this run: finish, fail and hold trust the job's locked_by */
   worker: string;
   kinds: EnrichmentJobKind[];
   apply: boolean;
@@ -45,7 +53,15 @@ export interface WorkerOptions {
   only?: string[];
   limit?: number;
   stages?: Stages;
+  /**
+   * A second connection that renews a job's lease while its write runs (the
+   * write holds the run's own connection), and how often
+   */
+  heartbeat?: { conn: Db; everyMs: number };
 }
+
+/** Renews the lease every few minutes, well inside JOB_LEASE_MINUTES */
+export const HEARTBEAT_MS = 5 * 60_000;
 
 export interface WorkerReport {
   lines: string[];
@@ -134,6 +150,13 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
         report.jobs.push({ id: job.id, slug: job.slug, skipped: "taken by another worker or no longer due" });
         continue;
       }
+      const beat = options.heartbeat
+        ? setInterval(() => {
+            renewEnrichmentJobLease({ id: job.id, worker: options.worker }, options.heartbeat!.conn).catch((error) =>
+              console.error("[enrichment] Could not renew the lease of", job.id, error),
+            );
+          }, options.heartbeat.everyMs)
+        : null;
       try {
         const outcome = await inTransaction(conn, async (tx) => {
           const result = await stage.write(tx, job, plans.get(job.id)!.plan, ctx);
@@ -144,6 +167,8 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
       } catch (error) {
         await failEnrichmentJob({ id: job.id, worker: options.worker, error }, conn);
         report.jobs.push({ id: job.id, slug: job.slug, error: error instanceof Error ? error.message : String(error) });
+      } finally {
+        if (beat) clearInterval(beat);
       }
     }
   report.lines.push(

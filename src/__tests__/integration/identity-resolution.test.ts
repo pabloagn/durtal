@@ -66,7 +66,12 @@ describe.skipIf(!url)("the enrichment worker", () => {
   const conn = testDb as unknown as Db;
   const CONTACT = "durtal@example.org";
   /** What the stub stage did: its undo calls, and where its fetch is refused */
-  const stub = { undone: [] as string[], refuseAfter: null as number | null, during: null as null | (() => Promise<void>) };
+  const stub = {
+    undone: [] as string[],
+    refuseAfter: null as number | null,
+    during: null as null | (() => Promise<void>),
+    writing: null as null | ((jobId: string) => Promise<void>),
+  };
   const stage: EnrichmentStage<{ title: string }> = {
     kind: "identity",
     callsOut: true,
@@ -84,6 +89,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
     },
     async write(tx, job, plan, ctx) {
       if (plan.title === "Unreadable") throw new Error("The answer could not be read");
+      await stub.writing?.(job.id);
       await tx.execute(sql`update works set notes = ${`run ${ctx.runId}`} where id = ${job.workId}::uuid`);
       return { result: "resolved" };
     },
@@ -125,7 +131,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
   });
   beforeEach(async () => {
     await c`delete from enrichment_jobs`;
-    Object.assign(stub, { refuseAfter: null, during: null });
+    Object.assign(stub, { refuseAfter: null, during: null, writing: null });
   });
 
   it("refuses a kind without a stage, and a stage that calls out without a contact", async () => {
@@ -204,6 +210,21 @@ describe.skipIf(!url)("the enrichment worker", () => {
     expect(await job(bad.id)).toMatchObject({ status: "queued", attempts: 1, last_error: "The answer could not be read", later: true });
     expect(await notes(bad.id)).toBeNull();
     expect((await job(good.id)).status).toBe("done");
+  });
+
+  it("renews a job's lease on its own connection while the write runs", async () => {
+    const w = await queued("Slow write");
+    const leases: number[] = [];
+    const lease = async (jobId: string) => (await c`select extract(epoch from locked_at)::float8 as t from enrichment_jobs where id = ${jobId}`)[0].t as number;
+    stub.writing = async (jobId) => {
+      leases.push(await lease(jobId));
+      await new Promise((r) => setTimeout(r, 150));
+      leases.push(await lease(jobId));
+    };
+    const report = await run({ worker: `test:${randomUUID()}`, heartbeat: { conn, everyMs: 40 } });
+    expect(report.jobs.map((j) => j.outcome)).toEqual([{ result: "resolved" }]);
+    expect(leases[1]).toBeGreaterThan(leases[0]);
+    expect((await job(w.id)).status).toBe("done");
   });
 
   it("undoes a run: its applies newest first, refusing one that changed since, and each stage's own writes", async () => {
