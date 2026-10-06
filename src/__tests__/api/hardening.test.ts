@@ -38,7 +38,12 @@ vi.mock("@/lib/db", () => {
 });
 vi.mock("@/lib/s3/client", () => ({ s3: { send: mocks.send }, S3_BUCKET: "local-test" }));
 vi.mock("@/lib/s3", () => ({ uploadToS3: mocks.upload }));
-vi.mock("@/lib/s3/covers", () => ({ uploadToS3: mocks.upload, getPresignedUploadUrl: mocks.presign }));
+// The real reads (getS3Object), through the mocked client
+vi.mock("@/lib/s3/covers", async (original) => ({
+  ...(await original<typeof import("@/lib/s3/covers")>()),
+  uploadToS3: mocks.upload,
+  getPresignedUploadUrl: mocks.presign,
+}));
 vi.mock("@/lib/media/ingest", async (original) => ({
   ...(await original<typeof import("@/lib/media/ingest")>()),
   ingestMedia: mocks.ingest,

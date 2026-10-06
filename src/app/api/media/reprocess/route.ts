@@ -4,8 +4,7 @@ import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
 import { isNotNull } from "drizzle-orm";
 import { uploadToS3 } from "@/lib/s3/covers";
-import { s3, S3_BUCKET } from "@/lib/s3/client";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { readS3Object } from "@/lib/s3/read-object";
 
 
 /**
@@ -41,12 +40,8 @@ export async function POST(req: Request) {
 
     for (const item of allMedia) {
       try {
-        // Fetch the full-size image from S3
-        const obj = await s3.send(
-          new GetObjectCommand({ Bucket: S3_BUCKET, Key: item.s3Key }),
-        );
-        const bytes = await obj.Body!.transformToByteArray();
-        const buffer = Buffer.from(bytes);
+        // The full-size image
+        const buffer = await readS3Object(item.s3Key);
 
         // Regenerate thumbnail at higher resolution
         const thumbBuffer = await sharp(buffer)

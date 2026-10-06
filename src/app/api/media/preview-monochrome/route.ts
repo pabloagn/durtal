@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
-import { s3, S3_BUCKET } from "@/lib/s3/client";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { readS3Object } from "@/lib/s3/read-object";
 import { applyMonochromeProcessing } from "@/lib/s3/media";
 import { monochromeParamsSchema } from "@/lib/validations/media";
 import { isUuid } from "@/lib/utils/uuid";
@@ -49,12 +48,8 @@ export async function GET(req: NextRequest) {
     }
     const params = parseResult.data;
 
-    // Fetch original from S3
-    const obj = await s3.send(
-      new GetObjectCommand({ Bucket: S3_BUCKET, Key: record.originalS3Key }),
-    );
-    const bytes = await obj.Body!.transformToByteArray();
-    const originalBuffer = Buffer.from(bytes);
+    // The original
+    const originalBuffer = await readS3Object(record.originalS3Key);
 
     // Resize to thumbnail first for speed, then apply monochrome
     const sharp = (await import("sharp")).default;

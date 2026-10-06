@@ -31,7 +31,7 @@ vi.mock("@/lib/s3/covers", () => ({
   uploadToS3: vi.fn(async (key: string, body: Buffer) => void store.set(key, body)),
   deleteFromS3: vi.fn(async (key: string) => void store.delete(key)),
 }));
-vi.mock("@/lib/media/display", () => ({
+vi.mock("@/lib/s3/read-object", () => ({
   readS3Object: vi.fn(async (key: string) => {
     const body = store.get(key);
     if (!body) throw new Error("missing");

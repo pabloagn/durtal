@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -70,5 +73,29 @@ describe("GET /api/s3/read headers", () => {
 describe("contentHeaders", () => {
   it("ignores parameters and case in the type", () => {
     expect(contentHeaders("Image/JPEG; charset=binary")["Content-Disposition"]).toBe("inline");
+  });
+});
+
+describe("GET /api/s3/read in a preview", () => {
+  afterEach(() => {
+    delete process.env.DURTAL_PREVIEW_S3_DIR;
+  });
+
+  it("reads the preview's folder, as every other S3 path does, and answers 404 for a missing file", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "durtal-s3-"));
+    try {
+      process.env.DURTAL_PREVIEW_S3_DIR = dir;
+      mkdirSync(join(dir, "gold/covers/a"), { recursive: true });
+      writeFileSync(join(dir, "gold/covers/a/thumb.webp"), "webp bytes");
+      const res = await read("key=gold/covers/a/thumb.webp");
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/webp");
+      expect(res.headers.get("content-length")).toBe("10");
+      expect(await res.text()).toBe("webp bytes");
+      expect((await read("key=gold/covers/b/thumb.webp")).status).toBe(404);
+      expect(mocks.send).not.toHaveBeenCalled();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
