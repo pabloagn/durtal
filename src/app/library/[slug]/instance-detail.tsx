@@ -248,10 +248,10 @@ export function InstanceDetail({
                 <dd className="text-fg-secondary">
                   <span className="font-mono">
                     {[ebook.formats, formatFileSize(ebook.sizeBytes)].filter(Boolean).join(" · ")}
-                  </span>{" "}
+                  </span>
                   <Link
                     href={`/reader/${ebook.id}`}
-                    className="text-fg-primary transition-colors hover:text-accent-rose-text"
+                    className="ml-3 text-fg-primary transition-colors hover:text-accent-rose-text"
                   >
                     Open
                   </Link>
