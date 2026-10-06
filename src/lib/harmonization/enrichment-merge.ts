@@ -32,8 +32,9 @@ const sameValue = (a: string, b: string, except: string) => {
 function supersedeRepeats(column: "work_id" | "person_id" | "place_id", s: SQL, t: SQL) {
   // A work merge compares the value; a person or place merge compares the rest of the claim
   const rest = column === "work_id" ? sql`` : sql`and m.work_id = k.work_id`;
+  // A rule's accept is no longer the decision: the merge's check is, so its rule goes
   return sql`update enrichment_claims m
-    set status = 'superseded', superseded_by_claim_id = k.id, decided_by = 'check', decided_at = now()
+    set status = 'superseded', superseded_by_claim_id = k.id, decided_by = 'check', rule_id = null, decided_at = now()
     from enrichment_claims k
     where m.${sql.raw(column)} = ${s} and k.${sql.raw(column)} = ${t}
       and m.status in ('proposed', 'accepted') and k.status = m.status
