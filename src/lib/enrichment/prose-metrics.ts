@@ -9,9 +9,15 @@
 /**
  * A word: a run of letters and accent marks, with apostrophes (' and ’) and
  * hyphens kept inside it, so don't, l'homme, qu'il and well-known each count
- * as one word. A number is not a word.
+ * as one word. A number is not a word, nor are letters right after a digit
+ * (19th, 1920s, 1960's, 3D).
  */
-const WORD = /[\p{L}\p{M}]+(?:['\u2019\u2010\u2011-][\p{L}\p{M}]+)*/gu;
+const WORD = /(?<![\p{L}\p{M}\p{N}]|\p{N}['\u2019])\p{L}[\p{L}\p{M}]*(?:['\u2019\u2010\u2011-]\p{L}[\p{L}\p{M}]*)*/gu;
+
+/** One spelling of a word: a curly apostrophe as ', a Unicode hyphen as - */
+function plainWord(word: string): string {
+  return word.replace(/\u2019/g, "'").replace(/[\u2010\u2011]/g, "-");
+}
 
 /** The moving window of MATTR, in word tokens */
 export const MATTR_WINDOW = 500;
@@ -54,9 +60,11 @@ export function sentenceWords(text: string, language: string | null): string[][]
   const sentences = new Intl.Segmenter(locale, { granularity: "sentence" });
   return text
     .normalize("NFC")
+    // A soft hyphen is an invisible hyphenation point inside a word
+    .replace(/\u00AD/g, "")
     .split(/\n\s*\n/)
     .flatMap((paragraph) => [...sentences.segment(paragraph)])
-    .map((sentence) => sentence.segment.match(WORD) ?? [])
+    .map((sentence) => (sentence.segment.match(WORD) ?? []).map(plainWord))
     .filter((sentence) => sentence.length > 0);
 }
 

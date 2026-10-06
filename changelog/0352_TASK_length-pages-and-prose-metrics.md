@@ -76,3 +76,7 @@ and nothing writes `page_count`.
   still come from `Intl.Segmenter`. Tests: a French sentence (apostrophe words
   in the rare-word share and MATTR), a hyphen, and Hindi words with marks.
   The frequency lookup of the part after an apostrophe waits for PR 2.
+- Words fold a curly apostrophe and the U+2010 and U+2011 hyphens to the plain
+  ones, so don't and don’t are one word; letters right after a digit are not
+  a word (19th, 1920s, 1960’s, 3D); a soft hyphen inside a word is dropped.
+  Two tests cover them.

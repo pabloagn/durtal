@@ -87,6 +87,24 @@ describe("the text", () => {
     expect(proseMetrics("l'homme l'homme", { language: "fr", window: 2 })?.mattr).toBe(1 / 2);
   });
 
+  it("reads a curly apostrophe and a Unicode hyphen as the plain ones", () => {
+    expect(sentenceWords("Don’t say well\u2010known.", "en")).toEqual([["Don't", "say", "well-known"]]);
+    // Straight and curly spellings are one form, in the list lookup and in MATTR
+    const list: FrequencyList = { key: "test-en", version: "1", forms: ["don't", "know"] };
+    expect(proseMetrics("I don’t know.", { language: "en", list, cutoff: 2 })?.rareWordShare).toBe(0);
+    expect(proseMetrics("don't don’t", { language: "en", window: 2 })?.mattr).toBe(1 / 2);
+  });
+
+  it("leaves out the letters of a number, and keeps a word split only by a soft hyphen", () => {
+    // 19th, 1920s, 1960’s, 3D and '90s are numbers; a footnote mark after a word leaves the word
+    expect(sentenceWords("The 19th-century 1920s, 1960’s, 3D and the '90s, word12.", "en")).toEqual([
+      ["The", "century", "and", "the", "word"],
+    ]);
+    expect(proseMetrics("The 19th.", { language: "en" })).toMatchObject({ meanSentenceWords: 1 });
+    // U+00AD is an invisible hyphenation point that e-books carry inside words
+    expect(sentenceWords("A beau\u00adtiful day.", "en")).toEqual([["A", "beautiful", "day"]]);
+  });
+
   it("counts words with combining marks", () => {
     // Hindi: नमस्ते and दुनिया carry vowel signs and a virama, which are marks
     expect(proseMetrics("नमस्ते दुनिया", { language: "hi" })).toMatchObject({ sentenceCount: 1, meanSentenceWords: 2, mattr: 1 });
