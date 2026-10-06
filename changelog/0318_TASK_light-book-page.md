@@ -79,10 +79,13 @@ Measured on a production build with the live-data rehearsal seed, before
   and the 11th note, the focus on the 11th), a note's address (in view),
   Edit taxonomy (2,228 items, the book's subject checked), Edit work, a
   failed load and Retry, Add and Edit edition. Safari itself was not run;
-  WebKit ran through Playwright.
+  WebKit ran through Playwright. The note's address shows the note 32 to
+  80px from the top.
 - The dialog headers' Expand and Close icons are flagged against the
   page's title behind the modal, as in earlier runs (SLN-446): an audit
   artifact, not a change here.
-- Phone audit: no overflow on the three book pages. Interaction audit: no
-  failures on `/library/journey-reading` and `/library/ten-notes-qa`.
-- Journeys: `perfumes`, `films`, `paintings`, `reading` and `import` pass.
+- Before the rebase onto main: the phone audit shows no overflow on the
+  three book pages, and the interaction audit no failures on
+  `/library/journey-reading` and `/library/ten-notes-qa`.
+- Journeys: `perfumes`, `films`, `paintings`, `reading` and `import` pass
+  before the rebase; `reading` passes again on the final build.
