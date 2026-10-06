@@ -58,4 +58,16 @@ is PR 2; this PR has the loop, the registry the stages join, and the queue.
 
 ## Completion Notes
 
-RESULTS
+- No stage is registered yet, so a run names a kind and stops with "No
+  enrichment stage works identity jobs yet". The second SLN-464 PR registers
+  `identity`.
+- `src/__tests__/integration/identity-resolution.test.ts` (9 tests) runs the
+  worker with a stub stage: plan writes nothing, apply in order (a0) to (d),
+  a refusal stops the fetch and writes no job, a failed job is retried, undo
+  is newest first, the contact check, and the queue never failing a save.
+- Queue checks were added to the book-saves, fast-track, atomic-book-writes
+  and publishers suites. The five touched suites: 90 passed.
+- `pnpm typecheck` and `pnpm lint` (0 errors, knip clean) pass.
+- `python3 scripts/qa/test-local.py`: 2,690 tests passed in 242 files, none
+  skipped.
+- No migration.
