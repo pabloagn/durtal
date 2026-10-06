@@ -61,4 +61,82 @@ from the phone by ISBN. Migration `0074_quote_editions` adds two
 
 ## Completion Notes
 
-RESULTS
+- Migration: `0074_quote_editions`, generated with `pnpm db:generate` on
+  SLN-457's `0073_reading_suggestions` (its snapshot chains to 0073); the
+  CHECK comes from the schema and the backfill is custom SQL after a
+  statement breakpoint. Every preview rehearsed it on the 5 Oct backup
+  (`--from-dump`). There the backfill updates 0 rows: the backup predates
+  `reading_notes`. Live is expected to be 0 too, as no Goodreads import with
+  notes has run there; the merging thread records the live count when it
+  runs the migration.
+- Tests: `scripts/qa/test-local.py` (every suite, a disposable PostgreSQL
+  16): 221 files and 2,519 tests, none skipped. New: the database suite `quote-editions` (15: a note
+  inherits its reading's edition and keeps one sent with no reading; the
+  worked example, 40.00 then 30.00, and the percent worked out again on a
+  page, edition or reading change but not on a page-count edit; a
+  percent-only note keeps its percent; the page rules by the action and by
+  the CHECK; Undo keeps the range and roman pages; a deleted or moved
+  edition, a replaced placeholder; Edit reading's refile with and without
+  `moveNotes`, from no edition, never a note naming another edition, with
+  `updated_at` unchanged; the import and the backfill; a book merge;
+  `searchNotes`' edition, no-edition and translator filters, the "Book and
+  page" sort by edition group, numbers as numbers, the facets and the
+  person counts; the routes' 401, 503, 201 by edition, ISBN-13, ISBN-10 and
+  book, 400, 404, PATCH, DELETE and `edition=none`), the unit tests in
+  `notes.test.ts` (the page parser and its formats, roman numerals, labels
+  and their tie-breaks, citations, the edition in meta lines, groups, the
+  dialog's defaults) and the dialog tests (each step of the edition order,
+  no "none" on an add, "Not recorded" on an edit, the edition following a
+  change of Reading, the filled-in page clearing, Percent for a Log progress
+  request, ranges and roman pages sent, Log progress passing the session's
+  edition and page or percent). `pnpm typecheck` and `pnpm deadcode` are
+  clean; `pnpm lint` has 81 warnings, as on main.
+- The first full run found one fault, fixed here: a PATCH that removed a
+  note's reading also dropped its edition, as the old fallback took the
+  edition from the reading. A note now takes the new reading's edition only
+  when that reading has one, and keeps its own otherwise.
+- Page weight on a production-build preview, the same seed before (SLN-457)
+  and after (a book with three editions, one with no year, two translators,
+  an open reading and 200 quotes and notes): `/` 260 KB both, `/library`
+  299 KB both, `/reading` 119 KB both, `/reading/notes` 195 then 203 KB,
+  "Book and page" 187 then 198 KB, the translator's page 53 then 54 KB. The
+  200-note book page is 849 KB before and 872 KB after: over the 400 KB
+  budget of `/library/*` already before this issue, from the markup each
+  note draws (SLN-453); this issue adds 23 KB, the edition, range and roman
+  fields of each note, the group headings and the Quotes rows. Each edition
+  is sent once (`noteEditions`), not once per note. Every route
+  `page-weight.js` measures is within budget.
+- Browsers, all headless, never a window: Chrome, Firefox and WebKit at
+  1440, 768 and 390 px, 15 steps: the book page with four groups (three
+  editions, the languages named, no edition last) and with one group (the
+  description names it), the edition cards' Quotes rows and their links,
+  "Add a quote" from a card (the edition filed, "Of 1056 pages", then "This
+  edition has 1056 pages" at 2000, xiv-xvi accepted, a text keyboard), Log
+  progress with another edition (that edition and the page typed), Edit
+  reading's refile checkbox, the edition delete's warning, `/reading/notes`
+  newest, by book and page, the Edition filter and no edition recorded, the
+  passage of the day, a translator's and an author's page, and the Start
+  reading picker. No alignment deviation over 0.5 px, no unnamed control, no
+  overflow; the only contrast flags are the decorative initials on cards
+  with no cover. `scripts/qa/phone-audit.mjs` finds no page that scrolls
+  sideways. `scripts/qa/interaction-audit.mjs --disposable` finds no failure
+  on a book page, `/reading/notes` and a translator's page; on the 200-note
+  book page it opens every note's menu and did not finish in 30 minutes, so
+  it ran on a book with two quotes. Its report was lost once to a race in
+  its own clean-up (Chrome still writing its profile): it now retries the
+  removal.
+- The notes routes, with a preview-only token (left out here): no token
+  401; POST by ISBN-13 at p. 212, 201 "Saved a quote from Don Quixote,
+  p. 212", citation "Miguel de Cervantes, Don Quixote, tr. Edith Grossman
+  (HarperCollins Publishers, 2003), p. 212"; a page with a percent 400 "Send
+  a page or a percent, not both"; by ISBN-10 at pp. xiv–xvi, 201; an unknown
+  ISBN 404 "Not in Durtal yet" with `addUrl`; two books 400 "Send one of
+  editionId, isbn or workId"; PATCH pp. 212–213, 200; PATCH `workId`, 400;
+  `edition=none`, 200 with 20; DELETE 200; the deleted note 404 "This note
+  no longer exists".
+- Journeys: `perfumes`, `films`, `paintings`, `reading` and `import` pass.
+  The reading journey picks editions by their new
+  labels ("English · Journey Reading, pocket, 2010 · 480 p.").
+- Seen on the way, for later: the book page of a book with many quotes is
+  over its page budget before this issue (849 KB with 200); a long group
+  could open clamped with "Show all".
