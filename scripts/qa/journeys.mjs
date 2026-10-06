@@ -170,7 +170,8 @@ const exportCsv = (entity) =>
   evaluate(`fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ entity: ${JSON.stringify(entity)}, all: true, format: 'csv' }) })
     .then((r) => { if (r.status === 404) return ''; if (!r.ok) throw new Error('The export answered ' + r.status); return r.text(); })`);
-const DIALOG = "([...document.querySelectorAll('[role=dialog], dialog')].pop())";
+// The last dialog on screen: a closed dialog or a hidden popover (Why this? on every suggestion) draws no box
+const DIALOG = "([...document.querySelectorAll('[role=dialog], dialog')].filter((d) => d.getClientRects().length).pop())";
 const pageText = () => evaluate("document.querySelector('main')?.innerText ?? ''");
 
 async function journey(name) {
@@ -697,7 +698,9 @@ async function readingJourney() {
       await waitFor("new URLSearchParams(location.search).get('about') === '500' && new URLSearchParams(location.search).get('length') === 'about'", "about 500 pages in the URL");
       await click("Filter");
       await click("At hand in");
-      await click("Amsterdam");
+      // A filter option is a label around its checkbox
+      await waitFor("[...document.querySelectorAll('[data-suggestion-constraints] label')].some((l) => l.textContent.trim() === 'Amsterdam')", "Amsterdam under At hand in");
+      await evaluate("[...document.querySelectorAll('[data-suggestion-constraints] label')].find((l) => l.textContent.trim() === 'Amsterdam').click(), true");
       await waitFor("new URLSearchParams(location.search).get('home') && new URLSearchParams(location.search).get('about') === '500'", "at hand in Amsterdam, about 500 pages");
       await waitFor("document.querySelector('[data-suggestion-list]') || document.body.innerText.includes('Nothing matches these constraints')", "the constrained list");
       // The actions below run on all owned books
