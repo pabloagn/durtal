@@ -5,6 +5,7 @@ import { languageName } from "@/lib/utils/language";
 import { catalogueStatusLabel, enumLabel, priorityLabel } from "@/lib/utils/labels";
 import { formatRating } from "@/lib/utils/rating";
 import { notesCountText } from "@/lib/reading/notes-text";
+import { orderStatusLabel } from "@/lib/constants/orders";
 
 export interface EventDisplayConfig {
   icon: string;
@@ -215,7 +216,7 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.collection_removed":        (m) => [text("Removed from collection "), label(m?.collectionName ?? "")],
   "work.order_updated":              () => [text("Updated order details")],
   "work.order_deleted":              (m) => m?.oldValue
-    ? [text("Deleted an order (was "), label(String(m.oldValue).replace(/_/g, " ")), text(")")]
+    ? [text("Deleted an order (was "), label(orderStatusLabel(String(m.oldValue))), text(")")]
     : [text("Deleted an order")],
   "work.comment_added":             () => [text("Left a comment")],
   "work.credit_added":              (m) => [text(`Added ${roleWord(m)} `), label(m?.targetName ?? "")],

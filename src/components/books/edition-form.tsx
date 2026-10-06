@@ -17,6 +17,7 @@ import {
   PublisherSearch,
   type PublisherOption,
 } from "@/components/publishers/publisher-picker";
+import { enumLabel, metadataSourceLabel } from "@/lib/utils/labels";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -558,7 +559,7 @@ export function EditionForm({
             placeholder="Select binding..."
             options={BINDING_TYPES.map((b) => ({
               value: b,
-              label: b.replace(/_/g, " "),
+              label: enumLabel(b),
             }))}
           />
         </div>
@@ -722,7 +723,7 @@ export function EditionForm({
               onChange={(e) => setNewContributorRole(e.target.value)}
               options={EDITION_CONTRIBUTOR_ROLES.map((r) => ({
                 value: r,
-                label: r.replace(/_/g, " "),
+                label: enumLabel(r),
               }))}
             />
           </div>
@@ -805,7 +806,7 @@ export function EditionForm({
         {values.metadataSource && (
           <p className="text-xs text-fg-secondary">
             Source:{" "}
-            <span className="text-fg-secondary">{values.metadataSource}</span>
+            <span className="text-fg-secondary">{metadataSourceLabel(values.metadataSource)}</span>
           </p>
         )}
       </Section>
