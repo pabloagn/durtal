@@ -65,8 +65,9 @@ sub-issue 3 builds it.
 
 ## Completion Notes
 
-- Stacked on SLN-480 (#126, migration 0074, head b6670d99). After the
-  rebase, `pnpm drizzle-kit generate` finds no schema change.
+- Built on SLN-480 (#126, migration 0074), then merged with main after
+  #126 landed (e08a417). `pnpm drizzle-kit generate` finds no schema
+  change, and the snapshot chain runs 0074 → 0075 → 0076.
 - Rehearsal: `scripts/qa/preview-local.py --from-dump` on
   `live-before-cover-colors-20261006-151958.dump`, every pending migration
   through 0076. Before: `calibre_books` 0 rows, `reading_progress` 0 rows,
@@ -85,7 +86,8 @@ sub-issue 3 builds it.
   route in navigation and the S key, the dropped copy columns in the
   publisher migration rehearsal, the "eBooks" location every database now
   has in the venues suite). Full suite (`scripts/qa/test-local.py`) on
-  the final head: 2,527 tests in 223 files passed, none skipped.
+  the final head, merged with main: 2,570 tests in 230 files passed, none
+  skipped.
 - Page weight on the same dump, before (f8285a94, the branch's base then)
   and after: no route gained bytes; `/library` 296 → 295 KB, `/` 254 → 253 KB.
   The time budget failures come and go on both sides with the dev server
