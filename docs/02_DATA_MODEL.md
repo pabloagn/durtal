@@ -818,7 +818,7 @@ Attribution values: `unspecified`, `confirmed`, `attributed`, `uncertain`,
 anonymous/unknown attribution. The same person and role may occur repeatedly.
 Only `film.cast` accepts character labels (each nonblank, at most 300 characters);
 cast roles do not infer gender. Database triggers validate work kind and role
-level. Indexes cover `(work_id, sort_order, id)` and `person_id`.
+level. Indexes cover `(work_id, sort_order, id)`, `person_id`, and `(role_id, person_id, work_id)` (migration `0072_work_credit_role_index`, SLN-381: a collection's credited people with their work counts, such as the film directors filter).
 
 Books continue to use the canonical junctions below; shared credit APIs adapt
 them rather than duplicate their data. Ordered replacement locks the owner,
