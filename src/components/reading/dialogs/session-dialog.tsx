@@ -12,6 +12,7 @@ import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { formatMinutes, parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
 import { atText } from "../session-list";
 import { atWallTime, durationWords, wallTime } from "@/lib/reading/timer";
+import { overlapMessage, overlappingSession, sessionSpan } from "@/lib/reading/session-overlap";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
@@ -82,6 +83,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const editing = request.session ?? null;
   const coarse = useCoarsePointer();
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
+  const [running, setRunning] = useState<SessionRow | null>(null);
   const [readOn, setReadOn] = useState(() => editing?.readOn ?? todayReadingDay(data.dayStartHour));
   // An edited session's time is in its own zone; a new one is in the browser's
   const zone = editing?.timeZone ?? browserZone();
@@ -107,12 +109,15 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const [otherId, setOtherId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // The sessions, for where a new one starts
+  // The sessions, for where a new one starts and for the times already taken
   useEffect(() => {
-    if (editing) return;
     let live = true;
     getReadingSessions(r.id).then(
-      (list) => live && setSessions(list.sessions),
+      (list) => {
+        if (!live) return;
+        setSessions(list.sessions);
+        setRunning(list.running);
+      },
       () => live && setSessions([]),
     );
     return () => {
@@ -146,6 +151,10 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const chapter = coarse ? fields.chapter.trim() || null : editing?.endChapter ?? null;
   const textError = !coarse && parsed && !parsed.ok ? parsed.error : !coarse && text.trim() && !to ? "Give where the session ended: a page, a percent or a time" : null;
   const endsBefore = !editing && start && input && below(input, start.at);
+  // Two sessions never share time; saving checks it again
+  const span = sessionSpan({ startedAt, endedAt: null, durationSeconds });
+  const overlap = sessions ? overlappingSession([...sessions, ...(running ? [running] : [])], span, editing?.id) : null;
+  const overlapError = overlap ? overlapMessage(overlap, zone) : null;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -227,7 +236,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
       <form onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
-          <Input label="Start time (optional)" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <Input label="Start time (optional)" type="time" value={time} onChange={(e) => setTime(e.target.value)} error={overlapError ?? undefined} />
         </div>
         <fieldset className="space-y-1.5">
           <legend className="text-xs text-fg-secondary">Time read (optional)</legend>
@@ -280,7 +289,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           />
         )}
         <Textarea aria-label="Note" placeholder="A note on this sitting (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={!to || !!durationError || !!textError} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={!to || !!durationError || !!textError || !!overlapError} />
       </form>
     </Dialog>
   );

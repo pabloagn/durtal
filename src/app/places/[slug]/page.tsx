@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { cache } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { SectionHeading } from "@/components/shared/section-heading";
 import {
@@ -15,6 +14,7 @@ import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/ve
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { loadVenue } from "./load";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,7 +26,6 @@ import {
   AtSign,
   Tag,
 } from "lucide-react";
-import { getVenueBySlug } from "@/lib/actions/venues";
 import {
   getVenueArt,
   getVenueInstitutions,
@@ -356,9 +355,6 @@ async function PlaceContent({ slug }: { slug: string }) {
     </>
   );
 }
-
-/** One read per request for the page and its title */
-const loadVenue = cache(getVenueBySlug);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const venue = await loadVenue((await params).slug);

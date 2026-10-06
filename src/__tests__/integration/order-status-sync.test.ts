@@ -146,4 +146,14 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
     // The order and its own history are gone; no history row is written for it
     expect(await db.select().from(schema.orderStatusHistory)).toEqual([]);
   });
+
+  it("refuses to delete a received order, and says its status in words", async () => {
+    const id = await work("wanted");
+    const o = await order(id);
+    await updateOrderStatus(o.id, "delivered");
+    await expect(deleteOrder(o.id)).rejects.toThrow(
+      'Cannot delete a "Delivered" order. Consider updating its status instead.',
+    );
+    await expect(updateOrderStatus(o.id, "placed")).rejects.toThrow('Invalid transition from "Delivered" to "Placed"');
+  });
 });
