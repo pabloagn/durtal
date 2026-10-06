@@ -16,6 +16,8 @@ import {
   BookPlus,
   CalendarClock,
   ListOrdered,
+
+  Sparkles,
   NotebookText,
   Quote,
   Square,
@@ -258,6 +260,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { value: "reading:notes", label: "Go to Notes", icon: NotebookText, run: () => router.push("/reading/notes") },
     // Up Next (SLN-452); "Add to Up Next" on a book page comes from its R menu under "This page"
     { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => router.push("/reading/next") },
+    // Suggestions (SLN-457): Pick one for me
+    { value: "reading:suggest", label: "Suggest a book", icon: Sparkles, run: () => router.push("/reading/suggestions?pick=1") },
   ];
   const readingItems = trimmed ? filterBySearch(allReadingItems, trimmed, (i) => i.label) : allReadingItems;
   const firstValue =

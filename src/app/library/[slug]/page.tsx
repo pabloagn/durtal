@@ -18,6 +18,9 @@ import { readingDayStartHour } from "@/lib/reading/day";
 import { canUseWorkCapability } from "@/lib/catalogue/domains";
 import { appTimeZone } from "@/lib/utils/date";
 import { READING_HOME_KEY } from "@/lib/preferences";
+import { EstimateInfo } from "@/components/reading/estimate-info";
+import { getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
+import { predict, predictionSource, predictionText } from "@/lib/reading/suggest/predict";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RatingStars } from "@/components/shared/rating";
 import { formatRating } from "@/lib/utils/rating";
@@ -245,6 +248,18 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       today,
     ),
   };
+  // The predicted rating of an unread book (SLN-457): only while the gate is on, and only with enough similar books
+  let prediction: { text: string; why: string } | null = null;
+  if (canRead && !readingRows.some((r) => r.reading.status === "finished") && (await predictionGateOn())) {
+    const ctx = await getSuggestionContext({ homeId: homeCookie });
+    const book = ctx.byId.get(work.id);
+    const p = book && ctx.gate?.on ? predict(book, ctx) : null;
+    if (p)
+      prediction = {
+        text: `You would ${predictionText(p).replace("likely", "likely rate it")}`,
+        why: `${predictionSource(p).replace(/^from/, "From")}.\n\n${p.neighbours.map((x) => `${x.book.title}: ${formatRating(x.rating)}`).join("\n")}`,
+      };
+  }
   // Member-cover collage only for collections without a poster
   const collectionCovers = await getCollectionCoverPreviews(
     workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
@@ -567,6 +582,14 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {canRead && <ReadingControl />}
                   {digitalBooks.length > 0 && <ReadButton calibreBooks={digitalBooks} />}
+                </div>
+              )}
+              {prediction && (
+                <div className="mt-2 flex items-start gap-1 text-xs text-fg-secondary" data-book-prediction="">
+                  <span>{prediction.text}</span>
+                  <CapAligned height={24}>
+                    <EstimateInfo text={prediction.why} label="How this rating is predicted" />
+                  </CapAligned>
                 </div>
               )}
 

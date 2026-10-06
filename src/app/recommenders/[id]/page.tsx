@@ -8,6 +8,7 @@ import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { BookCard } from "@/components/books/book-card";
 import { cardReadingOf } from "@/lib/reading/card";
+import { recommenderStats } from "@/lib/reading/stats";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { getRecommender } from "@/lib/actions/recommenders";
 import { websiteLabel } from "@/lib/validations/recommenders";
@@ -41,6 +42,8 @@ export default async function RecommenderPage({
   const count = books.length;
   // Read: a finished reading at least (SLN-449)
   const read = books.filter((w) => Number(w.timesRead) >= 1).length;
+  // Their track record from taste evidence (SLN-457): the stats page's All time numbers
+  const record = (await recommenderStats(null)).find((r) => r.recommenderId === recommender.id);
 
   return (
     <>
@@ -82,6 +85,11 @@ export default async function RecommenderPage({
             {read > 0 && (
               <span className="text-xs text-fg-secondary" data-recommender-read="">
                 {`You have read ${read} of their ${count} ${count === 1 ? "pick" : "picks"}`}
+              </span>
+            )}
+            {record && record.rated > 0 && record.avgRating !== null && (
+              <span className="text-xs text-fg-secondary" data-recommender-record="">
+                {`You rated ${record.liked} of their ${record.rated} ${record.rated === 1 ? "pick" : "picks"} 4 or more; average ${(Math.round(record.avgRating * 10) / 10).toFixed(1)}`}
               </span>
             )}
           </div>

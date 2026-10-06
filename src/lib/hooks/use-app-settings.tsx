@@ -15,6 +15,8 @@ const AppSettingsContext = createContext<AppSettings>({
   readingWeekStart: 1,
   readingTimerCheckMinutes: 90,
   readingRhythmDays: null,
+  readingSuggestHideAnathema: false,
+  readingPredictionGate: null,
 });
 
 /** The app-wide settings, read once per request by the root layout. */

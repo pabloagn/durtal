@@ -578,6 +578,19 @@ Every past year's goals with their results, in one query; and what the goal dial
 ### `getRhythm()`
 `{ target, weekStart, today, days }`: the days he would like to read each week (null: off), the week start, the server's reading day, and his reading days from the 12 weeks before yesterday's week to tomorrow, with a day to spare on each side (`rhythmRange`, so a browser a day behind the server still has its oldest week): days with an ended session (by `read_on`; the running timer never counts) or a finish at day precision. The browser builds this week and the 12 before it with `rhythmView`.
 
+## Suggestion feedback (`src/lib/actions/suggestions.ts`, SLN-457)
+
+Not now, Never and Not for me on a suggested book, in `recommendation_feedback` (one row a book, shared with the book enrichment epic). Each input is parsed with zod (`src/lib/validations/suggestions.ts`; the reasons' schema is built from `FEEDBACK_REASONS`), books only (`requireBookWork`), one `atomic` inside `withReadableErrors`, then `invalidate(CACHE_TAGS.reading)`. No activity events.
+
+### `setSuggestionFeedback({ workId, verdict, reasons?, note?, until? })`
+An upsert on `work_id`: `not_now` (hidden until `until`, 30 days after today's reading day by default), `never`, or `rejected` (at least one reason: "Pick a reason"). The newer verdict replaces the older; `reasons`, `note` and `until` are replaced, not merged; `source` becomes `suggestions`; `updated_at` is now. Returns the row it replaced, or null, for Undo.
+
+### `removeSuggestionFeedback({ workId })` / `restoreSuggestionFeedback(snapshot)`
+Remove deletes the row and returns it (the Hidden view's Undo: the book is a candidate again). Restore puts a previous row back as it was, its source and dates included (the Undo of a verdict that replaced it, or of a removal).
+
+### `getSuggestionContext({ homeId?, now? })` (`src/lib/reading/suggest/context.ts`)
+Not an action: what the suggestions page, the hub, the book page and the API read. One query for every book (`loadBooks` in `load.ts`, which the evaluation script also runs), plus the homes, Up Next's length, his pace and two settings; never cached. Its numbers come back as numbers (`float8`). When the prediction gate's last check is 24 hours old it runs `evaluatePredictions` and writes the result with one UPDATE asserting the old `checkedAt`, so two requests never both write it.
+
 ## Reading stats (`src/lib/reading/stats.ts`, SLN-456)
 
 Server functions for `/reading/stats`, the Year in review and On this day: not server actions (no page calls them from the browser), and never cached. Each takes a year, or `null` for all time, and returns plain numbers (every numeric column and average cast to `float8`), from a handful of aggregate queries, never one per book. The rules every section follows:

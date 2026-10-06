@@ -142,8 +142,9 @@ export function readingRatingSql(readingAlias: string) {
  * never finished is never evidence: it may be a seed priority.
  */
 export function tasteRatingSql(workId: SQL | unknown) {
-  return sql<number | null>`(case when exists (select 1 from readings r where r.work_id = ${workId} and r.status = 'finished')
-    then coalesce((select w.rating::float8 from works w where w.id = ${workId}),
-      (select r.rating::float8 from readings r where r.work_id = ${workId} and r.status = 'finished' and r.rating is not null
-        order by r.finished_on desc nulls last, r.created_at desc limit 1)) end)`;
+  // Aliases of its own (taste_*): a caller's "w.id" or "r.work_id" must not name these tables
+  return sql<number | null>`(case when exists (select 1 from readings taste_r where taste_r.work_id = ${workId} and taste_r.status = 'finished')
+    then coalesce((select taste_w.rating::float8 from works taste_w where taste_w.id = ${workId}),
+      (select taste_r.rating::float8 from readings taste_r where taste_r.work_id = ${workId} and taste_r.status = 'finished' and taste_r.rating is not null
+        order by taste_r.finished_on desc nulls last, taste_r.created_at desc limit 1)) end)`;
 }

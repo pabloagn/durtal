@@ -761,6 +761,23 @@ Routes for iPhone Shortcuts and Siri (SLN-451): log a page, start and stop the r
 
 **Time zone**: the progress, timer start and start reading routes take an optional `tz`, an IANA zone such as `America/Mexico_City` (default: `appTimeZone()`). It sets the new session's `time_zone` and `read_on`, or the start date. An unknown zone answers `400` "The time zone is not one Durtal knows, such as Europe/Amsterdam". The stop route takes none: a timer keeps the zone and the day it started in.
 
+### `GET /api/readings/suggestions`
+
+What to read next (SLN-457, `src/app/api/readings/suggestions/route.ts`): the engine of `/reading/suggestions`, for the book enrichment epic's agent. The token is checked first (`requireApiToken`), as on every `/api/readings` route: 401 without it. The constraints are the page's, parsed by `parseSuggestionParams` (`src/lib/reading/suggest/params.ts`); an unknown parameter or value answers 400 with the issues (`errorResponse`):
+
+| Parameter | Values |
+| -- | -- |
+| `scope` | `owned` (default), `next` (Up Next), `wanted`, `all` |
+| `length` | `any` (default), `short` (under 200 pages), `medium` (200 to 400), `long` (over 400), `about` (with `about`) |
+| `about` | Pages, 20 to 5000: within 15% |
+| `lang` | The language of the edition he would read, an ISO 639 code |
+| `home` | A home's id: the "at hand" home, and only books at hand there |
+| `skipTypes` | Work type ids to leave out, comma-separated |
+| `noNewSeries` | `1`: leave out books that start a series he has not begun |
+| `page` | 24 a page |
+
+Answers `{ total, page, pages, predictions, suggestions }`; each suggestion has `workId`, `title`, `slug`, `authors`, `score`, `reasons` (at most three), `prediction` (`{ value, low, high, text, neighbourIds }` while the gate is on, else null) and `features`: every feature with data, its `key`, `score`, `share` of the suggestion's score, `reason`, whether its evidence threshold is met (`meets`) and its `evidenceIds` (books, recommenders, series).
+
 ### `GET /api/readings/open`
 
 The open readings, most recently read first, and the running timer.

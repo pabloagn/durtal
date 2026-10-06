@@ -12,6 +12,7 @@ export default async function ReadingSettingsPage() {
         readingWeekStart: settings.readingWeekStart,
         readingTimerCheckMinutes: settings.readingTimerCheckMinutes,
         readingRhythmDays: settings.readingRhythmDays,
+        readingSuggestHideAnathema: settings.readingSuggestHideAnathema,
       }}
     />
   );

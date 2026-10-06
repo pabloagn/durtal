@@ -1,4 +1,4 @@
-import { pgTable, boolean, uuid, text, timestamp, smallint, check } from "drizzle-orm/pg-core";
+import { pgTable, boolean, uuid, text, timestamp, smallint, jsonb, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { catalogueStatusEnum } from "./enums";
 import { locations } from "./locations";
@@ -34,6 +34,10 @@ export const appSettings = pgTable(
     readingTimerCheckMinutes: smallint("reading_timer_check_minutes").notNull().default(90),
     /** Days he would like to read each week, 1 to 7; null: no rhythm shown (SLN-455) */
     readingRhythmDays: smallint("reading_rhythm_days"),
+    /** Suggestions leave out books marked Anathema (SLN-457) */
+    readingSuggestHideAnathema: boolean("reading_suggest_hide_anathema").notNull().default(false),
+    /** The predicted rating's daily check: { checkedAt, on, failures, n, coverage, mae, baselineMae }; written only by the suggestion engine (SLN-457) */
+    readingPredictionGate: jsonb("reading_prediction_gate"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

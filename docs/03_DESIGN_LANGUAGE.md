@@ -369,6 +369,14 @@ The reading charts (SLN-456, `src/components/reading/charts/`) are hand-drawn SV
 - **Narrow screens and many bars**: under 480px of width, or when its labels would not fit side by side (`barsFit`: about 7px a character, 8px apart), a bar chart turns into horizontal bars; the calendar (four blocks of week rows) scrolls inside its own box under 600px, never the page.
 - Dates in labels use fixed English month and weekday names (no `Intl`), so the server and the browser write the same text.
 
+### Suggestions
+
+A suggestion (SLN-457, `src/components/reading/suggestions/`) is a row like Up Next's, never a card grid: a 64px cover, the title (the Anathema mark beside it in `CapAligned`), the author, one 14px line (length · where the copy is · time to read), up to three reasons in `fg-primary`, the predicted rating in `fg-secondary`, then its actions on one wrapping row (Start reading, Add to Up Next, Not now, Why this?, a menu). Reasons are plain sentences with their evidence: "Next in Les Rougon-Macquart after La Curée (you gave it 4.5)", "On your shelf in Amsterdam, Study"; never a score.
+
+- **Why this?** is a glass popover (one material; it never scrolls, its list does): each feature's share of the score as a thin sage bar under its label and percentage, its reason, and its evidence links. A feature that lowers the score says "halves the score" and has no bar.
+- **Pick one for me** is a dialog with one book: its cover, title, reasons, Another and Start reading.
+- Not now, Never and Not for me take effect at once with a 10-second Undo toast; nothing asks for confirmation.
+
 ### Print
 
 Every page prints light and without the app around it (SLN-456, `@media print` in `globals.css`): the colour tokens switch to dark text on white, the sidebar and the phone bar are `print:hidden`, the page takes the full width, and colours print as drawn. A page hides its own controls with `print:hidden` and keeps blocks whole with `break-inside-avoid` (the Year in review).

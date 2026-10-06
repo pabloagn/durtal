@@ -62,6 +62,30 @@ export const NOTE_MAX = 10_000;
 export const GOAL_METRICS = ["books", "pages", "hours"] as const;
 export type GoalMetric = (typeof GOAL_METRICS)[number];
 
+/**
+ * Suggestion feedback (SLN-457; the parent's `recommendation_feedback`,
+ * shared with the book enrichment epic): Not now (until a date), Never, and
+ * Not for me with reasons. Nothing else lists the reason codes.
+ */
+export const FEEDBACK_VERDICTS = ["not_now", "never", "rejected"] as const;
+export type FeedbackVerdict = (typeof FEEDBACK_VERDICTS)[number];
+export const FEEDBACK_SOURCES = ["suggestions", "agent", "enrichment"] as const;
+export type FeedbackSource = (typeof FEEDBACK_SOURCES)[number];
+export const FEEDBACK_REASONS = ["too_long", "too_short", "not_in_the_mood", "prose", "genre", "too_popular", "already_read", "other"] as const;
+export type FeedbackReason = (typeof FEEDBACK_REASONS)[number];
+export const FEEDBACK_REASON_LABELS: Record<FeedbackReason, string> = {
+  too_long: "Too long",
+  too_short: "Too short",
+  not_in_the_mood: "Not in the mood",
+  prose: "The prose",
+  genre: "Not my kind of book",
+  too_popular: "Too popular",
+  already_read: "Already read it",
+  other: "Other",
+};
+/** The longest feedback note, in characters */
+export const FEEDBACK_NOTE_MAX = 500;
+
 /** A book's reading state, derived from its readings */
 export const WORK_READING_STATES = ["unread", "reading", "paused", "read", "abandoned"] as const;
 export type WorkReadingState = (typeof WORK_READING_STATES)[number];

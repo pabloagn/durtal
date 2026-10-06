@@ -4,11 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId } from "@/components/settings/settings-group";
 import { updateAppSettings, type AppSettings } from "@/lib/actions/settings";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 
-type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes" | "readingRhythmDays">;
+type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes" | "readingRhythmDays" | "readingSuggestHideAnathema">;
 
 const HOURS = [0, 1, 2, 3, 4, 5, 6].map((h) => ({ value: String(h), label: h === 0 ? "Midnight" : `0${h}:00` }));
 const WEEK_STARTS = [
@@ -32,7 +33,7 @@ function SettingSelect({ id, value, options, onChange }: { id: string; value: st
   );
 }
 
-/** Reading settings (SLN-451): the reading day, the week, the rhythm and goals (SLN-455), and the timer's question. Each change saves at once */
+/** Reading settings (SLN-451): the reading day, the week, the rhythm and goals (SLN-455), suggestions (SLN-457), and the timer's question. Each change saves at once */
 export function ReadingSettings({ settings: saved }: { settings: ReadingValues }) {
   const router = useRouter();
   const [settings, setSettings] = useState(saved);
@@ -54,6 +55,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
           readingWeekStart: result.settings.readingWeekStart,
           readingTimerCheckMinutes: result.settings.readingTimerCheckMinutes,
           readingRhythmDays: result.settings.readingRhythmDays,
+          readingSuggestHideAnathema: result.settings.readingSuggestHideAnathema,
         });
         toast.success(message);
         router.refresh();
@@ -107,6 +109,20 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
         </SettingRow>
         <SettingRow id="reading-goals" label="Reading goals" description="Optional yearly goals in books, pages or hours." labelFor={false}>
           <GoalDialogButton />
+        </SettingRow>
+      </SettingsGroup>
+      <SettingsGroup title="Suggestions">
+        <SettingRow
+          id="reading-suggest-hide-anathema"
+          label="Hide Anathema in suggestions"
+          description="Books marked Anathema are suggested like any other, with their mark, unless this is on."
+        >
+          <Switch
+            id="reading-suggest-hide-anathema"
+            checked={settings.readingSuggestHideAnathema}
+            aria-describedby={settingDescriptionId("reading-suggest-hide-anathema")}
+            onCheckedChange={(on) => save({ readingSuggestHideAnathema: on }, on ? "Anathema is hidden from suggestions" : "Anathema is suggested again")}
+          />
         </SettingRow>
       </SettingsGroup>
       <SettingsGroup title="Timer">

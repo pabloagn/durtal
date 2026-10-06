@@ -28,6 +28,9 @@
  * a rhythm of 5 days and see today's mark. Then stats (SLN-456): this year's
  * stats, All time, a pages goal from the stats header, the Year in review from
  * its list, and the review in print (no sidebar, no Print button, white).
+ * Then suggestions (SLN-457): empty Up Next and follow "See suggestions", set
+ * about 500 pages at hand in Amsterdam, Why this?, Not now, Not for me with a
+ * reason, Undo one in the Hidden view, and Pick one for me, started.
  *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
@@ -167,7 +170,8 @@ const exportCsv = (entity) =>
   evaluate(`fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ entity: ${JSON.stringify(entity)}, all: true, format: 'csv' }) })
     .then((r) => { if (r.status === 404) return ''; if (!r.ok) throw new Error('The export answered ' + r.status); return r.text(); })`);
-const DIALOG = "([...document.querySelectorAll('[role=dialog], dialog')].pop())";
+// The last dialog on screen: a closed dialog or a hidden popover (Why this? on every suggestion) draws no box
+const DIALOG = "([...document.querySelectorAll('[role=dialog], dialog')].filter((d) => d.getClientRects().length).pop())";
 const pageText = () => evaluate("document.querySelector('main')?.innerText ?? ''");
 
 async function journey(name) {
@@ -673,6 +677,72 @@ async function readingJourney() {
       } finally {
         await send("Emulation.setEmulatedMedia", { media: "" });
       }
+    });
+    // Suggestions (SLN-457)
+    const firstRow = "document.querySelector('[data-suggestion]')";
+    await step("empty Up Next and follow See suggestions", async () => {
+      await go("/reading/next");
+      for (let i = 0; i < 20 && (await evaluate("!!document.querySelector('[data-queue-row]')")); i++) {
+        await evaluate("document.querySelector('[data-queue-menu]').click()");
+        await waitFor("document.querySelector('[role=menu]')", "the row's menu");
+        await click("Remove from Up Next", "[...document.querySelectorAll('[role=menu]')].pop()");
+        await sleep(1000);
+      }
+      await waitFor("document.querySelector('[data-queue-suggestions]')", "See suggestions in the empty Up Next");
+      await evaluate("document.querySelector('[data-queue-suggestions]').click()");
+      await waitFor("location.pathname === '/reading/suggestions' && location.search === '?scope=owned' && document.querySelector('[data-suggestion-constraints]')", "the owned suggestions");
+    });
+    await step("set about 500 pages, owned, at hand in Amsterdam", async () => {
+      await type("document.querySelector('[data-suggestion-about]')", "500");
+      await evaluate("document.querySelector('[data-suggestion-about]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })), true");
+      await waitFor("new URLSearchParams(location.search).get('about') === '500' && new URLSearchParams(location.search).get('length') === 'about'", "about 500 pages in the URL");
+      await click("Filter");
+      await click("At hand in");
+      // A filter option is a label around its checkbox
+      await waitFor("[...document.querySelectorAll('[data-suggestion-constraints] label')].some((l) => l.textContent.trim() === 'Amsterdam')", "Amsterdam under At hand in");
+      await evaluate("[...document.querySelectorAll('[data-suggestion-constraints] label')].find((l) => l.textContent.trim() === 'Amsterdam').click(), true");
+      await waitFor("new URLSearchParams(location.search).get('home') && new URLSearchParams(location.search).get('about') === '500'", "at hand in Amsterdam, about 500 pages");
+      await waitFor("document.querySelector('[data-suggestion-list]') || document.body.innerText.includes('Nothing matches these constraints')", "the constrained list");
+      // The actions below run on all owned books
+      await go("/reading/suggestions");
+      await waitFor(firstRow, "a suggestion");
+    });
+    let notNow = "";
+    await step("open Why this? and say Not now", async () => {
+      await evaluate(`${firstRow}.querySelector('[data-why-open]').click()`);
+      await waitFor("document.querySelector('[data-why-popover]:popover-open [data-why-part]')", "Why this?");
+      await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      notNow = await evaluate(`${firstRow}.dataset.suggestion`);
+      await evaluate(`${firstRow}.querySelector('[data-suggestion-not-now]').click()`);
+      await waitFor(`!document.querySelector('[data-suggestion="${notNow}"]')`, "the book gone after Not now");
+    });
+    await step("say Not for me with a reason", async () => {
+      await waitFor(firstRow, "the next suggestion");
+      const id = await evaluate(`${firstRow}.dataset.suggestion`);
+      await evaluate(`${firstRow}.querySelector('[data-suggestion-menu]').click()`);
+      await waitFor("document.querySelector('[role=menu]')", "the suggestion's menu");
+      await click("Not for me because…", "[...document.querySelectorAll('[role=menu]')].pop()");
+      await waitFor(`${DIALOG}?.querySelector('[data-not-for-me]')`, "Not for me");
+      await evaluate(`${DIALOG}.querySelector('[data-reason=too_long]').click(), true`);
+      await save("Hide it");
+      await waitFor(`!document.querySelector('[data-suggestion="${id}"]')`, "the book gone after Not for me");
+    });
+    await step("open the Hidden view and Undo one", async () => {
+      await go("/reading/suggestions?view=hidden");
+      await waitFor("document.querySelectorAll('[data-hidden]').length >= 2 && document.body.innerText.includes('Not for me: Too long')", "Not now and Not for me in the Hidden view");
+      const before = await evaluate("document.querySelectorAll('[data-hidden]').length");
+      await evaluate(`document.querySelector('[data-hidden-undo="${notNow}"]').click()`);
+      await waitFor(`document.querySelectorAll('[data-hidden]').length === ${before - 1}`, "one fewer hidden book");
+    });
+    await step("Pick one for me and start it", async () => {
+      await go("/reading/suggestions");
+      await evaluate("document.querySelector('[data-pick-open]').click()");
+      await waitFor(`${DIALOG}?.querySelector('[data-pick] [data-pick-reasons] li')`, "a pick with its reasons");
+      await evaluate(`${DIALOG}.querySelector('[data-pick-another]')?.click(), true`);
+      await sleep(400);
+      await evaluate(`${DIALOG}.querySelector('[data-pick-start]').click()`);
+      await waitFor(`${DIALOG}?.open && ${DIALOG}.textContent.includes("I'm at")`, "Start reading on the pick");
+      await click("Cancel", DIALOG);
     });
     await step("filter the journal by year", async () => {
       await go("/reading/journal?yearMin=2009&yearMax=2009");
