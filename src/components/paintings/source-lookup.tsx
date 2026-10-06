@@ -85,7 +85,7 @@ function Row({
       <div className="min-w-0 flex-1">
         <p className="text-fg-primary">{title}</p>
         {lines.filter(Boolean).map((line, i) => (
-          <p key={i} className={i === 0 ? "lines-2 text-fg-secondary" : "text-xs text-fg-secondary"}>
+          <p key={i} className={i === 0 ? "line-clamp-2 break-words text-fg-secondary" : "text-xs text-fg-secondary"}>
             {line}
           </p>
         ))}

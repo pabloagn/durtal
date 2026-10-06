@@ -623,6 +623,7 @@ export default async function PaintingPage({
             }}
             lookup={
               <PaintingSourceLookup
+                key="lookup"
                 painting={{ id: painting.id, title: painting.title, fingerprint: painting.fingerprint }}
                 originals={painting.objects
                   .filter((o) => o.kind === "original")
