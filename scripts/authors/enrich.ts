@@ -18,7 +18,8 @@
  *
  * `--scope books` (the default) takes the authors with books; `canon` the
  * people without books who belong to books (CANON_SCOPE_SQL: not someone
- * credited only on films, paintings or perfumes); `all` every person.
+ * credited only on films, paintings, perfumes, formulations or art objects);
+ * `all` every person.
  *
  *   pnpm exec tsx --tsconfig tsconfig.json scripts/authors/enrich.ts \
  *     [--apply] [--undo FILE] [--scope books|canon|all] [--report FILE] [--cache FILE]

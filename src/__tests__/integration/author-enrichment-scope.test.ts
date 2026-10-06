@@ -48,6 +48,12 @@ describe.skipIf(!url)("the canon scope of the author enrichment", () => {
     const book = await work("Nadja");
     const film = await work("Stalker", "film");
     const perfume = await work("Shalimar", "perfume");
+    const chanel = await work("No 5", "perfume");
+    await c`insert into perfume_details(work_id) values (${chanel})`;
+    const [formulation] = await c`insert into perfume_variants(work_id, concentration, perfumers_override) values (${chanel}, 'eau_de_parfum', true) returning id`;
+    const flowers = await work("Flowers in a Vase", "painting");
+    await c`insert into painting_details(work_id) values (${flowers})`;
+    const [object] = await c`insert into art_objects(work_id, kind, ownership, attribution_override) values (${flowers}, 'original', 'unknown', true) returning id`;
     const [edition] = await c`insert into editions(work_id, title) values (${book}, 'Nadja') returning id`;
 
     // An author with a book: pass 1's
@@ -63,7 +69,14 @@ describe.skipIf(!url)("the canon scope of the author enrichment", () => {
     // A perfumer, and a film person with no credit yet: not in the book directory
     await credit(perfume, await person("Jacques Guerlain", ["perfume"]), "perfume.perfumer");
     await person("Margarita Terekhova", ["film"]);
+    // In the book directory, but credited only on one formulation or one object: out
+    await c`insert into perfume_variant_perfumers(variant_id, person_id) values (${formulation.id}, ${await person("Ernest Beaux", ["book", "perfume"])})`;
+    await c`insert into art_object_credits(object_id, person_id) values (${object.id}, ${await person("Odilon Redon", ["book", "painting"])})`;
+    // A translator with a formulation credit too: in
+    const both = await person("Lydia Davis", ["book", "perfume"]);
+    await c`insert into perfume_variant_perfumers(variant_id, person_id) values (${formulation.id}, ${both})`;
+    await c`insert into edition_contributors(edition_id, author_id, role) values (${edition.id}, ${both}, 'translator')`;
 
-    expect(await canon()).toEqual(["Agnès Varda", "Richard Howard"]);
+    expect(await canon()).toEqual(["Agnès Varda", "Lydia Davis", "Richard Howard"]);
   });
 });

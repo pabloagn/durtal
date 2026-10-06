@@ -541,13 +541,17 @@ export const isLiterary = (p: PersonItem) =>
  * The people of pass 2 (`--scope canon`), as a condition on `authors a`: no
  * book of their own (no `work_authors` row), in the book directory
  * (`person_domains` 'book'), and not a person whose only credits are on
- * films, paintings or perfumes: `work_credits` holds non-book works only, so
- * a person there needs an edition credit (`edition_contributors`) to stay.
+ * films, paintings or perfumes. Those credits are in `work_credits` (non-book
+ * works only), `perfume_variant_perfumers` (one formulation's perfumers) and
+ * `art_object_credits` (one object's attribution); a person with any of them
+ * stays only with an edition credit (`edition_contributors`).
  */
 export const CANON_SCOPE_SQL = `not exists (select 1 from work_authors wa where wa.author_id = a.id)
   and exists (select 1 from person_domains pd where pd.person_id = a.id and pd.kind = 'book')
-  and (not exists (select 1 from work_credits wc where wc.person_id = a.id)
-    or exists (select 1 from edition_contributors ec where ec.author_id = a.id))`;
+  and (exists (select 1 from edition_contributors ec where ec.author_id = a.id)
+    or (not exists (select 1 from work_credits wc where wc.person_id = a.id)
+      and not exists (select 1 from perfume_variant_perfumers vp where vp.person_id = a.id)
+      and not exists (select 1 from art_object_credits oc where oc.person_id = a.id)))`;
 
 // ── Roles ───────────────────────────────────────────────────────────────────
 

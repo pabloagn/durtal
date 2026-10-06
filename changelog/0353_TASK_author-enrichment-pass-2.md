@@ -27,10 +27,11 @@ and the apply on live wait for the owner's go-ahead.
   works query for a person without books.
 - **`--scope canon`** (`CANON_SCOPE_SQL`): no `work_authors` row, in the
   book directory (`person_domains` 'book'), and not someone credited only on
-  films, paintings or perfumes. `work_credits` holds non-book works only, so
-  a person there stays only with an edition credit
-  (`edition_contributors`). A canon director now credited on a film, with
-  nothing in books, is left out.
+  films, paintings or perfumes. Those credits are in `work_credits`
+  (non-book works only), `perfume_variant_perfumers` (one formulation) and
+  `art_object_credits` (one art object); a person with any of them stays
+  only with an edition credit (`edition_contributors`). A canon director now
+  credited on a film, with nothing in books, is left out.
 - **Julian days**: a Julian statement whose Gregorian day is the stored one
   agrees, and a missing month is the Gregorian one (Pushkin: Wikidata's 26
   May 1799 Julian is the catalogue's 6 June). Not when the two calendars put
@@ -47,9 +48,12 @@ and the apply on live wait for the owner's go-ahead.
 
 - Scope on a copy of the 6 Oct 20:13 backup: the old canon scope has
   1,744 people, the new one 1,743. The one left out is a perfumer. Live has
-  no film or painting credits yet.
+  no film or painting credits yet, and no formulation or art object credits:
+  the review's widening (those two credit tables) removes 0 more there.
 - Tests: the author enrichment unit tests (36) and the new database suite
-  `author-enrichment-scope` pass. `pnpm test`: 160 files pass, 78 database
+  `author-enrichment-scope` pass. The suite covers a perfumer credited only
+  on one formulation and a painter credited only on one art object (out),
+  and a translator who also has a formulation credit (in). `pnpm test`: 160 files pass, 78 database
   suites skipped. `test-local.py`: 2,626 of 2,627 tests pass. The one
   failure, twice, is the reading timer test ("expected 299 to be greater
   than or equal to 300"), which this task does not touch: `pauseTimer`

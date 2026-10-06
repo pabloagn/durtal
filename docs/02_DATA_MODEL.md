@@ -766,7 +766,8 @@ month is compared in both calendars: a Julian statement whose Gregorian day is
 the stored one agrees, and a missing month is the Gregorian one. The second
 pass (`--scope canon`, `CANON_SCOPE_SQL`) takes the people without books who
 belong to books: in the book directory, and not credited only on films,
-paintings or perfumes (`work_credits`) without an edition credit. A match fills only empty columns: dates to the precision
+paintings or perfumes (`work_credits`, `perfume_variant_perfumers`,
+`art_object_credits`) without an edition credit. A match fills only empty columns: dates to the precision
 Wikidata gives (circa and decades set the approximate flag; centuries are not
 taken), the zodiac sign, gender (P21 only), nationality (the one citizenship
 that is a country today, or the description's demonym), birth and death
