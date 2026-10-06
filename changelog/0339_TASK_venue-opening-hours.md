@@ -41,3 +41,9 @@ opening hours with `JSON.stringify` in a `<pre>`.
   the third shows no Opening hours group; no raw JSON on any; no alignment,
   contrast, naming or overflow finding.
 
+### Review fixes (PR #116)
+
+- A split day no longer breaks inside a range: each range of a day ("10:00
+  AM – 1:00 PM", "2:30 – 7:00 PM") is one inline block, so the line breaks
+  between ranges, after the comma.
+
