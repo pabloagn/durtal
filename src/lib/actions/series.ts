@@ -439,9 +439,12 @@ export async function getSeriesSuggestions(seriesId?: string) {
   if (seriesId) z.uuid().parse(seriesId);
   const only = seriesId ? sql`s.id = ${seriesId}::uuid` : sql`true`;
   const result = await db.execute(sql`
+    -- unnest of an array, not regexp_split_to_table: the planner guesses 10
+    -- parts a title, not 1,000, so the cost stays under jit_above_cost and
+    -- Postgres does not JIT-compile an 8-row answer (SLN-487)
     with parts as (
       select s.id as sid, s.title as stitle, trim(p.part) as part, p.n::int as n
-      from series s, regexp_split_to_table(s.title, '\\s*,\\s*(and\\s+)?|\\s+and\\s+') with ordinality as p(part, n)
+      from series s, unnest(regexp_split_to_array(s.title, '\\s*,\\s*(and\\s+)?|\\s+and\\s+')) with ordinality as p(part, n)
       where ${only}
       union
       select s.id, s.title, s.title, 0 from series s where ${only}
