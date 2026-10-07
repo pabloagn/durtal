@@ -106,7 +106,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       return;
     }
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeNav();
+      // Marked handled: the Escape closes the drawer only, not a selection behind it (SLN-531)
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeNav();
+      }
     };
     const releaseScroll = lockPageScroll(document.documentElement);
     document.addEventListener("keydown", onKeyDown);
