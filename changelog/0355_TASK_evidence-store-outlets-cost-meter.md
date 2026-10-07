@@ -74,6 +74,11 @@ the outlet seed or fetches a live page: those steps wait for Pablo's yes.
   publishers with a website, no translator with a website, and original
   languages en 207, es 3, fr 1, ru 1 (not reliable). Robots.txt of each seed
   outlet read once with the DurtalBot User-Agent; terms read where found.
+- Review fixes (PR #139): robots.txt paths compare percent-encoded as RFC
+  9309 asks (2.2.2); an unreachable robots.txt counts for its run only, not
+  24 hours; the seed plan compares outlets field by field, so an applied seed
+  plans no change; one active outlet per domain, so a retired outlet's domain
+  is free for a new one. Four tests.
 - Waits for Pablo: the extractor's packages, the outlet list and weights, the
   publishers to add, the retention, and the live steps (migration, seed
   apply, smoke test).

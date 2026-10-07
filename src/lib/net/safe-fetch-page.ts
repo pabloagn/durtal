@@ -155,10 +155,12 @@ export function createPageFetcher(options: PageFetcherOptions) {
     maxRedirects = 5,
   } = options;
   const skippedHosts = new Map<string, string>();
+  // An unreachable robots.txt disallows its host for this run only; the next run asks again
+  const unreachableRobots = new Map<string, CachedRobots>();
 
   /** robots.txt of an origin, read once; it skips the registry and robots checks and may redirect to another host */
   async function robotsFor(origin: string): Promise<CachedRobots> {
-    const cached = robotsCache.get(origin);
+    const cached = unreachableRobots.get(origin) ?? robotsCache.get(origin);
     if (cached && Date.now() - cached.at < ROBOTS_TTL_MS) return cached;
     const url = `${origin}/robots.txt`;
     let entry: CachedRobots;
@@ -182,8 +184,12 @@ export function createPageFetcher(options: PageFetcherOptions) {
     } catch {
       entry = { at: Date.now(), status: null, url, rules: "unreachable" };
     }
+    if (entry.rules === "unreachable") {
+      unreachableRobots.set(origin, entry);
+      return entry;
+    }
     robotsCache.set(origin, entry);
-    if (entry.rules !== "unreachable" && !hostQueues.has(origin)) {
+    if (!hostQueues.has(origin)) {
       const queue = serialThrottle(Math.max(minGapMs, (entry.rules.crawlDelay ?? 0) * 1000));
       // The robots.txt request counts as the host's first request
       void queue(async () => undefined);

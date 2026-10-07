@@ -21,6 +21,20 @@ export interface RobotsRules {
   crawlDelay: number | null;
 }
 
+/**
+ * A path as RFC 9309 (2.2.2) compares it: characters outside US-ASCII
+ * percent-encoded as UTF-8, an encoded unreserved character decoded, every
+ * other code in upper case. A URL's path arrives encoded, a rule often not.
+ */
+function comparablePath(path: string): string {
+  return path
+    .replace(/%([0-9a-f]{2})/gi, (code, hex: string) => {
+      const char = String.fromCharCode(parseInt(hex, 16));
+      return /[A-Za-z0-9._~-]/.test(char) ? char : code.toUpperCase();
+    })
+    .replace(/[^\x00-\x7f]+/g, (run) => encodeURIComponent(run));
+}
+
 /** The rules for `agent` in a robots.txt body */
 export function parseRobots(body: string, agent: string): RobotsRules {
   const token = agent.toLowerCase();
@@ -44,7 +58,7 @@ export function parseRobots(body: string, agent: string): RobotsRules {
     if (!current || !["allow", "disallow", "crawl-delay"].includes(field)) continue;
     lastWasAgent = false;
     // An empty Disallow allows everything: it is no rule
-    if (field !== "crawl-delay" && value) current.rules.push({ allow: field === "allow", path: value });
+    if (field !== "crawl-delay" && value) current.rules.push({ allow: field === "allow", path: comparablePath(value) });
     if (field === "crawl-delay" && /^\d+(\.\d+)?$/.test(value)) current.crawlDelay = Number(value);
   }
   const ours = groups.filter((g) => g.agents.includes(token));
@@ -71,9 +85,10 @@ function matches(rulePath: string, target: string): boolean {
 export function robotsDecision(rules: RobotsRules, pathAndQuery: string): { allowed: boolean; rule: string | null } {
   // The robots.txt itself is always allowed
   if (pathAndQuery === "/robots.txt") return { allowed: true, rule: null };
+  const target = comparablePath(pathAndQuery);
   let best: RobotsRule | null = null;
   for (const rule of rules.rules) {
-    if (!matches(rule.path, pathAndQuery)) continue;
+    if (!matches(rule.path, target)) continue;
     if (!best || rule.path.length > best.path.length || (rule.path.length === best.path.length && rule.allow && !best.allow)) best = rule;
   }
   return { allowed: best?.allow ?? true, rule: best ? `${best.allow ? "Allow" : "Disallow"}: ${best.path}` : null };

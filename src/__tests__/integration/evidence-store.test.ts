@@ -140,6 +140,21 @@ describe.skipIf(!url)("the evidence store", () => {
       expect(rows.find((o) => o.key === "lrb")).toMatchObject({ weight: 0.9, status: "active" });
       expect(rows.find((o) => o.key === "nyrb")).toMatchObject({ status: "retired" });
     });
+
+    it("plans no change once a seed is applied, and frees a retired outlet's domain for a new one", async () => {
+      const { OUTLET_SEED } = await import("@/lib/enrichment/outlets-seed");
+      const { planOutletSeed } = await import("@/lib/enrichment/outlets");
+      await applyOutletSeed(database, OUTLET_SEED, 4);
+      expect(planOutletSeed(await loadOutlets(database), OUTLET_SEED)).toEqual({ added: [], changed: [], retired: [] });
+      await applyOutletSeed(database, [outlet({ key: "old-name", domains: ["moved.example"] })], 5);
+      await applyOutletSeed(database, [outlet({ key: "new-name", domains: ["moved.example"] })], 6);
+      const rows = await loadOutlets(database);
+      expect(rows.find((o) => o.key === "old-name")).toMatchObject({ status: "retired" });
+      expect(rows.find((o) => o.key === "new-name")).toMatchObject({ status: "active" });
+      // Back to the old name: the outlet that held the domain comes back, the newer one is retired
+      await applyOutletSeed(database, [outlet({ key: "old-name", domains: ["moved.example"] })], 7);
+      expect((await loadOutlets(database)).filter((o) => o.status === "active").map((o) => o.key)).toEqual(["old-name"]);
+    });
   });
 
   describe("documents", () => {

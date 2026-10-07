@@ -47,8 +47,8 @@ CREATE INDEX "enrichment_job_work_idx" ON "enrichment_jobs" USING btree ("work_i
 CREATE TRIGGER book_parent_required BEFORE INSERT OR UPDATE OF work_id ON enrichment_costs
 FOR EACH ROW EXECUTE FUNCTION require_book_parent();
 --> statement-breakpoint
--- Each domain is a lowercase host name that no other outlet lists, so a URL
--- has at most one outlet of each length; updated_at follows every change
+-- Each domain is a lowercase host name that no other active outlet lists, so a
+-- URL has at most one active outlet of each length; updated_at follows every change
 CREATE FUNCTION guard_evidence_outlet() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE other text;
 BEGIN
@@ -58,7 +58,8 @@ BEGIN
   IF (SELECT count(*) FROM unnest(NEW.domains)) <> (SELECT count(DISTINCT d) FROM unnest(NEW.domains) d) THEN
     PERFORM enrichment_rule_error('An outlet lists each domain once', 'evidence_outlet_domains');
   END IF;
-  SELECT key INTO other FROM evidence_outlets WHERE key <> NEW.key AND domains && NEW.domains LIMIT 1;
+  -- One active outlet per domain: a retired outlet's domains are free for another
+  SELECT key INTO other FROM evidence_outlets WHERE key <> NEW.key AND NEW.status = 'active' AND status = 'active' AND domains && NEW.domains LIMIT 1;
   IF FOUND THEN
     PERFORM enrichment_rule_error(format('A domain of this outlet is already the outlet %s''s', other), 'evidence_outlet_domains');
   END IF;

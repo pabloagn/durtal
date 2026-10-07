@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { canonicalEvidenceUrl } from "@/lib/enrichment/evidence-url";
-import { outletForUrl, seedProblems, RESERVED_OUTLET_KEYS, type Outlet } from "@/lib/enrichment/outlets";
+import { outletForUrl, planOutletSeed, seedProblems, RESERVED_OUTLET_KEYS, type Outlet } from "@/lib/enrichment/outlets";
 import { OUTLET_SEED } from "@/lib/enrichment/outlets-seed";
 import { fingerprint, sameText } from "@/lib/enrichment/fingerprint";
 import { readEvidencePage, readEvidenceText } from "@/lib/enrichment/evidence-store";
@@ -44,6 +44,14 @@ describe("the outlet registry", () => {
     expect(seedProblems(OUTLET_SEED)).toEqual([]);
     for (const name of ["New York Review of Books", "London Review of Books", "Times Literary Supplement", "The Guardian", "The New York Times", "The New Yorker", "Bookforum", "Words Without Borders", "Asymptote"])
       expect(OUTLET_SEED.some((o) => o.name.includes(name))).toBe(true);
+  });
+
+  it("plans no change against a registry that already holds the seed, whatever the order of its fields", () => {
+    // The registry's rows, field by field as loadOutlets reads them
+    const rows: Outlet[] = OUTLET_SEED.map((o) => ({ key: o.key, name: o.name, domains: o.domains, kind: o.kind, language: o.language, weight: o.weight, syndicationGroup: o.syndicationGroup, fetchPolicy: o.fetchPolicy, termsUrl: o.termsUrl, termsCheckedOn: o.termsCheckedOn, termsNote: o.termsNote, status: o.status }));
+    expect(planOutletSeed(rows, OUTLET_SEED)).toEqual({ added: [], changed: [], retired: [] });
+    const plan = planOutletSeed(rows, OUTLET_SEED.map((o) => (o.key === "lrb" ? { ...o, weight: 0.9 } : o)));
+    expect(plan.changed.map((c) => c.after.key)).toEqual(["lrb"]);
   });
 
   it("names each problem of a bad seed", () => {

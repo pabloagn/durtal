@@ -154,6 +154,14 @@ describe("robots.txt", () => {
     expect(await reason(fetcherFor({ [silent]: "fetch" }).fetchPage(`${silent}/x`))).toBe("robots_unreachable");
   });
 
+  it("keeps an unreachable robots.txt for its run only: the next run asks again", async () => {
+    let down = true;
+    const base = await serve((req, res) => (req.url === "/robots.txt" ? res.writeHead(down ? 503 : 404).end() : html(res)));
+    expect(await reason(fetcherFor({ [base]: "fetch" }).fetchPage(`${base}/x`))).toBe("robots_unreachable");
+    down = false;
+    expect(await reason(fetcherFor({ [base]: "fetch" }).fetchPage(`${base}/x`))).toBe("ok");
+  });
+
   it("follows a robots.txt redirect, even to another host", async () => {
     const rules = await serve((_req, res) => res.writeHead(200, { "Content-Type": "text/plain" }).end("User-agent: DurtalBot\nDisallow: /no/"));
     const base = await serve((req, res) => (req.url === "/robots.txt" ? res.writeHead(301, { Location: `${rules}/robots.txt` }).end() : html(res)));

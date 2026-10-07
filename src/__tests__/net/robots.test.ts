@@ -48,6 +48,15 @@ describe("matching", () => {
     expect(allowed("User-agent: *\nDisallow: /", "/robots.txt")).toBe(true);
   });
 
+  it("compares paths percent-encoded the same way (RFC 9309 2.2.2)", () => {
+    // The URL path arrives encoded: /caf%C3%A9/review and /~joe/page
+    const path = (url: string) => new URL(url).pathname;
+    expect(allowed("User-agent: *\nDisallow: /café/", path("https://x.example/café/review"))).toBe(false);
+    expect(allowed("User-agent: *\nDisallow: /caf%c3%a9/", path("https://x.example/café/review"))).toBe(false);
+    expect(allowed("User-agent: *\nDisallow: /%7Ejoe/", path("https://x.example/~joe/page"))).toBe(false);
+    expect(allowed("User-agent: *\nDisallow: /a%2Fb", "/a/b")).toBe(true);
+  });
+
   it("reads Crawl-delay from the chosen group", () => {
     expect(parseRobots("User-agent: *\nCrawl-delay: 10\nDisallow: /x", "DurtalBot").crawlDelay).toBe(10);
   });

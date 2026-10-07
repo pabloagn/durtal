@@ -83,6 +83,10 @@ export function seedProblems(seed: readonly Outlet[]): string[] {
   return problems;
 }
 
+/** The fields a seed sets, in one order: a row read back compares equal to the seed entry that wrote it */
+const OUTLET_FIELDS = ["key", "name", "domains", "kind", "language", "weight", "syndicationGroup", "fetchPolicy", "termsUrl", "termsCheckedOn", "termsNote", "status"] as const satisfies readonly (keyof Outlet)[];
+const sameOutlet = (a: Outlet, b: Outlet) => OUTLET_FIELDS.every((field) => JSON.stringify(a[field]) === JSON.stringify(b[field]));
+
 /** The rows a seed adds, changes and retires against the registry: the plan of `--outlets` */
 export function planOutletSeed(current: readonly Outlet[], seed: readonly Outlet[]) {
   const byKey = new Map(current.map((o) => [o.key, o]));
@@ -90,7 +94,7 @@ export function planOutletSeed(current: readonly Outlet[], seed: readonly Outlet
   const added = seed.filter((o) => !byKey.has(o.key));
   const changed = seed.flatMap((after) => {
     const before = byKey.get(after.key);
-    return before && JSON.stringify(before) !== JSON.stringify(after) ? [{ before, after }] : [];
+    return before && !sameOutlet(before, after) ? [{ before, after }] : [];
   });
   // An outlet that leaves the seed is retired, never deleted: stored documents cite it
   const retired = current.filter((o) => !seedKeys.has(o.key) && o.status === "active");
