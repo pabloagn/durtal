@@ -870,8 +870,18 @@ API, answers cached). A person is taken only when they are human (P31 Q5), the
 name fits (the label or an alias is a form of the author's name, or the same
 family name with fitting given names or initials), nothing the catalogue knows
 contradicts them (gender, birth and death years, a book older than the person),
-and there is evidence: one of the author's books among the person's works, or
-dates that agree. A match fills only empty columns: dates to the precision
+and there is evidence: one of the author's books among the person's works,
+dates that agree, or a role that fits. Roles (pass 2, SLN-410) are the
+catalogue's `author_contribution_types` (Author, Theorist, Director, Painter…)
+checked against the person's Wikidata occupations and description: a fit
+counts as evidence, a misfit holds the match, and among several close
+candidates the medium pick is the one whose occupation fits. A day of the
+month is compared in both calendars: a Julian statement whose Gregorian day is
+the stored one agrees, and a missing month is the Gregorian one. The second
+pass (`--scope canon`, `CANON_SCOPE_SQL`) takes the people without books who
+belong to books: in the book directory, and not credited only on films,
+paintings or perfumes (`work_credits`, `perfume_variant_perfumers`,
+`art_object_credits`) without an edition credit. A match fills only empty columns: dates to the precision
 Wikidata gives (circa and decades set the approximate flag; centuries are not
 taken), the zodiac sign, gender (P21 only), nationality (the one citizenship
 that is a country today, or the description's demonym), birth and death
