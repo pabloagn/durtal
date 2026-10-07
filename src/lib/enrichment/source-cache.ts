@@ -34,18 +34,27 @@ export class SourceCache {
     return this.answers[key];
   }
 
+  /** Every kept answer, in the order it was kept */
+  entries(): [string, CachedAnswer][] {
+    return Object.entries(this.answers);
+  }
+
   set(key: string, answer: unknown, retrievedAt = new Date()) {
     this.answers[key] = { retrievedAt: retrievedAt.toISOString(), answer: answer ?? null };
     if (this.file) writeFileSync(this.file, JSON.stringify(this.answers, null, 2));
   }
 }
 
-/** A source refused a call (a quota or a rate limit): the fetch stops, and nothing is cached */
+/**
+ * A source refused a call (a quota or a rate limit): the fetch stops, and
+ * nothing is cached. A job in hand is held with `reason`, so no attempt counts.
+ */
 export class QuotaStop extends Error {
   constructor(
     message: string,
     /** The stage's jobs whose answers were all fetched before the refusal */
     readonly done = 0,
+    readonly reason: "quota" | "rate_limited" = "quota",
   ) {
     super(message);
   }

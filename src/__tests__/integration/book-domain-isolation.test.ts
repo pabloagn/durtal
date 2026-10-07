@@ -63,6 +63,7 @@ import {
   bulkUpdateHuntAssessment,
 } from "@/lib/actions/hunting";
 import { setPoison, bulkSetPoison } from "@/lib/actions/poison";
+import { markWorksRead } from "@/lib/actions/reading-bulk";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { createEdition, updateEdition } from "@/lib/actions/editions";
 import { getCollectionSelection } from "@/lib/actions/collections";
@@ -327,6 +328,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
             huntAssessedOn: "2026-09-30",
           }),
         () => bulkSetPoison([books[0], other.id], false),
+        () => markWorksRead({ workIds: [books[0], other.id] }),
         () =>
           bulkUpdateHuntAssessment([books[0], other.id], {
             isRare: true,
@@ -460,6 +462,10 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
         // The cost ledger (SLN-468)
         () =>
           c`insert into enrichment_costs(provider,operation,estimated_units,estimated_cost_usd,price_version,work_id) values ('search','query','{}'::jsonb,0,'v',${other.id})`,
+        // The extraction log (SLN-469)
+        () =>
+          c`insert into enrichment_extractions(work_id,source_record_id,vocabulary_version,dimension_keys,extractor_version,request_sha256,status,passages,run_id)
+            values (${other.id},gen_random_uuid(),1,'{tone}','v',${"a".repeat(64)},'not_about_work','[]'::jsonb,gen_random_uuid())`,
       ];
       for (const statement of statements)
         await expect(statement()).rejects.toMatchObject({

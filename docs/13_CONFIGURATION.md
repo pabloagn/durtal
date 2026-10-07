@@ -36,6 +36,9 @@ All environment variables are listed in `.env.example`. Copy it to `.env.local` 
 |---|---|---|---|
 | `ENRICHMENT_CONTACT` | For enrichment | — | The contact every enrichment request names in its User-Agent, `DurtalBot/1.0 (personal book catalogue; <contact>)` (`src/lib/enrichment/user-agent.ts`). Not set: the evidence fetcher refuses to start. Keep it in `.env.local` only |
 | `ENRICHMENT_MONTHLY_CAP_USD` | No | — | The monthly cap of metered enrichment calls (search and model providers), in US dollars, a decimal such as `20` or `7.50`. The month is the calendar month in `APP_TIMEZONE`. `0` lets free-tier calls through (they are still metered) and stops every paid call. Not set: every metered call stops. See the cost meter in [02_DATA_MODEL.md](02_DATA_MODEL.md) (`enrichment_costs`) |
+| `TAVILY_API_KEY` | For research | — | The research agent's main search, Tavily (SLN-469). Get it at https://app.tavily.com; the free plan gives 1,000 credits a month, one per search. Not set: `--apply --kinds research` refuses. Keep it in `.env.local` only |
+| `BRAVE_SEARCH_API_KEY` | No | — | The research agent's fallback search, Brave Search API (SLN-469), $5 per 1,000 requests. Get it at https://brave.com/search/api/. Not set: no fallback, and the run report says so. Keep it in `.env.local` only |
+| `ANTHROPIC_API_KEY` | For extraction | — | The research agent's extraction model, `claude-opus-5-5` (SLN-469): $4 input and $20 output per million tokens, about $0.50 a book. Get it at https://console.anthropic.com. Not set: `--apply --kinds extract` refuses. Keep it in `.env.local` only |
 
 ### Application
 

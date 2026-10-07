@@ -109,6 +109,9 @@ export function enrichmentMergeQueries(
     // The cost ledger (SLN-468) keeps every row: its spend moves to the kept book
     case "enrichment_costs.work_id":
       return [sql`update enrichment_costs set work_id = ${t} where work_id = ${s}`];
+    // The extraction log (SLN-469) keeps every row: a paid call stays recorded with the kept book
+    case "enrichment_extractions.work_id":
+      return [sql`update enrichment_extractions set work_id = ${t} where work_id = ${s}`];
   }
   if (table.startsWith("enrichment_") || table === "work_enrichment_values" || table === "work_popularity_snapshots")
     throw new Error("This enrichment relationship requires a dedicated merge strategy");

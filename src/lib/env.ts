@@ -37,6 +37,11 @@ const serverSchema = z.object({
   DURTAL_API_TOKEN: optional,
   /** The contact in the enrichment User-Agent (SLN-460) */
   ENRICHMENT_CONTACT: optional,
+  /** The research agent's main search (Tavily) and its fallback (Brave Search), SLN-469 */
+  TAVILY_API_KEY: optional,
+  BRAVE_SEARCH_API_KEY: optional,
+  /** The research agent's extraction model (Anthropic), SLN-469 */
+  ANTHROPIC_API_KEY: optional,
   /** The monthly cap of metered enrichment calls, in US dollars; 0 lets only free-tier calls through */
   ENRICHMENT_MONTHLY_CAP_USD: z.preprocess(
     (v) => (v === "" ? undefined : v),

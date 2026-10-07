@@ -79,6 +79,12 @@ vi.mock("@/lib/reading/stats", () => {
 import ReadingStatsPage from "@/app/reading/stats/page";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 
+// The dialog's modules take 1 to 4 s to load the first time, more under a full run's load, and that time
+// counted inside the test's 5 s. Loaded here, the click still opens it through React.lazy, from the module cache
+beforeAll(async () => {
+  await import("@/components/reading/goal-dialog");
+}, 30_000);
+
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as never;

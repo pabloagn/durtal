@@ -23,6 +23,18 @@ export class BudgetStop extends Error {
   }
 }
 
+/**
+ * A book's spend this month would pass the research config's per-work
+ * ceiling: the job keeps what it already stored and is held
+ * (`work_cost_ceiling`) until Pablo runs it again with --only
+ */
+export class WorkCeilingStop extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkCeilingStop";
+  }
+}
+
 const MONTHLY = "Stopped: monthly budget reached";
 const RUN = "Stopped: run limit reached";
 
@@ -32,6 +44,14 @@ export function monthlyCapUsd(): number | null {
   if (!value) return null;
   if (!/^\d+(\.\d+)?$/.test(value)) throw new Error("ENRICHMENT_MONTHLY_CAP_USD must be an amount in US dollars");
   return Number(value);
+}
+
+/** A plan's line on the budget: the cap, this month's spend (settled and reserved) and what is left */
+export function capLine(spentThisMonth: number): string {
+  const cap = monthlyCapUsd();
+  const usd = (amount: number) => `$${amount.toFixed(2)}`;
+  if (cap === null) return "Monthly cap: not set (every metered call stops)";
+  return `Monthly cap: ${usd(cap)}; spent this month ${usd(spentThisMonth)}; left ${usd(Math.max(0, cap - spentThisMonth))}`;
 }
 
 /** How far a time zone's wall clock is ahead of UTC at an instant, in ms */
@@ -64,6 +84,17 @@ export function monthWindow(now: Date, timeZone: string = appTimeZone()): { star
 
 /** Spend that counts against a limit: settled cost, and open reservations at their estimate */
 const counted = sql`coalesce(sum(coalesce(${enrichmentCosts.costUsd}, ${enrichmentCosts.estimatedCostUsd})) filter (where ${enrichmentCosts.status} <> 'released'), 0)`;
+
+/** Spend in the month of `now` (settled cost, and open reservations at their estimate), of one book or of all */
+export async function monthSpend(database: Db, options: { workId?: string; now?: Date } = {}): Promise<number> {
+  const { start, end } = monthWindow(options.now ?? new Date());
+  const inMonth = sql`${enrichmentCosts.createdAt} >= ${start.toISOString()} and ${enrichmentCosts.createdAt} < ${end.toISOString()}`;
+  const [row] = await database
+    .select({ spent: sql<number>`(${counted})::float8` })
+    .from(enrichmentCosts)
+    .where(options.workId ? and(eq(enrichmentCosts.workId, options.workId), inMonth) : inMonth);
+  return Number(row?.spent ?? 0);
+}
 
 export interface MeterInput {
   /** The script's own connection; the app's by default */

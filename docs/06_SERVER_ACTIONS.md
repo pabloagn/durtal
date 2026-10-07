@@ -6,9 +6,9 @@ Server actions are called directly by server components and client components wi
 
 ---
 
-## New books queue an identity job (SLN-464)
+## New books queue their identity and research jobs (SLN-464, SLN-469)
 
-After its save commits, each of these actions queues the book's identity job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
+After its save commits, each of these actions queues the book's identity job and its research job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. Queueing spends nothing: research spends only when the worker runs `--apply --kinds research`. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
 
 ## Works (`src/lib/actions/works.ts`)
 
@@ -388,7 +388,7 @@ Invalidates every `CACHE_TAGS` tag and the root layout, so the next page load re
 checkIntegration(id: IntegrationId): Promise<{ status: "ok" | "warning" | "error" | "off"; message: string }>
 ```
 
-A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata. Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
+A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata, the evidence fetcher (an outlet's robots.txt), the enrichment budget (the ledger, no call), Tavily (`GET /usage`, free), Brave Search (one search of `count=1`, metered as operation `check`; at the budget cap it makes no call and warns) and the extraction model (`models.retrieve("claude-opus-5-5")`, free). Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
 
 ---
 
@@ -480,7 +480,7 @@ Per-item results `{ undone, failed }`; a batch is undone newest first. An undo r
 
 ### Services for scripts (`src/lib/enrichment/`)
 
-- `proposeClaims(items, conn?)`: writes proposals with their evidence, one unit per item, and returns `created`, `merged` (evidence added to the open claim of that value, which takes the new confidence), `skipped` (accepted already, its item linked already, rejected for good, or rejected on the same sources) or `refused` (unknown or retired term, wrong kind, a human proposal without Pablo's `storygraph_export` evidence, or an evidence guard). A concurrent proposal of the same value is retried as a merge.
+- `proposeClaims(items, conn?)`: writes proposals with their evidence, one unit per item, and returns `created`, `merged` (evidence added to the open claim of that value, which takes the new confidence), `skipped` (accepted already, its item linked already, rejected for good, or rejected on the same sources; an R6 rejection's evidence from an undone extraction run does not count) or `refused` (unknown or retired term, wrong kind, a human proposal without Pablo's `storygraph_export` evidence, or an evidence guard). A concurrent proposal of the same value is retried as a merge.
 - `applyClaim(claimId, by, conn?)`: by Pablo, or by an enabled rule, which also needs the claim's confidence at its minimum, an `api` or `agent` claim never undone, an empty target, and room under its daily cap in a rolling 24 hours (`src/lib/enrichment/rules.ts`: 100 for exact identity links, `DAILY_EXACT_IDENTITY_APPLY_CAP`; 20 for every other rule apply, `DAILY_RULE_APPLY_CAP`; SLN-461's v1 proposal), counted under a transaction advisory lock.
 - `undoApplication(id, conn?)`, `createHumanClaim(input, conn?, { batchId?, note?, evidence? })` and `rejectClaim(claimId, { reason, note? }, conn?)`: the actions' services. Pablo's own claim may cite the source that confirms it (the identity review file does). A rule apply can carry a batch: the worker's run id, so `--undo RUN_ID` finds it.
 - Jobs (`jobs.ts`): `enqueueEnrichmentJob` (folds into the open job of that book and kind; a running one runs again), `claimNextEnrichmentJob({ worker, kinds, jobIds?, workIds? })` (one `UPDATE … SKIP LOCKED` statement; takes an abandoned lease after 30 minutes; every claim counts an attempt; the fifth abandoned attempt fails), `finishEnrichmentJob` (stores `payload.outcome`; a rerun queues again with its attempts back at zero), `failEnrichmentJob` (retries after 2^attempts minutes, fails after five), `holdEnrichmentJob` (gives the attempt back and drops a pending rerun), `renewEnrichmentJobLease` (the worker's heartbeat: renews a running job's lease while its worker still holds it), `releaseHeldEnrichmentJobs(kind?)` (releases quota, rate-limit and budget holds; a book's cost ceiling waits for Pablo).
@@ -605,6 +605,16 @@ The edition he means to read and the note.
 
 ### `getQueue({ homeId? })`, `getQueueHead(limit)`, `getQueuePlace(workId)`
 The whole list in one query, in order: each book with its author, covers, editions and copies (for the edition he means: the queued one, else `pickDefaultEdition` for the home; and where the copy is, through `copyWhereabouts`), each edition's last known audio length (`total_minutes` of its latest reading that has one), ownership (`ownedBookCondition`), the copy at hand at the home (`atHandCopySql`) and the reading history (`readCountSql`, `lastFinishedOnSql`). The hub's strip reads the first five; the book page reads its place.
+
+## Bulk Mark as read (`src/lib/actions/reading-bulk.ts`, SLN-463)
+
+The library's selection toolbar marks books read in bulk. Each input is parsed strictly with zod (`markWorksReadSchema`, `undoMarkWorksReadSchema` in `src/lib/validations/reading.ts`): ids are UUIDs, 1 to 1000 of them, and any other key (a `source`, a `sourceKey`) is refused before any database call. Books only (`requireBookWorks`). Both invalidate `works` and `reading` after a change. Feedback never creates a reading: nothing here writes `recommendation_feedback`.
+
+### `markWorksRead({ workIds, confirmDuplicates? })`
+Gives each selected book one finished reading with both dates unknown, through `writeReadings(rows, { source: "manual" })`: no source key, the format of the book's copies that are not deaccessioned when they all read in one (`formatOfCopies`), else print. A book being read or paused gets no row and is reported ("being read: finish it on the book page"). A possible duplicate (`duplicateVerdicts`, for example a book already read) is reported with the read it matches and written only when its id is in `confirmDuplicates`. The rows go 100 at a time, one `writeReadings` call (one `atomic`) each: when one fails, the earlier ones stay written and the error says how many; the same selection again writes the rest, and the books written before come back as possible duplicates. Records `work.reading_finished` (`past: true`) for each reading written. Up Next is left as it is. Returns `{ marked, readingIds, possibleDuplicates, skipped }`.
+
+### `undoMarkWorksRead({ readingIds })`
+The toast's Undo, with the ids one `markWorksRead` call returned. Deletes only those readings, and only while each is as written: source `manual`, no source key, finished with both dates unknown, `updated_at = created_at` and no session (the import undo's rule). The check is repeated in the delete itself, 100 at a time, each in `atomic` inside `withReadableErrors`. A reading changed since is kept and reported with its reason. Records `work.reading_deleted` for each reading removed. Returns `{ removed, kept }`.
 
 ## Reading goals and rhythm (`src/lib/actions/reading-goals.ts`, SLN-455)
 
