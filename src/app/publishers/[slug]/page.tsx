@@ -33,8 +33,8 @@ import {
 } from "@/components/shared/detail-layout";
 import { PublisherHeader } from "@/components/publishers/publisher-header";
 import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishers/publisher-books";
+import { mediaUrl } from "@/lib/s3/media-url";
 
-const imageUrl = (key: string) => `/api/s3/read?key=${encodeURIComponent(key)}`;
 const LINK = "text-accent-rose-text transition-colors hover:text-fg-primary";
 /** One read per request for the page and its title */
 const loadPublisher = cache(getPublisher);
@@ -203,7 +203,7 @@ export default async function PublisherPage({
         {background && (
           <FullBleedLayer className="-z-0">
             <img
-              src={imageUrl(background.s3Key)}
+              src={mediaUrl(background.s3Key)}
               alt=""
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(background))}
@@ -232,7 +232,7 @@ export default async function PublisherPage({
             id={p.id}
             slug={p.slug}
             name={p.name}
-            logoUrl={logo ? imageUrl(logo.thumbnailS3Key ?? logo.s3Key) : null}
+            logoUrl={logo ? mediaUrl(logo.thumbnailS3Key ?? logo.s3Key) : null}
             logoIsCard={isLogoCard(logo?.processingParams)}
             facts={facts}
             favourite={p.isFavourite}

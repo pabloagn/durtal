@@ -42,6 +42,7 @@ import { VenueArtParts, VenueOrdersPart, VenuePurchasesPart, VenueRetailPart } f
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -79,11 +80,11 @@ async function PlaceContent({ slug }: { slug: string }) {
   ]);
 
   const thumbnailUrl = venue.thumbnailS3Key
-    ? `/api/s3/read?key=${encodeURIComponent(venue.thumbnailS3Key)}`
+    ? mediaUrl(venue.thumbnailS3Key)
     : null;
 
   const posterUrl = venue.posterS3Key
-    ? `/api/s3/read?key=${encodeURIComponent(venue.posterS3Key)}`
+    ? mediaUrl(venue.posterS3Key)
     : null;
 
   const displayImage = posterUrl ?? thumbnailUrl;

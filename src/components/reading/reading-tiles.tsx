@@ -13,6 +13,7 @@ import { JournalRowMenu, LogButton } from "./hub-actions";
 import { GoalLine } from "./goal-card";
 import type { GoalProgress } from "@/lib/actions/reading-goals";
 import type { ReadingRef } from "./reading-dialogs-provider";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /*
  * The reading lists that repeat (SLN-448): the dashboard's tiles, the finished
@@ -27,7 +28,7 @@ export function Cover({ s3Key, className, icon = true, eager = false }: { s3Key:
     <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary ${className}`}>
       {s3Key ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/s3/read?key=${encodeURIComponent(s3Key)}`} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
+        <img src={mediaUrl(s3Key)} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
       ) : (
         icon && <BookOpen className="h-4 w-4 text-fg-muted" strokeWidth={1.5} aria-hidden />
       )}

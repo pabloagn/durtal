@@ -16,6 +16,7 @@ import { mediaCrop } from "@/lib/utils/media-style";
 import { RecommenderActions } from "./recommender-actions";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -140,7 +141,7 @@ export default async function RecommenderPage({
                     authorNames={work.workAuthors.map((wa) => wa.author.name)}
                     coverUrl={
                       coverKey
-                        ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
+                        ? mediaUrl(coverKey)
                         : null
                     }
                     coverCrop={poster ? mediaCrop(poster) : null}

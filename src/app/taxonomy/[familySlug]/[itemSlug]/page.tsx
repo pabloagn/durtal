@@ -18,12 +18,9 @@ import { mediaCrop } from "@/lib/utils/media-style";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { posterTone, workCardExtras } from "@/lib/actions/utils/work-card-query";
 import { cardReadingOf } from "@/lib/reading/card";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function getImageUrl(s3Key: string) {
-  return `/api/s3/read?key=${encodeURIComponent(s3Key)}`;
-}
 
 // ── Data fetcher for works by IDs ──────────────────────────────────────────
 
@@ -175,7 +172,7 @@ async function ItemContent({
                 posterKey ??
                 primaryEdition?.thumbnailS3Key ??
                 primaryEdition?.coverS3Key;
-              const coverUrl = coverKey ? getImageUrl(coverKey) : null;
+              const coverUrl = coverKey ? mediaUrl(coverKey) : null;
 
               const coverCrop = poster ? mediaCrop(poster) : null;
 

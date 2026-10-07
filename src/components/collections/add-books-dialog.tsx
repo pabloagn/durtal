@@ -14,6 +14,7 @@ import {
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type Edition = Awaited<ReturnType<typeof searchEditionsForPicker>>[number];
 type Work = Awaited<ReturnType<typeof searchWorksForCollection>>[number];
@@ -226,7 +227,7 @@ export function AddCollectionBooksDialog({
                   />
                   {e.thumbnailS3Key && (
                     <img
-                      src={`/api/s3/read?key=${encodeURIComponent(e.thumbnailS3Key)}`}
+                      src={mediaUrl(e.thumbnailS3Key)}
                       alt=""
                       className="h-12 w-8 shrink-0 rounded-sm object-cover"
                     />
@@ -270,7 +271,7 @@ export function AddCollectionBooksDialog({
                   />
                   {w.imageS3Key && (
                     <img
-                      src={`/api/s3/read?key=${encodeURIComponent(w.imageS3Key)}`}
+                      src={mediaUrl(w.imageS3Key)}
                       alt=""
                       className={`${w.kind === "perfume" ? "h-10 w-10 object-contain" : "h-12 w-8 object-cover"} shrink-0 rounded-sm`}
                     />

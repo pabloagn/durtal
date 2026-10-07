@@ -4,6 +4,7 @@ import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { cardReadingOf } from "@/lib/reading/card";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /** A work loaded with `workCardWith` */
 export type WorkCardData = Awaited<
@@ -44,7 +45,7 @@ export function WorkCarousel<T extends WorkCardData>({
               authorNames={work.workAuthors.map((wa) => wa.author.name)}
               coverUrl={
                 coverKey
-                  ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
+                  ? mediaUrl(coverKey)
                   : null
               }
               coverCrop={poster ? mediaCrop(poster) : null}

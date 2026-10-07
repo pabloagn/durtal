@@ -39,6 +39,7 @@ import { useOptionalTimer } from "@/components/reading/timer-provider";
 import { useStopTimer } from "@/components/reading/timer-chip";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -91,8 +92,6 @@ const NO_RESULTS: QuickSearchResult = { works: [], people: [], organizations: []
 /** The open collections, in navigation order: one group of results each */
 const RESULT_KINDS = getEnabledWorkKinds();
 
-const imageUrl = (key: string) => `/api/s3/read?key=${encodeURIComponent(key)}`;
-
 /**
  * A result's picture: the work's cover or poster, 24x36 like a small card, or
  * the person's portrait, 28px square. Both sit on a 36px row, so every row keeps
@@ -112,7 +111,7 @@ function ResultThumb({ src, name, kind }: { src: string | null; name: string; ki
       >
         {src ? (
           <img
-            src={imageUrl(src)}
+            src={mediaUrl(src)}
             alt=""
             loading="lazy"
             decoding="async"

@@ -11,6 +11,7 @@ import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters"
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 import { countryDisplayName } from "@/lib/utils/labels";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface AuthorTimelineItem {
   id: string;
@@ -104,7 +105,7 @@ export async function getAuthorsForTimeline(opts?: {
       deathYear: row.deathYear ?? null,
       nationality: countryDisplayName(row.country),
       posterUrl: photoKey
-        ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
+        ? mediaUrl(photoKey)
         : null,
       posterCrop,
       worksCount: 0,

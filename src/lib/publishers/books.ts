@@ -15,6 +15,7 @@ import { parseMarks, type WorkMarkKey } from "@/lib/constants/marks";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 import { openReadingPercentSql, readingStateSql } from "@/lib/reading/summary";
 import { cardReadingOf, type CardReadingValue } from "@/lib/reading/card";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export const PUBLISHER_BOOK_STATES = ["owned", "wanted", "on_order"] as const;
 export type PublisherBookState = (typeof PUBLISHER_BOOK_STATES)[number];
@@ -118,7 +119,7 @@ export interface PublisherBookFacets {
   imprints: { id: string; name: string; count: number }[];
 }
 
-const s3Url = (key: string | null) => (key ? `/api/s3/read?key=${encodeURIComponent(key)}` : null);
+const s3Url = (key: string | null) => (key ? mediaUrl(key) : null);
 
 /** Per edition of the family: owned, on order, wanted (as the old tabs had them) */
 function editionState(edition: SQL) {

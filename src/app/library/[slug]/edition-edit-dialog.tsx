@@ -17,6 +17,7 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { EditionWithRelations } from "@/lib/types/index";
 import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
 import { EDITION_GROUPS, withChosen } from "@/lib/catalogue/edit-options";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface EditionEditDialogProps {
   edition: EditionWithRelations;
@@ -87,7 +88,7 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
   const lists = useEditOptions(EDITION_GROUPS, open);
 
   const existingCoverUrl = edition.thumbnailS3Key
-    ? `/api/s3/read?key=${encodeURIComponent(edition.thumbnailS3Key)}`
+    ? mediaUrl(edition.thumbnailS3Key)
     : null;
 
   async function handleSubmit(values: EditionFormValues) {
