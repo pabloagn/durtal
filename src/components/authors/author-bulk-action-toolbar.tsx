@@ -1,143 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { FavouriteBulkMenu } from "@/components/shared/favourite-bulk-menu";
+import {
+  SelectionToolbar,
+  type SelectionToolbarProps,
+} from "@/components/shared/selection-toolbar";
 import { deleteAuthor } from "@/lib/actions/authors";
-import { toast } from "sonner";
 
-interface AuthorBulkActionToolbarProps {
-  selectedCount: number;
-  selectedIds: Set<string>;
-  selectedNames: Map<string, string>;
-  allIds: string[];
-  onSelectAll: (ids: string[]) => void;
-  onDeselectAll: () => void;
-  onExitSelection: () => void;
-}
-
+/** The people list's selection bar: favourites and export */
 export function AuthorBulkActionToolbar({
-  selectedCount,
-  selectedIds,
   selectedNames,
-  allIds,
-  onSelectAll,
-  onDeselectAll,
-  onExitSelection,
-}: AuthorBulkActionToolbarProps) {
-  const router = useRouter();
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  if (selectedCount === 0) return null;
-
-  const namesList = Array.from(selectedIds)
-    .map((id) => selectedNames.get(id) ?? "Unknown")
-    .slice(0, 5);
-  const displayName =
-    namesList.length < selectedCount
-      ? `${namesList.join(", ")} and ${selectedCount - namesList.length} more`
-      : namesList.join(", ");
-
-  async function handleBulkDelete() {
-    setIsDeleting(true);
-    let deleted = 0;
-    const ids = Array.from(selectedIds);
-    try {
-      for (const id of ids) {
-        await deleteAuthor(id);
-        deleted++;
-      }
-      toast.success(
-        `${deleted} ${deleted === 1 ? "person" : "people"} deleted`,
-      );
-      onExitSelection();
-      router.refresh();
-    } catch {
-      toast.error(
-        `Deleted ${deleted} of ${ids.length} people before error`,
-      );
-    } finally {
-      setIsDeleting(false);
-      setDeleteOpen(false);
-    }
-  }
-
+  ...selection
+}: SelectionToolbarProps & { selectedNames: Map<string, string> }) {
   return (
-    <>
-      {/* On a narrow screen the bar wraps onto a second row and stays inside the screen, as the books' bar does (SLN-452) */}
-      <div className="glass fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-3 px-4 py-2.5">
-        {/* Selection info */}
-        <span className="whitespace-nowrap text-sm text-fg-secondary">
-          <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}
-          selected
-        </span>
+    <SelectionToolbar
+      {...selection}
+      names={selectedNames}
+      noun={["person", "people"]}
+      deleteOne={deleteAuthor}
+      cascade="This will NOT delete their books, films, perfumes or paintings, but will remove their credits."
+    >
+      {() => (
+        <>
+          <FavouriteBulkMenu
+            entity="author"
+            ids={selection.selectedIds}
+            noun={["person", "people"]}
+          />
 
-        <div className="h-4 w-px bg-glass-border" />
-
-        {/* Nothing in the bar wraps: every item keeps one line, so the
-            row's center is each label's center */}
-        <button
-          onClick={() => onSelectAll(allIds)}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-        >
-          Select all
-        </button>
-        <button
-          onClick={onDeselectAll}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-        >
-          Deselect
-        </button>
-
-        <div className="h-4 w-px bg-glass-border" />
-
-        <FavouriteBulkMenu
-          entity="author"
-          ids={selectedIds}
-          noun={["person", "people"]}
-        />
-
-        {/* Export */}
-        <ExportMenu entity="authors" ids={selectedIds} />
-
-        <div className="h-4 w-px bg-glass-border" />
-
-        {/* Delete */}
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={() => setDeleteOpen(true)}
-          disabled={isDeleting}
-        >
-          <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-          Delete
-        </Button>
-
-        {/* Close */}
-        <button
-          onClick={onExitSelection}
-          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary touch-hit"
-          aria-label="Exit selection"
-          data-tooltip="Exit selection"
-        >
-          <X className="block h-3.5 w-3.5" strokeWidth={1.5} />
-        </button>
-      </div>
-
-      <DeleteConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={handleBulkDelete}
-        title={`Delete ${selectedCount} ${selectedCount === 1 ? "person" : "people"}`}
-        description="Are you sure you want to delete the selected people? This action cannot be undone."
-        itemName={displayName}
-        cascade="This will NOT delete their books, films, perfumes or paintings, but will remove their credits."
-      />
-    </>
+          {/* Export */}
+          <ExportMenu entity="authors" ids={selection.selectedIds} />
+        </>
+      )}
+    </SelectionToolbar>
   );
 }
