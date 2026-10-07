@@ -7,7 +7,8 @@ import { enqueueEnrichmentJob } from "./jobs";
 /*
  * Which books enrichment works first (SLN-464, the order of SLN-473's waves),
  * and the jobs a new book queues after its save: identity (SLN-464) and
- * research (SLN-469). Queueing spends nothing.
+ * research (SLN-469), unless the book is researched already. Queueing spends
+ * nothing.
  */
 
 /** The scopes a run can queue, in their order; `all` is every book, each at its own scope's priority */
@@ -37,20 +38,35 @@ export function scopePriority(workId: SQL): SQL<number> {
 }
 
 /**
+ * A book is researched: a research job of it finished with an outcome. A job
+ * skipped because the book had no author does not count, so the book is
+ * researched once it has one (SLN-530).
+ */
+export function researchedCondition(workId: SQL): SQL {
+  return sql`exists (select 1 from enrichment_jobs j where j.work_id = ${workId} and j.kind = 'research' and j.status = 'done'
+    and j.payload -> 'outcome' ->> 'result' is distinct from 'skipped')`;
+}
+
+/**
  * Queues a new or newly identified book's identity and research jobs, after
- * its save has committed. Never throws: a save never fails because of the
- * queue, and a failure is logged with `[enrichment]`, like the publisher
- * auto-resolve. An open job of the book is merged, not duplicated.
+ * its save has committed. A researched book queues identity only: a new
+ * edition searches nothing again, and `--enqueue research --only SLUG` names
+ * it again. Never throws: a save never fails because of the queue, and a
+ * failure is logged with `[enrichment]`, like the publisher auto-resolve. An
+ * open job of the book is merged, not duplicated.
  */
 export async function queueNewBookEnrichment(workId: string, options: { priority?: number } = {}) {
   try {
-    const [book] = resultRows<{ priority: number }>(
-      await db.execute(sql`select ${scopePriority(sql`${workId}::uuid`)} as priority from works where id = ${workId}::uuid and kind = 'book'`),
+    const id = sql`${workId}::uuid`;
+    const [book] = resultRows<{ priority: number; researched: boolean }>(
+      await db.execute(
+        sql`select ${scopePriority(id)} as priority, ${researchedCondition(id)} as researched from works where id = ${id} and kind = 'book'`,
+      ),
     );
     if (!book) return;
     const priority = options.priority ?? Number(book.priority);
     await enqueueEnrichmentJob({ workId, kind: "identity", reason: "created", priority });
-    await enqueueEnrichmentJob({ workId, kind: "research", reason: "created", priority });
+    if (!book.researched) await enqueueEnrichmentJob({ workId, kind: "research", reason: "created", priority });
   } catch (error) {
     console.error("[enrichment] Could not queue the new book's jobs", workId, error);
   }

@@ -17,7 +17,7 @@ import { undoApplication } from "./claims";
 import { QuotaStop, type SourceCache } from "./source-cache";
 import { BudgetStop, WorkCeilingStop } from "./meter";
 import { ENRICHMENT_STAGES, stagesFor, type EnrichmentStage, type StageContext, type StageJob } from "./stages";
-import { SCOPE_PRIORITY, scopeCondition, scopePriority, type EnrichmentScope } from "./queue";
+import { SCOPE_PRIORITY, researchedCondition, scopeCondition, scopePriority, type EnrichmentScope } from "./queue";
 
 /*
  * The enrichment worker (SLN-464), run by hand from scripts/enrichment/worker.ts.
@@ -258,10 +258,7 @@ export async function undoRun(conn: Db, options: { runId: string; apply: boolean
 export async function enqueueScope(conn: Db, options: { kind: EnrichmentJobKind; scope: EnrichmentScope; only?: string[]; apply: boolean }) {
   const named = options.only?.length ? sql`and w.slug in (${sql.join(options.only.map((s) => sql`${s}`), sql`, `)})` : sql``;
   // Research is paid: a scope skips books already researched, and --only names a book again
-  const researched =
-    options.kind === "research" && !options.only?.length
-      ? sql`and not exists (select 1 from enrichment_jobs j where j.work_id = w.id and j.kind = 'research' and j.status = 'done')`
-      : sql``;
+  const researched = options.kind === "research" && !options.only?.length ? sql`and not ${researchedCondition(sql`w.id`)}` : sql``;
   const books = resultRows<{ id: string; priority: number }>(
     await conn.execute(sql`select w.id, ${scopePriority(sql`w.id`)} as priority from works w
       where w.kind = 'book' and ${scopeCondition(options.scope, sql`w.id`)} ${named} ${researched} order by w.id`),
