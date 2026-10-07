@@ -62,7 +62,7 @@ import { createWork } from "@/lib/actions/works";
 import { createHumanClaim, currentVocabularyVersion } from "@/lib/enrichment/claims";
 import { identityStage } from "@/lib/enrichment/identity-stage";
 import { disableIdentityRules, enableIdentityRules } from "@/lib/enrichment/identity-rules";
-import { ANSWER } from "@/lib/enrichment/identity";
+import { ANSWER, IDENTITY_RULES_VERSION } from "@/lib/enrichment/identity";
 import type { IdentityReviewEntry } from "@/lib/enrichment/identity-review";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { KAPUTT_HIT, RETRIEVED_AT, recordedAnswers } from "@/__tests__/fixtures/enrichment/identity/answers";
@@ -341,10 +341,11 @@ describe.skipIf(!url)("the enrichment worker", () => {
     const identityBook = async (
       title: string,
       isbn13: string | null,
-      options: { authorQid?: string; owned?: boolean; queue?: boolean; edition?: Record<string, unknown> } = {},
+      options: { authorQid?: string; authorOpenLibraryKey?: string; owned?: boolean; queue?: boolean; edition?: Record<string, unknown> } = {},
     ) => {
       const w = await book(title);
-      const [author] = await c`insert into authors(name, slug) values (${`Author of ${title}`}, ${randomUUID()}) returning id`;
+      const [author] = await c`insert into authors(name, slug, open_library_key)
+        values (${`Author of ${title}`}, ${randomUUID()}, ${options.authorOpenLibraryKey ?? null}) returning id`;
       await c`insert into work_authors(work_id, author_id, role) values (${w.id}, ${author.id}, 'author')`;
       if (options.authorQid)
         await c`insert into catalogue_identifiers(entity_kind, person_id, provider, external_id) values ('person', ${author.id}, 'wikidata', ${options.authorQid})`;
@@ -422,7 +423,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
       ]);
       // Every excerpt is the stored answer's value at its path, and every answer names its source
       const [evidence] = await c`select count(*)::int as n, bool_and(e.excerpt = s.payload #>> e.payload_path) as exact,
-          bool_and(e.extractor_version = 'identity-rules-1' and e.run_id = ${runId}) as stamped,
+          bool_and(e.extractor_version = ${IDENTITY_RULES_VERSION} and e.run_id = ${runId}) as stamped,
           bool_and(s.url like 'https://%' and s.attribution is not null and s.retrieved_at = ${RETRIEVED_AT.toISOString()}::timestamptz
             and s.payload ->> 'runId' = ${runId} and s.identifier_id is null and s.review_status = 'accepted') as sourced
         from claim_evidence e join source_records s on s.id = e.source_record_id join enrichment_claims c on c.id = e.claim_id where c.work_id = ${w.id}`;
@@ -485,6 +486,17 @@ describe.skipIf(!url)("the enrichment worker", () => {
       });
       expect(await c`select id from works where id = ${second.id}`).toEqual([]);
       expect(await identifiers(first.id)).toEqual(["open_library OL3428975W", "wikidata Q1315145"]);
+    });
+
+    it("applies an Open Library work with another author record when Wikidata confirms it, and leaves it for review when nothing does", async () => {
+      await rulesOn();
+      // Durtal's author keys on the newest backup; the Open Library works name the other records of these authors
+      const life = await identityBook("Life and Fate", "9781784871963", { authorOpenLibraryKey: "/authors/OL4655492A" });
+      const bolano = await identityBook("2666, duplicate author", "9780374100148", { authorOpenLibraryKey: "/authors/OL6493404A" });
+      await identify({ only: [life.slug, bolano.slug] });
+      expect(await identifiers(life.id)).toEqual(["open_library OL157104W", "wikidata Q979609"]);
+      expect((await claimsOf(bolano.id)).find((x) => x.key === "open_library_work")).toMatchObject({ value: "OL712025W", status: "proposed", confidence: 0.4 });
+      expect((await identifiers(bolano.id)).some((i) => i.startsWith("open_library"))).toBe(false);
     });
 
     it("keeps exact claims proposed while their rule is off, and a later run's sweep applies them", async () => {

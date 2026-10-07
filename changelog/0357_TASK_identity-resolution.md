@@ -33,6 +33,12 @@ turns on, under the daily cap; everything else waits for his review file.
   always for review (0.4). An ISBN listed anywhere in either ISBN list of the
   record matches. Derived IDs (the OCLC work ID; the Open Library work from
   P648 when no ISBN named one) come only from an exact or accepted QID.
+  One departure from the brief, which the coordinator approved: Open Library
+  author keys that are none of the book's send its work to review only when
+  no exact QID's P648 names that work (`IDENTITY_RULES_VERSION`
+  `identity-rules-2`). The rehearsal found why: Open Library keeps duplicate
+  author records, and Durtal's keys name the other one (Grossman
+  `OL4655492A` against `OL2962563A`, Bolaño `OL6493404A` against `OL56795A`).
 - `src/lib/enrichment/identity-sources.ts`: the Open Library client (identity
   has no provider in `src/lib/providers/`, and `src/lib/api/open-library.ts`
   reads a 429 as "not found"), the reverse P648 query (one per 50 works),
@@ -73,4 +79,26 @@ turns on, under the daily cap; everything else waits for his review file.
 
 ## Completion Notes
 
-RESULTS
+- Tests: `src/__tests__/enrichment/identity.test.ts` (16) runs the rules on
+  answers the SLN-461 sample recorded on 6 Oct
+  (`src/__tests__/fixtures/enrichment/identity/recorded.json`, cut to the
+  fields read; the reverse P648 lookups and one title search are built and
+  marked so). `identity-sources.test.ts` (3) covers the clients, the
+  User-Agent, a 404 kept as none and a 429 that stops without caching.
+  `identity-resolution.test.ts` now has 23: the worker's 12 and 11 for the
+  stage (end to end with evidence and source records, re-runs, review cases,
+  held collisions and a Harmonize merge, the rule switch, the sweep, undo,
+  the review file, placeholders, the LCCN column, both author-record cases,
+  no contact). No test reaches the network: fetch throws.
+- Rehearsal on a postgres:16 copy of `live-before-0078-20261007-033858.dump`,
+  with fetch replaced by a throwing stub and the 6 Oct answers only: the owned
+  scope counted 212 books; six real books were queued, planned, applied
+  (5 QIDs, 4 Open Library works, 3 OCLC work IDs, 2 LCCNs) and undone (14 of
+  14, none refused, 3 proposals withdrawn, the filled LCCN columns cleared).
+  That run used rule version 1; it found the duplicate author records.
+- `pnpm typecheck`, `pnpm lint` (0 errors) and `pnpm deadcode` are clean.
+- `python3 scripts/qa/test-local.py` after merging main: 2,807 of 2,808
+  passed in 252 files, none skipped; the one failure was the new
+  author-record test, whose book title Open Library's record did not agree
+  with. With the title fixed, `identity-resolution` passed 23 of 23.
+- No migration.

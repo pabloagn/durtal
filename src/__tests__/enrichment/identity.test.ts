@@ -170,6 +170,22 @@ describe("identity plans on recorded answers", () => {
     expect(differs.proposals.find((p) => p.dimension === "wikidata_qid")!.note).toContain("differs from the accepted ID Q90000003");
   });
 
+  it("takes an Open Library work with another author record when an exact QID confirms it, and sends it to review when none does", () => {
+    // Durtal's author keys on the newest backup: Open Library keeps a second record for each author
+    const life = planIdentity(book("Life and Fate", [edition("9781784871963", "Life and Fate")], { authorOpenLibraryIds: ["OL4655492A"] }), answers);
+    expect(values(life)).toEqual([
+      ["open_library_work", "OL157104W", 1],
+      ["wikidata_qid", "Q979609", 1],
+    ]);
+    expect(life.proposals[0].note).toBe("every ISBN record and the exact QID's P648 name this work; its author records differ");
+    const bolano = planIdentity(book("2666", [edition("9780374100148", "2666")], { authorOpenLibraryIds: ["OL6493404A"] }), answers);
+    expect(bolano.proposals.find((p) => p.dimension === "open_library_work")).toMatchObject({
+      value: "OL712025W",
+      confidence: 0.4,
+      note: "the Open Library work names other authors, and no exact QID confirms it",
+    });
+  });
+
   it("sends several Open Library works, other authors and a first year after the edition to review", () => {
     const two = planIdentity(book("Two works", [edition("9781784871963", "Life and Fate"), edition("9780241678763", "Beware of Pity")]), answers);
     expect(two.proposals.every((p) => p.confidence === 0.4 || p.dimension === "lccn")).toBe(true);

@@ -12,7 +12,7 @@ import type { TermHit } from "@/lib/wikidata/api";
  * changes: it is every claim's extractor version.
  */
 
-export const IDENTITY_RULES_VERSION = "identity-rules-1";
+export const IDENTITY_RULES_VERSION = "identity-rules-2";
 
 /** The identity dimensions of vocabulary v1, in the order a sweep applies them: the QID first */
 export const IDENTITY_DIMENSIONS = ["wikidata_qid", "open_library_work", "oclc_work", "lccn"] as const;
@@ -295,22 +295,6 @@ export function planIdentity(book: IdentityBook, answers: Answers): IdentityPlan
     const answer = ANSWER.work(id);
     plan.tried.push(`Open Library work ${id}`);
     const work = read<OpenLibraryWork>(answer);
-    const authors = (work?.authors ?? []).map((a) => openLibraryId(a.author.key, "A")).filter((a): a is string => !!a);
-    const authorsDiffer = authors.length > 0 && book.authorOpenLibraryIds.length > 0 && !authors.some((a) => book.authorOpenLibraryIds.includes(a));
-    const why = !workExact
-      ? workIds.length > 1
-        ? "the editions name several Open Library works"
-        : "an Open Library edition names several works, or has another title"
-      : authorsDiffer
-        ? "the Open Library work names other authors"
-        : "every ISBN record names this Open Library work";
-    offer({
-      dimension: "open_library_work",
-      value: id,
-      confidence: workExact && !authorsDiffer ? CONFIDENCE.exact : CONFIDENCE.review,
-      note: why,
-      evidence: works.get(id)!,
-    });
 
     // Items whose P648 is this work, and the work's own Wikidata link
     plan.tried.push(`Wikidata items linked to ${id}`);
@@ -341,7 +325,7 @@ export function planIdentity(book: IdentityBook, answers: Answers): IdentityPlan
         crossLinked: p648 >= 0 && (link >= 0 || byLink.length === 0),
       });
     }
-    for (const { item, evidence, crossLinked } of items) {
+    const qids = items.map(({ item, evidence, crossLinked }) => {
       const otherWork = item.claims.P648.find((w) => w !== id);
       const authorsDisagree = item.claims.P50.length > 0 && book.authorQids.length > 0 && !item.claims.P50.some((a) => book.authorQids.includes(a));
       const year = earliestYear(item);
@@ -361,14 +345,31 @@ export function planIdentity(book: IdentityBook, answers: Answers): IdentityPlan
                   : crossLinked
                     ? "Wikidata and Open Library link each other"
                     : "only Open Library links it";
-      offer({
-        dimension: "wikidata_qid",
-        value: item.id,
-        confidence: agrees && crossLinked ? CONFIDENCE.exact : agrees && !otherWork ? CONFIDENCE.onePath : CONFIDENCE.review,
-        note,
-        evidence,
-      });
-    }
+      const confidence = agrees && crossLinked ? CONFIDENCE.exact : agrees && !otherWork ? CONFIDENCE.onePath : CONFIDENCE.review;
+      return { dimension: "wikidata_qid" as const, value: item.id, confidence, note, evidence };
+    });
+
+    // Open Library keeps duplicate author records, so other author keys contradict the work only when no exact QID's P648 names it
+    const confirmed = qids.some((q) => q.confidence === CONFIDENCE.exact);
+    const authors = (work?.authors ?? []).map((a) => openLibraryId(a.author.key, "A")).filter((a): a is string => !!a);
+    const otherAuthors = authors.length > 0 && book.authorOpenLibraryIds.length > 0 && !authors.some((a) => book.authorOpenLibraryIds.includes(a));
+    const why = !workExact
+      ? workIds.length > 1
+        ? "the editions name several Open Library works"
+        : "an Open Library edition names several works, or has another title"
+      : !otherAuthors
+        ? "every ISBN record names this Open Library work"
+        : confirmed
+          ? "every ISBN record and the exact QID's P648 name this work; its author records differ"
+          : "the Open Library work names other authors, and no exact QID confirms it";
+    offer({
+      dimension: "open_library_work",
+      value: id,
+      confidence: workExact && (!otherAuthors || confirmed) ? CONFIDENCE.exact : CONFIDENCE.review,
+      note: why,
+      evidence: works.get(id)!,
+    });
+    for (const q of qids) offer(q);
   }
 
   // 3. No item through Open Library: the title search by author QID, always for review
