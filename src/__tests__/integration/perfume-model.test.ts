@@ -46,6 +46,8 @@ vi.mock("@/lib/cache", () => ({
   cached: (fn: unknown) => fn,
   CACHE_TAGS: {},
 }));
+// Merges and deletes end with the S3 clean-up: an in-memory bucket, nothing leaves the machine
+vi.mock("@/lib/s3/client", async () => (await import("@/__tests__/helpers/memory-bucket")).memoryS3Client());
 import {
   loadPerfumeHoldings,
   loadPerfumeClassification,
