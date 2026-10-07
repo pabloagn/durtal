@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, real, jsonb, timestamp, index, unique, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, real, jsonb, timestamp, index, foreignKey, unique, check } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { ebooks, ebookFiles } from "./ebooks";
 
@@ -14,9 +14,7 @@ export const ebookPositions = pgTable(
     ebookId: uuid("ebook_id")
       .notNull()
       .references(() => ebooks.id, { onDelete: "cascade" }),
-    fileId: uuid("file_id")
-      .notNull()
-      .references(() => ebookFiles.id, { onDelete: "cascade" }),
+    fileId: uuid("file_id").notNull(),
     /** The durtal-device cookie: a random uuid */
     deviceId: text("device_id").notNull(),
     /** "iPhone · Safari" */
@@ -32,6 +30,8 @@ export const ebookPositions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    // A file of this e-book, never another's (SLN-518)
+    foreignKey({ name: "ebook_positions_file_ebook_fk", columns: [t.fileId, t.ebookId], foreignColumns: [ebookFiles.id, ebookFiles.ebookId] }).onDelete("cascade"),
     unique("ebook_positions_file_device_unique").on(t.fileId, t.deviceId),
     index("ebook_positions_ebook_updated_idx").on(t.ebookId, t.updatedAt.desc()),
     check(

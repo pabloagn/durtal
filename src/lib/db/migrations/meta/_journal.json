@@ -561,6 +561,13 @@
       "when": 1791351129083,
       "tag": "0079_enrichment_extractions",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1791382145642,
+      "tag": "0080_ebook_constraints",
+      "breakpoints": true
     }
   ]
 }

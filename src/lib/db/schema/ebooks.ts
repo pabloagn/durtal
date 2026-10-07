@@ -10,6 +10,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  unique,
   check,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -48,7 +49,11 @@ export const ebooks = pgTable(
     description: text("description"),
     /** The preferred file's derived cover (an S3 key) */
     coverKey: text("cover_key"),
-    /** The file the reader opens first */
+    /**
+     * The file the reader opens first. A second key, ebooks_preferred_file_ebook_fk on
+     * (preferred_file_id, id), written by hand in migration 0080, keeps it one of this
+     * e-book's own files (SLN-518); both keys clear it when the file is deleted.
+     */
     preferredFileId: uuid("preferred_file_id").references((): AnyPgColumn => ebookFiles.id, {
       onDelete: "set null",
     }),
@@ -85,6 +90,11 @@ export const ebooks = pgTable(
     check(
       "ebooks_linked_check",
       sql`(${t.matchState} = 'linked') = (${t.instanceId} is not null)`,
+    ),
+    check("ebooks_import_source_check", sql`${t.importSource} in ('folder', 'upload')`),
+    check(
+      "ebooks_match_method_check",
+      sql`${t.matchMethod} is null or ${t.matchMethod} in ('isbn', 'identifier', 'score', 'manual', 'accession')`,
     ),
     uniqueIndex("ebooks_import_ref_unique")
       .on(t.importSource, t.importRef)
@@ -159,6 +169,8 @@ export const ebookFiles = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    // A file belongs to one e-book: the positions, annotations and preferred file name both (SLN-518)
+    unique("ebook_files_id_ebook_unique").on(t.id, t.ebookId),
     index("ebook_files_ebook_idx").on(t.ebookId),
     check("ebook_files_sha256_check", sql`${t.sha256} ~ '^[a-f0-9]{64}$'`),
     check(
@@ -168,6 +180,10 @@ export const ebookFiles = pgTable(
     check(
       "ebook_files_status_check",
       sql`${t.status} in ('stored', 'verified', 'missing', 'quarantined', 'replaced')`,
+    ),
+    check(
+      "ebook_files_drm_check",
+      sql`${t.drm} is null or ${t.drm} in ('adobe-adept', 'kindle', 'readium-lcp', 'apple-fairplay', 'pdf-password', 'unknown')`,
     ),
   ],
 );
