@@ -119,7 +119,7 @@ export function Sidebar({
           <Link
             href="/"
             onClick={closeOnClick}
-            className="text-fg-primary whitespace-nowrap"
+            className="text-fg-primary whitespace-nowrap touch-hit"
           >
             {isCollapsed ? (
               <>
@@ -147,7 +147,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Search trigger */}
+      {/* Search trigger. On touch it and the links below are 44 px high, and 44 px wide in the rail (SLN-541) */}
       <div className="shrink-0 overflow-hidden px-3 pb-2">
         <button
           onClick={onCommandPalette}
@@ -156,7 +156,7 @@ export function Sidebar({
           data-tooltip={rail ? "Search" : undefined}
           data-tooltip-keys="mod k"
           data-tooltip-side="right"
-          className={`flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-fg-secondary transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 md:py-1.5 ${
+          className={`flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-fg-secondary transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 md:py-1.5 pointer-coarse:min-h-11 touch-hit ${
             isCollapsed ? "md:justify-center md:gap-0 md:px-0" : ""
           }`}
         >
@@ -173,8 +173,9 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Navigation: it scrolls when the sections do not fit, in the drawer too */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2">
+      {/* Navigation: it scrolls when the sections do not fit, in the drawer too. On touch its
+          44 px links may not fit, and a finger scrolls it: no scrollbar takes the rail's width */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2 pointer-coarse:scrollbar-hide">
         <ul className="space-y-0.5">
           {NAV_SECTIONS.map(({ href, label }) => {
             const Icon = SECTION_ICONS[href];
@@ -190,7 +191,7 @@ export function Sidebar({
                   data-tooltip={rail ? label : undefined}
                   data-tooltip-keys={go ? `g then ${go.key}` : undefined}
                   data-tooltip-side="right"
-                  className={`flex items-center gap-2.5 rounded-sm px-2.5 py-2.5 text-sm transition-all duration-150 md:py-1.5 ${
+                  className={`flex items-center gap-2.5 rounded-sm px-2.5 py-2.5 text-sm transition-all duration-150 md:py-1.5 pointer-coarse:min-h-11 touch-hit ${
                     isCollapsed ? "md:justify-center md:gap-0 md:px-0" : ""
                   } ${
                     isActive
