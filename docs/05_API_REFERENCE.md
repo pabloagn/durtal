@@ -975,6 +975,46 @@ Streams a stored image, edition cover or comment attachment from the app's own o
 
 ---
 
+## eBooks
+
+E-book files live in their own private bucket (`docs/07_STORAGE.md`, eBook files). The browser never chooses a key and never receives an AWS credential: these routes read the file's row first, and only a row read in the same request is served or signed. Quarantined, missing and replaced files and files under DRM are never served. A malformed id answers `400` before any database or S3 call. All pass the same-origin check.
+
+### `GET /api/ebooks/files/[fileId]` and `HEAD`
+
+Streams one stored file from the e-book bucket (or a preview's `--s3-dir` folder), by HTTP Range, without buffering it: the app's own delivery for development, previews and when CloudFront is not set up (`EBOOK_DELIVERY=app`).
+
+| Request | Response |
+|---|---|
+| No `Range` | `200`, the whole file, `Accept-Ranges: bytes` |
+| `Range: bytes=a-b`, `bytes=a-` or `bytes=-n` | `206`, `Content-Range: bytes a-b/size` and the exact `Content-Length`. Of several ranges, the first is answered, as S3 does. A header that is not a byte range is ignored |
+| A range past the end | `416`, `Content-Range: bytes */size` |
+| `If-None-Match: "<sha256>"` | `304` |
+| `HEAD` | The same headers, no body |
+
+Headers: `ETag: "<sha256>"`, `Cache-Control: private, max-age=31536000, immutable` (the URL names the file, and a file's bytes never change), the exact `Content-Type` of its format, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`.
+
+**Error** `400`: malformed id. `404`: unknown file, a file that is not served, or no object in the bucket.
+
+### `GET /api/ebooks/files/[fileId]/url`
+
+Where the browser reads one file: a fresh URL, for a reader whose URL expired while a book stayed open for hours.
+
+**Response** `200`: `{ "url": "https://<cdn>/files/..?Expires=..&Key-Pair-Id=..&Signature=..", "expiresAt": "2026-10-08T00:00:00.000Z" }` with CloudFront (a signed URL, valid at least 6 hours; the same URL for 6 hours), or `{ "url": "/api/ebooks/files/<id>", "expiresAt": null }` when the app delivers. `Cache-Control: no-store`.
+**Error** `400`: malformed id. `404`: unknown file, or a file that is not served.
+
+### `GET /api/reader/[ebookId]/cover`
+
+An e-book's cover: its preferred file's derived WebP, at one width.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `w` | number | yes | `240`, `400` or `800` |
+
+**Response**: with CloudFront, `302` to the signed cover, cached (`private`) no longer than the signature stays good less an hour, and at most a day; otherwise `200` the WebP, `Cache-Control: private, max-age=86400`.
+**Error** `400`: malformed id, or `w` missing or not one of the widths. `404`: no such e-book, or it has no cover.
+
+---
+
 ## Image Adjustments
 
 ### `GET /api/image-adjustments.css`

@@ -23,7 +23,7 @@
                 +---------+         +---------+
                 |                             |
           [ Neon Postgres ]            [ AWS S3 ]
-           (external DB)              (eu-central-1)
+           (external DB)               (eu-north-1)
                                            |
                                     +-----------+
                                     |  bronze/  |  raw uploads

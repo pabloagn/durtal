@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ebookFiles, ebooks } from "@/lib/db/schema";
 import { coverKeySha256 } from "../keys";
@@ -77,4 +77,27 @@ export async function readCatalogueCover(ebookId: string): Promise<CatalogueCove
   if (!row) return null;
   const sha256 = coverKeySha256(row.fileCoverKey) ?? coverKeySha256(row.coverKey);
   return { ebookId: row.id, sha256 } as CatalogueCover;
+}
+
+/** The newest file that may be served, for the settings check; null when none is stored */
+export async function readNewestDeliverableFile(): Promise<CatalogueFile | null> {
+  const [row] = await db
+    .select({ id: ebookFiles.id })
+    .from(ebookFiles)
+    .where(and(inArray(ebookFiles.status, ["stored", "verified"]), isNull(ebookFiles.drm)))
+    .orderBy(desc(ebookFiles.createdAt))
+    .limit(1);
+  return row ? readCatalogueFile(row.id) : null;
+}
+
+/** The newest e-book with a cover, for the settings check; null when none has one */
+export async function readNewestCatalogueCover(): Promise<CatalogueCover | null> {
+  const [row] = await db
+    .select({ id: ebooks.id })
+    .from(ebooks)
+    .where(isNotNull(ebooks.coverKey))
+    .orderBy(desc(ebooks.createdAt))
+    .limit(1);
+  const cover = row ? await readCatalogueCover(row.id) : null;
+  return cover?.sha256 ? cover : null;
 }

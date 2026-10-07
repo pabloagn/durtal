@@ -1,7 +1,8 @@
 /**
  * Read-only report of gold/ and bronze/evidence/ objects that no database row
- * references (evidence keys are named in source_records payloads, SLN-468).
- * It never deletes anything.
+ * references (evidence keys are named in source_records payloads, SLN-468),
+ * and of the e-book bucket's files/ and derived/ objects that no ebook_files
+ * row names (SLN-491). It never deletes anything.
  *
  *   node --env-file=.env.local --import tsx scripts/maintenance/report-orphaned-s3.ts
  */
@@ -9,6 +10,9 @@ import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { s3, S3_BUCKET } from "../../src/lib/s3/client";
 import { keysInUse } from "../../src/lib/s3/cleanup";
 import { EVIDENCE_PREFIX } from "../../src/lib/s3/keys";
+import { db } from "../../src/lib/db";
+import { ebookStorage, listEbookObjects } from "../../src/lib/ebooks/storage";
+import { ebookOrphans } from "../../src/lib/ebooks/verify";
 
 // An upload writes the object before its row, so skip objects younger than a day.
 const MINIMUM_AGE_HOURS = 24;
@@ -52,6 +56,14 @@ for (let offset = 0; offset < candidates.length; offset += 1000) {
   orphans.push(...batch.filter((object) => !inUse.has(object.key)));
 }
 
+// The e-book bucket: the same 24-hour rule (an upload writes its objects first)
+const ebookBucket = ebookStorage();
+const ebookObjects = [
+  ...(await listEbookObjects(`${ebookBucket.prefix}files/`)),
+  ...(await listEbookObjects(`${ebookBucket.prefix}derived/`)),
+];
+const ebooks = await ebookOrphans(db, ebookObjects);
+
 console.log(
   JSON.stringify(
     {
@@ -63,6 +75,19 @@ console.log(
       orphans: orphans.length,
       totalBytes: orphans.reduce((sum, object) => sum + object.size, 0),
       objects: orphans,
+      ebooks: {
+        bucket: ebookBucket.bucket,
+        prefixes: [`${ebookBucket.prefix}files/`, `${ebookBucket.prefix}derived/`],
+        scanned: ebookObjects.length,
+        inFlight: ebooks.inFlight.length,
+        orphans: ebooks.unreferenced.length,
+        totalBytes: ebooks.unreferenced.reduce((sum, object) => sum + object.size, 0),
+        objects: ebooks.unreferenced.map((object) => ({
+          key: object.key,
+          size: object.size,
+          modified: object.lastModified?.toISOString() ?? null,
+        })),
+      },
     },
     null,
     2,

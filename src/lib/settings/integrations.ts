@@ -18,6 +18,10 @@ import { anthropicClient } from "@/lib/enrichment/research/model";
 import { EXTRACTION_MODEL } from "@/lib/enrichment/research/config";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
+import { previewS3Dir } from "@/lib/s3/preview-dir";
+import { ebookS3, ebookStorage, headEbookObject } from "@/lib/ebooks/storage";
+import { readNewestCatalogueCover, readNewestDeliverableFile } from "@/lib/ebooks/delivery/files";
+import { coverUrlFor, ebookDelivery, fileUrlFor } from "@/lib/ebooks/delivery/url";
 import {
   EXTERNAL_TIMEOUT_MS,
   ExternalFetchError,
@@ -34,6 +38,7 @@ import {
 export const INTEGRATION_IDS = [
   "database",
   "storage",
+  "ebookStorage",
   "isbndb",
   "googleBooks",
   "openLibrary",
@@ -142,7 +147,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
     {
       id: "storage",
       name: "Amazon S3",
-      purpose: "Keeps covers, photos, attachments and eBook files.",
+      purpose: "Keeps covers, photos and attachments.",
       env: [
         { name: "AWS_ACCESS_KEY_ID", set: isSet("AWS_ACCESS_KEY_ID") },
         { name: "AWS_SECRET_ACCESS_KEY", set: isSet("AWS_SECRET_ACCESS_KEY") },
@@ -155,6 +160,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
         { label: "Region", value: process.env.AWS_REGION ?? "us-east-1 (default)" },
       ],
     },
+    ebookStorageInfo(),
     {
       id: "isbndb",
       name: "ISBNdb",
@@ -290,6 +296,34 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
   };
 }
 
+/** The e-book bucket and how files reach the browser (SLN-491) */
+function ebookStorageInfo(): IntegrationInfo {
+  const { bucket, prefix, region } = ebookStorage();
+  const cloudfront = ebookDelivery() === "cloudfront";
+  return {
+    id: "ebookStorage",
+    name: "eBook storage",
+    purpose: cloudfront
+      ? "Keeps eBook files in their own bucket. CloudFront sends them to the browser by signed URLs that last at least 6 hours."
+      : "Keeps eBook files in their own bucket. The app sends them to the browser itself; CloudFront is not set up.",
+    env: [
+      { name: "EBOOKS_BUCKET", set: isSet("EBOOKS_BUCKET"), optional: true },
+      { name: "EBOOKS_PREFIX", set: isSet("EBOOKS_PREFIX"), optional: true },
+      { name: "EBOOKS_REGION", set: isSet("EBOOKS_REGION"), optional: true },
+      { name: "EBOOK_DELIVERY", set: isSet("EBOOK_DELIVERY"), optional: true },
+      { name: "EBOOK_CDN_URL", set: isSet("EBOOK_CDN_URL"), optional: !cloudfront },
+      { name: "EBOOK_CDN_KEY_PAIR_ID", set: isSet("EBOOK_CDN_KEY_PAIR_ID"), optional: !cloudfront },
+      { name: "EBOOK_CDN_PRIVATE_KEY", set: isSet("EBOOK_CDN_PRIVATE_KEY"), optional: !cloudfront },
+    ],
+    checkFrom: "server",
+    facts: [
+      { label: "Bucket", value: prefix ? `${bucket}, under ${prefix}` : bucket },
+      { label: "Region", value: region },
+      { label: "Delivery", value: cloudfront ? "CloudFront, signed URLs" : "The app" },
+    ],
+  };
+}
+
 // ── Checks ──────────────────────────────────────────────────────────────────
 
 const ok = (message: string): CheckResult => ({ status: "ok", message });
@@ -391,6 +425,61 @@ async function checkStorage(): Promise<CheckResult> {
     }
     return failure("S3 could not be reached");
   }
+}
+
+/**
+ * The e-book bucket: a HEAD of the newest stored file (or of the bucket,
+ * before any file is stored), and with CloudFront the first byte of one
+ * signed derived object (a cover, else the file itself).
+ */
+async function checkEbookStorage(): Promise<CheckResult> {
+  if (previewS3Dir()) return ok("This preview keeps eBook files in a local folder");
+  if (!isSet("AWS_ACCESS_KEY_ID") || !isSet("AWS_SECRET_ACCESS_KEY")) {
+    return off("The access keys are not set");
+  }
+  const { bucket, region } = ebookStorage();
+  const start = performance.now();
+  let file: Awaited<ReturnType<typeof readNewestDeliverableFile>>;
+  try {
+    file = await withinLimit(readNewestDeliverableFile(), "The database");
+    if (!file) {
+      await ebookS3().send(new HeadBucketCommand({ Bucket: bucket }), {
+        abortSignal: AbortSignal.timeout(EXTERNAL_TIMEOUT_MS),
+      });
+      return ok(`The bucket answered in ${since(start)} ms; no eBook file is stored yet`);
+    }
+    if (!(await withinLimit(headEbookObject(file.s3Key), "S3"))) {
+      return failure("The newest eBook file is not in the bucket");
+    }
+  } catch (error) {
+    const failed = error as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+    const status = failed.$metadata?.httpStatusCode;
+    if (status === 301) return failure(`The bucket is not in ${region}`);
+    if (status === 403) return failure("The credentials cannot read the eBook bucket");
+    if (status === 404) return failure(`There is no bucket named ${bucket}`);
+    if (/did not answer/.test(failed.message ?? "")) return failure(failed.message!);
+    if (failed.name === "TimeoutError" || failed.name === "AbortError") {
+      return failure(`S3 did not answer within ${EXTERNAL_TIMEOUT_MS / 1000} s`);
+    }
+    return failure("S3 could not be reached");
+  }
+  const s3Time = since(start);
+  if (ebookDelivery() !== "cloudfront") return ok(`S3 answered in ${s3Time} ms; the app sends the files`);
+  const cover = await readNewestCatalogueCover();
+  const target = (cover && coverUrlFor(cover, 240)) ?? fileUrlFor(file);
+  const edge = performance.now();
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(target.url, { headers: { Range: "bytes=0-0" } });
+  } catch {
+    return failure(`S3 answered in ${s3Time} ms, but CloudFront could not be reached`);
+  }
+  await res.arrayBuffer().catch(() => undefined);
+  if (res.status === 206 || res.status === 200) {
+    return ok(`S3 answered in ${s3Time} ms and CloudFront in ${since(edge)} ms`);
+  }
+  if (res.status === 403) return failure("CloudFront refused the signed URL: check the key pair id and the key group");
+  return failure(`CloudFront answered with status ${res.status}`);
 }
 
 /** The last Google Books call from search or Match, since the app started */
@@ -607,6 +696,7 @@ async function checkExtractionModel(): Promise<CheckResult> {
 const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult>> = {
   database: checkDatabase,
   storage: checkStorage,
+  ebookStorage: checkEbookStorage,
   isbndb: checkIsbndb,
   googleBooks: checkGoogleBooks,
   openLibrary: checkOpenLibrary,
