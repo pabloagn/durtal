@@ -142,11 +142,15 @@ describe.skipIf(!url)("the e-book catalogue", () => {
       expect(await snapshot()).toEqual(first);
     });
 
-    it("makes the location on a database without one", async () => {
-      await reset(after);
-      const places = await c`select id, name, type from locations`;
-      expect(places).toEqual([{ id: expect.any(String), name: "eBooks", type: "digital" }]);
-      expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: places[0].id }]);
+    describe("with no digital location", () => {
+      // Every migration on an empty schema: the setup, in a hook with its own limit, as the
+      // tables below do; it took most of the test's 5 s on a slower machine (SLN-538)
+      beforeAll(() => reset(after), 60000);
+      it("makes the location on a database without one", async () => {
+        const places = await c`select id, name, type from locations`;
+        expect(places).toEqual([{ id: expect.any(String), name: "eBooks", type: "digital" }]);
+        expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: places[0].id }]);
+      });
     });
   });
 

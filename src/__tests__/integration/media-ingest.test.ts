@@ -216,8 +216,9 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
 
   it("serves every author image in monochrome: portrait, background and gallery", async () => {
     const person = await createPerson({ name: "David Peace", domains: ["book"] });
+    // Small pictures: the colour rule does not depend on size, and large ones only took time (SLN-538)
     for (const mediaType of ["poster", "background", "gallery"] as const) {
-      const row = await ingestMedia({ owner: { type: "author", id: person.id }, mediaType, buffer: await picture(1600, 900) });
+      const row = await ingestMedia({ owner: { type: "author", id: person.id }, mediaType, buffer: await picture(400, 225) });
       expect(await isMonochrome(row.s3Key), `${mediaType} full size`).toBe(true);
       expect(await isMonochrome(row.thumbnailS3Key!), `${mediaType} thumbnail`).toBe(true);
       // The colour copy is kept for re-tuning, never served
@@ -225,8 +226,8 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
       expect(await isMonochrome(row.originalS3Key!), `${mediaType} original`).toBe(false);
       expect(row.processingParams).toBeTruthy();
     }
-    // A background keeps its landscape size
-    const background = await ingestMedia({ owner: { type: "author", id: person.id }, mediaType: "background", buffer: await picture(4000, 2000) });
+    // A background keeps its landscape size: just over the 2,560 px limit is enough to show it
+    const background = await ingestMedia({ owner: { type: "author", id: person.id }, mediaType: "background", buffer: await picture(2600, 1300) });
     expect(await sharp(bucket.bodies.get(background.s3Key)!).metadata()).toMatchObject({ width: 2560, height: 1280 });
   });
 
