@@ -53,5 +53,12 @@ decoration as 0366 (#147) marked the same letters on the book cards.
   `CapAligned` (24 px, 44 px on touch), and the three links take
   `touch-hit`. The alignment and touch audits find nothing with the panel
   open.
+- With the panel fix, merged with main 6ed7c4f7, as a production build on
+  the newest backup with an order's panel open: before the fix the alignment
+  audit found the three buttons 3.13 px off in Chrome, and at 390 px the
+  touch audit found Edit, Delete, Close and "View Work". After it, in
+  headless Chrome, Firefox and WebKit at 1440 px and at 390 px with a coarse
+  pointer, the alignment, design, overflow and touch audits find nothing on
+  `/people`, on `/provenance` or in the panel. `page-weight.js` passes.
 - Typecheck clean. Lint: no new warning. `pnpm deadcode` clean.
-- `scripts/qa/test-local.py`: 261 files, 2,949 tests, all passed.
+- `scripts/qa/test-local.py`: 262 files, 2,953 tests, all passed.
