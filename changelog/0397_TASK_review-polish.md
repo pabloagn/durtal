@@ -1,4 +1,4 @@
-# Task 0397: The optional review notes on #155, #156 and #157
+# Task 0397: The optional review notes on #155, #156 and #157, and a person's nationality link on touch
 
 **Status**: Completed
 **Created**: 2026-10-07
@@ -13,7 +13,9 @@ SLN-547. The code review left one optional note on each of three PRs that
 have landed: a changelog that gives one measurement twice (#155, 0374), the
 "Start reading" label on a narrow Up Next list sitting 10 px right of the
 title above it (#156, 0375), and the sidebar's resize handle lying over the
-right edge of the rail's touch press areas (#157, 0377).
+right edge of the rail's touch press areas (#157, 0377). A fourth from the
+same sweep: on a person's page the nationality link was a 24 px tap target
+on touch.
 
 ## Implementation Details
 
@@ -32,6 +34,9 @@ right edge of the rail's touch press areas (#157, 0377).
   56 px rail, so a touch there follows the link instead of starting a
   resize. With a mouse it shows and works as before. `pointer-coarse:hidden`
   comes after `md:block` in the compiled CSS, so it wins at every width.
+- `src/app/people/[slug]/author-detail-header.tsx`: the nationality link
+  takes `touch-hit`, a press area at least 44 x 44 px on a coarse pointer.
+  The link and its line keep their size, with a mouse and on touch.
 
 No schema change, no new package.
 
@@ -50,12 +55,20 @@ No schema change, no new package.
     edge of each control's press area (the logo, Search and the 18 links)
     lands on that control in every case: 20 of 20. The review found all 20
     hitting the handle in the rail on main.
+  - A person's page, with two people added: A. A. Milne (United Kingdom,
+    1882-1956) and Koulsy Lamko (Chad, a name narrower than 44 px). The
+    link is 24 px high, as before, with a mouse and on touch. On touch at
+    1024 and 390 px its press area is 44 px high (123 x 44 and 44 x 44 px),
+    a point 1 px inside each of its four edges lands on the link, and it
+    ends 12 px clear of the dates beside it. With a mouse at 1440 and 768 px
+    there is no press area beyond the link.
 - `alignment-audit.js`, `design-audit.js`, `overflow-audit.js` and, at
-  390 px with a coarse pointer, `touch-audit.js` on `/`, `/library` and
-  `/reading/next` at 1440, 768 and 390 px in the three browsers: 27 of 27
-  page loads find nothing.
-- `page-weight.js`: every route passes (`/reading/next` 67 / 300 KB).
-  `phone-audit.mjs` finds no page scrolling sideways; `interaction-audit.mjs`
-  on `/reading/next` and `/library` finds no failure.
+  390 px with a coarse pointer, `touch-audit.js` on `/`, `/library`,
+  `/reading/next` and both person pages at 1440, 768 and 390 px in the
+  three browsers: every page load finds nothing.
+- `page-weight.js`: every route passes (`/reading/next` 67 / 300 KB,
+  `/people` 211 / 300 KB). `phone-audit.mjs` finds no page scrolling
+  sideways; `interaction-audit.mjs` on `/reading/next`, `/library` and
+  `/people/a-a-milne` finds no failure.
 - Typecheck clean. Lint: 0 errors, 77 warnings as on main. `pnpm deadcode`
   clean.
