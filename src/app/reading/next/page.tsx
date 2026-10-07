@@ -48,7 +48,8 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
     const copy = edition?.copies.find((c) => c.status !== "deaccessioned");
     const format = edition?.audioMinutes ? "audio" : formatOfCopy(copy?.format);
     const time = timeToRead(edition, format, pace.priors);
-    const length = edition?.audioMinutes ? formatMinutes(edition.audioMinutes) : edition?.pageCount ? `${edition.pageCount} p.` : null;
+    // The length the time counts: no page count outside 16 to 3,000 pages
+    const length = time.kind === "audio" ? formatMinutes(time.minutes) : time.kind === "pages" ? `${time.pages} p.` : null;
     const row: QueueRow = {
       workId: item.workId,
       place: i + 1,
