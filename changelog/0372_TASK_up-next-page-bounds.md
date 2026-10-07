@@ -29,5 +29,23 @@ read.
 
 ## Completion Notes
 
-The test fails without the change in `queue.ts`. The edition data is not
-changed: the count stays as it is until the edition is corrected.
+- The new test fails without the change in `queue.ts`.
+- The edition data is not changed: the count stays as it is until the edition
+  is corrected.
+- Production builds of main (df183f02) and this branch on the newest backup.
+  The backup's Up Next is empty, so the preview's database (local, thrown
+  away after) got three books in Up Next: Under the Volcano with its edition
+  set to 3,980 pages, Stella Maris set to 3,000, and The Book of Disquiet at
+  its own 560 pages. No timed session, so the pace is the default 30 pages an
+  hour.
+  - Main, Chrome at 1440 px: "3980 p. · On your shelf in Amsterdam · About
+    132 h 40 min", "3000 p. · … · About 100 h", "560 p. · … · About 18 h 40
+    min". The summary reads "3 books · 7,540 pages".
+  - This branch, in headless Chrome, Firefox and WebKit at 1440 px and at
+    390 px with a coarse pointer: Under the Volcano reads "On your shelf in
+    Amsterdam" only; the other two rows are unchanged. The summary reads "3
+    books · 3,560 pages · 1 without a length".
+  - The alignment, design and overflow audits find nothing. `page-weight.js`
+    passes (`/reading/next` 57 of 300 KB, 7 of 1,000 ms).
+- Typecheck clean. Lint: no new warning. `pnpm deadcode` clean.
+- `scripts/qa/test-local.py`: 259 files, 2,930 tests, all passed.
