@@ -1,6 +1,7 @@
 "use client";
 
 import { CopyBookButton } from "./copy-book-button";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -108,13 +109,19 @@ function renderBookCell(book: DetailedBookItem, key: string) {
               />
             ) : (
               <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>
+                <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>
               </div>
             )}
           </div>
           <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /><PoisonBadge isPoison={book.isPoison} /></span>
         </Link>
-        <CopyBookButton {...book} />
+        {/* The copy button on the title's line: a column of the text's lines, an empty line for the marks' */}
+        <span className="flex flex-col">
+          <CapAlignedControls height={28}>
+            <CopyBookButton {...book} />
+          </CapAlignedControls>
+          {(book.isRare || book.isPoison) && <span aria-hidden="true" className="block h-[1lh]" />}
+        </span>
         </div>
       );
     case "catalogueStatus": {
