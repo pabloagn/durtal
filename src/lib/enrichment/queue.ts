@@ -6,11 +6,12 @@ import { enqueueEnrichmentJob } from "./jobs";
 
 /*
  * Which books enrichment works first (SLN-464, the order of SLN-473's waves),
- * and the identity job a new book queues after its save.
+ * and the jobs a new book queues after its save: identity (SLN-464) and
+ * research (SLN-469). Queueing spends nothing.
  */
 
-/** The scopes a run can queue, in their order */
-export const ENRICHMENT_SCOPES = ["owned", "on_order", "wanted"] as const;
+/** The scopes a run can queue, in their order; `all` is every book, each at its own scope's priority */
+export const ENRICHMENT_SCOPES = ["owned", "on_order", "wanted", "all"] as const;
 export type EnrichmentScope = (typeof ENRICHMENT_SCOPES)[number];
 /** Lower runs first: owned, on order, wanted, then the rest */
 export const SCOPE_PRIORITY = { owned: 10, on_order: 20, wanted: 30, rest: 100 } as const;
@@ -21,6 +22,7 @@ export const BULK_ACCESSION_PRIORITY = 200;
 export function scopeCondition(scope: EnrichmentScope, workId: SQL): SQL {
   const owned = ownedBookCondition(workId);
   const status = (value: string) => sql`(select catalogue_status from works where id = ${workId}) = ${value}`;
+  if (scope === "all") return sql`true`;
   if (scope === "owned") return owned;
   if (scope === "on_order") return sql`(not ${owned} and ${status("on_order")})`;
   return sql`(not ${owned} and ${status("wanted")})`;
@@ -35,10 +37,10 @@ export function scopePriority(workId: SQL): SQL<number> {
 }
 
 /**
- * Queues a new or newly identified book's identity job, after its save has
- * committed. Never throws: a save never fails because of the queue, and a
- * failure is logged with `[enrichment]`, like the publisher auto-resolve. An
- * open job of the book is merged, not duplicated.
+ * Queues a new or newly identified book's identity and research jobs, after
+ * its save has committed. Never throws: a save never fails because of the
+ * queue, and a failure is logged with `[enrichment]`, like the publisher
+ * auto-resolve. An open job of the book is merged, not duplicated.
  */
 export async function queueNewBookEnrichment(workId: string, options: { priority?: number } = {}) {
   try {
@@ -46,8 +48,10 @@ export async function queueNewBookEnrichment(workId: string, options: { priority
       await db.execute(sql`select ${scopePriority(sql`${workId}::uuid`)} as priority from works where id = ${workId}::uuid and kind = 'book'`),
     );
     if (!book) return;
-    await enqueueEnrichmentJob({ workId, kind: "identity", reason: "created", priority: options.priority ?? Number(book.priority) });
+    const priority = options.priority ?? Number(book.priority);
+    await enqueueEnrichmentJob({ workId, kind: "identity", reason: "created", priority });
+    await enqueueEnrichmentJob({ workId, kind: "research", reason: "created", priority });
   } catch (error) {
-    console.error("[enrichment] Could not queue the new book's identity job", workId, error);
+    console.error("[enrichment] Could not queue the new book's jobs", workId, error);
   }
 }

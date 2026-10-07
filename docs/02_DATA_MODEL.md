@@ -499,6 +499,20 @@ Pablo: until the review inbox (SLN-470), his decisions are `IDENTITY_REVIEW`
 (`src/lib/enrichment/identity-review.ts`), keyed by book slug, and every report
 ends with ready entries for the books that need one.
 
+**Research (SLN-469).** The research stage of the worker finds the pages that
+later stages quote from. For each book it builds a profile from the catalogue
+only (titles, authors, translators, original language; never notes, rating,
+description or readings), plans its queries in three groups (base, outlets,
+topics; `src/lib/enrichment/research/`), searches through Tavily and, as a
+fallback, Brave Search (docs/08), keeps the results of active registry outlets
+(never a blocked host or an excluded outlet), and stores the best of them
+through the evidence store: one `source_records` row per page, owned by the
+book, with the run id in its payload. Each search is a row in
+`enrichment_costs`. It writes no claim; a finished job queues the book's
+`extract` job (reason `research`). A refusal of both providers, the monthly
+budget or the book's ceiling (`maxCostPerWork`, $1.50) holds the job without
+an attempt.
+
 ### Evidence store and cost meter
 
 Migration `0078_evidence_store` (SLN-468) adds the outlet registry and the cost

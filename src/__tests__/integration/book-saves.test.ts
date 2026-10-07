@@ -114,9 +114,10 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
     ).toEqual([
       { event_key: "work.created", metadata: { newValue: "The Magic Mountain" } },
     ]);
-    // Its identity job, after the save (SLN-464): a tracked book comes last
-    expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id=${work.id}`).toEqual([
+    // Its identity and research jobs, after the save (SLN-464, SLN-469): a tracked book comes last
+    expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id=${work.id} order by kind`).toEqual([
       { kind: "identity", priority: 100, reason: "created" },
+      { kind: "research", priority: 100, reason: "created" },
     ]);
   });
 

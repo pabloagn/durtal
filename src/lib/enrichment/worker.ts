@@ -8,14 +8,16 @@ import {
   enqueueEnrichmentJob,
   failEnrichmentJob,
   finishEnrichmentJob,
+  holdEnrichmentJob,
   releaseHeldEnrichmentJobs,
   renewEnrichmentJobLease,
 } from "./jobs";
 import { JOB_LEASE_MINUTES } from "./rules";
 import { undoApplication } from "./claims";
 import { QuotaStop, type SourceCache } from "./source-cache";
+import { BudgetStop, WorkCeilingStop } from "./meter";
 import { ENRICHMENT_STAGES, stagesFor, type EnrichmentStage, type StageContext, type StageJob } from "./stages";
-import { SCOPE_PRIORITY, scopeCondition, type EnrichmentScope } from "./queue";
+import { SCOPE_PRIORITY, scopeCondition, scopePriority, type EnrichmentScope } from "./queue";
 
 /*
  * The enrichment worker (SLN-464), run by hand from scripts/enrichment/worker.ts.
@@ -39,6 +41,14 @@ export async function assertReadOnly(conn: Db) {
     (error: unknown) => databaseErrorCode(error) === "25006",
   );
   if (!refused) throw new Error("The database accepted a write in a read-only session; nothing ran");
+}
+
+/** The hold of a job whose calls stopped: a refusal, the monthly budget, or the book's cost ceiling */
+function holdReason(error: unknown) {
+  if (error instanceof QuotaStop) return error.reason;
+  if (error instanceof BudgetStop) return "budget";
+  if (error instanceof WorkCeilingStop) return "work_cost_ceiling";
+  return null;
 }
 
 export interface WorkerOptions {
@@ -69,7 +79,7 @@ export interface WorkerReport {
   /** Why the fetch stopped, or null */
   stopped: string | null;
   /** The jobs written, with their outcome or error */
-  jobs: { id: string; slug: string | null; outcome?: Record<string, unknown>; error?: string; skipped?: string }[];
+  jobs: { id: string; kind: EnrichmentJobKind; slug: string | null; outcome?: Record<string, unknown>; error?: string; skipped?: string }[];
 }
 
 /**
@@ -104,10 +114,12 @@ async function jobSet(conn: Db, kinds: EnrichmentJobKind[], only: string[] | und
  */
 export async function runWorker(conn: Db, options: WorkerOptions): Promise<WorkerReport> {
   const stages = stagesFor(options.kinds, options.stages ?? ENRICHMENT_STAGES);
-  const ctx: StageContext = { runId: options.runId, cache: options.cache, pace: options.pace ?? 1100, contact: options.contact ?? null };
-  for (const stage of stages)
+  const ctx: StageContext = { runId: options.runId, cache: options.cache, pace: options.pace ?? 1100, contact: options.contact ?? null, apply: options.apply };
+  for (const stage of stages) {
     if (stage.callsOut && !ctx.contact)
       throw new Error(`The ${stage.kind} stage calls outside services: set ENRICHMENT_CONTACT (the contact its User-Agent names) first`);
+    if (options.apply) stage.preflight?.(ctx);
+  }
   const report: WorkerReport = { lines: [], stopped: null, jobs: [] };
   const set = await jobSet(conn, options.kinds, options.only, options.limit);
 
@@ -119,8 +131,8 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
       await stage.fetch(conn, jobs, ctx);
       fetched += jobs.length;
     } catch (error) {
-      if (!(error instanceof QuotaStop)) throw error;
-      fetched += error.done;
+      if (!(error instanceof QuotaStop || error instanceof BudgetStop)) throw error;
+      if (error instanceof QuotaStop) fetched += error.done;
       report.stopped = error.message;
       break;
     }
@@ -162,9 +174,10 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
       const stage = stages.find((s) => s.kind === job.kind)!;
       const claimed = await claimNextEnrichmentJob({ worker: options.worker, kinds: [job.kind], jobIds: [job.id] }, conn);
       if (!claimed) {
-        report.jobs.push({ id: job.id, slug: job.slug, skipped: "taken by another worker or no longer due" });
+        report.jobs.push({ id: job.id, kind: job.kind, slug: job.slug, skipped: "taken by another worker or no longer due" });
         continue;
       }
+      let plan = plans.get(job.id)!.plan;
       const beat = options.heartbeat
         ? setInterval(() => {
             renewEnrichmentJobLease({ id: job.id, worker: options.worker }, options.heartbeat!.conn).catch((error) =>
@@ -173,17 +186,32 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
           }, options.heartbeat.everyMs)
         : null;
       try {
+        // Calls outside any transaction (searches, fetches); a refusal or a cap holds the job
+        if (stage.work) {
+          try {
+            plan = await stage.work(conn, job, plan, ctx);
+          } catch (error) {
+            const reason = holdReason(error);
+            if (!reason) throw error;
+            await holdEnrichmentJob({ id: job.id, worker: options.worker, reason }, conn);
+            report.jobs.push({ id: job.id, kind: job.kind, slug: job.slug, skipped: `held (${reason}): ${(error as Error).message}` });
+            if (reason === "work_cost_ceiling") continue;
+            report.stopped = (error as Error).message;
+            report.lines.unshift(`Stopped after ${report.jobs.length - 1} of ${set.length} jobs: ${report.stopped}`);
+            break;
+          }
+        }
         const outcome = await inTransaction(conn, async (tx) => {
-          const result = await stage.write(tx, job, plans.get(job.id)!.plan, ctx);
+          const result = await stage.write(tx, job, plan, ctx);
           // A job whose lease another worker took is no longer this run's to write
           if (!(await finishEnrichmentJob({ id: job.id, worker: options.worker, outcome: result }, tx)))
             throw new Error("Another worker took this job over; its write is rolled back");
           return result;
         });
-        report.jobs.push({ id: job.id, slug: job.slug, outcome });
+        report.jobs.push({ id: job.id, kind: job.kind, slug: job.slug, outcome });
       } catch (error) {
         await failEnrichmentJob({ id: job.id, worker: options.worker, error }, conn);
-        report.jobs.push({ id: job.id, slug: job.slug, error: error instanceof Error ? error.message : String(error) });
+        report.jobs.push({ id: job.id, kind: job.kind, slug: job.slug, error: error instanceof Error ? error.message : String(error) });
       } finally {
         if (beat) clearInterval(beat);
       }
@@ -192,6 +220,8 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
     `## Jobs (${report.jobs.length} of ${set.length})`,
     ...report.jobs.map((j) => `- ${j.slug ?? j.id}: ${j.error ? `failed: ${j.error}` : j.skipped ? `skipped: ${j.skipped}` : JSON.stringify(j.outcome)}`),
   );
+  for (const stage of stages)
+    report.lines.push(...(stage.outcomes?.(report.jobs.filter((j) => j.kind === stage.kind && j.outcome).map((j) => j.outcome!)) ?? []));
   for (const stage of stages) if (stage.epilogue) report.lines.push(...(await stage.epilogue(conn)));
   report.lines.push("", "After a live apply, refresh the app's cached data in Settings → Data.");
   return report;
@@ -227,14 +257,23 @@ export async function undoRun(conn: Db, options: { runId: string; apply: boolean
 /** Queues one job per book of a scope (or of the named books): counts only, unless `apply` */
 export async function enqueueScope(conn: Db, options: { kind: EnrichmentJobKind; scope: EnrichmentScope; only?: string[]; apply: boolean }) {
   const named = options.only?.length ? sql`and w.slug in (${sql.join(options.only.map((s) => sql`${s}`), sql`, `)})` : sql``;
-  const books = resultRows<{ id: string }>(
-    await conn.execute(sql`select w.id from works w where w.kind = 'book' and ${scopeCondition(options.scope, sql`w.id`)} ${named} order by w.id`),
+  // Research is paid: a scope skips books already researched, and --only names a book again
+  const researched =
+    options.kind === "research" && !options.only?.length
+      ? sql`and not exists (select 1 from enrichment_jobs j where j.work_id = w.id and j.kind = 'research' and j.status = 'done')`
+      : sql``;
+  const books = resultRows<{ id: string; priority: number }>(
+    await conn.execute(sql`select w.id, ${scopePriority(sql`w.id`)} as priority from works w
+      where w.kind = 'book' and ${scopeCondition(options.scope, sql`w.id`)} ${named} ${researched} order by w.id`),
   );
   const lines = [`${options.scope}: ${books.length} books to queue for ${options.kind}`];
   if (options.apply)
     await inTransaction(conn, async (tx) => {
       for (const book of books)
-        await enqueueEnrichmentJob({ workId: book.id, kind: options.kind, reason: "manual", priority: SCOPE_PRIORITY[options.scope] }, tx);
+        await enqueueEnrichmentJob(
+          { workId: book.id, kind: options.kind, reason: "manual", priority: options.scope === "all" ? Number(book.priority) : SCOPE_PRIORITY[options.scope] },
+          tx,
+        );
     });
   return { lines, books: books.length };
 }

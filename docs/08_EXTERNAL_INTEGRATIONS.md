@@ -300,6 +300,62 @@ Every refusal has a typed reason for the run report (`EVIDENCE_FETCH_REASONS`).
 Search providers, model calls and their costs are metered by the cost meter
 (docs/02); page fetches and free official APIs are not.
 
+## Research search (SLN-469)
+
+The research agent's stage of the enrichment worker searches for reviews and
+publisher pages of a book. It sends only the book's titles, its authors' names,
+a translator's surname, the word for "review" in the original language and the
+topic words of the research config (`src/lib/enrichment/research/config.ts`).
+It never sends a note, a rating, a description, a reading or any e-book text
+(R7). It keeps only each result's URL, title and rank: the page is fetched and
+stored through the evidence fetcher above, never taken from the provider.
+Snippets are off for both providers: neither's terms are recorded here as
+allowing a snippet to be stored and passed to a model as text copied from the
+page, so a `snippet_only` outlet gives nothing. Every call goes through the cost
+meter, with the price table's row (`src/lib/enrichment/prices.ts`), and sends
+the enrichment User-Agent. A provider's failure is logged with its name and
+HTTP status only, never a URL, key or body.
+
+### Tavily (main)
+
+- **Endpoint:** `POST https://api.tavily.com/search`, `Authorization: Bearer
+  <TAVILY_API_KEY>`. `search_depth: "basic"`, `max_results: 10`,
+  `include_answer: false`, `include_raw_content: false`, `include_images:
+  false`; an outlet query sets `include_domains` (at most 300 domains). The
+  answer's `results[].url`, `title` and position are read; its `content`,
+  `raw_content` and `answer` are not used.
+- **Price and limits** (read on 7 Oct 2026 at
+  https://docs.tavily.com/documentation/api-credits): the free Researcher
+  plan gives 1,000 credits a month, no card; a basic search costs 1 credit;
+  pay-as-you-go is $0.008 a credit. The price row is 0, so trial searches pass
+  even at a cap of $0, and still count in the ledger. The API's own limit is 100
+  requests a minute on a development key; the worker paces searches by
+  `--pace` (1,100 ms by default).
+- **Refusals:** 401 (key), 429 (rate), 432 (key or plan limit) and 433
+  (pay-as-you-go limit) make the run move to the fallback; a 5xx or an
+  unreadable answer is tried once more first.
+- **Check:** `GET https://api.tavily.com/usage`, free, at most 10 calls in 10
+  minutes.
+
+### Brave Search (fallback)
+
+- **Endpoint:** `GET https://api.search.brave.com/res/v1/web/search`,
+  `X-Subscription-Token: <BRAVE_SEARCH_API_KEY>`, `count` 10, plain text titles.
+  Brave has no domain filter: an outlet query adds up to 8 `site:` terms. The
+  answer's `web.results[].url`, `title` and position are read.
+- **Price and limits** (read on 7 Oct 2026 at https://brave.com/search/api/):
+  $5 per 1,000 requests, with $5 of credit a month; the free tier ended in
+  early 2026. The price row is $0.005 a request: the meter does not count the
+  monthly credit, so it errs high. The plan allows 50 requests a second; the
+  worker paces it like the main provider.
+- **When:** for the rest of a run once Tavily refuses or fails twice, and once
+  for a book Tavily leaves with fewer than two allowlisted candidates. Without
+  its key the fallback is off and the plan says so. When both refuse, the run
+  stops and the job in hand is held (`quota` or `rate_limited`).
+- **Check:** Brave has no free call that proves a key, so the check makes one
+  search (`count=1`) through the meter as operation `check`; at the cap it makes
+  no call and warns.
+
 ---
 
 ## Integration Summary
@@ -313,3 +369,5 @@ Search providers, model calls and their costs are metered by the cost meter
 | Open Library and Wikidata (book identity) | None; User-Agent with `ENRICHMENT_CONTACT` | Open Library 1 per 1.1 s; Wikidata 1 per 2 s, the query service about 1 a minute | The enrichment worker's identity stage (SLN-464); loc.gov is not called |
 | Art Institute of Chicago, The Met | None | 1 req/sec | Painting and original lookup; location only from "on view" |
 | Evidence outlets (review and publisher sites) | None | 1 request per 5 s per host, or its crawl delay | Book enrichment evidence, robots.txt and terms honoured |
+| Tavily | `TAVILY_API_KEY` | 100/minute; 1,000 free searches a month | The research agent's main search (SLN-469) |
+| Brave Search | `BRAVE_SEARCH_API_KEY` (optional) | 50/second; $5 per 1,000 | The research agent's fallback search (SLN-469) |

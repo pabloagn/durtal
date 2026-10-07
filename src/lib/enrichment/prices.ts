@@ -1,7 +1,7 @@
 /**
  * What each metered call costs (SLN-468), in US dollars per unit, read from
- * each provider's own price page. Empty until the research agent (SLN-469)
- * adds the providers chosen in SLN-461. A provider or operation without a
+ * each provider's own price page. The research agent (SLN-469) adds the
+ * providers chosen in SLN-461. A provider or operation without a
  * row is refused: the meter fails closed. A free-tier operation has a price
  * of 0 and is still metered, so its units are counted.
  */
@@ -15,7 +15,13 @@ export interface PriceRow {
   readOn: string;
 }
 
-export const PRICES: readonly PriceRow[] = [];
+export const PRICES: readonly PriceRow[] = [
+  // The research agent's main search (SLN-469): the free Researcher plan, 1,000 credits a month, 1 credit per basic search
+  { provider: "tavily", operation: "search", usdPerUnit: { credits: 0 }, source: "https://docs.tavily.com/documentation/api-credits", readOn: "2026-10-07" },
+  // Its fallback: $5 per 1,000 requests (the $5 monthly credit is not counted, so the meter errs high)
+  { provider: "brave", operation: "search", usdPerUnit: { requests: 0.005 }, source: "https://brave.com/search/api/", readOn: "2026-10-07" },
+  { provider: "brave", operation: "check", usdPerUnit: { requests: 0.005 }, source: "https://brave.com/search/api/", readOn: "2026-10-07" },
+];
 
 export function priceFor(provider: string, operation: string, prices: readonly PriceRow[] = PRICES): PriceRow {
   const row = prices.find((p) => p.provider === provider && p.operation === operation);
