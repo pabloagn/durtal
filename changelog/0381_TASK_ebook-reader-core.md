@@ -153,4 +153,119 @@ keys and gestures), 05 (the position route), 07 (reading by range).
 
 ## Completion Notes
 
-{{NOTES}}
+Tests, 111 new (100 unit, 11 in the database suite):
+
+- Unit (`src/__tests__/reader/`): `input.test.ts` (keys, including inside a
+  section document and after detaching; text fields, sliders, modifiers and a
+  blocked reader; left and right left to the engine; taps, swipes, the
+  emulated click after a tap, a long press, one turn per wheel gesture; the
+  key registry), `position-queue.test.ts` (ten turns in a second send one
+  request; beacon on `pagehide` and hidden; a failed send kept, a refused one
+  dropped, an older failure never over a newer place), `locator.test.ts`,
+  `quote-match.test.ts` (found after a paragraph was inserted before it, with
+  a typo, not found when absent), `csp.test.ts` (the policy and a fresh nonce
+  on `/reader/*` only, `'unsafe-eval'` only in development, the CDN only when
+  set, the device cookie), `position-route.test.ts` (the zod refusals, 400 for
+  a malformed id or no device, 404, a file of another e-book, cross-site
+  refused), `device.test.ts`, `first-range.test.ts` (the inline script run as
+  the page runs it), `remote-blob.test.ts`, `image-size.test.ts`,
+  `deferred-images.test.ts`.
+- Database suite `src/__tests__/integration/reader-core.test.ts`
+  (`DURTAL_READER_CORE_TEST_DATABASE_URL`, `sln492_reader_core`, 11): the
+  newest place wins and the furthest only grows; one row per file and device;
+  the position route on PostgreSQL; `getRecentlyOpened`; the page query's
+  format order, preferred file and `?file=`, never a DRM, missing or djvu
+  file, this device's place only, and the book's page while its copy is held.
+- `page-weight.test.ts` knows the reader's row; `no-calibre.test.ts` and
+  `glass-surfaces.test.ts` leave `src/vendor/` as published.
+
+Gates, in a cloud container, on the branch with main at 2f696f56 merged in,
+one at a time (`gates.sh --ui`): `pnpm install --frozen-lockfile`;
+`pnpm typecheck` clean; `pnpm lint` 0 errors (75 warnings, none in a file this
+PR adds); `pnpm deadcode` clean; `python3.12 scripts/qa/test-local.py` 284
+files, 3,132 tests passed, 0 skipped; `pnpm build`; then on a preview
+(`--start --seed-large 50`) `page-weight.js` every route within budget,
+`phone-audit.mjs` no sideways scroll, `interaction-audit.mjs` and
+`journeys.mjs` no failures, and the browser audit 54 of 54 page loads clean
+(`/`, `/library`, Against Nature's page, `/reading`, `/reading/suggestions`,
+`/settings/reader` in the three browsers at 1440, 768 and 390 px).
+
+Performance, `node scripts/qa/reader-perf.mjs` on the production preview
+(`--seed-reader --reader-large`), headless Chrome 153, 75th percentile of 10
+runs. Desktop: 50 Mbit/s, 20 ms. Phone: 9/1.6 Mbit/s, 150 ms, 4x CPU, 390 px.
+
+| Row | Desktop | Phone | Budget (desktop / phone) |
+| --- | --- | --- | --- |
+| Open a 5 MB EPUB not seen before | 512 ms | **2,527 ms** | 1,000 / 2,000 ms |
+| Open the 50 MB illustrated EPUB | 487 ms, 0.9 MB | 2,504 ms, 0.8 MB | 1,500 / 3,000 ms, 3 MB |
+| Open the 300 MB scanned PDF, first page | 790 ms, 1.8 MB | **3,764 ms**, 1.8 MB | 1,500 / 3,000 ms, 5 MB |
+| Reopen on the same device | 295 ms | **1,493 ms** | 400 / 400 ms |
+| Turn inside a section, p95 | 24 ms, 0 long tasks | | 50 ms |
+| Turn across a section, p95 | 29 ms | | 150 ms |
+| Interaction to next paint, p95 | 24 ms | | 200 ms |
+| Heap after 300 turns (2,000-page EPUB) | 10.1 MB, 3 MB growth | | 250 MB |
+| A page left alone for 60 s | no frames, animations, timers or requests | | |
+
+Every desktop row passes. Three phone rows do not, and this PR does not
+claim them: the reader page still sits under the root layout, so a phone
+first downloads and runs the whole app shell (about 360 KB of compressed
+JavaScript, shared with every page; the reader adds 11 KB) and hydrates it,
+which takes 1.3 to 1.5 s under 4x CPU before the reader's own code can start.
+The book itself is quick: on the 5 MB EPUB the engine's first relocate comes
+about 1 s after hydration. The remaining distance needs a reader page
+without the app shell (its own root layout, which means moving every other
+route into a route group) or a service worker for the reopen (sub-issue 18).
+
+Engine contract, `node scripts/qa/reader-engine-check.mjs`: 154 of 154 checks
+in headless Chrome 153, Firefox 155 and WebKit 26.6 (standing in for Safari):
+every fixture opens at 1440, 768 and 390 px; the corrupt zip and the DRM book
+show their states; the scripted EPUB's globals stay unset in the page and in
+every frame; the obfuscated font loads on a secure origin, and on plain http
+the book still opens; direction keys in the left-to-right, right-to-left and
+vertical books after a click into the text; a saved place reopens at the
+same first words, also after the tab was only hidden (WebKit at 390 px with
+touch); tap zones and swipe; the bars; both dialogs keep focus and give it
+back. Endurance (`--only endurance`): the 50 MB EPUB and the 300 MB PDF took
+300 turns each at 390 px in WebKit and Chrome with no crash, no reload and no
+stuck turn.
+
+Browser audits (`alignment-audit.js`, `design-audit.js`, `overflow-audit.js`
+and, at 390 px with touch, `touch-audit.js`) in headless Chrome 153, Firefox
+155 and WebKit 26.6 at 1440, 768 and 390 px, on the reading view with the bars
+shown (the EPUB 3, the PDF, the comic, the right-to-left and the vertical
+books), with Contents and with Settings open, on Against Nature's page (the
+Read button and the copy's Open link) and on Settings › Reader: 0 alignment
+deviations, no low contrast, no unnamed or nested control, no sideways
+scroll, no touch target under 44 px. The first run found the top bar's
+buttons cut to 42.9 px by the clipping bar in Chrome, the font sizes in
+Settings 42.4 px wide, and the last visible Contents entry counted as cut;
+all three are fixed (see the deviations). WebKit at 768 px reported
+"ResizeObserver loop completed with undelivered notifications" on 3 of its
+21 reading-view loads in the second run, and on none in the first: the vendored paginator
+resizes a section's frame from a ResizeObserver on its body, and by the
+specification the rest are delivered in the next frame. Chrome and Firefox
+never report it.
+
+`node scripts/qa/page-weight.js`, before (main at 2f696f56, `--s3-dir`) and
+after (this branch, `--s3-dir --seed-reader --reader-large`): every route
+within budget; `/library` 90 then 92 KB, Against Nature's page 96 then
+107 KB (it now has an e-book, a Read button and a Digital section),
+`/reader/<the EPUB 3>` 28 of 400 KB in 21 of 800 ms (no reader page before).
+
+Deviations from the issue:
+
+- The phone rows above.
+- The fixtures are generated, not copied from public-domain books, so they
+  are small and carry no third-party text (`SOURCES.md`).
+- PDFs fetch their tail with their head (the cross-reference table), and the
+  page starts pdf.js's worker, so the first page needs one round trip fewer.
+- `touch-audit.js` no longer cuts a target by what clips a scrolling box
+  around it; a segmented choice is at least 44 px wide on touch everywhere;
+  the reader's top bar is 56 px tall on touch.
+- `knip.json` follows the vendored engine's imports instead of ignoring the
+  polyfill.
+
+The cloud container cannot run `docker build`, use `.env.local`, take
+backups or reach the live database: the merging thread re-checks the docker
+build (`scripts/vendor-pdfjs.mjs` runs inside it). Safari itself was not
+used; headless WebKit stands in for it. No migration.
