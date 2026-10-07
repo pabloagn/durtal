@@ -16,7 +16,8 @@ export interface Selection {
 
 /**
  * A list's selection mode: which records are chosen, and the mode itself.
- * Escape leaves the mode and clears the choice. One hook for every list.
+ * Escape leaves the mode and clears the choice, once nothing above the list
+ * takes it (one layer per Esc). One hook for every list.
  */
 export function useSelection(): Selection {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -56,17 +57,27 @@ export function useSelection(): Selection {
     [selectedIds],
   );
 
-  // Escape exits selection mode
+  // Escape exits selection mode, unless an open dialog takes it or another layer has handled it.
+  // The layers mark theirs in their own listeners: the menus on the document, the command
+  // palette and the page's search field on the window, after this one when they were added
+  // later. So the mark is read once the key has reached every listener.
   useEffect(() => {
     if (!isSelecting) return;
+    let pending: ReturnType<typeof setTimeout> | undefined;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (e.key !== "Escape" || document.querySelector("dialog[open]")) return;
+      clearTimeout(pending);
+      pending = setTimeout(() => {
+        if (e.defaultPrevented) return;
         setIsSelecting(false);
         setSelectedIds(new Set());
-      }
+      });
     }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      clearTimeout(pending);
+    };
   }, [isSelecting]);
 
   return {

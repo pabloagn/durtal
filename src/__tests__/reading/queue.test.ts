@@ -39,6 +39,9 @@ describe("time to read", () => {
     expect(timeToRead({ pageCount: 300, audioMinutes: 540, language: "en" }, "audio", mine)).toEqual({ kind: "audio", minutes: 540 });
     expect(timeToRead({ pageCount: null, audioMinutes: null, language: "en" }, "print", mine)).toEqual({ kind: "none" });
     expect(timeToRead(null, "print", mine)).toEqual({ kind: "none" });
+    // The page rule (SLN-533): 3,980 pages is a bad count, 3,000 is the last it trusts
+    expect(timeToRead({ pageCount: 3980, audioMinutes: null, language: "en" }, "print", mine)).toEqual({ kind: "none" });
+    expect(timeToRead({ pageCount: 3000, audioMinutes: null, language: "en" }, "print", mine)).toMatchObject({ kind: "pages", pages: 3000 });
     expect(timeToReadText({ kind: "audio", minutes: 540 })).toBe("9 h audio");
     expect(timeToReadText({ kind: "pages", minutes: 500, pages: 250, atDefault: false })).toBe("About 8 h 20 min");
   });

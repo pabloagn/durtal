@@ -1,3 +1,4 @@
+import { MAX_PAGES, MIN_PAGES } from "@/lib/books/enrichment";
 import { QUEUE_GAP, type ReadingFormat } from "./constants";
 import { pickDefaultEdition, type EditionChoice } from "./defaults";
 import { copyWhereabouts, isAtHand, type CopyPlace } from "./at-hand";
@@ -68,12 +69,13 @@ export type TimeToRead =
 /**
  * One item's time to read: an edition with a known audio length counts as
  * audio (its length); else its pages at his pages an hour for its language
- * and format (his prior). atDefault: no timed session yet, the 30 pages an
- * hour assumed.
+ * and format (his prior). A count outside 16 to 3,000 pages is unknown, as
+ * the page rule reads it (SLN-533). atDefault: no timed session yet, the 30
+ * pages an hour assumed.
  */
 export function timeToRead(edition: Pick<QueueEdition, "pageCount" | "audioMinutes" | "language"> | null, format: ReadingFormat, priors: PacePriors): TimeToRead {
   if (edition?.audioMinutes) return { kind: "audio", minutes: edition.audioMinutes };
-  if (!edition?.pageCount) return { kind: "none" };
+  if (!edition?.pageCount || edition.pageCount < MIN_PAGES || edition.pageCount > MAX_PAGES) return { kind: "none" };
   const prior = priorFor(priors, edition.language, format === "ebook" ? "ebook" : "print");
   return { kind: "pages", pages: edition.pageCount, minutes: (edition.pageCount / prior.value) * 60, atDefault: prior.of === null && prior.value === DEFAULT_PAGES_PER_HOUR };
 }
