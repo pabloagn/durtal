@@ -16,10 +16,12 @@ if (url) {
     throw new Error("Length tests require disposable local sln466_length");
 }
 const sql = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+// Built only with a database: describe.skipIf still runs the body to collect the tests
+const testDb = sql ? drizzle(sql) : null;
 
 describe.skipIf(!url)("the page rule with PostgreSQL", () => {
   const db = sql!;
-  const database = drizzle(db);
+  const database = testDb!;
   const ids: Record<string, string> = {};
   beforeAll(async () => {
     const migrator = postgres(url!, { max: 1, onnotice: () => {} });
