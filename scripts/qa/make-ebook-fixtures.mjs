@@ -942,18 +942,39 @@ function large(dir) {
     console.log(`${name.padEnd(28)} ${(data.length / 1e6).toFixed(1).padStart(8)} MB`);
   };
 
+  // Images that do not compress, so a file's size is what it says
+  const noise = (width, height, seed) => {
+    const random = rng(seed);
+    return png(width, height, () => [0, 0, 0].map(() => Math.floor(random() * 256)));
+  };
+
+  // A novel of about 300 pages with a small cover and four 1 MB plates further in: 5 MB
+  const plates = { 0: ["cover", 220], 7: ["plate1", 625], 14: ["plate2", 625], 21: ["plate3", 625], 28: ["plate4", 625] };
+  const typicalImages = Object.values(plates).map(([id, side], i) => ({
+    id,
+    href: `images/${id}.png`,
+    type: "image/png",
+    data: noise(side, side, 300 + i),
+    store: true,
+  }));
+  write(
+    "typical-5mb.epub",
+    epub({
+      id: "urn:uuid:7d1b0c52-2f0b-4a35-9c1e-000000000024",
+      title: "The Ordinary Year",
+      author: "Durtal Fixtures",
+      chapters: englishChapters(24, 30, 60).chapters.map((c, i) =>
+        plates[i] ? { ...c, body: c.body.replace("</h1>", `</h1>\n<p><img src="images/${plates[i][0]}.png" alt="Plate ${i + 1}"/></p>`) } : c,
+      ),
+      files: typicalImages,
+    }),
+  );
+
   // About 2,000 pages of 300 words: 100 chapters of 20 pages
   const long = englishChapters(21, 100, 120);
   write("long-2000-pages.epub", epub({ id: "urn:uuid:7d1b0c52-2f0b-4a35-9c1e-000000000021", title: "The Long Road", author: "Durtal Fixtures", chapters: long.chapters }));
 
   // 50 MB: a 10 MB image in the first chapter and forty 1 MB images after it
-  const noise = (width, height, seed) => {
-    const random = rng(seed);
-    return png(width, height, () => {
-      const v = Math.floor(random() * 256);
-      return [v, (v * 7) & 255, (v * 13) & 255];
-    });
-  };
   const illustrated = englishChapters(22, 41, 20).chapters;
   const images = [{ id: "big", href: "images/big.png", type: "image/png", data: noise(1830, 1830, 1), store: true }];
   for (let i = 1; i < 41; i++) images.push({ id: `img${i}`, href: `images/img${i}.png`, type: "image/png", data: noise(580, 580, 100 + i), store: true });

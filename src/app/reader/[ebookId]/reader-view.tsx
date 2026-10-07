@@ -16,6 +16,7 @@ import { readerFontFaces } from "@/lib/reader/fonts";
 import { PREFETCH_GLOBAL } from "@/lib/reader/first-range";
 import { createReaderInput, type ReaderActions } from "@/lib/reader/input";
 import { createPositionQueue } from "@/lib/reader/position-queue";
+import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
 import { presentationFrom, resolveThemeColors } from "@/lib/reader/presentation";
 
 export interface ReaderViewFile {
@@ -36,10 +37,8 @@ const OPEN_TIMEOUT_MS = 30_000;
 type Status = { kind: "opening" } | { kind: "ready" } | { kind: "error"; message: string };
 
 /** The first range the page's inline script started for this file, taken once */
-function takePrefetch(fileId: string): Promise<Prefetched | null> | undefined {
-  const store = (window as unknown as Record<string, Record<string, Promise<Prefetched | null>> | undefined>)[
-    PREFETCH_GLOBAL
-  ];
+function takePrefetch(fileId: string): Promise<Prefetched[]> | undefined {
+  const store = (window as unknown as Record<string, Record<string, Promise<Prefetched[]>> | undefined>)[PREFETCH_GLOBAL];
   const prefetch = store?.[fileId];
   if (store) delete store[fileId];
   return prefetch;
@@ -86,6 +85,8 @@ export function ReaderView({
   /** Each reader plug-in's data, by id (none yet) */
   plugins: Record<string, unknown>;
 }) {
+  // The engine's code starts downloading as the view first renders, not after it mounts
+  if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
   const { settings, setSettings, resetSettings } = useReaderSettings();
   const bookRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);

@@ -9,6 +9,10 @@ export interface ZipEntry {
   directory: boolean;
   compressedSize: number;
   uncompressedSize: number;
+  /** Where its local header starts */
+  offset?: number;
+  /** 0 stored, 8 deflated */
+  compressionMethod?: number;
   getData<T>(writer: unknown): Promise<T>;
 }
 
@@ -33,6 +37,8 @@ export interface ZipLoader {
   loadText(name: string): Promise<string | null>;
   loadBlob(name: string, type?: string): Promise<Blob | null>;
   getSize(name: string): number;
+  /** Up to `want` bytes from the start of an entry's data, without reading all of it (Durtal's loader) */
+  readHead?(name: string, want: number): Promise<Uint8Array | null>;
   getComment(): Promise<string | null>;
   sha1?: (text: string) => Promise<Uint8Array>;
 }
@@ -62,6 +68,8 @@ export interface FoliateBook {
   toc?: FoliateTocEntry[];
   resolveHref(href: string): { index: number; anchor?: (doc: Document) => Range | Element } | null;
   isExternal?(href: string): boolean;
+  /** An EPUB's loader events: `load` before each resource, `data` after (foliate-js) */
+  transformTarget?: EventTarget;
   destroy?(): void;
 }
 

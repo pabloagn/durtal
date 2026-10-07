@@ -55,3 +55,15 @@ export function readerFontFaces(origin: string): string {
       `font-display:swap;src:url("${origin}/fonts/reader/${file}.woff2") format("woff2");unicode-range:${unicodeRange}}`,
   ).join("\n");
 }
+
+/**
+ * The reading font's Latin face for a font setting, which the page preloads
+ * so the first page is laid out in it, not laid out again when it arrives.
+ * The files are served with a long cache (next.config.ts): a changed font
+ * takes a new file name.
+ */
+export function readerLatinFace(fontFamily: string): string | null {
+  if (fontFamily === "sans") return "/fonts/reader/inter-normal-latin.woff2";
+  if (fontFamily === "serif") return "/fonts/reader/eb-garamond-normal-latin.woff2";
+  return null;
+}

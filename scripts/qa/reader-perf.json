@@ -1,0 +1,56 @@
+{
+  "runs": 10,
+  "profiles": {
+    "desktop": { "downMbps": 50, "upMbps": 50, "rttMs": 20, "cpu": 1, "width": 1440, "height": 900, "mobile": false },
+    "phone": { "downMbps": 9, "upMbps": 1.6, "rttMs": 150, "cpu": 4, "width": 390, "height": 844, "mobile": true }
+  },
+  "rows": [
+    {
+      "id": "open-5mb",
+      "label": "Open a 5 MB EPUB not seen before",
+      "kind": "open",
+      "fixture": 14,
+      "budgets": { "desktop": { "ms": 1000 }, "phone": { "ms": 2000 } }
+    },
+    {
+      "id": "open-50mb",
+      "label": "Open the 50 MB illustrated EPUB not seen before",
+      "kind": "open",
+      "fixture": 15,
+      "budgets": { "desktop": { "ms": 1500, "mb": 3 }, "phone": { "ms": 3000, "mb": 3 } }
+    },
+    {
+      "id": "open-300mb-pdf",
+      "label": "Open the 300 MB scanned PDF not seen before, first page",
+      "kind": "open",
+      "fixture": 16,
+      "budgets": { "desktop": { "ms": 1500, "mb": 5 }, "phone": { "ms": 3000, "mb": 5 } }
+    },
+    {
+      "id": "reopen",
+      "label": "Reopen a book opened before on this device",
+      "kind": "reopen",
+      "fixture": 14,
+      "budgets": { "desktop": { "ms": 400 }, "phone": { "ms": 400 } }
+    },
+    {
+      "id": "turns",
+      "label": "300 page turns through the 2,000-page EPUB",
+      "kind": "turns",
+      "fixture": 17,
+      "turns": 300,
+      "pauseMs": 250,
+      "budgets": {
+        "desktop": { "insideP95": 50, "longTasksInside": 0, "acrossP95": 150, "inpP95": 200, "heapMB": 250, "heapGrowthMB": 10 }
+      }
+    },
+    {
+      "id": "idle",
+      "label": "A page left alone for 60 s",
+      "kind": "idle",
+      "fixture": 14,
+      "seconds": 60,
+      "budgets": { "desktop": { "frames": 0, "running": 0, "timers": 2, "saves": 1, "otherRequests": 0 } }
+    }
+  ]
+}

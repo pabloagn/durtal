@@ -14,6 +14,7 @@ import type {
 } from "@/lib/reader/engine";
 import { presentationCss } from "@/lib/reader/presentation";
 import { ReadError, RangeSource, RemoteBlob } from "./remote-blob";
+import { DeferredImages } from "./deferred-images";
 import { makeRangeZipLoader } from "./zip-reader";
 import { locatorFromRelocate, quoteAt } from "./locator";
 import { matchQuote, normalizeQuoteText } from "./quote-match";
@@ -105,6 +106,8 @@ class FoliateEngine implements ReaderEngine {
   #destroyed = false;
   #selectionTimer: ReturnType<typeof setTimeout> | null = null;
   #hadSelection = false;
+  /** A reflowable EPUB's large images, shown after its text */
+  #images: DeferredImages | null = null;
 
   /** Bytes and requests so far, for the performance harness */
   get transfer() {
@@ -147,7 +150,12 @@ class FoliateEngine implements ReaderEngine {
       // empty, the font stays unreadable and the reading font is used.
       if (!globalThis.crypto?.subtle) loader.sha1 = async () => new Uint8Array(0);
       const { EPUB } = (await import("@/vendor/foliate-js/epub.js")) as unknown as EpubModule;
-      return new EPUB(loader).init();
+      const book = await new EPUB(loader).init();
+      if (book.rendition?.layout !== "pre-paginated" && book.transformTarget) {
+        this.#images = new DeferredImages(loader);
+        this.#images.attach(book.transformTarget);
+      }
+      return book;
     }
     const blob = new RemoteBlob(range, contentTypeOf(source.format), name);
     if (source.format === "pdf") {
@@ -246,6 +254,8 @@ class FoliateEngine implements ReaderEngine {
     this.#view?.close();
     this.#view?.remove();
     this.#book?.destroy?.();
+    this.#images?.destroy();
+    this.#images = null;
     this.#view = null;
     this.#book = null;
     this.#handlers.clear();
@@ -282,6 +292,7 @@ class FoliateEngine implements ReaderEngine {
   }
 
   #onLoad({ doc }: { doc: Document; index: number }) {
+    this.#images?.fill(doc);
     this.#emit("document", { doc });
     doc.addEventListener("selectionchange", () => {
       if (this.#selectionTimer) clearTimeout(this.#selectionTimer);

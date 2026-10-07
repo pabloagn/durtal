@@ -35,7 +35,7 @@ export interface RangeSourceOptions {
   fallbackUrl: string;
   size: number;
   refreshUrl?: () => Promise<string>;
-  prefetch?: Promise<Prefetched | null>;
+  prefetch?: Promise<Prefetched[]>;
   fetch?: typeof fetch;
 }
 
@@ -84,7 +84,7 @@ export class RangeSource {
     this.#prefetch = options.prefetch
       ? options.prefetch.then(
           (got) => {
-            if (got && got.bytes.byteLength) this.#keep({ start: got.start, bytes: new Uint8Array(got.bytes) });
+            for (const { start, bytes } of got) if (bytes.byteLength) this.#keep({ start, bytes: new Uint8Array(bytes) });
           },
           () => undefined,
         )
@@ -93,16 +93,18 @@ export class RangeSource {
 
   /**
    * Bytes [start, end), end exclusive and clamped to the file. Each read is
-   * its own buffer: zip.js reads the array's buffer from its first byte.
+   * its own buffer: zip.js reads the array's buffer from its first byte. A
+   * miss fetches up to `ahead` when the caller knows what it reads next (a
+   * zip entry's data after its header).
    */
-  async read(start: number, end: number = this.size): Promise<Uint8Array> {
+  async read(start: number, end: number = this.size, ahead = 0): Promise<Uint8Array> {
     end = Math.min(end, this.size);
     start = Math.max(0, Math.min(start, end));
     if (end === start) return new Uint8Array(0);
     if (this.#prefetch) await this.#prefetch;
     const hit = this.#find(start, end);
     if (hit) return hit;
-    const to = Math.min(this.size, Math.max(end, start + MIN_FETCH));
+    const to = Math.min(this.size, Math.max(end, start + MIN_FETCH, ahead));
     const chunk = await this.#fetchRange(start, to);
     this.#keep(chunk);
     return chunk.bytes.slice(start - chunk.start, end - chunk.start);

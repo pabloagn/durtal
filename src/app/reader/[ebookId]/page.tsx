@@ -2,14 +2,18 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { preload } from "react-dom";
 import { isUuid } from "@/lib/utils/uuid";
 import { formatLabel } from "@/lib/ebooks/formats";
 import { readReaderBook, type ReaderFile } from "@/lib/ebooks/delivery/reader-book";
 import { fileUrlFor } from "@/lib/ebooks/delivery/url";
 import { DEVICE_COOKIE, isDeviceId } from "@/lib/reader/device";
 import type { DurtalLocator, ReaderFormat } from "@/lib/reader/engine";
-import { firstRange, prefetchScript } from "@/lib/reader/first-range";
+import { firstRanges, prefetchScript } from "@/lib/reader/first-range";
+import { readerLatinFace } from "@/lib/reader/fonts";
 import { zipCdOffset } from "@/lib/reader/manifest";
+import { readerSettings } from "@/lib/reader/settings-cookie";
+import { READER_SETTINGS_KEY } from "@/lib/preferences";
 import { loadReaderPlugins } from "./plugins";
 import { ReaderView, type ReaderViewFile } from "./reader-view";
 
@@ -28,12 +32,26 @@ async function readRequest({ params, searchParams }: PageProps) {
   const { ebookId } = await params;
   if (!isUuid(ebookId)) notFound();
   const { file } = await searchParams;
-  const device = (await cookies()).get(DEVICE_COOKIE)?.value;
+  const jar = await cookies();
+  const device = jar.get(DEVICE_COOKIE)?.value;
   return {
     ebookId: ebookId.toLowerCase(),
     fileId: typeof file === "string" && isUuid(file) ? file.toLowerCase() : null,
     deviceId: isDeviceId(device) ? device : null,
+    settingsCookie: jar.get(READER_SETTINGS_KEY)?.value ?? null,
   };
+}
+
+/** The reading font, asked for with the page: the first page is then laid out once, in it */
+function preloadReadingFont(settingsCookie: string | null) {
+  let stored: unknown = null;
+  try {
+    stored = settingsCookie ? JSON.parse(settingsCookie) : null;
+  } catch {
+    // A damaged cookie gives the defaults
+  }
+  const face = readerLatinFace(readerSettings(stored).fontFamily);
+  if (face) preload(face, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
@@ -71,7 +89,8 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
  * gives the e-book, its readable files, the file to open (`?file=`
  * overrides the preferred one) and this device's place in it; the reader's
  * plug-ins load alongside. An inline script starts the file's first byte
- * range as the HTML arrives, while the engine's code downloads.
+ * ranges as the HTML arrives, while the engine's code downloads, and the
+ * reading font is preloaded.
  */
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
@@ -80,17 +99,18 @@ export default async function ReaderPage(props: PageProps) {
     loadReaderPlugins(request),
   ]);
   if (!book) notFound();
+  preloadReadingFont(request.settingsCookie);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const file = book.file ? await viewFile(book.file) : null;
-  const range = file ? firstRange(file.format, file.size, file.cdOffset) : null;
+  const ranges = file ? firstRanges(file.format, file.size, file.cdOffset) : [];
   return (
     <>
-      {file && range && (
+      {file && ranges.length > 0 && (
         <script
           nonce={nonce}
           // Browsers hide a nonce from the DOM once it is used, so hydration sees nonce=""
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: prefetchScript({ fileId: file.id, url: file.url, range }) }}
+          dangerouslySetInnerHTML={{ __html: prefetchScript({ fileId: file.id, url: file.url, ranges }) }}
         />
       )}
       <ReaderView

@@ -13,7 +13,7 @@
 /** The formats the engine opens (READABLE_FORMATS in src/lib/ebooks/formats.ts) */
 export type ReaderFormat = "epub" | "kepub" | "pdf" | "mobi" | "azw" | "azw3" | "fb2" | "fbz" | "cbz";
 
-/** Bytes the page started fetching before the engine loaded: one explicit range */
+/** Bytes the page started fetching before the engine loaded: one explicit range each */
 export interface Prefetched {
   start: number;
   bytes: ArrayBuffer;
@@ -37,7 +37,7 @@ export interface BookSource {
   /** The zip's central directory, from the manifest sub-issue 5 writes */
   cdOffset?: number | null;
   /** The first range, requested by the page as the HTML arrived */
-  prefetch?: Promise<Prefetched | null>;
+  prefetch?: Promise<Prefetched[]>;
 }
 
 /** A place in a file (the epic's contract). Persisted everywhere a position is stored. */
