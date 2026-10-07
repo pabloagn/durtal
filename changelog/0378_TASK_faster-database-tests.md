@@ -25,7 +25,9 @@ Where the time went, measured on the Mac with a log line after each step:
   stub. The file now mocks `@/lib/providers/wikidata-perfumes` with the same
   adapter and a 0 ms gap. The gap itself stays tested in
   `src/__tests__/providers/contract.test.ts` and
-  `src/__tests__/utils/external-fetch.test.ts`.
+  `src/__tests__/utils/external-fetch.test.ts`, and
+  `src/__tests__/catalogue/perfume-sources.test.ts` pins the adapter's gap at
+  1,000 ms.
 - **`media-ingest.test.ts`**, "serves every author image in monochrome:
   portrait, background and gallery" (1.0 s here, 4.9 s on the cloud
   machine). The time is in encoding the pictures. The three pictures that
@@ -37,7 +39,12 @@ Where the time went, measured on the Mac with a log line after each step:
   one" (0.9 s here, 3.2 s on the cloud machine). All of it was running every
   migration on an empty schema, which is the test's setup. That now runs in
   a `beforeAll` with a 60 s limit, as the file's "the tables" block already
-  does; the test checks the location and the setting it points at.
+  does; the test checks the location and the setting it points at. The
+  file's two other migration tests, "stops, changing nothing, while the old
+  library holds anything" and "renames the digital location in place",
+  spent most of their time the same way: running every migration up to the
+  guards. That now runs in a `beforeEach` with a 60 s limit, and each test
+  runs only the last migrations.
 
 ## Completion Notes
 
