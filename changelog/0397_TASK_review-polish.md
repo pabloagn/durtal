@@ -72,3 +72,5 @@ No schema change, no new package.
   `/people/a-a-milne` finds no failure.
 - Typecheck clean. Lint: 0 errors, 75 warnings as on main 2f696f56. `pnpm deadcode`
   clean.
+- `scripts/qa/test-local.py` (with main 2f696f56 merged): 272 files, 3,021
+  tests, all passed.
