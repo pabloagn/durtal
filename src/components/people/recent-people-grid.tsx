@@ -8,6 +8,7 @@ import { PersonRoles } from "@/components/people/person-roles";
 import { coverToneStyle } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /**
  * The dashboard's recent people (moved from `src/app/page.tsx`, SLN-448): a
@@ -49,7 +50,7 @@ export function RecentPeopleGrid({
           >
             {author.photoS3Key ? (
               <FadeImage
-                src={`/api/s3/read?key=${encodeURIComponent(author.photoS3Key)}`}
+                src={mediaUrl(author.photoS3Key)}
                 alt={author.name}
                 loading="lazy"
                 decoding="async"

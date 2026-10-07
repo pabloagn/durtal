@@ -7,6 +7,7 @@ import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CollectionIcon } from "./collection-icon";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FadeImage } from "@/components/shared/fade-image";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type ArtworkRow = {
   type: string;
@@ -30,10 +31,6 @@ export interface CollectionCardData {
   /** Whole works shown (films, perfumes, paintings, books with no edition chosen) */
   workCount?: number;
   media?: ArtworkRow[];
-}
-
-function imageUrl(key: string) {
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
 }
 
 /** The active poster row of a collection, if any. */
@@ -74,7 +71,7 @@ export function CollectionCard({
       <div className="relative aspect-[2/3] overflow-hidden rounded-t-sm bg-bg-tertiary">
         {poster ? (
           <FadeImage
-            src={imageUrl(poster.thumbnailS3Key ?? poster.s3Key)}
+            src={mediaUrl(poster.thumbnailS3Key ?? poster.s3Key)}
             alt={collection.name}
             loading="lazy"
             className="protected-image h-full w-full object-cover group-hover:scale-[1.02]"
@@ -87,7 +84,7 @@ export function CollectionCard({
             {covers.map((key, index) => (
               <FadeImage
                 key={key}
-                src={imageUrl(key)}
+                src={mediaUrl(key)}
                 alt=""
                 loading="lazy"
                 className={`h-full min-h-0 w-full object-cover ${covers.length === 3 && index === 2 ? "col-span-2" : ""}`}
@@ -107,7 +104,7 @@ export function CollectionCard({
         {poster && (
           <div className="absolute right-2 top-2 z-20 hover-reveal-glass">
             <ImageAdjustButton
-              source={imageUrl(poster.s3Key)}
+              source={mediaUrl(poster.s3Key)}
               label="Adjust collection poster"
               className="touch-hit"
             />

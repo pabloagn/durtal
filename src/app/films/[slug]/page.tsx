@@ -60,6 +60,7 @@ import { formatPrice } from "@/lib/catalogue/perfume-labels";
 import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import type { ListSearchParams } from "@/lib/utils/pagination";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /** One read per request for the page and its title */
 const loadFilm = cache((slug: string) => getFilm(decodeURIComponent(slug)));
@@ -378,7 +379,7 @@ export default async function FilmPage({
           {still && (
             <div className="absolute inset-0 -z-0 overflow-hidden">
               <img
-                src={`/api/s3/read?key=${encodeURIComponent(still.s3Key)}`}
+                src={mediaUrl(still.s3Key)}
                 alt=""
                 className="h-full w-full object-cover"
                 style={mediaImageStyle(mediaCrop(still))}

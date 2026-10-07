@@ -33,6 +33,7 @@ import { hasListQuery } from "@/lib/utils/list-params";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { countryDisplayName } from "@/lib/utils/labels";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export const metadata = { title: "People" };
 
@@ -177,7 +178,7 @@ async function AuthorsContent({
       deathYear: a.deathYear,
       gender: a.gender,
       photoUrl: photoKey
-        ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
+        ? mediaUrl(photoKey)
         : null,
       posterCrop: activePoster
         ? mediaCrop(activePoster)

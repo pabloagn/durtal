@@ -41,6 +41,7 @@ import {
   enumLabel,
   metadataSourceLabel,
 } from "@/lib/utils/labels";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -117,7 +118,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   const poster = activePoster ?? author.media?.find((m) => m.type === "poster");
   const background = author.media?.find((m) => m.type === "background");
   const posterUrl = poster
-    ? `/api/s3/read?key=${encodeURIComponent(poster.thumbnailS3Key ?? poster.s3Key)}`
+    ? mediaUrl(poster.thumbnailS3Key ?? poster.s3Key)
     : null;
   const posterCrop = poster
     ? mediaCrop(poster)
@@ -128,7 +129,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   );
   const bgMedia = activeBackground ?? background;
   const backgroundUrl = bgMedia
-    ? `/api/s3/read?key=${encodeURIComponent(bgMedia.s3Key)}`
+    ? mediaUrl(bgMedia.s3Key)
     : null;
 
   // Life dates display
@@ -348,7 +349,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       workActivePoster?.s3Key ??
                       work.editions[0]?.thumbnailS3Key;
                     const coverUrl = coverKey
-                      ? `/api/s3/read?key=${encodeURIComponent(coverKey)}`
+                      ? mediaUrl(coverKey)
                       : null;
 
                     const instanceCount =
@@ -440,7 +441,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       {edition.thumbnailS3Key ? (
                         <div className="relative h-12 w-8 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
                           <Image
-                            src={`/api/s3/read?key=${encodeURIComponent(edition.thumbnailS3Key)}`}
+                            src={mediaUrl(edition.thumbnailS3Key)}
                             alt={edition.title ?? "Edition cover"}
                             fill
                             sizes="32px"

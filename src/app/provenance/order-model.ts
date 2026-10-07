@@ -2,6 +2,7 @@ import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 import { AUCTION_PIPELINE, ORDER_STATUS_LABELS } from "@/lib/constants/orders";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { formatMoney, type CurrencyTotal } from "@/lib/utils/money";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 // Orders on the provenance page: their shape, status words and colours, and small helpers. Pure module.
 
@@ -140,7 +141,7 @@ export function getPosterUrl(work: OrderWork): string | null {
   const poster = work.media.find((m) => m.type === "poster" && m.isActive);
   if (!poster) return null;
   const key = poster.thumbnailS3Key ?? poster.s3Key;
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
+  return mediaUrl(key);
 }
 
 /** Crop and brightness/contrast of the work's active poster */

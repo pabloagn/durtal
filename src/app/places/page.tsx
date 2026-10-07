@@ -14,6 +14,7 @@ import { PlacesShell, type VenueItem } from "./places-shell";
 import { PlacesFiltersBar } from "./places-filters-bar";
 import { VenueCreateDialog } from "./venue-create-dialog";
 import { hasListQuery } from "@/lib/utils/list-params";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export const metadata = { title: "Places" };
 
@@ -103,7 +104,7 @@ async function PlacesContent({
     personalRating: v.personalRating,
     website: v.website,
     thumbnailUrl: v.thumbnailS3Key
-      ? `/api/s3/read?key=${encodeURIComponent(v.thumbnailS3Key)}`
+      ? mediaUrl(v.thumbnailS3Key)
       : null,
     color: v.color,
     createdAt: new Date(v.createdAt).toLocaleDateString(),

@@ -84,6 +84,7 @@ import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
 import { languageName } from "@/lib/utils/language";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -297,7 +298,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   );
 
   const backgroundUrl = background
-    ? `/api/s3/read?key=${encodeURIComponent(background.s3Key)}`
+    ? mediaUrl(background.s3Key)
     : null;
 
   const page = (
@@ -358,7 +359,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
             {/* Poster image */}
             {poster && (
               <WorkPosterImage
-                src={`/api/s3/read?key=${encodeURIComponent(poster.s3Key)}`}
+                src={mediaUrl(poster.s3Key)}
                 alt={`${work.title} poster`}
                 crop={mediaCrop(poster)}
                 palette={crystalPalette}

@@ -48,6 +48,7 @@ import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { cardReadingOf } from "@/lib/reading/card";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -163,7 +164,7 @@ function workToCardProps(work: {
     title: work.title,
     authorName: author?.name ?? "Unknown",
     coverUrl: coverS3Key
-      ? `/api/s3/read?key=${encodeURIComponent(coverS3Key)}`
+      ? mediaUrl(coverS3Key)
       : null,
     coverCrop: activePoster
       ? mediaCrop(activePoster)

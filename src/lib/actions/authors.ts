@@ -37,6 +37,7 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { posterTone, workReadingExtras } from "@/lib/actions/utils/work-card-query";
 import { cleanBioForStorage, sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { z } from "zod";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -210,7 +211,7 @@ export async function getAuthorCoverPreviews(
   ) as { authorId: string; s3Key: string }[];
   const byAuthor: Record<string, string[]> = {};
   for (const { authorId, s3Key } of found)
-    (byAuthor[authorId] ??= []).push(`/api/s3/read?key=${encodeURIComponent(s3Key)}`);
+    (byAuthor[authorId] ??= []).push(mediaUrl(s3Key));
   return byAuthor;
 }
 

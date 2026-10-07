@@ -9,6 +9,7 @@ import { searchBooksToRead, type BookToRead } from "@/lib/actions/reading";
 import { bookPickerAddHref, pickerReadingState, type PickerPurpose } from "@/lib/reading/book-picker";
 import { catalogueStatusLabel } from "@/lib/utils/labels";
 import { useReadingDialogs } from "./reading-dialogs-provider";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 /*
  * Choose a book to start or to log a past read of (SLN-448): owned books
@@ -111,7 +112,7 @@ export function BookPicker({
                   <span className="h-12 w-8 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
                     {book.cover && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`/api/s3/read?key=${encodeURIComponent(book.cover)}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      <img src={mediaUrl(book.cover)} alt="" className="h-full w-full object-cover" loading="lazy" />
                     )}
                   </span>
                   <span className="min-w-0 flex-1">

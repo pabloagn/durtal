@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
 import { ShelfSpines } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface SeriesItem {
   id: string;
@@ -17,10 +18,6 @@ export interface SeriesItem {
   isComplete: boolean;
   isFavourite: boolean;
   covers: string[];
-}
-
-function imageUrl(key: string) {
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
 }
 
 function countsLabel(s: SeriesItem) {
@@ -46,7 +43,7 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
             {s.covers.map((key) => (
               <FadeImage
                 key={key}
-                src={imageUrl(key)}
+                src={mediaUrl(key)}
                 alt=""
                 loading="lazy"
                 className="protected-image h-full min-w-0 flex-1 object-cover group-hover:scale-[1.02]"
@@ -97,7 +94,7 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
       <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
         {s.covers[0] ? (
           <img
-            src={imageUrl(s.covers[0])}
+            src={mediaUrl(s.covers[0])}
             alt=""
             className="h-full w-full object-cover"
           />

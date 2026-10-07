@@ -10,13 +10,10 @@ import { CoverFan, TitleCard } from "@/components/shared/no-photo";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { collectionCountLabel } from "@/lib/collections/counts";
 import { CollectionCard, collectionPoster, type CollectionCardData } from "./collection-card";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 const VIEW = LIST_PREFERENCES.collections.view;
 const GRID = LIST_PREFERENCES.collections.grid;
-
-function imageUrl(key: string) {
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
-}
 
 function useCollectionsView() {
   return useViewModePreference(VIEW.key, VIEW.modes, VIEW.fallback);
@@ -68,10 +65,10 @@ export function CollectionsView({
             aspect: 2 / 3,
             media: (
               <MosaicImage
-                src={poster ? imageUrl(poster.thumbnailS3Key ?? poster.s3Key) : null}
+                src={poster ? mediaUrl(poster.thumbnailS3Key ?? poster.s3Key) : null}
                 crop={poster ? mediaCrop(poster) : null}
                 fallback={
-                  covers.length ? <CoverFan covers={covers.map(imageUrl)} /> : <TitleCard title={collection.name} />
+                  covers.length ? <CoverFan covers={covers.map((key) => mediaUrl(key))} /> : <TitleCard title={collection.name} />
                 }
               />
             ),

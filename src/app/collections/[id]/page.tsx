@@ -34,9 +34,6 @@ import { CollectionIcon } from "@/components/collections/collection-icon";
 import { CollectionIconPicker } from "@/components/collections/collection-icon-picker";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 
-function imageUrl(key: string) {
-  return `/api/s3/read?key=${encodeURIComponent(key)}`;
-}
 import { PaginatedSection } from "@/components/shared/pagination";
 import {
   parsePagination,
@@ -47,6 +44,7 @@ import {
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 type Collection = NonNullable<Awaited<ReturnType<typeof getCollection>>>;
 
@@ -63,7 +61,7 @@ interface Member {
 const cover = (key: string | null | undefined, alt: string) =>
   key ? (
     <img
-      src={imageUrl(key)}
+      src={mediaUrl(key)}
       alt={alt}
       className="max-h-32 w-full object-contain"
     />
@@ -283,7 +281,7 @@ export default async function CollectionPage({
         {background && (
           <FullBleedLayer className="-z-0">
             <img
-              src={imageUrl(background.s3Key)}
+              src={mediaUrl(background.s3Key)}
               alt=""
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(background))}
@@ -310,7 +308,7 @@ export default async function CollectionPage({
             <div className="h-64 w-48 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
               {poster ? (
                 <img
-                  src={imageUrl(poster.s3Key)}
+                  src={mediaUrl(poster.s3Key)}
                   alt={`${collection.name} poster`}
                   className="protected-image h-full w-full object-cover"
                   style={mediaImageStyle(mediaCrop(poster))}

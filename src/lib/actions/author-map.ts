@@ -6,6 +6,7 @@ import type { SQL } from "drizzle-orm";
 import { buildAuthorFilterConditions } from "@/lib/actions/utils/author-filters";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 export interface AuthorMapPoint {
   id: string;
@@ -135,7 +136,7 @@ export async function getAuthorsForMap(opts?: {
       longitude,
       locationName,
       posterUrl: photoKey
-        ? `/api/s3/read?key=${encodeURIComponent(photoKey)}`
+        ? mediaUrl(photoKey)
         : null,
       birthYear: row.birthYear ?? null,
       deathYear: row.deathYear ?? null,

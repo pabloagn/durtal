@@ -20,6 +20,7 @@ import { useOptionalTimer } from "./timer-provider";
 import { SessionList } from "./session-list";
 import { EstimateLine } from "./estimate-line";
 import { clockText } from "@/lib/reading/timer";
+import { mediaUrl } from "@/lib/s3/media-url";
 
 const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, ebook: Tablet, audio: Headphones };
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
@@ -58,7 +59,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
       <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
         {edition?.cover && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={`/api/s3/read?key=${encodeURIComponent(edition.cover)}`} alt="" className="h-full w-full object-cover" />
+          <img src={mediaUrl(edition.cover)} alt="" className="h-full w-full object-cover" />
         )}
       </div>
       <div className="min-w-0 flex-1 space-y-1.5">
