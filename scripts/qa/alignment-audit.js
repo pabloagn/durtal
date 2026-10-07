@@ -25,7 +25,8 @@
   function firstText(el) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) =>
-        n.textContent.trim() && !n.parentElement.closest("svg")
+        // Decoration (a cover's placeholder letter) is not the text a control lines up with
+        n.textContent.trim() && !n.parentElement.closest("svg, [data-decorative]")
           ? NodeFilter.FILTER_ACCEPT
           : NodeFilter.FILTER_SKIP,
     });

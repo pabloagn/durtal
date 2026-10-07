@@ -495,6 +495,57 @@ export const workPopularitySnapshots = pgTable(
   ],
 );
 
+/** Statuses of one extraction request (SLN-469) */
+export const EXTRACTION_STATUSES = ["not_about_work", "answered", "invalid_answer"] as const;
+
+/**
+ * One extraction request per stored document (SLN-469): what was sent (the
+ * passages' offsets, never their text), what came back and which checks each
+ * value failed. One request is never paid twice: unique per document and
+ * request hash while not undone. Append-only but for its undo time.
+ */
+export const enrichmentExtractions = pgTable(
+  "enrichment_extractions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workId: uuid("work_id")
+      .notNull()
+      .references(() => works.id, { onDelete: "cascade" }),
+    sourceRecordId: uuid("source_record_id")
+      .notNull()
+      .references(() => sourceRecords.id, { onDelete: "cascade" }),
+    vocabularyVersion: smallint("vocabulary_version")
+      .notNull()
+      .references(() => enrichmentVocabularyVersions.version, { onDelete: "restrict" }),
+    dimensionKeys: text("dimension_keys").array().notNull(),
+    extractorVersion: text("extractor_version").notNull(),
+    requestSha256: text("request_sha256").notNull(),
+    status: text("status", { enum: EXTRACTION_STATUSES }).notNull(),
+    /** Start and end offsets (code points) of the passages sent */
+    passages: jsonb("passages").$type<{ id: string; start: number; end: number }[]>().notNull(),
+    valuesReturned: integer("values_returned").notNull().default(0),
+    valuesVerified: integer("values_verified").notNull().default(0),
+    /** `{ dimension, term, check, excerpt }`, the excerpt cut to 200 characters */
+    failures: jsonb("failures").$type<{ dimension: string; term: string; check: string; excerpt: string }[]>().notNull().default([]),
+    runId: uuid("run_id").notNull(),
+    jobId: uuid("job_id").references(() => enrichmentJobs.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    undoneAt: timestamp("undone_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("enrichment_extraction_request_unique").on(t.sourceRecordId, t.requestSha256).where(sql`${t.undoneAt} is null`),
+    check(
+      "enrichment_extraction_value_check",
+      sql.raw(
+        `status in (${sqlList(EXTRACTION_STATUSES)}) and request_sha256 ~ ${SHA256} and length(trim(extractor_version)) between 1 and 300 and cardinality(dimension_keys) >= 1 and jsonb_typeof(passages) = 'array' and jsonb_typeof(failures) = 'array' and values_returned >= 0 and values_verified between 0 and values_returned and (status = 'answered' or values_verified = 0)`,
+      ),
+    ),
+    index("enrichment_extraction_work_idx").on(t.workId),
+    index("enrichment_extraction_run_idx").on(t.runId),
+    index("enrichment_extraction_job_idx").on(t.jobId),
+  ],
+);
+
 export const enrichmentDimensionsRelations = relations(enrichmentDimensions, ({ one, many }) => ({
   family: one(taxonomyFamilies, {
     fields: [enrichmentDimensions.taxonomyFamilyId],

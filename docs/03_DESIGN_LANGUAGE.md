@@ -32,7 +32,7 @@ Information density is high, ornamentation is absent, and every pixel earns its 
 | `--color-fg-secondary` | `#7d8380` | Secondary text, descriptions, metadata, labels, counts, dates |
 | `--color-fg-muted` | `#4a4f4d` | Disabled text, placeholders, separators, decorative icons. Never text a reader needs |
 
-**Contrast.** Text that a reader needs is at least 4.5:1 against its background (3:1 at 24px and larger). `fg-secondary` is 4.6–5.3:1 on the three backgrounds; `fg-muted` is 2.2–2.5:1, so it is for decoration only. `scripts/qa/design-audit.js` lists every text under the limit.
+**Contrast.** Text that a reader needs is at least 4.5:1 against its background (3:1 at 24px and larger). `fg-secondary` is 4.6–5.3:1 on the three backgrounds; `fg-muted` is 2.2–2.5:1, so it is for decoration only. `scripts/qa/design-audit.js` lists every text under the limit, except disabled text and pure decoration. Decoration says so with `data-decorative` (with `aria-hidden`), like a cover's placeholder letter; text that is only `aria-hidden` is still checked, since a sighted reader still reads it.
 
 ### Accents
 

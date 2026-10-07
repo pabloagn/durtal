@@ -16,11 +16,20 @@ export interface PriceRow {
 }
 
 export const PRICES: readonly PriceRow[] = [
-  // The research agent's main search (SLN-469): the free Researcher plan, 1,000 credits a month, 1 credit per basic search
+  // The research agent's main search (SLN-469): the free Researcher plan, 1,000 credits a month, 1 credit per basic search.
+  // On pay-as-you-go this row must become { credits: 0.008 } first, or the cap does not count Tavily
   { provider: "tavily", operation: "search", usdPerUnit: { credits: 0 }, source: "https://docs.tavily.com/documentation/api-credits", readOn: "2026-10-07" },
   // Its fallback: $5 per 1,000 requests (the $5 monthly credit is not counted, so the meter errs high)
   { provider: "brave", operation: "search", usdPerUnit: { requests: 0.005 }, source: "https://brave.com/search/api/", readOn: "2026-10-07" },
   { provider: "brave", operation: "check", usdPerUnit: { requests: 0.005 }, source: "https://brave.com/search/api/", readOn: "2026-10-07" },
+  // The extraction model: $4 input, $20 output, $0.20 cache read and $5 cache write (5-minute TTL) per million tokens
+  {
+    provider: "anthropic",
+    operation: "extract",
+    usdPerUnit: { input_tokens: 4e-6, output_tokens: 20e-6, cache_read_input_tokens: 0.2e-6, cache_creation_input_tokens: 5e-6 },
+    source: "https://www.anthropic.com/pricing",
+    readOn: "2026-10-07",
+  },
 ];
 
 export function priceFor(provider: string, operation: string, prices: readonly PriceRow[] = PRICES): PriceRow {

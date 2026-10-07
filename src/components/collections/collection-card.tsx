@@ -109,6 +109,7 @@ export function CollectionCard({
             <ImageAdjustButton
               source={imageUrl(poster.s3Key)}
               label="Adjust collection poster"
+              className="touch-hit"
             />
           </div>
         )}

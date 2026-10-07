@@ -115,12 +115,13 @@ export function DataTable<T>({
                   </div>
                 </th>
               ))}
-              <th className="px-2 py-2">
+              {/* On touch the button itself is 44px: a press area drawn past it would be cut by the scrolling table */}
+              <th className="px-2 py-2 pointer-coarse:p-0">
                 <button
                   aria-label="Configure columns"
                   data-tooltip="Configure columns"
                   onClick={() => setShowConfig(true)}
-                  className="text-fg-muted transition-colors hover:text-fg-secondary"
+                  className="text-fg-muted transition-colors hover:text-fg-secondary pointer-coarse:flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center"
                 >
                   <Settings2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>

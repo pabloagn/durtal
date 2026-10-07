@@ -328,7 +328,9 @@ HTTP status only, never a URL, key or body.
   https://docs.tavily.com/documentation/api-credits): the free Researcher
   plan gives 1,000 credits a month, no card; a basic search costs 1 credit;
   pay-as-you-go is $0.008 a credit. The price row is 0, so trial searches pass
-  even at a cap of $0, and still count in the ledger. The API's own limit is 100
+  even at a cap of $0, and still count in the ledger. Before a move to
+  pay-as-you-go, the row must become $0.008 a credit, or the cap does not
+  count Tavily. The API's own limit is 100
   requests a minute on a development key; the worker paces searches by
   `--pace` (1,100 ms by default).
 - **Refusals:** 401 (key), 429 (rate), 432 (key or plan limit) and 433
@@ -359,6 +361,38 @@ HTTP status only, never a URL, key or body.
   search (`count=1`) through the meter as operation `check`; at the cap it makes
   no call and warns.
 
+## Extraction model (SLN-469)
+
+The extract stage sends the passages of each stored document to one model,
+`claude-opus-5-5`, through the official SDK (`@anthropic-ai/sdk`) and one
+adapter (`src/lib/enrichment/research/model.ts`). There is no fallback model:
+every extraction row and its evidence name the pinned model in their extractor
+version, and an answer from another model is invalid.
+
+- **Request:** `messages.create` with the instructions and the vocabulary first,
+  as one system block marked for the prompt cache, then one user message with
+  the book's titles and authors and the passages. The vocabulary carries each
+  term's definition and its applies and does not apply rules, never its
+  example books. `output_config.format` is a JSON schema of the current terms
+  (from zod 4's `z.toJSONSchema`, checked again with zod), and
+  `output_config.effort` is `low`: this model refuses `temperature`, and its
+  thinking cannot be turned off. No tools and no prefill. `max_tokens` is
+  4,000.
+- **Answer:** valid only when it ends on its own (`stop_reason` `end_turn`)
+  and parses against the schema. A refusal (`refusal`) or a cut answer
+  (`max_tokens`) is an `invalid_answer` row and never a claim.
+- **Price** (read on 7 Oct 2026 at https://www.anthropic.com/pricing): $4 per
+  million input tokens, $20 per million output tokens, $0.20 per million
+  cache reads and $5 per million cache writes (5-minute TTL). About $0.50 a
+  book; the ceiling `maxCostPerWork` is $1.50.
+- **Meter:** each call reserves the free token count
+  (`messages.countTokens`) plus the full output cap, then settles at the four
+  units the answer reports. Its answer is kept in the run's cache by request
+  hash before its rows are written, so a failed write does not pay twice.
+- **Refusals:** 401 and 403 hold the job (`quota`), 429 holds it
+  (`rate_limited`); neither is billed. Another failure fails the job.
+- **Check:** `models.retrieve("claude-opus-5-5")`, free.
+
 ---
 
 ## Integration Summary
@@ -374,3 +408,4 @@ HTTP status only, never a URL, key or body.
 | Evidence outlets (review and publisher sites) | None | 1 request per 5 s per host, or its crawl delay | Book enrichment evidence, robots.txt and terms honoured |
 | Tavily | `TAVILY_API_KEY` | 100/minute; 1,000 free searches a month | The research agent's main search (SLN-469) |
 | Brave Search | `BRAVE_SEARCH_API_KEY` (optional) | 50/second; $5 per 1,000 | The research agent's fallback search (SLN-469) |
+| Anthropic | `ANTHROPIC_API_KEY` | The key's tier; $4 and $20 per million input and output tokens | The research agent's extraction model (SLN-469) |

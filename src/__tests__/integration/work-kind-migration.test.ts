@@ -285,6 +285,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "enrichment_jobs",
       "evidence_outlets",
       "enrichment_costs",
+      "enrichment_extractions",
     ])
       delete projected[table];
     // Added UUID columns change PostgreSQL's JSON ordering; compare canonical

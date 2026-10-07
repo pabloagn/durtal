@@ -3,6 +3,7 @@ import type { EnrichmentJobKind } from "./model";
 import type { SourceCache } from "./source-cache";
 import { identityStage } from "./identity-stage";
 import { researchStage } from "./research/stage";
+import { extractStage } from "./research/extract-stage";
 
 /*
  * The enrichment stages the worker runs (SLN-464), one per job kind. A stage
@@ -80,6 +81,7 @@ export interface EnrichmentStage<Plan = unknown> {
 export const ENRICHMENT_STAGES: Partial<Record<EnrichmentJobKind, EnrichmentStage>> = {
   identity: identityStage() as EnrichmentStage,
   research: researchStage() as EnrichmentStage,
+  extract: extractStage() as EnrichmentStage,
 };
 
 /** The stages of the kinds a run names; a kind without a stage is refused */

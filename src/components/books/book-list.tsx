@@ -127,7 +127,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               />
             ) : (
               <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-micro text-fg-muted/40">
+                <span aria-hidden="true" data-decorative className="font-serif text-micro text-fg-muted/40">
                   {book.title[0]}
                 </span>
               </div>
