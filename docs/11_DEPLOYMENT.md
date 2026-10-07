@@ -89,6 +89,13 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET=${S3_BUCKET}
+      - EBOOKS_BUCKET=${EBOOKS_BUCKET}
+      - EBOOKS_PREFIX=${EBOOKS_PREFIX}
+      - EBOOKS_REGION=${EBOOKS_REGION}
+      - EBOOK_DELIVERY=${EBOOK_DELIVERY}
+      - EBOOK_CDN_URL=${EBOOK_CDN_URL}
+      - EBOOK_CDN_KEY_PAIR_ID=${EBOOK_CDN_KEY_PAIR_ID}
+      - EBOOK_CDN_PRIVATE_KEY=${EBOOK_CDN_PRIVATE_KEY}
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
       - ISBNDB_API_KEY=${ISBNDB_API_KEY}
@@ -229,7 +236,7 @@ The following external resources must be created before deployment:
 | # | Resource | Service | Details |
 |---|---|---|---|
 | 1 | Neon database | Neon | Create project `durtal`, database `durtal`, get connection string |
-| 2 | S3 bucket | AWS | Create bucket `durtal` in `eu-central-1`, configure CORS for app domain |
+| 2 | S3 bucket | AWS | Create bucket `durtal` in `eu-north-1`, configure CORS for app domain; the e-book bucket and CloudFront: [eBook storage](#ebook-storage) |
 | 3 | IAM user | AWS | Create user `durtal-app` with S3 read/write policy scoped to `durtal` bucket |
 | 4 | Google Books API key | Google Cloud | Enable Books API, create API key, restrict to server IP |
 | 5 | GitHub repo | GitHub | Create `pabloagn/durtal`, configure Actions secrets |
@@ -247,10 +254,38 @@ SUBDOMAIN_DURTAL=library
 DURTAL_DATABASE_URL=postgresql://...@...neon.tech/durtal?sslmode=require
 DURTAL_AWS_ACCESS_KEY_ID=xxx
 DURTAL_AWS_SECRET_ACCESS_KEY=xxx
-DURTAL_AWS_REGION=eu-central-1
+DURTAL_AWS_REGION=eu-north-1
 DURTAL_S3_BUCKET=durtal
+DURTAL_EBOOK_DELIVERY=cloudfront
+DURTAL_EBOOK_CDN_URL=https://dxxxxxxxxxxxxx.cloudfront.net
+DURTAL_EBOOK_CDN_KEY_PAIR_ID=KXXXXXXXXXXXXX
+DURTAL_EBOOK_CDN_PRIVATE_KEY=xxx
 DURTAL_GOOGLE_BOOKS_API_KEY=xxx
 ```
+
+### eBook storage
+
+The e-book bucket and its CloudFront distribution (`docs/07_STORAGE.md`, eBook Files) are set up by `scripts/aws/ebooks-storage.sh` from the documents in `infra/aws/ebooks/`, which carry placeholders instead of account ids. It needs the AWS CLI v2, python3 and openssl, run as the admin principal (the bucket policy lets only that principal delete book files or change versioning, lifecycle or the policy).
+
+```bash
+scripts/aws/ebooks-storage.sh plan --app-user durtal-app        # read-only: what exists, what differs, what apply would do
+scripts/aws/ebooks-storage.sh apply --yes-from-joris --app-user durtal-app --alert-email ADDRESS
+```
+
+`plan` makes only read-only AWS calls. `apply` runs only with `--yes-from-joris`, after Joris's own yes, and creates or updates exactly what `plan` listed; it is safe to run again, and afterwards `plan` reports no difference:
+
+- the bucket `durtal-ebooks` in `eu-north-1`: private (public access blocked, objects owned by the bucket), SSE-S3, versioned, with its lifecycle and bucket policy;
+- an Origin Access Control, a cache policy (the path is the cache key; one year), a response headers policy (CORS answered by CloudFront, `nosniff`), a trusted key group with its public key, and the distribution (HTTP/2 and HTTP/3, all edge locations, the default `*.cloudfront.net` name, viewers only with a signed URL);
+- the app user's inline policy `durtal-ebooks`: read, write and list the bucket, delete only under `staging/`;
+- an AWS Budgets alarm, `durtal-monthly`: 5 USD a month, a mail at 80% spent and when the forecast passes 100%.
+
+It ends by printing `EBOOKS_BUCKET`, `EBOOKS_REGION`, `EBOOK_DELIVERY=cloudfront`, `EBOOK_CDN_URL` and `EBOOK_CDN_KEY_PAIR_ID` for the app's environment.
+
+**The private key.** `apply` makes the key pair locally with openssl. The private key goes only to the env file (`.env.local` by default, `--env-file` to choose), as one line `EBOOK_CDN_PRIVATE_KEY=<the PEM, base64>`; it is never printed, uploaded or committed. CloudFront holds only the public key.
+
+**Rotating the key.** Remove the `EBOOK_CDN_PRIVATE_KEY` line (keep a copy until the switch is done) and run `apply` again: it makes a new key pair and adds the new public key to the key group, beside the old one, so URLs signed with either work. Put the new `EBOOK_CDN_KEY_PAIR_ID` in the app's environment and restart it. After 12 hours (the longest a signed URL lives), remove the old public key from the key group in the CloudFront console and delete it.
+
+**Checking it.** Settings, Integrations, "eBook storage" HEADs the newest stored file and, with CloudFront, fetches the first byte of one signed cover (or file). `pnpm ebooks:verify` compares the whole bucket with the catalogue, read-only.
 
 ---
 

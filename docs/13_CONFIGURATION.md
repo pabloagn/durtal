@@ -18,8 +18,24 @@ All environment variables are listed in `.env.example`. Copy it to `.env.local` 
 |---|---|---|---|
 | `AWS_ACCESS_KEY_ID` | Yes | — | IAM access key for the `durtal-app` user |
 | `AWS_SECRET_ACCESS_KEY` | Yes | — | IAM secret key |
-| `AWS_REGION` | No | `us-east-1` | S3 bucket region (`eu-central-1` in production) |
+| `AWS_REGION` | No | `us-east-1` | S3 bucket region (`eu-north-1` in production) |
 | `S3_BUCKET` | No | `durtal` | S3 bucket name |
+
+### eBook storage
+
+E-book files have a private bucket of their own (SLN-491; `docs/07_STORAGE.md`, eBook Files). All optional; `scripts/aws/ebooks-storage.sh apply` prints the values to set. Settings, Integrations shows whether each is set, never its value.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `EBOOKS_BUCKET` | No | `durtal-ebooks` | The e-book bucket |
+| `EBOOKS_PREFIX` | No | empty | A key prefix: folder names ending in a slash (`ebooks/`). With `EBOOKS_BUCKET=durtal`, e-books live in the main bucket under it |
+| `EBOOKS_REGION` | No | `AWS_REGION` | The e-book bucket's region |
+| `EBOOK_DELIVERY` | No | `app` | `cloudfront`: the browser reads files through signed CloudFront URLs. `app`: the app streams them itself by byte range (development, previews; `scripts/qa/preview-local.py` always sets `app`) |
+| `EBOOK_CDN_URL` | With `cloudfront` | — | The distribution's address, `https://<id>.cloudfront.net` |
+| `EBOOK_CDN_KEY_PAIR_ID` | With `cloudfront` | — | The id of the key group's public key |
+| `EBOOK_CDN_PRIVATE_KEY` | With `cloudfront` | — | Its private key: the PEM, base64-encoded on one line. Only in the env file, never committed or printed |
+
+`EBOOK_DELIVERY=cloudfront` with any of the three CDN variables missing stops the server at startup with one message naming each.
 
 ### External APIs
 
