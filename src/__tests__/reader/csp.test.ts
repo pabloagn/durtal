@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 import { makeNonce, readerCsp } from "@/lib/reader/csp";
+import { proxy } from "@/proxy";
 
 /* SLN-492: the reader page's content policy, which every book frame inherits */
 
@@ -40,5 +42,50 @@ describe("makeNonce", () => {
     expect(a).toMatch(/^[A-Za-z0-9+/]{22}==$/);
     expect(atob(a)).toHaveLength(16);
     expect(makeNonce()).not.toBe(a);
+  });
+});
+
+describe("the proxy on reader pages", () => {
+  const page = "/reader/5e0c6a43-2f43-4b8e-a1f4-2b3c4d5e6f70";
+  const device = "0b7c6f0e-6a55-4a3e-9d33-1f1e7c2b9a10";
+  const visit = (path: string, cookie?: string) =>
+    proxy(new NextRequest(`https://durtal.test${path}`, { headers: cookie ? { cookie } : {} })) as Response | undefined;
+  const nonceOf = (res: Response) => /'nonce-([^']+)'/.exec(res.headers.get("content-security-policy") ?? "")?.[1];
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("gives each reader page the policy with a fresh nonce", () => {
+    const a = visit(page)!;
+    const b = visit(page)!;
+    expect(nonceOf(a)).toMatch(/^[A-Za-z0-9+/]{22}==$/);
+    expect(nonceOf(b)).not.toBe(nonceOf(a));
+    // Next.js reads the nonce for its own scripts from the request
+    expect(a.headers.get("x-middleware-request-x-nonce")).toBe(nonceOf(a));
+    expect(a.headers.get("content-security-policy")).not.toContain("unsafe-eval");
+  });
+
+  it("leaves every other page without it", () => {
+    for (const path of ["/library", "/readers", "/reading"]) {
+      expect(visit(path)?.headers.get("content-security-policy") ?? null).toBeNull();
+    }
+  });
+
+  it("allows eval in development and names the CDN when it is set", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("EBOOK_CDN_URL", "https://d123.cloudfront.net");
+    const csp = visit(page)!.headers.get("content-security-policy")!;
+    expect(csp).toContain("'unsafe-eval'");
+    expect(csp).toContain("connect-src 'self' https://d123.cloudfront.net");
+  });
+
+  it("gives a new device its id cookie once, and keeps a valid one", () => {
+    const fresh = visit(page)!;
+    const cookie = fresh.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(/^durtal-device=[0-9a-f-]{36}; /);
+    expect(cookie).toMatch(/Max-Age=34560000/);
+    expect(cookie).toMatch(/SameSite=lax/i);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/Secure/i);
+    expect(visit(page, `durtal-device=${device}`)!.headers.get("set-cookie")).toBeNull();
+    expect(visit(page, "durtal-device=forged")!.headers.get("set-cookie")).toMatch(/^durtal-device=[0-9a-f-]{36}; /);
   });
 });

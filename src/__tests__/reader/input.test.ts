@@ -79,12 +79,24 @@ describe("keys", () => {
     expect(actions.right).not.toHaveBeenCalled();
     expect(actions.contents).not.toHaveBeenCalled();
     expect(actions.fullscreen).not.toHaveBeenCalled();
+    // Nor a slider (the settings' controls)
+    document.body.insertAdjacentHTML("beforeend", `<div id="slider" role="slider" tabindex="0"></div>`);
+    key("ArrowRight", {}, document.getElementById("slider")!);
+    expect(actions.right).not.toHaveBeenCalled();
     // A checkbox is not a text field
     key("ArrowRight", {}, document.getElementById("box")!);
     expect(actions.right).toHaveBeenCalledTimes(1);
   });
 
-  it("lets only Esc through to the reader while nothing is open, nothing while a dialog is", () => {
+  it("turns left and right, not back and forward: the engine maps them by the book's direction", () => {
+    // In a right-to-left book goLeft is the next page; the input layer never decides that
+    key("ArrowLeft");
+    expect(actions.left).toHaveBeenCalledTimes(1);
+    expect(actions.prev).not.toHaveBeenCalled();
+    expect(actions.next).not.toHaveBeenCalled();
+  });
+
+  it("lets only Esc through to the reader while nothing is open, nothing while a dialog or the palette is", () => {
     key("Escape");
     expect(actions.escape).toHaveBeenCalledTimes(1);
     blocked = true;

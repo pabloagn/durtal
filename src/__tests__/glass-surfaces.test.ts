@@ -71,11 +71,13 @@ describe("glass surfaces", () => {
   });
 
   it("are the only blur: no style, constant or stylesheet blurs on its own", () => {
-    // Any source but the material's own definition in globals.css
+    // Any source but the material's own definition in globals.css, and the
+    // vendored engine: pdf.js's layer styles, inside a PDF page, filter its
+    // highlights in forced colours (SLN-492)
     const files = (dir: string): string[] =>
       readdirSync(dir).flatMap((name) => {
         const full = path.join(dir, name);
-        if (name === "__tests__") return [];
+        if (name === "__tests__" || full === path.join(SRC, "vendor")) return [];
         if (statSync(full).isDirectory()) return files(full);
         return /\.(tsx?|css)$/.test(name) ? [full] : [];
       });

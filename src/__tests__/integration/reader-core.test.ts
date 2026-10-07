@@ -25,8 +25,11 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 
+import { NextRequest } from "next/server";
 import { devicePositions, ebookAndFile, positionBodySchema, savePosition } from "@/lib/reader/positions";
 import { readReaderBook } from "@/lib/ebooks/delivery/reader-book";
+import { getRecentlyOpened } from "@/lib/ebooks/queries";
+import { GET as positionGet, POST as positionPost } from "@/app/api/reader/[ebookId]/position/route";
 
 /*
  * SLN-492: the reader's places on PostgreSQL (newest by the reader's clock
@@ -122,6 +125,53 @@ describe.skipIf(!url)("reader core", () => {
       expect(await ebookAndFile(ebookId, epub.id)).toEqual({ ebook: true, fileOfEbook: true });
       expect(await ebookAndFile(ebookId, theirs.id)).toEqual({ ebook: true, fileOfEbook: false });
       expect(await ebookAndFile(randomUUID(), epub.id)).toEqual({ ebook: false, fileOfEbook: false });
+    });
+  });
+
+  describe("the position route", () => {
+    const call = (method: "GET" | "POST", payload?: unknown, deviceId = phone) =>
+      (method === "GET" ? positionGet : positionPost)(
+        new NextRequest(`http://localhost/api/reader/${ebookId}/position`, {
+          method,
+          headers: { cookie: `durtal-device=${deviceId}`, "user-agent": "Mozilla/5.0 (Macintosh; rv:131.0) Gecko/20100101 Firefox/131.0" },
+          body: payload === undefined ? undefined : JSON.stringify(payload),
+        }),
+        { params: Promise.resolve({ ebookId }) },
+      );
+
+    it("saves a place from the reader and gives it back to this device only", async () => {
+      const epub = await file("epub");
+      const at = new Date().toISOString();
+      const locator = { v: 1, fileHash: epub.sha256, href: "ch2.xhtml", sectionIndex: 2, progression: 0.25, totalProgression: 0.3 };
+      const saved = await call("POST", { fileId: epub.id, locator, chapter: "Chapter II", clientUpdatedAt: at });
+      expect(saved.status).toBe(200);
+      expect(await saved.json()).toMatchObject({ saved: true, position: { fileId: epub.id, chapter: "Chapter II", deviceLabel: "Mac · Firefox" } });
+      expect((await (await call("GET")).json()).positions).toMatchObject([{ fileId: epub.id, locator }]);
+      expect((await (await call("GET", undefined, laptop)).json()).positions).toEqual([]);
+    });
+
+    it("refuses a file of another e-book before saving", async () => {
+      const [{ id: other }] = await c`insert into ebooks(title, import_source) values ('Là-bas', 'folder') returning id`;
+      const theirs = await file("epub", { ebook: other });
+      const locator = { v: 1, fileHash: theirs.sha256, href: "a", sectionIndex: 0, progression: 0, totalProgression: 0 };
+      const res = await call("POST", { fileId: theirs.id, locator, chapter: null, clientUpdatedAt: new Date().toISOString() });
+      expect(res.status).toBe(400);
+      expect(await c`select count(*)::int as n from ebook_positions`).toEqual([{ n: 0 }]);
+    });
+  });
+
+  describe("recently opened", () => {
+    it("lists the place just saved, newest e-book first", async () => {
+      const epub = await file("epub");
+      const [{ id: other }] = await c`insert into ebooks(title, import_source) values ('Là-bas', 'folder') returning id`;
+      const theirs = await file("pdf", { ebook: other });
+      await savePosition({ ebookId: other, deviceId: phone, deviceLabel: "iPhone · Safari", body: body(theirs.id, theirs.sha256, 0.5, T0) });
+      await savePosition({ ebookId, deviceId: laptop, deviceLabel: "Mac · Firefox", body: body(epub.id, epub.sha256, 0.4567, T0, "Chapter IV") });
+      const recent = await getRecentlyOpened(5);
+      expect(recent.map((r) => [r.title, r.fileId, r.percent, r.chapter, r.deviceLabel])).toEqual([
+        ["À rebours", epub.id, 45.67, "Chapter IV", "Mac · Firefox"],
+        ["Là-bas", theirs.id, 50, "Chapter I", "iPhone · Safari"],
+      ]);
     });
   });
 

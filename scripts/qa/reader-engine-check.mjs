@@ -24,6 +24,10 @@
  *              together on a tap in the middle
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
  *              Escape and give focus back to their button
+ *   endurance  only with --only endurance, on a preview started with
+ *              --reader-large: the 50 MB EPUB and the 300 MB PDF open at
+ *              390 px and take 300 page turns without the page crashing or
+ *              reloading (the memory check for WebKit, which reports no heap)
  *
  *   node scripts/qa/reader-engine-check.mjs [--base http://127.0.0.1:3410]
  *        [--browsers chromium,webkit,firefox] [--only opens,script,...]
@@ -48,8 +52,9 @@ const option = (name, fallback) => {
 };
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs"];
-const only = option("--only", CHECKS.join(",")).split(",");
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "endurance"];
+// endurance needs the large fixtures: it runs only when asked for
+const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
 const target = URL.parse(base);
 const refusal = !target
@@ -421,7 +426,59 @@ async function checkDialogs(name, browser) {
   await context.close();
 }
 
-const RUN = { opens: checkOpens, script: checkScript, font: checkFont, direction: checkDirection, place: checkPlace, touch: checkTouch, bars: checkBars, dialogs: checkDialogs };
+// The large fixtures of preview-local.py --reader-large
+const LARGE = [
+  { n: 15, name: "50 MB illustrated EPUB" },
+  { n: 16, name: "300 MB scanned PDF" },
+];
+const ENDURANCE_TURNS = 300;
+
+async function checkEndurance(name, browser) {
+  const context = await browser.newContext(phone(name));
+  for (const fixture of LARGE) {
+    const page = await context.newPage();
+    let crashed = false;
+    let loads = 0;
+    page.on("crash", () => (crashed = true));
+    page.on("load", () => loads++);
+    const opened = await open(page, fixture.n).catch((error) => ({ state: `failed: ${error.message.split("\n")[0]}`, fraction: null }));
+    if (opened.state !== "ready") {
+      record(name, "endurance", `${fixture.name} opens`, false, JSON.stringify(opened));
+      await page.close();
+      continue;
+    }
+    loads = 0;
+    let fraction = opened.fraction;
+    let turned = 0;
+    let stuck = 0;
+    for (let i = 0; i < ENDURANCE_TURNS && !crashed; i++) {
+      await page.keyboard.press("ArrowRight").catch(() => (crashed = true));
+      const now = await moved(page, fraction).catch(() => null);
+      if (!now) crashed = true;
+      else if (now.fraction !== fraction) turned++;
+      // At the last page a turn has nowhere to go
+      else if ((now.fraction ?? 0) < 0.999) stuck++;
+      fraction = now?.fraction ?? fraction;
+    }
+    const alive = !crashed && (await page.evaluate(readState).catch(() => null))?.state === "ready";
+    const ok = alive && loads === 0 && stuck === 0;
+    record(name, "endurance", `${fixture.name}: ${ENDURANCE_TURNS} turns at 390 px`, ok, `${turned} moved, ${stuck} stuck, ${loads} reloads${crashed ? ", crashed" : ""}`);
+    await page.close();
+  }
+  await context.close();
+}
+
+const RUN = {
+  opens: checkOpens,
+  script: checkScript,
+  font: checkFont,
+  direction: checkDirection,
+  place: checkPlace,
+  touch: checkTouch,
+  bars: checkBars,
+  dialogs: checkDialogs,
+  endurance: checkEndurance,
+};
 
 for (const name of browsers) {
   const launch = {

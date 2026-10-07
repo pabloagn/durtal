@@ -17,9 +17,11 @@
  * frames, heard through a probe the protocol adds to every frame. Bytes are
  * what the network carried until then. Page turns are → presses measured by
  * Event Timing (input to the next paint; entries under 16 ms are not
- * reported and count as 16), with Long Animation Frames for long tasks; the
- * heap is Performance.getMetrics after a forced garbage collection. Each
- * open figure is the 75th percentile of the runs.
+ * reported and count as 16); a turn into the next section lasts until that
+ * section is painted. Long Animation Frames with a blocking duration give
+ * the long tasks (a task over 50 ms); the heap is Performance.getMetrics
+ * after a forced garbage collection. Each open figure is the 75th
+ * percentile of the runs.
  *
  * Needs a production preview with the large fixtures:
  *   node scripts/qa/make-ebook-fixtures.mjs --large DIR
@@ -114,8 +116,8 @@ const send = (method, params = {}, sessionId) =>
 
 /**
  * What the probe does in every frame: reports the first text paint (the
- * engine's first relocate plus two frames) and each later relocate through
- * the __durtalPerf binding, and while `watch` is on counts animation frames
+ * engine's first relocate plus two frames), each later relocate and its
+ * paint (two frames after it) through the __durtalPerf binding, and while `watch` is on counts animation frames
  * and timers that fire. Event Timing and Long Animation Frames are kept for
  * the script to read.
  */
@@ -136,7 +138,7 @@ const PROBE = `(() => {
       for (const e of list.getEntries()) if (e.interactionId) state.events.push({ name: e.name, start: e.startTime, duration: e.duration });
     }).observe({ type: "event", durationThreshold: 16, buffered: true });
     new PerformanceObserver((list) => {
-      for (const e of list.getEntries()) state.loafs.push({ start: e.startTime, duration: e.duration });
+      for (const e of list.getEntries()) state.loafs.push({ start: e.startTime, duration: e.duration, blocking: e.blockingDuration ?? 0 });
     }).observe({ type: "long-animation-frame", buffered: true });
   } catch {}
   let first = true;
@@ -144,7 +146,7 @@ const PROBE = `(() => {
     const index = event.detail?.index ?? event.detail?.section?.current ?? null;
     const report = (kind) => window.__durtalPerf?.(JSON.stringify({ kind, at: performance.now(), index, fraction: event.detail?.fraction ?? null }));
     if (first) { first = false; raf(() => raf(() => report("first"))); }
-    else report("relocate");
+    else { report("relocate"); raf(() => raf(() => report("painted"))); }
   }, true);
 })();`;
 
@@ -343,8 +345,11 @@ const MEASURE = {
           `window.__durtalPerfState.events.slice(${eventsBefore}).filter((e) => e.name === "keydown").map((e) => e.duration)`,
         );
         const ms = latency ?? 16;
-        if (moved && moved.index !== index) across.push(ms);
-        else {
+        if (moved && moved.index !== index) {
+          // The next section shows after the key's own frame: the turn lasts until it is painted
+          const painted = page.reports.slice(before).find((r) => r.kind === "painted");
+          across.push(Math.max(ms, painted ? painted.at - startedAt : ms));
+        } else {
           inside.push(ms);
           insideWindows.push([startedAt, startedAt + row.pauseMs + 100]);
         }
@@ -359,7 +364,9 @@ const MEASURE = {
         await sleep(400);
       }
       const state = await page.evaluate("({ events: window.__durtalPerfState.events, loafs: window.__durtalPerfState.loafs })");
-      const longInside = state.loafs.filter((l) => insideWindows.some(([a, b]) => l.start >= a && l.start <= b));
+      // A long task is one that blocks input: a long frame with no task over 50 ms (the
+      // headless compositor waiting) is not one
+      const longInside = state.loafs.filter((l) => l.blocking > 0 && insideWindows.some(([a, b]) => l.start >= a && l.start <= b));
       const frames = await page.evaluate("document.querySelector('foliate-view').renderer.getContents().length");
       return {
         insideP95: percentile(inside, 0.95),

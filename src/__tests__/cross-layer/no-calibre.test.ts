@@ -12,7 +12,11 @@ import path from "node:path";
  *   calibre:series_index...), which many tools write into OPF files, under
  *   src/lib/ebooks/ingest/ and src/__tests__/, for the e-book metadata reader;
  * - text files under src/__tests__/fixtures/ebooks/ (sidecar OPF fixtures as
- *   tools write them).
+ *   tools write them);
+ * - the reader's engine, foliate-js, vendored as published under
+ *   src/vendor/foliate-js/ (SLN-492): third-party code that reads the
+ *   metadata names and bookmarks other tools write, which Durtal never edits
+ *   beyond its recorded patches.
  *
  * And the few files that read the schema or files from before SLN-490, as a
  * migration does: the interchange version 1 reader, and the tests that build
@@ -23,6 +27,7 @@ const ROOT = path.resolve(__dirname, "../../..");
 const SCANNED = ["src", "scripts", "public", "docs", ".env.example", "HANDOVER.md", "README.md", "pyproject.toml", "package.json"];
 const SKIPPED_FOLDERS = ["src/lib/db/migrations", "changelog", "node_modules", "__pycache__", ".venv"];
 const FIXTURES = "src/__tests__/fixtures/ebooks/";
+const VENDORED = "src/vendor/foliate-js/";
 const OPF_NAME_FOLDERS = ["src/lib/ebooks/ingest/", "src/__tests__/"];
 /** Files that read what came before SLN-490 */
 const HISTORY_READERS = new Set([
@@ -46,7 +51,7 @@ function files(entry: string): string[] {
 
 /** Every line that names Calibre where the rule does not allow it */
 function mentions(file: string): string[] {
-  if (file.startsWith(FIXTURES) || HISTORY_READERS.has(file)) return [];
+  if (file.startsWith(FIXTURES) || file.startsWith(VENDORED) || HISTORY_READERS.has(file)) return [];
   const opfNames = OPF_NAME_FOLDERS.some((folder) => file.startsWith(folder));
   return readFileSync(path.join(ROOT, file), "utf8")
     .split("\n")

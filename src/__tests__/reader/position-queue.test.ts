@@ -16,16 +16,17 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("createPositionQueue", () => {
-  it("sends only the newest place, once per interval", async () => {
+  it("sends ten turns in one second as one request, with the newest place", async () => {
     const fetch = vi.fn(async () => new Response(null, { status: 200 }));
     const queue = createPositionQueue({ url: "/api/reader/e/position", fetch, window: null });
-    queue.push(save(1));
-    queue.push(save(2));
-    queue.push(save(3));
+    for (let n = 1; n <= 10; n++) {
+      queue.push(save(n));
+      await vi.advanceTimersByTimeAsync(100);
+    }
     expect(fetch).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(SAVE_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(SAVE_INTERVAL_MS - 1000);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(sentBody(fetch, 0).chapter).toBe("Chapter 3");
+    expect(sentBody(fetch, 0).chapter).toBe("Chapter 10");
     expect((fetch.mock.calls[0] as unknown[])[1]).toMatchObject({ method: "POST", keepalive: true });
     expect(queue.pending).toBe(false);
 

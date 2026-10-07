@@ -19,6 +19,12 @@ describe("matchQuote", () => {
     expect(found!.score).toBeLessThan(1);
   });
 
+  it("finds it after a paragraph was inserted before it", () => {
+    const quote = { before: "far from Paris. ", highlight: "There he arranged his house", after: " for himself alone." };
+    const edited = "A new preface paragraph, added by the second edition's editor. " + text;
+    expect(matchQuote(edited, quote, text.indexOf("There he"))?.start).toBe(edited.indexOf("There he arranged"));
+  });
+
   it("uses the context to choose between two occurrences", () => {
     const second = text.lastIndexOf("he withdrew to Fontenay");
     expect(matchQuote(text, { before: "Later, in the dining room, ", highlight: "he withdrew to Fontenay", after: ", far from Paris, again" })?.start).toBe(second);

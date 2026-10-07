@@ -1013,6 +1013,25 @@ An e-book's cover: its preferred file's derived WebP, at one width.
 **Response**: with CloudFront, `302` to the signed cover, cached (`private`) no longer than the signature stays good less an hour, and at most a day; otherwise `200` the WebP, `Cache-Control: private, max-age=86400`.
 **Error** `400`: malformed id, or `w` missing or not one of the widths. `404`: no such e-book, or it has no cover.
 
+### `GET /api/reader/[ebookId]/position` and `POST`
+
+This device's place in an e-book (SLN-492), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which the proxy sets on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
+
+**GET response** `200`: `{ "positions": [{ "fileId", "locator", "progression", "furthestProgression", "chapter", "deviceLabel", "clientUpdatedAt", "updatedAt" }] }`, one per file of the e-book this device has read, newest first; empty without a device cookie. `404`: no such e-book.
+
+**POST body**:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `fileId` | uuid | yes | A file of this e-book |
+| `locator` | object | yes | A `DurtalLocator`: `v` 1, `fileHash` (the file's SHA-256), `href`, `sectionIndex`, `progression` and `totalProgression` (0 to 1), and optional `position`, `cfi`, `pdf` (`{ page, rects? }`), `text` (`{ before?, highlight?, after? }`), `tocLabel`, `pageLabel`. Unknown keys are dropped |
+| `chapter` | string \| null | no | Trimmed and cut to 300 characters |
+| `clientUpdatedAt` | ISO 8601 | yes | When the reader was there, by its own clock; at most 5 minutes in the future |
+
+The newest place by `clientUpdatedAt` wins: an older one changes only `furthestProgression`, the greatest progression ever sent. The reader also sends it with `sendBeacon` when the page is hidden or goes away.
+
+**Response** `200`: `{ "saved": true | false, "position": { ... } }` (`saved` is false when a newer place was already stored). **Error** `400`: invalid body, a file of another e-book, or no device cookie. `404`: no such e-book.
+
 ---
 
 ## Image Adjustments

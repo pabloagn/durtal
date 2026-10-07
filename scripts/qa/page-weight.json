@@ -30,6 +30,7 @@
     { "path": "/reading/suggestions", "maxKB": 300, "maxMs": 1000 },
     { "path": "/reading/import", "maxKB": 300, "maxMs": 1000 },
     { "path": "/settings/reading", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"], "ifNone": "no import" }
+    { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"], "ifNone": "no import" },
+    { "path": "/reader/*", "list": "/library/against-nature-by-joris-karl-huysmans", "maxKB": 400, "maxMs": 800, "ifNone": "no e-book" }
   ]
 }
