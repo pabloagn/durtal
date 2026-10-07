@@ -198,7 +198,7 @@ The Filter button opens one panel with a rail of six sections (`FilterDropdown` 
 
 **Active filters**: under the filter bar, one chip per chosen value ("Language French", "First published 1850–1920"; `ActiveFilters`, `src/components/shared/active-filters.tsx`). A click on a chip removes that filter; "Clear all" removes every filter and keeps the search and the sort.
 
-**Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status). "Add to Up Next" (SLN-452) appends the selected books in their page order and says what it skipped: "Added 5 · 2 already in Up Next · 1 being read".
+**Bulk selection**: Select multiple works for batch operations (move, tag, delete, change status). "Add to Up Next" (SLN-452) appends the selected books in their page order and says what it skipped: "Added 5 · 2 already in Up Next · 1 being read". The Reading menu (SLN-463), after Rating, holds "Mark as read": a dialog confirms that each selected book gets one finished read with its dates unknown, then shows the counts ("Marked 3 · 1 possibly read already · 1 left out"), each possible duplicate with the read it matches ("already read: finished 14 Apr 2019") and a Confirm for that book alone, and each book left out with its reason ("being read: finish it on the book page"). The toast's Undo removes only the reads that write made. There is no bulk Mark as unread: a read is edited or deleted on its book page. The bar wraps onto a second row on a narrow screen (SLN-452), so the Reading menu needs no folded menu.
 
 **Empty state**: Displayed when no works match the current filter/search. Provides a link to add the first book.
 

@@ -351,3 +351,19 @@ export const restoreSessionSchema = z.object({
   fingerprint: fingerprintSchema,
   snapshot: z.record(z.string(), z.unknown()),
 });
+
+/**
+ * Bulk Mark as read (SLN-463): 1 to 1000 books; a confirmed possible
+ * duplicate is one of them. Strict: the page never sends a source or a key.
+ */
+export const markWorksReadSchema = z
+  .strictObject({
+    workIds: z.array(z.uuid()).min(1).max(1000),
+    confirmDuplicates: z.array(z.uuid()).max(1000).optional(),
+  })
+  .refine((d) => (d.confirmDuplicates ?? []).every((id) => d.workIds.includes(id)), "A confirmed book must be in the selection");
+export type MarkWorksReadInput = z.input<typeof markWorksReadSchema>;
+
+/** The readings one Mark as read wrote, for its Undo */
+export const undoMarkWorksReadSchema = z.strictObject({ readingIds: z.array(z.uuid()).min(1).max(1000) });
+export type UndoMarkWorksReadInput = z.input<typeof undoMarkWorksReadSchema>;

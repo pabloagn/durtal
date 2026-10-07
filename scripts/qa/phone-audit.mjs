@@ -46,9 +46,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const port = 9200 + Math.floor(Math.random() * 600);
 const profile = mkdtempSync(join(tmpdir(), "phone-audit-"));
 const chrome = spawn(findChrome(), [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
+const chromeExited = new Promise((resolve) => chrome.once("exit", resolve));
 process.on("exit", () => {
   chrome.kill();
-  rmSync(profile, { recursive: true, force: true });
+  // After a crash Chrome may still be writing its profile: retry a file it wrote last
+  rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 let socketUrl;
@@ -103,4 +105,7 @@ for (const width of WIDTHS) {
 }
 ws.close();
 console.log(failed ? `${failed} page(s) wider than the screen` : "No page scrolls sideways");
+// Chrome writes its profile until it has exited: wait for that, so removing the profile never races it
+chrome.kill();
+await chromeExited;
 process.exit(failed ? 1 : 0);

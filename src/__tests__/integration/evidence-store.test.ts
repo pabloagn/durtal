@@ -31,6 +31,7 @@ vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {} }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 import { findStoredPage, readEvidenceText, storeEvidencePage, storeEvidenceText, undoEvidenceRun } from "@/lib/enrichment/evidence-store";
 import { evidencePayloadSchema } from "@/lib/enrichment/evidence-payload";
+import { mainTextExtractor } from "@/lib/enrichment/extract";
 import { applyOutletSeed, loadOutlets } from "@/lib/enrichment/outlet-registry";
 import { BudgetStop, metered } from "@/lib/enrichment/meter";
 import { claimNextEnrichmentJob, enqueueEnrichmentJob, holdEnrichmentJob } from "@/lib/enrichment/jobs";
@@ -170,6 +171,30 @@ describe.skipIf(!url)("the evidence store", () => {
       expect(payload.textSha256).toBe(sha(PAGE_TEXT));
       expect(await readEvidenceText(payload.textSha256, objects)).toEqual({ status: "ok", value: PAGE_TEXT });
       expect((await keysInUse([payload.textKey, `${payload.textKey}.other`], database)).has(payload.textKey)).toBe(true);
+    });
+
+    it("stores the main text the installed extractor cuts from a real page, and names the extractor", async () => {
+      const work = await book("Satantango");
+      const page = `<html lang="en"><head><title>Rain and ruin</title></head><body><nav>Home Shop</nav>
+        <article><p>The novel's twelve chapters move forward six steps and then back six, like the tango of its title.</p>
+        <p>Its sentences run for pages, and the rain never stops falling on the abandoned estate.</p></article></body></html>`;
+      const { record } = await storeEvidencePage({
+        database,
+        owner: { kind: "book", workId: work },
+        url: "https://www.lrb.co.uk/the-paper/v1/n2/rain",
+        runId: randomUUID(),
+        fetchPage: async (requestedUrl) => ({ ...(await fetcher("https://www.lrb.co.uk/the-paper/v1/n2/rain")(requestedUrl)), raw: Buffer.from(page), html: page }),
+        extractor: mainTextExtractor,
+        objects,
+        outletName: () => "London Review of Books",
+      });
+      const payload = evidencePayloadSchema.parse(record.payload);
+      expect(payload).toMatchObject({ title: "Rain and ruin", language: "en", extractor: { name: "readability", version: mainTextExtractor.version } });
+      expect(await readEvidenceText(payload.textSha256, objects)).toEqual({
+        status: "ok",
+        value:
+          "The novel's twelve chapters move forward six steps and then back six, like the tango of its title.\n\nIts sentences run for pages, and the rain never stops falling on the abandoned estate.",
+      });
     });
 
     it("reuses a stored URL for another owner without a fetch, and adds nothing for the same owner", async () => {

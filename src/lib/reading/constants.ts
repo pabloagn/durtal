@@ -127,3 +127,9 @@ export function formatOfCopy(copyFormat: string | null | undefined): ReadingForm
   if (copyFormat === "audiobook") return "audio";
   return "print";
 }
+
+/** The format of a book's copies when they all read in one; print otherwise, or with no copy (SLN-463's Mark as read) */
+export function formatOfCopies(copyFormats: (string | null | undefined)[]): ReadingFormat {
+  const formats = new Set(copyFormats.map(formatOfCopy));
+  return formats.size === 1 ? [...formats][0] : "print";
+}

@@ -606,6 +606,16 @@ The edition he means to read and the note.
 ### `getQueue({ homeId? })`, `getQueueHead(limit)`, `getQueuePlace(workId)`
 The whole list in one query, in order: each book with its author, covers, editions and copies (for the edition he means: the queued one, else `pickDefaultEdition` for the home; and where the copy is, through `copyWhereabouts`), each edition's last known audio length (`total_minutes` of its latest reading that has one), ownership (`ownedBookCondition`), the copy at hand at the home (`atHandCopySql`) and the reading history (`readCountSql`, `lastFinishedOnSql`). The hub's strip reads the first five; the book page reads its place.
 
+## Bulk Mark as read (`src/lib/actions/reading-bulk.ts`, SLN-463)
+
+The library's selection toolbar marks books read in bulk. Each input is parsed strictly with zod (`markWorksReadSchema`, `undoMarkWorksReadSchema` in `src/lib/validations/reading.ts`): ids are UUIDs, 1 to 1000 of them, and any other key (a `source`, a `sourceKey`) is refused before any database call. Books only (`requireBookWorks`). Both invalidate `works` and `reading` after a change. Feedback never creates a reading: nothing here writes `recommendation_feedback`.
+
+### `markWorksRead({ workIds, confirmDuplicates? })`
+Gives each selected book one finished reading with both dates unknown, through `writeReadings(rows, { source: "manual" })`: no source key, the format of the book's copies that are not deaccessioned when they all read in one (`formatOfCopies`), else print. A book being read or paused gets no row and is reported ("being read: finish it on the book page"). A possible duplicate (`duplicateVerdicts`, for example a book already read) is reported with the read it matches and written only when its id is in `confirmDuplicates`. The rows go 100 at a time, one `writeReadings` call (one `atomic`) each: when one fails, the earlier ones stay written and the error says how many; the same selection again writes the rest, and the books written before come back as possible duplicates. Records `work.reading_finished` (`past: true`) for each reading written. Up Next is left as it is. Returns `{ marked, readingIds, possibleDuplicates, skipped }`.
+
+### `undoMarkWorksRead({ readingIds })`
+The toast's Undo, with the ids one `markWorksRead` call returned. Deletes only those readings, and only while each is as written: source `manual`, no source key, finished with both dates unknown, `updated_at = created_at` and no session (the import undo's rule). The check is repeated in the delete itself, 100 at a time, each in `atomic` inside `withReadableErrors`. A reading changed since is kept and reported with its reason. Records `work.reading_deleted` for each reading removed. Returns `{ removed, kept }`.
+
 ## Reading goals and rhythm (`src/lib/actions/reading-goals.ts`, SLN-455)
 
 Each input is parsed with zod (`src/lib/validations/reading-goals.ts`). Goal writes run in one `atomic` inside `withReadableErrors` and invalidate `reading`. No activity events. Progress and the rhythm are computed per request, never cached, one query each; every number comes back as a number (`float8`). The words, the expected share and the week are pure, in `src/lib/reading/goals.ts`.

@@ -63,6 +63,7 @@ import {
   bulkUpdateHuntAssessment,
 } from "@/lib/actions/hunting";
 import { setPoison, bulkSetPoison } from "@/lib/actions/poison";
+import { markWorksRead } from "@/lib/actions/reading-bulk";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { createEdition, updateEdition } from "@/lib/actions/editions";
 import { getCollectionSelection } from "@/lib/actions/collections";
@@ -327,6 +328,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
             huntAssessedOn: "2026-09-30",
           }),
         () => bulkSetPoison([books[0], other.id], false),
+        () => markWorksRead({ workIds: [books[0], other.id] }),
         () =>
           bulkUpdateHuntAssessment([books[0], other.id], {
             isRare: true,
