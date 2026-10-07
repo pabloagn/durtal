@@ -70,8 +70,11 @@ Built and run in a cloud container, on main 23e1e798:
 - `node scripts/qa/journeys.mjs --disposable http://127.0.0.1:3410` on a
   production build with a disposable database and the synthetic catalogue
   (`preview-local.py --start --seed-large 50`): all six journeys pass.
-- `pnpm typecheck` clean, `pnpm lint` no new warning, `pnpm deadcode` clean,
-  `scripts/qa/test-local.py` passes. No page changes, so no page audits.
+  No journey record is left in the library, perfumes, films, paintings or
+  collections afterwards.
+- `pnpm typecheck` clean; `pnpm lint` 0 errors, 77 warnings, as on main;
+  `pnpm deadcode` clean; `scripts/qa/test-local.py` 2,958 of 2,958, none
+  skipped. No page changes, so no page audits.
 - Not run here: on a restore of the newest backup (the cloud has no backups).
 
 ### Found, not changed
