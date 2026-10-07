@@ -30,9 +30,10 @@ repository (.gitignore ignores *.jsonl).
 
 The preview has no S3: placeholder keys make every S3 call fail. With
 --s3-dir DIR, the app keeps its S3 objects as files under DIR for this run
-(DURTAL_PREVIEW_S3_DIR), so uploads, imports and e-books work. It is never
-set anywhere else. E-book files sit under DIR/<e-book bucket>/<key>, and the
-app serves them by byte range itself (EBOOK_DELIVERY=app, always).
+(DURTAL_PREVIEW_S3_DIR), so uploads, imports and e-books work, and a delete
+removes its files as on S3. It is never set anywhere else. E-book files sit
+under DIR/<e-book bucket>/<key>, and the app serves them by byte range itself
+(EBOOK_DELIVERY=app, always).
 
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked

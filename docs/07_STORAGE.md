@@ -351,6 +351,8 @@ Every delete that removes rows with S3 keys also removes their files. The shared
 4. Keep every candidate that a remaining row still stores. `KEY_COLUMNS` lists the columns checked, the e-book keys among them (`ebooks.cover_key`, `ebook_files.s3_key`, `manifest_key`, `cover_key`), so no e-book object is ever reported unused. A test fails if a new `*s3*` column is not in `KEY_COLUMNS`.
 5. Delete the rest in batches of 1000 with `DeleteObjects`, and delete their `image_adjustments` rows.
 
+In a preview (`scripts/qa/preview-local.py --s3-dir DIR`) the folder listing and the batch delete use the files under DIR, as uploads do (SLN-549), so a preview delete removes its files and reports nothing pending.
+
 | Delete | Stored keys | Folders swept |
 |---|---|---|
 | `deleteWork` | media, edition covers, comment attachments | `gold/media/work/{id}/`, `bronze/media/work/{id}/`, `gold/comments/work/{id}/`, each edition's `{gold,silver,bronze}/covers/{editionId}/` |
