@@ -88,7 +88,8 @@ keystroke.
 
 ## Completion Notes
 
-Built and checked in a cloud container, on main 2337b72b:
+Built and checked in a cloud container, on main 2337b72b; typecheck, lint,
+dead code and the suite ran again after merging main 0517d385:
 
 - `pnpm typecheck` clean. `pnpm lint` 0 errors, 75 warnings (main 77: the
   wizard's "component created during render" and one `<img>` warning are gone;
