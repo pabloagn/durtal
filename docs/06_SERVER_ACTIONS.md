@@ -6,9 +6,9 @@ Server actions are called directly by server components and client components wi
 
 ---
 
-## New books queue an identity job (SLN-464)
+## New books queue their identity and research jobs (SLN-464, SLN-469)
 
-After its save commits, each of these actions queues the book's identity job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
+After its save commits, each of these actions queues the book's identity job and its research job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. Queueing spends nothing: research spends only when the worker runs `--apply --kinds research`. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
 
 ## Works (`src/lib/actions/works.ts`)
 
@@ -388,7 +388,7 @@ Invalidates every `CACHE_TAGS` tag and the root layout, so the next page load re
 checkIntegration(id: IntegrationId): Promise<{ status: "ok" | "warning" | "error" | "off"; message: string }>
 ```
 
-A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata. Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
+A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata, the evidence fetcher (an outlet's robots.txt), the enrichment budget (the ledger, no call), Tavily (`GET /usage`, free) and Brave Search (one search of `count=1`, metered as operation `check`; at the budget cap it makes no call and warns). Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
 
 ---
 

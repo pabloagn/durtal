@@ -5,13 +5,15 @@ import {
   googleBooksOverQuota,
   lastGoogleBooksCall,
 } from "@/lib/api/google-books-quota";
-import { count, eq, max, sql } from "drizzle-orm";
+import { count, eq, inArray, max, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ebookFiles, ebooks, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
+import { ebookFiles, ebooks, enrichmentCosts, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
 import { enrichmentSpend, evidenceCacheStats } from "@/lib/settings/data";
 import { createPageFetcher } from "@/lib/net/safe-fetch-page";
 import { outletForUrl } from "@/lib/enrichment/outlets";
 import { loadOutlets } from "@/lib/enrichment/outlet-registry";
+import { BudgetStop, metered } from "@/lib/enrichment/meter";
+import { enrichmentUserAgent } from "@/lib/enrichment/user-agent";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import {
@@ -39,6 +41,8 @@ export const INTEGRATION_IDS = [
   "wikidata",
   "evidenceFetcher",
   "enrichmentBudget",
+  "tavily",
+  "braveSearch",
 ] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 
@@ -88,7 +92,7 @@ const usd = (amount: number) => new Intl.NumberFormat("en-US", { style: "currenc
 
 /** The services, what each is for and how it is set up; the e-books; the tokens. */
 export async function integrationsOverview(): Promise<IntegrationsOverview> {
-  const [[wikidata], [books], [files], policies, evidence, spend] = await Promise.all([
+  const [[wikidata], [books], [files], policies, evidence, spend, searches] = await Promise.all([
     db
       .select({ records: count(), last: max(sourceRecords.retrievedAt) })
       .from(sourceRecords)
@@ -104,7 +108,17 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       .groupBy(evidenceOutlets.fetchPolicy),
     evidenceCacheStats(),
     enrichmentSpend(),
+    // The research agent's searches, from the cost ledger
+    db
+      .select({ provider: enrichmentCosts.provider, calls: count(), last: max(enrichmentCosts.createdAt) })
+      .from(enrichmentCosts)
+      .where(inArray(enrichmentCosts.provider, ["tavily", "brave"]))
+      .groupBy(enrichmentCosts.provider),
   ]);
+  const lastSearch = (provider: string) => {
+    const row = searches.find((s) => s.provider === provider);
+    return row?.last ? `${formatDate(row.last)} (${row.calls} calls)` : "Never";
+  };
   const outlets = (policy: string) => policies.find((p) => p.policy === policy)?.outlets ?? 0;
   const services: IntegrationInfo[] = [
     {
@@ -217,6 +231,28 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
         { label: "Open reservations", value: `${spend.openReservations} (${usd(spend.reserved)})` },
         { label: "Cap", value: spend.cap === null ? "Not set" : usd(spend.cap) },
         { label: "Last paid call", value: spend.lastPaidAt ? formatDate(spend.lastPaidAt) : "Never" },
+      ],
+    },
+    {
+      id: "tavily",
+      name: "Tavily",
+      purpose: "The research agent's main search: it finds review and publisher pages of the outlet registry for the book enrichment. The free plan gives 1,000 searches a month.",
+      env: [{ name: "TAVILY_API_KEY", set: isSet("TAVILY_API_KEY") }],
+      checkFrom: "server",
+      facts: [
+        { label: "Role", value: "Main search" },
+        { label: "Last used", value: lastSearch("tavily") },
+      ],
+    },
+    {
+      id: "braveSearch",
+      name: "Brave Search",
+      purpose: "The research agent's fallback search, when Tavily refuses or finds too little. $5 per 1,000 searches; each check spends one, through the budget.",
+      env: [{ name: "BRAVE_SEARCH_API_KEY", set: isSet("BRAVE_SEARCH_API_KEY"), optional: true }],
+      checkFrom: "server",
+      facts: [
+        { label: "Role", value: "Fallback search" },
+        { label: "Last used", value: lastSearch("brave") },
       ],
     },
   ];
@@ -471,6 +507,52 @@ async function checkEnrichmentBudget(): Promise<CheckResult> {
   return ok(text);
 }
 
+/** The enrichment User-Agent, when its contact is set */
+const enrichmentHeaders = (): Record<string, string> => (isSet("ENRICHMENT_CONTACT") ? { "User-Agent": enrichmentUserAgent() } : {});
+
+/** The key's usage, a free call */
+function checkTavily(): Promise<CheckResult> {
+  const key = process.env.TAVILY_API_KEY?.trim();
+  if (!key) return Promise.resolve(off("TAVILY_API_KEY is not set"));
+  return httpCheck(
+    "Tavily",
+    () => fetchWithTimeout("https://api.tavily.com/usage", { headers: { Authorization: `Bearer ${key}`, ...enrichmentHeaders() }, cache: "no-store" }),
+    {
+      401: failure("Tavily refused the key"),
+      429: warning("Over the rate limit of the usage call; try again in a few minutes"),
+      432: warning("Over the plan's credits for this month"),
+    },
+  );
+}
+
+/** Brave has no free call that proves a key: one search, through the budget; at the cap, no call */
+async function checkBraveSearch(): Promise<CheckResult> {
+  const key = process.env.BRAVE_SEARCH_API_KEY?.trim();
+  if (!key) return off("BRAVE_SEARCH_API_KEY is not set: the fallback is off");
+  try {
+    return await metered({ provider: "brave", operation: "check", estimate: { requests: 1 } }, async () => ({
+      result: await httpCheck(
+        "Brave Search",
+        () =>
+          fetchWithTimeout("https://api.search.brave.com/res/v1/web/search?q=Huysmans&count=1", {
+            headers: { "X-Subscription-Token": key, Accept: "application/json", ...enrichmentHeaders() },
+            cache: "no-store",
+          }),
+        {
+          401: failure("Brave Search refused the key"),
+          402: warning("Brave Search asks for payment details on this key"),
+          403: failure("Brave Search refused the key"),
+          429: warning("Over the plan's rate or quota"),
+        },
+      ),
+      units: { requests: 1 },
+    }));
+  } catch (error) {
+    if (error instanceof BudgetStop) return warning("At the budget cap: no check call was made");
+    throw error;
+  }
+}
+
 const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult>> = {
   database: checkDatabase,
   storage: checkStorage,
@@ -482,6 +564,8 @@ const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult
   wikidata: checkWikidata,
   evidenceFetcher: checkEvidenceFetcher,
   enrichmentBudget: checkEnrichmentBudget,
+  tavily: checkTavily,
+  braveSearch: checkBraveSearch,
 };
 
 /** A live check of one service. Mapbox is checked by the browser. */

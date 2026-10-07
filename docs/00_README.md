@@ -122,7 +122,7 @@ See [12_DEVELOPMENT.md](12_DEVELOPMENT.md) for the full command reference.
 Explicitly out of scope:
 
 - **Social features** — No friends, no feed, no sharing. Single user.
-- **Recommendations from outside** — Suggestions come only from the owner's own catalogue and history, explained, with no external service or machine-learning model.
+- **Recommendations from outside** — Suggestions come only from the owner's own catalogue and history, explained. The book enrichment uses an external search service and a model to fill catalogue facts, each with a quote from a stored source that the owner reviews; suggestions still read only the catalogue and the owner's history.
 - **Automated downloading** — No integration with book download services. This is not Readarr.
 - **E-reader sync** — No Kobo/Kindle sync. E-books are read in Durtal's own reader (the e-book epic, SLN-489).
 - **Multi-user** — Single owner. Authelia provides the auth gate.

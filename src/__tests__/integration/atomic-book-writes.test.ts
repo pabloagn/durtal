@@ -154,9 +154,10 @@ describe.skipIf(!url)("atomic book writes", () => {
         coverUnavailable: false,
       });
       if (!result.ok) return;
-      // Its identity job, after the save (SLN-464): an owned book comes first
-      expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id=${result.workId}`).toEqual([
+      // Its identity and research jobs, after the save (SLN-464, SLN-469): an owned book comes first
+      expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id=${result.workId} order by kind`).toEqual([
         { kind: "identity", priority: 10, reason: "created" },
+        { kind: "research", priority: 10, reason: "created" },
       ]);
       expect(await counts()).toMatchObject({
         authors: 1,
@@ -333,14 +334,15 @@ describe.skipIf(!url)("atomic book writes", () => {
       return result;
     }
 
-    it("queues the book's identity job for a new edition with an ISBN, and none without", async () => {
+    it("queues the book's identity and research jobs for a new edition with an ISBN, and none without", async () => {
       const { workId } = await book();
       await c`delete from enrichment_jobs where work_id=${workId}`;
       await createEdition({ workId, title: "No ISBN" });
       expect(await c`select id from enrichment_jobs where work_id=${workId}`).toEqual([]);
       await createEdition({ workId, title: "With ISBN", isbn13: ISBN });
-      expect(await c`select kind, payload->>'reason' as reason from enrichment_jobs where work_id=${workId}`).toEqual([
+      expect(await c`select kind, payload->>'reason' as reason from enrichment_jobs where work_id=${workId} order by kind`).toEqual([
         { kind: "identity", reason: "created" },
+        { kind: "research", reason: "created" },
       ]);
     });
 
@@ -445,10 +447,13 @@ describe.skipIf(!url)("atomic book writes", () => {
         await c`select w.catalogue_status, (select count(*)::int from orders o where o.work_id = w.id) as orders from works w where w.slug=${slug}`;
       expect(work).toEqual({ catalogue_status: "on_order", orders: 1 });
       expect(created.status).toBe("placed");
-      // Its identity job, after the save (SLN-464): an ordered book comes second
+      // Its identity and research jobs, after the save (SLN-464, SLN-469): an ordered book comes second
       expect(
-        await c`select j.kind, j.priority from enrichment_jobs j join works w on w.id = j.work_id where w.slug=${slug}`,
-      ).toEqual([{ kind: "identity", priority: 20 }]);
+        await c`select j.kind, j.priority from enrichment_jobs j join works w on w.id = j.work_id where w.slug=${slug} order by j.kind`,
+      ).toEqual([
+        { kind: "identity", priority: 20 },
+        { kind: "research", priority: 20 },
+      ]);
 
       const before = await counts();
       await expect(
