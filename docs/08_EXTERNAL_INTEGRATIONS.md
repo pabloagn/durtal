@@ -247,6 +247,17 @@ Metadata providers for perfumes, films and paintings meet one contract (SLN-375,
 
 Not used: Open Beauty Facts (an open product database by barcode; it names products and sizes, rarely the fragrance), and house websites (cited by hand like any page).
 
+### Film sources (SLN-376)
+
+| Source | Access | Why | What it has |
+|---|---|---|---|
+| Wikidata | Looked up (`wikidata-films.ts`) | Documented public API, no key; CC0 data. Images from Wikimedia Commons under each file's license, credited as Commons states it | Titles, first and per-country or festival release dates, countries, original languages, running time, directors, writers, cast (often partial) and crew, production companies, IMDb, TMDB and Letterboxd ids, a poster or still |
+| TMDB | Cited by hand | Official API, but it needs an account key, is non-commercial only and asks for its logo and notice ("This product uses the TMDB API but is not endorsed or certified by TMDB"). Durtal has no key | Full billed casts with characters, crew, release dates per country with their type, posters |
+| IMDb | Cited by hand | No public API: licensed through a paid service; its datasets are personal and non-commercial under their own terms | Full casts and crews, releases, alternate versions |
+| Letterboxd | Cited by hand | API for approved applications only | Casts, crews, releases, members' reviews |
+
+Calls: `wbsearchentities` then `wbgetentities` for a title (items whose P31 is a film class: film, feature, short, television, animated, anime, documentary, silent, adaptation or sequel film); an IMDb `tt` id or a TMDB movie link is found with `haswbstatement:P345=` or `P4947=` through `action=query&list=search`; a Wikidata id or link is read directly. A search also reads the directors' labels, so a hit says "1972 · directed by Andrei Tarkovsky". An item is one `wbgetentities` call, then the labels of its countries (P495), languages (P364), companies (P272), release places (P291 on P577) and people and characters, 50 ids to a call, at most 400 names. People come from P57, P58, P161, P162, P344, P1040, P86, P2554 and P2515; a cast keeps its billing order when every member has an ordinal (P1545), and characters come from P453 and P4633. The first release is the earliest P577 that is not deprecated; each P577 is a release, a festival by its place's name, else theatrical. Running time is P2047 in minutes, seconds or hours. The image is P3383 (poster), else P18 (still), with its author and license from Commons' `imageinfo` `extmetadata`; a Commons failure leaves the film without its image. One call a second at most, 20 s each; the perfume and film providers share `src/lib/providers/wikidata.ts` and each sends its own User-Agent.
+
 ### Museum sources (SLN-378)
 
 | Source | Access | Why | What it has |
@@ -403,6 +414,7 @@ version, and an answer from another model is invalid.
 | Open Library | None | Respectful use | Fallback metadata, cover images |
 | Nominatim | None | 1 req/sec | Location geocoding |
 | Wikidata (perfumes) | None | 1 req/sec | Perfume identity lookup, reviewed before saving |
+| Wikidata and Wikimedia Commons (films) | None | 1 req/sec | Film lookup with cast, crew, releases and poster, reviewed before saving |
 | Open Library and Wikidata (book identity) | None; User-Agent with `ENRICHMENT_CONTACT` | Open Library 1 per 1.1 s; Wikidata 1 per 2 s, the query service about 1 a minute | The enrichment worker's identity stage (SLN-464); loc.gov is not called |
 | Art Institute of Chicago, The Met | None | 1 req/sec | Painting and original lookup; location only from "on view" |
 | Evidence outlets (review and publisher sites) | None | 1 request per 5 s per host, or its crawl delay | Book enrichment evidence, robots.txt and terms honoured |
