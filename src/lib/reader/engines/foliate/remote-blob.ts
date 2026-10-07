@@ -104,10 +104,39 @@ export class RangeSource {
     if (this.#prefetch) await this.#prefetch;
     const hit = this.#find(start, end);
     if (hit) return hit;
-    const to = Math.min(this.size, Math.max(end, start + MIN_FETCH, ahead));
-    const chunk = await this.#fetchRange(start, to);
-    this.#keep(chunk);
-    return chunk.bytes.slice(start - chunk.start, end - chunk.start);
+    // The read's start may be here already (pdf.js asks for a page's image
+    // from the end of its first 64 KiB, inside the page's prefetch): only the
+    // rest is fetched
+    const { parts, to: from } = this.#cachedFrom(start, end);
+    let chunk: Chunk | null = null;
+    if (from < end) {
+      chunk = await this.#fetchRange(from, Math.min(this.size, Math.max(end, from + MIN_FETCH, ahead)));
+      this.#keep(chunk);
+      if (!parts.length) return chunk.bytes.slice(start - chunk.start, end - chunk.start);
+    }
+    // Pieces held end to end, then what was fetched
+    const bytes = new Uint8Array(end - start);
+    let at = 0;
+    for (const part of parts) {
+      bytes.set(part, at);
+      at += part.byteLength;
+    }
+    if (chunk) bytes.set(chunk.bytes.subarray(from - chunk.start, end - chunk.start), at);
+    return bytes;
+  }
+
+  /** The cached bytes from `start` on, while they run unbroken, and where they stop */
+  #cachedFrom(start: number, end: number): { parts: Uint8Array[]; to: number } {
+    const parts: Uint8Array[] = [];
+    let at = start;
+    while (at < end) {
+      const chunk = this.#chunks.find((c) => c.start <= at && c.start + c.bytes.byteLength > at);
+      if (!chunk) break;
+      const stop = Math.min(end, chunk.start + chunk.bytes.byteLength);
+      parts.push(chunk.bytes.subarray(at - chunk.start, stop - chunk.start));
+      at = stop;
+    }
+    return { parts, to: at };
   }
 
   #find(start: number, end: number): Uint8Array | null {

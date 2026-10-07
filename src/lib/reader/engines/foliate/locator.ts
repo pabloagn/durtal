@@ -76,13 +76,17 @@ export function quoteAt(range: Range): TextQuote | undefined {
   const root = range.startContainer.ownerDocument?.body;
   if (!root) return undefined;
   const fromRange = normalizeQuoteText(range.toString().slice(0, QUOTE_CHARS * 4)).trimStart();
-  const highlight = fromRange.slice(0, QUOTE_CHARS) || textAfter(root, range.startContainer, range.startOffset, QUOTE_CHARS).trimStart();
+  // A collapsed place quotes the text that follows it
+  const quoted = fromRange || textAfter(root, range.startContainer, range.startOffset, QUOTE_CHARS * 2).trimStart();
+  const highlight = quoted.slice(0, QUOTE_CHARS);
   if (!highlight.trim()) return undefined;
   const before = textBefore(root, range.startContainer, range.startOffset, QUOTE_CHARS);
   // After the quote: from the end of the range when it is short, else after the first 64 characters
-  const rest = fromRange.length > highlight.length
-    ? fromRange.slice(highlight.length) + textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS)
-    : textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS);
+  const rest = !fromRange
+    ? quoted.slice(highlight.length)
+    : fromRange.length > highlight.length
+      ? fromRange.slice(highlight.length) + textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS)
+      : textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS);
   const after = rest.slice(0, QUOTE_CHARS);
   return {
     ...(before ? { before } : {}),

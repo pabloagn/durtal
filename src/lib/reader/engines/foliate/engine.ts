@@ -13,9 +13,11 @@ import type {
   TocItem,
 } from "@/lib/reader/engine";
 import { presentationCss } from "@/lib/reader/presentation";
+import { PDFJS_BASE } from "@/lib/reader/first-range";
 import { ReadError, RangeSource, RemoteBlob } from "./remote-blob";
 import { DeferredImages } from "./deferred-images";
 import { makeRangeZipLoader } from "./zip-reader";
+import { startPdfWorker } from "./preload";
 import { locatorFromRelocate, quoteAt } from "./locator";
 import { matchQuote, normalizeQuoteText } from "./quote-match";
 import type {
@@ -160,7 +162,15 @@ class FoliateEngine implements ReaderEngine {
     const blob = new RemoteBlob(range, contentTypeOf(source.format), name);
     if (source.format === "pdf") {
       const pdf = (await import("@/vendor/foliate-js/pdf.js")) as unknown as PdfModule;
-      pdf.configurePDFJS({ base: "/vendor/pdfjs/", load: () => import("pdfjs-dist") });
+      pdf.configurePDFJS({
+        base: PDFJS_BASE,
+        load: () =>
+          import("pdfjs-dist").then((lib) => {
+            const worker = startPdfWorker();
+            if (worker && !lib.GlobalWorkerOptions.workerPort) lib.GlobalWorkerOptions.workerPort = worker;
+            return lib;
+          }),
+      });
       return pdf.makePDF(blob);
     }
     if (source.format === "fb2") {

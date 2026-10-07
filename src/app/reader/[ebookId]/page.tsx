@@ -9,7 +9,7 @@ import { readReaderBook, type ReaderFile } from "@/lib/ebooks/delivery/reader-bo
 import { fileUrlFor } from "@/lib/ebooks/delivery/url";
 import { DEVICE_COOKIE, isDeviceId } from "@/lib/reader/device";
 import type { DurtalLocator, ReaderFormat } from "@/lib/reader/engine";
-import { firstRanges, prefetchScript } from "@/lib/reader/first-range";
+import { PDF_WORKER_URL, firstRanges, prefetchScript } from "@/lib/reader/first-range";
 import { readerLatinFace } from "@/lib/reader/fonts";
 import { zipCdOffset } from "@/lib/reader/manifest";
 import { readerSettings } from "@/lib/reader/settings-cookie";
@@ -42,8 +42,12 @@ async function readRequest({ params, searchParams }: PageProps) {
   };
 }
 
-/** The reading font, asked for with the page: the first page is then laid out once, in it */
-function preloadReadingFont(settingsCookie: string | null) {
+/**
+ * The reading font, asked for with the page: the first page is then laid
+ * out once, in it. A PDF or a comic is pictures of its pages and never uses it.
+ */
+function preloadReadingFont(settingsCookie: string | null, format: ReaderFormat) {
+  if (format === "pdf" || format === "cbz") return;
   let stored: unknown = null;
   try {
     stored = settingsCookie ? JSON.parse(settingsCookie) : null;
@@ -89,8 +93,8 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
  * gives the e-book, its readable files, the file to open (`?file=`
  * overrides the preferred one) and this device's place in it; the reader's
  * plug-ins load alongside. An inline script starts the file's first byte
- * ranges as the HTML arrives, while the engine's code downloads, and the
- * reading font is preloaded.
+ * ranges as the HTML arrives, while the engine's code downloads (and, for
+ * a PDF, pdf.js's worker after them), and the reading font is preloaded.
  */
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
@@ -99,10 +103,11 @@ export default async function ReaderPage(props: PageProps) {
     loadReaderPlugins(request),
   ]);
   if (!book) notFound();
-  preloadReadingFont(request.settingsCookie);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const file = book.file ? await viewFile(book.file) : null;
+  if (file) preloadReadingFont(request.settingsCookie, file.format);
   const ranges = file ? firstRanges(file.format, file.size, file.cdOffset) : [];
+  const worker = file?.format === "pdf" ? PDF_WORKER_URL : undefined;
   return (
     <>
       {file && ranges.length > 0 && (
@@ -110,7 +115,7 @@ export default async function ReaderPage(props: PageProps) {
           nonce={nonce}
           // Browsers hide a nonce from the DOM once it is used, so hydration sees nonce=""
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: prefetchScript({ fileId: file.id, url: file.url, ranges }) }}
+          dangerouslySetInnerHTML={{ __html: prefetchScript({ fileId: file.id, url: file.url, ranges, worker }) }}
         />
       )}
       <ReaderView

@@ -23,6 +23,7 @@ const loadPDFJS = async () => {
             if (!workerSrc || workerSrc === './pdf.worker.mjs') {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsPath('pdf.worker.min.mjs')
             }
+            loadLayerCSS().catch(() => {})
             return pdfjsLib
         })
     }
@@ -218,6 +219,19 @@ const getFontScale = doc => {
 
 let textLayerBuilderCSS = null
 let annotationLayerBuilderCSS = null
+// Durtal patch 5 (VENDORED.md): both layer styles are fetched at once, as
+// pdf.js loads, not one after the other once the first page is ready to draw.
+let layerCSSPromise = null
+const loadLayerCSS = () => {
+    layerCSSPromise ??= Promise.all([
+        fetchText(pdfjsPath('text_layer_builder.css')),
+        fetchText(pdfjsPath('annotation_layer_builder.css')),
+    ]).catch(e => {
+        layerCSSPromise = null
+        throw e
+    })
+    return layerCSSPromise
+}
 
 // Track active render tasks per iframe document to cancel superseded renders
 const activeRenderTasks = new WeakMap()
@@ -795,12 +809,9 @@ const renderPage = async (page, getImageBlob) => {
         }))
     }
     // https://github.com/mozilla/pdf.js/blob/642b9a5ae67ef642b9a8808fd9efd447e8c350e2/web/text_layer_builder.css
-    if (textLayerBuilderCSS == null) {
-        textLayerBuilderCSS = await fetchText(pdfjsPath('text_layer_builder.css'))
-    }
     // https://github.com/mozilla/pdf.js/blob/642b9a5ae67ef642b9a8808fd9efd447e8c350e2/web/annotation_layer_builder.css
-    if (annotationLayerBuilderCSS == null) {
-        annotationLayerBuilderCSS = await fetchText(pdfjsPath('annotation_layer_builder.css'))
+    if (textLayerBuilderCSS == null || annotationLayerBuilderCSS == null) {
+        [textLayerBuilderCSS, annotationLayerBuilderCSS] = await loadLayerCSS()
     }
     const data = `
         <!DOCTYPE html>
