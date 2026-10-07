@@ -940,6 +940,13 @@ dialog::backdrop {
   color: var(--color-fg-primary);
 }
 
+/* A toast's icon sits on its first line (a 1.5 line-height title), not in the
+   middle of a message that wraps */
+[data-sonner-toast][data-styled="true"] [data-icon] {
+  align-self: flex-start;
+  margin-top: calc((1.5em - 16px) / 2);
+}
+
 /* ==========================================================================
    Print (SLN-456)
    ========================================================================== */

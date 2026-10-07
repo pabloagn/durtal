@@ -142,6 +142,8 @@
       if (isRow || cs.display.includes("inline")) {
         for (const child of row.childNodes) {
           if (child === node || child.contains?.(svg)) continue;
+          // A dialog opened from the row (a title row's button) is not text beside it
+          if (child.matches?.("dialog, [role=dialog]")) continue;
           if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
             text = child;
             break;

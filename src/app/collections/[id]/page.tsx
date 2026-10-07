@@ -319,7 +319,11 @@ export default async function CollectionPage({
                     className="h-10 w-10 text-fg-muted/20"
                     strokeWidth={1}
                   />
-                  <span className="font-serif text-4xl text-fg-muted/20">
+                  <span
+                    aria-hidden="true"
+                    data-decorative
+                    className="font-serif text-4xl text-fg-muted/20"
+                  >
                     {collection.name[0]}
                   </span>
                 </div>
@@ -365,6 +369,12 @@ export default async function CollectionPage({
                   (m) => m.editionId,
                 )}
                 workIds={collection.collectionWorks.map((m) => m.workId)}
+                kinds={[
+                  ...collectionBookIds(collection).map(() => "book" as const),
+                  ...collection.collectionWorks
+                    .filter((m) => m.work.kind !== "book")
+                    .map((m) => m.work.kind),
+                ]}
                 initialAdd={query.add === "1"}
               />
             </div>
