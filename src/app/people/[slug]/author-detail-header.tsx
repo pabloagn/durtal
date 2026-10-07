@@ -192,7 +192,7 @@ export function AuthorDetailHeader({
                       ? countryOfficialName ?? undefined
                       : undefined
                   }
-                  className="text-fg-primary font-medium transition-colors hover:text-accent-rose-text"
+                  className="text-fg-primary font-medium transition-colors hover:text-accent-rose-text touch-hit"
                 >
                   {countryName}
                 </Link>

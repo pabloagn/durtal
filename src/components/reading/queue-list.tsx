@@ -112,7 +112,8 @@ function Row({
         <p className="text-xs text-fg-secondary">{row.added}</p>
       </div>
       {/* Beside the title on a wide list. On a narrow one (a phone) they go under the text, which
-          keeps the width: a plain 32 px (44 px on touch) row, not centered on a line (SLN-539) */}
+          keeps the width: a plain 32 px (44 px on touch) row, not centered on a line (SLN-539).
+          There the label lines up with the title: the button reaches into the gap by its padding */}
       <CapAlignedControls
         height={32}
         coarseHeight={44}
@@ -122,7 +123,7 @@ function Row({
           <Button
             size="sm"
             variant="ghost"
-            className="pointer-coarse:h-11"
+            className="pointer-coarse:h-11 @max-[34rem]:-ml-2.5"
             onClick={() => void open({ kind: "start", workId: row.workId, editionId: row.editionId })}
             data-queue-start={row.workId}
           >
