@@ -306,7 +306,7 @@ Multiple semantic variants:
 
 ### Toasts
 
-Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette.
+Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette. On a phone (600px and narrower) they span the screen between 16px margins (`globals.css` keeps Sonner's list inside the screen).
 
 ### Detail pages
 

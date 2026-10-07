@@ -24,7 +24,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         aria-describedby={error ? errorId : undefined}
         className={`h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-all duration-150 focus:border-accent-rose focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 ${
           error ? "border-accent-red" : ""
-        } ${suffix ? "pr-8" : ""} ${className}`}
+        } ${suffix ? "pr-8 pointer-coarse:pr-12" : ""} ${className}`}
         {...props}
       />
     );
@@ -41,7 +41,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {suffix ? (
           <div className="relative" data-field="">
             {field}
-            <div className="absolute inset-y-0 right-1 flex items-center">
+            <div className="absolute inset-y-0 right-1 flex items-center pointer-coarse:right-0">
               {suffix}
             </div>
           </div>
