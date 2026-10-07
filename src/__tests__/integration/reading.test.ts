@@ -67,6 +67,7 @@ import { deleteLocation } from "@/lib/actions/locations";
 import { deleteWork } from "@/lib/actions/works";
 import { moveToExistingEdition } from "@/lib/actions/identify";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
+import { activitySettled } from "@/lib/activity/record";
 import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
@@ -81,7 +82,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
     client!.unsafe(text, params as postgres.ParameterOrJSON<never>[]);
   const value = async <T = string>(text: string, params: unknown[] = []) =>
     Object.values((await q(text, params))[0] ?? {})[0] as T;
-  const settle = () => new Promise((r) => setTimeout(r, 60));
+  // History entries are written after an action returns: wait until they have landed, not for a guessed 60 ms (SLN-521)
+  const settle = activitySettled;
 
   beforeAll(async () => {
     await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
@@ -90,6 +92,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
     await client?.end();
   });
   beforeEach(async () => {
+    // A history entry left over from the last test must not land after the truncate
+    await settle();
     await q(`truncate works, authors, locations, activity_events, imports cascade`);
   });
 
@@ -690,6 +694,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       );
       await log(a.reading.id, { page: 50 });
       await finishReading({ readingId: a.reading.id, fingerprint: await fp(a.reading.id) });
+      // The merge's fingerprint covers the history entries, so the preview waits for the finish's
+      await settle();
       const p = await previewMerge("works", a.workId, b.workId);
       expect(p.blockers).toEqual([]);
       await executeMerge({
