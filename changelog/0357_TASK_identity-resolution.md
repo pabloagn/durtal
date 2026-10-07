@@ -38,7 +38,10 @@ turns on, under the daily cap; everything else waits for his review file.
   no exact QID's P648 names that work (`IDENTITY_RULES_VERSION`
   `identity-rules-2`). The rehearsal found why: Open Library keeps duplicate
   author records, and Durtal's keys name the other one (Grossman
-  `OL4655492A` against `OL2962563A`, Bolaño `OL6493404A` against `OL56795A`).
+  `OL4655492A` against `OL2962563A`, Bolaño `OL6493404A` against `OL56795A`). After review, that QID confirms the work only when its authors (P50)
+  name one of the book's authors' QIDs, and only when it is the book's (not
+  another book's, not another QID than the accepted one); without that, the
+  work and the QID go to review.
 - `src/lib/enrichment/identity-sources.ts`: the Open Library client (identity
   has no provider in `src/lib/providers/`, and `src/lib/api/open-library.ts`
   reads a 429 as "not found"), the reverse P648 query (one per 50 works),
@@ -79,7 +82,7 @@ turns on, under the daily cap; everything else waits for his review file.
 
 ## Completion Notes
 
-- Tests: `src/__tests__/enrichment/identity.test.ts` (16) runs the rules on
+- Tests: `src/__tests__/enrichment/identity.test.ts` (20) runs the rules on
   answers the SLN-461 sample recorded on 6 Oct
   (`src/__tests__/fixtures/enrichment/identity/recorded.json`, cut to the
   fields read; the reverse P648 lookups and one title search are built and
@@ -97,8 +100,6 @@ turns on, under the daily cap; everything else waits for his review file.
   14, none refused, 3 proposals withdrawn, the filled LCCN columns cleared).
   That run used rule version 1; it found the duplicate author records.
 - `pnpm typecheck`, `pnpm lint` (0 errors) and `pnpm deadcode` are clean.
-- `python3 scripts/qa/test-local.py` after merging main: 2,807 of 2,808
-  passed in 252 files, none skipped; the one failure was the new
-  author-record test, whose book title Open Library's record did not agree
-  with. With the title fixed, `identity-resolution` passed 23 of 23.
+- `python3 scripts/qa/test-local.py` with the review fix: 2,812 of 2,812
+  passed in 252 files, none skipped (`identity-resolution` 23 of 23).
 - No migration.

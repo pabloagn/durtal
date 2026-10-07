@@ -325,12 +325,16 @@ export function planIdentity(book: IdentityBook, answers: Answers): IdentityPlan
         crossLinked: p648 >= 0 && (link >= 0 || byLink.length === 0),
       });
     }
+    // Open Library keeps duplicate author records: when the work names none of the book's, only an item whose authors (P50) name one of the book's confirms it
+    const authors = (work?.authors ?? []).map((a) => openLibraryId(a.author.key, "A")).filter((a): a is string => !!a);
+    const otherAuthors = authors.length > 0 && book.authorOpenLibraryIds.length > 0 && !authors.some((a) => book.authorOpenLibraryIds.includes(a));
     const qids = items.map(({ item, evidence, crossLinked }) => {
       const otherWork = item.claims.P648.find((w) => w !== id);
       const authorsDisagree = item.claims.P50.length > 0 && book.authorQids.length > 0 && !item.claims.P50.some((a) => book.authorQids.includes(a));
+      const authorsUnconfirmed = otherAuthors && !item.claims.P50.some((a) => book.authorQids.includes(a));
       const year = earliestYear(item);
       const late = year !== null && firstYear !== null && year > firstYear;
-      const agrees = workExact && items.length === 1 && !authorsDisagree && !late;
+      const agrees = workExact && items.length === 1 && !authorsDisagree && !authorsUnconfirmed && !late;
       const note =
         items.length > 1
           ? `several Wikidata items for ${id}`
@@ -338,21 +342,21 @@ export function planIdentity(book: IdentityBook, answers: Answers): IdentityPlan
             ? `Wikidata links it to another Open Library work, ${otherWork}`
             : authorsDisagree
               ? "its authors (P50) are none of the book's"
-              : late
-                ? `first published ${year}, after the edition of ${firstYear}`
-                : !workExact
-                  ? "the Open Library work is in review"
-                  : crossLinked
-                    ? "Wikidata and Open Library link each other"
-                    : "only Open Library links it";
+              : authorsUnconfirmed
+                ? "the Open Library work names other author records, and its authors (P50) name none of the book's"
+                : late
+                  ? `first published ${year}, after the edition of ${firstYear}`
+                  : !workExact
+                    ? "the Open Library work is in review"
+                    : crossLinked
+                      ? "Wikidata and Open Library link each other"
+                      : "only Open Library links it";
       const confidence = agrees && crossLinked ? CONFIDENCE.exact : agrees && !otherWork ? CONFIDENCE.onePath : CONFIDENCE.review;
       return { dimension: "wikidata_qid" as const, value: item.id, confidence, note, evidence };
     });
 
-    // Open Library keeps duplicate author records, so other author keys contradict the work only when no exact QID's P648 names it
-    const confirmed = qids.some((q) => q.confidence === CONFIDENCE.exact);
-    const authors = (work?.authors ?? []).map((a) => openLibraryId(a.author.key, "A")).filter((a): a is string => !!a);
-    const otherAuthors = authors.length > 0 && book.authorOpenLibraryIds.length > 0 && !authors.some((a) => book.authorOpenLibraryIds.includes(a));
+    // An exact QID confirms the work only when it is the book's: not another book's, and not another QID than the accepted one
+    const confirmed = qids.some((q) => q.confidence === CONFIDENCE.exact && !book.taken[q.value] && (book.known.wikidata_qid ?? q.value) === q.value);
     const why = !workExact
       ? workIds.length > 1
         ? "the editions name several Open Library works"
@@ -360,7 +364,7 @@ export function planIdentity(book: IdentityBook, answers: Answers): IdentityPlan
       : !otherAuthors
         ? "every ISBN record names this Open Library work"
         : confirmed
-          ? "every ISBN record and the exact QID's P648 name this work; its author records differ"
+          ? "every ISBN record and the exact QID's P648 name this work, and the QID's authors (P50) name the book's; its author records differ"
           : "the Open Library work names other authors, and no exact QID confirms it";
     offer({
       dimension: "open_library_work",

@@ -491,7 +491,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
     it("applies an Open Library work with another author record when Wikidata confirms it, and leaves it for review when nothing does", async () => {
       await rulesOn();
       // Durtal's author keys on the newest backup; the Open Library works name the other records of these authors
-      const life = await identityBook("Life and Fate", "9781784871963", { authorOpenLibraryKey: "/authors/OL4655492A" });
+      const life = await identityBook("Life and Fate", "9781784871963", { authorQid: "Q313767", authorOpenLibraryKey: "/authors/OL4655492A" });
       const bolano = await identityBook("2666, duplicate author", "9780374100148", { authorOpenLibraryKey: "/authors/OL6493404A" });
       await identify({ only: [life.slug, bolano.slug] });
       expect(await identifiers(life.id)).toEqual(["open_library OL157104W", "wikidata Q979609"]);

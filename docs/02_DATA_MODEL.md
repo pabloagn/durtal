@@ -483,8 +483,10 @@ record that lists the edition's ISBN, with a title that agrees; one Wikidata
 item that names that work in its P648 and that the work names or does not
 contradict; one P5331 on an exact or accepted item; one LCCN on the ISBN's
 record. Author keys on the Open Library work that are none of the book's send the
-work to review, unless an exact QID's P648 names it: Open Library keeps
-duplicate author records, and Durtal's keys often name the other one. One path
+work and its QID to review, unless the QID's authors (P50) name one of the
+book's authors' QIDs: Open Library keeps duplicate author records, and
+Durtal's keys often name the other one. A QID that differs from the accepted
+one, or that another book holds, confirms nothing. One path
 with no cross-link is 0.7. A title search, several candidates,
 other authors, a first year after the edition's, or a value that differs from
 the accepted one is 0.4. A QID or Open Library work that another book holds is

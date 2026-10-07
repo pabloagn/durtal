@@ -172,12 +172,15 @@ describe("identity plans on recorded answers", () => {
 
   it("takes an Open Library work with another author record when an exact QID confirms it, and sends it to review when none does", () => {
     // Durtal's author keys on the newest backup: Open Library keeps a second record for each author
-    const life = planIdentity(book("Life and Fate", [edition("9781784871963", "Life and Fate")], { authorOpenLibraryIds: ["OL4655492A"] }), answers);
+    const life = planIdentity(
+      book("Life and Fate", [edition("9781784871963", "Life and Fate")], { authorQids: ["Q313767"], authorOpenLibraryIds: ["OL4655492A"] }),
+      answers,
+    );
     expect(values(life)).toEqual([
       ["open_library_work", "OL157104W", 1],
       ["wikidata_qid", "Q979609", 1],
     ]);
-    expect(life.proposals[0].note).toBe("every ISBN record and the exact QID's P648 name this work; its author records differ");
+    expect(life.proposals[0].note).toBe("every ISBN record and the exact QID's P648 name this work, and the QID's authors (P50) name the book's; its author records differ");
     const bolano = planIdentity(book("2666", [edition("9780374100148", "2666")], { authorOpenLibraryIds: ["OL6493404A"] }), answers);
     expect(bolano.proposals.find((p) => p.dimension === "open_library_work")).toMatchObject({
       value: "OL712025W",
@@ -241,5 +244,46 @@ describe("the identity review file", () => {
       { ...ok, isbn: "9780374100148" },
     ])
       expect(identityReviewSchema.safeParse({ "2666-by-roberto-bolano": bad }).success, JSON.stringify(bad)).toBe(false);
+  });
+});
+
+describe("review #141: what confirms an Open Library work whose author records differ", () => {
+  // A generic title whose ISBN record names another poet's work; Wikidata links that work both ways
+  const ISBN = "9780000000002";
+  const answers = recordedAnswers({
+    [ANSWER.edition(ISBN)]: { key: "/books/OL900000M", title: "Selected Poems", works: [{ key: "/works/OL900001W" }], isbn_13: [ISBN], isbn_10: [], lccn: [] },
+    [ANSWER.work("OL900001W")]: { key: "/works/OL900001W", title: "Selected Poems", authors: [{ author: { key: "/authors/OL900002A" } }], identifiers: { wikidata: ["Q90000010"] } },
+    [ANSWER.linkedItems("OL900001W")]: ["Q90000010"],
+    [ANSWER.item("Q90000010")]: { id: "Q90000010", label: "Selected Poems", claims: { P31: ["Q7725634"], P50: ["Q90000011"], P577: [], P629: [], P648: ["OL900001W"], P5331: [] } },
+    [ANSWER.item("Q90000012")]: { id: "Q90000012", label: "Selected Poems", claims: { P31: ["Q7725634"], P50: [], P577: [], P629: [], P648: ["OL900003W"], P5331: [] } },
+  });
+  const poems = (fields: Partial<IdentityBook> = {}) => book("Selected Poems", [edition(ISBN, "Selected Poems")], { authorOpenLibraryIds: ["OL900009A"], ...fields });
+  const confidences = (plan: IdentityPlan) => Object.fromEntries(plan.proposals.map((p) => [p.dimension, p.confidence]));
+
+  it("sends the work and its QID to review when no author of the book is known on Wikidata", () => {
+    expect(confidences(planIdentity(poems(), answers))).toEqual({ open_library_work: 0.4, wikidata_qid: 0.4 });
+  });
+
+  it("sends them to review when the item names no author", () => {
+    const noAuthor = recordedAnswers({
+      [ANSWER.edition(ISBN)]: { key: "/books/OL900000M", title: "Selected Poems", works: [{ key: "/works/OL900003W" }], isbn_13: [ISBN], isbn_10: [], lccn: [] },
+      [ANSWER.work("OL900003W")]: { key: "/works/OL900003W", title: "Selected Poems", authors: [{ author: { key: "/authors/OL900002A" } }], identifiers: { wikidata: [] } },
+      [ANSWER.linkedItems("OL900003W")]: ["Q90000012"],
+      [ANSWER.item("Q90000012")]: { id: "Q90000012", label: "Selected Poems", claims: { P31: ["Q7725634"], P50: [], P577: [], P629: [], P648: ["OL900003W"], P5331: [] } },
+    });
+    expect(confidences(planIdentity(poems({ authorQids: ["Q90000013"] }), noAuthor))).toEqual({ open_library_work: 0.4, wikidata_qid: 0.4 });
+  });
+
+  it("takes both when the item's authors (P50) name the book's author: a duplicate Open Library author record", () => {
+    expect(confidences(planIdentity(poems({ authorQids: ["Q90000011"] }), answers))).toEqual({ open_library_work: 1, wikidata_qid: 1 });
+  });
+
+  it("never counts a QID that differs from the book's accepted one, or that another book holds", () => {
+    const life = (fields: Partial<IdentityBook>) =>
+      planIdentity(book("Life and Fate", [edition("9781784871963", "Life and Fate")], { authorQids: ["Q313767"], authorOpenLibraryIds: ["OL4655492A"], ...fields }), recordedAnswers());
+    expect(confidences(life({ known: { wikidata_qid: "Q90000003" } }))).toMatchObject({ open_library_work: 0.4, wikidata_qid: 0.4 });
+    const held = life({ taken: { Q979609: { workId: "other", slug: "life-and-fate-again" } } });
+    expect(held.collisions.map((c) => c.value)).toEqual(["Q979609"]);
+    expect(confidences(held)).toEqual({ open_library_work: 0.4 });
   });
 });
