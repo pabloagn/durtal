@@ -88,8 +88,10 @@ export function AuthorCard({
     >
       {/* Photo area — relative wrapper so dropdown escapes overflow-hidden */}
       <div className="relative">
+        {/* Named here: without a photo, the covers and the monogram are decoration (SLN-536) */}
         <Link
           href={href}
+          aria-label={name}
           className={`block ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={isSelecting ? -1 : undefined}
         >

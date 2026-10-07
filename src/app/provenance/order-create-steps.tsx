@@ -281,7 +281,8 @@ export function WorkSearchStep({
               />
             ) : (
               <div className="flex h-full items-center justify-center">
-                <span className="font-serif text-sm text-fg-muted/40">
+                {/* Decoration: the title is in the text beside it */}
+                <span aria-hidden="true" data-decorative className="font-serif text-sm text-fg-muted/40">
                   {selectedWork.title?.[0] ?? "?"}
                 </span>
               </div>
@@ -349,7 +350,8 @@ export function WorkSearchStep({
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <span className="font-serif text-xs text-fg-muted/40">
+                      {/* Decoration: the title is in the text beside it */}
+                      <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">
                         {work.title?.[0] ?? "?"}
                       </span>
                     </div>

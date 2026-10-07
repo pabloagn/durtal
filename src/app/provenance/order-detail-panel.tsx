@@ -187,7 +187,8 @@ export function OrderDetailPanel({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center">
-                  <span className="font-serif text-lg text-fg-muted/30">
+                  {/* Decoration: the title is in the text beside it */}
+                  <span aria-hidden="true" data-decorative className="font-serif text-lg text-fg-muted/30">
                     {order.work.title?.[0] ?? "?"}
                   </span>
                 </div>
