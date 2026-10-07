@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, ImageIcon, Library, Pencil } from "lucide-react";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
-import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 

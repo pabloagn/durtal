@@ -49,13 +49,6 @@ export async function getMediaForWork(workId: string) {
   });
 }
 
-export async function getMediaForAuthor(authorId: string) {
-  return db.query.media.findMany({
-    where: eq(media.authorId, authorId),
-    orderBy: [asc(media.sortOrder), asc(media.createdAt)],
-  });
-}
-
 export async function getMediaByType(
   workId: string,
   type: string,

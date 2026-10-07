@@ -6,7 +6,7 @@ import { Pagination, type PaginationData } from "@/components/shared/pagination"
 import dynamic from "next/dynamic";
 import { CheckSquare } from "lucide-react";
 import { usePreference } from "@/lib/hooks/use-preference";
-import { useAuthorSelection } from "@/lib/hooks/use-author-selection";
+import { useSelection } from "@/lib/hooks/use-selection";
 import { DataTable } from "@/components/shared/data-table";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { COL_CLASSES } from "@/components/shared/grid-columns";
@@ -227,7 +227,7 @@ export function AuthorsShell({
   const mapAuthors = useViewData(viewMode === "map", mapQuery, getAuthorsForMap);
   const timelineAuthors = useViewData(viewMode === "timeline", timelineQuery, getAuthorsForTimeline);
 
-  const selection = useAuthorSelection();
+  const selection = useSelection();
   const allIds = authors.map((a) => a.id);
   const nameMap = new Map(authors.map((a) => [a.id, a.name]));
 

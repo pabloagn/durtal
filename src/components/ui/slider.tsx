@@ -35,7 +35,8 @@ export function Slider({
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         aria-label={label}
-        className="slider-track h-1 w-full cursor-pointer appearance-none rounded-sm bg-bg-tertiary accent-accent-rose"
+        // On touch the slider is 44px tall: its track stays a 4px line drawn by the background
+        className="slider-track h-1 w-full cursor-pointer appearance-none rounded-sm bg-bg-tertiary accent-accent-rose pointer-coarse:h-11 pointer-coarse:rounded-none pointer-coarse:bg-transparent pointer-coarse:bg-[linear-gradient(var(--color-bg-tertiary),var(--color-bg-tertiary))] pointer-coarse:bg-[length:100%_4px] pointer-coarse:bg-center pointer-coarse:bg-no-repeat"
       />
     </div>
   );
