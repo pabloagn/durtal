@@ -88,65 +88,72 @@ describe.skipIf(!url)("the e-book catalogue", () => {
   });
 
   describe("the migration", () => {
-    it("stops, changing nothing, while the old library holds anything", async () => {
-      await reset(before);
-      const old = await oldLibrary();
-      // A book of the old library
-      const [book] = await c`insert into calibre_books(calibre_id, title, path, work_id) values (42, 'À rebours', 'Huysmans/A rebours (42)', ${old.work}) returning id`;
-      expect(await failure(after)).toBe(
-        "calibre_books holds 1 rows; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
-      );
-      // A reading place in it
-      await c`insert into reading_progress(calibre_book_id, progress_percent) values (${book.id}, 0.5)`;
-      expect(await failure(after)).toBe(
-        "reading_progress holds 1 rows; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
-      );
-      await c`delete from reading_progress`;
-      await c`delete from calibre_books`;
-      // A copy that links to it
-      await c`update instances set calibre_url = 'http://localhost:8083/book/42' where id = ${old.copy}`;
-      expect(await failure(after)).toBe(
-        "1 copies have a calibre_id or calibre_url; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
-      );
-      await c`update instances set calibre_url = null`;
-      // A cover of the old reader with image adjustments
-      await c`insert into image_adjustments(asset_key, sources, settings) values ('gold/calibre/42/cover.jpg', '["/api/reader/42/cover"]', '{}')`;
-      expect(await failure(after)).toBe(
-        "1 image adjustments are for covers of the old reader; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
-      );
-      // Nothing changed on the way
-      expect(await c`select name from locations where id = ${old.place}`).toEqual([{ name: "Calibre" }]);
-      expect(await tables()).toEqual(["calibre_books"]);
+    describe("from the old library", () => {
+      // Every migration up to the guards, for each test: the setup, in a hook with its own limit,
+      // as below; the tests run only the last migrations (SLN-538)
+      beforeEach(() => reset(before), 60000);
+      it("stops, changing nothing, while the old library holds anything", async () => {
+        const old = await oldLibrary();
+        // A book of the old library
+        const [book] = await c`insert into calibre_books(calibre_id, title, path, work_id) values (42, 'À rebours', 'Huysmans/A rebours (42)', ${old.work}) returning id`;
+        expect(await failure(after)).toBe(
+          "calibre_books holds 1 rows; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
+        );
+        // A reading place in it
+        await c`insert into reading_progress(calibre_book_id, progress_percent) values (${book.id}, 0.5)`;
+        expect(await failure(after)).toBe(
+          "reading_progress holds 1 rows; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
+        );
+        await c`delete from reading_progress`;
+        await c`delete from calibre_books`;
+        // A copy that links to it
+        await c`update instances set calibre_url = 'http://localhost:8083/book/42' where id = ${old.copy}`;
+        expect(await failure(after)).toBe(
+          "1 copies have a calibre_id or calibre_url; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
+        );
+        await c`update instances set calibre_url = null`;
+        // A cover of the old reader with image adjustments
+        await c`insert into image_adjustments(asset_key, sources, settings) values ('gold/calibre/42/cover.jpg', '["/api/reader/42/cover"]', '{}')`;
+        expect(await failure(after)).toBe(
+          "1 image adjustments are for covers of the old reader; this migration expects none (live had none on 4 October 2026). Ask the coordinator.",
+        );
+        // Nothing changed on the way
+        expect(await c`select name from locations where id = ${old.place}`).toEqual([{ name: "Calibre" }]);
+        expect(await tables()).toEqual(["calibre_books"]);
+      });
+
+      it("renames the digital location in place, keeps its copies, and points the setting at it", async () => {
+        const old = await oldLibrary();
+        await c`insert into instances(edition_id, location_id, format) values (${old.edition}, ${old.place}, 'pdf')`;
+        await migrate(testDb!, { migrationsFolder: after });
+        expect(await tables()).toEqual(["ebooks"]);
+        expect(await c`select id, name, type from locations order by name`).toEqual([{ id: old.place, name: "eBooks", type: "digital" }]);
+        expect(await c`select count(*)::int as n from instances where location_id = ${old.place}`).toEqual([{ n: 2 }]);
+        expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: old.place }]);
+        expect(
+          await c`select column_name from information_schema.columns where table_name = 'instances' and column_name like 'calibre%'`,
+        ).toEqual([]);
+        // Running the migrations again changes nothing
+        const snapshot = async () => [
+          await c`select * from locations order by id`,
+          await c`select * from instances order by id`,
+          await c`select * from app_settings`,
+        ];
+        const first = await snapshot();
+        await migrate(testDb!, { migrationsFolder: after });
+        expect(await snapshot()).toEqual(first);
+      });
     });
 
-    it("renames the digital location in place, keeps its copies, and points the setting at it", async () => {
-      await reset(before);
-      const old = await oldLibrary();
-      await c`insert into instances(edition_id, location_id, format) values (${old.edition}, ${old.place}, 'pdf')`;
-      await migrate(testDb!, { migrationsFolder: after });
-      expect(await tables()).toEqual(["ebooks"]);
-      expect(await c`select id, name, type from locations order by name`).toEqual([{ id: old.place, name: "eBooks", type: "digital" }]);
-      expect(await c`select count(*)::int as n from instances where location_id = ${old.place}`).toEqual([{ n: 2 }]);
-      expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: old.place }]);
-      expect(
-        await c`select column_name from information_schema.columns where table_name = 'instances' and column_name like 'calibre%'`,
-      ).toEqual([]);
-      // Running the migrations again changes nothing
-      const snapshot = async () => [
-        await c`select * from locations order by id`,
-        await c`select * from instances order by id`,
-        await c`select * from app_settings`,
-      ];
-      const first = await snapshot();
-      await migrate(testDb!, { migrationsFolder: after });
-      expect(await snapshot()).toEqual(first);
-    });
-
-    it("makes the location on a database without one", async () => {
-      await reset(after);
-      const places = await c`select id, name, type from locations`;
-      expect(places).toEqual([{ id: expect.any(String), name: "eBooks", type: "digital" }]);
-      expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: places[0].id }]);
+    describe("with no digital location", () => {
+      // Every migration on an empty schema: the setup, in a hook with its own limit, as the
+      // tables below do; it took most of the test's 5 s on a slower machine (SLN-538)
+      beforeAll(() => reset(after), 60000);
+      it("makes the location on a database without one", async () => {
+        const places = await c`select id, name, type from locations`;
+        expect(places).toEqual([{ id: expect.any(String), name: "eBooks", type: "digital" }]);
+        expect(await c`select ebook_location_id from app_settings`).toEqual([{ ebook_location_id: places[0].id }]);
+      });
     });
   });
 

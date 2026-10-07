@@ -10,6 +10,8 @@ describe("perfume sources", () => {
     expect(PERFUME_SOURCES.filter((s) => s.access === "cite").map((s) => s.name)).toEqual(["Fragrantica", "Basenotes", "Parfumo"]);
     expect(providersFor("perfume").map((p) => p.id)).toEqual(["wikidata"]);
     expect(adapterProblems(wikidataPerfumes as unknown as ProviderAdapter)).toEqual([]);
+    // The 1 s between calls that Wikidata's terms ask for; the database suite stubs Wikidata and sets it to 0 (SLN-538)
+    expect(wikidataPerfumes.limits.minIntervalMs).toBe(1000);
     // Nothing is proposed for notes or formulations: Wikidata has none
     expect(wikidataPerfumes.fields.work).not.toContain("notes");
   });

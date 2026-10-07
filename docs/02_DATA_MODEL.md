@@ -2440,6 +2440,13 @@ the old library's tables and the copies' links to it were empty; migration
 `0076_ebook_catalogue` added these tables and dropped the old ones. Reads live in
 `src/lib/ebooks/queries.ts`; formats in `src/lib/ebooks/formats.ts`.
 
+A file belongs to exactly one e-book, so nothing can point at another e-book's
+file (`0080_ebook_constraints`, SLN-518): `ebook_files` is UNIQUE (`id`, `ebook_id`)
+(`ebook_files_id_ebook_unique`), and the preferred file, a position and an annotation
+each reference that pair with their own e-book's id. The routes and services check
+the same; these keys are the backstop under them. A refused row answers SQLSTATE
+`23503` with the key's name.
+
 ### `ebooks`
 
 | Column | Type | Constraints | Notes |
@@ -2455,13 +2462,13 @@ the old library's tables and the copies' links to it were empty; migration
 | `identifiers` | JSONB | NOT NULL, default `{}` | Other ids (asin, goodreads, google, openlibrary, oclc, doi, uuid), each a list of strings |
 | `series`, `series_index`, `publisher`, `published_year`, `description` | | nullable | `published_year` null when unknown |
 | `cover_key` | TEXT | nullable | The preferred file's derived cover; an S3 key in `KEY_COLUMNS` |
-| `preferred_file_id` | UUID | nullable, FK → `ebook_files.id`, SET NULL | The file the reader opens first |
+| `preferred_file_id` | UUID | nullable, FK → `ebook_files.id`, SET NULL; FK (`preferred_file_id`, `id`) → `ebook_files` (`id`, `ebook_id`), SET NULL (`preferred_file_id`) (`ebooks_preferred_file_ebook_fk`) | The file the reader opens first: one of this e-book's own files |
 | `instance_id` | UUID | nullable, UNIQUE, FK → `instances.id`, SET NULL | The digital copy this e-book is |
 | `match_state` | TEXT | NOT NULL, default `'pending'`, CHECK in (`pending`, `linked`, `standalone`, `excluded`) | `linked` exactly when `instance_id` is set (CHECK `ebooks_linked_check`) |
-| `match_method` | TEXT | nullable | `isbn`, `identifier`, `score`, `manual`, `accession` |
+| `match_method` | TEXT | nullable, CHECK in (`isbn`, `identifier`, `score`, `manual`, `accession`) (`ebooks_match_method_check`) | |
 | `match_probability` | REAL | nullable | |
 | `matched_at` | TIMESTAMPTZ | nullable | |
-| `import_source` | TEXT | NOT NULL | `folder` or `upload` |
+| `import_source` | TEXT | NOT NULL, CHECK in (`folder`, `upload`) (`ebooks_import_source_check`) | |
 | `import_ref` | TEXT | nullable | A sidecar `metadata.opf` uuid; UNIQUE (`import_source`, `import_ref`) where set |
 | `search_text` | TEXT | NOT NULL, default `''` | Trigram index `ebooks_search_text_trgm_idx` |
 | `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
@@ -2481,6 +2488,11 @@ Triggers (custom SQL in migration `0076_ebook_catalogue`):
   the e-book is `linked`, it becomes `pending` and loses `match_method`,
   `match_probability` and `matched_at`.
 
+`ebooks_preferred_file_ebook_fk` is custom SQL in migration `0080_ebook_constraints`:
+Drizzle cannot declare a SET NULL that clears one column of a composite key (it needs
+PostgreSQL 15 or later). The schema's single-column key stays; both clear
+`preferred_file_id` when the file is deleted, and the e-book stays.
+
 ### `ebook_files`
 
 One stored file, keyed by its bytes. No work id: it reaches a work only through its e-book.
@@ -2497,12 +2509,15 @@ One stored file, keyed by its bytes. No work id: it reaches a work only through 
 | `s3_key` | TEXT | NOT NULL, UNIQUE | In `KEY_COLUMNS` |
 | `status` | TEXT | NOT NULL, CHECK in (`stored`, `verified`, `missing`, `quarantined`, `replaced`) | |
 | `verified_at` | TIMESTAMPTZ | nullable | |
-| `drm` | TEXT | nullable | A DRM file is stored and listed, never opened |
+| `drm` | TEXT | nullable, CHECK in (`adobe-adept`, `kindle`, `readium-lcp`, `apple-fairplay`, `pdf-password`, `unknown`) (`ebook_files_drm_check`) | A DRM file is stored and listed, never opened |
 | `source_host`, `source_path`, `source_mtime` | | nullable | Where the file was found |
 | `metadata` | JSONB | NOT NULL, default `{}` | What the file itself says |
 | `word_count`, `char_count`, `front_back_word_count`, `page_estimate`, `text_language`, `text_tool_version` | | nullable | Text counts, agreed with the book enrichment epic |
 | `manifest_key`, `cover_key` | TEXT | nullable | Derived objects; in `KEY_COLUMNS` |
 | `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+UNIQUE (`id`, `ebook_id`) (`ebook_files_id_ebook_unique`): the key the preferred file,
+positions and annotations reference.
 
 ### `ebook_positions`
 
@@ -2512,7 +2527,7 @@ The reader's place in one file, per device. Created empty; the reader writes it 
 |---|---|---|
 | `id` | UUID | PK, auto |
 | `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, CASCADE |
-| `file_id` | UUID | NOT NULL, FK → `ebook_files.id`, CASCADE |
+| `file_id` | UUID | NOT NULL; FK (`file_id`, `ebook_id`) → `ebook_files` (`id`, `ebook_id`), CASCADE (`ebook_positions_file_ebook_fk`) |
 | `device_id`, `device_label` | TEXT | NOT NULL |
 | `locator` | JSONB | NOT NULL (a `DurtalLocator`) |
 | `progression`, `furthest_progression` | REAL | NOT NULL, CHECK 0–1 |
@@ -2530,7 +2545,7 @@ Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.
 |---|---|---|
 | `id` | UUID | PK, auto |
 | `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, RESTRICT |
-| `file_id` | UUID | NOT NULL, FK → `ebook_files.id`, RESTRICT |
+| `file_id` | UUID | NOT NULL; FK (`file_id`, `ebook_id`) → `ebook_files` (`id`, `ebook_id`), RESTRICT (`ebook_annotations_file_ebook_fk`) |
 | `kind` | TEXT | NOT NULL, CHECK in (`highlight`, `bookmark`) |
 | `style` | TEXT | NOT NULL, default `'highlight'`, CHECK in (`highlight`, `underline`, `quote`) |
 | `color` | TEXT | nullable, CHECK in (`ochre`, `sage`, `slate`, `rose`, `violet`) |
