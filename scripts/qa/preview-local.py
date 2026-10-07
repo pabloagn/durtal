@@ -143,6 +143,10 @@ insert into locations(name,type) values ('Study','physical');
 -- Migration 0075 already made the digital "eBooks" location on an empty database
 insert into locations(name,type) select 'eBooks','digital' where not exists (select 1 from locations where name='eBooks' and type='digital');
 insert into venues(name,slug,type) values ('Shakespeare and Company','shakespeare-and-company','bookshop');
+-- A publisher of the French editions: /organizations/* has a page to open (page-weight.json)
+insert into publishing_houses(name,slug,kind) values ('Gallimard','gallimard','publisher');
+insert into edition_publishers(edition_id,publisher_id)
+ select e.id,h.id from editions e join publishing_houses h on h.slug='gallimard' where e.language='fr';
 """
 
 SNAPSHOT = """
