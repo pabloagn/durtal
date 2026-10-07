@@ -14,8 +14,7 @@ import { coverToneStyle } from "@/lib/utils/media-style";
  * collections in one row line up: titles, subtitles and info rows at the
  * same heights.
  */
-export const WORK_CARD =
-  "@container group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive";
+export const WORK_CARD = "work-card group card-interactive";
 
 /** The text under a work card's picture */
 export const WORK_CARD_BODY = "p-3.5";
