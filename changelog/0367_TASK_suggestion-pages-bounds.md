@@ -22,16 +22,19 @@ long book to the suggestions and a book of unknown length to the page rule.
   outside `MIN_PAGES` to `MAX_PAGES`, imported from `src/lib/books/enrichment.ts`.
   A null already means "unknown": the length feature ignores it, and it passes
   only the "any" length filter (`passes` in `score.ts`).
-- The suggestion row still shows the edition's stored count and its time to
-  read (`view.ts`, `timeToRead` in `queue.ts`); this task changes only what
-  the score and the filters read.
+- The suggestion row (`suggestionRow`, `view.ts`) reads the same pages: for a
+  count outside the bounds it shows no page count and no time to read, as for
+  a book with no count. An audio length is shown as before. Up Next's time to
+  read (`timeToRead` in `queue.ts`) is not changed.
 
 ## Completion Notes
 
 - `src/__tests__/reading/suggest.test.ts`: a new case reads 3,980 and 15 pages
   as unknown and keeps 16 and 3,000; the long and short filters leave the two
-  unknown books out, and "any" keeps all four. 28 tests pass.
-- No visible change on a page: the suggestions differ only for a book whose
-  edition has a count outside the bounds.
+  unknown books out, and "any" keeps all four. The suggestion row shows no
+  length and no time for 3,980 pages, and "3000 p." with its time for 3,000.
+  28 tests pass.
+- No layout change: the suggestions and their rows differ only for a book
+  whose edition has a count outside the bounds.
 - `scripts/qa/test-local.py`: 254 files, 2,835 tests, all passed. Typecheck
   clean; lint no new warning; `pnpm deadcode` clean.

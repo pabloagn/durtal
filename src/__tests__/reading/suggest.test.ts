@@ -360,6 +360,10 @@ describe("candidates, feedback and constraints", () => {
     expect(titles({ length: "short" })).toEqual(["Shortest kept"]);
     // An unknown length passes only "any"
     expect(titles({})).toHaveLength(4);
+    // The row shows no length and no time to read for it, as for a book with no count
+    const line = (b: SuggestBook) => suggestionRow(scoreBook(b, ctx), ctx).line;
+    expect(line(books[0])).not.toMatch(/ p\.|About/);
+    expect(line(books[3])).toMatch(new RegExp(`^${MAX_PAGES} p\\. · .*About `));
   });
 
   it("parses the constraints once for the page and the API: a bad value is an issue and is dropped", () => {
