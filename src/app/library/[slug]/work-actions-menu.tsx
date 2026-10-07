@@ -26,7 +26,7 @@ import { EDIT_KEYS } from "@/lib/shortcuts/shortcuts";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { WorkEditDialog } from "./work-edit-dialog";
 import { WorkTaxonomyEditDialog } from "./work-taxonomy-edit-dialog";
-import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";

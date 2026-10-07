@@ -123,7 +123,7 @@ describe("manual entry needs no provider", () => {
 
   it("keeps catalogue writes, imports and exports free of provider calls", () => {
     // Source lookups call providers; nothing else that saves a record does
-    const lookups = new Set(["src/lib/actions/perfume-sources.ts", "src/lib/actions/painting-sources.ts"]);
+    const lookups = new Set(["src/lib/actions/perfume-sources.ts", "src/lib/actions/painting-sources.ts", "src/lib/actions/film-sources.ts"]);
     const folders = ["src/lib/actions", "src/lib/catalogue", "src/lib/interchange"];
     for (const folder of folders)
       for (const file of readdirSync(folder).filter((f) => f.endsWith(".ts"))) {

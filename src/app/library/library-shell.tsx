@@ -7,7 +7,7 @@ import {
   useViewModePreference,
 } from "@/lib/hooks/use-preference";
 import { LIBRARY_VIEW_MODES } from "./view-modes";
-import { useLibrarySelection } from "@/lib/hooks/use-library-selection";
+import { useSelection } from "@/lib/hooks/use-selection";
 import { LibraryView } from "@/components/books/library-view";
 import { BulkActionToolbar } from "@/components/books/bulk-action-toolbar";
 import { CheckSquare } from "lucide-react";
@@ -78,7 +78,7 @@ export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellP
     LIST_PREFERENCES.library.grid.fallback,
   );
 
-  const selection = useLibrarySelection();
+  const selection = useSelection();
 
   const allIds = books.map((b) => b.workId);
   const titleMap = new Map(books.map((b) => [b.workId, b.title]));

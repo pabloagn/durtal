@@ -24,6 +24,7 @@ import {
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { SourcesSection } from "@/components/catalogue/sources-section";
+import { FilmSourceLookup } from "@/components/films/source-lookup";
 import { FilmPoster } from "@/components/films/film-poster";
 import { FilmActions } from "@/components/films/film-actions";
 import { CastSection, CrewSection, type CreditView } from "@/components/films/film-credits";
@@ -480,7 +481,8 @@ export default async function FilmPage({
                   <dt className="text-fg-secondary">In the collection</dt>
                   <dd className="text-fg-primary">
                     {heldSummary ? (
-                      <a href="#film-copies" className="transition-colors hover:text-accent-rose-text">
+                      // Inline padding: a target over 24px high beside the rating's larger one, and no change to the line
+                      <a href="#film-copies" className="py-1 transition-colors hover:text-accent-rose-text">
                         {heldSummary}
                       </a>
                     ) : (
@@ -611,6 +613,7 @@ export default async function FilmPage({
               name: "The film's credits, a festival catalogue, a disc's sleeve",
               says: "Release date, runtime of the theatrical cut",
             }}
+            lookup={<FilmSourceLookup key="lookup" film={{ id: film.id, title: film.title, fingerprint: film.fingerprint }} />}
           />
 
           <PersonalNotes

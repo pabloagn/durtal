@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { deletePainting, type PaintingChoices } from "@/lib/actions/paintings";
 import { PaintingForm, type EditablePainting } from "./painting-form";

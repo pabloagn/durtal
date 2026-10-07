@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Loader2, X, Check, Trash2 } from "lucide-react";
+import { ChevronRight, Loader2, X, Check, Trash2, SlidersHorizontal } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { UploadZone } from "@/components/media/upload-zone";
 import { LogoCardUpload, type LogoSource } from "@/components/media/logo-card-upload";
+import { MonochromeControls } from "@/components/media/monochrome-controls";
 import { isLogoCard, parseLogoCardOptions } from "@/lib/media/logo-card-options";
 import {
   getMediaByType,
@@ -21,6 +22,11 @@ import { ImageAdjustmentEditor, ImageAdjustButton } from "@/components/media/ima
 import { ImageDetailsEditor } from "@/components/media/image-details-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import {
+  DEFAULT_MONOCHROME_PARAMS,
+  parseProcessingParams,
+  type MonochromeParams,
+} from "@/lib/validations/media";
 import { toast } from "sonner";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -31,6 +37,8 @@ interface MediaItem {
   type: string;
   s3Key: string;
   thumbnailS3Key: string | null;
+  /** A person's color original, kept for their monochrome image (SLN-316) */
+  originalS3Key: string | null;
   originalFilename: string | null;
   mimeType: string | null;
   width: number | null;
@@ -47,8 +55,8 @@ interface MediaItem {
   cropX: number;
   cropY: number;
   cropZoom: number;
-  /** A logo card's switches live here (SLN-441) */
-  processingParams?: unknown;
+  /** A logo card's switches, or a person's monochrome settings */
+  processingParams: unknown;
   brightness: number;
   contrast: number;
   createdAt: Date;
@@ -58,11 +66,11 @@ interface MediaManagerDialogProps {
   open: boolean;
   onClose: () => void;
   /**
-   * Owner of the images: a work (poster, background, gallery), a collection
-   * (poster, background), a perfume formulation (image, gallery) or a
-   * publishing house (logo, background)
+   * Owner of the images: a work or a person (poster, background, gallery), a
+   * collection (poster, background), a perfume formulation (image, gallery)
+   * or a publishing house (logo, background)
    */
-  entityType?: "work" | "collection" | "perfume_variant" | "organization";
+  entityType?: "work" | "author" | "collection" | "perfume_variant" | "organization";
   entityId: string;
   title: string;
   /** Which tab to open on: defaults to "poster" */
@@ -135,6 +143,10 @@ export function MediaManagerDialog({
   const [pendingDelete, setPendingDelete] = useState<
     { kind: "single"; id: string; name: string } | { kind: "bulk"; count: number } | null
   >(null);
+  // A person's images are monochrome, made from a kept color original: one
+  // with an original can be made again with other settings
+  const monochrome = entityType === "author";
+  const [tuningId, setTuningId] = useState<string | null>(null);
 
   // URL paste state
   const [showUrlSection, setShowUrlSection] = useState(false);
@@ -177,6 +189,7 @@ export function MediaManagerDialog({
       setSelected(new Set());
       setShowUrlSection(false);
       setUrl("");
+      setTuningId(null);
     }
   }, [open, fetchItems]);
 
@@ -192,6 +205,7 @@ export function MediaManagerDialog({
     setShowUrlSection(false);
     setUrl("");
     setUrlLoading(false);
+    setTuningId(null);
     onClose();
   }
 
@@ -201,6 +215,7 @@ export function MediaManagerDialog({
     setSelected(new Set());
     setShowUrlSection(false);
     setUrl("");
+    setTuningId(null);
   }
 
   async function handleSetActive(id: string) {
@@ -228,6 +243,7 @@ export function MediaManagerDialog({
         next.delete(id);
         return next;
       });
+      if (tuningId === id) setTuningId(null);
       await fetchItems();
       router.refresh();
       triggerActivityRefresh();
@@ -245,6 +261,7 @@ export function MediaManagerDialog({
     try {
       await bulkDeleteMedia(Array.from(selected));
       setSelected(new Set());
+      setTuningId(null);
       await fetchItems();
       router.refresh();
       triggerActivityRefresh();
@@ -317,8 +334,27 @@ export function MediaManagerDialog({
     }
   }
 
+  async function handleReprocess(params: MonochromeParams) {
+    if (!tuningId) return;
+    try {
+      const res = await fetch("/api/media/reprocess-author", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaId: tuningId, processingParams: params }),
+      });
+      if (!res.ok) throw new Error("Reprocessing failed");
+      toast.success("Image reprocessed");
+      await fetchItems();
+      router.refresh();
+      triggerActivityRefresh();
+    } catch {
+      toast.error("Failed to reprocess image");
+    }
+  }
+
   const activeItem = !isGallery ? items.find((i) => i.isActive) : null;
   const detailsItem = isGallery ? items.find((i) => i.id === detailsId) : null;
+  const tuningItem = tuningId ? items.find((i) => i.id === tuningId) : null;
 
   const manager = (
     <Dialog
@@ -336,7 +372,7 @@ export function MediaManagerDialog({
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
-              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors pointer-coarse:min-h-11 ${
                 activeTab === tab.key
                   ? "bg-bg-tertiary text-fg-primary"
                   : "text-fg-secondary hover:text-fg-primary"
@@ -387,23 +423,26 @@ export function MediaManagerDialog({
                     ({items.length})
                   </span>
                 </p>
+                {/* On a phone's touch screen, two columns (one for backgrounds), so
+                    an image's controls are 44px and their areas stay apart */}
                 <div
                   className={`grid gap-2 ${
-                    isGallery
-                      ? "grid-cols-3 sm:grid-cols-4"
-                      : activeTab === "poster"
-                        ? "grid-cols-3 sm:grid-cols-4"
-                        : "grid-cols-2 sm:grid-cols-3"
+                    isGallery || activeTab === "poster"
+                      ? "grid-cols-3 sm:grid-cols-4 max-sm:pointer-coarse:grid-cols-2"
+                      : "grid-cols-2 sm:grid-cols-3 max-sm:pointer-coarse:grid-cols-1"
                   }`}
                 >
                   {items.map((item) => {
                     const isSelected = selected.has(item.id);
                     const isSettingThisActive = settingActive === item.id;
                     const isDeletingThis = deletingSingle === item.id;
+                    const isTuning = tuningId === item.id;
 
                     return (
                       <div key={item.id} className="group relative">
-                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
+                        {/* On touch the controls are 44px: Select and Adjust on
+                            the left, Delete and Monochrome settings on the right */}
+                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10 pointer-coarse:bottom-auto pointer-coarse:top-14 pointer-coarse:size-11" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
                           aria-label={isSelected ? "Deselect image" : "Select image"}
@@ -413,7 +452,7 @@ export function MediaManagerDialog({
                             e.stopPropagation();
                             toggleSelection(item.id);
                           }}
-                          className={`absolute left-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-sm border transition-all ${
+                          className={`absolute left-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-sm border transition-all pointer-coarse:size-11 ${
                             isSelected
                               ? "border-accent-rose bg-accent-rose"
                               : "border-glass-border bg-bg-primary/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
@@ -423,6 +462,28 @@ export function MediaManagerDialog({
                             <Check className="h-3 w-3 text-fg-primary" strokeWidth={2} />
                           )}
                         </button>
+
+                        {/* Monochrome settings, for an image with a color original. Not
+                            "Adjust image": that is the crop and light button beside it */}
+                        {monochrome && item.originalS3Key && (
+                          <button
+                            aria-label="Monochrome settings"
+                            data-tooltip="Monochrome settings"
+                            aria-pressed={isTuning}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTuningId(isTuning ? null : item.id);
+                            }}
+                            className={`absolute left-7 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm transition-all pointer-coarse:left-auto pointer-coarse:right-1.5 pointer-coarse:top-14 pointer-coarse:size-11 ${
+                              isTuning
+                                ? "bg-accent-rose text-fg-primary"
+                                : "bg-bg-primary/80 text-fg-muted opacity-0 hover:text-accent-rose group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                            }`}
+                          >
+                            <SlidersHorizontal className="h-3 w-3" strokeWidth={1.5} />
+                          </button>
+                        )}
 
                         {/* Delete button */}
                         <button
@@ -438,7 +499,7 @@ export function MediaManagerDialog({
                             });
                           }}
                           disabled={isDeletingThis}
-                          className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                          className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:size-11 pointer-coarse:opacity-100"
                         >
                           {isDeletingThis ? (
                             <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
@@ -506,7 +567,7 @@ export function MediaManagerDialog({
                                   ),
                                 })
                               }
-                              className="self-start text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                              className="self-start text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11"
                             >
                               Adjust
                             </button>
@@ -522,6 +583,17 @@ export function MediaManagerDialog({
                   })}
                 </div>
               </div>
+            )}
+
+            {tuningItem && tuningItem.originalS3Key && (
+              <MonochromeControls
+                mediaId={tuningItem.id}
+                currentParams={
+                  parseProcessingParams(tuningItem.processingParams) ??
+                  DEFAULT_MONOCHROME_PARAMS
+                }
+                onApply={handleReprocess}
+              />
             )}
 
             {detailsItem && (
@@ -560,12 +632,13 @@ export function MediaManagerDialog({
                 noun={noun}
                 multiple={isGallery}
                 onUploadComplete={handleUploadComplete}
+                processingParams={monochrome ? DEFAULT_MONOCHROME_PARAMS : undefined}
               />
 
               <button
                 type="button"
                 onClick={() => setShowUrlSection((v) => !v)}
-                className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors"
+                className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors pointer-coarse:min-h-11"
               >
                 <ChevronRight
                   className={`h-3 w-3 transition-transform ${showUrlSection ? "rotate-90" : ""}`}
@@ -589,7 +662,7 @@ export function MediaManagerDialog({
                   <button
                     type="submit"
                     disabled={urlLoading || !url.trim()}
-                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11"
                   >
                     {urlLoading && (
                       <Loader2

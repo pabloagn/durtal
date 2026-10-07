@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import {
   updateCollection,
   deleteCollection,
