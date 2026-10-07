@@ -315,7 +315,14 @@ export async function searchWorksForCollection(search: string, kind: WorkKind, l
   const k = z.enum(WORK_KINDS).parse(kind);
   const size = z.number().int().min(1).max(100).parse(limit);
   if (!getEnabledWorkKinds().includes(k)) return [];
-  const match = value ? textSearchCondition(sql`search_normalize(w.title)`, value) : undefined;
+  // Each query word may match the title or a creator: every name form of an
+  // author, director, perfumer or painter, or the credited text of a credit
+  // with no person ("huysmans damned" finds "The Damned").
+  const searchText = sql`concat_ws(' ', search_normalize(w.title),
+    (select string_agg(a.search_text, ' ') from work_authors wa join authors a on a.id=wa.author_id where wa.work_id=w.id),
+    (select string_agg(coalesce(a.search_text, search_normalize(c.credited_as)), ' ') from work_credits c left join authors a on a.id=c.person_id
+      where c.work_id=w.id and c.role_id in ('film.director','perfume.perfumer','painting.painter')))`;
+  const match = value ? textSearchCondition(searchText, value) : undefined;
   return rows<{
     workId: string;
     kind: WorkKind;
