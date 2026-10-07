@@ -57,17 +57,27 @@ export function useSelection(): Selection {
     [selectedIds],
   );
 
-  // Escape exits selection mode, unless an open dialog takes it or a menu has handled it.
-  // On the window: it runs after the document's listeners, where the menus mark theirs.
+  // Escape exits selection mode, unless an open dialog takes it or another layer has handled it.
+  // The layers mark theirs in their own listeners: the menus on the document, the command
+  // palette and the page's search field on the window, after this one when they were added
+  // later. So the mark is read once the key has reached every listener.
   useEffect(() => {
     if (!isSelecting) return;
+    let pending: ReturnType<typeof setTimeout> | undefined;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented || document.querySelector("dialog[open]")) return;
-      setIsSelecting(false);
-      setSelectedIds(new Set());
+      if (e.key !== "Escape" || document.querySelector("dialog[open]")) return;
+      clearTimeout(pending);
+      pending = setTimeout(() => {
+        if (e.defaultPrevented) return;
+        setIsSelecting(false);
+        setSelectedIds(new Set());
+      });
     }
     window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      clearTimeout(pending);
+    };
   }, [isSelecting]);
 
   return {

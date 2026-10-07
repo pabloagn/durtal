@@ -69,7 +69,8 @@ export function AuthorBulkActionToolbar({
 
   return (
     <>
-      <div className="glass fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 px-4 py-2.5">
+      {/* On a narrow screen the bar wraps onto a second row and stays inside the screen, as the books' bar does (SLN-452) */}
+      <div className="glass fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-3 px-4 py-2.5">
         {/* Selection info */}
         <span className="whitespace-nowrap text-sm text-fg-secondary">
           <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}
@@ -82,13 +83,13 @@ export function AuthorBulkActionToolbar({
             row's center is each label's center */}
         <button
           onClick={() => onSelectAll(allIds)}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           Select all
         </button>
         <button
           onClick={onDeselectAll}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           Deselect
         </button>
@@ -120,7 +121,7 @@ export function AuthorBulkActionToolbar({
         {/* Close */}
         <button
           onClick={onExitSelection}
-          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary touch-hit"
           aria-label="Exit selection"
           data-tooltip="Exit selection"
         >

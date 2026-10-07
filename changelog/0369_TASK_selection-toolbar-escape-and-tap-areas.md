@@ -20,21 +20,29 @@ were too small to tap (SLN-532).
   selection mode on any Escape, from a listener on the document. A native
   dialog closes on Escape only after the keydown has passed the document, and
   a `DropdownMenu` marks its Escape handled in its own document listener,
-  which ran after the selection's. The selection now listens on the window,
-  after the document's listeners, and leaves an Escape alone when it is
-  already handled or a dialog is open: one layer per Esc, as the menus already
-  do. With nothing open, Esc still leaves selection mode. This holds for every
-  list that uses the hook (books and people).
+  which ran after the selection's. The selection now leaves an Escape alone
+  when a dialog is open, or when another layer has handled it: one layer per
+  Esc, as the menus already do. The command palette and the page's search
+  field mark theirs in window listeners that are added again as they change,
+  so they can come after the selection's: the selection reads the mark once
+  the key has reached every listener (the next task). With nothing open, Esc
+  still leaves selection mode. This holds for every list that uses the hook
+  (books and people).
 - **SLN-532, tap areas.** "Select all", "Deselect" and "Exit selection" in the
-  toolbar (`bulk-action-toolbar.tsx`) take `touch-hit`: an invisible 44 px
-  press area on a touch screen. The bar looks the same.
+  books' toolbar (`bulk-action-toolbar.tsx`) and in the people's
+  (`author-bulk-action-toolbar.tsx`) take `touch-hit`: an invisible 44 px
+  press area on a touch screen. The people's bar also wraps onto a second row
+  on a narrow screen, as the books' bar does (SLN-452): at 390 px it ran from
+  -124 to 514 px, with Delete and Exit selection off the screen.
 
 ## Completion Notes
 
-- `src/__tests__/hooks/use-selection.test.ts` (3): Esc with nothing open
+- `src/__tests__/hooks/use-selection.test.ts` (4): Esc with nothing open
   leaves selection mode and clears the choice; Esc inside an open dialog keeps
   the selection, and the next Esc after it closes leaves the mode; an Escape a
-  menu has handled keeps the selection. The last two fail on main's hook.
+  menu has handled keeps the selection; an Escape a window listener added
+  after the selection's handles (the command palette) keeps it too. The last
+  three fail on main's hook.
 - Production builds of main (2f2f2ee3) and this branch on the newest backup,
   in headless Chrome, WebKit and Firefox, at 1440 px with a mouse and 390 px
   with a coarse pointer, with two books selected on `/library` and real key
@@ -46,5 +54,11 @@ were too small to tap (SLN-532).
     each close their layer and keep both books; the next Esc leaves selection
     mode. At 390 px the touch audit finds nothing and no two `touch-hit` areas
     overlap. The alignment audit finds nothing at either width.
+- Review's fixes, in headless Chrome with real key presses on `/library` and
+  `/people`: Esc in the command palette, and Esc in the search field after the
+  palette has opened and closed, each closed their layer and kept the
+  selection (on main and before the fix, both cleared it). At 390 px with a
+  coarse pointer, the people's bar stays inside the screen and the touch
+  audit finds nothing on it.
 - Typecheck clean. Lint: no new warning. `pnpm deadcode` clean.
 - `scripts/qa/test-local.py`: 257 files, 2,864 tests, all passed.
