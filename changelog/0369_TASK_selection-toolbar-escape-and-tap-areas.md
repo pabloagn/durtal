@@ -33,7 +33,14 @@ were too small to tap (SLN-532).
   (`author-bulk-action-toolbar.tsx`) take `touch-hit`: an invisible 44 px
   press area on a touch screen. The people's bar also wraps onto a second row
   on a narrow screen, as the books' bar does (SLN-452): at 390 px it ran from
-  -124 to 514 px, with Delete and Exit selection off the screen.
+  -124 to 514 px, with Delete and Exit selection off the screen. Both bars
+  put 12 px between their rows (`gap-y-3`), so a button's press area no
+  longer covers the button in the row below.
+- **The phone drawer.** Its Escape listener (`src/components/layout/shell.tsx`)
+  marks the key handled, so Esc with the drawer open closes the drawer and
+  keeps the selection behind it. A card's mark popover (`mark-toggle.tsx`) is
+  unchanged: it is only on a book's page, where no list can be in selection
+  mode.
 
 ## Completion Notes
 
@@ -60,5 +67,17 @@ were too small to tap (SLN-532).
   selection (on main and before the fix, both cleared it). At 390 px with a
   coarse pointer, the people's bar stays inside the screen and the touch
   audit finds nothing on it.
+- With Review's fixes and the drawer and row gap, merged with main df183f02,
+  as a production build on the newest backup, in headless Chrome, Firefox and
+  WebKit, with two records chosen on `/library` and on `/people`:
+  - At 1440 px with a mouse: Esc in the command palette, then Esc in the
+    page's search field, each closed their layer and kept both records; the
+    next Esc left selection mode.
+  - At 390 px with a coarse pointer: Esc with the drawer open closed it and
+    kept both records; the next Esc left selection mode. Both bars stay
+    inside the screen (16 to 374 px in Chrome). The touch audit and the
+    press-area overlap check find nothing.
+  - The alignment and overflow audits find nothing at either width.
+    `page-weight.js` passes.
 - Typecheck clean. Lint: no new warning. `pnpm deadcode` clean.
-- `scripts/qa/test-local.py`: 257 files, 2,864 tests, all passed.
+- `scripts/qa/test-local.py`: 260 files, 2,934 tests, all passed.
