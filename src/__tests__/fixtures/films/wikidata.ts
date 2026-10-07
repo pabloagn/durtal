@@ -150,13 +150,19 @@ export function wikidataFetch(state: StubState) {
     const ids = (p.get("ids") ?? "").split("|");
     if (ids.length > 50) return json({ error: { info: "Too many values supplied for parameter \"ids\". The limit is 50." } });
     const props = p.get("props") ?? "";
+    const languages = (p.get("languages") ?? "").split("|");
+    // Labels and descriptions only in the languages asked for, with no fallback
+    const inLanguages = (k: string, v: unknown) =>
+      (k === "labels" || k === "descriptions") && v && p.has("languages")
+        ? Object.fromEntries(Object.entries(v).filter(([lang]) => languages.includes(lang)))
+        : v;
     return json({
       entities: Object.fromEntries(
         ids.map((id) => {
           const e = entities[id];
           if (!e) return [id, { id, missing: "" }];
           // Only the parts asked for, as the API answers
-          return [id, Object.fromEntries(Object.entries(e).filter(([k]) => k === "id" || props.split("|").includes(k)))];
+          return [id, Object.fromEntries(Object.entries(e).filter(([k]) => k === "id" || props.split("|").includes(k)).map(([k, v]) => [k, inLanguages(k, v)]))];
         }),
       ),
     });

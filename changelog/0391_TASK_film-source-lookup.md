@@ -28,8 +28,9 @@ schema change.
 - `src/lib/providers/wikidata.ts`: the Wikidata calls the perfume and film
   providers now share (`wikidataApi`, `wikidataEntities` 50 ids to a call,
   statements by rank, qualifiers, `wikidataDate`). Each provider sends its own
-  User-Agent. `wikidata-perfumes.ts` is moved onto it with no change in what
-  it asks or returns.
+  User-Agent, with the `ENRICHMENT_CONTACT` contact when it is set.
+  `wikidata-perfumes.ts` is moved onto it; besides the contact, it now asks
+  for names in English and "mul" too (below).
 - `src/lib/providers/wikidata-films.ts`: the SLN-375 contract for films, at
   the work, version and release levels. Search takes a title
   (`wbsearchentities`), a Wikidata id or link, an IMDb `tt` id or a TMDB movie
@@ -40,7 +41,11 @@ schema change.
   as a release, countries (P495), languages (P364), running time (P2047 in
   minutes, seconds or hours), cast and crew from nine properties (billing
   order from P1545 when every member has one; characters from P453 and P4633;
-  people without an English name counted, not named), production companies
+  a person listed twice in one role is one credit with both characters;
+  names in English, else "mul", the label for all languages, where Wikidata
+  now keeps many names; people with neither counted, not named; people are
+  named before characters, so the 400-name cap only ever drops a character's
+  name), production companies
   (P272), the IMDb, TMDB and Letterboxd ids, and a poster (P3383, else P18 as a
   still) with its author and license from Commons. A Commons failure leaves
   the film without its image. One call a second, 20 s each.
@@ -75,7 +80,12 @@ schema change.
   Wikidata, IMDb or TMDB id or link finds the one item; detail parses titles,
   dates, runtimes, cast order, characters and the Commons terms; a crowded
   cast is named in pages of 50 ids; an error, a 429 and a 20 s timeout come
-  back as the contract's errors; a Commons failure keeps the film;
+  back as the contract's errors; a Commons failure keeps the film; a
+  director named only in "mul"; an actor listed twice with two characters;
+  220 actors with character items and a composer after them, all named; the
+  contact in the User-Agent (the fixture answers labels only in the
+  languages asked for, as the API does; each of these four failed before the
+  review's fixes);
   `releaseFormat`, `earliestDate` and `filmSourceChanges`.
 - `src/__tests__/integration/film-sources.test.ts` (5 tests, local
   PostgreSQL): a review sets each field against the film; a save fills only
@@ -89,7 +99,8 @@ schema change.
   44px touch target (WCAG 2.5.8 spacing, `interaction-audit.mjs` at 390px);
   inline padding makes it 28px with no change to the line.
 - Checked in the cloud: typecheck, lint (0 errors, 77 warnings as on main),
-  deadcode; `scripts/qa/test-local.py` 265 files, 2,971 of 2,971 passed;
+  deadcode; `scripts/qa/test-local.py` 265 files, 2,975 of 2,975 passed
+  (with the review's fixes; the dialog did not change);
   build; page weight (/films 264 of 300 KB); phone, interaction and film
   journey audits; the alignment, design, overflow and touch audits on /films
   and a film page in headless Chrome, Firefox and WebKit at 1440, 768 and

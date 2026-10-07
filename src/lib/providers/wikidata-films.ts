@@ -7,6 +7,7 @@ export type { FilmImage };
 import {
   entityLabel as label,
   itemId,
+  providerUserAgent,
   qualifierValues,
   wikidataApi,
   wikidataDate,
@@ -28,9 +29,9 @@ import {
  * the author and license Commons gives.
  */
 
-const USER_AGENT = "Durtal personal catalogue (film lookup)";
+const userAgent = () => providerUserAgent("film lookup");
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
-const api = (params: Record<string, string>, signal: AbortSignal) => wikidataApi(params, USER_AGENT, signal);
+const api = (params: Record<string, string>, signal: AbortSignal) => wikidataApi(params, userAgent(), signal);
 
 /** The Wikidata properties this provider reads */
 export const WIKIDATA_FILM = {
@@ -161,7 +162,7 @@ async function commonsImage(file: string, kind: FilmImage["kind"], signal: Abort
     titles: `File:${file}`,
   });
   try {
-    const res = await fetchOk(`${COMMONS_API}?${params}`, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" }, signal });
+    const res = await fetchOk(`${COMMONS_API}?${params}`, { headers: { "User-Agent": userAgent(), Accept: "application/json" }, signal });
     const data = (await res.json()) as {
       query?: { pages?: Record<string, { imageinfo?: { url?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }[] }> };
     };
@@ -212,7 +213,16 @@ function creditStatements(item: Entity) {
       index,
     }));
     if (list.length && list.every((c) => Number.isInteger(c.ordinal))) list.sort((a, b) => a.ordinal - b.ordinal || a.index - b.index);
-    return list;
+    // A person listed twice in one role (two characters) is one credit with both
+    const merged = new Map<string, (typeof list)[number]>();
+    for (const c of list) {
+      const same = c.id ? merged.get(c.id) : undefined;
+      if (same) {
+        same.characterIds.push(...c.characterIds);
+        same.characterNames.push(...c.characterNames);
+      } else merged.set(c.id ?? `#${c.index}`, c);
+    }
+    return [...merged.values()];
   });
 }
 
@@ -232,10 +242,10 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
 
   async search({ text }, { signal }) {
     const ids = await candidates(text, signal);
-    const items = (await wikidataEntities(ids, "labels|descriptions|claims", USER_AGENT, signal)).filter(isFilm);
+    const items = (await wikidataEntities(ids, "labels|descriptions|claims", userAgent(), signal)).filter(isFilm);
     // The year and the director tell a remake from the film it remakes
     const directors = new Map(
-      (await wikidataEntities(items.flatMap((e) => itemIds(e, "P57").slice(0, 3)), "labels", USER_AGENT, signal)).map((e) => [e.id, label(e)]),
+      (await wikidataEntities(items.flatMap((e) => itemIds(e, "P57").slice(0, 3)), "labels", userAgent(), signal)).map((e) => [e.id, label(e)]),
     );
     const order = new Map(ids.map((id, i) => [id, i]));
     return items
@@ -254,7 +264,7 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
 
   async detail(externalId, { signal }) {
     if (!/^Q\d+$/.test(externalId)) throw new ProviderError("A Wikidata id looks like Q193570", "invalid");
-    const [item] = await wikidataEntities([externalId], "labels|descriptions|claims", USER_AGENT, signal);
+    const [item] = await wikidataEntities([externalId], "labels|descriptions|claims", userAgent(), signal);
     if (!item) throw new ProviderError(`Wikidata has no item ${externalId}`, "invalid");
     if (!isFilm(item)) throw new ProviderError(`${label(item) ?? externalId} is not a film on Wikidata`, "invalid");
 
@@ -274,9 +284,11 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
       ...languageIds,
       ...companyIds,
       ...published.flatMap((p) => (p.placeId ? [p.placeId] : [])),
-      ...credits.flatMap((c) => [...(c.id ? [c.id] : []), ...c.characterIds]),
+      // People before their characters: past the cap, a character goes unnamed, not a person
+      ...credits.flatMap((c) => (c.id ? [c.id] : [])),
+      ...credits.flatMap((c) => c.characterIds),
     ];
-    const names = new Map((await wikidataEntities(linked, "labels", USER_AGENT, signal, { max: MAX_LINKED })).map((e) => [e.id, label(e)]));
+    const names = new Map((await wikidataEntities(linked, "labels", userAgent(), signal, { max: MAX_LINKED })).map((e) => [e.id, label(e)]));
     const named = (id: string | null): Named | null => {
       const name = id ? names.get(id) : null;
       return id && name ? { id, label: name } : null;

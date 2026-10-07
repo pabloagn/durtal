@@ -8,6 +8,14 @@ import { CROWD, SOLARIS, SOLARIS_REMAKE, stubState, wikidataFetch, type StubStat
 
 // No pause between stubbed calls; the 1 s Wikidata's terms ask for is pinned below
 const films = { ...wikidataFilms, limits: { ...wikidataFilms.limits, minIntervalMs: 0 } };
+// A statement and a film item in the API's shape, for answers the fixture does not hold
+const snak = (value: unknown) => ({ snaktype: "value", datavalue: { value } });
+const claim = (value: unknown, qualifiers?: Record<string, unknown[]>) => ({
+  rank: "normal",
+  mainsnak: snak(value),
+  ...(qualifiers ? { qualifiers: Object.fromEntries(Object.entries(qualifiers).map(([p, v]) => [p, v.map(snak)])) } : {}),
+});
+const film = (id: string, claims: Record<string, unknown[]>) => ({ id, labels: { en: { value: `Film ${id}` } }, claims: { P31: [claim({ id: "Q11424" })], ...claims } });
 
 describe("film sources", () => {
   let state: StubState;
@@ -100,6 +108,67 @@ describe("film sources", () => {
     const labelCalls = state.calls.filter((u) => u.searchParams.get("props") === "labels");
     expect(labelCalls.map((u) => u.searchParams.get("ids")!.split("|").length)).toEqual([50, 10]);
     expect(state.calls.some((u) => u.host === "commons.wikimedia.org")).toBe(false);
+  });
+
+  it("names a person whose name Wikidata keeps only in \"mul\", the label for all languages", async () => {
+    state.overrides = {
+      Q990001: film("Q990001", { P57: [claim({ id: "Q990002" })], P161: [claim({ id: "Q990003" })] }),
+      Q990002: { id: "Q990002", labels: { mul: { value: "Agnès Varda" } } },
+      Q990003: { id: "Q990003", labels: { en: { value: "Corinne Marchand" }, mul: { value: "Corinne Marchand" } } },
+    };
+    const { detail, proposals } = await fetchProviderDetail(films, "Q990001");
+    const credits = proposals.find((p) => p.level === "work")!.fields.credits as { name: string; roleId: string }[];
+    expect((detail.payload as { unnamedCredits: number }).unnamedCredits).toBe(0);
+    expect(credits.map((c) => [c.roleId, c.name])).toEqual([
+      ["film.director", "Agnès Varda"],
+      ["film.cast", "Corinne Marchand"],
+    ]);
+  });
+
+  it("gives an actor Wikidata lists twice in one role one credit with both characters", async () => {
+    state.overrides = {
+      Q990011: film("Q990011", {
+        P161: [claim({ id: "Q990012" }, { P4633: ["Twin A"] }), claim({ id: "Q990013" }), claim({ id: "Q990012" }, { P4633: ["Twin B"] })],
+      }),
+      Q990012: { id: "Q990012", labels: { en: { value: "Jeremy Irons" } } },
+      Q990013: { id: "Q990013", labels: { en: { value: "Geneviève Bujold" } } },
+    };
+    const { proposals } = await fetchProviderDetail(films, "Q990011");
+    const credits = proposals.find((p) => p.level === "work")!.fields.credits as { wikidataId: string; name: string; characters: string[] }[];
+    expect(credits.map((c) => [c.name, c.characters])).toEqual([
+      ["Jeremy Irons", ["Twin A", "Twin B"]],
+      ["Geneviève Bujold", []],
+    ]);
+  });
+
+  it("names every person before any character item, so a large cast keeps the crew after it", async () => {
+    const cast = Array.from({ length: 220 }, (_, i) => `Q99${1000 + i}`);
+    const roles = Array.from({ length: 220 }, (_, i) => `Q98${1000 + i}`);
+    state.overrides = {
+      Q990021: film("Q990021", { P161: cast.map((id, i) => claim({ id }, { P453: [{ id: roles[i] }] })), P86: [claim({ id: "Q990022" })] }),
+      Q990022: { id: "Q990022", labels: { en: { value: "Ennio Morricone" } } },
+      ...Object.fromEntries(cast.map((id, i) => [id, { id, labels: { en: { value: `Actor ${i + 1}` } } }])),
+      ...Object.fromEntries(roles.map((id, i) => [id, { id, labels: { en: { value: `Character ${i + 1}` } } }])),
+    };
+    const { detail, proposals } = await fetchProviderDetail(films, "Q990021");
+    const credits = proposals.find((p) => p.level === "work")!.fields.credits as { name: string; roleId: string }[];
+    expect((detail.payload as { unnamedCredits: number }).unnamedCredits).toBe(0);
+    expect(credits.filter((c) => c.roleId === "film.composer").map((c) => c.name)).toEqual(["Ennio Morricone"]);
+  });
+
+  it("names the ENRICHMENT_CONTACT contact in the User-Agent when it is set", async () => {
+    const agents: string[] = [];
+    const base = wikidataFetch(state);
+    vi.stubGlobal("fetch", (input: string | URL, init?: RequestInit) => {
+      agents.push(new Headers(init?.headers).get("User-Agent") ?? "");
+      return base(input);
+    });
+    vi.stubEnv("ENRICHMENT_CONTACT", "");
+    await fetchProviderDetail(films, SOLARIS);
+    vi.stubEnv("ENRICHMENT_CONTACT", "durtal@example.org");
+    await fetchProviderDetail(films, SOLARIS);
+    vi.unstubAllEnvs();
+    expect(new Set(agents)).toEqual(new Set(["Durtal personal catalogue (film lookup)", "Durtal personal catalogue (film lookup; durtal@example.org)"]));
   });
 
   it("refuses an item that is not a film, and says why a call failed", async () => {

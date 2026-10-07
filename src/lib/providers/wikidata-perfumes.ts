@@ -1,6 +1,7 @@
 import { ProviderError, type ProviderAdapter, type ProviderDetail } from "./contract";
 import {
   entityLabel as label,
+  providerUserAgent,
   wikidataApi,
   wikidataDate,
   wikidataEntities,
@@ -18,9 +19,9 @@ export { wikidataDate };
  * pyramids and no concentrations, so those stay with the person.
  */
 
-const USER_AGENT = "Durtal personal catalogue (perfume lookup)";
-const api = (params: Record<string, string>, signal: AbortSignal) => wikidataApi(params, USER_AGENT, signal);
-const entities = (ids: string[], props: string, signal: AbortSignal) => wikidataEntities(ids, props, USER_AGENT, signal);
+const userAgent = () => providerUserAgent("perfume lookup");
+const api = (params: Record<string, string>, signal: AbortSignal) => wikidataApi(params, userAgent(), signal);
+const entities = (ids: string[], props: string, signal: AbortSignal) => wikidataEntities(ids, props, userAgent(), signal);
 
 /** The Wikidata items and properties this provider reads */
 export const WIKIDATA = {

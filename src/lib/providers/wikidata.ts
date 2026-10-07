@@ -10,6 +10,12 @@ import { ProviderError } from "./contract";
 
 const API = "https://www.wikidata.org/w/api.php";
 
+/** A lookup's User-Agent, with the ENRICHMENT_CONTACT contact when it is set (read at each call) */
+export function providerUserAgent(lookup: string): string {
+  const contact = process.env.ENRICHMENT_CONTACT?.trim();
+  return `Durtal personal catalogue (${contact ? `${lookup}; ${contact}` : lookup})`;
+}
+
 export interface WikidataClaim {
   mainsnak?: { snaktype?: string; datavalue?: { value?: unknown } };
   rank?: string;
@@ -36,13 +42,14 @@ export async function wikidataEntities(ids: string[], props: string, userAgent: 
   const wanted = [...new Set(ids)].slice(0, max);
   const found: WikidataEntity[] = [];
   for (let i = 0; i < wanted.length; i += 50) {
-    const data = await wikidataApi({ action: "wbgetentities", ids: wanted.slice(i, i + 50).join("|"), props, languages: "en" }, userAgent, signal);
+    const data = await wikidataApi({ action: "wbgetentities", ids: wanted.slice(i, i + 50).join("|"), props, languages: "en|mul" }, userAgent, signal);
     found.push(...Object.values((data.entities ?? {}) as Record<string, WikidataEntity>).filter((e) => !e.missing));
   }
   return found;
 }
 
-export const entityLabel = (e: WikidataEntity) => e.labels?.en?.value ?? null;
+// Many names now live only in "mul", the label for all languages
+export const entityLabel = (e: WikidataEntity) => e.labels?.en?.value ?? e.labels?.mul?.value ?? null;
 
 /**
  * A property's statements with a value, deprecated ones left out: the
