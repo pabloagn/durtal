@@ -12,6 +12,8 @@ const reactCompilerRules = Object.fromEntries(
     .map(([rule]) => [rule, "warn"]),
 );
 
+const VENDOR_RULE = "Only src/lib/reader/engines/foliate/ may import foliate-js: use the ReaderEngine interface";
+
 /** @type {import("eslint").Linter.Config[]} */
 const eslintConfig = [
   {
@@ -20,6 +22,8 @@ const eslintConfig = [
       ".next/",
       "src/lib/db/migrations/",
       "**/*.test.ts",
+      // foliate-js, vendored as published (VENDORED.md there)
+      "src/vendor/",
     ],
   },
   ...tseslint.configs.recommended,
@@ -44,6 +48,22 @@ const eslintConfig = [
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-empty-object-type": "off",
+    },
+  },
+  // Only the foliate adapter may reach the vendored engine; everything else
+  // talks to ReaderEngine (src/lib/reader/engine.ts). Dynamic imports too.
+  {
+    files: ["src/**/*.{ts,tsx,js,mjs}"],
+    ignores: ["src/lib/reader/engines/foliate/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ group: ["**/vendor/foliate-js", "**/vendor/foliate-js/**"], message: VENDOR_RULE }] },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        { selector: "ImportExpression[source.value=/vendor\\/foliate-js/]", message: VENDOR_RULE },
+      ],
     },
   },
 ];

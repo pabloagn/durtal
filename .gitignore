@@ -7,6 +7,8 @@
 # =============================================================================
 node_modules/
 .next/
+# pdf.js's worker, maps, fonts and wasm, copied by scripts/vendor-pdfjs.mjs
+public/vendor/pdfjs/
 out/
 .turbo/
 *.tsbuildinfo
