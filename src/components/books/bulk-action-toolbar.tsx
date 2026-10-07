@@ -184,13 +184,13 @@ export function BulkActionToolbar({
             row's center is each label's center */}
         <button
           onClick={() => onSelectAll(allIds)}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           Select all
         </button>
         <button
           onClick={onDeselectAll}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           Deselect
         </button>
@@ -346,7 +346,7 @@ export function BulkActionToolbar({
         {/* Close */}
         <button
           onClick={onExitSelection}
-          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary touch-hit"
           aria-label="Exit selection"
           data-tooltip="Exit selection"
         >

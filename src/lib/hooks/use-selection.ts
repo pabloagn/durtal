@@ -16,7 +16,8 @@ export interface Selection {
 
 /**
  * A list's selection mode: which records are chosen, and the mode itself.
- * Escape leaves the mode and clears the choice. One hook for every list.
+ * Escape leaves the mode and clears the choice, once nothing above the list
+ * takes it (one layer per Esc). One hook for every list.
  */
 export function useSelection(): Selection {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -56,17 +57,17 @@ export function useSelection(): Selection {
     [selectedIds],
   );
 
-  // Escape exits selection mode
+  // Escape exits selection mode, unless an open dialog takes it or a menu has handled it.
+  // On the window: it runs after the document's listeners, where the menus mark theirs.
   useEffect(() => {
     if (!isSelecting) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setIsSelecting(false);
-        setSelectedIds(new Set());
-      }
+      if (e.key !== "Escape" || e.defaultPrevented || document.querySelector("dialog[open]")) return;
+      setIsSelecting(false);
+      setSelectedIds(new Set());
     }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
   }, [isSelecting]);
 
   return {
