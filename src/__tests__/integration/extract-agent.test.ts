@@ -292,6 +292,25 @@ describe.skipIf(!url)("the extract stage", () => {
     ]);
   });
 
+  it("does not let an undone run's R6 rejection swallow the same evidence later, so a second source still makes two", async () => {
+    const w = await book();
+    await store(w.id, "guardian", review(DARK));
+    answer = (request) => ({ values: { tone: [{ term: "dark", excerpt: holding(request, DARK, DARK_THIRD) }] } });
+    const firstRun = randomUUID();
+    await run({ runId: firstRun });
+    await undoRun(conn, { runId: firstRun, apply: true, stages: { extract: stage() } });
+    // The same document extracted again verifies the same excerpt
+    await enqueueEnrichmentJob({ workId: w.id, kind: "extract", reason: "manual" }, conn);
+    await run({ only: [w.slug] });
+    // Then a second outlet: with the document above, two independent sources
+    await store(w.id, "nyrb", review(DARK_THIRD));
+    await enqueueEnrichmentJob({ workId: w.id, kind: "extract", reason: "research" }, conn);
+    await run({ only: [w.slug] });
+    expect((await claims(w.id)).filter((x) => x.status === "proposed")).toEqual([
+      { dimension: "tone", term: "dark", status: "proposed", reason: null, confidence: 0.75, note: null, evidence: 2 },
+    ]);
+  });
+
   it("never counts a publisher page toward R6, and notes a conflict, capping its confidence", async () => {
     const w = await book();
     await store(w.id, "nyrb", review(DARK));
@@ -344,6 +363,33 @@ describe.skipIf(!url)("the extract stage", () => {
     const again = await run({ only: [w.slug], stages: { extract: tampered as EnrichmentStage } });
     expect(again.jobs[0].outcome).toMatchObject({ documents: 1, skipped: ["its text does not match its hash"], calls: 0 });
     expect(sent).toHaveLength(0);
+  });
+
+  it("drops an excerpt that holds half of an astral character as one failed value, and keeps the book's other values", async () => {
+    const w = await book();
+    const ASTRAL = "Its prose is 𝔄 slow and dark, a bleak procession of dinners.";
+    await store(w.id, "nyrb", review(`${ASTRAL} ${SLOW}`));
+    // 𝔄 is two UTF-16 units; the answer's JSON can carry the second alone
+    const half = JSON.parse('"\\udd04 slow and dark, a bleak procession"') as string;
+    answer = () => ({ values: { pace: [{ term: "slow", excerpt: SLOW }], tone: [{ term: "dark", excerpt: half }] } });
+    const report = await run();
+    expect(report.jobs[0].error).toBeUndefined();
+    expect(report.jobs[0].outcome).toMatchObject({ result: "extracted", valuesReturned: 2, valuesVerified: 1, failures: { not_in_passage: 1 }, proposed: 1 });
+    expect((await extractions(w.id))[0].failures).toEqual([{ dimension: "tone", term: "dark", check: "not_in_passage", excerpt: "\ufffd slow and dark, a bleak procession" }]);
+  });
+
+  it("keeps the first 200 code points of a long excerpt in the job's records, never half of an astral character", async () => {
+    const w = await book();
+    // An astral character at the 200th place: UTF-16 units 199 and 200
+    const lead = `${"Long, ".repeat(33)}a`;
+    const LONG = `${lead}𝔄 is a dark book, bleak to the end.`;
+    await store(w.id, "nyrb", review(LONG));
+    answer = () => ({ values: { tone: [{ term: "dark", excerpt: LONG }], pace: [{ term: "slow", excerpt: `${lead}𝔄 never written in the review` }] } });
+    const report = await run();
+    expect(report.jobs[0].error).toBeUndefined();
+    expect(report.jobs[0].outcome).toMatchObject({ result: "extracted", valuesVerified: 1, failures: { not_in_passage: 1 }, rejectedR6: 1 });
+    expect((report.jobs[0].outcome!.proposals as { excerpt: string }[])[0].excerpt).toBe(`${lead}𝔄`);
+    expect(((await extractions(w.id))[0].failures as { excerpt: string }[])[0].excerpt).toBe(`${lead}𝔄`);
   });
 
   it("queues a book again for a research dimension it was never extracted for", async () => {

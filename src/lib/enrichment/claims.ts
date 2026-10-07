@@ -516,7 +516,10 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
   const same = await rows<{ id: string; status: ClaimStatus; decisionReason: DecisionReason | null; sourceIds: string[] }>(
     conn,
     sql`select c.id, c.status, c.decision_reason as "decisionReason",
-        coalesce((select array_agg(distinct e.source_record_id::text) from claim_evidence e where e.claim_id = c.id), '{}') as "sourceIds"
+        coalesce((select array_agg(distinct e.source_record_id::text) from claim_evidence e where e.claim_id = c.id
+          -- An R6 rejection stays, but the evidence of an undone extraction run no longer backs it
+          and not (c.decision_reason = 'not_independent'
+            and exists (select 1 from enrichment_extractions x where x.run_id = e.run_id and x.undone_at is not null))), '{}') as "sourceIds"
       from enrichment_claims c where ${SAME_VALUE("c", key)}`,
   );
   let linked = false;

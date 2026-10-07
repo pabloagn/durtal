@@ -41,6 +41,8 @@ const sha256 = (value: unknown) => createHash("sha256").update(stableStringify(v
 /** Characters per token for a plan's estimate, until the trial measures it; an apply counts tokens */
 const CHARS_PER_TOKEN = 4;
 const usd = (amount: number) => `$${amount.toFixed(amount < 1 ? 3 : 2)}`;
+/** The first `n` code points of a text, never half of an astral character: jsonb refuses one */
+const clip = (text: string, n: number) => [...text.toWellFormed()].slice(0, n).join("");
 
 /** A dimension the research agent extracts: experience terms and scales, and facts terms marked for research */
 const RESEARCH_DIMENSION = sql.raw(`((d.layer = 'experience' and d.value_kind in ('term', 'terms', 'scale'))
@@ -265,7 +267,7 @@ async function decide(
         term: item.term,
         confidence: item.proposal.confidence,
         outlet: item.evidence[0].outlet,
-        excerpt: item.evidence[0].excerpt.slice(0, 200),
+        excerpt: clip(item.evidence[0].excerpt, 200),
       });
     });
   }
@@ -402,7 +404,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         for (const value of values) {
           const verdict = verifyValue(value, { chars, passages, terms });
           if (verdict.ok) result.verified.push(verdict.value);
-          else result.failures.push({ dimension: value.dimension, term: value.term, check: verdict.check, excerpt: value.excerpt.slice(0, 200) });
+          else result.failures.push({ dimension: value.dimension, term: value.term, check: verdict.check, excerpt: clip(value.excerpt, 200) });
         }
       }
       return { ...plan, results };

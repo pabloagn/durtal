@@ -40,6 +40,8 @@ export function verifyValue(value: ReturnedValue, input: { chars: string[]; pass
   // R3: NFC is the only change; a passage the request did not send fails
   const excerpt = value.excerpt.normalize("NFC");
   if (!excerpt) return { ok: false, check: "no_excerpt" };
+  // The stored text is decoded UTF-8, so it never holds half of an astral character: an excerpt that does is not in it
+  if (!excerpt.isWellFormed()) return { ok: false, check: "not_in_passage" };
   const passage = input.passages.find((p) => p.id === value.passage);
   if (!passage) return { ok: false, check: "not_in_passage" };
   const at = passage.text.indexOf(excerpt);

@@ -152,6 +152,12 @@ describe("R3 and R4: the checks of a returned value", () => {
     ["text outside the passage", "Before. 𝔄 Sebald’s prose"],
   ])("drops %s", (_, excerpt) => expect(check(excerpt)).toEqual({ ok: false, check: "not_in_passage" }));
 
+  it("drops an excerpt that holds half of an astral character, without failing the job", () => {
+    // 𝔄 is two UTF-16 units; JSON can carry one alone as \udd04
+    const half = JSON.parse('"\\udd04 Sebald’s prose is “a slow, melancholic drift”"') as string;
+    expect(check(half)).toEqual({ ok: false, check: "not_in_passage" });
+  });
+
   it("drops an excerpt of a passage the request did not send", () => {
     expect(check("Sebald’s prose is “a slow, melancholic drift”", { passage: "p2" })).toEqual({ ok: false, check: "not_in_passage" });
   });

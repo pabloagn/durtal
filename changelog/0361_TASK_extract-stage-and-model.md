@@ -91,7 +91,7 @@ twice with one request.
 
 ## Completion Notes
 
-- Tests: `src/__tests__/enrichment/extract.test.ts` (32: the relevance gate
+- Tests: `src/__tests__/enrichment/research-extract.test.ts` (32: the relevance gate
   and passages in code points, the request without examples or sampling
   settings, the hash, the answer schema, R3 and R4 with curly quotes, spaces,
   case, ellipses, NFD and astral offsets, R6 merges, conflicts, confidence)
@@ -110,6 +110,14 @@ twice with one request.
   errors read as hash mismatches; the sweep re-queueing or missing books;
   copied evidence taking the proposing run's id; undo throwing on a retired
   term; a job merge keeping the open job's reason). Each is fixed with a test.
+- Review fixes: the unit tests are now `research-extract.test.ts`, since
+  #145 added `extract.test.ts`; an excerpt holding half of an astral
+  character fails R3 (`not_in_passage`) instead of failing the job; the
+  excerpts the job's records keep are cut at 200 code points, never inside
+  an astral character, which jsonb refuses and which failed the write; an R6
+  rejection no longer counts the evidence of an undone run, so the same
+  document verified again later is kept and makes two sources with a new
+  one. Each has a test.
 - The migration is `0079`, generated on `main` 65e532d9; SLN-518 takes the
   next number.
 - `pnpm typecheck`, `pnpm lint` (0 errors), `pnpm deadcode` and `pnpm test`
