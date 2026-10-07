@@ -1,6 +1,6 @@
 # Task 0361: SLN-469 Extract stage and model (PR 2 of 2)
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-07
 **Priority**: HIGH
 **Type**: Feature
@@ -82,8 +82,39 @@ twice with one request.
 - `ANTHROPIC_API_KEY` (optional; extraction refuses to apply without it), the
   Settings integration check (`models.retrieve`, free), and the worker's
   `--determinism-check N`.
+- `src/lib/settings/integrations.ts`: the Brave Search check settles only an
+  answered search (a refusal or no answer releases its reservation), makes no
+  call when no cap is set, and no longer counts as a use in "Last used". The
+  research and extract plans print the cap, this month's spend and what is
+  left.
 - Docs 01, 02, 06, 08 and 13.
 
 ## Completion Notes
 
-To be filled after the checks.
+- Tests: `src/__tests__/enrichment/extract.test.ts` (32: the relevance gate
+  and passages in code points, the request without examples or sampling
+  settings, the hash, the answer schema, R3 and R4 with curly quotes, spaces,
+  case, ellipses, NFD and astral offsets, R6 merges, conflicts, confidence)
+  and the database suite `extract-agent.test.ts` (24, database
+  `sln469_extract_agent`): a plan makes no call or write; an apply without
+  the key refuses; claims and R6 rejections with text evidence that passes
+  the guards; metered calls; syndication counted once and a later source
+  proposing again with all evidence and its own run ids; publisher pages and
+  conflicts; not-about documents; invalid answers; budget and ceiling holds;
+  storage errors and hash mismatches; no second payment from the cache; no
+  catalogue change; undo; the vocabulary sweep, a new dimension and a retired
+  one; gold-set hiding; `countReviewsFound`; the determinism check; the Brave
+  check's billing; the table's append-only guard. `research-agent.test.ts`
+  now expects the extract job with every research dimension by name.
+- A fresh review of the stage found six defects before the PR opened (storage
+  errors read as hash mismatches; the sweep re-queueing or missing books;
+  copied evidence taking the proposing run's id; undo throwing on a retired
+  term; a job merge keeping the open job's reason). Each is fixed with a test.
+- The migration is `0079`, generated on `main` 65e532d9; SLN-518 takes the
+  next number.
+- `pnpm typecheck`, `pnpm lint` (0 errors), `pnpm deadcode` and `pnpm test`
+  (1,992 passed; the database suites skipped there) are clean.
+  `python3 scripts/qa/test-local.py`: 2,890 tests passed in 256 files, none
+  skipped.
+- Not done here: any live run. The extractor of the evidence store still
+  refuses until its packages land, so research stores no page yet.
