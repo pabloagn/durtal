@@ -82,4 +82,31 @@ pages. A new book now queues a research job beside its identity job.
 
 ## Completion Notes
 
-RESULTS
+- Tests: `src/__tests__/enrichment/research.test.ts` (9: the query groups and
+  limits, the language table, the term-word check, ranking, both adapters'
+  requests and parsers, refusals and failures, snippets off) and the database
+  suite `research-agent.test.ts` (11, database `sln469_research_agent`): a
+  plan writes nothing and searches nothing; an apply without the key refuses;
+  a new book queues identity and research; only allowlisted pages are stored,
+  never a blocked host, and one extract job is queued; the fallback for the
+  run and once per book; both refusing hold the job (`rate_limited`, `quota`)
+  without an attempt or a cache entry; the budget and the book's ceiling hold
+  it; a snippet is stored only when the terms allow it; no note, rating or
+  description reaches a search; the `all` scope skips researched books. The
+  five save suites now expect the research job beside the identity job.
+- `pnpm typecheck`, `pnpm lint` (0 errors), `pnpm deadcode` and `pnpm test`
+  (1,960 passed; the database suites skipped there) are clean.
+  `python3 scripts/qa/test-local.py`: 2,832 tests passed in 254 files, none
+  skipped.
+- `/settings/integrations` on a preview, headless, at 1440, 768 and 390 px:
+  `alignment-audit.js` 0 deviations and `design-audit.js` 0 problems in Chrome,
+  WebKit and Firefox; no sideways scroll at 375 and 390 px
+  (`phone-audit.mjs`); `interaction-audit.mjs --disposable`: no failures (29 tab
+  stops, 12 touch controls, 1 between 24 and 44 px).
+- `page-weight.js`: on the synthetic preview every measured route passed but
+  `/organizations/*` (no organization to open); on a preview of
+  `live-before-0078-20261007-033858.dump` every route passed but
+  `/reading/year` (3.2 s against 1 s; 748 ms on the synthetic preview). This
+  PR changes neither route. `/settings/integrations` is 70 KB.
+- No migration. Not measured yet: the cost per book (the live trial, after
+  Pablo's yes).
