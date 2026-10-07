@@ -207,6 +207,8 @@ class FoliateEngine implements ReaderEngine {
     container.append(view);
     this.#view = view;
     await view.open(book);
+    // Swipes, taps and the wheel belong to the reader's input layer (src/lib/reader/input.ts)
+    view.renderer.setAttribute("no-swipe", "");
     this.setPresentation(presentation);
 
     const info: BookInfo = {

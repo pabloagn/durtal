@@ -31,6 +31,8 @@ export interface ReaderActions {
   escape(): void;
   /** Any input that is reading: a turn, a key, a tap */
   activity?(kind: "turn" | "key" | "pointer" | "scroll"): void;
+  /** The mouse moved, at this point of the reader's viewport (the bars show near an edge) */
+  pointer?(x: number, y: number): void;
 }
 
 export interface ReaderInputOptions {
@@ -110,7 +112,10 @@ export interface ReaderInput {
 export function createReaderInput(options: ReaderInputOptions): ReaderInput {
   const { actions } = options;
   const now = options.now ?? (() => Date.now());
-  const detachers = new Set<() => void>();
+  // Section documents come and go as the engine loads and unloads them: held
+  // weakly, so an unloaded section is never kept alive by its listeners
+  const attached = new Set<WeakRef<Document>>();
+  const detachers = new WeakMap<Document, () => void>();
   let touchStart: Point | null = null;
   let touchMoved = false;
   let lastTouchEnd = -Infinity;
@@ -118,11 +123,14 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
   let wheelTurned = false;
   let wheelTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** x in the reader's viewport, for an event in any of its documents */
-  const viewportX = (doc: Document, clientX: number) => {
+  /** Where a section's frame sits in the reader's viewport; none for the app's own document */
+  const frameOffset = (doc: Document) => {
     const frame = doc.defaultView?.frameElement;
-    return frame ? frame.getBoundingClientRect().left + clientX : clientX;
+    if (!frame) return { left: 0, top: 0 };
+    const rect = frame.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
   };
+  const viewportX = (doc: Document, clientX: number) => frameOffset(doc).left + clientX;
   const viewportWidth = () => (typeof window === "undefined" ? 0 : window.innerWidth);
 
   const selectionIn = (doc: Document) => {
@@ -267,29 +275,45 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
         wheelTurned = false;
       }, WHEEL_REST_MS);
     };
+    const onMouseMove = (event: MouseEvent) => {
+      // A touch's emulated mouse events are not a mouse
+      if (!actions.pointer || now() - lastTouchEnd < GHOST_CLICK_MS) return;
+      const offset = frameOffset(doc);
+      actions.pointer(offset.left + event.clientX, offset.top + event.clientY);
+    };
     doc.addEventListener("keydown", onKeyDown);
+    doc.addEventListener("mousemove", onMouseMove, { passive: true });
     doc.addEventListener("touchstart", onTouchStart, { passive: true });
     doc.addEventListener("touchmove", onTouchMove, { passive: true });
     doc.addEventListener("touchend", onTouchEnd);
     doc.addEventListener("click", onClick);
     doc.addEventListener("wheel", onWheel, { passive: true });
+    const ref = new WeakRef(doc);
     const detach = () => {
       doc.removeEventListener("keydown", onKeyDown);
+      doc.removeEventListener("mousemove", onMouseMove);
       doc.removeEventListener("touchstart", onTouchStart);
       doc.removeEventListener("touchmove", onTouchMove);
       doc.removeEventListener("touchend", onTouchEnd);
       doc.removeEventListener("click", onClick);
       doc.removeEventListener("wheel", onWheel);
-      detachers.delete(detach);
+      detachers.delete(doc);
+      attached.delete(ref);
     };
-    detachers.add(detach);
+    for (const old of attached) if (!old.deref()) attached.delete(old);
+    attached.add(ref);
+    detachers.set(doc, detach);
     return detach;
   };
 
   return {
     attach,
     destroy() {
-      for (const detach of [...detachers]) detach();
+      for (const ref of [...attached]) {
+        const doc = ref.deref();
+        if (doc) detachers.get(doc)?.();
+      }
+      attached.clear();
       if (wheelTimer) clearTimeout(wheelTimer);
     },
   };
