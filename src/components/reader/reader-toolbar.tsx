@@ -70,8 +70,9 @@ export function ReaderToolbar({
         visible ? "" : "pointer-events-none -translate-y-full opacity-0"
       }`}
     >
-      {/* The row carries the title's type: the buttons sit on its cap-height center */}
-      <div className="type-item-title flex h-12 items-center px-2">
+      {/* The row carries the title's type: the buttons sit on its cap-height center. On
+          touch it is taller, so the 44px buttons stay inside the bar, which clips */}
+      <div className="type-item-title flex h-12 items-center px-2 pointer-coarse:h-14">
         <div className="flex w-full min-w-0 items-start gap-1">
           <CapAligned height={32} coarseHeight={44}>
             <a

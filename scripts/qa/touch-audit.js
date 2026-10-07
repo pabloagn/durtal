@@ -78,7 +78,9 @@
   /**
    * The target box: the element, grown by a positioned ::before/::after hit
    * area, then cut by every ancestor that clips its overflow (a cap-box
-   * clips), since a press outside the clip does not reach the control.
+   * clips), since a press outside the clip does not reach the control. A
+   * scrolling box brings its content into view: what clips beyond it (a
+   * glass dialog around its scrolling body) cuts the scroller, not the target.
    */
   function target(el) {
     const r = el.getBoundingClientRect();
@@ -97,11 +99,15 @@
         bottom: Math.max(box.bottom, cy + h / 2),
       };
     }
+    let scrollsX = false;
+    let scrollsY = false;
     for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
       const s = getComputedStyle(n);
       // Only a hidden or clipped overflow cuts the target; a scrolling box brings its content into view
-      const clipX = /hidden|clip/.test(s.overflowX);
-      const clipY = /hidden|clip/.test(s.overflowY);
+      const clipX = !scrollsX && /hidden|clip/.test(s.overflowX);
+      const clipY = !scrollsY && /hidden|clip/.test(s.overflowY);
+      scrollsX ||= /auto|scroll/.test(s.overflowX);
+      scrollsY ||= /auto|scroll/.test(s.overflowY);
       if (!clipX && !clipY) continue;
       const c = n.getBoundingClientRect();
       if (clipX) box = { ...box, left: Math.max(box.left, c.left), right: Math.min(box.right, c.right) };
