@@ -32,13 +32,14 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
-import { getWorks, getWorkCount, type WorkFilters } from "@/lib/actions/works";
+import { getLibraryStats, getWorks, getWorkCount, type WorkFilters } from "@/lib/actions/works";
 import { getReadingSummaries, getSeriesNextToRead } from "@/lib/actions/reading";
 import { getAuthorBySlug } from "@/lib/actions/authors";
 import { getSeriesDetail } from "@/lib/actions/series";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { parseReadingFilters, LIBRARY_SORTS } from "@/lib/reading/filter-params";
 import { readingRecordOf } from "@/lib/reading/record";
+import { cardReadingOf } from "@/lib/reading/card";
 import { GET as listWorks } from "@/app/api/works/route";
 
 // Reading across the library (SLN-449): filters, sorts, extras, summaries,
@@ -183,6 +184,14 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
     // The timeline takes the same filters back from the browser
     await q(`update works set original_year = 1950`);
     expect((await getWorksForTimeline({ filters: { reading: ["unread"], holding: "owned" } })).map((w) => w.title)).toEqual(["Unread owned"]);
+  });
+
+  it("gives the dashboard's Wanted cards the open reading, as the library's cards have it (SLN-542)", async () => {
+    await library();
+    const wanted = (await getLibraryStats()).wantedWorks;
+    expect(wanted.map((w) => w.title)).toEqual(["Paused wanted"]);
+    expect(wanted[0]).toMatchObject({ readingState: "paused", readingPercent: 10 });
+    expect(cardReadingOf(wanted[0])).toEqual({ state: "paused", percent: 10 });
   });
 
   it("summarizes a page of books for the list and the table", async () => {

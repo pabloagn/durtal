@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { cache } from "react";
+import { cache, type ReactNode } from "react";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { notFound } from "next/navigation";
@@ -14,6 +14,12 @@ import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
+import { FilmCard } from "@/components/films/film-card";
+import { PerfumeCard } from "@/components/perfumes/perfume-card";
+import { PaintingCard } from "@/components/paintings/painting-card";
+import { loadFilmCards } from "@/lib/catalogue/film-store";
+import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
+import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { AuthorDetailHeader } from "./author-detail-header";
 import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
@@ -77,21 +83,27 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       roles: [...roles].map(([role, ids]) => `${role} ${ids.size}`).join(", "),
     };
   });
-  const otherCollections = DOMAIN_ORDER.filter((kind) => kind !== "book" && byKind.has(kind)).map(
-    (kind) => {
-      const works = new Map<string, { title: string; href: string | null; roles: string[] }>();
-      for (const c of byKind.get(kind)!) {
-        const work = works.get(c.workId) ?? {
-          title: c.title,
-          href: c.slug ? `${WORK_DOMAINS[kind].basePath}/${c.slug}` : null,
-          roles: [],
-        };
-        work.roles.push(c.role);
-        works.set(c.workId, work);
-      }
-      return { kind, label: WORK_DOMAINS[kind].pluralLabel, works: [...works.values()] };
-    },
-  );
+  // Films, perfumes and paintings as their collections' cards, like the books
+  // below; the person's roles on each go under its card
+  const creditRoles = new Map<string, string[]>();
+  for (const c of credits)
+    if (c.kind !== "book") creditRoles.set(c.workId, [...(creditRoles.get(c.workId) ?? []), c.role]);
+  const idsOf = (kind: WorkKind) => [...new Set((byKind.get(kind) ?? []).map((c) => c.workId))];
+  const [films, perfumes, paintings] = await Promise.all([
+    loadFilmCards(idsOf("film")),
+    loadPerfumeCards(idsOf("perfume")),
+    loadPaintingCards(idsOf("painting")),
+  ]);
+  const otherCards: Partial<Record<WorkKind, { id: string; card: ReactNode }[]>> = {
+    film: films.map((film) => ({ id: film.id, card: <FilmCard film={film} /> })),
+    perfume: perfumes.map((perfume) => ({ id: perfume.id, card: <PerfumeCard perfume={perfume} /> })),
+    painting: paintings.map((painting) => ({ id: painting.id, card: <PaintingCard painting={painting} /> })),
+  };
+  const otherCollections = DOMAIN_ORDER.filter((kind) => otherCards[kind]?.length).map((kind) => ({
+    kind,
+    label: WORK_DOMAINS[kind].pluralLabel,
+    cards: otherCards[kind]!,
+  }));
 
   const works = author.workAuthors.map((wa) => ({
     ...wa.work,
@@ -396,35 +408,20 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {/* Films, perfumes and paintings */}
             {otherCollections.map((group) => (
               <section key={group.kind} className="mb-8">
-                <SectionHeading title={group.label} count={group.works.length} />
-                <ul className="space-y-2">
-                  {group.works.map((work) => (
-                    <li
-                      key={`${work.href ?? work.title}`}
-                      className="flex items-start gap-4 rounded-sm border border-glass-border bg-bg-secondary px-4 py-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        {work.href ? (
-                          <Link
-                            href={work.href}
-                            className="type-item-title transition-colors hover:text-accent-rose-text"
-                          >
-                            {work.title}
-                          </Link>
-                        ) : (
-                          <span className="type-item-title">{work.title}</span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap justify-end gap-1.5">
-                        {work.roles.map((role) => (
-                          <Badge key={role} variant="blue">
-                            {role}
-                          </Badge>
-                        ))}
-                      </div>
-                    </li>
+                <SectionHeading title={group.label} count={group.cards.length} />
+                <div
+                  className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${hasRecord ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
+                >
+                  {group.cards.map(({ id, card }) => (
+                    <div key={id}>
+                      {card}
+                      {/* The person's roles on it, as a related row's caption */}
+                      <p className="mt-1.5 lines-2 text-micro text-fg-secondary">
+                        {creditRoles.get(id)?.join(", ")}
+                      </p>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </section>
             ))}
 

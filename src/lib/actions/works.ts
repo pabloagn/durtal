@@ -809,6 +809,7 @@ export async function getLibraryStats() {
     // Wanted / shortlisted
     db.query.works.findMany({
       where: inArray(works.id, wantedIds),
+      extras: readingExtras,
       with: worksWith,
     }),
     // For recent authors: get more works so we can extract unique authors

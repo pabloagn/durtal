@@ -25,12 +25,9 @@ import {
 } from "@/lib/catalogue/domain-homes";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { BookCard } from "@/components/books/book-card";
-import { CardStatus } from "@/components/books/card-status";
-import { CardHeading } from "@/components/shared/card-heading";
 import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { DomainTileCard } from "@/components/domains/domain-tile";
@@ -39,7 +36,6 @@ import { mediaCrop } from "@/lib/utils/media-style";
 import { getAuthorCoverPreviews, getPersonRoles } from "@/lib/actions/authors";
 import { RecentPeopleGrid } from "@/components/people/recent-people-grid";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { languageName } from "@/lib/utils/language";
 import { finishedItem, tileItem } from "@/components/reading/hub-cards";
 import { DashboardReading } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
@@ -382,34 +378,9 @@ async function DashboardContent() {
             href="/library?status=wanted,shortlisted"
           />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {stats.wantedWorks.map((work) => {
-              const edition = work.editions[0];
-              const author = work.workAuthors[0]?.author;
-              return (
-                <Link
-                  key={work.id}
-                  href={`/library/${work.slug ?? ""}`}
-                  className="group rounded-sm border border-glass-border bg-bg-secondary p-4 card-interactive"
-                >
-                  {/* The book card's text: title, author, then the info row */}
-                  <CardHeading title={work.title} subtitle={author?.name} />
-                  <div className="mt-2.5 flex h-5 items-center gap-2">
-                    <CardStatus
-                      status={work.catalogueStatus}
-                      priority={work.acquisitionPriority}
-                    />
-                    {edition?.language && edition.language !== "en" && (
-                      <Badge variant="blue">{languageName(edition.language)}</Badge>
-                    )}
-                    {edition?.publicationYear && (
-                      <span className="ml-auto shrink-0 font-mono text-micro text-fg-secondary">
-                        {edition.publicationYear}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+            {stats.wantedWorks.map((work) => (
+              <BookCard key={work.id} {...workToCardProps(work)} />
+            ))}
           </div>
         </section>
       )}

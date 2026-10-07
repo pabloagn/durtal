@@ -144,7 +144,8 @@ export function AuthorDetailHeader({
           </ProtectedImageWrapper>
         ) : (
           <div className="flex h-64 w-48 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
-            <span className="font-serif text-4xl text-fg-muted/20">
+            {/* Decoration: the name is the heading beside it */}
+            <span aria-hidden="true" data-decorative className="font-serif text-4xl text-fg-muted/20">
               {name[0]}
             </span>
           </div>
