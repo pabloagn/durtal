@@ -192,11 +192,14 @@ export interface SearchLog {
 /**
  * One run's searches. The main provider is used until it refuses or fails
  * twice in a row; then the fallback for the rest of the run. When both
- * refuse, the run stops (QuotaStop) and the job in hand is held.
+ * refuse, the run stops (QuotaStop) and the job in hand is held. A fallback
+ * that refuses a book's extra pass while the main provider works is off for
+ * the rest of the run; the run goes on.
  */
 export function searchSession(options: SessionOptions) {
   const throttles = new Map<string, ReturnType<typeof serialThrottle>>();
   let mainOff = false;
+  let fallbackOff = false;
 
   /** One metered search, from the cache when this query was asked before */
   async function ask(provider: SearchProvider, request: SearchRequest, job: { workId: string; jobId: string }, log: SearchLog): Promise<SearchResult[]> {
@@ -241,6 +244,10 @@ export function searchSession(options: SessionOptions) {
     get mainOff() {
       return mainOff;
     },
+    /** The fallback refused or failed a book's extra pass while the main provider worked: off for the rest of the run */
+    get fallbackOff() {
+      return fallbackOff;
+    },
     /** One query: the main provider while it works, else the fallback; both refusing stops the run */
     async search(request: SearchRequest, job: { workId: string; jobId: string }, log: SearchLog, useFallback = false): Promise<{ provider: SearchProvider; results: SearchResult[] }> {
       if (!mainOff && !useFallback)
@@ -249,14 +256,22 @@ export function searchSession(options: SessionOptions) {
         } catch (error) {
           if (!(error instanceof SearchRefusal || error instanceof SearchFailure)) throw error;
           mainOff = true;
-          if (!options.fallback) throw stop(error);
+          // Both off: no fallback, or it refused earlier in the run
+          if (!options.fallback || fallbackOff) throw stop(error);
         }
       if (!options.fallback) throw new Error("No fallback search provider: BRAVE_SEARCH_API_KEY is not set");
+      // A book's extra pass after the fallback refused: nothing more from it this run
+      if (fallbackOff) return { provider: options.fallback, results: [] };
       try {
         return { provider: options.fallback, results: await attempt(options.fallback, request, job, log) };
       } catch (error) {
-        if (error instanceof SearchRefusal || error instanceof SearchFailure) throw stop(error);
-        throw error;
+        if (!(error instanceof SearchRefusal || error instanceof SearchFailure)) throw error;
+        // Only the fallback refused: the main provider still works, and the book keeps what it found
+        if (!mainOff) {
+          fallbackOff = true;
+          return { provider: options.fallback, results: [] };
+        }
+        throw stop(error);
       }
     },
   };

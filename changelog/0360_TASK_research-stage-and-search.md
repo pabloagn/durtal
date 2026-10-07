@@ -42,8 +42,10 @@ pages. A new book now queues a research job beside its identity job.
     every call through `metered`; refusals (`SearchRefusal`) and failures
     (`SearchFailure`); the run's search session: the fallback for the rest of
     the run once the main provider refuses or fails twice, and once for a book
-    it leaves with fewer than two candidates; both refusing stop the run. The
-    per-book ceiling is checked before each call (`WorkCeilingStop`). Search
+    it leaves with fewer than two usable candidates (a `snippet_only` outlet
+    counts only when its snippet may be stored); both refusing stop the run. A
+    fallback that refuses a book's extra pass while the main provider works is
+    off for the rest of the run, and the run goes on. The per-book ceiling is checked before each call (`WorkCeilingStop`). Search
     answers are cached by query (URL, title and rank only).
   - `rank.ts`: blocked hosts, unknown and excluded outlets dropped (each
     dropped URL counted once), canonical URLs merged, ordered by outlet weight
@@ -85,18 +87,20 @@ pages. A new book now queues a research job beside its identity job.
 - Tests: `src/__tests__/enrichment/research.test.ts` (9: the query groups and
   limits, the language table, the term-word check, ranking, both adapters'
   requests and parsers, refusals and failures, snippets off) and the database
-  suite `research-agent.test.ts` (11, database `sln469_research_agent`): a
+  suite `research-agent.test.ts` (13, database `sln469_research_agent`): a
   plan writes nothing and searches nothing; an apply without the key refuses;
   a new book queues identity and research; only allowlisted pages are stored,
   never a blocked host, and one extract job is queued; the fallback for the
-  run and once per book; both refusing hold the job (`rate_limited`, `quota`)
+  run and once per book (also when the only other candidate is a snippet it
+  may not use); a fallback refusing a book's extra pass leaves the run going
+  and the book its pages; both refusing hold the job (`rate_limited`, `quota`)
   without an attempt or a cache entry; the budget and the book's ceiling hold
   it; a snippet is stored only when the terms allow it; no note, rating or
   description reaches a search; the `all` scope skips researched books. The
   five save suites now expect the research job beside the identity job.
 - `pnpm typecheck`, `pnpm lint` (0 errors), `pnpm deadcode` and `pnpm test`
   (1,960 passed; the database suites skipped there) are clean.
-  `python3 scripts/qa/test-local.py`: 2,832 tests passed in 254 files, none
+  `python3 scripts/qa/test-local.py`: 2,834 tests passed in 254 files, none
   skipped.
 - `/settings/integrations` on a preview, headless, at 1440, 768 and 390 px:
   `alignment-audit.js` 0 deviations and `design-audit.js` 0 problems in Chrome,

@@ -349,8 +349,11 @@ HTTP status only, never a URL, key or body.
   monthly credit, so it errs high. The plan allows 50 requests a second; the
   worker paces it like the main provider.
 - **When:** for the rest of a run once Tavily refuses or fails twice, and once
-  for a book Tavily leaves with fewer than two allowlisted candidates. Without
-  its key the fallback is off and the plan says so. When both refuse, the run
+  for a book Tavily leaves with fewer than two usable candidates (a
+  `snippet_only` outlet counts only when its snippet may be stored). Without
+  its key the fallback is off and the plan says so. If Brave refuses a book's
+  extra pass while Tavily still works, Brave is off for the rest of the run,
+  the book keeps Tavily's pages and the run goes on. When both refuse, the run
   stops and the job in hand is held (`quota` or `rate_limited`).
 - **Check:** Brave has no free call that proves a key, so the check makes one
   search (`count=1`) through the meter as operation `check`; at the cap it makes

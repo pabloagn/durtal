@@ -14,7 +14,7 @@ import type { EnrichmentStage, StageContext, StageJob } from "../stages";
 import { RESEARCH_CONFIG, REVIEW_WORDS, TOPIC_WORDS } from "./config";
 import { loadProfiles, researchDimensions, type ResearchProfile } from "./profile";
 import { planQueries, type ResearchQuery } from "./queries";
-import { rankCandidates } from "./rank";
+import { rankCandidates, type Candidate } from "./rank";
 import { brave, searchSession, tavily, type SearchLog, type SearchProvider, type SearchResult, type SearchSession } from "./search";
 
 /*
@@ -182,10 +182,16 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
         return found;
       };
 
+      // A snippet_only candidate is usable only through a snippet the provider's terms allow storing, copied from the page
+      const usableSnippet = (c: Candidate) => {
+        const provider = [deps.main, deps.fallback].find((p) => p.key === c.provider)!;
+        return provider.snippets.storable && provider.snippets.copiedFromPage && !!c.snippet?.trim();
+      };
+      const usable = (candidates: Candidate[]) => candidates.filter((c) => c.outlet.fetchPolicy !== "snippet_only" || usableSnippet(c)).length;
       let found = await searchAll(false);
       let ranking = rankCandidates(found, outlets);
-      // Too few allowlisted candidates from the main provider: the fallback once, with the same queries
-      if (!session.mainOff && ranking.candidates.length < 2 && deps.keys()[deps.fallback.envKey]) {
+      // Too few usable candidates from the main provider: the fallback once, with the same queries
+      if (!session.mainOff && !session.fallbackOff && usable(ranking.candidates) < 2 && deps.keys()[deps.fallback.envKey]) {
         log.fallbackForBook = true;
         found = [...found, ...(await searchAll(true))];
         ranking = rankCandidates(found, outlets);
@@ -201,7 +207,7 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
         if (c.outlet.fetchPolicy === "snippet_only") {
           // Never fetched; its snippet only where the provider's terms allow storing it and it is the page's own text
           const provider = [deps.main, deps.fallback].find((p) => p.key === c.provider)!;
-          if (!(provider.snippets.storable && provider.snippets.copiedFromPage && c.snippet?.trim())) {
+          if (!usableSnippet(c) || !c.snippet) {
             log.refused.snippet_only = (log.refused.snippet_only ?? 0) + 1;
             outletLog(c.outlet.key).refused++;
             continue;

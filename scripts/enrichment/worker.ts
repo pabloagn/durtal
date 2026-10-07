@@ -10,7 +10,7 @@
  *   pg_dump custom-format backup written in the last hour.
  * - `--undo RUN_ID`: lists a run's applies; with `--apply --backup FILE`,
  *   undoes them, newest first, and each stage's own writes.
- * - `--enqueue KIND --scope owned|on_order|wanted`: queues one job per book
+ * - `--enqueue KIND --scope owned|on_order|wanted|all`: queues one job per book
  *   of the scope (or of `--only`); counts only, unless `--apply --backup`.
  * - `--enable-identity-rules --dimensions KEY,… --approval URL`: turns on
  *   those identity dimensions' exact-match rules, with `--apply --backup`.
@@ -18,7 +18,7 @@
  *
  *   pnpm exec tsx --tsconfig tsconfig.json scripts/enrichment/worker.ts \
  *     [--kinds identity] [--apply --backup FILE] [--undo RUN_ID]
- *     [--enqueue KIND --scope owned|on_order|wanted]
+ *     [--enqueue KIND --scope owned|on_order|wanted|all]
  *     [--enable-identity-rules --dimensions KEY,… --approval URL]
  *     [--disable-identity-rules [--dimensions KEY,…]] [--only SLUG,…]
  *     [--limit N] [--report FILE] [--cache FILE] [--pace MS] [--env-dir DIR]

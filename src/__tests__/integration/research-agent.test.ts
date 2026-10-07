@@ -279,6 +279,31 @@ describe.skipIf(!url)("the research agent", () => {
     expect((await documents(w.id)).map((d) => d.url)).toEqual(["https://lrb.example/only", "https://nyrb.example/second"]);
   });
 
+  it("keeps the run going when only the fallback refuses a book's extra pass: the book keeps the main provider's pages", async () => {
+    const first = await book("Lonely");
+    const second = await book("Solitary");
+    // One candidate per book from the main provider: each book would ask the fallback once
+    answers.tavily = (request) => [result(`https://lrb.example/${request.text.split(" ")[0].toLowerCase()}`, 1)];
+    answers.brave = refuse("brave", 402, "quota");
+    const report = await run();
+    expect(report.stopped).toBeNull();
+    expect(await jobOf(first.id)).toMatchObject({ status: "done" });
+    expect(await jobOf(second.id)).toMatchObject({ status: "done" });
+    expect((await documents(first.id)).map((d) => d.url)).toEqual(["https://lrb.example/lonely"]);
+    expect((await documents(second.id)).map((d) => d.url)).toEqual(["https://lrb.example/solitary"]);
+    // The fallback is off for the rest of the run after its refusal
+    expect(searches.filter((s) => s.provider === "brave")).toHaveLength(1);
+  });
+
+  it("asks the fallback for a book whose only other candidate is a snippet it may not use", async () => {
+    const w = await book("Quiet");
+    answers.tavily = () => [result("https://lrb.example/quiet-book", 1), result("https://quiet.example/quiet-book", 2, "A snippet.")];
+    answers.brave = () => [result("https://nyrb.example/quiet-book", 1)];
+    const report = await run();
+    expect(report.jobs[0].outcome).toMatchObject({ fallbackForBook: true });
+    expect((await documents(w.id)).map((d) => d.url)).toEqual(["https://lrb.example/quiet-book", "https://nyrb.example/quiet-book"]);
+  });
+
   it("stops the run and holds the job without an attempt when both providers refuse; nothing of it is cached", async () => {
     const w = await book("Refused");
     answers.tavily = refuse("tavily", 429, "rate_limited");
