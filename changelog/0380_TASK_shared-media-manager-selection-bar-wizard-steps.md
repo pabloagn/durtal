@@ -72,6 +72,15 @@ manager gets what only the book one had:
 - A tab lists the active image first, then the newest, as the other owners'
   tabs do (it was oldest first).
 
+Two findings of the checks below, on main too, are fixed here because this
+change touches their files:
+
+- The upload zone's "Drag from browser or file system" was `fg-muted/60`
+  (contrast 1.56): it is `fg-secondary`, in every media manager.
+- A person page without a photo shows the name's first letter; it now takes
+  `aria-hidden` and `data-decorative`, as a book's placeholder letter does, so
+  the design audit no longer reads it as faint text (1.13).
+
 Nothing else changes on any page: the same labels, classes, toasts and
 confirmations. The progress row of the wizard is no longer a component made
 during render (a lint warning on main), so it no longer remounts on every
