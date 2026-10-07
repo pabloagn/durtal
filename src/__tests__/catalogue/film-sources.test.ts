@@ -4,7 +4,7 @@ import { adapterProblems, ProviderError, type ProviderAdapter } from "@/lib/prov
 import { providersFor } from "@/lib/providers/registry";
 import { fetchProviderDetail, searchProvider } from "@/lib/providers/run";
 import { earliestDate, wikidataFilms } from "@/lib/providers/wikidata-films";
-import { CROWD, SOLARIS, SOLARIS_REMAKE, stubState, wikidataFetch, type StubState } from "@/__tests__/fixtures/films/wikidata";
+import { CROSSING, CROWD, SOLARIS, SOLARIS_REMAKE, stubState, wikidataFetch, type StubState } from "@/__tests__/fixtures/films/wikidata";
 
 // No pause between stubbed calls; the 1 s Wikidata's terms ask for is pinned below
 const films = { ...wikidataFilms, limits: { ...wikidataFilms.limits, minIntervalMs: 0 } };
@@ -68,8 +68,9 @@ describe("film sources", () => {
       description: "1972 film by Andrei Tarkovsky",
       // The earliest date, not the preferred one
       releaseDate: { precision: "day", start: { year: 1972, month: 3, day: 20 } },
+      // A former country has no ISO code; a language with a 639-1 code is not asked for its 639-3 code
       countries: [{ wikidataId: "Q900202", name: "Soviet Union" }],
-      languages: [{ wikidataId: "Q900203", name: "Russian" }],
+      languages: [{ wikidataId: "Q900203", name: "Russian", iso6391: "ru" }],
       organizations: [{ wikidataId: "Q900501", name: "Mosfilm", role: "production_company" }],
       identifiers: { imdb: "tt0069293", tmdb: "593", letterboxd: "solaris" },
       image: {
@@ -96,7 +97,69 @@ describe("film sources", () => {
     expect(proposals.filter((p) => p.level === "release").map((p) => p.fields)).toEqual([
       { releaseDate: { precision: "day", start: { year: 1972, month: 5, day: 13 } }, place: { wikidataId: "Q900201", name: "Cannes Film Festival" } },
       { releaseDate: { precision: "day", start: { year: 1972, month: 3, day: 20 } }, place: { wikidataId: "Q900202", name: "Soviet Union" } },
-      { releaseDate: { precision: "day", start: { year: 1973, month: 5, day: 10 } }, place: { wikidataId: "Q900204", name: "France" } },
+      { releaseDate: { precision: "day", start: { year: 1973, month: 5, day: 10 } }, place: { wikidataId: "Q900204", name: "France", alpha2: "FR" } },
+    ]);
+  });
+
+  it("reads the ISO codes of a film's countries, languages and release places, one property of one item a call (SLN-551)", async () => {
+    const { proposals } = await fetchProviderDetail(films, CROSSING);
+    const work = proposals.find((p) => p.level === "work")!.fields;
+    // "United States" is "United States of America" in Durtal's list: the code matches where the name does not
+    expect(work.countries).toEqual([
+      { wikidataId: "Q900205", name: "United States", alpha2: "US" },
+      { wikidataId: "Q900204", name: "France", alpha2: "FR" },
+    ]);
+    expect(work.languages).toEqual([
+      { wikidataId: "Q900206", name: "Spanish", iso6391: "es" },
+      { wikidataId: "Q900207", name: "Cantonese", iso6393: "yue" },
+    ]);
+    expect(proposals.filter((p) => p.level === "release").map((p) => p.fields.place)).toEqual([
+      { wikidataId: "Q900208", name: "Venice Film Festival" },
+      { wikidataId: "Q900205", name: "United States", alpha2: "US" },
+      { wikidataId: "Q900202", name: "Soviet Union" },
+    ]);
+    const asked = state.calls.filter((u) => u.searchParams.get("action") === "wbgetclaims");
+    // A country that is also a release's place is asked once; only a language without a 639-1 code is asked for 639-3
+    expect(asked.map((u) => `${u.searchParams.get("entity")} ${u.searchParams.get("property")}`).sort()).toEqual(
+      ["Q900202 P297", "Q900204 P297", "Q900205 P297", "Q900206 P218", "Q900207 P218", "Q900207 P220", "Q900208 P297"].sort(),
+    );
+    // The statements alone, without their references
+    expect(asked.every((u) => u.searchParams.get("props") === "")).toBe(true);
+  });
+
+  it("reads at most 40 items' codes, the film's countries and languages first; past that a name is matched by itself", async () => {
+    const places = Array.from({ length: 50 }, (_, i) => `Q97${1000 + i}`);
+    state.overrides = {
+      Q990031: film("Q990031", {
+        P495: [claim({ id: "Q900205" }), claim({ id: "Q900204" })],
+        P364: [claim({ id: "Q900206" })],
+        P577: places.map((id) => claim({ time: "+2001-01-01T00:00:00Z", precision: 11 }, { P291: [{ id }] })),
+      }),
+      ...Object.fromEntries(places.map((id, i) => [id, { id, labels: { en: { value: `Place ${i + 1}` } }, claims: { P297: [claim(`X${String.fromCharCode(65 + (i % 26))}`)] } }])),
+    };
+    const { proposals } = await fetchProviderDetail(films, "Q990031");
+    const asked = state.calls.filter((u) => u.searchParams.get("action") === "wbgetclaims").map((u) => u.searchParams.get("entity"));
+    expect(asked).toHaveLength(40);
+    expect(asked).toEqual(expect.arrayContaining(["Q900205", "Q900204", "Q900206"]));
+    const releases = proposals.filter((p) => p.level === "release").map((p) => p.fields.place as { alpha2?: string });
+    expect(releases.filter((p) => p.alpha2)).toHaveLength(37);
+    expect(releases.at(-1)).toEqual({ wikidataId: places.at(-1), name: "Place 50" });
+  });
+
+  it("keeps a film whose codes do not answer: its countries and languages are matched by name", async () => {
+    const base = wikidataFetch(state);
+    vi.stubGlobal("fetch", (input: string | URL) =>
+      new URL(String(input)).searchParams.get("action") === "wbgetclaims" ? Promise.reject(new TypeError("fetch failed")) : base(input),
+    );
+    const { proposals } = await fetchProviderDetail(films, CROSSING);
+    const work = proposals.find((p) => p.level === "work")!.fields;
+    expect(work.countries).toEqual([
+      { wikidataId: "Q900205", name: "United States" },
+      { wikidataId: "Q900204", name: "France" },
+    ]);
+    expect(work.languages).toEqual([
+      { wikidataId: "Q900206", name: "Spanish" },
+      { wikidataId: "Q900207", name: "Cantonese" },
     ]);
   });
 

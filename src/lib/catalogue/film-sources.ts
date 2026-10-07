@@ -79,6 +79,10 @@ export interface FilmImage {
 }
 
 type Named = { wikidataId: string; name: string };
+/** A country or a release's place; `alpha2` (ISO 3166-1) when Wikidata states it */
+export type FilmPlace = Named & { alpha2?: string };
+/** A language; its ISO 639-1 and 639-3 codes when Wikidata states them */
+export type FilmLanguage = Named & { iso6391?: string; iso6393?: string };
 /** What one film answer proposes, by level */
 export interface FilmProposals {
   work: {
@@ -86,15 +90,15 @@ export interface FilmProposals {
     originalTitle?: string;
     description?: string;
     releaseDate?: CatalogueDateInput;
-    countries?: Named[];
-    languages?: Named[];
+    countries?: FilmPlace[];
+    languages?: FilmLanguage[];
     credits?: (Named & { roleId: string; characters: string[] })[];
     organizations?: (Named & { role: "production_company" })[];
     identifiers?: Partial<Record<"imdb" | "tmdb" | "letterboxd", string>>;
     image?: FilmImage;
   };
   runtimeSeconds: number | null;
-  releases: { releaseDate: CatalogueDateInput; place: Named | null }[];
+  releases: { releaseDate: CatalogueDateInput; place: FilmPlace | null }[];
 }
 
 const names = (list: Named[] | undefined) => (list ?? []).map((n) => n.name);

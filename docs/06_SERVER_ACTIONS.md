@@ -769,14 +769,15 @@ when Wikidata cannot be reached, so manual entry goes on.
 - `reviewFilmSource({ filmId | null, externalId })`: the film's title,
   original title, description, first release, countries and languages set
   against the film, each `fill`, `same`, `conflict`, `locked` or `unlisted`
-  (no name is in Durtal's list); the cast and crew (with characters, in
-  billing order when Wikidata gives one) and production companies, matched by
-  Wikidata id, then by one exact name; the IMDb, TMDB and Letterboxd ids (and
-  another film holding one); the running time against the first version; each
-  release with its place, country and format; the Commons poster with its
-  terms; the first-release years here and on Wikidata (`differs` when more
-  than a year apart); another film here holding this Wikidata film; and what
-  changed since the last accepted answer. Reads only.
+  (none is in Durtal's list; countries, release places and languages are
+  matched by ISO code, else by English name); the cast and crew (with
+  characters, in billing order when Wikidata gives one) and production
+  companies, matched by Wikidata id, then by one exact name; the IMDb, TMDB
+  and Letterboxd ids (and another film holding one); the running time against
+  the first version; each release with its place, country and format; the
+  Commons poster with its terms; the first-release years here and on Wikidata
+  (`differs` when more than a year apart); another film here holding this
+  Wikidata film; and what changed since the last accepted answer. Reads only.
 - `applyFilmSource({ filmId, fingerprint, externalId, sameFilm, fields,
   credits, organizations, identifiers, runtime, releases })`: checks the
   film's fingerprint, fetches the item again and keeps it as an accepted

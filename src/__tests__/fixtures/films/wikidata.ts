@@ -1,9 +1,11 @@
 /*
  * Wikidata and Wikimedia Commons as the film tests know them (SLN-376), in the
- * shape their APIs answer: wbsearchentities, wbgetentities, a haswbstatement
- * search and Commons' imageinfo. The ids are this fixture's own. Two films
- * share the title "Solaris" (a 1972 film and its 2002 remake), a novel shares
- * it too, and a film with 60 cast members takes two calls to name them.
+ * shape their APIs answer: wbsearchentities, wbgetentities, wbgetclaims, a
+ * haswbstatement search and Commons' imageinfo. The ids are this fixture's
+ * own. Two films share the title "Solaris" (a 1972 film and its 2002 remake),
+ * a novel shares it too, a film with 60 cast members takes two calls to name
+ * them, and "Crossing" has countries and languages whose English names are
+ * not the ones in Durtal's lists, but whose ISO codes are.
  */
 
 type Snak = { snaktype: "value"; datavalue: { value: unknown } };
@@ -26,6 +28,7 @@ export const SOLARIS = "Q900101";
 export const SOLARIS_REMAKE = "Q900102";
 export const SOLARIS_NOVEL = "Q900103";
 export const CROWD = "Q900104";
+export const CROSSING = "Q900105";
 
 const crowd = Array.from({ length: 60 }, (_, i) => `Q9010${String(i).padStart(2, "0")}`);
 
@@ -79,11 +82,29 @@ export const ENTITIES: Record<string, Record<string, unknown>> = {
       P161: crowd.map((id) => claim(item(id))),
     },
   },
+  [CROSSING]: {
+    ...named(CROSSING, "Crossing", "2004 film"),
+    claims: {
+      P31: [claim(item("Q11424"))],
+      P577: [
+        claim(time("2004-09-01"), { P291: [item("Q900208")] }),
+        claim(time("2004-10-01"), { P291: [item("Q900205")] }),
+        claim(time("2005-02-01"), { P291: [item("Q900202")] }),
+      ],
+      P495: [claim(item("Q900205")), claim(item("Q900204"))],
+      P364: [claim(item("Q900206")), claim(item("Q900207"))],
+    },
+  },
   Q900201: named("Q900201", "Cannes Film Festival"),
+  // A former country: no ISO 3166-1 code
   Q900202: named("Q900202", "Soviet Union"),
-  Q900203: named("Q900203", "Russian"),
-  Q900204: named("Q900204", "France"),
-  Q900205: named("Q900205", "United States"),
+  Q900203: { ...named("Q900203", "Russian"), claims: { P218: [claim("ru")], P220: [claim("rus")] } },
+  Q900204: { ...named("Q900204", "France"), claims: { P297: [claim("FR")] } },
+  Q900205: { ...named("Q900205", "United States"), claims: { P297: [claim("US")] } },
+  Q900206: { ...named("Q900206", "Spanish"), claims: { P218: [claim("es")], P220: [claim("spa")] } },
+  // No ISO 639-1 code: matched by its 639-3 code
+  Q900207: { ...named("Q900207", "Cantonese"), claims: { P220: [claim("yue")] } },
+  Q900208: named("Q900208", "Venice Film Festival"),
   Q900301: named("Q900301", "Andrei Tarkovsky"),
   Q900302: named("Q900302", "Fridrikh Gorenshtein"),
   Q900303: named("Q900303", "Natalya Bondarchuk"),
@@ -139,6 +160,14 @@ export function wikidataFetch(state: StubState) {
     if (p.get("action") === "wbsearchentities") {
       const text = (p.get("search") ?? "").toLowerCase();
       return json({ search: Object.values(entities).filter((e) => JSON.stringify(e.labels).toLowerCase().includes(text)).map((e) => ({ id: e.id })) });
+    }
+    // One item's statements of one property
+    if (p.get("action") === "wbgetclaims") {
+      const e = entities[p.get("entity") ?? ""];
+      if (!e) return json({ error: { code: "no-such-entity", info: `Could not find an entity with the ID "${p.get("entity")}".` } });
+      const claims = (e.claims ?? {}) as Record<string, Claim[]>;
+      const property = p.get("property");
+      return json({ claims: property ? (claims[property] ? { [property]: claims[property] } : {}) : claims });
     }
     if (p.get("action") === "query") {
       const [, property, value] = /^haswbstatement:(P\d+)=(.+)$/.exec(p.get("srsearch") ?? "") ?? [];
