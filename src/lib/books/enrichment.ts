@@ -115,7 +115,7 @@ export const MIN_YEAR = 1450;
 /** A description shorter than this is a stub ("A novel.") */
 export const MIN_DESCRIPTION_LENGTH = 80;
 /** Page counts of two sources this close agree (front matter, plates) */
-const PAGE_TOLERANCE = 0.05;
+export const PAGE_TOLERANCE = 0.05;
 
 /** Placeholder text sources give instead of a description */
 const EMPTY_DESCRIPTIONS = [

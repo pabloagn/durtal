@@ -93,6 +93,7 @@ import { previewMerge, executeMerge } from "@/lib/harmonization/merge";
 import { addToQueue } from "@/lib/actions/reading-queue";
 import { createReadingNote } from "@/lib/actions/reading-notes";
 import { setSuggestionFeedback } from "@/lib/actions/suggestions";
+import { createHumanEnrichmentClaim } from "@/lib/actions/enrichment";
 import { POST as exportCatalogue } from "@/app/api/export/route";
 import { recordActivity } from "@/lib/activity/record";
 import { processAndUploadCover } from "@/lib/s3/covers";
@@ -345,6 +346,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
         () => addToQueue({ workId: other.id }),
         () => createReadingNote({ workId: other.id, kind: "quote", body: "Invalid" }),
         () => setSuggestionFeedback({ workId: other.id, verdict: "never" }),
+        () => createHumanEnrichmentClaim({ workId: other.id, dimension: "original_title", value: { text: "Invalid" } }),
       ];
       for (const attempt of attempts)
         await expect(attempt()).rejects.toThrow(/(?:Book|Work) not found/);

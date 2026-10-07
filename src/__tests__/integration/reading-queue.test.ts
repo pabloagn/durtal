@@ -56,6 +56,7 @@ import { getImportPreview } from "@/lib/reading/import/page-data";
 import { getWorkCount, getWorks } from "@/lib/actions/works";
 import { LIBRARY_SORTS, parseReadingFilters } from "@/lib/reading/filter-params";
 import { GET as listWorks } from "@/app/api/works/route";
+import { activitySettled } from "@/lib/activity/record";
 
 /* Up Next against PostgreSQL (SLN-452). */
 
@@ -106,6 +107,8 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       await startReading({ workId: d });
       await expect(addToQueue({ workId: d })).rejects.toThrow("Moby-Dick is being read");
       expect(await value(`select note from reading_queue where work_id = $1`, [b])).toBe("M. says start with this one");
+      // History entries are written after an action returns (SLN-521)
+      await activitySettled();
       expect(await value(`select count(*)::int from activity_events where event_key = 'work.queued'`)).toBe(3);
       // A second add the same day records nothing more
       await removeFromQueue({ workId: a });
@@ -208,6 +211,8 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
 
   describe("merges", () => {
     async function merge(source: string, target: string) {
+      // The merge's fingerprint covers the history entries, so the preview waits for addToQueue's (SLN-521)
+      await activitySettled();
       const p = await previewMerge("works", source, target);
       expect(p.blockers).toEqual([]);
       await executeMerge({
