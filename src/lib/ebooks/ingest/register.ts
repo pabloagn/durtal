@@ -31,8 +31,8 @@ export interface CatalogueFileRow {
 export interface GroupCatalogue {
   /** Files already stored, by checksum */
   bySha: Map<string, CatalogueFileRow>;
-  /** The e-book this group adds to, when it exists */
-  ebook: { id: string; preferredFileId: string | null; coverKey: string | null; files: CatalogueFileRow[] } | null;
+  /** The e-book this group adds to, when it exists; `updatedAt` only when read from the database */
+  ebook: { id: string; preferredFileId: string | null; coverKey: string | null; updatedAt?: Date; files: CatalogueFileRow[] } | null;
 }
 
 const FILE_COLUMNS = {
@@ -62,7 +62,10 @@ export async function readGroupCatalogue(database: Db, group: PlanGroup, files: 
   }
   ebookId ??= rows[0]?.ebookId ?? null;
   if (!ebookId) return { bySha, ebook: null };
-  const [ebook] = await database.select({ id: ebooks.id, preferredFileId: ebooks.preferredFileId, coverKey: ebooks.coverKey }).from(ebooks).where(eq(ebooks.id, ebookId));
+  const [ebook] = await database
+    .select({ id: ebooks.id, preferredFileId: ebooks.preferredFileId, coverKey: ebooks.coverKey, updatedAt: ebooks.updatedAt })
+    .from(ebooks)
+    .where(eq(ebooks.id, ebookId));
   if (!ebook) return { bySha, ebook: null };
   const own = await database.select(FILE_COLUMNS).from(ebookFiles).where(eq(ebookFiles.ebookId, ebookId));
   return { bySha, ebook: { ...ebook, files: own as CatalogueFileRow[] } };
@@ -86,6 +89,8 @@ export interface Registration {
   coverBefore: string | null;
   preferredAfter: string | null;
   coverAfter: string | null;
+  /** The e-book's `updated_at` before this group, when it existed */
+  updatedBefore: Date | null;
   items: RegisteredItem[];
   at: Date;
 }
@@ -212,6 +217,7 @@ export function planRegistration(
     coverBefore: catalogue.ebook?.coverKey ?? null,
     preferredAfter: chosen?.id ?? null,
     coverAfter: chosen?.coverKey ?? (catalogue.ebook ? catalogue.ebook.coverKey : null),
+    updatedBefore: catalogue.ebook?.updatedAt ?? null,
     items,
     at,
   };
@@ -250,6 +256,8 @@ export interface UndoEntry {
   coverBefore: string | null;
   preferredAfter: string | null;
   coverAfter: string | null;
+  /** The e-book's `updated_at` before the group; absent in undo files written before it was kept */
+  updatedBefore?: string | null;
   at: string;
 }
 
@@ -263,6 +271,7 @@ export function undoEntry(r: Registration): UndoEntry {
     coverBefore: r.coverBefore,
     preferredAfter: r.preferredAfter,
     coverAfter: r.coverAfter,
+    updatedBefore: r.updatedBefore?.toISOString() ?? null,
     at: r.at.toISOString(),
   };
 }
@@ -321,12 +330,22 @@ export async function undoIngest(database: Db, entries: UndoEntry[]): Promise<Un
     if (ebook && entry.createdEbook && !removeEbook) result.kept += 1;
     const restorePreferred =
       !!ebook && !entry.createdEbook && (ebook.preferredFileId === entry.preferredAfter || (ebook.preferredFileId && removable.includes(ebook.preferredFileId)));
+    // Nothing but this group changed the e-book since: its updated_at goes back too, so the
+    // group of the run that created it (a folder with the same sidecar uuid) can remove it
+    const restoreUpdated = restorePreferred && !!entry.updatedBefore && ebook!.updatedAt.getTime() === new Date(entry.at).getTime();
     await atomicOn(database, (d) => [
       ...(removable.length ? [d.delete(ebookFiles).where(inArray(ebookFiles.id, removable))] : []),
       ...entry.replaced.map((r) =>
         d.update(ebookFiles).set({ status: r.previousStatus as "stored" }).where(and(eq(ebookFiles.id, r.fileId), eq(ebookFiles.status, "replaced"))),
       ),
-      ...(restorePreferred ? [d.update(ebooks).set({ preferredFileId: entry.preferredBefore, coverKey: entry.coverBefore }).where(eq(ebooks.id, entry.ebookId))] : []),
+      ...(restorePreferred
+        ? [
+            d
+              .update(ebooks)
+              .set({ preferredFileId: entry.preferredBefore, coverKey: entry.coverBefore, ...(restoreUpdated ? { updatedAt: new Date(entry.updatedBefore!) } : {}) })
+              .where(eq(ebooks.id, entry.ebookId)),
+          ]
+        : []),
       ...(removeEbook ? [d.delete(ebooks).where(eq(ebooks.id, entry.ebookId))] : []),
     ]);
     result.filesRemoved += removable.length;

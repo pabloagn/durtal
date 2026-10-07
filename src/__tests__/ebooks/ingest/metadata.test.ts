@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cleanDescription, mergeMetadata, METADATA_PRECEDENCE, publishedYearOf, titleSortKey } from "@/lib/ebooks/ingest/metadata";
+import { cleanDescription, mergeMetadata, METADATA_PRECEDENCE, publishedYearOf, storable, storableText, titleSortKey } from "@/lib/ebooks/ingest/metadata";
+import { failureMessage } from "@/lib/ebooks/ingest/run";
 
 /* SLN-494: one e-book's fields from what its files say */
 
@@ -65,5 +66,44 @@ describe("mergeMetadata", () => {
     const hostile = `<p onclick="steal()">First <b>bold</b> line.</p><script>alert(1)</script><style>p{}</style><p>Second&nbsp;&amp; last.</p><img src=x onerror=alert(1)>`;
     expect(cleanDescription(hostile)).toBe("First bold line.\n\nSecond & last.");
     expect(cleanDescription(`<p>${"word ".repeat(10_000)}</p>`)!.length).toBe(20_000 - 1);
+  });
+
+  it("keeps no character PostgreSQL refuses: NUL from UTF-16 titles and C strings, and unpaired surrogates", () => {
+    const utf16 = (text: string) => [...text].map((c) => `${c}\u0000`).join("");
+    const merged = mergeMetadata(
+      [
+        {
+          source: "pdf",
+          metadata: {
+            title: utf16("Report"),
+            authors: [{ name: "Ana Ruiz\u0000", fileAs: null, role: null }],
+            identifiers: [{ scheme: "isbn", value: "9780306406157\u0000" }, { scheme: "do\u0000i", value: "10.1000/1\uD800" }],
+            publisher: "Press\u0000",
+            description: "<p>First\u0000 line.</p>",
+            subjects: ["Hist\u0000ory"],
+          },
+        },
+      ],
+      "scan.pdf",
+    );
+    expect(merged).toMatchObject({ title: "Report", authors: ["Ana Ruiz"], isbns: ["9780306406157"], publisher: "Press", description: "First line.", subjects: ["History"] });
+    expect(merged.identifiers).toEqual({ doi: ["10.1000/1\uFFFD"] });
+    expect(storableText("a\u0000b\uD800c\uDC00")).toBe("ab\uFFFDc\uFFFD");
+    const bytes = new Uint8Array([0]);
+    const deep = storable({ title: "x\u0000", details: { pages: ["p\u0000"], at: new Date(0), bytes }, "k\u0000": null });
+    expect(deep).toEqual({ title: "x", details: { pages: ["p"], at: new Date(0), bytes }, k: null });
+    expect(deep.details.bytes).toBe(bytes);
+  });
+});
+
+describe("failureMessage", () => {
+  it("records the database's own words, never the failed query and its parameters, cleaned and at most 500 characters", () => {
+    const cause = Object.assign(new Error('invalid byte sequence for encoding "UTF8": 0x00'), { code: "22021" });
+    const query = new Error(`Failed query: insert into "ebooks" ("title") values ($1)\nparams: R\u0000e\u0000${"x".repeat(20_000)}`, { cause });
+    expect(failureMessage(query)).toBe('invalid byte sequence for encoding "UTF8": 0x00');
+    const long = failureMessage(new Error(`Failed query: ${"y\u0000".repeat(1_000)}`));
+    expect(long).toHaveLength(500);
+    expect(long).not.toContain("\u0000");
+    expect(failureMessage(new Error("Refused for the test", { cause: query }))).toBe("Refused for the test");
   });
 });

@@ -96,6 +96,9 @@ export function previewFile(dir: string, key: string) {
 const hexToBase64 = (hex: string) => Buffer.from(hex, "hex").toString("base64");
 const base64ToHex = (b64: string) => Buffer.from(b64, "base64").toString("hex");
 
+/** S3's answer when the bucket does not exist: before the AWS setup */
+export const isNoSuchBucket = (error: unknown) => (error as { name?: string }).name === "NoSuchBucket";
+
 export const statusOf = (err: unknown) => (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
 const isMissing = (err: unknown) => {
   const name = (err as { name?: string }).name;

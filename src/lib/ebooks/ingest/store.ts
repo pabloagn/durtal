@@ -19,7 +19,8 @@ import { ebookObjectHeaders, ebookS3, ebookStorage, headEbookObject, previewFile
  * checksum of the bytes, so an object that is already there with the same
  * size and checksum is adopted, never uploaded again. Up to 256 MiB: one
  * conditional PUT with its SHA-256; above: a multipart upload in 16 MiB
- * parts with a SHA-256 for each, resumable from the parts already sent.
+ * parts with a SHA-256 for each, resumable from the parts already sent,
+ * whose bytes must hash to the planned SHA-256 before it completes.
  * Then a HEAD: the stored size and checksum must equal the local ones.
  */
 
@@ -102,14 +103,23 @@ export async function compositeChecksum(body: StoreInput["body"], size: number, 
   return `${outer.digest("base64")}-${parts}`;
 }
 
-/** Whether a stored object is these bytes: its size, and its whole or composite checksum */
-async function matches(head: EbookObjectHead, input: StoreInput, partSize: number): Promise<string | null> {
+/**
+ * Whether a stored object is these bytes: its size, and its whole or composite
+ * checksum. `sent` is the composite checksum of the parts this upload sent:
+ * then only that matches, since the sha256 metadata was written by this same
+ * upload from the plan and proves nothing about the bytes.
+ */
+async function matches(head: EbookObjectHead, input: StoreInput, partSize: number, sent: string | null = null): Promise<string | null> {
   if (head.size !== input.size) return `its size is ${head.size} bytes, not ${input.size}`;
   if (head.checksumType === "full") return head.sha256 === input.sha256 ? null : "its SHA-256 differs";
+  if (sent) {
+    if (head.checksumType !== "composite") return "it has no multipart checksum to compare";
+    return head.checksum === sent ? null : "its multipart checksum is not the parts sent";
+  }
   if (head.checksumType === "composite") {
     const expected = await compositeChecksum(input.body, input.size, partSize);
     if (head.checksum === expected) return null;
-    // Parts of another size: the sha256 metadata written with it names the whole
+    // Another writer's parts of another size: the sha256 metadata written with it names the whole
     return head.metadataSha256 === input.sha256 ? null : "its multipart checksum differs";
   }
   return head.metadataSha256 === input.sha256 ? null : "it has no checksum to compare";
@@ -127,7 +137,14 @@ function uploadStateFile(cacheDir: string, sha256: string) {
   return path.join(dir, `${sha256}.json`);
 }
 
-async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOptions, "cacheDir" | "partSize">> & { sleep?: StoreOptions["sleep"] }) {
+/**
+ * Sends the parts S3 does not have and completes the upload. Every part is
+ * read, so the whole file is hashed on the way: bytes that are not the
+ * planned SHA-256 (the file changed after the plan) abort the upload. Returns
+ * the composite checksum of the parts sent, or null when another upload
+ * stored the key first.
+ */
+async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOptions, "cacheDir" | "partSize">> & { sleep?: StoreOptions["sleep"] }): Promise<string | null> {
   const s3 = ebookS3();
   const { bucket } = ebookStorage();
   const retry = <T>(run: () => Promise<T>) => withRetries(run, options.sleep);
@@ -163,9 +180,14 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
   }
 
   const parts: CompletedPart[] = [];
+  const whole = createHash("sha256");
+  const outer = createHash("sha256");
   for (let n = 1; n <= count; n++) {
     const bytes = await readSlice(input.body, (n - 1) * partSize, partSize);
-    const checksum = createHash("sha256").update(bytes).digest("base64");
+    const digest = createHash("sha256").update(bytes).digest();
+    const checksum = digest.toString("base64");
+    whole.update(bytes);
+    outer.update(digest);
     const already = sent.get(n);
     if (already && already.ChecksumSHA256 === checksum && (already.Size === undefined || already.Size === bytes.length)) {
       parts.push({ PartNumber: n, ETag: already.ETag, ChecksumSHA256: already.ChecksumSHA256 });
@@ -176,6 +198,11 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
     );
     parts.push({ PartNumber: n, ETag: uploaded.ETag, ChecksumSHA256: uploaded.ChecksumSHA256 ?? checksum });
   }
+  if (whole.digest("hex") !== input.sha256) {
+    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: input.key, UploadId: state.uploadId })).catch(() => {});
+    rmSync(stateFile, { force: true });
+    throw new Error(`The stored object ${input.key} differs from the file: the bytes sent are not the planned SHA-256 (the file changed since the plan)`);
+  }
   try {
     await retry(() =>
       s3.send(new CompleteMultipartUploadCommand({ Bucket: bucket, Key: input.key, UploadId: state!.uploadId, MultipartUpload: { Parts: parts }, IfNoneMatch: "*" })),
@@ -184,8 +211,11 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
     // 412: the key exists, so another upload stored the same bytes; this one is dropped and the object verified
     if (statusOf(error) !== 412) throw error;
     await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: input.key, UploadId: state.uploadId })).catch(() => {});
+    rmSync(stateFile, { force: true });
+    return null;
   }
   rmSync(stateFile, { force: true });
+  return `${outer.digest("base64")}-${count}`;
 }
 
 /** Stores one object and verifies it; throws when it cannot be stored or the stored bytes differ */
@@ -217,7 +247,8 @@ export async function storeObject(input: StoreInput, options: StoreOptions): Pro
   }
 
   const multipart = input.size > singlePutMax;
-  if (multipart) await multipartUpload(input, { cacheDir: options.cacheDir, partSize, sleep: options.sleep });
+  let sent: string | null = null;
+  if (multipart) sent = await multipartUpload(input, { cacheDir: options.cacheDir, partSize, sleep: options.sleep });
   else {
     try {
       await retry(() =>
@@ -241,7 +272,7 @@ export async function storeObject(input: StoreInput, options: StoreOptions): Pro
   }
 
   const after = await retry(() => headEbookObject(input.key, { checksum: true }));
-  const problem = after ? await matches(after, input, partSize) : "S3 has no object after the upload";
+  const problem = after ? await matches(after, input, partSize, sent) : "S3 has no object after the upload";
   if (problem) throw new Error(`The stored object ${input.key} differs from the file: ${problem}`);
   return { adopted: false, multipart };
 }

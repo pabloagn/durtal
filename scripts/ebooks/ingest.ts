@@ -103,7 +103,7 @@ try {
   } else {
     await assertReadOnly(session);
     const roots = command.resolveRoots(positionals);
-    const { plan, files } = await command.planCommand({
+    const { plan, files, notSetUp } = await command.planCommand({
       database,
       roots,
       host,
@@ -116,6 +116,7 @@ try {
       uploadSpeed: readUploadSpeed(cacheDir),
       onProgress: progress("Read"),
     });
+    if (notSetUp) console.log(notSetUp);
     console.log(command.planLine(plan));
     console.log(`To upload: ${formatBytes(plan.summary.uploadBytes)} in ${plan.summary.uploadObjects} objects.`);
     console.log("Read-only: nothing was written to the database or the bucket.");

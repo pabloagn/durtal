@@ -6,7 +6,7 @@ import { atomicOn } from "@/lib/db/atomic";
 import { ebookFiles, ebookIngestRuns } from "@/lib/db/schema";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { ebooksPrefix } from "./keys";
-import { ebookObjectKind, ebookStorage, headEbookObject, listEbookObjects, type EbookListedObject } from "./storage";
+import { ebookObjectKind, ebookStorage, headEbookObject, isNoSuchBucket, listEbookObjects, type EbookListedObject } from "./storage";
 
 /*
  * The e-book bucket against the catalogue (SLN-491). Read-only by default:
@@ -77,9 +77,6 @@ export async function ebookOrphans(database: Db, objects: EbookListedObject[], n
   return { unreferenced, inFlight };
 }
 
-/** S3's answer when the bucket does not exist: before the AWS setup */
-const noSuchBucket = (error: unknown) => (error as { name?: string }).name === "NoSuchBucket";
-
 /**
  * The e-book part of the orphan report (scripts/maintenance/report-orphaned-s3.ts):
  * the objects under files/ and derived/ that no row names. Before the AWS
@@ -92,7 +89,7 @@ export async function ebookOrphanReport(database: Db, now = Date.now()) {
   try {
     objects = [...(await listEbookObjects(prefixes[0])), ...(await listEbookObjects(prefixes[1]))];
   } catch (error) {
-    if (noSuchBucket(error)) return { bucket, missing: true as const };
+    if (isNoSuchBucket(error)) return { bucket, missing: true as const };
     throw error;
   }
   const { unreferenced, inFlight } = await ebookOrphans(database, objects, now);

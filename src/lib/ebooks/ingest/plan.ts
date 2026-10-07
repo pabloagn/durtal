@@ -10,7 +10,7 @@ import { groupFiles, walkRoots, type FoundFile } from "./group";
 import { HashCache } from "./hash";
 import { parseOpf } from "./inspect/opf";
 import type { DrmKind, FileMetadata } from "./inspect/types";
-import { mergeMetadata, type MergedMetadata, type MetadataSource } from "./metadata";
+import { mergeMetadata, storable, storableText, type MergedMetadata, type MetadataSource } from "./metadata";
 import { prepareFile, sniffSource, type DerivedObject, type TextCounts } from "./prepare";
 import { planRegistration, type CatalogueFileRow, type GroupCatalogue } from "./register";
 import { openFileSource, type ByteSource } from "./source";
@@ -238,7 +238,8 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
         const taken = await sniffTaken(source, { sidecar: sidecars.has(file.folder), includeText: !!options.includeText });
         if (taken.reason !== null) return { found: file, outcome: "ignored", reason: taken.reason, format: taken.format ?? undefined };
         const { sha256 } = await hashes.hash(file.path);
-        const prepared = await prepareFile(source, sha256, taken.format, options.cacheDir);
+        // What a file says reaches rows and reports only as text PostgreSQL stores
+        const prepared = storable(await prepareFile(source, sha256, taken.format, options.cacheDir));
         return { found: file, sha256, format: taken.format, prepared };
       } finally {
         await source.close();
@@ -256,7 +257,7 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
     if (!sidecar) continue;
     try {
       const opf = parseOpf(readFileSync(sidecar, "utf8"));
-      sidecarInfo.set(folder, { metadata: opf.metadata, uuid: opf.uuid, personal: opf.hasPersonalData, path: sidecar });
+      sidecarInfo.set(folder, { metadata: storable(opf.metadata), uuid: opf.uuid && storableText(opf.uuid), personal: opf.hasPersonalData, path: sidecar });
     } catch {
       // A sidecar that cannot be read is no sidecar: the folder's files group by name
     }

@@ -6,11 +6,11 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { readUndoLog } from "@/lib/books/undo-file";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { previewS3Dir } from "@/lib/s3/preview-dir";
-import { ebookStorage, listEbookObjects } from "../storage";
+import { ebookStorage, isNoSuchBucket, listEbookObjects } from "../storage";
 import { planIngest, type IngestPlan, type PlanOptions, type PlanTarget } from "./plan";
 import { reconcileIngest, type ReconcileOptions } from "./reconcile";
 import { undoIngest, type UndoEntry, type UndoResult } from "./register";
-import { planReport, reconcileReport } from "./report";
+import { bucketMissingLine, planReport, reconcileReport } from "./report";
 
 /*
  * What `pnpm ebooks:ingest` and `pnpm ebooks:reconcile` do around the
@@ -66,20 +66,28 @@ const stampOf = (at: string) => at.replace(/[:.]/g, "-");
 /**
  * Plans the roots and writes reports/ebooks/ingest-<timestamp>.md, .csv and
  * .plan.json. The database must be a read-only session; the bucket is only
- * listed.
+ * listed. Before the AWS setup the bucket does not exist: the plan is made as
+ * for an empty one, and says so.
  */
 export async function planCommand(options: Omit<PlanOptions, "storedKeys"> & { roots: string[]; reportDir: string }) {
   const { prefix } = ebookStorage();
-  const storedKeys = new Set((await listEbookObjects(`${prefix}files/`)).map((o) => o.key));
+  let bucketMissing = false;
+  const storedKeys = new Set<string>();
+  try {
+    for (const object of await listEbookObjects(`${prefix}files/`)) storedKeys.add(object.key);
+  } catch (error) {
+    if (!isNoSuchBucket(error)) throw error;
+    bucketMissing = true;
+  }
   const plan = await planIngest(options.roots, { ...options, storedKeys });
   mkdirSync(options.reportDir, { recursive: true });
   const base = path.join(options.reportDir, `ingest-${stampOf(plan.createdAt)}`);
   const files = { markdown: `${base}.md`, csv: `${base}.csv`, plan: `${base}.plan.json` };
-  const { markdown, csv } = planReport(plan, files.plan);
+  const { markdown, csv } = planReport(plan, files.plan, { bucketMissing });
   writeFileSync(files.plan, JSON.stringify(plan));
   writeFileSync(files.markdown, markdown);
   writeFileSync(files.csv, csv);
-  return { plan, files };
+  return { plan, files, notSetUp: bucketMissing ? bucketMissingLine(plan.target.bucket) : null };
 }
 
 /** One line for the terminal */

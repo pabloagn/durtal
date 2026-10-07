@@ -454,4 +454,59 @@ describe.skipIf(!url)("e-book ingestion", () => {
     // Objects stay: content-addressed, and the orphan report lists them
     expect(puts().length).toBeGreaterThan(0);
   });
+
+  it("imports PDFs whose metadata holds NUL characters, six at once among good files: the strings are cleaned and the run finishes", async () => {
+    // A title written as UTF-16 without a byte order mark, and C strings ending in a NUL, as old Windows tools write them
+    const utf16 = (text: string) => [...text].map((ch) => `${ch}\u0000`).join("");
+    const scans = path.join(work, "scans");
+    for (let n = 1; n <= 6; n++)
+      put(path.join(scans, `Scan ${n}.pdf`), makePdf({ info: { Title: utf16(`Report ${n}`), Author: n % 2 ? "Ana Ruiz\u0000" : utf16("Ana Ruiz"), Subject: `Ledger\u0000${n}` } }));
+    put(path.join(scans, "Good One.epub"), makeEpub({ salt: "good one", metadata: "<dc:title>Good One</dc:title><dc:language>en</dc:language>" }));
+    put(path.join(scans, "Good Two.epub"), makeEpub({ salt: "good two", metadata: "<dc:title>Good Two</dc:title><dc:language>en</dc:language>" }));
+    const { plan: planned, files } = await plan([scans]);
+    expect(planned.summary.ebooksToCreate).toBe(8);
+    const result = await applyPlan(files.plan, options());
+    expect(result).toMatchObject({ state: "finished", exact: true });
+    const items = Object.values(await itemsOf(result.runId));
+    expect(items.map((i) => [i.state, i.outcome])).toEqual(Array(8).fill(["done", "new_ebook"]));
+    const rows = await c`select e.title, e.authors, f.metadata->>'title' as file_title from ebooks e join ebook_files f on f.ebook_id = e.id
+      where f.source_path like ${`${scans}/%`} and f.format = 'pdf' order by e.title`;
+    expect(rows.map((r) => [r.title, r.authors, r.file_title])).toEqual(Array.from({ length: 6 }, (_, i) => [`Report ${i + 1}`, ["Ana Ruiz"], `Report ${i + 1}`]));
+  });
+
+  it("undoes two folders with one sidecar uuid whose second changed the preferred file: the e-book and both files go", async () => {
+    const shared = path.join(work, "shared");
+    const uuid = "0b7e2c1d-4f5a-4b6c-9d8e-7f6a5b4c3d2e";
+    put(path.join(shared, "A first", "metadata.opf"), makeSidecarOpf({ title: "Two Folders", author: "Ben Moss", uuid }));
+    put(path.join(shared, "A first", "Two Folders.epub"), makeEpub({ entries: adobe, salt: "two folders", metadata: "<dc:title>Two Folders</dc:title><dc:language>en</dc:language>" }));
+    put(path.join(shared, "B second", "metadata.opf"), makeSidecarOpf({ title: "Two Folders", author: "Ben Moss", uuid }));
+    put(path.join(shared, "B second", "Two Folders.pdf"), makePdf({ info: { Title: "Two Folders" } }));
+    const { files } = await plan([shared]);
+    const before = await rowCounts();
+    const result = await applyPlan(files.plan, options());
+    expect(result.state).toBe("finished");
+    const [ebook] = await c`select e.id, e.preferred_file_id, (select count(*) from ebook_files f where f.ebook_id = e.id)::int as files from ebooks e where import_ref = ${uuid}`;
+    expect(ebook.files).toBe(2);
+    expect(ebook.preferred_file_id).not.toBeNull();
+
+    const undone = await undoCommand({ database, undoFile: result.undoFile, backup, live: false, localDatabase: true });
+    expect(undone).toMatchObject({ ebooksRemoved: 1, filesRemoved: 2, kept: 0 });
+    expect(await c`select 1 from ebooks where import_ref = ${uuid}`).toHaveLength(0);
+    const after = await rowCounts();
+    expect({ ebooks: after.ebooks, files: after.files }).toEqual({ ebooks: before.ebooks, files: before.files });
+  });
+
+  it("plans before the AWS setup: a bucket that does not exist is empty, and the plan says the storage is not set up yet", async () => {
+    send.mockImplementation((async () => {
+      throw Object.assign(new Error("The specified bucket does not exist"), { name: "NoSuchBucket", $metadata: { httpStatusCode: 404 } });
+    }) as never);
+    const unset = path.join(work, "unset");
+    put(path.join(unset, "Unset.epub"), makeEpub({ salt: "unset", metadata: "<dc:title>Unset</dc:title><dc:language>en</dc:language>" }));
+    const before = await rowCounts();
+    const { plan: planned, files, notSetUp } = await plan([unset]);
+    expect(notSetUp).toBe(`The eBook storage is not set up yet: the bucket ${target().bucket} does not exist. This plan treats it as empty; an apply waits for the AWS setup.`);
+    expect(readFileSync(files.markdown, "utf8")).toContain(notSetUp!);
+    expect(planned.summary).toMatchObject({ ebooksToCreate: 1, alreadyInBucket: 0, uploadObjects: expect.any(Number) });
+    expect(await rowCounts()).toEqual(before);
+  });
 });

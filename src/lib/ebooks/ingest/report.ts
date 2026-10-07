@@ -26,8 +26,12 @@ const tallyTable = (tally: Record<string, number>, empty: string) => {
   return entries.length ? table(entries) : [empty];
 };
 
+/** What a plan says when the bucket does not exist yet: before the AWS setup */
+export const bucketMissingLine = (bucket: string) =>
+  `The eBook storage is not set up yet: the bucket ${bucket} does not exist. This plan treats it as empty; an apply waits for the AWS setup.`;
+
 /** The plan's summary (Markdown) and its files (CSV) */
-export function planReport(plan: IngestPlan, planFile: string): { markdown: string; csv: string } {
+export function planReport(plan: IngestPlan, planFile: string, options: { bucketMissing?: boolean } = {}): { markdown: string; csv: string } {
   const s = plan.summary;
   const formats = Object.fromEntries(Object.entries(s.filesByFormat).map(([format, count]) => [formatLabel(format), count]));
   const drm = Object.fromEntries(Object.entries(s.drm).map(([kind, count]) => [kind, count]));
@@ -40,6 +44,7 @@ export function planReport(plan: IngestPlan, planFile: string): { markdown: stri
     "",
     `Host ${plan.host}; ${plan.roots.length === 1 ? "folder" : "folders"} ${plan.roots.join(", ")}${plan.limit ? `; the first ${n(plan.limit)} files only` : ""}.`,
     `Bucket ${plan.target.bucket}${plan.target.prefix ? `, prefix ${plan.target.prefix}` : ""}${plan.target.preview ? " (a preview's folder)" : ""}.`,
+    ...(options.bucketMissing ? ["", bucketMissingLine(plan.target.bucket)] : []),
     "",
     "Read-only: nothing was written to the database or the bucket. Apply exactly this plan with",
     "",

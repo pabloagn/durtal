@@ -8,6 +8,7 @@ import { ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
 import type { IngestOutcome, IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { appendUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
+import { storable, storableText } from "./metadata";
 import { derivedCachePath } from "./prepare";
 import { INGEST_TOOL_VERSION, type IngestPlan, type PlanGroup, type PlanTarget } from "./plan";
 import { readGroupCatalogue, planRegistration, registerGroup, undoEntry } from "./register";
@@ -68,19 +69,46 @@ export interface ApplyResult {
   seconds: number;
 }
 
+/** The most a failed item's reason and last error hold */
+const FAILURE_MESSAGE_MAX = 500;
+
+/**
+ * What a failed item records: the error's own words, never the ORM's "Failed
+ * query" with every parameter (a 20,000-character description, or the very
+ * character PostgreSQL refused), made storable and short, so recording a
+ * failure cannot fail.
+ */
+export function failureMessage(error: unknown): string {
+  let current = error;
+  for (let depth = 0; depth < 5 && current instanceof Error && current.message.startsWith("Failed query:") && current.cause; depth++) current = current.cause;
+  const text = storableText(current instanceof Error ? current.message : String(current)).replace(/\s+/g, " ").trim() || "Unknown error";
+  return text.length > FAILURE_MESSAGE_MAX ? `${text.slice(0, FAILURE_MESSAGE_MAX - 1)}…` : text;
+}
+
+/**
+ * A plan file as the apply reads it: every string storable, so a plan made
+ * before file metadata was cleaned, or kept for a resume, writes its rows too.
+ */
+const readPlan = (text: string) => storable(JSON.parse(text) as IngestPlan);
+
 /** The SHA-256 of a plan file's bytes: what the run row records */
 export function planSha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
+/** The version and target checks an apply and a resume share; throws the first that fails */
+function checkPlanTarget(plan: IngestPlan, target: PlanTarget) {
+  if (plan.v !== 1 || plan.toolVersion !== INGEST_TOOL_VERSION) throw new Error("The plan was made by another version of the tool: plan again. Nothing written.");
+  if (plan.target.database !== target.database) throw new Error("The plan was made against another database. Nothing written.");
+  if (plan.target.bucket !== target.bucket || plan.target.prefix !== target.prefix || plan.target.preview !== target.preview)
+    throw new Error("The plan was made against another bucket. Nothing written.");
+}
+
 /** Every check an apply makes before writing anything; throws the first that fails */
 export function checkApply(plan: IngestPlan, options: Pick<ApplyOptions, "target" | "backup" | "live" | "localDatabase"> & { now?: number }) {
   const now = options.now ?? Date.now();
-  if (plan.v !== 1 || plan.toolVersion !== INGEST_TOOL_VERSION) throw new Error("The plan was made by another version of the tool: plan again. Nothing written.");
+  checkPlanTarget(plan, options.target);
   if (now - Date.parse(plan.createdAt) > PLAN_MAX_AGE_DAYS * 86_400_000) throw new Error(`The plan is older than ${PLAN_MAX_AGE_DAYS} days: plan again. Nothing written.`);
-  if (plan.target.database !== options.target.database) throw new Error("The plan was made against another database. Nothing written.");
-  if (plan.target.bucket !== options.target.bucket || plan.target.prefix !== options.target.prefix || plan.target.preview !== options.target.preview)
-    throw new Error("The plan was made against another bucket. Nothing written.");
   if (!recentBackup(options.backup, now)) throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
   if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: an apply to it needs --live. Nothing written.");
 }
@@ -91,7 +119,7 @@ const keptPlan = (cacheDir: string, sha256: string) => path.join(cacheDir, "plan
 /** Applies a plan: creates the run and its items, then stores and registers every group */
 export async function applyPlan(planFile: string, options: ApplyOptions): Promise<ApplyResult> {
   const text = readFileSync(planFile, "utf8");
-  const plan = JSON.parse(text) as IngestPlan;
+  const plan = readPlan(text);
   const now = options.now ?? Date.now;
   checkApply(plan, { ...options, now: now() });
   const sha = planSha256(text);
@@ -137,10 +165,11 @@ export async function resumeRun(runId: string, options: ApplyOptions): Promise<A
   if (run.state === "finished") throw new Error("The run finished: there is nothing to resume.");
   const file = keptPlan(options.cacheDir, run.planSha256);
   if (!existsSync(file)) throw new Error(`The run's plan is not in ${path.dirname(file)}: resume on the machine that applied it. Nothing written.`);
-  const plan = JSON.parse(readFileSync(file, "utf8")) as IngestPlan;
+  const plan = readPlan(readFileSync(file, "utf8"));
   if (!recentBackup(options.backup, options.now?.() ?? Date.now())) throw new Error("--resume needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
   if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: a resume of it needs --live. Nothing written.");
-  if (plan.target.database !== options.target.database || plan.target.bucket !== options.target.bucket) throw new Error("The run was made against another database or bucket. Nothing written.");
+  // A run made by another version of the tool is not resumed: a new plan adopts what it stored
+  checkPlanTarget(plan, options.target);
   const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
   if (!existsSync(undoFile)) reserveUndoLog(undoFile, { runId: run.id, planSha256: run.planSha256, createdAt: new Date().toISOString() });
   await options.database.update(ebookIngestRuns).set({ state: "running", updatedAt: new Date() }).where(eq(ebookIngestRuns.id, run.id));
@@ -235,7 +264,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
         crashed ??= error;
         return;
       }
-      const message = (error as Error).message ?? String(error);
+      const message = failureMessage(error);
       await db
         .update(ebookIngestItems)
         .set({ state: "failed", lastError: message, reason: message, attempts: sql`${ebookIngestItems.attempts} + 1`, updatedAt: new Date(now()) })

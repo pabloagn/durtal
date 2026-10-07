@@ -469,12 +469,18 @@ and drop the eBooks in, or name a folder."
   stored, named and never opened beyond its metadata; it is never the
   preferred file. A damaged file is stored as `quarantined` with its reason
   and never served.
+- What a file says is stored without the characters PostgreSQL refuses: a
+  NUL (a PDF title written as UTF-16 without a byte order mark, or a C
+  string) is removed and an unpaired surrogate becomes U+FFFD. An apply cleans
+  a plan the same way as it reads it.
 
 ### Plan
 
 `pnpm ebooks:ingest [<folder> ...]` is read-only. The catalogue is read
 through a session that refuses writes (a probe proves it before anything
-runs). The bucket's `files/` keys are listed once. The plan does five things
+runs). The bucket's `files/` keys are listed once; before the AWS setup the
+bucket does not exist, and the plan says the storage is not set up yet and
+treats it as empty. The plan does five things
 for each file:
 
 1. hashes it (the cache folder remembers hashes by size and modification
@@ -527,7 +533,9 @@ exact, else `failed`, and `/ebooks/runs` shows it.
 Ctrl-C stops taking new groups. The run becomes `interrupted`, and so does a
 run whose process died. `pnpm ebooks:ingest --resume <runId> --backup <dump>
 [--live]` carries on with every item that is not done, from the plan the run
-kept in the cache folder, on the machine that applied it:
+kept in the cache folder, on the machine that applied it, with the version,
+database and bucket checks of an apply (a run made by another version of the
+tool is not resumed: a new plan adopts what it stored):
 
 - objects already in S3 are adopted;
 - a multipart upload sends only its missing parts;
@@ -551,7 +559,8 @@ the reconciliation is not exact. It checks three sides, by checksum and size:
 It is exact when every file on disk is stored or accounted for. Ignored, DRM,
 quarantined and duplicate files are accounted for and listed. A file not
 stored, a failed or changed file, a row whose object is missing or differs,
-and an object no row names keep it from being exact.
+and an object no row names keep it from being exact. A failed file records
+the error's own words, at most 500 characters, never the failed query.
 
 A source file gone after its object was stored and verified is "no longer in
 the inbox", never an exception: the verified object is the copy. Joris may
@@ -566,7 +575,9 @@ where nothing has changed them since: no reading position, no annotation, no
 link to a copy and no edit. A replaced file gets its status back, and the
 preferred file and cover go back when they are still the run's. S3 objects
 stay: they are content-addressed and harmless, and the orphan report lists
-them. The undo file is written as the run goes, one line per group before its
+them. After 24 hours an object no row names is a blocking exception of every
+reconciliation, so applies end `failed` until those objects are adopted (plan
+and apply the same files again) or removed. The undo file is written as the run goes, one line per group before its
 atomic, so an interrupted run can be undone too.
 
 ### The cache folder

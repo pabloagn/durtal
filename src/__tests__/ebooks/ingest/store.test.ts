@@ -41,7 +41,7 @@ async function bodyBytes(body: unknown): Promise<Buffer> {
 }
 
 let objects: Map<string, Stored>;
-let uploads: Map<string, { key: string; parts: Map<number, { size: number; checksum: string }> }>;
+let uploads: Map<string, { key: string; metadata: Record<string, string>; parts: Map<number, { size: number; checksum: string }> }>;
 let calls: { name: string; input: Record<string, unknown> }[];
 /** Runs before each command; a test makes it throw to fail one */
 let before: (name: string, input: Record<string, unknown>) => void;
@@ -80,7 +80,8 @@ beforeEach(() => {
     }
     if (command instanceof CreateMultipartUploadCommand) {
       const id = `upload-${uploads.size + 1}`;
-      uploads.set(id, { key, parts: new Map() });
+      // As S3 does: the metadata given here is the completed object's
+      uploads.set(id, { key, metadata: (input.Metadata as Record<string, string>) ?? {}, parts: new Map() });
       return { UploadId: id };
     }
     if (command instanceof UploadPartCommand) {
@@ -111,7 +112,7 @@ beforeEach(() => {
         outer.update(Buffer.from(stored.checksum, "base64"));
         size += stored.size;
       }
-      objects.set(key, { size, checksum: `${outer.digest("base64")}-${listed.length}`, composite: true, metadata: {} });
+      objects.set(key, { size, checksum: `${outer.digest("base64")}-${listed.length}`, composite: true, metadata: upload.metadata });
       uploads.delete(input.UploadId as string);
       return {};
     }
@@ -314,6 +315,35 @@ describe("storeObject, multipart", () => {
     };
     expect(await storeObject(input, options)).toEqual({ adopted: false, multipart: true });
     expect(names().slice(-2)).toEqual(["AbortMultipartUpload", "HeadObject"]);
+  });
+
+  it("refuses a file whose bytes changed since the plan, before completing: the upload is aborted, nothing is stored", async () => {
+    const planned = new Uint8Array(40).map((_, i) => i * 7);
+    const file = path.join(dir, "changed.pdf");
+    const handle = openSync(file, "w");
+    writeSync(handle, Buffer.from(new Uint8Array(40).map((_, i) => i * 11))); // the same size, other bytes
+    closeSync(handle);
+    const input = { ...bytesInput(planned), body: { file } };
+    await expect(storeObject(input, { cacheDir: dir, sleep: noSleep, singlePutMax: 16, partSize: 16 })).rejects.toThrow(/differs from the file: the bytes sent are not the planned SHA-256/);
+    expect(names()).not.toContain("CompleteMultipartUpload");
+    expect(names()).toContain("AbortMultipartUpload");
+    expect(objects.has(input.key)).toBe(false);
+    expect(uploads.size).toBe(0);
+    expect(readdirSync(path.join(dir, "uploads"))).toEqual([]);
+
+    // The same file in one PUT: S3 itself refuses the checksum
+    await expect(storeObject(input, { cacheDir: dir, sleep: noSleep })).rejects.toThrow("BadDigest");
+  });
+
+  it("checks its own upload by the parts sent, never by the sha256 metadata it wrote itself", async () => {
+    const bytes = new Uint8Array(40).map((_, i) => i * 9);
+    const input = bytesInput(bytes);
+    before = (name) => {
+      // S3 completes the upload, but the object it then holds is other parts; the metadata still names the plan
+      if (name === "HeadObject" && objects.has(input.key)) objects.get(input.key)!.checksum = "b3RoZXIgcGFydHM=-3";
+    };
+    await expect(storeObject(input, { cacheDir: dir, sleep: noSleep, singlePutMax: 16, partSize: 16 })).rejects.toThrow(/its multipart checksum is not the parts sent/);
+    expect(objects.get(input.key)?.metadata).toEqual({ sha256: input.sha256 });
   });
 
   it("adopts a multipart object written with other part sizes by its sha256 metadata", async () => {

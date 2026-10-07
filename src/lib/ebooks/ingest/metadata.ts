@@ -60,8 +60,24 @@ const SCHEME_NAMES: Record<string, string> = {
   worldcat: "oclc",
 };
 
+/**
+ * Text PostgreSQL can store: no NUL (text and jsonb refuse it) and no unpaired
+ * surrogate (jsonb refuses it). A PDF title written as UTF-16 without a byte
+ * order mark reads "R\u0000e\u0000p...", and a C string ends in a NUL.
+ */
+export const storableText = (value: string) => value.toWellFormed().replace(/\u0000/g, "");
+
+/** Every string in plain objects and arrays made storable; anything else as it is */
+export function storable<T>(value: T): T {
+  if (typeof value === "string") return storableText(value) as T;
+  if (Array.isArray(value)) return value.map(storable) as T;
+  if (value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value)))
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [storableText(key), storable(entry)])) as T;
+  return value;
+}
+
 const clean = (value: string | null | undefined) => {
-  const text = value?.replace(/\s+/g, " ").trim();
+  const text = value && storableText(value).replace(/\s+/g, " ").trim();
   return text ? text : null;
 };
 
@@ -90,7 +106,7 @@ const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"'
 /** A description as plain paragraphs: no markup, no script, at most 20,000 characters */
 export function cleanDescription(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
-  const allowed = sanitizeHtml(raw, { allowedTags: ["p", "br", "div", "li"], allowedAttributes: {}, nonTextTags: ["script", "style", "textarea", "noscript", "title"] });
+  const allowed = sanitizeHtml(storableText(raw), { allowedTags: ["p", "br", "div", "li"], allowedAttributes: {}, nonTextTags: ["script", "style", "textarea", "noscript", "title"] });
   const text = allowed
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|li)>/gi, "\n\n")
@@ -148,8 +164,8 @@ export function mergeMetadata(inputs: MetadataInput[], fileName: string): Merged
   const isbnValues: string[] = [];
   for (const { metadata } of ordered) {
     for (const { scheme, value } of metadata.identifiers ?? []) {
-      const name = SCHEME_NAMES[scheme.toLowerCase()] ?? scheme.toLowerCase();
-      const v = value.trim();
+      const name = storableText(SCHEME_NAMES[scheme.toLowerCase()] ?? scheme.toLowerCase());
+      const v = storableText(value).trim();
       if (!v) continue;
       if (name === "isbn") isbnValues.push(v);
       else if (!(identifiers[name] ??= []).includes(v)) identifiers[name].push(v);
