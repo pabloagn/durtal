@@ -28,6 +28,10 @@ decoration as 0366 (#147) marked the same letters on the book cards.
   `provenance-shell.tsx`, one in `order-detail-panel.tsx` and two in
   `order-create-steps.tsx`. The title is in the text beside each one. The
   look does not change.
+- **The order panel's header.** `src/app/provenance/order-detail-panel.tsx`
+  puts its three buttons in `CapAligned` with the title's type, so they sit
+  on its cap-height center and grow to 44 px on touch; the tracking link,
+  "Order Page" and "View Work" take `touch-hit`.
 
 ## Completion Notes
 
@@ -42,8 +46,12 @@ decoration as 0366 (#147) marked the same letters on the book cards.
     px with a coarse pointer: no link without a name, no low-contrast text,
     and the alignment, overflow and touch audits find nothing on either
     page. `page-weight.js` passes.
-- Not changed here, and the same on main: the order panel's header buttons
-  sit 2.1 to 3.1 px off the cap-height center of "Order Details", and four
-  of them are 22 by 22 px on a touch screen.
+- The order panel's header, which this change touches: its Edit, Delete and
+  Close buttons sat 3.44 px below the cap-height center of "Order Details",
+  and on a touch screen they were 22 and 24 px, the tracking link 12 px, and
+  "Order Page" and "View Work" 34 px high. The buttons now sit in
+  `CapAligned` (24 px, 44 px on touch), and the three links take
+  `touch-hit`. The alignment and touch audits find nothing with the panel
+  open.
 - Typecheck clean. Lint: no new warning. `pnpm deadcode` clean.
 - `scripts/qa/test-local.py`: 261 files, 2,949 tests, all passed.

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -116,34 +117,37 @@ export function OrderDetailPanel({
     <>
       <div className="flex h-full flex-col">
         {/* Panel header */}
-        <div className="flex items-center justify-between border-b border-glass-border px-5 py-3.5">
+        <div className="flex items-start justify-between border-b border-glass-border px-5 py-3.5">
           <h2 className="type-item-title">Order Details</h2>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowEditDialog(true)}
-              aria-label="Edit order"
-              data-tooltip="Edit order"
-              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
-            >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              aria-label="Delete order"
-              data-tooltip="Delete order"
-              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-accent-red"
-            >
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-            <button
-              aria-label="Close"
-              data-tooltip="Close"
-              onClick={onClose}
-              className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary"
-            >
-              <X className="h-4 w-4" strokeWidth={1.5} />
-            </button>
-          </div>
+          {/* Carries the title's type: the buttons sit on its cap-height center, 44px high on touch */}
+          <CapAligned height={24} coarseHeight={44} className="type-item-title">
+            <div className="flex h-full items-center gap-1">
+              <button
+                onClick={() => setShowEditDialog(true)}
+                aria-label="Edit order"
+                data-tooltip="Edit order"
+                className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary pointer-coarse:p-[15px]"
+              >
+                <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                aria-label="Delete order"
+                data-tooltip="Delete order"
+                className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-accent-red pointer-coarse:p-[15px]"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+              <button
+                aria-label="Close"
+                data-tooltip="Close"
+                onClick={onClose}
+                className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary/50 hover:text-fg-secondary pointer-coarse:p-3.5"
+              >
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </div>
+          </CapAligned>
         </div>
 
         {/* Delete confirmation */}
@@ -274,7 +278,7 @@ export function OrderDetailPanel({
                           href={order.trackingUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-accent-blue hover:text-accent-blue/80"
+                          className="text-accent-blue hover:text-accent-blue/80 touch-hit"
                         >
                           <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                         </a>
@@ -355,7 +359,7 @@ export function OrderDetailPanel({
                 href={order.orderUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
               >
                 <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                 Order Page
@@ -363,7 +367,7 @@ export function OrderDetailPanel({
             )}
             <Link
               href={workHref(order.work)}
-              className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
             >
               <BookOpen className="h-3 w-3" strokeWidth={1.5} />
               View Work
