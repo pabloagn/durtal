@@ -102,6 +102,30 @@ searchOpenLibraryByIsbn(isbn: string): Promise<OpenLibraryResult[]>
 | `language` | `languages` |
 | `edition_count` | `editionCount` |
 
+### Book identity records (SLN-464)
+
+The enrichment worker's identity stage reads two Open Library records with its
+own client (`src/lib/enrichment/identity-sources.ts`). It does not use
+`src/lib/api/open-library.ts`, which reads a failed answer as "not found", so a
+429 would look like a missing book.
+
+- The edition record, `GET https://openlibrary.org/isbn/{isbn13}.json`, which
+  redirects to the edition. It reads `key`, `title`, `works`, `isbn_13`,
+  `isbn_10` and `lccn`, every entry of each list.
+- The work record, `GET https://openlibrary.org/works/{OL…W}.json`. It reads
+  `key`, `title`, `authors` and `identifiers.wikidata`, the work's Wikidata
+  link.
+
+Every call sends the enrichment User-Agent (`src/lib/enrichment/user-agent.ts`)
+with the contact in `ENRICHMENT_CONTACT`; without it, the stage does not start.
+The calls are one per `--pace` (1,100 ms by default). A 404 is kept in the cache
+as "no record". A 429 stops the fetch: nothing of the refused call is cached,
+and no job of the run is written.
+
+**Library of Congress: not called.** The read-only sample of 6 Oct 2026 got 403
+from loc.gov for every request, so identity makes no loc.gov call. An edition's
+LCCN comes from the `lccn` list of its Open Library edition record.
+
 ---
 
 ## Search Resolution Chain
@@ -186,6 +210,23 @@ The geocode API route supports three location input modes:
 
 ---
 
+## Wikidata (book identity, SLN-464)
+
+The identity stage reaches Wikidata only through `src/lib/wikidata/api.ts`,
+which the author and publisher enrichments share. That client now sends the
+enrichment User-Agent with `ENRICHMENT_CONTACT`, read at each call, never at
+import; it waits out a 429 and lagging servers by itself.
+
+- The query service (`sparqlSelect`, about one query a minute): the items whose
+  P648 (Open Library ID) is one of up to 50 Open Library works, as
+  `SELECT ?item ?key WHERE { VALUES ?key { "OL…W" … } ?item wdt:P648 ?key . }`.
+- `wbgetentities`, 50 items per call: labels and the best-ranked statements of
+  P31, P50, P577, P629, P648 and P5331. A redirected item is kept under its
+  target's id.
+- `searchTerms` (the search generator), five hits, only for a book that no item
+  reached through Open Library: the title with `haswbstatement:P50=<author
+  QID>`. A book whose authors have no QID gets no search.
+
 ## Provider Contract
 
 Metadata providers for perfumes, films and paintings meet one contract (SLN-375, `src/lib/providers/`). The book searches above keep their own code.
@@ -269,5 +310,6 @@ Search providers, model calls and their costs are metered by the cost meter
 | Open Library | None | Respectful use | Fallback metadata, cover images |
 | Nominatim | None | 1 req/sec | Location geocoding |
 | Wikidata (perfumes) | None | 1 req/sec | Perfume identity lookup, reviewed before saving |
+| Open Library and Wikidata (book identity) | None; User-Agent with `ENRICHMENT_CONTACT` | Open Library 1 per 1.1 s; Wikidata 1 per 2 s, the query service about 1 a minute | The enrichment worker's identity stage (SLN-464); loc.gov is not called |
 | Art Institute of Chicago, The Met | None | 1 req/sec | Painting and original lookup; location only from "on view" |
 | Evidence outlets (review and publisher sites) | None | 1 request per 5 s per host, or its crawl delay | Book enrichment evidence, robots.txt and terms honoured |

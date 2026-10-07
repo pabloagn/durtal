@@ -1,0 +1,686 @@
+{
+ "about": "Answers recorded by the read-only SLN-461 sample on 6 Oct 2026, cut to the fields identity reads. Open Library records keep their own shape; Wikidata items keep the statements of the six properties identity reads.",
+ "answers": {
+  "https://openlibrary.org/isbn/9780375703768.json": {
+   "key": "/books/OL42742M",
+   "title": "House of Leaves",
+   "works": [
+    {
+     "key": "/works/OL32195W"
+    }
+   ],
+   "isbn_13": [
+    "9780375703768"
+   ],
+   "isbn_10": [
+    "0375420525",
+    "0375410341",
+    "0375703764"
+   ],
+   "lccn": [
+    "99036024"
+   ]
+  },
+  "https://openlibrary.org/works/OL3428975W.json": {
+   "key": "/works/OL3428975W",
+   "title": "Sátántangó",
+   "authors": [
+    {
+     "author": {
+      "key": "/authors/OL565295A"
+     },
+     "type": {
+      "key": "/type/author_role"
+     }
+    }
+   ],
+   "identifiers": {
+    "librarything": [
+     "3222909"
+    ],
+    "wikidata": [
+     "Q1315145"
+    ]
+   }
+  },
+  "https://openlibrary.org/isbn/9781788166355.json": {
+   "key": "/books/OL29492539M",
+   "title": "Satantango",
+   "works": [
+    {
+     "key": "/works/OL3428975W"
+    }
+   ],
+   "isbn_13": [
+    "9781788166355"
+   ]
+  },
+  "https://openlibrary.org/isbn/9781590171479.json": {
+   "key": "/books/OL22631887M",
+   "title": "Kaputt",
+   "works": [
+    {
+     "key": "/works/OL1272994W"
+    }
+   ],
+   "isbn_10": [
+    "1590171470"
+   ]
+  },
+  "https://openlibrary.org/works/OL1272994W.json": {
+   "key": "/works/OL1272994W",
+   "title": "Kaputt",
+   "authors": [
+    {
+     "type": "/type/author_role",
+     "author": {
+      "key": "/authors/OL128744A"
+     }
+    }
+   ]
+  },
+  "https://openlibrary.org/isbn/9780241678763.json": {
+   "key": "/books/OL50640952M",
+   "title": "Beware of Pity",
+   "works": [
+    {
+     "key": "/works/OL28434W"
+    }
+   ],
+   "isbn_13": [
+    "9780241678763"
+   ]
+  },
+  "https://openlibrary.org/works/OL1272992W.json": {
+   "key": "/works/OL1272992W",
+   "title": "Pelle",
+   "authors": [
+    {
+     "author": {
+      "key": "/authors/OL128744A"
+     },
+     "type": {
+      "key": "/type/author_role"
+     }
+    }
+   ]
+  },
+  "https://openlibrary.org/isbn/9781784871963.json": {
+   "key": "/books/OL28608697M",
+   "title": "Life and Fate (Vintage Classic Russians Series)",
+   "works": [
+    {
+     "key": "/works/OL157104W"
+    }
+   ],
+   "isbn_13": [
+    "9781784871963"
+   ]
+  },
+  "https://openlibrary.org/works/OL712025W.json": {
+   "key": "/works/OL712025W",
+   "title": "2666",
+   "authors": [
+    {
+     "author": {
+      "key": "/authors/OL56795A"
+     },
+     "type": {
+      "key": "/type/author_role"
+     }
+    }
+   ],
+   "identifiers": {
+    "librarything": [
+     "996213"
+    ],
+    "wikidata": [
+     "Q219437"
+    ]
+   }
+  },
+  "https://openlibrary.org/isbn/9780374100148.json": {
+   "key": "/books/OL16820215M",
+   "title": "2666",
+   "works": [
+    {
+     "key": "/works/OL712025W"
+    }
+   ],
+   "isbn_13": [
+    "9780374100148"
+   ],
+   "isbn_10": [
+    "0374100144"
+   ],
+   "lccn": [
+    "2009290464"
+   ]
+  },
+  "https://openlibrary.org/works/OL32195W.json": {
+   "key": "/works/OL32195W",
+   "title": "House of Leaves",
+   "authors": [
+    {
+     "author": {
+      "key": "/authors/OL27918A"
+     },
+     "type": {
+      "key": "/type/author_role"
+     }
+    }
+   ],
+   "identifiers": {
+    "wikidata": [
+     "Q521688"
+    ],
+    "goodreads": [
+     "856555"
+    ],
+    "isfdb": [
+     "20856"
+    ],
+    "librarything": [
+     "1488"
+    ]
+   }
+  },
+  "https://www.wikidata.org/wiki/Q521688": {
+   "id": "Q521688",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "House of Leaves"
+    }
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 7725634,
+         "id": "Q7725634"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P50": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 963727,
+         "id": "Q963727"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P577": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "time": "+2000-03-07T00:00:00Z",
+         "timezone": 0,
+         "before": 0,
+         "after": 0,
+         "precision": 11,
+         "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+        },
+        "type": "time"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P648": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "OL32195W",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P5331": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "3856843516",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "https://openlibrary.org/works/OL28434W.json": {
+   "key": "/works/OL28434W",
+   "title": "Ungeduld des Herzens",
+   "authors": [
+    {
+     "author": {
+      "key": "/authors/OL26439A"
+     },
+     "type": {
+      "key": "/type/author_role"
+     }
+    }
+   ],
+   "identifiers": {
+    "librarything": [
+     "217696"
+    ],
+    "wikidata": [
+     "Q1428590"
+    ]
+   }
+  },
+  "https://www.wikidata.org/wiki/Q219437": {
+   "id": "Q219437",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "2666"
+    }
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 7725634,
+         "id": "Q7725634"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P50": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 297532,
+         "id": "Q297532"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P577": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "time": "+2004-00-00T00:00:00Z",
+         "timezone": 0,
+         "before": 0,
+         "after": 0,
+         "precision": 9,
+         "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+        },
+        "type": "time"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P648": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "OL16071085W",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P5331": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "119792823",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "https://openlibrary.org/isbn/9781590176221.json": {
+   "key": "/books/OL27212100M",
+   "title": "The skin",
+   "works": [
+    {
+     "key": "/works/OL1272992W"
+    }
+   ],
+   "isbn_13": [
+    "9781590176221"
+   ],
+   "isbn_10": [
+    "1590176227"
+   ],
+   "lccn": [
+    "2012045914"
+   ]
+  },
+  "https://www.wikidata.org/wiki/Q1315145": {
+   "id": "Q1315145",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Satantango"
+    }
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 7725634,
+         "id": "Q7725634"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P50": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 512062,
+         "id": "Q512062"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P577": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "time": "+1985-00-00T00:00:00Z",
+         "timezone": 0,
+         "before": 0,
+         "after": 0,
+         "precision": 9,
+         "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+        },
+        "type": "time"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P648": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "OL3428975W",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P5331": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "31623440",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "https://openlibrary.org/works/OL157104W.json": {
+   "key": "/works/OL157104W",
+   "title": "Жизнь и судьба",
+   "authors": [
+    {
+     "author": {
+      "key": "/authors/OL2962563A"
+     },
+     "type": {
+      "key": "/type/author_role"
+     }
+    }
+   ],
+   "identifiers": {
+    "librarything": [
+     "336053"
+    ],
+    "wikidata": [
+     "Q979609"
+    ]
+   }
+  },
+  "https://www.wikidata.org/wiki/Q979609": {
+   "id": "Q979609",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Life and Fate"
+    }
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 7725634,
+         "id": "Q7725634"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P50": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 313767,
+         "id": "Q313767"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P577": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "time": "+1980-00-00T00:00:00Z",
+         "timezone": 0,
+         "before": 0,
+         "after": 0,
+         "precision": 9,
+         "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+        },
+        "type": "time"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P648": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "OL157104W",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "https://www.wikidata.org/wiki/Q1428590": {
+   "id": "Q1428590",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Beware of Pity"
+    }
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 7725634,
+         "id": "Q7725634"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P50": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 78491,
+         "id": "Q78491"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P577": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "time": "+1939-00-00T00:00:00Z",
+         "timezone": 0,
+         "before": 0,
+         "after": 0,
+         "precision": 9,
+         "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+        },
+        "type": "time"
+       }
+      },
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": {
+         "time": "+1938-00-00T00:00:00Z",
+         "timezone": 0,
+         "before": 0,
+         "after": 0,
+         "precision": 9,
+         "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+        },
+        "type": "time"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P648": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "OL28434W",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ],
+    "P5331": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "datavalue": {
+        "value": "2197707",
+        "type": "string"
+       }
+      },
+      "rank": "normal"
+     }
+    ]
+   }
+  }
+ }
+}

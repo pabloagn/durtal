@@ -9,6 +9,7 @@ import type { Db } from "@/lib/catalogue/work-store";
 import {
   humanClaimSchema,
   proposalSchema,
+  type EvidenceInput,
   type HumanClaimInput,
   type ProposalInput,
 } from "@/lib/validations/enrichment";
@@ -178,9 +179,10 @@ const SAME_VALUE = (alias: string, c: ClaimColumns & { workId: string; editionId
 
 // ── Apply ───────────────────────────────────────────────────────────────────
 
+/** `batchId` groups applies: an inbox action's, or a worker run's (its run id) */
 export type ApplyBy =
   | { by: "pablo"; batchId?: string; note?: string; fingerprint?: string }
-  | { by: "rule"; ruleId: string; note?: string; basis?: "exact_identifier_match" | "evaluation_gate" };
+  | { by: "rule"; ruleId: string; batchId?: string; note?: string; basis?: "exact_identifier_match" | "evaluation_gate" };
 
 /** The claims an apply supersedes: open proposals, and on a single value the replaced one */
 async function supersededBy(conn: Db, claim: LoadedClaim, columns: ClaimColumns) {
@@ -200,6 +202,8 @@ interface ApplyPlan {
   /** The claim's state before, or null for Pablo's new claim inserted by this apply */
   before: ClaimState | null;
   insertClaim?: (d: Db) => unknown;
+  /** Evidence of Pablo's new claim, inserted with it */
+  evidence?: (d: Db) => unknown[];
   current: TargetValue;
   superseded: ClaimState[];
   by: ApplyBy;
@@ -217,7 +221,7 @@ function applyQueries(d: Db, plan: ApplyPlan) {
   return [
     d.execute(sql`select id from works where id = ${uuid(claim.workId)} for update`),
     ...(plan.insertClaim
-      ? [plan.insertClaim(d)]
+      ? [plan.insertClaim(d), ...(plan.evidence?.(d) ?? [])]
       : [
           d.execute(sql`select id from enrichment_claims where id = ${uuid(claim.claimId)} for update`),
           d.execute(
@@ -271,7 +275,7 @@ function applyQueries(d: Db, plan: ApplyPlan) {
       values (${uuid(plan.applicationId)}, ${uuid(claim.claimId)}, ${uuid(claim.workId)}, ${claim.editionId}::uuid, ${uuid(claim.dimension.id)},
         ${claim.dimension.applyTarget}, ${JSON.stringify(before)}::jsonb,
         jsonb_build_object('value', (select value from (${target.current(claim)}) c), 'claims', ${statesJson(ids)}),
-        ${decidedBy}, ${ruleId}::uuid, ${by.by === "pablo" ? (by.batchId ?? null) : null}::uuid, ${by.note ?? null})`),
+        ${decidedBy}, ${ruleId}::uuid, ${by.batchId ?? null}::uuid, ${by.note ?? null})`),
   ];
 }
 
@@ -328,9 +332,14 @@ export async function applyClaim(claimId: string, by: ApplyBy, conn: Db = appDb)
 
 /**
  * Pablo's own edit: a human claim, accepted and applied at once. The claim it
- * replaces becomes superseded.
+ * replaces becomes superseded. `evidence` cites a source that confirms his
+ * value, when one does.
  */
-export async function createHumanClaim(input: HumanClaimInput, conn: Db = appDb, options: { batchId?: string; note?: string } = {}) {
+export async function createHumanClaim(
+  input: HumanClaimInput,
+  conn: Db = appDb,
+  options: { batchId?: string; note?: string; evidence?: EvidenceInput[] } = {},
+) {
   const parsed = humanClaimSchema.parse(input);
   const version = await currentVocabularyVersion(conn);
   if (!version) throw new Error("No vocabulary is loaded");
@@ -371,6 +380,7 @@ export async function createHumanClaim(input: HumanClaimInput, conn: Db = appDb,
         values (${uuid(claimId)}, ${uuid(claim.workId)}, ${claim.editionId}::uuid, ${uuid(dimension.id)}, ${columns.termId}::uuid,
           ${columns.numberValue}::numeric, ${columns.textValue}, ${columns.placeId}::uuid, ${columns.personId}::uuid,
           'human', 1, ${version}, 'accepted', 'pablo', now(), ${note})`),
+    evidence: (d) => evidenceQueries(d, claimId, options.evidence ?? [], null),
     current,
     superseded: await supersededBy(conn, claim, columns),
     by: { by: "pablo", batchId: options.batchId, note: note ?? undefined },
@@ -444,6 +454,20 @@ export async function undoApplication(applicationId: string, conn: Db = appDb) {
 
 // ── Propose ─────────────────────────────────────────────────────────────────
 
+/** The evidence rows of a claim; the outlet is its source record's provider */
+function evidenceQueries(d: Db, claimId: string, evidence: EvidenceInput[], runId: string | null) {
+  return evidence.map((e) =>
+    d.execute(sql`insert into claim_evidence (claim_id, source_record_id, outlet, extractor_version, run_id, locator, excerpt, excerpt_sha256,
+        start_offset, end_offset, text_sha256, payload_path)
+      select ${uuid(claimId)}, s.id, s.provider, ${e.extractorVersion}, ${runId}::uuid, ${e.locator}, ${e.excerpt},
+        encode(sha256(convert_to(${e.excerpt}, 'UTF8')), 'hex'),
+        ${e.locator === "text" ? e.startOffset : null}::int, ${e.locator === "text" ? e.endOffset : null}::int,
+        ${e.locator === "text" ? e.textSha256 : null}, ${e.locator === "payload" ? `{${e.payloadPath.map((s) => JSON.stringify(s)).join(",")}}` : null}::text[]
+      from source_records s where s.id = ${uuid(e.sourceRecordId)}
+      on conflict (claim_id, source_record_id, excerpt_sha256) do nothing`),
+  );
+}
+
 export type ProposalResult =
   | { status: "created"; claimId: string }
   | { status: "merged"; claimId: string }
@@ -511,17 +535,7 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
   const outcome = proposalOutcome({ claims: same, linked, sourceIds });
   if (outcome.kind === "skip") return { status: "skipped", reason: outcome.reason };
   const claimId = outcome.kind === "merge" ? outcome.claimId : randomUUID();
-  const evidence = (d: Db) =>
-    p.evidence.map((e) =>
-      d.execute(sql`insert into claim_evidence (claim_id, source_record_id, outlet, extractor_version, run_id, locator, excerpt, excerpt_sha256,
-          start_offset, end_offset, text_sha256, payload_path)
-        select ${uuid(claimId)}, s.id, s.provider, ${e.extractorVersion}, ${p.runId ?? null}::uuid, ${e.locator}, ${e.excerpt},
-          encode(sha256(convert_to(${e.excerpt}, 'UTF8')), 'hex'),
-          ${e.locator === "text" ? e.startOffset : null}::int, ${e.locator === "text" ? e.endOffset : null}::int,
-          ${e.locator === "text" ? e.textSha256 : null}, ${e.locator === "payload" ? `{${e.payloadPath.map((s) => JSON.stringify(s)).join(",")}}` : null}::text[]
-        from source_records s where s.id = ${uuid(e.sourceRecordId)}
-        on conflict (claim_id, source_record_id, excerpt_sha256) do nothing`),
-    );
+  const evidence = (d: Db) => evidenceQueries(d, claimId, p.evidence, p.runId ?? null);
   const rejected = p.rejectAs === "not_independent";
   try {
     await atomicOn(conn, (d) =>
@@ -558,6 +572,19 @@ function withReadableMessage(error: unknown): string | null {
     current = current.cause as typeof current;
   }
   return null;
+}
+
+/** Pablo rejects a proposed claim, on a connection (the inbox action checks its fingerprint first) */
+export async function rejectClaim(claimId: string, decision: { reason: DecisionReason; note?: string }, conn: Db = appDb) {
+  await withReadableErrors(() =>
+    atomicOn(conn, (d) => [
+      d.execute(sql`select id from enrichment_claims where id = ${uuid(claimId)} for update`),
+      d.execute(assertSql(sql`exists (select 1 from enrichment_claims where id = ${uuid(claimId)} and status = 'proposed')`, "Only a proposed claim can be rejected")),
+      d.execute(sql`update enrichment_claims set status = 'rejected', decided_by = 'pablo', decided_at = now(),
+          decision_reason = ${decision.reason}, note = coalesce(${decision.note ?? null}, note)
+        where id = ${uuid(claimId)}`),
+    ]),
+  );
 }
 
 // ── Read ────────────────────────────────────────────────────────────────────

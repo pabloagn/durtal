@@ -11,12 +11,14 @@ import {
   fetchWithTimeout,
   serialThrottle,
 } from "@/lib/api/external-fetch";
+import { enrichmentUserAgent } from "@/lib/enrichment/user-agent";
 
 const API = "https://www.wikidata.org/w/api.php";
-const HEADERS = {
-  "User-Agent": "Durtal personal catalogue (Wikidata enrichment)",
+/** Read at each call, never at import: the contact comes from ENRICHMENT_CONTACT */
+const headers = () => ({
+  "User-Agent": enrichmentUserAgent(),
   Accept: "application/json",
-};
+});
 // One call every two seconds unless a script sets another pace
 let polite = serialThrottle(2000);
 
@@ -30,7 +32,7 @@ export async function wikidataApi(params: Record<string, string>): Promise<any> 
   return polite(async () => {
     const url = `${API}?${new URLSearchParams({ ...params, format: "json", maxlag: "15" })}`;
     for (let attempt = 0; ; attempt++) {
-      const res = await fetchWithTimeout(url, { headers: HEADERS }, 20000);
+      const res = await fetchWithTimeout(url, { headers: headers() }, 20000);
       if (res.status === 429 && attempt < 8) {
         const wait = (Number(res.headers.get("retry-after")) || 30) + 1;
         console.error(`[wikidata] 429 on ${params.action}${params.generator ? `/${params.generator}` : ""}: waiting ${wait} s`);
@@ -185,7 +187,7 @@ export const qualifierIds = (s: Statement, property: string) =>
 /** Waits as long as a 429 asks, then tries again (up to 8 times) */
 async function patientFetch(url: string, init: RequestInit, label: string): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetchWithTimeout(url, { ...init, headers: { ...HEADERS, ...init.headers } }, 120000);
+    const res = await fetchWithTimeout(url, { ...init, headers: { ...headers(), ...init.headers } }, 120000);
     if (res.status === 429 && attempt < 8) {
       const wait = (Number(res.headers.get("retry-after")) || 60) + 1;
       console.error(`[wikidata] 429 on ${label}: waiting ${wait} s`);

@@ -41,4 +41,12 @@ export class SourceCache {
 }
 
 /** A source refused a call (a quota or a rate limit): the fetch stops, and nothing is cached */
-export class QuotaStop extends Error {}
+export class QuotaStop extends Error {
+  constructor(
+    message: string,
+    /** The stage's jobs whose answers were all fetched before the refusal */
+    readonly done = 0,
+  ) {
+    super(message);
+  }
+}

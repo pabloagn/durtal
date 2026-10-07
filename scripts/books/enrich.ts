@@ -56,6 +56,7 @@ import {
   type Written,
 } from "@/lib/books/enrichment-store";
 import { completeUndoFile, releaseUndoFile, reserveUndoFile } from "@/lib/books/undo-file";
+import { enrichmentUserAgent } from "@/lib/enrichment/user-agent";
 
 const { values } = parseArgs({
   options: {
@@ -168,7 +169,7 @@ async function fromIsbndb(isbn: string): Promise<MatchCandidate | null> {
 async function fromOpenLibrary(isbn: string): Promise<MatchCandidate | null> {
   const res = await paced(() =>
     fetch(`https://openlibrary.org/isbn/${isbn}.json`, {
-      headers: { "User-Agent": "Durtal book enrichment (personal catalogue)" },
+      headers: { "User-Agent": enrichmentUserAgent() },
       signal: AbortSignal.timeout(10_000),
     }),
   );

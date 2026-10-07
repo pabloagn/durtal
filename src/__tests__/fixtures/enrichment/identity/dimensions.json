@@ -1,0 +1,47 @@
+[
+  {
+    "key": "wikidata_qid",
+    "label": "Wikidata item",
+    "definition": "The Wikidata item of the book as a work.",
+    "layer": "identity",
+    "valueKind": "identifier",
+    "provider": "wikidata",
+    "applyTarget": "identifier",
+    "autoAcceptEligible": true,
+    "rule": { "basis": "exact_identifier_match", "minimumConfidence": 1 }
+  },
+  {
+    "key": "open_library_work",
+    "label": "Open Library work",
+    "definition": "The Open Library work record of the book.",
+    "layer": "identity",
+    "valueKind": "identifier",
+    "provider": "open_library",
+    "applyTarget": "identifier",
+    "autoAcceptEligible": true,
+    "rule": { "basis": "exact_identifier_match", "minimumConfidence": 1 }
+  },
+  {
+    "key": "oclc_work",
+    "label": "OCLC work",
+    "definition": "The OCLC work ID of the book, from its Wikidata item.",
+    "layer": "identity",
+    "valueKind": "identifier",
+    "provider": "oclc",
+    "applyTarget": "identifier",
+    "autoAcceptEligible": true,
+    "rule": { "basis": "exact_identifier_match", "minimumConfidence": 1 }
+  },
+  {
+    "key": "lccn",
+    "label": "LCCN",
+    "definition": "The Library of Congress control number of an edition.",
+    "layer": "identity",
+    "valueKind": "identifier",
+    "entityLevel": "edition",
+    "provider": "lccn",
+    "applyTarget": "edition.lccn",
+    "autoAcceptEligible": true,
+    "rule": { "basis": "exact_identifier_match", "minimumConfidence": 1 }
+  }
+]
