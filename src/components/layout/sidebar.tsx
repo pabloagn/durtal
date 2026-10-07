@@ -224,9 +224,10 @@ export function Sidebar({
         </p>
       </div>
 
-      {/* Resize handle */}
+      {/* Resize handle. Not on touch: it lies over the right edge of the rail's 44 px press areas,
+          and resizing by finger is rare */}
       <div
-        className="absolute right-0 top-0 z-50 hidden h-full w-1.5 cursor-col-resize select-none hover:bg-accent-plum/30 active:bg-accent-plum/50 transition-colors duration-150 md:block"
+        className="absolute right-0 top-0 z-50 hidden h-full w-1.5 cursor-col-resize select-none hover:bg-accent-plum/30 active:bg-accent-plum/50 transition-colors duration-150 md:block pointer-coarse:hidden"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
