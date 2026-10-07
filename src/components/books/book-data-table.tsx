@@ -109,23 +109,18 @@ function renderBookCell(book: DetailedBookItem, key: string) {
               />
             ) : (
               <div className="flex h-full items-center justify-center">
-                <span aria-hidden="true" className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>
+                <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>
               </div>
             )}
           </div>
           <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /><PoisonBadge isPoison={book.isPoison} /></span>
         </Link>
-        {/* The copy button on the title's line: a column of the text's lines, the marks' line kept invisible */}
+        {/* The copy button on the title's line: a column of the text's lines, an empty line for the marks' */}
         <span className="flex flex-col">
           <CapAlignedControls height={28}>
             <CopyBookButton {...book} />
           </CapAlignedControls>
-          {(book.isRare || book.isPoison) && (
-            <span aria-hidden="true" className="invisible">
-              <HuntBadge {...book} />
-              <PoisonBadge isPoison={book.isPoison} />
-            </span>
-          )}
+          {(book.isRare || book.isPoison) && <span aria-hidden="true" className="block h-[1lh]" />}
         </span>
         </div>
       );

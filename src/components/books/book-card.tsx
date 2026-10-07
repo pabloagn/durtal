@@ -59,7 +59,7 @@ function CoverPlaceholder({ letter }: { letter: string }) {
   return (
     <div className="flex h-full items-center justify-center">
       {/* Decoration: the title is in the card's text */}
-      <span aria-hidden="true" className="font-serif text-3xl text-fg-muted/30">{letter}</span>
+      <span aria-hidden="true" data-decorative className="font-serif text-3xl text-fg-muted/30">{letter}</span>
     </div>
   );
 }

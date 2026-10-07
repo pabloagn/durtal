@@ -33,15 +33,18 @@ else changes on the page.
   button on the row; a book with a rare or poison mark has a second line under
   its title, so the button sat 10 px off the title. The button now sits in a
   column that repeats the text's lines: the first line holds it, cap-aligned
-  (`CapAlignedControls`, which keeps its press area whole), and an invisible
-  copy of the marks keeps the same height. The title, cover and marks do not
+  (`CapAlignedControls`, which keeps its press area whole), and an empty line
+  one line high (`h-[1lh]`) stands for the marks' line. The title, cover and marks do not
   move.
 - **SLN-522, the placeholder letter.** The large letter of a book card with no
-  cover (`CoverPlaceholder`, `book-card.tsx`) and the small one in the table
-  view are decoration: both are `aria-hidden`, so a screen reader no longer
-  reads a stray letter before the title. `scripts/qa/design-audit.js` skips
-  text hidden from screen readers in its contrast check, as it skips disabled
-  text.
+  cover (`CoverPlaceholder`, `book-card.tsx`) and the small ones in the list
+  and table views are decoration: each is `aria-hidden`, so a screen reader no
+  longer reads a stray letter before the title, and `data-decorative`.
+  `scripts/qa/design-audit.js` skips `data-decorative` text in its contrast
+  check, as it skips disabled text, and `alignment-audit.js` never takes it as
+  the text a control lines up with. Text that is only `aria-hidden` is still
+  checked: a sighted reader still reads it (the book page's rating number, the
+  display settings' column headings).
 
 ## Completion Notes
 
