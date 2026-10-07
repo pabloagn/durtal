@@ -9,7 +9,7 @@ import { outletForUrl, type Outlet } from "../outlets";
 import { mainTextExtractor } from "../extract";
 import { storeEvidencePage, storeEvidenceText, type MainTextExtractor } from "../evidence-store";
 import { costOf, priceFor } from "../prices";
-import { monthlyCapUsd, monthSpend } from "../meter";
+import { capLine, monthSpend } from "../meter";
 import type { EnrichmentStage, StageContext, StageJob } from "../stages";
 import { RESEARCH_CONFIG, REVIEW_WORDS, TOPIC_WORDS } from "./config";
 import { loadProfiles, researchDimensions, type ResearchProfile } from "./profile";
@@ -38,6 +38,8 @@ export interface ResearchPlan {
   stored: number;
   /** The searches' cost at the main provider's price; the fallback's when every query went there */
   estimate: { main: number; fallback: number };
+  /** All enrichment spend this month when the job was planned: settled and reserved */
+  spentThisMonth: number;
   /** What the apply did */
   log?: ResearchLog;
 }
@@ -129,7 +131,7 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
     async plan(conn, job) {
       const { profiles, skipped } = await loadProfiles(conn, [job.workId]);
       const profile = profiles[0] ?? null;
-      const empty = { queries: [], withoutTopic: [], stored: 0, estimate: { main: 0, fallback: 0 } };
+      const empty = { queries: [], withoutTopic: [], stored: 0, estimate: { main: 0, fallback: 0 }, spentThisMonth: await monthSpend(conn) };
       if (!profile) {
         const plan: ResearchPlan = { profile: null, skipped: skipped[0]?.reason ?? "not a book", ...empty };
         return { plan, summary: `skipped: ${plan.skipped}` };
@@ -142,6 +144,7 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
         withoutTopic,
         stored: await storedDocuments(conn, job.workId),
         estimate: { main: queries.length * searchCost(deps.main), fallback: queries.length * searchCost(deps.fallback) },
+        spentThisMonth: empty.spentThisMonth,
       };
       const translators = profile.translators.map((t) => t.name).join(", ");
       const summary = [
@@ -256,7 +259,9 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
 
     async write(tx, job, plan) {
       if (!plan.profile) return { result: "skipped", reason: plan.skipped };
-      await enqueueEnrichmentJob({ workId: job.workId, kind: "extract", reason: "research", priority: job.priority }, tx);
+      // Every research dimension by name: an open vocabulary job then folds into a full extraction
+      const dimensions = (await researchDimensions(tx)).map((d) => d.key);
+      await enqueueEnrichmentJob({ workId: job.workId, kind: "extract", reason: "research", dimensions, priority: job.priority }, tx);
       return { result: "researched", ...plan.log! };
     },
 
@@ -273,7 +278,7 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
       return [
         `## Research: ${books.length} books, ${plans.length - books.length} skipped`,
         `- Queries: ${total((p) => p.queries.length)}; estimate ${usd(total((p) => p.estimate.main))} on ${deps.main.name}${fallbackOn ? `, ${usd(total((p) => p.estimate.fallback))} if all went to ${deps.fallback.name}` : `; the fallback (${deps.fallback.name}) is off: ${deps.fallback.envKey} is not set`}`,
-        `- Monthly cap: ${monthlyCapUsd() === null ? "not set (every metered call stops)" : usd(monthlyCapUsd()!)}; ceiling per book ${usd(RESEARCH_CONFIG.maxCostPerWork)}`,
+        `- ${capLine(Math.max(0, ...plans.map((p) => p.spentThisMonth)))}; ceiling per book ${usd(RESEARCH_CONFIG.maxCostPerWork)}`,
         "## Research: the query table and the limits, for Pablo's approval",
         `- Limits: ${RESEARCH_CONFIG.maxBaseQueries} base queries, ${RESEARCH_CONFIG.maxOutletQueries} outlet queries, ${RESEARCH_CONFIG.maxTopicQueries} topic queries, ${RESEARCH_CONFIG.resultsPerQuery} results each; ${RESEARCH_CONFIG.maxPerOutlet} documents per outlet and ${RESEARCH_CONFIG.maxDocumentsPerWork} per book`,
         `- The word for "review": ${Object.entries(REVIEW_WORDS).map(([language, word]) => `${language} ${word}`).join(", ")}`,

@@ -247,7 +247,8 @@ describe.skipIf(!url)("the research agent", () => {
     expect(outcome).toMatchObject({ result: "researched", candidates: 4, refused: { robots_disallowed: 1, snippet_only: 1 } });
     expect(outcome.dropped).toEqual({ blocked_host: 1, off_registry: 1, outlet_excluded: 1, bad_url: 0 });
     expect(await jobOf(w.id)).toMatchObject({ status: "done" });
-    expect(await jobOf(w.id, "extract")).toMatchObject({ status: "queued", payload: { reason: "research" } });
+    // Every research dimension by name, so an open vocabulary job folds into a full extraction
+    expect(await jobOf(w.id, "extract")).toMatchObject({ status: "queued", payload: { reason: "research", dimensions: ["mood", "pace", "tone"] } });
     // Every search went through the meter; the book itself is untouched
     const queries = searches.length;
     expect(await c`select provider, operation, status, count(*)::int as n from enrichment_costs where work_id = ${w.id} group by 1, 2, 3`).toEqual([

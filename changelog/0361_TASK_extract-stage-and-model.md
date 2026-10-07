@@ -52,16 +52,26 @@ twice with one request.
     estimate, with no call. Work: per document, the gate, the passages, the
     request; a request already recorded is skipped; each call is metered at
     its free token count plus the output cap, after the book's ceiling check,
-    and its answer kept in the run's cache by request hash. Write: the
-    extraction rows, then per value its evidence with the earlier evidence of
-    its open and R6-rejected claims, R6, the conflicts, the confidence and
-    `proposeClaims`. A vocabulary job first closes the older version's open
-    claims of its dimensions (`vocabulary_changed`). Step: the vocabulary
-    sweep queues the books whose dimensions changed since their latest
-    extraction; the next run works them. Undo: the run's extractions get an
-    undo time, open claims with its evidence are withdrawn (`run_undone`), and
-    their evidence from other runs is proposed again. A gold-set book's values
-    stay out of the report and the job outcome: counts only.
+    and its answer kept in the run's cache by request hash (the request with
+    each asked dimension's revision: the last version that changed it). A
+    storage error fails the job; a text whose hash does not match skips its
+    document. Write: the open claims of an asked dimension older than its
+    revision close (`vocabulary_changed`); then the extraction rows; then per
+    value its evidence with the earlier evidence of its open and R6-rejected
+    claims, R6, the conflicts, the confidence and `proposeClaims`. Each
+    evidence row keeps the run that verified it. Step: the vocabulary sweep
+    queues each book for the research dimensions it was never extracted for
+    or whose revision is newer than its latest extraction, and closes the
+    open claims of retired research dimensions; the next run works them.
+    Undo: the run's extractions get an undo time, open claims with its
+    evidence are withdrawn (`run_undone`), and their evidence from other runs
+    is proposed again, except for a retired dimension or term. A gold-set
+    book's values stay out of the report, the job outcome and its errors:
+    counts only.
+  - `research/stage.ts`: a finished research job queues the extract job with
+    every research dimension by name, so it folds an open vocabulary job into
+    a full extraction.
+  - `claims.ts`: a text evidence input may carry its own run id.
 - `src/lib/enrichment/gold-set.ts`: the 20 books Pablo named on 4 Oct, by work
   id, and the condition that hides them.
 - Migration `0080_enrichment_extractions`: the `enrichment_extractions`

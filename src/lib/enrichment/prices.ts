@@ -16,7 +16,8 @@ export interface PriceRow {
 }
 
 export const PRICES: readonly PriceRow[] = [
-  // The research agent's main search (SLN-469): the free Researcher plan, 1,000 credits a month, 1 credit per basic search
+  // The research agent's main search (SLN-469): the free Researcher plan, 1,000 credits a month, 1 credit per basic search.
+  // On pay-as-you-go this row must become { credits: 0.008 } first, or the cap does not count Tavily
   { provider: "tavily", operation: "search", usdPerUnit: { credits: 0 }, source: "https://docs.tavily.com/documentation/api-credits", readOn: "2026-10-07" },
   // Its fallback: $5 per 1,000 requests (the $5 monthly credit is not counted, so the meter errs high)
   { provider: "brave", operation: "search", usdPerUnit: { requests: 0.005 }, source: "https://brave.com/search/api/", readOn: "2026-10-07" },

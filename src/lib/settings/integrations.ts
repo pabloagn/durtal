@@ -5,14 +5,14 @@ import {
   googleBooksOverQuota,
   lastGoogleBooksCall,
 } from "@/lib/api/google-books-quota";
-import { count, eq, inArray, max, sql } from "drizzle-orm";
+import { and, count, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ebookFiles, ebooks, enrichmentCosts, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
 import { enrichmentSpend, evidenceCacheStats } from "@/lib/settings/data";
 import { createPageFetcher } from "@/lib/net/safe-fetch-page";
 import { outletForUrl } from "@/lib/enrichment/outlets";
 import { loadOutlets } from "@/lib/enrichment/outlet-registry";
-import { BudgetStop, metered } from "@/lib/enrichment/meter";
+import { BudgetStop, metered, monthlyCapUsd } from "@/lib/enrichment/meter";
 import { enrichmentUserAgent } from "@/lib/enrichment/user-agent";
 import { anthropicClient } from "@/lib/enrichment/research/model";
 import { EXTRACTION_MODEL } from "@/lib/enrichment/research/config";
@@ -115,7 +115,14 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
     db
       .select({ provider: enrichmentCosts.provider, calls: count(), last: max(enrichmentCosts.createdAt) })
       .from(enrichmentCosts)
-      .where(inArray(enrichmentCosts.provider, ["tavily", "brave", EXTRACTION_MODEL.provider]))
+      // Settled calls of the agent's own work: a check is not a use
+      .where(
+        and(
+          inArray(enrichmentCosts.provider, ["tavily", "brave", EXTRACTION_MODEL.provider]),
+          eq(enrichmentCosts.status, "settled"),
+          ne(enrichmentCosts.operation, "check"),
+        ),
+      )
       .groupBy(enrichmentCosts.provider),
   ]);
   const lastUsed = (provider: string) => {
@@ -540,13 +547,22 @@ function checkTavily(): Promise<CheckResult> {
   );
 }
 
+/** A check answer that was not billed: a refusal, or no answer */
+class UnbilledCheck extends Error {
+  readonly billed = false;
+  constructor(readonly result: CheckResult) {
+    super(result.message);
+  }
+}
+
 /** Brave has no free call that proves a key: one search, through the budget; at the cap, no call */
 async function checkBraveSearch(): Promise<CheckResult> {
   const key = process.env.BRAVE_SEARCH_API_KEY?.trim();
   if (!key) return off("BRAVE_SEARCH_API_KEY is not set: the fallback is off");
+  if (monthlyCapUsd() === null) return warning("ENRICHMENT_MONTHLY_CAP_USD is not set: no check call was made");
   try {
-    return await metered({ provider: "brave", operation: "check", estimate: { requests: 1 } }, async () => ({
-      result: await httpCheck(
+    return await metered({ provider: "brave", operation: "check", estimate: { requests: 1 } }, async () => {
+      const result = await httpCheck(
         "Brave Search",
         () =>
           fetchWithTimeout("https://api.search.brave.com/res/v1/web/search?q=Huysmans&count=1", {
@@ -559,10 +575,13 @@ async function checkBraveSearch(): Promise<CheckResult> {
           403: failure("Brave Search refused the key"),
           429: warning("Over the plan's rate or quota"),
         },
-      ),
-      units: { requests: 1 },
-    }));
+      );
+      // Only an answered search is billed: a refusal or no answer releases the reservation
+      if (result.status !== "ok") throw new UnbilledCheck(result);
+      return { result, units: { requests: 1 } };
+    });
   } catch (error) {
+    if (error instanceof UnbilledCheck) return error.result;
     if (error instanceof BudgetStop) return warning("At the budget cap: no check call was made");
     throw error;
   }

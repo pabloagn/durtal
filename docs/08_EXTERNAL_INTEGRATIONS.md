@@ -328,7 +328,9 @@ HTTP status only, never a URL, key or body.
   https://docs.tavily.com/documentation/api-credits): the free Researcher
   plan gives 1,000 credits a month, no card; a basic search costs 1 credit;
   pay-as-you-go is $0.008 a credit. The price row is 0, so trial searches pass
-  even at a cap of $0, and still count in the ledger. The API's own limit is 100
+  even at a cap of $0, and still count in the ledger. Before a move to
+  pay-as-you-go, the row must become $0.008 a credit, or the cap does not
+  count Tavily. The API's own limit is 100
   requests a minute on a development key; the worker paces searches by
   `--pace` (1,100 ms by default).
 - **Refusals:** 401 (key), 429 (rate), 432 (key or plan limit) and 433

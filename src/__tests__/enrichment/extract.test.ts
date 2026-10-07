@@ -100,11 +100,13 @@ describe("the request", () => {
     for (const banned of ["temperature", "thinking", "top_p", "top_k", "tools", "example"]) expect(JSON.stringify(request)).not.toContain(banned);
   });
 
-  it("hashes the request as sent: the same inputs give the same hash, a changed passage another", () => {
-    const a = requestHash(buildRequest(profile, [tone], passages));
-    expect(requestHash(buildRequest(profile, [tone], passages))).toBe(a);
-    expect(requestHash(buildRequest(profile, [tone], [{ ...passages[0], text: "Sebald etc." }]))).not.toBe(a);
-    expect(requestHash(buildRequest(profile, [{ ...tone, terms: [term("melancholic")] }], passages))).not.toBe(a);
+  it("hashes the request as sent and the dimensions' revisions: the same inputs give the same hash, a changed passage or revision another", () => {
+    const a = requestHash(buildRequest(profile, [tone], passages), { tone: 1 });
+    expect(requestHash(buildRequest(profile, [tone], passages), { tone: 1 })).toBe(a);
+    expect(requestHash(buildRequest(profile, [tone], [{ ...passages[0], text: "Sebald etc." }]), { tone: 1 })).not.toBe(a);
+    expect(requestHash(buildRequest(profile, [{ ...tone, terms: [term("melancholic")] }], passages), { tone: 1 })).not.toBe(a);
+    // A change that leaves the text alone (an exclusive pair, R6) still makes a new request
+    expect(requestHash(buildRequest(profile, [tone], passages), { tone: 2 })).not.toBe(a);
   });
 
   it("names the prompt version and the pinned model in the extractor version", () => {

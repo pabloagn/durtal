@@ -66,6 +66,8 @@ export const evidenceInputSchema = z.discriminatedUnion("locator", [
     startOffset: z.number().int().min(0),
     endOffset: z.number().int().min(1),
     textSha256: sha256,
+    /** The run that verified the excerpt, when not the proposal's own (evidence carried over from an earlier run) */
+    runId: z.uuid().optional(),
   }),
 ]);
 export type EvidenceInput = z.infer<typeof evidenceInputSchema>;

@@ -8,7 +8,7 @@ import { currentVocabularyVersion, proposeClaims } from "../claims";
 import { enqueueEnrichmentJob } from "../jobs";
 import { readEvidenceText } from "../evidence-store";
 import { costOf, priceFor } from "../prices";
-import { metered, monthSpend, WorkCeilingStop } from "../meter";
+import { capLine, metered, monthSpend, WorkCeilingStop } from "../meter";
 import { goldSetHiddenCondition, GOLD_SET_WORK_IDS } from "../gold-set";
 import type { EnrichmentStage, StageContext, StageStep } from "../stages";
 import type { SourceCache } from "../source-cache";
@@ -42,20 +42,35 @@ const sha256 = (value: unknown) => createHash("sha256").update(stableStringify(v
 const CHARS_PER_TOKEN = 4;
 const usd = (amount: number) => `$${amount.toFixed(amount < 1 ? 3 : 2)}`;
 
+/** A dimension the research agent extracts: experience terms and scales, and facts terms marked for research */
+const RESEARCH_DIMENSION = sql.raw(`((d.layer = 'experience' and d.value_kind in ('term', 'terms', 'scale'))
+  or (d.layer = 'facts' and d.value_kind in ('term', 'terms') and (d.parameters ->> 'research') = 'true'))`);
+
+/**
+ * A dimension's revision: the last vocabulary version, up to `version`, that
+ * introduced or retired a row of it or of one of its terms
+ */
+const revision = (key: SQL, version: number) =>
+  sql`(select max(x.v) from (
+      select unnest(array[d2.introduced_in, d2.retired_in]) as v from enrichment_dimensions d2 where d2.key = ${key}
+      union all select unnest(array[t2.introduced_in, t2.retired_in]) from enrichment_terms t2 join enrichment_dimensions d2 on d2.id = t2.dimension_id where d2.key = ${key}
+    ) x where x.v <= ${version})`;
+
+type Dimension = ExtractDimension & { independent: boolean; revision: number };
+
 /** The research dimensions of a vocabulary version, with every term's definition and rules (never examples) */
-async function extractDimensions(conn: Db, version: number, keys?: string[]): Promise<(ExtractDimension & { independent: boolean })[]> {
+async function extractDimensions(conn: Db, version: number, keys?: string[]): Promise<Dimension[]> {
   const current = (alias: string) => sql.raw(`${alias}.introduced_in <= ${version} and (${alias}.retired_in is null or ${alias}.retired_in > ${version})`);
   return rows(
     conn,
     sql`select d.key, d.label, d.definition, d.value_kind as "valueKind", d.requires_independent_sources as independent,
+        ${revision(sql`d.key`, version)} as revision,
         coalesce(d.parameters -> 'exclusiveTerms', '[]'::jsonb) as exclusive,
         coalesce((select jsonb_agg(jsonb_build_object('key', t.key, 'label', t.label, 'definition', t.definition, 'appliesWhen', t.applies_when,
             'doesNotApplyWhen', t.does_not_apply_when, 'scaleValue', t.scale_value) order by t.scale_value nulls last, t.key)
           from enrichment_terms t where t.dimension_id = d.id and ${current("t")}), '[]'::jsonb) as terms
       from enrichment_dimensions d
-      where ${current("d")} ${keys?.length ? sql`and d.key in (${list(keys)})` : sql``}
-        and ((d.layer = 'experience' and d.value_kind in ('term', 'terms', 'scale'))
-          or (d.layer = 'facts' and d.value_kind in ('term', 'terms') and (d.parameters ->> 'research') = 'true'))
+      where ${current("d")} ${keys?.length ? sql`and d.key in (${list(keys)})` : sql``} and ${RESEARCH_DIMENSION}
       order by d.layer desc, d.key`,
   );
 }
@@ -83,11 +98,11 @@ export interface ExtractPlan {
   profile: ResearchProfile | null;
   skipped: string | null;
   version: number;
-  dimensions: (ExtractDimension & { independent: boolean })[];
+  dimensions: Dimension[];
   documents: StoredDocument[];
-  /** A vocabulary job: closes the older version's open claims of its dimensions */
-  vocabulary: boolean;
   estimate: number;
+  /** All enrichment spend this month when the job was planned: settled and reserved */
+  spentThisMonth: number;
   results?: DocumentResult[];
 }
 
@@ -176,13 +191,15 @@ async function decide(
   tx: Db,
   input: {
     workId: string;
-    dimensions: (ExtractDimension & { independent: boolean })[];
+    dimensions: Dimension[];
     version: number;
     runId: string;
     jobId: string | null;
     /** Evidence per dimension and term */
     values: Map<string, ValueEvidence[]>;
     names: Map<string, string>;
+    /** A gold-set book: an error names no term */
+    hidden: boolean;
   },
 ) {
   const counts = { proposed: 0, merged: 0, rejectedR6: 0, conflicts: 0, confirmed: 0 };
@@ -221,6 +238,8 @@ async function decide(
             startOffset: e.start,
             endOffset: e.end,
             textSha256: e.textSha256,
+            // Each row keeps the run that verified it, so that run's undo finds it
+            runId: e.runId,
           })),
           ...(r6 ? { rejectAs: "not_independent" as const } : {}),
         },
@@ -232,7 +251,7 @@ async function decide(
     );
     results.forEach((r, i) => {
       const item = items[i];
-      if (r.status === "refused") throw new Error(`A proposal was refused: ${r.reason}`);
+      if (r.status === "refused") throw new Error(`A ${dimension.key} proposal was refused${input.hidden ? "" : `: ${r.reason}`}`);
       if (r.status === "skipped") {
         if (r.reason === "already accepted") counts.confirmed++;
         return;
@@ -269,7 +288,17 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
     apply: async (tx) => {
       const affected = await affectedByVocabulary(tx);
       for (const a of affected) await enqueueEnrichmentJob({ workId: a.workId, kind: "extract", reason: "vocabulary", dimensions: a.dimensions }, tx);
-      return [`- queued ${affected.length} books to extract again for a vocabulary change`];
+      // A retired research dimension is never extracted again: its open agent claims close here
+      const closed = await rows<{ id: string }>(
+        tx,
+        sql`update enrichment_claims c set status = 'rejected', decided_by = 'check', decided_at = now(), decision_reason = 'vocabulary_changed',
+            note = 'its dimension was retired'
+          from enrichment_dimensions d
+          where d.id = c.dimension_id and c.method = 'agent' and c.status = 'proposed' and ${RESEARCH_DIMENSION}
+            and not exists (select 1 from enrichment_dimensions d2 where d2.key = d.key and d2.retired_in is null)
+          returning c.id`,
+      );
+      return [`- queued ${affected.length} books to extract again for a vocabulary change`, `- closed ${closed.length} open claims of retired dimensions`];
     },
   };
 
@@ -288,9 +317,9 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       const version = (await currentVocabularyVersion(conn)) ?? 0;
       const { profiles, skipped } = await loadProfiles(conn, [job.workId]);
       const profile = profiles[0] ?? null;
+      // The job's dimensions (research names every research dimension; a vocabulary change those it touched), or all
       const keys = Array.isArray(job.payload.dimensions) ? (job.payload.dimensions as string[]) : [];
-      const vocabulary = job.payload.reason === "vocabulary";
-      const dimensions = version ? await extractDimensions(conn, version, vocabulary ? keys : undefined) : [];
+      const dimensions = version ? await extractDimensions(conn, version, keys) : [];
       const documents = profile ? await storedDocuments(conn, [job.workId]) : [];
       // A plan's estimate: characters for tokens, plus the full output cap
       const vocabularyChars = profile ? buildRequest(profile, dimensions, []).system[0].text.length : 0;
@@ -306,10 +335,18 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
           ),
         0,
       );
-      const plan: ExtractPlan = { profile, skipped: profile ? null : (skipped[0]?.reason ?? "not a book"), version, dimensions, documents, vocabulary, estimate };
+      const plan: ExtractPlan = {
+        profile,
+        skipped: profile ? null : (skipped[0]?.reason ?? "not a book"),
+        version,
+        dimensions,
+        documents,
+        estimate,
+        spentThisMonth: await monthSpend(conn),
+      };
       const summary = !profile
         ? `skipped: ${plan.skipped}`
-        : `${documents.length} documents, ${dimensions.length} dimensions${vocabulary ? ` (again, for a vocabulary change: ${keys.join(", ")})` : ""}, estimate ${usd(estimate)} at most`;
+        : `${documents.length} documents, ${dimensions.length} dimensions (${dimensions.map((d) => d.key).join(", ")}), estimate ${usd(estimate)} at most`;
       return { plan, summary };
     },
 
@@ -317,11 +354,17 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       if (!plan.profile || !plan.dimensions.length) return { ...plan, results: [] };
       const model = deps.model()!;
       const terms = new Map(plan.dimensions.map((d) => [d.key, new Set(d.terms.map((t) => t.key))]));
+      // A change to an asked dimension makes every request new, so a vocabulary job writes rows at its version
+      const revisions = Object.fromEntries(plan.dimensions.map((d) => [d.key, d.revision]));
       const results: DocumentResult[] = [];
       for (const document of plan.documents) {
         const result: DocumentResult = { document, status: "skipped", valuesReturned: 0, verified: [], failures: [] };
         results.push(result);
-        const read = await readEvidenceText(document.textSha256, deps.objects).catch(() => null);
+        // A hash mismatch skips the document; any other storage error fails the job, which retries
+        const read = await readEvidenceText(document.textSha256, deps.objects).catch((error: Error) => {
+          if (!error.message.includes("does not match its hash")) throw error;
+          return null;
+        });
         if (!read || read.status === "purged") {
           result.reason = read ? "its text was purged" : "its text does not match its hash";
           continue;
@@ -334,14 +377,14 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         const gate = aboutWork(text, plan.profile);
         if (!gate.about) {
           // Not sent: its row names the gate and the inputs it read
-          const hash = sha256({ gate: PROMPT_VERSION, titles: plan.profile.titles, authors: plan.profile.authors, text: document.textSha256 });
+          const hash = sha256({ gate: PROMPT_VERSION, titles: plan.profile.titles, authors: plan.profile.authors, text: document.textSha256, revisions });
           if (await extractedBefore(conn, document.sourceRecordId, hash)) result.reason = "found not about the book before";
           else Object.assign(result, { status: "not_about_work", requestSha256: hash, passages: [] });
           continue;
         }
         const passages = passagesOf(text, gate.matches);
         const request = buildRequest(plan.profile, plan.dimensions, passages);
-        const hash = requestHash(request);
+        const hash = requestHash(request, revisions);
         if (await extractedBefore(conn, document.sourceRecordId, hash)) {
           result.reason = "sent with this request before";
           continue;
@@ -369,15 +412,15 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       if (!plan.profile) return { result: "skipped", reason: plan.skipped };
       const results = plan.results ?? [];
       const keys = plan.dimensions.map((d) => d.key);
-      // A vocabulary job first closes the older version's open claims of its dimensions
-      const closed = plan.vocabulary && keys.length
+      // First, the open claims of an asked dimension that changed after their version are closed
+      const closed = keys.length
         ? await rows<{ id: string }>(
             tx,
             sql`update enrichment_claims c set status = 'rejected', decided_by = 'check', decided_at = now(), decision_reason = 'vocabulary_changed',
                 note = ${`vocabulary version ${plan.version} changed this dimension`}
               from enrichment_dimensions d
               where d.id = c.dimension_id and c.work_id = ${job.workId}::uuid and d.key in (${list(keys)}) and c.method = 'agent'
-                and c.status = 'proposed' and c.vocabulary_version < ${plan.version}
+                and c.status = 'proposed' and c.vocabulary_version < ${revision(sql`d.key`, plan.version)}
               returning c.id`,
           )
         : [];
@@ -415,12 +458,12 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       const fresh = new Set(values.keys());
       for (const e of await earlierEvidence(tx, job.workId, keys)) if (fresh.has(valueKey(e.dimension, e.term))) add(valueKey(e.dimension, e.term), e);
       const names = new Map(plan.documents.map((d) => [d.outlet, d.outletName]));
-      const { counts, proposals } = await decide(tx, { workId: job.workId, dimensions: plan.dimensions, version: plan.version, runId: ctx.runId, jobId: job.id, values, names });
+      // A gold-set book's values stay hidden until Pablo labels it: counts only
+      const hidden = GOLD_SET_WORK_IDS.includes(job.workId);
+      const { counts, proposals } = await decide(tx, { workId: job.workId, dimensions: plan.dimensions, version: plan.version, runId: ctx.runId, jobId: job.id, values, names, hidden });
 
       const failures: Record<string, number> = {};
       for (const r of results) for (const f of r.failures) failures[f.check] = (failures[f.check] ?? 0) + 1;
-      // A gold-set book's values stay hidden until Pablo labels it: counts only
-      const hidden = GOLD_SET_WORK_IDS.includes(job.workId);
       return {
         result: "extracted",
         documents: results.length,
@@ -445,6 +488,15 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
 
     steps: [sweep],
 
+    summarize(plans) {
+      const books = plans.filter((p) => p.profile);
+      return [
+        `## Extraction: ${books.length} books, ${plans.length - books.length} skipped`,
+        `- Documents ${books.reduce((n, p) => n + p.documents.length, 0)}; estimate ${usd(books.reduce((sum, p) => sum + p.estimate, 0))} at most (each document at the full output cap)`,
+        `- ${capLine(Math.max(0, ...plans.map((p) => p.spentThisMonth)))}; ceiling per book ${usd(RESEARCH_CONFIG.maxCostPerWork)}`,
+      ];
+    },
+
     async undo(tx, runId) {
       const undone = await rows<{ id: string }>(tx, sql`update enrichment_extractions set undone_at = now() where run_id = ${runId}::uuid and undone_at is null returning id`);
       // Every open claim holding this run's evidence is withdrawn, whichever run created it
@@ -467,7 +519,9 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
             from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
               join claim_evidence e on e.claim_id = c.id join source_records s on s.id = e.source_record_id join evidence_outlets o on o.key = s.provider
             where c.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) and e.run_id <> ${runId}::uuid
-              and not exists (select 1 from enrichment_extractions x where x.run_id = e.run_id and x.undone_at is not null)`,
+              and not exists (select 1 from enrichment_extractions x where x.run_id = e.run_id and x.undone_at is not null)
+              -- A retired dimension or term is not proposed again
+              and d.retired_in is null and t.retired_in is null`,
         );
         if (!kept.length) continue;
         const dimensions = await extractDimensions(tx, version, [...new Set(kept.map((k) => k.dimension))]);
@@ -482,6 +536,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
             jobId: null,
             values: new Map([[key, evidence!]]),
             names: new Map(),
+            hidden: GOLD_SET_WORK_IDS.includes(workId),
           });
           again += counts.proposed + counts.rejectedR6;
         }
@@ -541,21 +596,24 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
 }
 
 /**
- * Books to extract again for a vocabulary change (section 8): per book and
- * research dimension, a dimension or one of its terms introduced or retired
- * after the version of the book's latest extraction of it.
+ * Books to extract again for a vocabulary change (section 8): each book with
+ * an extraction, and each current research dimension it was never extracted
+ * for or whose revision is newer than its latest extraction of it.
  */
 async function affectedByVocabulary(conn: Db) {
+  const version = (await currentVocabularyVersion(conn)) ?? 0;
   return rows<{ workId: string; slug: string; dimensions: string[] }>(
     conn,
     sql`with latest as (
         select x.work_id, k.key, max(x.vocabulary_version) as version
-        from enrichment_extractions x cross join unnest(x.dimension_keys) k(key) where x.undone_at is null group by x.work_id, k.key)
-      select l.work_id as "workId", w.slug, array_agg(distinct l.key order by l.key) as dimensions
-      from latest l join works w on w.id = l.work_id join enrichment_dimensions d on d.key = l.key
-      where d.introduced_in > l.version or d.retired_in > l.version
-        or exists (select 1 from enrichment_terms t where t.dimension_id = d.id and (t.introduced_in > l.version or t.retired_in > l.version))
-      group by l.work_id, w.slug order by w.slug`,
+        from enrichment_extractions x cross join unnest(x.dimension_keys) k(key) where x.undone_at is null group by x.work_id, k.key),
+      books as (select distinct work_id from enrichment_extractions where undone_at is null),
+      dimensions as (select d.key, ${revision(sql`d.key`, version)} as revision from enrichment_dimensions d where d.retired_in is null and ${RESEARCH_DIMENSION})
+      select b.work_id as "workId", w.slug, array_agg(dm.key order by dm.key) as dimensions
+      from books b cross join dimensions dm join works w on w.id = b.work_id
+        left join latest l on l.work_id = b.work_id and l.key = dm.key
+      where l.version is null or dm.revision > l.version
+      group by b.work_id, w.slug order by w.slug`,
   );
 }
 

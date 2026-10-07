@@ -90,8 +90,11 @@ export function buildRequest(profile: Pick<ResearchProfile, "titles" | "authors"
 
 const sha256 = (value: unknown) => createHash("sha256").update(stableStringify(value)).digest("hex");
 
-/** The SHA-256 of the request as sent: a document already extracted with it is never sent again */
-export const requestHash = (request: ExtractionRequest) => sha256(request);
+/**
+ * The SHA-256 of the request as sent and the revision of each asked
+ * dimension: a document already extracted with it is never sent again
+ */
+export const requestHash = (request: ExtractionRequest, revisions: Record<string, number>) => sha256({ request, revisions });
 
 /** What every extraction and its evidence name: the prompt, the pinned model and a hash of the settings */
 export const EXTRACTOR_VERSION = `${PROMPT_VERSION} ${EXTRACTION_MODEL.model} ${sha256({

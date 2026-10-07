@@ -459,7 +459,7 @@ function evidenceQueries(d: Db, claimId: string, evidence: EvidenceInput[], runI
   return evidence.map((e) =>
     d.execute(sql`insert into claim_evidence (claim_id, source_record_id, outlet, extractor_version, run_id, locator, excerpt, excerpt_sha256,
         start_offset, end_offset, text_sha256, payload_path)
-      select ${uuid(claimId)}, s.id, s.provider, ${e.extractorVersion}, ${runId}::uuid, ${e.locator}, ${e.excerpt},
+      select ${uuid(claimId)}, s.id, s.provider, ${e.extractorVersion}, ${(e.locator === "text" ? e.runId : undefined) ?? runId}::uuid, ${e.locator}, ${e.excerpt},
         encode(sha256(convert_to(${e.excerpt}, 'UTF8')), 'hex'),
         ${e.locator === "text" ? e.startOffset : null}::int, ${e.locator === "text" ? e.endOffset : null}::int,
         ${e.locator === "text" ? e.textSha256 : null}, ${e.locator === "payload" ? `{${e.payloadPath.map((s) => JSON.stringify(s)).join(",")}}` : null}::text[]
