@@ -109,12 +109,14 @@ export const ReaderShell = forwardRef<
   {
     bars: ReactNode;
     barEvents: ReturnType<typeof useReaderBars>["barEvents"];
+    /** opening, ready or error: for the reader's checks (scripts/qa/reader-engine-check.mjs) */
+    state: string;
     overlay?: ReactNode;
     children?: ReactNode;
   }
->(function ReaderShell({ bars, barEvents, overlay, children }, bookRef) {
+>(function ReaderShell({ bars, barEvents, state, overlay, children }, bookRef) {
   return (
-    <div className="fixed inset-0 overflow-hidden bg-bg-primary text-fg-primary" data-reader>
+    <div className="fixed inset-0 overflow-hidden bg-bg-primary text-fg-primary" data-reader={state}>
       <div ref={bookRef} className="absolute inset-0" />
       {overlay}
       <div className="contents" {...barEvents}>

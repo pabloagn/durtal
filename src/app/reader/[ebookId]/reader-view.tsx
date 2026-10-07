@@ -331,6 +331,7 @@ export function ReaderView({
     <ReaderShell
       ref={bookRef}
       barEvents={bars.barEvents}
+      state={status.kind}
       overlay={overlay}
       bars={
         <>
