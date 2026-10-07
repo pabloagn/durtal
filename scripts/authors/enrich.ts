@@ -16,8 +16,13 @@
  * old values, and the identifiers and places it created, to --undo-file;
  * `--undo FILE` puts them back.
  *
+ * `--scope books` (the default) takes the authors with books; `canon` the
+ * people without books who belong to books (CANON_SCOPE_SQL: not someone
+ * credited only on films, paintings, perfumes, formulations or art objects);
+ * `all` every person.
+ *
  *   pnpm exec tsx --tsconfig tsconfig.json scripts/authors/enrich.ts \
- *     [--apply] [--undo FILE] [--scope books|all] [--report FILE] [--cache FILE]
+ *     [--apply] [--undo FILE] [--scope books|canon|all] [--report FILE] [--cache FILE]
  *     [--undo-file FILE] [--env-dir DIR] [--pace MS] [--only SLUG,SLUG]
  */
 import { parseArgs } from "node:util";
@@ -40,6 +45,7 @@ import {
 import {
   AUTHOR_FILL_COLUMNS,
   AUTHOR_NAME_COLUMNS,
+  CANON_SCOPE_SQL,
   isWriter,
   matchedWorks,
   nameForms,
@@ -128,6 +134,7 @@ type Loaded = AuthorRow & {
   nationality: string | null;
   aliases: string[];
   works: { title: string; year: number | null }[];
+  roles: string[];
 };
 const only = values.only ? values.only.split(",").map((s) => s.trim()) : null;
 const authors = await sql<Loaded[]>`
@@ -141,9 +148,17 @@ const authors = await sql<Loaded[]>`
       where pa.person_id = a.id) as aliases,
     (select coalesce(json_agg(json_build_object('title', w.title, 'year', w.original_year)
         order by w.title), '[]')
-      from work_authors wa join works w on w.id = wa.work_id where wa.author_id = a.id) as works
+      from work_authors wa join works w on w.id = wa.work_id where wa.author_id = a.id) as works,
+    (select coalesce(json_agg(ct.name order by ct.name), '[]') from author_contribution_types act
+      join contribution_types ct on ct.id = act.contribution_type_id where act.author_id = a.id) as roles
   from authors a left join countries c on c.id = a.nationality_id
-  where ${values.scope === "all" ? sql`true` : sql`exists (select 1 from work_authors wa where wa.author_id = a.id)`}
+  where ${
+    values.scope === "all"
+      ? sql`true`
+      : values.scope === "canon"
+        ? sql.unsafe(CANON_SCOPE_SQL)
+        : sql`exists (select 1 from work_authors wa where wa.author_id = a.id)`
+  }
     and ${only ? sql`a.slug in ${sql(only)}` : sql`true`}
   order by a.name, a.id`;
 const countries = await sql<{ id: string; alpha2: string; name: string }[]>`
@@ -183,6 +198,7 @@ const evidence = (r: Loaded): AuthorEvidence => ({
   goodreadsId: r.goodreads_id as string | null,
   zodiacSign: r.zodiac_sign as string | null,
   works: r.works,
+  roles: r.roles,
 });
 const people = authors.map(evidence);
 
@@ -241,13 +257,16 @@ await getPlaces(
     .flatMap((p) => cache.places[p]?.countries ?? []),
   cache,
 );
-await getLabels(humans.flatMap((id) => person(id).notableWorks), cache);
+// Notable works (evidence and About texts) and occupations (roles)
+await getLabels(humans.flatMap((id) => [...person(id).notableWorks, ...person(id).occupations]), cache);
 save();
 
 // 3. Their works, 80 people per query, unless a notable work already names
 // one of the author's books
 const needWorks: string[] = [];
 for (const a of people) {
+  // An author without books gains nothing from a works list
+  if (!a.works.length) continue;
   const forms = formsOf.get(a.id)!;
   // The best names first; among equal names, writers first
   const ranked = [...(found.get(a.id) ?? [])]
@@ -543,7 +562,7 @@ const link = (id: string, label: string | null) => `[${label ?? id}](https://www
 const out: string[] = [
   `# Author enrichment: ${values.apply ? "applied" : "dry run (rolled back)"}`,
   "",
-  `Run \`${runId}\`, ${retrievedAt.toISOString().slice(0, 16).replace("T", " ")} UTC. ${people.length} authors (${values.scope === "all" ? "all" : "with books"}).`,
+  `Run \`${runId}\`, ${retrievedAt.toISOString().slice(0, 16).replace("T", " ")} UTC. ${people.length} authors (${values.scope === "all" ? "all" : values.scope === "canon" ? "without books" : "with books"}).`,
   "",
   "## Summary",
   "",
@@ -566,7 +585,11 @@ const out: string[] = [
       (t) => `- ${a.name} (${a.slug}, ${a.works.length} books) and ${t.name} (${t.slug}, ${t.books} books) are both ${link(plans[i].match!.id, plans[i].match!.label)}`,
     ),
   ),
-  ...people.flatMap((a, i) => (plans[i].held[0]?.startsWith("the same person as") ? [`- ${a.name} (${a.slug}): ${plans[i].held[0]}`] : [])),
+  ...people.flatMap((a, i) =>
+    /^the same person as|already belongs to|possibly one author twice/.test(plans[i].held[0] ?? "")
+      ? [`- ${a.name} (${a.slug}): ${plans[i].held[0]}`]
+      : [],
+  ),
   "",
   "## Names put right (reviewed)",
   "",
@@ -593,7 +616,7 @@ const out: string[] = [
     plans[i].match || !plans[i].held.length
       ? []
       : [
-          `- **${a.name}** (${a.slug}; ${a.works.map((w) => w.title).slice(0, 3).join("; ")})`,
+          `- **${a.name}** (${a.slug}; ${a.works.length ? a.works.map((w) => w.title).slice(0, 3).join("; ") : `no books; ${a.roles.join(", ") || "no roles"}`}${a.birth.year !== null ? `; born ${a.birth.year}` : ""}${a.nationality ? `; ${a.nationality}` : ""})`,
           ...plans[i].held.slice(0, 6).map((h) => `  - ${h}`),
           ...(plans[i].held.length > 6 ? [`  - and ${plans[i].held.length - 6} more without evidence`] : []),
         ],
@@ -602,7 +625,9 @@ const out: string[] = [
   "## Not found",
   "",
   ...people.flatMap((a, i) =>
-    plans[i].match || plans[i].held.length ? [] : [`- ${a.name} (${a.slug}; ${a.works.map((w) => w.title).slice(0, 2).join("; ")})`],
+    plans[i].match || plans[i].held.length
+      ? []
+      : [`- ${a.name} (${a.slug}; ${a.works.length ? a.works.map((w) => w.title).slice(0, 2).join("; ") : a.roles.join(", ") || "no roles"})`],
   ),
   "",
   "## Ruled out",

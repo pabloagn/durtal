@@ -6,6 +6,7 @@ import * as schema from "@/lib/db/schema";
 vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/lib/s3/client", () => ({ s3: {}, S3_BUCKET: "local-test" }));
 import { KEY_COLUMNS, ownedPrefixes } from "@/lib/s3/cleanup";
+import { EVIDENCE_PREFIX } from "@/lib/s3/keys";
 
 describe("S3 cleanup reference check", () => {
   it("covers every column that stores an S3 key", () => {
@@ -40,5 +41,16 @@ describe("S3 cleanup reference check", () => {
       ...ownedPrefixes.comment({ entityType: "work", entityId: id, id }),
     ];
     for (const prefix of all) expect(prefix.endsWith(`${id}/`)).toBe(true);
+  });
+
+  it("no owned folder covers the evidence prefix: deleting a record never deletes evidence (SLN-468)", () => {
+    const id = "10000000-0000-4000-8000-000000000001";
+    const all = [
+      ...Object.entries(ownedPrefixes)
+        .filter(([name]) => name !== "comment")
+        .flatMap(([, prefixes]) => (prefixes as (id: string) => string[])(id)),
+      ...ownedPrefixes.comment({ entityType: "work", entityId: id, id }),
+    ];
+    for (const prefix of all) expect(EVIDENCE_PREFIX.startsWith(prefix) || prefix.startsWith(EVIDENCE_PREFIX), prefix).toBe(false);
   });
 });

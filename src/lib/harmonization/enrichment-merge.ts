@@ -106,6 +106,9 @@ export function enrichmentMergeQueries(
             and m.status in (${OPEN}) and k.status in (${OPEN})`,
         sql`update enrichment_jobs set work_id = ${t} where work_id = ${s}`,
       ];
+    // The cost ledger (SLN-468) keeps every row: its spend moves to the kept book
+    case "enrichment_costs.work_id":
+      return [sql`update enrichment_costs set work_id = ${t} where work_id = ${s}`];
   }
   if (table.startsWith("enrichment_") || table === "work_enrichment_values" || table === "work_popularity_snapshots")
     throw new Error("This enrichment relationship requires a dedicated merge strategy");

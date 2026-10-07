@@ -12,8 +12,9 @@ vi.mock("@/lib/api/search-engine", () => ({
 // The overview counts rows; these tests need no database
 vi.mock("@/lib/db", () => {
   const rows = Promise.resolve([{ records: 0, last: null, books: 0, linked: 0 }]);
-  const from = () => Object.assign(rows, { where: () => rows });
-  return { db: { select: () => ({ from }) } };
+  const where = () => Object.assign(rows, { groupBy: () => rows });
+  const from = () => Object.assign(rows, { where });
+  return { db: { select: () => ({ from }), execute: async () => [] } };
 });
 vi.mock("@/lib/s3/client", () => ({ s3: {}, S3_BUCKET: "test-bucket" }));
 

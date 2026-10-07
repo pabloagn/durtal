@@ -14,6 +14,23 @@ export function bronzeUploadKey(uploadId: string, filename: string) {
   return `bronze/uploads/${uploadId}/${filename}`;
 }
 
+/**
+ * Evidence: private copies of fetched pages and their stored text (SLN-468),
+ * named by content hash so two owners share one object. Never served, never
+ * exported and never in a record's owned folders (docs/07).
+ */
+export const EVIDENCE_PREFIX = "bronze/evidence/";
+
+/** A fetched page, gzipped, named by the sha256 of its raw bytes */
+export function evidenceRawKey(rawSha256: string) {
+  return `${EVIDENCE_PREFIX}${rawSha256}.raw.gz`;
+}
+
+/** The stored main text, UTF-8, named by its sha256 */
+export function evidenceTextKey(textSha256: string) {
+  return `${EVIDENCE_PREFIX}${textSha256}.txt`;
+}
+
 // ── Silver (parsed, validated) ───────────────────────────────────────────────
 
 export function silverImportParsedKey(importId: string) {

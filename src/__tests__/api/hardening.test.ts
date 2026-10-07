@@ -102,7 +102,7 @@ describe("broad endpoints", () => {
     expect(isReadableKey("gold/media/work/x/poster/y.webp")).toBe(true);
     expect(isReadableKey("gold/covers/x/cover.webp")).toBe(true);
     expect(isReadableKey("gold/comments/work/x/c/f.pdf")).toBe(true);
-    for (const key of ["bronze/media/work/x/y.jpg", "silver/covers/x/validated.jpg", "gold/exports/x/library_export.csv", "gold/media/../bronze/x", "gold/media//x", "other"])
+    for (const key of ["bronze/media/work/x/y.jpg", `bronze/evidence/${"a".repeat(64)}.txt`, `bronze/evidence/${"a".repeat(64)}.raw.gz`, "silver/covers/x/validated.jpg", "gold/exports/x/library_export.csv", "gold/media/../bronze/x", "gold/media//x", "other"])
       expect(isReadableKey(key)).toBe(false);
   });
 

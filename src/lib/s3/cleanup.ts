@@ -26,10 +26,13 @@ export const KEY_COLUMNS = {
 } as const;
 
 // Constant identifiers only; the keys themselves are bound parameters.
+// Evidence objects (SLN-468) are named in source_records payloads, not in a column.
 const IN_USE = sql.raw(
-  Object.entries(KEY_COLUMNS)
-    .map(([table, columns]) => `exists(select 1 from ${table} where k in (${columns.join(", ")}))`)
-    .join(" or "),
+  [
+    ...Object.entries(KEY_COLUMNS).map(([table, columns]) => `exists(select 1 from ${table} where k in (${columns.join(", ")}))`),
+    `exists(select 1 from source_records where payload ? 'rawKey' and payload ->> 'rawKey' = k)`,
+    `exists(select 1 from source_records where payload ? 'textKey' and payload ->> 'textKey' = k)`,
+  ].join(" or "),
 );
 
 /** What a deleted record leaves in the bucket. */
@@ -233,9 +236,9 @@ function textArray(keys: string[]) {
 }
 
 /** The keys, out of these, that some row still stores. */
-export async function keysInUse(keys: string[]): Promise<Set<string>> {
+export async function keysInUse(keys: string[], database: Pick<typeof db, "execute"> = db): Promise<Set<string>> {
   if (!keys.length) return new Set();
-  const result = await db.execute(
+  const result = await database.execute(
     sql`select k from unnest(${textArray(keys)}) k where ${IN_USE}`,
   );
   const rows = (Array.isArray(result) ? result : result.rows) as {
