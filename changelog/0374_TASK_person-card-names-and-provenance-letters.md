@@ -46,19 +46,16 @@ decoration as 0366 (#147) marked the same letters on the book cards.
     px with a coarse pointer: no link without a name, no low-contrast text,
     and the alignment, overflow and touch audits find nothing on either
     page. `page-weight.js` passes.
-- The order panel's header, which this change touches: its Edit, Delete and
-  Close buttons sat 3.44 px below the cap-height center of "Order Details",
-  and on a touch screen they were 22 and 24 px, the tracking link 12 px, and
-  "Order Page" and "View Work" 34 px high. The buttons now sit in
-  `CapAligned` (24 px, 44 px on touch), and the three links take
-  `touch-hit`. The alignment and touch audits find nothing with the panel
-  open.
-- With the panel fix, merged with main 6ed7c4f7, as a production build on
-  the newest backup with an order's panel open: before the fix the alignment
-  audit found the three buttons 3.13 px off in Chrome, and at 390 px the
-  touch audit found Edit, Delete, Close and "View Work". After it, in
-  headless Chrome, Firefox and WebKit at 1440 px and at 390 px with a coarse
-  pointer, the alignment, design, overflow and touch audits find nothing on
-  `/people`, on `/provenance` or in the panel. `page-weight.js` passes.
+- The order panel's header, which this change touches. Before: its Edit,
+  Delete and Close buttons sat 3.13 px below the cap-height center of "Order
+  Details" (the alignment audit in Chrome, with main 6ed7c4f7 as a production
+  build on the newest backup and an order's panel open), and on a touch screen
+  Edit and Delete were 22 px, Close 24 px, and on an order with a shop page
+  and a tracking link, the tracking link 12 px and "Order Page" and "View
+  Work" 34 px high. After: the buttons sit in `CapAligned` (24 px, 44 px on
+  touch) and the three links take `touch-hit`; in headless Chrome, Firefox and
+  WebKit at 1440 px and at 390 px with a coarse pointer, the alignment,
+  design, overflow and touch audits find nothing on `/people`, on
+  `/provenance` or in the panel, and `page-weight.js` passes.
 - Typecheck clean. Lint: no new warning. `pnpm deadcode` clean.
 - `scripts/qa/test-local.py`: 262 files, 2,953 tests, all passed.

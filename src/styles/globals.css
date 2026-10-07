@@ -826,6 +826,26 @@ dialog::backdrop {
   background: var(--color-bg-tertiary);
   border-radius: 2px;
 }
+/* On touch the slider is 44px tall: its track stays a 4px line drawn by the background */
+@media (pointer: coarse) {
+  .crop-range-slider {
+    height: 44px;
+    background: linear-gradient(var(--color-bg-tertiary), var(--color-bg-tertiary)) center / 100% 4px no-repeat;
+    border-radius: 0;
+  }
+}
+
+/* Toasts on a phone: Sonner sets the list 100% wide and 16px in from the left,
+   so it reached 16px past the screen. Between the two 16px offsets instead,
+   with each toast its full width: the toasts stay where they were */
+@media (max-width: 600px) {
+  :root [data-sonner-toaster] {
+    width: auto;
+  }
+  :root [data-sonner-toaster] [data-sonner-toast] {
+    width: 100%;
+  }
+}
 
 /* ── Bio rich-text content ──────────────────────────────────────────────── */
 .bio-content p {
@@ -938,6 +958,13 @@ dialog::backdrop {
 [data-kb-active] {
   background-color: var(--color-bg-tertiary);
   color: var(--color-fg-primary);
+}
+
+/* A toast's icon sits on its first line (a 1.5 line-height title), not in the
+   middle of a message that wraps */
+[data-sonner-toast][data-styled="true"] [data-icon] {
+  align-self: flex-start;
+  margin-top: calc((1.5em - 16px) / 2);
 }
 
 /* ==========================================================================

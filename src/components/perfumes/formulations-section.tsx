@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { deletePerfumeVariant } from "@/lib/actions/perfumes";
 import { PerfumeImage } from "./perfume-image";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";

@@ -458,7 +458,7 @@ export function WorkForm({
                       set("recommenderIds", [...values.recommenderIds, val]);
                     }
                   }}
-                  className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-rose focus:outline-none"
+                  className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
                 >
                   <option value="">Add recommender...</option>
                   {recommenders

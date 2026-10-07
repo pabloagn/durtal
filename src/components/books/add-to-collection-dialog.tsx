@@ -14,7 +14,11 @@ import {
   removeEditionsFromCollection,
   removeWorksFromCollection,
 } from "@/lib/actions/collections";
-import { collectionCounts, collectionCountLabel } from "@/lib/collections/counts";
+import {
+  collectionCounts,
+  collectionCountLabel,
+  collectionCreatedMessage,
+} from "@/lib/collections/counts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 
@@ -183,7 +187,15 @@ export function AddToCollectionDialog({
       );
       request.current = crypto.randomUUID();
       setQuery("");
-      toast.success("Collection created and books added");
+      // One kind per work added: a book once, however many of its editions
+      const books = new Set(
+        selected.map((id) => data?.editions.find((e) => e.id === id)?.workId ?? id),
+      );
+      const kinds = [
+        ...[...books].map(() => "book" as const),
+        ...(data?.works.map((w) => w.kind) ?? []),
+      ];
+      toast.success(collectionCreatedMessage(kinds));
       refreshed();
     } catch {
       toast.error("Could not create and add. Your selection is still here.");
@@ -234,7 +246,7 @@ export function AddToCollectionDialog({
             )}
             {data.editions.length > 1 && (
               <details>
-                <summary className="cursor-pointer text-xs text-fg-secondary">
+                <summary className="cursor-pointer text-xs text-fg-secondary pointer-coarse:py-3">
                   {selected.length} of {data.editions.length} editions selected
                   · Choose editions
                 </summary>
@@ -242,7 +254,7 @@ export function AddToCollectionDialog({
                   {data.editions.map((e) => (
                     <label
                       key={e.id}
-                      className="flex items-start gap-2 text-xs"
+                      className="flex items-start gap-2 text-xs pointer-coarse:min-h-11"
                     >
                       <input
                         type="checkbox"
@@ -323,7 +335,7 @@ export function AddToCollectionDialog({
                       aria-label={c.name}
                       disabled={busy || !chosen}
                       onClick={() => toggle(c.id, all)}
-                      className="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50"
+                      className="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
                     >
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${amount ? "border-accent-rose bg-accent-rose/25" : "border-glass-border"}`}

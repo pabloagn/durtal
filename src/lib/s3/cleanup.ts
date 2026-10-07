@@ -12,6 +12,7 @@ import {
   perfumeVariants,
 } from "@/lib/db/schema";
 import { s3, S3_BUCKET } from "./client";
+import { previewDeleteMany, previewList, previewS3Dir } from "./preview-dir";
 
 /** Every column that stores an S3 key. A key in any of them is still in use. */
 export const KEY_COLUMNS = {
@@ -209,6 +210,8 @@ export async function authorObjects(
 }
 
 async function listKeys(prefix: string): Promise<string[]> {
+  const dir = previewS3Dir();
+  if (dir) return previewList(dir, prefix);
   const keys: string[] = [];
   let ContinuationToken: string | undefined;
   do {
@@ -268,12 +271,15 @@ export async function deleteUnusedObjects(
       const inUse = await keysInUse(batch);
       const unused = batch.filter((key) => !inUse.has(key));
       if (!unused.length) continue;
-      const response = await s3.send(
-        new DeleteObjectsCommand({
-          Bucket: S3_BUCKET,
-          Delete: { Objects: unused.map((Key) => ({ Key })), Quiet: true },
-        }),
-      );
+      const dir = previewS3Dir();
+      const response = dir
+        ? await previewDeleteMany(dir, unused)
+        : await s3.send(
+            new DeleteObjectsCommand({
+              Bucket: S3_BUCKET,
+              Delete: { Objects: unused.map((Key) => ({ Key })), Quiet: true },
+            }),
+          );
       const errors = new Set(response.Errors?.map((e) => e.Key));
       if (errors.size) {
         failed = true;

@@ -5,7 +5,7 @@ import { MarkReadDialog } from "./mark-read-dialog";
 import { BULK_DELETE_CASCADE } from "./delete-cascade";
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus, ListPlus, BookCheck } from "lucide-react";
+import { Tag, Signal, Star, Stamp, FolderPlus, ListPlus, BookCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,8 +13,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
 import { ExportMenu } from "@/components/shared/export-menu";
+import {
+  SelectionToolbar,
+  type SelectionToolbarProps,
+} from "@/components/shared/selection-toolbar";
 import { deleteWork, updateWork } from "@/lib/actions/works";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
@@ -30,42 +33,21 @@ import {
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import { formatRating, HALF_STEPS } from "@/lib/utils/rating";
 
-interface BulkActionToolbarProps {
-  selectedCount: number;
-  selectedIds: Set<string>;
+/** The library's selection bar: status, priority, marks, rating, reading, collections, Up Next and export */
+export function BulkActionToolbar({
+  selectedTitles,
+  ...selection
+}: SelectionToolbarProps & {
   /** Map of workId -> title for display in delete confirmation */
   selectedTitles: Map<string, string>;
-  allIds: string[];
-  onSelectAll: (ids: string[]) => void;
-  onDeselectAll: () => void;
-  onExitSelection: () => void;
-}
-
-export function BulkActionToolbar({
-  selectedCount,
-  selectedIds,
-  selectedTitles,
-  allIds,
-  onSelectAll,
-  onDeselectAll,
-  onExitSelection,
-}: BulkActionToolbarProps) {
+}) {
+  const { selectedCount, selectedIds, allIds } = selection;
   const router = useRouter();
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [markReadOpen, setMarkReadOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
   if (selectedCount === 0) return null;
-
-  const titlesList = Array.from(selectedIds)
-    .map((id) => selectedTitles.get(id) ?? "Unknown")
-    .slice(0, 5);
-  const displayName =
-    titlesList.length < selectedCount
-      ? `${titlesList.join(", ")} and ${selectedCount - titlesList.length} more`
-      : titlesList.join(", ");
 
   /** Up Next (SLN-452): appended in the order of the selection */
   async function queueSelected() {
@@ -105,26 +87,6 @@ export function BulkActionToolbar({
       );
     } finally {
       setIsUpdating(false);
-    }
-  }
-
-  async function handleBulkDelete() {
-    setIsDeleting(true);
-    let deleted = 0;
-    const ids = Array.from(selectedIds);
-    try {
-      for (const id of ids) {
-        await deleteWork(id);
-        deleted++;
-      }
-      toast.success(`${deleted} ${deleted === 1 ? "work" : "works"} deleted`);
-      onExitSelection();
-      router.refresh();
-    } catch {
-      toast.error(`Deleted ${deleted} of ${ids.length} works before error`);
-    } finally {
-      setIsDeleting(false);
-      setDeleteOpen(false);
     }
   }
 
@@ -170,189 +132,151 @@ export function BulkActionToolbar({
 
   return (
     <>
-      {/* On a narrow screen the bar wraps onto a second row and stays inside the screen (SLN-452) */}
-      <div className="glass fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-3 px-4 py-2.5">
-        {/* Selection info */}
-        <span className="whitespace-nowrap text-sm text-fg-secondary">
-          <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}
-          selected
-        </span>
-
-        <div className="h-4 w-px bg-glass-border" />
-
-        {/* Nothing in the bar wraps: every item keeps one line, so the
-            row's center is each label's center */}
-        <button
-          onClick={() => onSelectAll(allIds)}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-        >
-          Select all
-        </button>
-        <button
-          onClick={onDeselectAll}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-        >
-          Deselect
-        </button>
-
-        <div className="h-4 w-px bg-glass-border" />
-
-        {/* Edit Status */}
-        <DropdownMenu
-          align="center"
-          side="top"
-          trigger={
-            <Button variant="ghost" size="sm" disabled={isUpdating}>
-              <Tag className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Status
-            </Button>
-          }
-        >
-          <DropdownMenuLabel>Set status</DropdownMenuLabel>
-          {statusEntries.map(([value, config]) => (
-            <DropdownMenuItem
-              key={value}
-              onClick={() => bulkUpdate("catalogueStatus", value)}
-              disabled={isUpdating}
+      <SelectionToolbar
+        {...selection}
+        names={selectedTitles}
+        noun={["work", "works"]}
+        deleteOne={deleteWork}
+        cascade={BULK_DELETE_CASCADE}
+        busy={isUpdating}
+      >
+        {(isDeleting) => (
+          <>
+            {/* Edit Status */}
+            <DropdownMenu
+              align="center"
+              side="top"
+              trigger={
+                <Button variant="ghost" size="sm" disabled={isUpdating}>
+                  <Tag className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Status
+                </Button>
+              }
             >
-              {config.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenu>
+              <DropdownMenuLabel>Set status</DropdownMenuLabel>
+              {statusEntries.map(([value, config]) => (
+                <DropdownMenuItem
+                  key={value}
+                  onClick={() => bulkUpdate("catalogueStatus", value)}
+                  disabled={isUpdating}
+                >
+                  {config.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
 
-        {/* Edit Priority */}
-        <DropdownMenu
-          align="center"
-          side="top"
-          trigger={
-            <Button variant="ghost" size="sm" disabled={isUpdating}>
-              <Signal className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Priority
-            </Button>
-          }
-        >
-          <DropdownMenuLabel>Set priority</DropdownMenuLabel>
-          {priorityEntries.map(([value, config]) => (
-            <DropdownMenuItem
-              key={value}
-              onClick={() => bulkUpdate("acquisitionPriority", value)}
-              disabled={isUpdating}
+            {/* Edit Priority */}
+            <DropdownMenu
+              align="center"
+              side="top"
+              trigger={
+                <Button variant="ghost" size="sm" disabled={isUpdating}>
+                  <Signal className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Priority
+                </Button>
+              }
             >
-              {config.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenu>
+              <DropdownMenuLabel>Set priority</DropdownMenuLabel>
+              {priorityEntries.map(([value, config]) => (
+                <DropdownMenuItem
+                  key={value}
+                  onClick={() => bulkUpdate("acquisitionPriority", value)}
+                  disabled={isUpdating}
+                >
+                  {config.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenu>
 
-        {/* Marks: one menu for every book mark */}
-        <DropdownMenu
-          align="center"
-          side="top"
-          trigger={
-            <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting}>
-              <Stamp className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {MARKS_LABEL}
-            </Button>
-          }
-        >
-          {WORK_MARKS.map((mark, index) => (
-            <Fragment key={mark.key}>
-              {index > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuLabel>{mark.label}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setMark(mark, true)} disabled={isUpdating || isDeleting}>
-                {mark.markAction}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setMark(mark, false)} disabled={isUpdating || isDeleting}>
-                {mark.unmarkAction}
-              </DropdownMenuItem>
-            </Fragment>
-          ))}
-        </DropdownMenu>
+            {/* Marks: one menu for every book mark */}
+            <DropdownMenu
+              align="center"
+              side="top"
+              trigger={
+                <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting}>
+                  <Stamp className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {MARKS_LABEL}
+                </Button>
+              }
+            >
+              {WORK_MARKS.map((mark, index) => (
+                <Fragment key={mark.key}>
+                  {index > 0 && <DropdownMenuSeparator />}
+                  <DropdownMenuLabel>{mark.label}</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setMark(mark, true)} disabled={isUpdating || isDeleting}>
+                    {mark.markAction}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMark(mark, false)} disabled={isUpdating || isDeleting}>
+                    {mark.unmarkAction}
+                  </DropdownMenuItem>
+                </Fragment>
+              ))}
+            </DropdownMenu>
 
-        {/* Edit Rating */}
-        <DropdownMenu
-          align="center"
-          side="top"
-          trigger={
-            <Button variant="ghost" size="sm" disabled={isUpdating}>
-              <Star className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Rating
-            </Button>
-          }
-        >
-          <DropdownMenuLabel>Set rating</DropdownMenuLabel>
-          {/* Two columns keep the ten half steps short on a phone */}
-          <div className="grid grid-cols-2">
-            {HALF_STEPS.map((value) => (
+            {/* Edit Rating */}
+            <DropdownMenu
+              align="center"
+              side="top"
+              trigger={
+                <Button variant="ghost" size="sm" disabled={isUpdating}>
+                  <Star className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Rating
+                </Button>
+              }
+            >
+              <DropdownMenuLabel>Set rating</DropdownMenuLabel>
+              {/* Two columns keep the ten half steps short on a phone */}
+              <div className="grid grid-cols-2">
+                {HALF_STEPS.map((value) => (
+                  <DropdownMenuItem
+                    key={value}
+                    onClick={() => bulkUpdate("rating", value)}
+                    disabled={isUpdating}
+                  >
+                    {formatRating(value)} {value === 1 ? "star" : "stars"}
+                  </DropdownMenuItem>
+                ))}
+              </div>
               <DropdownMenuItem
-                key={value}
-                onClick={() => bulkUpdate("rating", value)}
+                onClick={() => bulkUpdate("rating", null)}
                 disabled={isUpdating}
               >
-                {formatRating(value)} {value === 1 ? "star" : "stars"}
+                Clear rating
               </DropdownMenuItem>
-            ))}
-          </div>
-          <DropdownMenuItem
-            onClick={() => bulkUpdate("rating", null)}
-            disabled={isUpdating}
-          >
-            Clear rating
-          </DropdownMenuItem>
-        </DropdownMenu>
+            </DropdownMenu>
 
-        {/* Reading (SLN-463): one finished read each; dates and edits stay on the book page */}
-        <DropdownMenu
-          align="center"
-          side="top"
-          trigger={
-            <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting} data-bulk-reading="">
-              <BookCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Reading
+            {/* Reading (SLN-463): one finished read each; dates and edits stay on the book page */}
+            <DropdownMenu
+              align="center"
+              side="top"
+              trigger={
+                <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting} data-bulk-reading="">
+                  <BookCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Reading
+                </Button>
+              }
+            >
+              <DropdownMenuLabel>Reading</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setMarkReadOpen(true)} disabled={isUpdating || isDeleting}>
+                Mark as read
+              </DropdownMenuItem>
+            </DropdownMenu>
+
+            <div className="h-4 w-px bg-glass-border" />
+
+            <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => setCollectionOpen(true)}>
+              <FolderPlus size={14} strokeWidth={1.5} />
+              Collections
             </Button>
-          }
-        >
-          <DropdownMenuLabel>Reading</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setMarkReadOpen(true)} disabled={isUpdating || isDeleting}>
-            Mark as read
-          </DropdownMenuItem>
-        </DropdownMenu>
-
-        <div className="h-4 w-px bg-glass-border" />
-
-        <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => setCollectionOpen(true)}>
-          <FolderPlus size={14} strokeWidth={1.5} />
-          Collections
-        </Button>
-        <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => void queueSelected()} data-bulk-queue="">
-          <ListPlus size={14} strokeWidth={1.5} />
-          Add to Up Next
-        </Button>
-        {/* Export */}
-        <ExportMenu entity="works" ids={selectedIds} />
-
-        <div className="h-4 w-px bg-glass-border" />
-
-        {/* Delete */}
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={() => setDeleteOpen(true)}
-          disabled={isDeleting || isUpdating}
-        >
-          <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-          Delete
-        </Button>
-
-        {/* Close */}
-        <button
-          onClick={onExitSelection}
-          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary touch-hit"
-          aria-label="Exit selection"
-          data-tooltip="Exit selection"
-        >
-          <X className="block h-3.5 w-3.5" strokeWidth={1.5} />
-        </button>
-      </div>
+            <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => void queueSelected()} data-bulk-queue="">
+              <ListPlus size={14} strokeWidth={1.5} />
+              Add to Up Next
+            </Button>
+            {/* Export */}
+            <ExportMenu entity="works" ids={selectedIds} />
+          </>
+        )}
+      </SelectionToolbar>
 
       {markReadOpen && <MarkReadDialog workIds={Array.from(selectedIds)} onClose={() => setMarkReadOpen(false)} />}
       {collectionOpen && (
@@ -363,15 +287,6 @@ export function BulkActionToolbar({
           title={`${selectedCount} selected books`}
         />
       )}
-      <DeleteConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={handleBulkDelete}
-        title={`Delete ${selectedCount} ${selectedCount === 1 ? "work" : "works"}`}
-        description="Are you sure you want to delete the selected works? This action cannot be undone."
-        itemName={displayName}
-        cascade={BULK_DELETE_CASCADE}
-      />
     </>
   );
 }

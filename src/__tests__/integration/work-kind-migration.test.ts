@@ -273,6 +273,8 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       "ebook_files",
       "ebook_positions",
       "ebook_annotations",
+      "ebook_ingest_runs",
+      "ebook_ingest_items",
       "enrichment_vocabulary_versions",
       "enrichment_dimensions",
       "enrichment_terms",

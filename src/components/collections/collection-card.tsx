@@ -94,7 +94,7 @@ export function CollectionCard({
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2">
             <FolderOpen className="h-8 w-8 text-fg-muted/20" strokeWidth={1} />
-            <span className="font-serif text-sm text-fg-muted/30">
+            <span aria-hidden="true" data-decorative className="font-serif text-sm text-fg-muted/30">
               {collection.name[0]}
             </span>
           </div>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { FavouritesFilter } from "@/components/shared/favourites-filter";
 import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
-import { collectionCounts } from "@/lib/collections/counts";
+import { collectionCounts, collectableNouns } from "@/lib/collections/counts";
 import {
   parsePagination,
   lastPage,
@@ -49,7 +49,7 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
         description={
           params.q || favourites
             ? "Try another collection name or filter."
-            : "Create collections to organize your books into curated groups"
+            : `Create collections to organize your ${collectableNouns()} into curated groups`
         }
         action={<CreateCollectionDialog />}
       />
@@ -88,7 +88,7 @@ export default async function CollectionsPage({
     <>
       <PageHeader
         title="Collections"
-        description="Curated groups of books"
+        description={`Curated groups of ${collectableNouns()}`}
         actions={<CreateCollectionDialog />}
       />
       <div className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-3">

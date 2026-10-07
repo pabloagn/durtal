@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MediaManagerDialog } from "@/components/books/media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import {
   updateCollection,
   deleteCollection,
@@ -25,6 +25,8 @@ import {
 } from "@/lib/actions/collections";
 import { AddCollectionBooksDialog } from "./add-books-dialog";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { collectionDeletedMessage } from "@/lib/collections/counts";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 type Collection = {
   id: string;
@@ -35,12 +37,15 @@ export function CollectionControls({
   collection,
   editionIds,
   workIds = [],
+  kinds = [],
   initialAdd = false,
 }: {
   collection: Collection;
   editionIds: string[];
   /** Whole works in the collection */
   workIds?: string[];
+  /** What it holds, one kind per work (a book once), for the delete message */
+  kinds?: WorkKind[];
   initialAdd?: boolean;
 }) {
   const router = useRouter();
@@ -92,7 +97,7 @@ export function CollectionControls({
       const result = await deleteCollection(collection.id);
       if (result.cleanupPending)
         toast.warning("Collection deleted; some artwork still needs cleanup.");
-      else toast.success("Collection deleted. Books remain in your library.");
+      else toast.success(collectionDeletedMessage(kinds));
       router.push("/collections");
       router.refresh();
       triggerActivityRefresh();
