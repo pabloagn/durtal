@@ -25,6 +25,12 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), cached: (fn: unknown) => fn, CACHE_TAGS: {} }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+// Wikidata is stubbed here, so the 1 s its terms ask between calls only made each review or
+// apply wait (SLN-538); the gap itself is tested in providers/contract.test.ts and utils/external-fetch.test.ts
+vi.mock("@/lib/providers/wikidata-perfumes", async (original) => {
+  const actual = await original<typeof import("@/lib/providers/wikidata-perfumes")>();
+  return { ...actual, wikidataPerfumes: { ...actual.wikidataPerfumes, limits: { ...actual.wikidataPerfumes.limits, minIntervalMs: 0 } } };
+});
 import { applyPerfumeSource, recordPerfumeEntrySource, reviewPerfumeSource, searchPerfumeSource } from "@/lib/actions/perfume-sources";
 import { createPerfume, createPerfumeVariant, getPerfume, updatePerfume } from "@/lib/actions/perfumes";
 import { saveOrganization } from "@/lib/actions/organizations";
