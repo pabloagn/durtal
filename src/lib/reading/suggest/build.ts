@@ -1,3 +1,4 @@
+import { MAX_PAGES, MIN_PAGES } from "@/lib/books/enrichment";
 import { queueEdition, type QueueEdition } from "../queue";
 import type { SuggestBook, SuggestContext, SuggestLoad } from "./types";
 
@@ -38,9 +39,10 @@ export function bookEdition(book: SuggestBook, ctx: Pick<SuggestContext, "homeId
   return byHome.get(ctx.homeId)!;
 }
 
-/** The book's length: the page count of that edition */
+/** The book's length: the page count of that edition, unknown outside 16 to 3,000 pages, as the page rule reads it (SLN-466) */
 export function bookPages(book: SuggestBook, ctx: Pick<SuggestContext, "homeId">): number | null {
-  return bookEdition(book, ctx)?.pageCount ?? null;
+  const pages = bookEdition(book, ctx)?.pageCount ?? null;
+  return pages !== null && pages >= MIN_PAGES && pages <= MAX_PAGES ? pages : null;
 }
 
 /** Whole days from a to b, YYYY-MM-DD */

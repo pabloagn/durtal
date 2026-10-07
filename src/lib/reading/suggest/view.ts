@@ -1,7 +1,7 @@
 import { formatOfCopy } from "../constants";
 import { formatMinutes } from "../positions";
 import { queueWhereabouts, timeToRead, timeToReadText } from "../queue";
-import { bookEdition } from "./build";
+import { bookEdition, bookPages } from "./build";
 import type { Evidence, FeatureKey } from "./features";
 import { predict, predictionSource, predictionText } from "./predict";
 import type { Scored } from "./score";
@@ -47,8 +47,10 @@ export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
   const edition = bookEdition(book, ctx);
   const copy = edition?.copies.find((c) => c.status !== "deaccessioned");
   const format = edition?.audioMinutes ? "audio" : formatOfCopy(copy?.format);
-  const length = edition?.audioMinutes ? formatMinutes(edition.audioMinutes) : edition?.pageCount ? `${edition.pageCount} p.` : null;
-  const time = timeToReadText(timeToRead(edition, format, ctx.priors));
+  // The pages the score reads: a count outside 16 to 3,000 shows no length and no time, as no count does
+  const pages = bookPages(book, ctx);
+  const length = edition?.audioMinutes ? formatMinutes(edition.audioMinutes) : pages ? `${pages} p.` : null;
+  const time = timeToReadText(timeToRead(edition && { ...edition, pageCount: pages }, format, ctx.priors));
   const p = ctx.gate?.on ? predict(book, ctx) : null;
   // Said once: when At hand is one of the reasons, the line leaves the copy's place out
   const where = queueWhereabouts(book.editions, book.atHandCopyId, ctx.today);
