@@ -31,10 +31,10 @@ const MODE_LABELS: Record<Mode, string> = {
 };
 const SEARCH_HINTS: Record<Mode, string> = {
   editions: "Search title, author or ISBN…",
-  book: "Search book titles…",
-  film: "Search film titles…",
-  perfume: "Search perfume titles…",
-  painting: "Search painting titles…",
+  book: "Search title or author…",
+  film: "Search title or director…",
+  perfume: "Search title or perfumer…",
+  painting: "Search title or painter…",
 };
 
 /**
@@ -58,8 +58,13 @@ export function AddCollectionBooksDialog({
   existingWorkIds?: string[];
 }) {
   const router = useRouter();
-  const modes: Mode[] = ["editions", ...getEnabledWorkKinds()];
-  const [mode, setMode] = useState<Mode>("editions");
+  // Books come first, then their editions, then the other kinds
+  const modes: Mode[] = [
+    "book",
+    "editions",
+    ...getEnabledWorkKinds().filter((kind) => kind !== "book"),
+  ];
+  const [mode, setMode] = useState<Mode>("book");
   const [query, setQuery] = useState(""),
     [results, setResults] = useState<Edition[]>([]),
     [works, setWorks] = useState<Work[]>([]),
@@ -72,6 +77,7 @@ export function AddCollectionBooksDialog({
   const busy = useRef(false);
   useEffect(() => {
     if (!open) return;
+    setMode("book");
     setQuery("");
     setSelected({});
     setSelectedWorks({});
@@ -290,7 +296,7 @@ export function AddCollectionBooksDialog({
             })
           ) : (
             <p className="py-6 text-center text-sm text-fg-secondary">
-              Nothing matches. Try another title.
+              Nothing matches. Try another search.
             </p>
           )}
         </div>
