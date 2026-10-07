@@ -74,7 +74,7 @@ twice with one request.
   - `claims.ts`: a text evidence input may carry its own run id.
 - `src/lib/enrichment/gold-set.ts`: the 20 books Pablo named on 4 Oct, by work
   id, and the condition that hides them.
-- Migration `0080_enrichment_extractions`: the `enrichment_extractions`
+- Migration `0079_enrichment_extractions`: the `enrichment_extractions`
   table (docs/02), with the book-parent trigger and an append-only guard.
 - `src/lib/enrichment/prices.ts`: the `anthropic` `extract` row ($4 input,
   $20 output, $0.20 cache read, $5 cache write per million tokens, read on
