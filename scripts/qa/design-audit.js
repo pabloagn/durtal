@@ -4,8 +4,10 @@
  * cannot judge reliably:
  *
  * - lowContrast: visible text under 4.5:1 against its background (3:1 for
- *   text of 24px or more). Disabled text is skipped; text over an image or
- *   gradient is skipped because its background cannot be computed.
+ *   text of 24px or more). Disabled text and decoration hidden from screen
+ *   readers (aria-hidden, such as a cover's placeholder letter) are skipped;
+ *   text over an image or gradient is skipped because its background cannot
+ *   be computed.
  * - unnamed: links, buttons and fields with no accessible name.
  * - nested: interactive elements inside other interactive elements.
  * - fontSizes, offTokenColors, radii, iconSizes, iconStrokes: what the page
@@ -173,7 +175,7 @@
   for (const el of textElements) {
     const cs = getComputedStyle(el);
     count(fontSizes, cs.fontSize);
-    if (el.closest("[disabled], [aria-disabled=true]")) continue;
+    if (el.closest("[disabled], [aria-disabled=true], [aria-hidden=true]")) continue;
     const fg = parse(cs.color);
     const bg = background(el);
     if (!fg || !bg) continue;
