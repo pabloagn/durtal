@@ -88,4 +88,39 @@ keystroke.
 
 ## Completion Notes
 
-TODO
+Built and checked in a cloud container, on main 2337b72b:
+
+- `pnpm typecheck` clean. `pnpm lint` 0 errors, 75 warnings (main 77: the
+  wizard's "component created during render" and one `<img>` warning are gone;
+  none is new). `pnpm deadcode` clean.
+- `scripts/qa/test-local.py`: 2,959 of 2,959, none skipped.
+- Production build on a disposable database with the synthetic catalogue
+  (`preview-local.py --start --seed-large 50`):
+  - Page weight: `/library` 89 KB, `/library/new` 45 KB, `/people` 211 KB, a
+    person 70 KB, a book 95 KB; 27 routes ok, 3 skipped (nothing to measure).
+  - No page scrolls sideways at 375 or 390 px; the interaction audit finds
+    nothing on `/library`, `/library/new`, `/people`, a person and a book; the
+    perfume, film and painting journeys pass.
+  - Alignment, design, overflow and touch audits in headless Chrome 153,
+    Firefox 155 and WebKit 26.6 at 1440 and 768 px with a mouse and 390 px with
+    touch, on `/`, `/library`, `/library/new`, `/people`, a person and a book:
+    54 of 54 page loads pass.
+- The changed parts, driven in the same three browsers and widths, with the
+  same audits in each state: on `/library` and `/people`, select two records,
+  the bar, Delete ("Delete 2 works", "Delete 2 people"), Escape, Exit; a
+  person's media manager: upload a portrait, its monochrome settings, a
+  gallery image's details form; a book's media manager (no monochrome button);
+  the wizard through every step to "Add to catalogue" and the new book's page.
+  0 alignment deviations in any state, no console errors, and with a mouse no
+  finding at all.
+- With touch at 390 px, the audits list controls under 44 px, the same on
+  main (same checks on a build of 2337b72b): in every media manager the tabs
+  (32 px), the adjustment editor's tabs (28 px) and an image's select (16 px),
+  delete (20 px) and adjust (28 px) buttons; in the wizard the narrow progress
+  row's step buttons (14 px), "Add another copy", the recommender list, the
+  taxonomy chips and the title's capitalize button; and after saving a book,
+  the toast list is 10 to 16 px wider than the screen. A person's dialog now
+  lists its select, delete and monochrome buttons too, because they show on a
+  touch screen (above); on main they were invisible there but still took taps.
+- Not run here: `docker build` (its package mirror is blocked in the cloud;
+  GitHub builds the image on the PR) and page weight on the newest backup.
