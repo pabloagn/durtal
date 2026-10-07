@@ -58,13 +58,13 @@ No schema change, no new package.
   - `/people/seed-person-429`: 16 cards instead of 16 rows, 74 KB on main,
     175 KB here (about 6 KB a card, as a library card; the budget is
     400 KB).
-- Headless Chrome at 1440, 768 (mouse) and 390 px (touch) on `/`,
-  `/library`, `/library?status=wanted,shortlisted`, `/people`,
-  `/people/ernesto-sabato` and `/people/seed-person-429`: the alignment,
-  design, overflow and touch audits find nothing. `page-weight.js`,
+- Headless Chrome 141, Firefox 142 and WebKit 26 (Playwright 1.56.1) at
+  1440, 768 (mouse) and 390 px (touch) on `/`, `/library`,
+  `/library?status=wanted,shortlisted`, `/people`, `/people/ernesto-sabato`
+  and `/people/seed-person-429`: the alignment, design, overflow and touch
+  audits find nothing (54 of 54 page loads). `page-weight.js`,
   `phone-audit.mjs`, `interaction-audit.mjs` on the four touched routes and
-  the perfume, film and painting journeys pass. Firefox and WebKit were not
-  run in the cloud container.
+  the perfume, film and painting journeys pass.
 - Typecheck clean. Lint: 0 errors, 77 warnings as on main. `pnpm deadcode`
   clean.
 - `scripts/qa/test-local.py`: 263 files, 2,957 tests, all passed.
