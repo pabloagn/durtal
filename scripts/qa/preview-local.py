@@ -43,6 +43,7 @@ and those routes answer 503.
 """
 
 import argparse
+import json
 import os
 from pathlib import Path
 import secrets
@@ -57,67 +58,12 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 DATABASE = "durtal_preview"
 
-# Raw: the JavaScript below keeps its backslashes
-BRIDGE = r"""
-import postgres from %(postgres)s;
-const connection = new URL(process.env.DATABASE_URL || "http://invalid");
-if (!["localhost", "127.0.0.1"].includes(connection.hostname) || connection.pathname !== "/%(database)s")
-  throw new Error("The preview bridge only serves the disposable local %(database)s database");
-const client = postgres(connection.toString(), { host: "127.0.0.1", max: 5, onnotice: () => {}, idle_timeout: 5 });
-// Neon sends parameters as PostgreSQL text; keep booleans as text too.
-client.options.serializers[16] = (v) => (typeof v === "boolean" ? (v ? "t" : "f") : String(v));
-// JSON arrives already encoded as text; encoding it again would store a JSON
-// string instead of the object (jsonb_typeof 'string').
-client.options.serializers[114] = client.options.serializers[3802] = (v) => (typeof v === "string" ? v : JSON.stringify(v));
-// Dates and timestamps stay PostgreSQL text both ways, as with Neon. As JS
-// Dates they would keep milliseconds only: a microsecond keyset cursor
-// ("2026-09-25 12:19:29.217531+00") would lose its last digits and skip rows.
-for (const type of [1082, 1114, 1184]) {
-  client.options.serializers[type] = (v) => (v instanceof Date ? v.toISOString() : String(v));
-  client.options.parsers[type] = (v) => v;
-}
-// Each value back in PostgreSQL's text form, as Neon sends it: JSON columns as
-// JSON (a JSON string too), arrays as {...} literals, dates as text.
-const element = (value) =>
-  value === null ? "NULL" : Array.isArray(value) ? `{${value.map(element).join(",")}}`
-  : `"${String(value instanceof Date ? value.toISOString() : value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-const encode = (value, type) =>
-  value === null ? null
-  : type === 114 || type === 3802 ? JSON.stringify(value)
-  : Array.isArray(value) ? element(value)
-  : value instanceof Date ? value.toISOString()
-  : typeof value === "object" ? JSON.stringify(value)
-  : typeof value === "boolean" ? (value ? "t" : "f") : String(value);
-// With DURTAL_PREVIEW_SQL_LOG, one JSON line per query: its time, rows and text
-import { appendFileSync } from "node:fs";
-const sqlLog = process.env.DURTAL_PREVIEW_SQL_LOG;
-const upstream = globalThis.fetch;
-globalThis.fetch = async (input, options) => {
-  const endpoint = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
-  if (!["localhost", "127.0.0.1"].includes(endpoint.hostname) || endpoint.pathname !== "/sql") return upstream(input, options);
-  const body = JSON.parse(String(options.body));
-  try {
-    const results = await client.begin(async (tx) => {
-      const output = [];
-      for (const query of body.queries || [body]) {
-        const started = performance.now();
-        const rows = await tx.unsafe(query.query, query.params).values();
-        // The log never breaks a query: a write that fails is skipped
-        if (sqlLog) try { appendFileSync(sqlLog, JSON.stringify({ at: Date.now(), ms: +(performance.now() - started).toFixed(2), rows: rows.count, sql: query.query, params: query.params }) + "\n"); } catch {}
-        output.push({
-          command: rows.command, rowCount: rows.count,
-          fields: (rows.columns ?? []).map((c) => ({ name: c.name, dataTypeID: c.type })),
-          rows: rows.map((row) => row.map((value, i) => encode(value, rows.columns?.[i]?.type))),
-        });
-      }
-      return output;
-    });
-    return Response.json(body.queries ? { results } : results[0]);
-  } catch (e) {
-    return Response.json({ message: e.message, code: e.code, detail: e.detail }, { status: 400 });
-  }
-};
-"""
+# The app's Neon HTTP driver, bridged to the disposable database. One file,
+# loaded with --import by this preview and by `pnpm ebooks:ingest --preview`.
+BRIDGE = ROOT / "scripts/qa/neon-local-bridge.mjs"
+# Where a running preview leaves its database URL and S3 folder for
+# `pnpm ebooks:ingest --preview PORT`; removed when the preview stops
+STATE = Path(tempfile.gettempdir())
 
 MIGRATE = """
 import postgres from "postgres";
@@ -226,11 +172,12 @@ def main():
     container = f"durtal-preview-{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
     server = None
-    workdir = Path(tempfile.mkdtemp(prefix="durtal-preview-"))
+    state = STATE / f"durtal-preview-{args.port}.json"
 
     def cleanup():
         if server and server.poll() is None:
             os.killpg(server.pid, signal.SIGTERM)
+        state.unlink(missing_ok=True)
         subprocess.run(["docker", "rm", "-f", container], capture_output=True)
         print(f"Removed {container}.", flush=True)
 
@@ -298,12 +245,11 @@ def main():
             print(f"API token for this preview only: {env['DURTAL_API_TOKEN']}", flush=True)
         else:
             env.pop("DURTAL_API_TOKEN", None)
-        bridge = workdir / "neon-bridge.mjs"
-        bridge.write_text(BRIDGE % {
-            "postgres": repr(str(ROOT / "node_modules/postgres/src/index.js")),
-            "database": DATABASE,
-        })
-        env["NODE_OPTIONS"] = f"--import {bridge}"
+        env["NODE_OPTIONS"] = f"--import {BRIDGE.as_uri()}"
+        # Readable by this user only: the URL holds the container's password
+        fd = os.open(state, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as out:
+            json.dump({"databaseUrl": url, "s3Dir": env.get("DURTAL_PREVIEW_S3_DIR")}, out)
         # The data cache (unstable_cache) survives restarts: without this, a
         # preview could show records cached by an earlier run on another database.
         shutil.rmtree(ROOT / ".next/dev/cache/fetch-cache", ignore_errors=True)

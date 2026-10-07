@@ -458,9 +458,16 @@ for (const route of expanded) {
   console.log(`checked ${route}`);
 }
 ws.close();
+const exited = new Promise((r) => chrome.once("exit", r));
 chrome.kill();
-// Chrome may still be writing its profile as it exits: retry the removal instead of losing the report
-rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+// Chrome may still be writing its profile as it exits: wait for it, retry the
+// removal, and never lose the report to a temporary folder left behind
+await Promise.race([exited, sleep(10_000)]);
+try {
+  rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+} catch (error) {
+  notes.push(`the temporary browser profile ${profile} was not removed: ${error.code ?? error.message}`);
+}
 for (const n of notes) console.log(`  ${n}`);
 console.log("");
 for (const f of failures) console.log(`FAIL  ${f}`);
