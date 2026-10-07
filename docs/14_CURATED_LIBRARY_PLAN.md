@@ -466,5 +466,16 @@ attributed and may add the original. A location is taken only from a dated
 museum that does not show the work changes nothing. Later answers follow the
 earlier ones, with the changes and the age shown. No schema change.
 
+Film sources (SLN-376, task 0391): Wikidata is the one film source with a
+documented public API and no key, and is looked up by title or by a Wikidata,
+IMDb or TMDB id; TMDB (which needs a key), IMDb and Letterboxd are cited. A
+lookup is reviewed against the film: it fills empty fields, adds cast, crew,
+companies, ids, the running time and releases with their source, never
+replaces or removes what the film has, and offers the Commons poster with its
+credit. A Wikidata film belongs to one film here, and a first release more
+than a year apart needs the person's word that it is the same film, so a
+remake stays a separate film. Later answers list what changed. No schema
+change.
+
 See changelog tasks 0155–0169 for scope and verification. SLN-283 (database access
 during production prerendering) remains a prerequisite for release rehearsal.

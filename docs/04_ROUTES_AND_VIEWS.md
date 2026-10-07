@@ -332,7 +332,8 @@ personal rating.
 `DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
 order, characters, credited names; the first twelve until "Show all"), Crew by
 role, Linked works, Versions (each cut with its runtime and releases: territory,
-format, date, distributor), Copies, Wanted (see below), Sources and Your notes. The record column holds
+format, date, distributor), Copies, Wanted (see below), Sources ("Look up" asks
+Wikidata, see below) and Your notes. The record column holds
 Details (original title, first release, countries, languages, production,
 added), Genres (edited in place) and Media counts. Then the gallery and related
 films ("More by {director}", "Shared cast", "Shared genres").
@@ -347,6 +348,23 @@ to it" opens `?add=version`). Dialogs add and edit versions with their
 releases, and copies (physical or digital, version and release, status,
 storage, acquisition, disposal). A version a copy names, and a film with
 copies, cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed.
+
+Film sources (SLN-376). "Look up" in Sources searches Wikidata by title, or by
+a Wikidata, IMDb or TMDB id or link; each hit shows its year and director, so
+a remake reads apart from the original. The review shows what Wikidata says
+beside what the film has: titles, the first release, countries and original
+languages, the running time (on the film's first version, or a new one), cast
+and crew with their characters, production companies, the IMDb, TMDB and
+Letterboxd ids, each release with its date, place and format, and the poster
+on Wikimedia Commons with its author and license. An empty field can be
+filled; a different or locked value stays; people, companies and releases are
+only added, never replaced or removed (people and companies not in the library
+are made, credited as attributed). A first release more than a year apart
+stops the save until "It is the same film" is on, and a Wikidata film another
+film here holds cannot be saved to this one. The poster is off until chosen,
+and goes through the media pipeline with its credit. A later lookup lists what
+changed in Wikidata since the last save. Saving keeps Wikidata as an accepted
+source.
 
 ### Paintings (`/paintings`)
 

@@ -753,6 +753,42 @@ Wikidata cannot be reached, so manual entry goes on.
   perfume's source: a Wikidata item as an accepted observation, any other
   link cited as the person's own source, without reading it.
 
+## Film sources (`src/lib/actions/film-sources.ts`, SLN-376)
+
+Wikidata is the one film source with a documented public API and no key
+(`src/lib/providers/wikidata-films.ts`, through the provider contract; it
+shares its Wikidata calls with the perfume provider in
+`src/lib/providers/wikidata.ts`). TMDB needs a key, IMDb and Letterboxd have no
+open API: `FILM_SOURCES` (`src/lib/catalogue/film-sources.ts`) says why each is
+cited and not looked up. Every action returns `{ error }` instead of throwing
+when Wikidata cannot be reached, so manual entry goes on.
+
+- `searchFilmSource(text)`: up to ten Wikidata films (instances of a film
+  class) by title, or the one a Wikidata id or link, an IMDb `tt` id or a TMDB
+  movie link names; each with its year and director.
+- `reviewFilmSource({ filmId | null, externalId })`: the film's title,
+  original title, description, first release, countries and languages set
+  against the film, each `fill`, `same`, `conflict`, `locked` or `unlisted`
+  (no name is in Durtal's list); the cast and crew (with characters, in
+  billing order when Wikidata gives one) and production companies, matched by
+  Wikidata id, then by one exact name; the IMDb, TMDB and Letterboxd ids (and
+  another film holding one); the running time against the first version; each
+  release with its place, country and format; the Commons poster with its
+  terms; the first-release years here and on Wikidata (`differs` when more
+  than a year apart); another film here holding this Wikidata film; and what
+  changed since the last accepted answer. Reads only.
+- `applyFilmSource({ filmId, fingerprint, externalId, sameFilm, fields,
+  credits, organizations, identifiers, runtime, releases })`: checks the
+  film's fingerprint, fetches the item again and keeps it as an accepted
+  source. Fills the chosen empty fields, adds the chosen credits and companies
+  (made when missing, credited as attributed, with their Wikidata ids),
+  registers the chosen ids, and puts the running time and the chosen releases
+  on the first version (made when the film has none), each citing the answer.
+  Nothing on the film is replaced or removed. A locked Wikidata source,
+  another film holding the item, or a different year without `sameFilm`
+  refuses the save. The poster is saved by the page through
+  `/api/media/from-url` with its Commons credit.
+
 ## Painting sources (`src/lib/actions/painting-sources.ts`, SLN-378)
 
 Museums with documented open APIs and no key: the Art Institute of Chicago

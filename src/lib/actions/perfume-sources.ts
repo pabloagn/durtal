@@ -1,15 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, sql } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { authors, catalogueIdentifiers, publishingHouses } from "@/lib/db/schema";
-import { resultRows } from "@/lib/harmonization/store";
 import { stableStringify } from "@/lib/harmonization/normalize";
 import { catalogueDateSchema, catalogueDateText, type CatalogueDateInput } from "@/lib/catalogue/dates";
 import { PERFUME_SOURCES, readPerfumeLink } from "@/lib/catalogue/perfume-sources";
 import { ProviderError } from "@/lib/providers/contract";
 import { fetchProviderDetail, providerLocks, recordProviderDetail, reviewProposal, searchProvider } from "@/lib/providers/run";
+import { matchIdentity } from "@/lib/providers/identity-match";
 import { wikidataPerfumes } from "@/lib/providers/wikidata-perfumes";
 import { citeSource, registerCatalogueIdentifier, reviewSourceObservation } from "./catalogue-provenance";
 import { createPerson } from "./people";
@@ -60,29 +57,6 @@ interface Proposed {
   launched?: CatalogueDateInput;
   organizations?: { wikidataId: string; name: string; role: "brand" | "manufacturer" }[];
   perfumers?: { wikidataId: string; name: string }[];
-}
-
-/** A local record that a Wikidata id or a unique exact name names */
-async function matchIdentity(kind: "organization" | "person", wikidataId: string, name: string) {
-  const column = kind === "organization" ? catalogueIdentifiers.organizationId : catalogueIdentifiers.personId;
-  const [byId] = await db
-    .select({ id: column })
-    .from(catalogueIdentifiers)
-    .where(and(eq(catalogueIdentifiers.provider, provider.id), eq(catalogueIdentifiers.entityKind, kind), eq(catalogueIdentifiers.externalId, wikidataId)))
-    .limit(1);
-  const table = kind === "organization" ? "publishing_houses" : "authors";
-  const aliases = kind === "organization" ? sql`select publisher_id from publisher_aliases where lower(name) = lower(${name})` : sql`select person_id from person_aliases where lower(name) = lower(${name})`;
-  const ids = byId?.id
-    ? [byId.id]
-    : resultRows<{ id: string }>(
-        await db.execute(sql`select id from ${sql.identifier(table)} where lower(name) = lower(${name}) or id in (${aliases}) limit 2`),
-      ).map((r) => r.id);
-  if (ids.length !== 1) return null;
-  const [row] =
-    kind === "organization"
-      ? await db.select({ id: publishingHouses.id, name: publishingHouses.name }).from(publishingHouses).where(eq(publishingHouses.id, ids[0]))
-      : await db.select({ id: authors.id, name: authors.name }).from(authors).where(eq(authors.id, ids[0]));
-  return row ?? null;
 }
 
 export type FieldVerdict = "fill" | "same" | "conflict" | "locked";
@@ -155,13 +129,13 @@ async function buildReview(perfume: Perfume | null, found: Found): Promise<Perfu
   }
   const organizations = await Promise.all(
     (proposed.organizations ?? []).map(async (o) => {
-      const match = await matchIdentity("organization", o.wikidataId, o.name);
+      const match = await matchIdentity(provider.id, "organization", o.wikidataId, o.name);
       return { ...o, match, here: !!match && !!perfume?.organizations.some((x) => x.organizationId === match.id) };
     }),
   );
   const perfumers = await Promise.all(
     (proposed.perfumers ?? []).map(async (p) => {
-      const match = await matchIdentity("person", p.wikidataId, p.name);
+      const match = await matchIdentity(provider.id, "person", p.wikidataId, p.name);
       return { ...p, match, here: !!match && !!perfume?.credits.some((c) => c.personId === match.id && c.roleId === "perfume.perfumer") };
     }),
   );
