@@ -50,6 +50,46 @@ what is collected.
   page and on `CollectionCard`.
 - Test: `src/__tests__/catalogue/collection-nouns.test.ts`.
 
+### Found by the checks, fixed here
+
+The dialogs and toasts this change touches, driven in three browsers, showed
+these (main has them too):
+
+- On a touch screen, the collections dialog's rows (40 px), its "Choose
+  editions" summary (20 px) and edition rows (40 px), and the New collection
+  dialog's "Add a description" (20 px) were under 44 px. They grow to 44 px
+  on a coarse pointer; with a mouse nothing changes.
+- A toast whose message wraps (as "Collection deleted; some artwork still
+  needs cleanup." does) centered its icon on the whole message, 10.5 px below
+  its first line. `globals.css` sets the icon on the first line; a one-line
+  toast looks as before.
+- The activity timeline's "Show more" (on a book's page, under the dialog)
+  was 32 px on touch: it is 44 px.
+- `scripts/qa/alignment-audit.js` read the collections dialog's title as the
+  text beside the book title row's icons, since the book page opens the
+  dialog from that row (5 to 8 px "off" at 390 px). It now skips a dialog in
+  the row; with the dialog closed the page had no deviation.
+
 ## Completion Notes
 
-COMPLETION_NOTES
+Built and checked in a cloud container, on main 2f696f56 (with #163):
+
+- `pnpm typecheck` clean; `pnpm lint` 0 errors, 75 warnings, as on main;
+  `pnpm deadcode` clean; `scripts/qa/test-local.py` 3,026 of 3,026 tests in
+  273 files, none skipped.
+- Production build on a disposable database with the synthetic catalogue
+  (`preview-local.py --start --seed-large 50`), in headless Chrome 153,
+  Firefox 155 and WebKit 26.6 at 1440 and 768 px with a mouse and 390 px with
+  touch: `/collections` and its New collection dialog; the collections dialog
+  from a perfume (Create & add: "Collection created with this perfume"), a
+  film (Add: "Added to collection"), a painting, two books selected in the
+  library ("Collection created with these 2 books") and a book's page ("with
+  this book"); a collection's page, its delete confirmation and the delete.
+  The alignment, design, overflow and touch audits in each state: 135 of 135
+  pass, no console errors.
+- The delete toasts are covered by the unit test, not seen in the browser:
+  the preview keeps S3 objects as files but cannot list or batch-delete them,
+  so every collection delete there reports "Collection deleted; some artwork
+  still needs cleanup." (unchanged), which the run saw.
+- Page weight: every route within budget (`/collections` 79 KB).
+- Not run here: `docker build` (GitHub builds the image on the PR).
