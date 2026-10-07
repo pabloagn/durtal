@@ -5,7 +5,7 @@
  *
  *   create (the add form) → reload → favourite → edit the title → reload →
  *   find it by search and by the favourites filter → export it → delete it →
- *   its page shows the not-found view and the export leaves it out.
+ *   its address answers 404 with the not-found view and the export leaves it out.
  *
  *   node scripts/qa/journeys.mjs --disposable [baseUrl] [collection ...]
  *
@@ -234,7 +234,9 @@ async function journey(name) {
       await waitFor(DIALOG, "the delete dialog");
       await click("Delete", DIALOG);
       await waitFor(`location.pathname === '/${name}'`, "the collection home after the delete");
-      // A loading boundary streams the page, so a missing record answers 200 with its not-found view
+      // Its old address answers 404, as a deleted book's does (0286, SLN-546), and shows the not-found view
+      const status = await evaluate(`fetch(${JSON.stringify(path)}, { headers: { Accept: 'text/html' } }).then((r) => r.status)`);
+      if (status !== 404) throw new Error(`The deleted record's address answered ${status}, not 404`);
       await go(path);
       await waitFor(`document.querySelector('main').innerText.includes(${JSON.stringify(c.missing)})`, `"${c.missing}"`);
       const csv = await exportCsv(c.entity);
