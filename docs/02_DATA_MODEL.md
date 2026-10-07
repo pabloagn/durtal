@@ -451,6 +451,49 @@ rests only on this edition's sources. Undo that value first."), otherwise it
 deletes the evidence that cites them, rejects the proposals left with none
 (`check`, `evidence_deleted`) and deletes the edition with its own claims.
 
+**Identity (SLN-464).** Identity links a book to the outside records that later
+stages read. Four dimensions hold the links. `wikidata_qid` is the book's
+Wikidata item (`Q…`, provider `wikidata`). `open_library_work` is its Open
+Library work (`OL…W`, provider `open_library`). `oclc_work` is its OCLC work ID
+(digits, provider `oclc`), read only from the Wikidata item's P5331, because
+OCLC has no API without a subscription. `lccn` is an edition's Library of
+Congress control number (provider `lccn`) in the Library of Congress's
+normalised form: no blanks, nothing from a slash on, and a hyphenated serial
+padded to six digits, so `2001-12345` is stored as `2001012345`. An accepted
+value is a `catalogue_identifiers` row of the book (`entity_kind 'book'`), or of
+the edition for an LCCN (`'edition'`). An LCCN also fills `editions.lccn` while
+the column is empty (target `edition.lccn`, the only edition column identity
+writes): a column that holds another value is kept, and `after` shows it; a
+locked edition is refused; undo clears the column only when the apply filled
+it and it still holds the value. Every answer a value rests on is a
+`source_records` row of the book or the edition (`review_status 'accepted'`),
+with the fields read and the run id, and with `identifier_id` null: the
+identifier reaches its answers through the claim's evidence.
+
+The worker (`scripts/enrichment/worker.ts`, docs/01) works identity jobs in this
+order. It reads the Open Library edition of each ISBN-13 (an ISBN-10 is
+converted first), then the work that edition names. It reads the Wikidata items
+whose P648 (Open Library ID) is that work, one query per 50 works, and the work
+record's own Wikidata link. It runs a Wikidata title search, restricted to the
+author's QID, only when no item came through Open Library. The rules are pure
+functions in `src/lib/enrichment/identity.ts`, versioned by
+`IDENTITY_RULES_VERSION`, which every claim's evidence carries. A value is exact
+(confidence 1) when every path agrees: one Open Library work for every ISBN
+record that lists the edition's ISBN, with a title that agrees; one Wikidata
+item that names that work in its P648 and that the work names or does not
+contradict; one P5331 on an exact or accepted item; one LCCN on the ISBN's
+record. One path with no cross-link is 0.7. A title search, several candidates,
+other authors, a first year after the edition's, or a value that differs from
+the accepted one is 0.4. A QID or Open Library work that another book holds is
+held, never proposed, and the job's `payload.outcome` names that book. An exact
+claim is applied by its dimension's `exact_identifier_match` rule while Pablo
+has the rule on (`--enable-identity-rules`, with his approval link), within the
+daily cap of 100 exact identity applies; the sweep of a later run applies what
+the cap held back, and never a value Pablo undid. Everything else waits for
+Pablo: until the review inbox (SLN-470), his decisions are `IDENTITY_REVIEW`
+(`src/lib/enrichment/identity-review.ts`), keyed by book slug, and every report
+ends with ready entries for the books that need one.
+
 ## Three-Tier Model
 
 ```

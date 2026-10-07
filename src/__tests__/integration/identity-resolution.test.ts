@@ -34,6 +34,10 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
+vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
+  deleteUnusedObjects: vi.fn(async () => false),
+}));
 // The queue can be made to fail, to show a save never does
 const queue = vi.hoisted(() => ({ down: false }));
 vi.mock("@/lib/enrichment/jobs", async (importOriginal) => {
@@ -55,10 +59,17 @@ import { applyClaim, proposeClaims } from "@/lib/enrichment/claims";
 import { applyVocabulary } from "@/lib/enrichment/loader";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
 import { createWork } from "@/lib/actions/works";
+import { createHumanClaim, currentVocabularyVersion } from "@/lib/enrichment/claims";
+import { identityStage } from "@/lib/enrichment/identity-stage";
+import { disableIdentityRules, enableIdentityRules } from "@/lib/enrichment/identity-rules";
+import { ANSWER } from "@/lib/enrichment/identity";
+import type { IdentityReviewEntry } from "@/lib/enrichment/identity-review";
+import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
+import { KAPUTT_HIT, RETRIEVED_AT, recordedAnswers } from "@/__tests__/fixtures/enrichment/identity/answers";
 
 /*
- * SLN-464: the enrichment worker and the new-book queue, with a stub stage
- * (the identity stage comes with the second PR). No network.
+ * SLN-464: the enrichment worker and the new-book queue, with a stub stage;
+ * then the identity stage on recorded answers. No network: fetch throws.
  */
 
 describe.skipIf(!url)("the enrichment worker", () => {
@@ -79,7 +90,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
     async fetch(_conn, jobs, ctx) {
       for (const [i, job] of jobs.entries()) {
         if (ctx.cache.get(`work:${job.workId}`)) continue;
-        if (stub.refuseAfter !== null && i >= stub.refuseAfter) throw new QuotaStop("The source refused a call (HTTP 429)");
+        if (stub.refuseAfter !== null && i >= stub.refuseAfter) throw new QuotaStop("The source refused a call (HTTP 429)", i);
         ctx.cache.set(`work:${job.workId}`, { title: job.title });
       }
       await stub.during?.();
@@ -196,7 +207,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
     stub.refuseAfter = 1;
     const stopped = await run({ cache });
     expect(stopped.stopped).toBe("The source refused a call (HTTP 429)");
-    expect(stopped.lines[0]).toMatch(/^Stopped after 0 of 2 jobs/);
+    expect(stopped.lines[0]).toMatch(/^Stopped after 1 of 2 jobs/);
     expect(stopped.lines).toContain("- swept");
     for (const w of [a, b]) expect(await job(w.id)).toMatchObject({ status: "queued", attempts: 0 });
     expect(cache.get(`work:${a.id}`)).toBeDefined();
@@ -274,7 +285,7 @@ describe.skipIf(!url)("the enrichment worker", () => {
     for (const claim of [title, year]) await applyClaim((claim as { claimId: string }).claimId, { by: "pablo", batchId: runId }, conn);
     // The title changed by hand since: its undo is refused
     await c`update works set original_title = 'Changed by hand' where id = ${w.id}`;
-    expect((await undoRun(conn, { runId, apply: false, stages: { identity: stage as EnrichmentStage } })).lines[0]).toBe(`Run ${runId}: 2 applies to undo`);
+    expect((await undoRun(conn, { runId, apply: false, stages: { identity: stage as EnrichmentStage } })).lines[0]).toBe(`Run ${runId}: 2 applies to undo, newest first`);
     const undone = await undoRun(conn, { runId, apply: true, stages: { identity: stage as EnrichmentStage } });
     expect(undone.undone).toHaveLength(1);
     expect(undone.refused).toEqual([{ id: expect.any(String), reason: "The value changed since it was applied; undo it from its newer apply first" }]);
@@ -320,5 +331,280 @@ describe.skipIf(!url)("the enrichment worker", () => {
       queue.down = false;
       errors.mockRestore();
     }
+  });
+
+  describe("the identity stage", () => {
+    const APPROVAL = "https://linear.app/sanctum-black/issue/SLN-464#comment-rules";
+    const DIMENSIONS = ["wikidata_qid", "open_library_work", "oclc_work", "lccn"];
+    let location: string;
+    /** A book with an author (and their QID), and an edition with its ISBN-13; owned unless `owned` is false */
+    const identityBook = async (
+      title: string,
+      isbn13: string | null,
+      options: { authorQid?: string; owned?: boolean; queue?: boolean; edition?: Record<string, unknown> } = {},
+    ) => {
+      const w = await book(title);
+      const [author] = await c`insert into authors(name, slug) values (${`Author of ${title}`}, ${randomUUID()}) returning id`;
+      await c`insert into work_authors(work_id, author_id, role) values (${w.id}, ${author.id}, 'author')`;
+      if (options.authorQid)
+        await c`insert into catalogue_identifiers(entity_kind, person_id, provider, external_id) values ('person', ${author.id}, 'wikidata', ${options.authorQid})`;
+      const [edition] = await c`insert into editions ${c({ work_id: w.id, title, isbn_13: isbn13, ...options.edition })} returning id`;
+      if (options.owned !== false) await c`insert into instances(edition_id, location_id) values (${edition.id}, ${location})`;
+      if (options.queue !== false) await enqueueEnrichmentJob({ workId: w.id, kind: "identity", reason: "manual" }, conn);
+      return { ...w, editionId: edition.id as string };
+    };
+    /** A run on the recorded answers; `only` keeps out the books an earlier test's run queued again */
+    const identify = (options: Partial<Parameters<typeof runWorker>[1]> = {}) =>
+      runWorker(conn, {
+        runId: randomUUID(),
+        worker: `test:${randomUUID()}`,
+        kinds: ["identity"],
+        apply: true,
+        // Pablo's own QID in one test, which no source has
+        cache: recordedAnswers({ [ANSWER.item("Q90000005")]: null }),
+        contact: CONTACT,
+        ...options,
+      });
+    const identifiers = async (workId: string, editionId?: string) =>
+      (
+        await c`select provider, external_id from catalogue_identifiers
+          where (entity_kind = 'book' and work_id = ${workId}) or (entity_kind = 'edition' and edition_id = ${editionId ?? workId}) order by provider`
+      ).map((r) => `${r.provider} ${r.external_id}`);
+    const claimsOf = (workId: string) =>
+      c`select d.key, c.text_value as value, c.status, c.decided_by, c.confidence::float8 as confidence, c.decision_reason
+        from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id where c.work_id = ${workId} order by d.key, c.text_value`;
+    const rulesOn = () => enableIdentityRules(conn, { dimensions: DIMENSIONS, approvalUrl: APPROVAL, apply: true });
+
+    beforeAll(async () => {
+      // A lookup missing from the recorded cache would call out: it fails the test instead
+      vi.stubEnv("ENRICHMENT_CONTACT", CONTACT);
+      vi.stubGlobal("fetch", (url: string) => {
+        throw new Error(`No network in tests: ${url}`);
+      });
+      [{ id: location }] = await c`insert into locations(name, type) values ('Shelves', 'physical') returning id`;
+      // Version 2 of the fixture vocabulary: version 1 as it is, and the four identity dimensions
+      const v1 = vocabularySeedSchema.parse(JSON.parse(readFileSync("src/__tests__/fixtures/enrichment/vocabulary.json", "utf8")));
+      if (!(await currentVocabularyVersion(conn)))
+        await testDb!.transaction((tx) => applyVocabulary(tx as unknown as Db, v1, { approvalUrl: APPROVAL, seedSha256: "a".repeat(64) }));
+      const v2 = vocabularySeedSchema.parse({
+        ...v1,
+        version: 2,
+        dimensions: [...v1.dimensions, ...JSON.parse(readFileSync("src/__tests__/fixtures/enrichment/identity/dimensions.json", "utf8"))],
+      });
+      await testDb!.transaction((tx) => applyVocabulary(tx as unknown as Db, v2, { approvalUrl: APPROVAL, seedSha256: "b".repeat(64) }));
+    });
+    afterAll(() => {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    });
+    beforeEach(async () => {
+      await disableIdentityRules(conn, {});
+      // Each test's books are new: the IDs and ISBNs of an earlier test's books would read as another book's
+      await c`delete from catalogue_identifiers where entity_kind in ('book', 'edition', 'person') and provider in ('wikidata', 'open_library', 'oclc', 'lccn')`;
+      await c`update editions set isbn_13 = null where isbn_13 is not null`;
+    });
+
+    it("resolves a book: proposes with evidence, applies the exact IDs by their rules, and writes its identifiers and its edition's LCCN", async () => {
+      await rulesOn();
+      const w = await identityBook("House of Leaves", "9780375703768", { authorQid: "Q963727", edition: { publication_year: 2000, publisher: "Pantheon", page_count: 709 } });
+      const edition = async () => (await c`select * from editions where id = ${w.editionId}`)[0];
+      const before = await edition();
+      const runId = randomUUID();
+      const report = await identify({ runId, only: [w.slug] });
+      expect(report.jobs[0].outcome).toMatchObject({ result: "resolved", proposed: 4, applied: 4, waiting: 0 });
+      expect(await identifiers(w.id, w.editionId)).toEqual(["lccn 99036024", "oclc 3856843516", "open_library OL32195W", "wikidata Q521688"]);
+      // The LCCN column only: every other edition column is as it was
+      const after = await edition();
+      expect(after.lccn).toBe("99036024");
+      expect({ ...after, lccn: null, updated_at: null }).toEqual({ ...before, lccn: null, updated_at: null });
+      expect(await c`select distinct c.status, c.decided_by, a.batch_id from enrichment_claims c join enrichment_applications a on a.claim_id = c.id where c.work_id = ${w.id}`).toEqual([
+        { status: "accepted", decided_by: "rule", batch_id: runId },
+      ]);
+      // Every excerpt is the stored answer's value at its path, and every answer names its source
+      const [evidence] = await c`select count(*)::int as n, bool_and(e.excerpt = s.payload #>> e.payload_path) as exact,
+          bool_and(e.extractor_version = 'identity-rules-1' and e.run_id = ${runId}) as stamped,
+          bool_and(s.url like 'https://%' and s.attribution is not null and s.retrieved_at = ${RETRIEVED_AT.toISOString()}::timestamptz
+            and s.payload ->> 'runId' = ${runId} and s.identifier_id is null and s.review_status = 'accepted') as sourced
+        from claim_evidence e join source_records s on s.id = e.source_record_id join enrichment_claims c on c.id = e.claim_id where c.work_id = ${w.id}`;
+      expect(evidence).toEqual({ n: expect.any(Number), exact: true, stamped: true, sourced: true });
+      expect(evidence.n).toBeGreaterThanOrEqual(11);
+      expect((await job(w.id)).payload.outcome).toMatchObject({ result: "resolved" });
+      expect(report.lines.join("\n")).toContain("Wikidata item by its P648 (reverse lookup): 1; by the Open Library work's link: 1; by both: 1");
+    });
+
+    it("runs a book twice and adds no claim; a value that differs from the accepted one waits for review and is never applied", async () => {
+      await rulesOn();
+      const life = await identityBook("Life and Fate", "9781784871963", { authorQid: "Q313767" });
+      await identify({ only: [life.slug] });
+      const claims = await claimsOf(life.id);
+      await enqueueEnrichmentJob({ workId: life.id, kind: "identity", reason: "manual" }, conn);
+      const again = await identify({ only: [life.slug] });
+      expect(again.jobs[0].outcome).toMatchObject({ result: "resolved", proposed: 0, applied: 0 });
+      expect(await claimsOf(life.id)).toEqual(claims);
+
+      const pity = await identityBook("Beware of Pity", "9780241678763");
+      await createHumanClaim({ workId: pity.id, dimension: "wikidata_qid", value: { text: "Q90000005" } }, conn);
+      await identify({ only: [pity.slug] });
+      expect((await claimsOf(pity.id)).find((x) => x.value === "Q1428590")).toMatchObject({ status: "proposed", confidence: 0.4 });
+      expect(await identifiers(pity.id)).toContain("wikidata Q90000005");
+      expect(await identifiers(pity.id)).not.toContain("wikidata Q1428590");
+    });
+
+    it("leaves a doubtful QID proposed with nothing on the book, and the report gives a ready review entry", async () => {
+      await rulesOn();
+      const w = await identityBook("2666", "9780374100148");
+      const report = await identify({ only: [w.slug] });
+      expect(report.jobs[0].outcome).toMatchObject({ result: "review", applied: 2 });
+      expect((await claimsOf(w.id)).find((x) => x.key === "wikidata_qid")).toMatchObject({ value: "Q219437", status: "proposed", confidence: 0.4 });
+      expect((await identifiers(w.id, w.editionId)).some((i) => i.startsWith("wikidata"))).toBe(false);
+      expect(report.lines).toContain(`  ${JSON.stringify(w.slug)}: { title: "2666", wikidata_qid: null, note: "" },`);
+    });
+
+    it("holds a QID another book has, lists both books, and Harmonize merges the pair", async () => {
+      await rulesOn();
+      const first = await identityBook("Satantango, first copy", null, { queue: false });
+      await createHumanClaim({ workId: first.id, dimension: "wikidata_qid", value: { text: "Q1315145" } }, conn);
+      const second = await identityBook("Satantango", "9781788166355");
+      const report = await identify({ only: [second.slug] });
+      expect(report.jobs.find((j) => j.slug === second.slug)!.outcome).toMatchObject({
+        result: "collision",
+        collisions: [{ dimension: "wikidata_qid", value: "Q1315145", workId: first.id, slug: first.slug }],
+      });
+      expect((await claimsOf(second.id)).some((x) => x.key === "wikidata_qid")).toBe(false);
+      expect(report.lines).toContain(`  ${JSON.stringify(second.slug)}: { title: "Satantango", wikidata_qid: null, note: "" },`);
+      expect(report.lines.some((l) => l.startsWith(`- ${second.slug}: collision`) && l.includes(`/library/${first.slug}`))).toBe(true);
+      // Both books have identity claims and jobs: the merge moves them
+      const preview = await previewMerge("works", second.id, first.id);
+      expect(preview.blockers).toEqual([]);
+      await executeMerge({
+        entity: "works",
+        sourceId: second.id,
+        targetId: first.id,
+        fingerprint: preview.fingerprint,
+        choices: Object.fromEntries(preview.fields.filter((f) => f.conflict).map((f) => [f.key, "target" as const])),
+      });
+      expect(await c`select id from works where id = ${second.id}`).toEqual([]);
+      expect(await identifiers(first.id)).toEqual(["open_library OL3428975W", "wikidata Q1315145"]);
+    });
+
+    it("keeps exact claims proposed while their rule is off, and a later run's sweep applies them", async () => {
+      const w = await identityBook("Life and Fate, again", "9781784871963", { authorQid: "Q313767" });
+      const off = await identify({ only: [w.slug] });
+      expect(off.jobs[0].outcome).toMatchObject({ result: "resolved", applied: 0, waiting: 2 });
+      expect(off.lines).toContain(`- ${w.slug}: wikidata_qid Q979609 https://www.wikidata.org/wiki/Q979609`);
+      expect(await identifiers(w.id)).toEqual([]);
+      await rulesOn();
+      const swept = await identify({ only: [w.slug] });
+      expect(swept.lines.some((l) => /^- applied [1-9]\d* of [1-9]\d*$/.test(l))).toBe(true);
+      expect(await identifiers(w.id)).toEqual(["open_library OL157104W", "wikidata Q979609"]);
+    });
+
+    it("undoes a run: identifiers and the LCCN column go back, its unapplied proposals are withdrawn, and undone values wait for Pablo", async () => {
+      await rulesOn();
+      const w = await identityBook("2666, undone", "9780374100148");
+      const runId = randomUUID();
+      await identify({ runId, only: [w.slug] });
+      expect(await identifiers(w.id, w.editionId)).toEqual(["lccn 2009290464", "open_library OL712025W"]);
+      const undone = await undoRun(conn, { runId, apply: true });
+      expect(undone.refused).toEqual([]);
+      expect(undone.lines).toContain("Identity: withdrew 1 proposals the run made and never applied");
+      expect(await identifiers(w.id, w.editionId)).toEqual([]);
+      expect((await c`select lccn from editions where id = ${w.editionId}`)[0].lccn).toBeNull();
+      expect((await claimsOf(w.id)).map((x) => [x.key, x.status, x.decision_reason])).toEqual([
+        ["lccn", "proposed", null],
+        ["open_library_work", "proposed", null],
+        ["wikidata_qid", "rejected", "run_undone"],
+      ]);
+      // The sweep never applies an undone value again
+      const next = await identify({ only: [w.slug] });
+      expect(await identifiers(w.id, w.editionId)).toEqual([]);
+      expect(next.lines.join("\n")).toMatch(new RegExp(`## Undone, waiting for Pablo \\(\\d+\\)\\n(- .*\\n)*- ${w.slug}: lccn of 9780374100148 2009290464`));
+    });
+
+    it("applies the review file: accepts, rejects and records Pablo's own value with its note; a QID accepted there re-queues the book", async () => {
+      const bolano = await identityBook("2666, reviewed", "9780374100148");
+      const kaputt = await identityBook("Kaputt", "9781590171479");
+      await identify({ only: [bolano.slug, kaputt.slug] });
+      const review: Record<string, IdentityReviewEntry> = {
+        [bolano.slug]: { title: "2666, reviewed", wikidata_qid: "Q219437", lccn: { "9780374100148": null }, note: "Bolaño's novel; Wikidata's P648 names another Open Library record" },
+        [kaputt.slug]: { title: "Kaputt", wikidata_qid: KAPUTT_HIT.id, oclc_work: "123456", note: "Malaparte's Kaputt" },
+      };
+      const stages = { identity: identityStage(review) as EnrichmentStage };
+      const runId = randomUUID();
+      const applied = await identify({ runId, stages, only: [bolano.slug] });
+      expect(applied.lines).toContain(`- ${bolano.slug}: wikidata_qid: accepts the proposal Q219437`);
+      expect(applied.lines).toContain(`- ${kaputt.slug}: oclc_work: records Pablo's 123456 (no source confirms it)`);
+      expect((await claimsOf(bolano.id)).map((x) => [x.key, x.status, x.decided_by, x.decision_reason])).toEqual([
+        ["lccn", "rejected", "pablo", "wrong_book"],
+        ["open_library_work", "proposed", null, null],
+        ["wikidata_qid", "accepted", "pablo", null],
+      ]);
+      const notes = await c`select a.note, a.batch_id, c.method from enrichment_applications a join enrichment_claims c on c.id = a.claim_id where a.work_id in (${bolano.id}, ${kaputt.id}) order by c.method, a.note`;
+      expect(notes.map((n) => [n.method, n.batch_id, n.note.replace(/\(review [0-9a-f]{12}\)$/, "(review)")])).toEqual([
+        ["api", runId, "Bolaño's novel; Wikidata's P648 names another Open Library record (review)"],
+        ["human", runId, "Malaparte's Kaputt (review)"],
+        ["human", runId, "Malaparte's Kaputt (review)"],
+      ]);
+      // Pablo's own QID cites the item it was looked up in; his OCLC work ID cites nothing
+      expect(
+        (await c`select d.key, count(e.id)::int as n from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id
+          left join claim_evidence e on e.claim_id = c.id where c.work_id = ${kaputt.id} and c.method = 'human' group by d.key order by d.key`),
+      ).toEqual([{ key: "oclc_work", n: 0 }, { key: "wikidata_qid", n: 1 }]);
+      expect(await identifiers(kaputt.id)).toEqual(["oclc 123456", "wikidata Q90000002"]);
+      // The accepted QID queued the book again; with its rules on, the next run applies the QID's OCLC work ID
+      expect(await c`select reason from (select payload ->> 'reason' as reason from enrichment_jobs where work_id = ${bolano.id} and status = 'queued') j`).toEqual([{ reason: "manual" }]);
+      await rulesOn();
+      await identify({ stages, only: [bolano.slug] });
+      expect(await identifiers(bolano.id, bolano.editionId)).toContain("oclc 119792823");
+      // An entry applied before is skipped; an unknown slug or another title stops the run
+      expect((await identify({ stages })).lines).toContain(`- ${bolano.slug}: applied before; change the entry to apply it again`);
+      await expect(identify({ stages: { identity: identityStage({ "no-such-book": { title: "None", wikidata_qid: null, note: "x" } }) as EnrichmentStage } })).rejects.toThrow(
+        "Review file: no book has the slug no-such-book",
+      );
+      await expect(identify({ stages: { identity: identityStage({ [kaputt.slug]: { title: "Kaput", wikidata_qid: null, note: "x" } }) as EnrichmentStage } })).rejects.toThrow(
+        `Review file: ${kaputt.slug} is titled "Kaputt", not "Kaput"`,
+      );
+    });
+
+    it("leaves a placeholder edition to Identify, and writes only an empty LCCN column, never on a locked edition", async () => {
+      await rulesOn();
+      const placeholder = await identityBook("Life and Fate, placeholder", "9781784871963", { edition: { metadata_source: "phantom_canon" } });
+      const kept = await identityBook("The Skin", "9781590176221", { edition: { lccn: "kept-by-hand" } });
+      // The same edition again, by its ISBN-10 (an ISBN-13 is unique)
+      const locked = await identityBook("The Skin, locked", null, { edition: { isbn_10: "1590176227", metadata_locked: true } });
+      const report = await identify({ only: [placeholder.slug, kept.slug, locked.slug] });
+      expect(report.jobs.find((j) => j.slug === placeholder.slug)!.outcome).toMatchObject({ result: "not_found", proposed: 0 });
+      expect(await c`select id from source_records where work_id = ${placeholder.id} or edition_id = ${placeholder.editionId}`).toEqual([]);
+      expect(await identifiers(kept.id, kept.editionId)).toContain("lccn 2012045914");
+      expect((await c`select lccn from editions where id = ${kept.editionId}`)[0].lccn).toBe("kept-by-hand");
+      expect((await c`select a.after -> 'value' ->> 'column' as kept from enrichment_applications a where a.edition_id = ${kept.editionId}`)[0].kept).toBe("kept-by-hand");
+      expect((await claimsOf(locked.id)).some((x) => x.key === "lccn")).toBe(false);
+      await expect(createHumanClaim({ workId: locked.id, editionId: locked.editionId, dimension: "lccn", value: { text: "2012045914" } }, conn)).rejects.toThrow(
+        "The edition is locked; unlock it first",
+      );
+    });
+
+    it("turns rules on only with an approval link and only for the named dimensions, never a gated rule, and off at once", async () => {
+      const rule = (key: string) =>
+        c`select r.enabled, r.approval_url, r.minimum_confidence::float8 as minimum from enrichment_auto_accept_rules r join enrichment_dimensions d on d.id = r.dimension_id where d.key = ${key}`.then((r) => r[0]);
+      await expect(enableIdentityRules(conn, { dimensions: ["wikidata_qid"], approvalUrl: undefined, apply: true })).rejects.toThrow("needs --approval");
+      await expect(enableIdentityRules(conn, { dimensions: ["tone"], approvalUrl: APPROVAL, apply: true })).rejects.toThrow();
+      expect(await enableIdentityRules(conn, { dimensions: ["wikidata_qid"], approvalUrl: APPROVAL, apply: false })).toEqual([
+        `Would turn on the exact-match rules of wikidata_qid (approval ${APPROVAL})`,
+      ]);
+      expect((await rule("wikidata_qid")).enabled).toBe(false);
+      await enableIdentityRules(conn, { dimensions: ["wikidata_qid"], approvalUrl: APPROVAL, apply: true });
+      expect(await rule("wikidata_qid")).toEqual({ enabled: true, approval_url: APPROVAL, minimum: 1 });
+      expect((await rule("lccn")).enabled).toBe(false);
+      expect(await rule("tone")).toMatchObject({ enabled: false, approval_url: null });
+      expect(await disableIdentityRules(conn, {})).toEqual(["Turned off the exact-match rules of wikidata_qid"]);
+      expect((await rule("wikidata_qid")).enabled).toBe(false);
+    });
+
+    it("refuses to start the identity stage without a contact", async () => {
+      await expect(runWorker(conn, { runId: randomUUID(), worker: "test", kinds: ["identity"], apply: false, cache: recordedAnswers(), contact: null })).rejects.toThrow(
+        "The identity stage calls outside services: set ENRICHMENT_CONTACT",
+      );
+    });
   });
 });

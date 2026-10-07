@@ -120,6 +120,7 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
       fetched += jobs.length;
     } catch (error) {
       if (!(error instanceof QuotaStop)) throw error;
+      fetched += error.done;
       report.stopped = error.message;
       break;
     }
@@ -134,6 +135,12 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
   }
 
   if (!options.apply) {
+    const [holds] = resultRows<{ n: number }>(
+      await conn.execute(sql`select count(*)::int as n from enrichment_jobs where status = 'held' and kind in (${sql.join(options.kinds.map((k) => sql`${k}`), sql`, `)})
+        and (held_reason in ('quota', 'rate_limited', 'budget')
+          ${options.only?.length && set.length ? sql`or (held_reason = 'work_cost_ceiling' and id in (${sql.join(set.map((j) => sql`${j.id}::uuid`), sql`, `)}))` : sql``})`),
+    );
+    report.lines.push("## Holds", `- (a0) would release ${holds.n} held jobs`);
     for (const stage of stages)
       for (const step of stage.steps) report.lines.push(`## ${step.name}`, ...(await step.plan(conn, ctx)));
     report.lines.push(`## Jobs (${set.length})`, ...set.map((j) => `- ${j.slug ?? j.workId}: ${plans.get(j.id)?.summary ?? "not fetched"}`));
@@ -195,11 +202,11 @@ export async function runWorker(conn: Db, options: WorkerOptions): Promise<Worke
  * stage's undo hook. An apply that changed since is refused with its reason.
  */
 export async function undoRun(conn: Db, options: { runId: string; apply: boolean; stages?: Stages }) {
-  const applies = resultRows<{ id: string; target: string; workId: string }>(
-    await conn.execute(sql`select id, target, work_id as "workId" from enrichment_applications
-      where batch_id = ${options.runId}::uuid and undone_at is null order by applied_at desc, id desc`),
+  const applies = resultRows<{ id: string; target: string; slug: string }>(
+    await conn.execute(sql`select a.id, a.target, w.slug from enrichment_applications a join works w on w.id = a.work_id
+      where a.batch_id = ${options.runId}::uuid and a.undone_at is null order by a.applied_at desc, a.id desc`),
   );
-  const lines = [`Run ${options.runId}: ${applies.length} applies to undo`];
+  const lines = [`Run ${options.runId}: ${applies.length} applies to undo, newest first`, ...applies.map((a) => `- ${a.slug}: ${a.target} (${a.id})`)];
   if (!options.apply) return { lines, undone: [] as string[], refused: [] as { id: string; reason: string }[] };
   const undone: string[] = [];
   const refused: { id: string; reason: string }[] = [];

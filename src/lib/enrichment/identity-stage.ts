@@ -471,8 +471,12 @@ const requeue: StageStep = {
 
 // ── The report ──────────────────────────────────────────────────────────────
 
-const pageOf = (dimension: string, value: string) =>
-  dimension === "wikidata_qid" ? `https://www.wikidata.org/wiki/${value}` : dimension === "open_library_work" ? `https://openlibrary.org/works/${value}` : value;
+/** The page of an ID, for Pablo; an OCLC work ID has none without a subscription */
+const PAGES: Partial<Record<IdentityDimension, (value: string) => string>> = {
+  wikidata_qid: (v) => `https://www.wikidata.org/wiki/${v}`,
+  open_library_work: (v) => `https://openlibrary.org/works/${v}`,
+  lccn: (v) => `https://lccn.loc.gov/${v}`,
+};
 
 /** The report's last sections, read from the database: what waits, what needs Pablo, and the unresolved books */
 async function report(conn: Db) {
@@ -486,7 +490,7 @@ async function report(conn: Db) {
       where c.status = 'proposed' and d.key in (${list(IDENTITY_DIMENSIONS)})
       order by w.slug, array_position(array[${list(IDENTITY_DIMENSIONS)}]::text[], d.key), c.confidence desc, c.text_value`,
   );
-  const line = (c: (typeof claims)[number]) => `- ${c.slug}: ${c.dimension}${c.isbn ? ` of ${c.isbn}` : ""} ${c.value} ${pageOf(c.dimension, c.value)}`;
+  const line = (c: (typeof claims)[number]) => `- ${c.slug}: ${c.dimension}${c.isbn ? ` of ${c.isbn}` : ""} ${[c.value, PAGES[c.dimension]?.(c.value)].filter(Boolean).join(" ")}`;
   const waiting = claims.filter((c) => !c.undone && c.confidence === CONFIDENCE.exact);
   const undone = claims.filter((c) => c.undone);
   const doubtful = claims.filter((c) => !c.undone && c.confidence < CONFIDENCE.exact);

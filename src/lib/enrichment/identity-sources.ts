@@ -128,20 +128,28 @@ export async function fetchIdentityAnswers(books: IdentityBook[], cache: SourceC
   const paced = pacer(pace);
   const unique = (values: (string | null | undefined)[]) => [...new Set(values.filter((v): v is string => !!v))];
 
-  // 1. The Open Library edition of each ISBN-13
-  for (const isbn of unique([...books.flatMap((b) => b.editions.map((e) => e.isbn13)), ...review.isbns]))
-    if (!cache.get(ANSWER.edition(isbn))) {
-      const record = await openLibrary(`/isbn/${isbn}.json`, paced);
-      cache.set(ANSWER.edition(isbn), record && readOpenLibraryEdition(record));
-    }
+  const edition = async (isbn: string) => {
+    if (cache.get(ANSWER.edition(isbn))) return;
+    const record = await openLibrary(`/isbn/${isbn}.json`, paced);
+    cache.set(ANSWER.edition(isbn), record && readOpenLibraryEdition(record));
+  };
+  const work = async (id: string) => {
+    if (cache.get(ANSWER.work(id))) return;
+    const record = await openLibrary(`/works/${id}.json`, paced);
+    cache.set(ANSWER.work(id), record && readOpenLibraryWork(record));
+  };
 
-  // 2. The works those editions name
-  const workIds = unique([...books.flatMap((b) => editionWorks(b, cache)), ...review.works]);
-  for (const id of workIds)
-    if (!cache.get(ANSWER.work(id))) {
-      const record = await openLibrary(`/works/${id}.json`, paced);
-      cache.set(ANSWER.work(id), record && readOpenLibraryWork(record));
+  // 1-2. Book by book: the Open Library edition of each ISBN-13, then the works it names
+  for (const [done, book] of books.entries())
+    try {
+      for (const e of book.editions) if (e.isbn13) await edition(e.isbn13);
+      for (const id of editionWorks(book, cache)) await work(id);
+    } catch (error) {
+      throw error instanceof QuotaStop ? new QuotaStop(error.message, done) : error;
     }
+  for (const isbn of review.isbns) await edition(isbn);
+  for (const id of review.works) await work(id);
+  const workIds = unique([...books.flatMap((b) => editionWorks(b, cache)), ...review.works]);
 
   // 3. The items whose P648 is one of those works: one query per 50 works
   const unasked = workIds.filter((id) => !cache.get(ANSWER.linkedItems(id)));
