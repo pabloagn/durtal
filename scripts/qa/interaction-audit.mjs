@@ -143,6 +143,9 @@ const HELPERS = `window.__ia = {
     return el.tagName.toLowerCase() + ' "' + text + '"';
   },
   hidden(el) {
+    // What a closed <details> folds away has a box but is not rendered: it
+    // cannot be focused or pressed until the reader opens it (SLN-544)
+    if (el.checkVisibility && !el.checkVisibility()) return true;
     for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
       const s = getComputedStyle(e);
       if (s.visibility === 'hidden' || s.display === 'none' || +s.opacity < 0.05) return true;
@@ -386,6 +389,7 @@ async function touch(route) {
     const targets = [];
     for (const el of controls) {
       if (el.closest('[inert], [aria-hidden=true]') || el.tagName === 'NEXTJS-PORTAL') continue;
+      if (el.checkVisibility && !el.checkVisibility()) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
       let hidden = false;
