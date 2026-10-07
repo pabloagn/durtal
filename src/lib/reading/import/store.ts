@@ -169,7 +169,7 @@ async function refreshRows(importId: string, source: ImportSource, workIds: stri
   const full = await withVerdicts(source, rows.map(asMatched));
   const updates = rows
     .map((r, i) => ({ r, match: full[i] }))
-    .filter(({ r }) => !readingsCommitted(r.written))
+    .filter(({ r }) => !hasReadingWrites(r.written))
     .map(({ r, match }) => ({
       row_no: r.rowNo,
       work_id: r.workId,
@@ -181,12 +181,24 @@ async function refreshRows(importId: string, source: ImportSource, workIds: stri
     update reading_import_rows r
     set match = v.match, work_id = v.work_id, decision = v.decision
     from jsonb_to_recordset(${json(updates)}::jsonb) as v(row_no int, work_id uuid, match jsonb, decision text)
-    where r.import_id = ${importId}::uuid and r.row_no = v.row_no and ${readingsUncommittedSql("r")}`);
+    where r.import_id = ${importId}::uuid and r.row_no = v.row_no and ${editableRowSql("r")}`);
 }
 
 const writtenMessage = "This row was imported; undo the import to change it";
-/** A row whose readings (or Up Next item) are not committed; its note may be (SLN-453) */
-const uncommitted = readingsUncommittedSql("reading_import_rows");
+/** A partially committed row can be retried, but must keep its book and decisions for undo. */
+function hasReadingWrites(written: Written | null) {
+  return readingsCommitted(written) || !!written?.bookRating || !!written?.identifiers?.length;
+}
+
+function editableRowSql(alias: string) {
+  const written = sql.raw(`${alias}.written`);
+  return sql`${readingsUncommittedSql(alias)}
+    and coalesce(${written}->'bookRating', 'null'::jsonb) = 'null'::jsonb
+    and jsonb_array_length(coalesce(${written}->'identifiers', '[]'::jsonb)) = 0`;
+}
+
+/** Notes have separate decisions (SLN-453); reading writes freeze these controls. */
+const uncommitted = editableRowSql("reading_import_rows");
 
 async function oneRow(importId: string, rowNo: number) {
   const [row] = await loadRows(importId, eq(readingImportRows.rowNo, rowNo));
@@ -197,7 +209,7 @@ async function oneRow(importId: string, rowNo: number) {
 /** Import, skip, or the file's rating: one UPDATE of one row */
 export async function decideRow(input: { importId: string; rowNo: number; decision?: ImportDecision; useFileRating?: boolean }) {
   const row = await oneRow(input.importId, input.rowNo);
-  if (readingsCommitted(row.written)) throw new Error(writtenMessage);
+  if (hasReadingWrites(row.written)) throw new Error(writtenMessage);
   if (input.decision === "import") {
     if (row.match.section === "cannot") throw new Error("This row cannot be imported");
     if (row.match.section === "not_imported") throw new Error("Books on this shelf are not imported");
@@ -220,7 +232,7 @@ export async function chooseBook(input: { importId: string; rowNo: number; workI
   const imp = await lockedImport(input.importId, ["pending", "completed", "undone"]);
   await requireBookWork(input.workId);
   const row = await oneRow(input.importId, input.rowNo);
-  if (readingsCommitted(row.written)) throw new Error(writtenMessage);
+  if (hasReadingWrites(row.written)) throw new Error(writtenMessage);
   // Its note is on the book it was imported to (SLN-453)
   if (noteWritten(row.written)) throw new Error("This row's note was imported; undo the import to choose another book");
   if (row.data.error) throw new Error("This row cannot be imported");
@@ -231,10 +243,12 @@ export async function chooseBook(input: { importId: string; rowNo: number; workI
     // A book chosen by hand has no edition from the file's identifiers
     match: { ...row.match, chosen: true, editionId: row.workId === input.workId ? row.match.editionId : null, instanceId: null },
   };
-  await db
+  const updated = await db
     .update(readingImportRows)
     .set({ workId: input.workId, match: moved.match })
-    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), uncommitted));
+    .where(and(eq(readingImportRows.importId, input.importId), eq(readingImportRows.rowNo, input.rowNo), uncommitted))
+    .returning({ rowNo: readingImportRows.rowNo });
+  if (!updated.length) throw new Error(writtenMessage);
   await refreshRows(input.importId, imp.source, [input.workId, previous ?? ""], [moved]);
   const [after] = await loadRows(input.importId, eq(readingImportRows.rowNo, input.rowNo));
   const decision =
@@ -391,23 +405,35 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   const result: CommitResult = { written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 };
   for (const chunk of chunks) {
     const sends = chunk.flatMap((p) => p.items.filter((x) => x.send));
-    const outcomes = sends.length ? await writeReadings(sends.map((x) => x.send!), { source: "import", importId }) : [];
+    const importRowNumbers = chunk.flatMap((p) => p.items.filter((x) => x.send).map(() => p.row.rowNo));
+    const outcomes = sends.length ? await writeReadings(sends.map((x) => x.send!), { source: "import", importId, importRowNumbers }) : [];
     const outcomeOf = new Map(sends.map((x, k) => [x, outcomes[k]]));
     // The Goodreads id of an edition matched by ISBN, so the next import matches it exactly
     const ids = chunk
       .filter((p) => p.row.match.reason === "Same ISBN" && p.row.match.editionId && p.row.data.sourceBookId)
       .map((p) => ({ row_no: p.row.rowNo, edition_id: p.row.match.editionId, gid: p.row.data.sourceBookId }));
-    const added = ids.length
-      ? resultRows<{ id: string; edition_id: string; external_id: string }>(
-          await db.execute(sql`
-            insert into catalogue_identifiers (entity_kind, edition_id, provider, external_id)
-            select distinct 'edition', x.edition_id, 'goodreads', x.gid
-            from jsonb_to_recordset(${json(ids)}::jsonb) as x(row_no int, edition_id uuid, gid text)
-            join editions e on e.id = x.edition_id and e.goodreads_id is null
-            on conflict on constraint catalogue_identifier_namespace_unique do nothing
-            returning id::text, edition_id::text, external_id`),
+    if (ids.length) {
+      // Identifiers and their undo ids also commit together: retry cannot
+      // reconstruct which pre-existing identifier belonged to this import.
+      await db.execute(sql`
+        with added as (
+          insert into catalogue_identifiers (entity_kind, edition_id, provider, external_id)
+          select distinct 'edition', x.edition_id, 'goodreads', x.gid
+          from jsonb_to_recordset(${json(ids)}::jsonb) as x(row_no int, edition_id uuid, gid text)
+          join editions e on e.id = x.edition_id and e.goodreads_id is null
+          on conflict on constraint catalogue_identifier_namespace_unique do nothing
+          returning id, edition_id, external_id
+        ), journal as (
+          select x.row_no, jsonb_agg(a.id) as identifiers from added a
+          join jsonb_to_recordset(${json(ids)}::jsonb) as x(row_no int, edition_id uuid, gid text)
+            on a.edition_id = x.edition_id and a.external_id = x.gid
+          group by x.row_no
         )
-      : [];
+        update reading_import_rows r set written =
+          coalesce(r.written, '{"readings":[],"bookRating":null,"identifiers":[]}'::jsonb) ||
+          jsonb_build_object('identifiers', coalesce(r.written->'identifiers', '[]'::jsonb) || j.identifiers)
+        from journal j where r.import_id = ${importId}::uuid and r.row_no = j.row_no`);
+    }
     const written = chunk.map((p) => {
       const readings: Written["readings"] = p.items.map((item) => {
         const n = item.reading.n;
@@ -416,8 +442,6 @@ export async function commitImport(importId: string): Promise<CommitResult> {
         if (item.verdict.verdict === "refused") return { n, outcome: "refused", readingId: null, reason: item.verdict.reason };
         return { n, outcome: "already_present", readingId: item.verdict.readingId, reason: item.verdict.reason };
       });
-      const rating = p.items.map((x) => (x.send ? outcomeOf.get(x)?.bookRating : undefined)).find((b) => b && b.after !== b.before);
-      const mine = added.filter((a) => a.edition_id === p.row.match.editionId && a.external_id === p.row.data.sourceBookId).map((a) => a.id);
       for (const r of readings) {
         if (r.outcome === "written") result.written++;
         else if (r.outcome === "already_present") result.present++;
@@ -428,12 +452,12 @@ export async function commitImport(importId: string): Promise<CommitResult> {
       result.rows++;
       return {
         row_no: p.row.rowNo,
-        written: { readings, bookRating: rating ? { workId: p.row.workId!, ...rating } : null, identifiers: mine } satisfies Written,
+        written: { readings },
       };
     });
-    // A note imported earlier stays recorded (SLN-453)
+    // Keep the durable rating/identifier journal and any earlier note (SLN-453).
     await db.execute(sql`
-      update reading_import_rows r set written = coalesce(r.written, '{}'::jsonb) || v.written
+      update reading_import_rows r set written = coalesce(r.written, '{"readings":[],"bookRating":null,"identifiers":[]}'::jsonb) || v.written
       from jsonb_to_recordset(${json(written)}::jsonb) as v(row_no int, written jsonb)
       where r.import_id = ${importId}::uuid and r.row_no = v.row_no`);
   }
