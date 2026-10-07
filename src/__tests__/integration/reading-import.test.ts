@@ -50,7 +50,7 @@ vi.mock("@/lib/reading/service", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/reading/service")>();
   return { ...real, writeReadings: vi.fn(real.writeReadings) };
 });
-import { createReadingImport } from "@/lib/reading/import/store";
+import { chooseBook, createReadingImport } from "@/lib/reading/import/store";
 import { getImportPreview, listReadingImports } from "@/lib/reading/import/page-data";
 import { commitReadingImport, decideImportRow, decideImportSection, rematchImport, undoReadingImport } from "@/lib/actions/reading-import";
 import { writeReadings } from "@/lib/reading/service";
@@ -75,7 +75,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
   });
   beforeEach(async () => {
     await q(`truncate works, authors, locations, activity_events, imports cascade`);
-    vi.mocked(writeReadings).mockClear();
+    vi.mocked(writeReadings).mockReset();
   });
 
   let serial = 0;
@@ -417,6 +417,78 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect(await commitReadingImport({ importId })).toMatchObject({ written: 20 });
       expect(Number(await value(`select count(*) from readings where import_id = $1`, [importId]))).toBe(120);
       expect((await rows(importId)).every((r) => r.written)).toBe(true);
+    });
+
+    it.each([false, true])("restores the rating after a committed write loses its response (retry: %s)", async (retry) => {
+      const workId = await book("Murphy", "Samuel Beckett", { rating: 2 });
+      await edition(workId, { goodreadsId: "70001" });
+      const { importId } = await upload(goodreads([
+        { "Book Id": "70001", Title: "Murphy", Author: "Samuel Beckett", "My Rating": "5", "Exclusive Shelf": "read", "Read Count": "1" },
+      ]));
+      await decideImportRow({ importId, rowNo: 1, useFileRating: true });
+      const real = vi.mocked(writeReadings).getMockImplementation()!;
+      vi.mocked(writeReadings).mockImplementationOnce(async (...args) => {
+        await real(...args);
+        throw new Error("Lost response after committed readings");
+      });
+      await expect(commitReadingImport({ importId })).rejects.toThrow("Lost response");
+      expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(5);
+      await expect(decideImportRow({ importId, rowNo: 1, useFileRating: false })).rejects.toThrow("undo the import");
+      const otherWork = await book("Watt", "Samuel Beckett");
+      await expect(chooseBook({ importId, rowNo: 1, workId: otherWork })).rejects.toThrow("undo the import");
+      if (retry) await commitReadingImport({ importId });
+      await undoReadingImport({ importId });
+      expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(2);
+      expect(await readingsOf(workId)).toEqual([]);
+    });
+
+    it("rolls back readings and ratings if their durable undo journal cannot be saved", async () => {
+      const workId = await book("Murphy", "Samuel Beckett", { rating: 2 });
+      await edition(workId, { goodreadsId: "70002" });
+      const { importId } = await upload(goodreads([
+        { "Book Id": "70002", Title: "Murphy", Author: "Samuel Beckett", "My Rating": "5", "Exclusive Shelf": "read" },
+      ]));
+      await decideImportRow({ importId, rowNo: 1, useFileRating: true });
+      await q(`create or replace function test_refuse_journal() returns trigger language plpgsql as $$ begin
+        if new.written->'bookRating' is not null and new.written->'bookRating' <> 'null'::jsonb then
+          raise exception 'Journal unavailable'; end if; return new; end $$`);
+      await q(`create trigger test_refuse_journal before update on reading_import_rows for each row execute function test_refuse_journal()`);
+      try {
+        await expect(commitReadingImport({ importId })).rejects.toThrow();
+        expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(2);
+        expect(await readingsOf(workId)).toEqual([]);
+      } finally {
+        await q(`drop trigger test_refuse_journal on reading_import_rows`);
+        await q(`drop function test_refuse_journal()`);
+      }
+      await commitReadingImport({ importId });
+      await undoReadingImport({ importId });
+      expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(2);
+    });
+
+    it("keeps identifier and rating undo records when the final row summary fails", async () => {
+      const workId = await book("Murphy", "Samuel Beckett", { rating: 2 });
+      await edition(workId, { isbn13: "9780140449136" });
+      const { importId } = await upload(goodreads([
+        { "Book Id": "70003", ISBN13: '="9780140449136"', Title: "Murphy", Author: "Samuel Beckett", "My Rating": "5", "Exclusive Shelf": "read" },
+      ]));
+      await decideImportRow({ importId, rowNo: 1, useFileRating: true });
+      await q(`create or replace function test_refuse_summary() returns trigger language plpgsql as $$ begin
+        if jsonb_array_length(coalesce(new.written->'readings', '[]'::jsonb)) > 0 then
+          raise exception 'Summary unavailable'; end if; return new; end $$`);
+      await q(`create trigger test_refuse_summary before update on reading_import_rows for each row execute function test_refuse_summary()`);
+      try {
+        await expect(commitReadingImport({ importId })).rejects.toThrow();
+        expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(5);
+        expect(Number(await value(`select count(*) from catalogue_identifiers where external_id = '70003'`))).toBe(1);
+      } finally {
+        await q(`drop trigger test_refuse_summary on reading_import_rows`);
+        await q(`drop function test_refuse_summary()`);
+      }
+      await commitReadingImport({ importId });
+      await undoReadingImport({ importId });
+      expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(2);
+      expect(Number(await value(`select count(*) from catalogue_identifiers where external_id = '70003'`))).toBe(0);
     });
 
     it("never changes a book rating silently, and undo restores it only while unchanged", async () => {
