@@ -1,10 +1,11 @@
 "use client";
 
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
+import { MarkReadDialog } from "./mark-read-dialog";
 import { BULK_DELETE_CASCADE } from "./delete-cascade";
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus, ListPlus } from "lucide-react";
+import { Trash2, X, Tag, Signal, Star, Stamp, FolderPlus, ListPlus, BookCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ export function BulkActionToolbar({
 }: BulkActionToolbarProps) {
   const router = useRouter();
   const [collectionOpen, setCollectionOpen] = useState(false);
+  const [markReadOpen, setMarkReadOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -298,6 +300,23 @@ export function BulkActionToolbar({
           </DropdownMenuItem>
         </DropdownMenu>
 
+        {/* Reading (SLN-463): one finished read each; dates and edits stay on the book page */}
+        <DropdownMenu
+          align="center"
+          side="top"
+          trigger={
+            <Button variant="ghost" size="sm" disabled={isUpdating || isDeleting} data-bulk-reading="">
+              <BookCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Reading
+            </Button>
+          }
+        >
+          <DropdownMenuLabel>Reading</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setMarkReadOpen(true)} disabled={isUpdating || isDeleting}>
+            Mark as read
+          </DropdownMenuItem>
+        </DropdownMenu>
+
         <div className="h-4 w-px bg-glass-border" />
 
         <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => setCollectionOpen(true)}>
@@ -335,6 +354,7 @@ export function BulkActionToolbar({
         </button>
       </div>
 
+      {markReadOpen && <MarkReadDialog workIds={Array.from(selectedIds)} onClose={() => setMarkReadOpen(false)} />}
       {collectionOpen && (
         <AddToCollectionDialog
           open={collectionOpen}

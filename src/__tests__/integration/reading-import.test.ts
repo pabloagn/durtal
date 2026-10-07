@@ -217,6 +217,8 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       const all = await rows(importId);
       const row = all.find((x) => x.data.title === "Crime and Punishment")!;
       expect([row.workId, row.match.reason, row.decision]).toEqual([workId, "Same ISBN", "import"]);
+      // His answers stay in the row for the enrichment epic (SLN-463's check)
+      expect((row.data as { extras?: unknown }).extras).toEqual({ Moods: "dark, reflective", Pace: "medium", Tags: "russian" });
       expect(all.find((x) => x.data.title === "Backwards")!.match.section).toBe("cannot");
       expect(await commitReadingImport({ importId })).toMatchObject({ written: 2 });
       const written = await q(`select started_on::text as s, finished_on::text as f, rating::float8 as rating, format, source from readings where work_id = $1 order by finished_on`, [workId]);
