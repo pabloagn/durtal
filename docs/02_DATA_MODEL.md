@@ -533,6 +533,31 @@ Given a work W, its editions E[], their instances I[] (excluding deaccessioned),
 
 The UI renders ownership as colored location indicators. Each location has an assigned color. On the book card, small dots (or icons) light up for each location that holds an instance.
 
+### Pages of a Work
+
+The page rule (SLN-466) builds on the one owned rule, `ownedBookCondition` in `src/lib/catalogue/holdings.ts`: a work is owned when one of its editions has a copy that is not deaccessioned. It adds no second owned rule.
+
+```
+  Owned edition       an edition of an owned work with a copy that is not deaccessioned
+                      (an e-book counts through its digital copy, with no special case)
+  Usable count        a page_count from MIN_PAGES to MAX_PAGES (16 to 3000,
+                      src/lib/books/enrichment.ts); other counts are left out
+  Counted editions    owned work           → its owned editions          (basis owned)
+                      at a location        → the editions with a copy whose
+                                             status is 'available' there (basis location)
+                      work not owned       → all its editions            (basis any_edition)
+  Pages               the range (min, max) of the usable counts of the counted editions
+  Unknown pages       no counted edition has a usable count. It never falls back to an
+                      edition that is not owned, and unknown is never short
+  Matches a range     one counted edition has a usable count inside the range
+```
+
+At a location the rule speaks only of works with an available copy there: "400 to 600 pages, available in Amsterdam" reads the edition of the Amsterdam copy. This is the copy rule of the recommendation API's planned `availableAt` filter (SLN-472). It differs from the library's location filter (`filter-conditions.ts`: any copy at the location that is not deaccessioned) and from a copy at hand (`atHandCopySql` in `src/lib/reading/at-hand.ts`: an available copy at the home or at any digital location).
+
+`src/lib/enrichment/pages.ts` writes the rule once, as one SQL building block, and every reader builds on it: `pageRangeCondition({ min, max, locationId })` (the filter), `pagesUnknownCondition({ locationId })` (the works with unknown pages) and `getWorkPages(database, workIds, { locationId })` (per work: min, max, basis, and the counted editions with their count and `metadata_source`). `getWorkPages` takes the database handle as an argument, so a script reads through its own read-only session. The rule never writes `page_count`.
+
+The reading suggestions measure a book differently on purpose: `bookPages` (`src/lib/reading/suggest/build.ts`) is the page count of the one edition to be read at the remembered home, the queued one or else the Start dialog's default.
+
 ### Status Changes From Orders
 
 Creating an order, changing its status or deleting it re-derives the work's `catalogue_status` from all of its orders and copies (`nextCatalogueStatus()` in `src/lib/utils/order-status-sync.ts`). Orders only promote a work; they never demote an owned book:
