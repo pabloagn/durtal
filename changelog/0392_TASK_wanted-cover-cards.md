@@ -29,6 +29,16 @@ as text rows with role badges, under a grid of book cards.
   `readingExtras`, as the other two shelves have it, so a wanted book being
   read shows "Reading 44%" as it does in the library. The same fields join
   `wantedWorks` in `GET /api/stats`, as `recentWorks` already has them.
+- In `getLibraryStats` the three shelves' cards take a work's first edition
+  in the library's order (`createdAt`, then `id`). They took `limit: 1` with
+  no order, so after an edit to a work's first edition PostgreSQL could hand
+  back its second, and a shelf showed that edition's cover, year and
+  language while the library showed the first's (found in review).
+- `src/app/page.tsx`: the shelves' cover addresses carry the library's
+  version (`&v=`, the poster's `createdAt`, else the edition's
+  `updatedAt`), so the dashboard and the library ask for the same address
+  and the browser keeps one immutable copy instead of checking each cover
+  again on every visit. `getLibraryStats` loads those two dates.
 - `src/app/people/[slug]/page.tsx`: the films, perfumes and paintings a
   person is credited on load through `loadFilmCards`, `loadPerfumeCards`
   and `loadPaintingCards` (as `/collections/[id]` does) and show as
@@ -40,6 +50,8 @@ as text rows with role badges, under a grid of book cards.
   placeholder's letter is decoration (`aria-hidden`, `data-decorative`), as
   the book card's is. A person with no portrait and no books (most
   directors and perfumers) failed the design audit's contrast check on it.
+  #163 (SLN-513) made the same change and landed first; the merge keeps its
+  copy.
 
 No schema change, no new package.
 
@@ -47,7 +59,10 @@ No schema change, no new package.
 
 - `src/__tests__/integration/reading-library.test.ts`: the wanted shelf's
   paused book carries `readingState` and `readingPercent`, and
-  `cardReadingOf` reads them. It fails on main and passes here.
+  `cardReadingOf` reads them. It fails on main and passes here. A second
+  test gives a wanted book two editions, corrects the first's year, and
+  expects the Wanted card and the library card to show the first's cover:
+  it fails without the edition order and passes with it.
 - Production builds of main (0517d385) and this branch on the preview's
   synthetic catalogue, with the eight wanted books of Joris's screenshot
   added, five of them with a synthetic cover, and `--seed-large 50` for the
@@ -65,6 +80,11 @@ No schema change, no new package.
   audits find nothing (54 of 54 page loads). `page-weight.js`,
   `phone-audit.mjs`, `interaction-audit.mjs` on the four touched routes and
   the perfume, film and painting journeys pass.
-- Typecheck clean. Lint: 0 errors, 77 warnings as on main. `pnpm deadcode`
-  clean.
-- `scripts/qa/test-local.py`: 263 files, 2,957 tests, all passed.
+- After the review fixes, merged with main 2f696f56: every cover address
+  on the dashboard's shelves (15 on that seed) is one the library's
+  `/library?status=wanted,shortlisted` also uses. The audits in the three
+  browsers on `/`, that View all, and both person pages find nothing (36 of
+  36 page loads); page weight `/` 155 KB, `/people/seed-person-429`
+  175 KB; `phone-audit.mjs` and `interaction-audit.mjs` pass.
+- Typecheck clean. Lint: 0 errors, 75 warnings as on main 2f696f56.
+  `pnpm deadcode` clean.

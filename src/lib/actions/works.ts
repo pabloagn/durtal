@@ -736,6 +736,8 @@ export async function getWorksWithMark(
 
 /** Dashboard stats */
 export async function getLibraryStats() {
+  // The library card's first edition, so a shelf shows the cover the library shows
+  const firstEdition = [asc(editions.createdAt), asc(editions.id)];
   const worksWith = {
     workAuthors: {
       with: { author: true },
@@ -748,7 +750,9 @@ export async function getLibraryStats() {
         thumbnailS3Key: true,
         publicationYear: true,
         language: true,
+        updatedAt: true,
       },
+      orderBy: firstEdition,
       limit: 1,
       with: {
         instances: {
@@ -767,6 +771,7 @@ export async function getLibraryStats() {
         cropZoom: true,
         brightness: true,
         contrast: true,
+        createdAt: true,
       },
       extras: posterTone,
     },

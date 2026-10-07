@@ -194,6 +194,18 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
     expect(cardReadingOf(wanted[0])).toEqual({ state: "paused", percent: 10 });
   });
 
+  it("gives a Wanted card the edition the library card shows, after an edit to it (SLN-542)", async () => {
+    const w = await book("Two editions", { status: "wanted" });
+    const first = await value(`insert into editions(work_id, title, language, thumbnail_s3_key, created_at) values ($1, 'First', 'en', 'first.webp', '2020-01-01') returning id`, [w]);
+    await q(`insert into editions(work_id, title, language, thumbnail_s3_key, created_at) values ($1, 'Second', 'en', 'second.webp', '2021-01-01')`, [w]);
+    // An edit to the first edition: its year corrected
+    await q(`update editions set publication_year = 1999 where id = $1`, [first]);
+    const library = (await getWorks({ filters: {}, sort: "title", limit: 10 })).find((x) => x.id === w)!;
+    const wanted = (await getLibraryStats()).wantedWorks.find((x) => x.id === w)!;
+    expect(library.editions[0].thumbnailS3Key).toBe("first.webp");
+    expect(wanted.editions[0].thumbnailS3Key).toBe(library.editions[0].thumbnailS3Key);
+  });
+
   it("summarizes a page of books for the list and the table", async () => {
     const w = await library();
     const summaries = await getReadingSummaries([w.reading, w.reread, w.unreadOwned]);

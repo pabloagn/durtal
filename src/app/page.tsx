@@ -123,6 +123,7 @@ function workToCardProps(work: {
     thumbnailS3Key: string | null;
     publicationYear: number | null;
     language: string | null;
+    updatedAt: Date;
     instances: Array<{ id: string }>;
   }>;
   media?: Array<{
@@ -135,6 +136,7 @@ function workToCardProps(work: {
     cropZoom: number;
     brightness: number;
     contrast: number;
+    createdAt: Date;
     tone?: string | null;
   }>;
 }) {
@@ -153,6 +155,8 @@ function workToCardProps(work: {
     activePoster?.thumbnailS3Key ??
     activePoster?.s3Key ??
     edition?.thumbnailS3Key;
+  // Versioned as the library's card is, so both share one cached image
+  const coverVersion = activePoster ? activePoster.createdAt : edition?.updatedAt;
 
   return {
     workId: work.id,
@@ -160,7 +164,7 @@ function workToCardProps(work: {
     title: work.title,
     authorName: author?.name ?? "Unknown",
     coverUrl: coverS3Key
-      ? mediaUrl(coverS3Key)
+      ? mediaUrl(coverS3Key, { version: coverVersion })
       : null,
     coverCrop: activePoster
       ? mediaCrop(activePoster)
