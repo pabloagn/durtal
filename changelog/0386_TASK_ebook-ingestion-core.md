@@ -311,6 +311,52 @@ Deviations from the issue:
   to add. If that folder holds a format the first folder also has, the apply
   makes it a changed file instead.
 
+Second review (clear after fixes), fixed on the same branch:
+
+- **A NUL in a file's metadata stopped the apply** (blocker). A PDF title
+  written as UTF-16 without a byte order mark reads "R\0e\0p\0...", and
+  PostgreSQL refuses a NUL in text and jsonb. Recording the failure failed
+  too, because the ORM's error carried the failed query with the same
+  character, so the run ended interrupted and every resume died the same
+  way. Now `storableText` and `storable` (`metadata.ts`) remove NUL and turn
+  unpaired surrogates into U+FFFD in everything a file says (the plan cleans
+  each prepared file and sidecar, and an apply or resume cleans the plan as
+  it reads it), and a failed item records the error's own words, at most
+  500 characters (`failureMessage`). Tested with six such PDFs among good
+  files: the run finishes and their titles read "Report 1" to "Report 6".
+- **A multipart upload was accepted whatever its bytes.** The check after
+  the upload fell back to `x-amz-meta-sha256`, which the same upload wrote
+  from the plan. The upload now hashes the file as it reads the parts and
+  aborts when the bytes are not the planned SHA-256, and its own object must
+  carry the composite checksum of the parts sent. The metadata fallback stays
+  only for an object another writer stored. The test fake keeps the metadata
+  given at `CreateMultipartUpload`, as S3 does.
+- **Undo left an empty e-book** when a second folder with the same sidecar
+  uuid changed its preferred file. Undo entries now keep the e-book's
+  `updated_at` before the group, and undo puts it back with the preferred
+  file when nothing else changed the e-book, so the group that created it
+  removes it.
+- Optional notes taken: a plan before the AWS setup says the storage is not
+  set up yet and treats the bucket as empty, rather than failing with
+  NoSuchBucket; a resume makes the apply's version, database and bucket
+  checks; `docs/09` says objects an undo leaves block reconciliations after
+  24 hours until they are adopted or removed. Not taken: derived objects
+  keyed by their own bytes, and indexes on `ebook_ingest_items.ebook_id` and
+  `file_id` (both would change the schema; small at today's sizes).
+
+Each new test fails on the reviewed head and passes now. Main 4214bb77 was
+merged in; it changes no schema, and `drizzle-kit generate` reports no drift.
+
+Gates after the fixes, one at a time in the cloud on main 4214bb77 plus
+this change: `pnpm install --frozen-lockfile`, `pnpm typecheck`,
+`pnpm deadcode` clean; `pnpm lint` 0 errors (75 warnings, as on main);
+`python3.12 scripts/qa/test-local.py` 287 files, 3,128 of 3,128 passed;
+`pnpm build`; page weight on every route (`/ebooks/runs` 40 / 300 KB,
+`/library` 90 / 300 KB); the phone, interaction and journey audits; and
+the alignment, design, overflow and touch audits on `/ebooks/runs` and
+`/settings/integrations` in headless Chrome 153, Firefox 155 and WebKit
+26.6 at 1440, 768 and 390: 18 of 18 clean. No page changed in these fixes.
+
 Not done here, and waiting on Joris's own yes: any live apply (`--live`),
 the inbox's bulk load (SLN-498), AWS uploads and the timing budget on the
 Mac. Safari was not used: the browser checks ran in headless Chrome, Firefox
