@@ -53,7 +53,7 @@ describe.skipIf(!url)("the e-book constraints", () => {
       locator: JSON.stringify({ href: "chapter-1.xhtml" }),
       progression: 0.1,
       furthest_progression: 0.1,
-      client_updated_at: new Date(),
+      client_updated_at: new Date().toISOString(),
     })}`;
   const annotation = (ebookId: string, fileId: string) =>
     c`insert into ebook_annotations ${c({
@@ -62,7 +62,7 @@ describe.skipIf(!url)("the e-book constraints", () => {
       kind: "bookmark",
       locator: JSON.stringify({ href: "chapter-1.xhtml" }),
       progression: 0.1,
-      client_updated_at: new Date(),
+      client_updated_at: new Date().toISOString(),
     })}`;
 
   beforeAll(async () => {
