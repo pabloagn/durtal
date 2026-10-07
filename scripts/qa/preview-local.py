@@ -33,15 +33,24 @@ The preview has no S3: placeholder keys make every S3 call fail. With
 (DURTAL_PREVIEW_S3_DIR), so uploads, imports and e-books work. It is never
 set anywhere else.
 
+With --seed-reader (needs --s3-dir), the e-book fixtures of
+src/__tests__/fixtures/ebooks/ are stored in DIR under their real keys and
+catalogued (eBooks sub-issue 3): the EPUB 3 and the text PDF linked to copies
+of seeded books in the "eBooks" location, the MOBI standalone, the FB2
+pending, and every other fixture standalone (the DRM one pending, with its
+DRM). Their ids are fixed (READER_EBOOKS below), so the reader's checks can
+open /reader/<id>.
+
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
 with curl. It is never the live token. Without it the variable stays unset
 and those routes answer 503.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR] [--api-token]
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader]] [--api-token]
 """
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import secrets
@@ -198,6 +207,68 @@ select 'new table ' || tablename || ': ' || (xpath('/row/c/text()', query_to_xml
 """
 
 
+# The reader's fixtures in the preview (eBooks sub-issue 3): id, file, format,
+# match state, the seeded work a linked one is a copy of, DRM
+READER_EBOOKS = [
+    ("00000000-0000-4000-a000-000000000001", "epub3.epub", "epub", "linked", "against-nature-by-joris-karl-huysmans", None),
+    ("00000000-0000-4000-a000-000000000002", "text.pdf", "pdf", "linked", "the-magic-mountain-by-thomas-mann", None),
+    ("00000000-0000-4000-a000-000000000003", "mobi.mobi", "mobi", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000004", "fb2.fb2", "fb2", "pending", None, None),
+    ("00000000-0000-4000-a000-000000000005", "epub2.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000006", "azw3.azw3", "azw3", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000007", "cbz.cbz", "cbz", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000008", "rtl.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000009", "vertical-ja.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000010", "obfuscated-font.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000011", "scripted.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000012", "corrupt.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000013", "drm.epub", "epub", "pending", None, "adobe-adept"),
+]
+# Each fixture's title and language, as make-ebook-fixtures.mjs writes them
+READER_TITLES = {
+    "epub3.epub": ("The Distant Orchard", "en"), "text.pdf": ("The Sudden Winter", "en"),
+    "mobi.mobi": ("The Grey Bridge", "en"), "fb2.fb2": ("The Quiet Clerk", "en"),
+    "epub2.epub": ("The Narrow House", "en"), "azw3.azw3": ("The Pale Tower", "en"),
+    "cbz.cbz": ("The Six Panels", "en"), "rtl.epub": ("كتاب الليل", "ar"), "vertical-ja.epub": ("夜の川", "ja"),
+    "obfuscated-font.epub": ("The Hidden Letter", "en"), "scripted.epub": ("The Open Window", "en"),
+    "corrupt.epub": ("The Broken Seal", "en"), "drm.epub": ("The Locked Room", "en"),
+}
+READER_TYPES = {
+    "epub": "application/epub+zip", "pdf": "application/pdf", "mobi": "application/x-mobipocket-ebook",
+    "azw3": "application/vnd.amazon.mobi8-ebook", "fb2": "application/x-fictionbook+xml",
+    "cbz": "application/vnd.comicbook+zip",
+}
+
+
+def reader_seed(s3_dir):
+    """The fixtures under their keys in DIR (bucket durtal-ebooks, no prefix), and the SQL that catalogues them."""
+    fixtures = ROOT / "src/__tests__/fixtures/ebooks"
+    sql = []
+    def text(value):
+        return "null" if value is None else "'" + str(value).replace("'", "''") + "'"
+    for ebook_id, name, fmt, state, work, drm in READER_EBOOKS:
+        data = (fixtures / name).read_bytes()
+        sha = hashlib.sha256(data).hexdigest()
+        key = f"files/{sha[:2]}/{sha}.{fmt}"
+        target = s3_dir.resolve() / "durtal-ebooks" / key
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        file_id = ebook_id[:-12] + "f" + ebook_id[-11:]
+        title, language = READER_TITLES[name]
+        copy = "null"
+        if work:
+            sql.append(f"""insert into instances(id, edition_id, location_id, format)
+  select '{file_id[:-12]}c{file_id[-11:]}', e.id, l.id, '{fmt}' from editions e join works w on w.id = e.work_id
+  join locations l on l.name = 'eBooks' and l.type = 'digital' where w.slug = {text(work)} limit 1;""")
+            copy = f"'{file_id[:-12]}c{file_id[-11:]}'"
+        sql.append(f"""insert into ebooks(id, title, authors, language, match_state, instance_id, import_source, import_ref)
+  values ('{ebook_id}', {text(title)}, '{{"Durtal Fixtures"}}', '{language}', '{state}', {copy}, 'folder', {text('fixtures/' + name)});
+insert into ebook_files(id, ebook_id, sha256, s3_key, format, size_bytes, content_type, original_filename, status, drm)
+  values ('{file_id}', '{ebook_id}', '{sha}', '{key}', '{fmt}', {len(data)}, '{READER_TYPES[fmt]}', {text(name)}, 'stored', {text(drm)});
+update ebooks set preferred_file_id = '{file_id}' where id = '{ebook_id}' and {text(drm)} is null;""")
+    return "\n".join(sql)
+
+
 def run(*args, **kwargs):
     result = subprocess.run(args, text=True, capture_output=True, **kwargs)
     if result.returncode:
@@ -218,9 +289,13 @@ def main():
                         help="append every query the app sends, with its time, to FILE (JSON lines)")
     parser.add_argument("--s3-dir", type=Path, metavar="DIR",
                         help="keep S3 objects as files under DIR instead of S3")
+    parser.add_argument("--seed-reader", action="store_true",
+                        help="store and catalogue the e-book fixtures (needs --s3-dir)")
     parser.add_argument("--api-token", action="store_true",
                         help="give the app a random API token for this run, printed once")
     args = parser.parse_args()
+    if args.seed_reader and not args.s3_dir:
+        parser.error("--seed-reader needs --s3-dir: the e-books are stored there")
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
@@ -284,6 +359,9 @@ def main():
         if args.seed_large:
             seed = (Path(__file__).parent / "seed-large.sql").read_text()
             print(psql(f"\\set n {args.seed_large}\n{seed}"), flush=True)
+        if args.seed_reader:
+            psql(reader_seed(args.s3_dir))
+            print(f"Reader fixtures: {len(READER_EBOOKS)} e-books, /reader/{READER_EBOOKS[0][0]} and on", flush=True)
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
@@ -317,6 +395,8 @@ def main():
             server = subprocess.Popen(
                 ["node", "server.js"], cwd=standalone, env=env, start_new_session=True)
         else:
+            # pdf.js's worker, cmaps and fonts in public/vendor/pdfjs (pnpm dev does this too)
+            run("node", "scripts/vendor-pdfjs.mjs", cwd=ROOT)
             server = subprocess.Popen(
                 ["pnpm", "exec", "next", "dev", "--webpack", "--hostname", "127.0.0.1",
                  "--port", str(args.port)],
