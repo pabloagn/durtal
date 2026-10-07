@@ -11,6 +11,8 @@ import type { ExtractedPage, MainTextExtractor } from "./evidence-store";
 
 /** Elements that start a new paragraph of the main text */
 const BLOCKS = "p, div, section, article, header, footer, aside, h1, h2, h3, h4, h5, h6, li, dd, dt, blockquote, pre, figcaption, table, tr, td, th, ul, ol, dl, br, hr";
+/** Elements a browser puts in the head when a page leaves out its <head> tag */
+const HEAD_ONLY = new Set(["TITLE", "META", "LINK", "BASE"]);
 /** Unicode's paragraph separator marks the breaks while the text is read out */
 const BREAK = " ";
 
@@ -30,11 +32,19 @@ function paragraphsOf(contentHtml: string): string {
 
 export function extractMainText(html: string, url: string): ExtractedPage | null {
   let { document } = parseHTML(html);
-  // A fragment with no <html> element: linkedom would make its first tag the root
-  if (document.documentElement?.tagName !== "HTML") ({ document } = parseHTML(`<!doctype html><html><body>${html}</body></html>`));
-  // With no <body> tag, linkedom adds an empty one and leaves the page beside it: move the page in, as a browser does
+  // No <html> element: linkedom would make the first tag the root. Inside one, the page keeps its own <head> and <body>
+  if (document.documentElement?.tagName !== "HTML") ({ document } = parseHTML(`<html>${html.replace(/^\s*<!doctype[^>]*>/i, "")}</html>`));
+  // Attribute names are case-insensitive in HTML, and linkedom keeps them as written: CLASS, REL and LANG would go unseen
+  for (const element of document.querySelectorAll("*"))
+    for (const { name, value } of [...element.attributes])
+      if (name !== name.toLowerCase() && !element.closest("svg, math")) {
+        element.removeAttribute(name);
+        if (!element.hasAttribute(name.toLowerCase())) element.setAttribute(name.toLowerCase(), value);
+      }
+  // With no <head> or <body> tag, linkedom adds the element empty and leaves the page beside it: move each node in, as a browser does
+  const { head, body } = document;
   for (const node of [...document.documentElement.childNodes])
-    if (node !== document.head && node !== document.body) document.body.append(node);
+    if (node !== head && node !== body) (HEAD_ONLY.has(node.nodeName) ? head : body).append(node);
   // Read from the head first: Readability changes the document it parses
   const canonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href")?.trim();
   let canonicalUrl: string | null = null;
