@@ -10,10 +10,12 @@ import {
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonClass } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import {
   SettingFact,
+  SettingRow,
   SettingsGroup,
   SettingsIntro,
 } from "@/components/settings/settings-group";
@@ -185,6 +187,19 @@ export function IntegrationChecks({ overview }: { overview: IntegrationsOverview
         <SettingFact label="Linked to a book">{ebooks.linked}</SettingFact>
         <SettingFact label="Files stored">{ebooks.files}</SettingFact>
         <SettingFact label="Last added">{ebooks.lastAdded ?? "Never"}</SettingFact>
+        <SettingRow
+          id="ebook-runs"
+          label="Ingestion runs"
+          description="Every apply, upload batch and verification, and what each stored."
+          controlHeight={28}
+          labelFor={false}
+        >
+          <span className="text-sm text-fg-secondary">{ebooks.runs === 1 ? "1 run" : `${ebooks.runs} runs`}</span>
+          <Link href="/ebooks/runs" aria-describedby="ebook-runs-description" className={buttonClass("secondary", "sm")}>
+            Open
+            <span className="sr-only"> Ingestion runs</span>
+          </Link>
+        </SettingRow>
       </SettingsGroup>
 
       <SettingsGroup title="Access">

@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/google-books-quota";
 import { and, count, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ebookFiles, ebooks, enrichmentCosts, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
+import { ebookFiles, ebookIngestRuns, ebooks, enrichmentCosts, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
 import { enrichmentSpend, evidenceCacheStats } from "@/lib/settings/data";
 import { createPageFetcher } from "@/lib/net/safe-fetch-page";
 import { outletForUrl } from "@/lib/enrichment/outlets";
@@ -74,8 +74,8 @@ export interface IntegrationInfo {
 
 export interface IntegrationsOverview {
   services: IntegrationInfo[];
-  /** The e-book catalogue: e-books, those linked to a book, files stored, the newest */
-  ebooks: { ebooks: number; linked: number; files: number; lastAdded: string | null };
+  /** The e-book catalogue: e-books, those linked to a book, files stored, the newest, ingestion runs */
+  ebooks: { ebooks: number; linked: number; files: number; lastAdded: string | null; runs: number };
   /** Whether the REST write routes and the media maintenance routes ask for a token */
   access: { restToken: boolean; adminToken: boolean };
 }
@@ -100,7 +100,7 @@ const usd = (amount: number) => new Intl.NumberFormat("en-US", { style: "currenc
 
 /** The services, what each is for and how it is set up; the e-books; the tokens. */
 export async function integrationsOverview(): Promise<IntegrationsOverview> {
-  const [[wikidata], [books], [files], policies, evidence, spend, searches] = await Promise.all([
+  const [[wikidata], [books], [files], [runs], policies, evidence, spend, searches] = await Promise.all([
     db
       .select({ records: count(), last: max(sourceRecords.retrievedAt) })
       .from(sourceRecords)
@@ -109,6 +109,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       .select({ ebooks: count(), linked: count(ebooks.instanceId), last: max(ebooks.createdAt) })
       .from(ebooks),
     db.select({ files: count() }).from(ebookFiles),
+    db.select({ runs: count() }).from(ebookIngestRuns),
     db
       .select({ policy: evidenceOutlets.fetchPolicy, outlets: count() })
       .from(evidenceOutlets)
@@ -291,6 +292,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       linked: books?.linked ?? 0,
       files: files?.files ?? 0,
       lastAdded: books?.last ? formatDate(books.last) : null,
+      runs: runs?.runs ?? 0,
     },
     access: { restToken: isSet("DURTAL_API_TOKEN"), adminToken: isSet("ADMIN_TOKEN") },
   };

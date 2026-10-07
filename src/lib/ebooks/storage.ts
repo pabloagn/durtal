@@ -89,14 +89,14 @@ export function ebookObjectHeaders(input: { key: string; contentType: string; sh
   };
 }
 
-function previewFile(dir: string, key: string) {
+export function previewFile(dir: string, key: string) {
   return previewObjectPath(dir, `${ebookStorage().bucket}/${key}`);
 }
 
 const hexToBase64 = (hex: string) => Buffer.from(hex, "hex").toString("base64");
 const base64ToHex = (b64: string) => Buffer.from(b64, "base64").toString("hex");
 
-const statusOf = (err: unknown) => (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+export const statusOf = (err: unknown) => (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
 const isMissing = (err: unknown) => {
   const name = (err as { name?: string }).name;
   return statusOf(err) === 404 || name === "NoSuchKey" || name === "NotFound";
@@ -154,6 +154,8 @@ export interface EbookObjectHead {
   sha256: string | null;
   /** full: one checksum of the whole object; composite: of a multipart upload's parts; none */
   checksumType: "full" | "composite" | "none";
+  /** S3's checksum as it gives it (base64, with "-<parts>" when composite); null when none */
+  checksum: string | null;
   /** x-amz-meta-sha256, as written */
   metadataSha256: string | null;
   contentType: string | null;
@@ -172,6 +174,7 @@ export async function headEbookObject(key: string, options: { checksum?: boolean
       size: info.size,
       sha256,
       checksumType: sha256 ? "full" : "none",
+      checksum: sha256 ? hexToBase64(sha256) : null,
       metadataSha256: sha256,
       contentType: null,
       lastModified: info.mtime,
@@ -192,6 +195,7 @@ export async function headEbookObject(key: string, options: { checksum?: boolean
       size: head.ContentLength ?? 0,
       sha256: checksum && !composite ? base64ToHex(checksum) : null,
       checksumType: !checksum ? "none" : composite ? "composite" : "full",
+      checksum,
       metadataSha256: isSha256(metadataSha256) ? metadataSha256 : null,
       contentType: head.ContentType ?? null,
       lastModified: head.LastModified ?? null,

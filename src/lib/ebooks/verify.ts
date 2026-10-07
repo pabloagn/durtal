@@ -3,7 +3,7 @@ import path from "node:path";
 import { inArray } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { atomicOn } from "@/lib/db/atomic";
-import { ebookFiles } from "@/lib/db/schema";
+import { ebookFiles, ebookIngestRuns } from "@/lib/db/schema";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { ebooksPrefix } from "./keys";
 import { ebookObjectKind, ebookStorage, headEbookObject, listEbookObjects, type EbookListedObject } from "./storage";
@@ -19,6 +19,8 @@ import { ebookObjectKind, ebookStorage, headEbookObject, listEbookObjects, type 
 /** An object is written before its row, so a younger one may still be in flight */
 export const IN_FLIGHT_HOURS = 24;
 const HEADS_AT_ONCE = 8;
+/** Goes up whenever a verification would count differently */
+const VERIFY_TOOL_VERSION = 1;
 const ROWS_PER_WRITE = 500;
 
 export type VerifyOutcome = "verified" | "missing-object" | "size-mismatch" | "checksum-mismatch" | "no-key";
@@ -119,10 +121,10 @@ async function pooled<T, R>(items: T[], work: (item: T) => Promise<R>): Promise<
   return results;
 }
 
-/** Every file row against the bucket. Reads only. */
-export async function verifyEbookStorage(database: Db, now = Date.now()): Promise<VerifyReport> {
+/** Every file row against the bucket (listed here, unless the caller listed it). Reads only. */
+export async function verifyEbookStorage(database: Db, now = Date.now(), listing?: EbookListedObject[]): Promise<VerifyReport> {
   const { bucket, prefix } = ebookStorage();
-  const objects = await listEbookObjects(prefix);
+  const objects = listing ?? (await listEbookObjects(prefix));
   const listed = new Set(objects.map((o) => o.key));
   const rows = await database
     .select({ id: ebookFiles.id, s3Key: ebookFiles.s3Key, sha256: ebookFiles.sha256, sizeBytes: ebookFiles.sizeBytes, status: ebookFiles.status })
@@ -205,11 +207,12 @@ export function verificationReport(report: VerifyReport, applied?: { verified: n
  * `pnpm ebooks:verify`: plan (read-only), or apply with a pg_dump from the
  * last hour. Writes reports/ebooks/verify-<timestamp>.md and .csv.
  */
-export async function runEbookVerification(options: { database: Db; apply: boolean; backup?: string; reportDir: string; now?: number }) {
+export async function runEbookVerification(options: { database: Db; apply: boolean; backup?: string; reportDir: string; host?: string; now?: number }) {
   if (options.apply && !recentBackup(options.backup, options.now))
     throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
   const report = await verifyEbookStorage(options.database, options.now);
   const applied = options.apply ? await applyEbookVerification(options.database, report) : undefined;
+  if (applied) await recordVerification(options.database, report, applied, options.host ?? null);
   const { markdown, csv } = verificationReport(report, applied);
   const stamp = report.at.toISOString().replace(/[:.]/g, "-");
   mkdirSync(options.reportDir, { recursive: true });
@@ -217,4 +220,27 @@ export async function runEbookVerification(options: { database: Db; apply: boole
   writeFileSync(files.markdown, markdown);
   writeFileSync(files.csv, csv);
   return { report, applied, files };
+}
+
+/** An applied verification is a run on /ebooks/runs (SLN-494), with its counts */
+async function recordVerification(database: Db, report: VerifyReport, applied: { verified: number; missing: number }, host: string | null) {
+  const count = (outcome: VerifyOutcome) => report.rows.filter((r) => r.outcome === outcome).length;
+  const finished = new Date();
+  await database.insert(ebookIngestRuns).values({
+    kind: "verify",
+    state: "finished",
+    host,
+    toolVersion: VERIFY_TOOL_VERSION,
+    counts: {
+      verified: applied.verified,
+      missing: applied.missing,
+      differ: count("size-mismatch") + count("checksum-mismatch"),
+      noKey: count("no-key"),
+      unreferenced: report.unreferenced.length,
+      inFlight: report.inFlight.length,
+    },
+    startedAt: report.at,
+    finishedAt: finished,
+    updatedAt: finished,
+  });
 }

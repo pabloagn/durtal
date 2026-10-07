@@ -428,6 +428,177 @@ Individual seed scripts also support `--dry-run`, `--limit <n>`, and `--table <n
 
 ---
 
+## eBook ingestion
+
+E-book files reach the catalogue through one TypeScript library,
+`src/lib/ebooks/ingest/` (SLN-494), not the Python pipeline. It takes any
+file, works out what it is, checks it, reads its metadata, cover and text,
+stores it in the e-book bucket under its checksum, verifies the stored bytes,
+and only then writes its rows. `pnpm ebooks:ingest` runs it on the machine
+that holds the files; the browser upload (SLN-506) will call the same
+library. Every new e-book is `pending`: matching comes in SLN-495.
+
+**Durtal never moves, changes or deletes a file** in the inbox or any folder
+it reads.
+
+### The inbox and what is taken
+
+With no folder named, the command plans the inbox, `~/Downloads/eBooks`. A
+missing inbox is a plain error: "~/Downloads/eBooks does not exist. Make it
+and drop the eBooks in, or name a folder."
+
+- Every file under the roots is considered, except hidden files, `cover.jpg`,
+  `.opf` files and symlinks that lead out of the roots. `--exclude GLOB`
+  (relative to the root, repeatable) leaves more out. `--limit N` plans only
+  the first N files, for a trial.
+- A file is known by its bytes, never its name: a PDF named `.epub` is a
+  PDF. Files that are not e-books are ignored with the reason (a picture, a
+  plain zip). So are files over 4 GiB. Text files (TXT, RTF, DOCX) are taken
+  only inside a sidecar folder or with `--include-text`.
+- A folder with a `metadata.opf` (a sidecar, as a library manager exports
+  it) is one e-book, whatever its files are called. Its fields win over the
+  file's own, field by field. Its uuid is the e-book's `import_ref`, so
+  another folder or a later run with the same uuid adds formats to the same
+  e-book. Its rating, read dates and custom columns are counted in the
+  report and never imported.
+- Elsewhere, files with the same base name in one folder are one e-book
+  ("Nadja.epub" and "Nadja.pdf").
+- The same bytes at two paths are stored once. The second path is a
+  duplicate naming the first.
+- A DRM file (Adobe, Readium LCP, Apple FairPlay, Kindle, a PDF password) is
+  stored, named and never opened beyond its metadata; it is never the
+  preferred file. A damaged file is stored as `quarantined` with its reason
+  and never served.
+
+### Plan
+
+`pnpm ebooks:ingest [<folder> ...]` is read-only. The catalogue is read
+through a session that refuses writes (a probe proves it before anything
+runs). The bucket's `files/` keys are listed once. The plan does five things
+for each file:
+
+1. hashes it (the cache folder remembers hashes by size and modification
+   time);
+2. sniffs it;
+3. inspects it;
+4. makes its covers and manifest into the cache folder;
+5. counts its words.
+
+It then checks every group against the catalogue. It writes three files to
+`reports/ebooks/` (git-ignored):
+
+- `ingest-<time>.md`: the summary. It gives new e-books, formats to add,
+  changed files, files already stored, duplicates, DRM, quarantined and
+  ignored files, the bytes to upload with an estimate from the last apply's
+  speed, and the monthly storage cost.
+- `ingest-<time>.csv`: one row per file.
+- `ingest-<time>.plan.json`: exactly what the apply will write, with each
+  file's size and modification time.
+
+### Apply
+
+`pnpm ebooks:ingest --apply <plan.json> --backup <dump> [--live]` applies
+exactly that plan. It refuses before writing anything when:
+
+- the plan is older than 7 days, made by another version of the tool, or
+  made against another database or bucket;
+- the backup is not a pg_dump custom-format file written in the last hour;
+- the database is not a local preview and `--live` is missing.
+
+A live apply waits for Joris's own yes. Six e-books are worked on at once;
+the groups of one e-book go one after another. For each file:
+
+1. It is re-checked: a file whose size or modification time changed since
+   the plan is skipped and listed as changed.
+2. It is stored and verified (`docs/07_STORAGE.md`, Ingestion).
+3. Its group's rows are written in one atomic. The unique checksum and the
+   atomic make sure a file is never registered twice.
+
+A changed file of a format the e-book already has replaces the old one: the
+old row becomes `replaced` and the preferred file moves to the new one.
+Every path the run saw is an `ebook_ingest_items` row, so where a file came
+from is always answerable.
+
+The apply ends with a reconciliation. The run is `finished` when it is
+exact, else `failed`, and `/ebooks/runs` shows it.
+
+### Resume
+
+Ctrl-C stops taking new groups. The run becomes `interrupted`, and so does a
+run whose process died. `pnpm ebooks:ingest --resume <runId> --backup <dump>
+[--live]` carries on with every item that is not done, from the plan the run
+kept in the cache folder, on the machine that applied it:
+
+- objects already in S3 are adopted;
+- a multipart upload sends only its missing parts;
+- a group registered just before the stop is not registered again;
+- an item that failed five times is left failed and listed.
+
+### Reconcile
+
+`pnpm ebooks:reconcile [<folder> ...]` is read-only and also the last step of
+every apply. It writes `reports/ebooks/reconcile-<time>.md` and exits 1 when
+the reconciliation is not exact. It checks three sides, by checksum and size:
+
+- **On disk**: every file under the roots, and whether its checksum is in
+  `ebook_files`.
+- **In Neon**: every `ebook_files` row, whether its object (and its cover and
+  manifest) exists with the same size and checksum, and whether its source
+  file is still on this machine.
+- **In S3**: every object, and whether a row names it (objects younger than
+  24 hours are in flight).
+
+It is exact when every file on disk is stored or accounted for. Ignored, DRM,
+quarantined and duplicate files are accounted for and listed. A file not
+stored, a failed or changed file, a row whose object is missing or differs,
+and an object no row names keep it from being exact.
+
+A source file gone after its object was stored and verified is "no longer in
+the inbox", never an exception: the verified object is the copy. Joris may
+empty the inbox once a reconciliation is exact. A file dropped in again is
+recognised by its checksum.
+
+### Undo
+
+`pnpm ebooks:ingest --undo <reports/ebooks/ingest-undo-<runId>.jsonl>
+--backup <dump> [--live]` removes the rows a run created, newest group first,
+where nothing has changed them since: no reading position, no annotation, no
+link to a copy and no edit. A replaced file gets its status back, and the
+preferred file and cover go back when they are still the run's. S3 objects
+stay: they are content-addressed and harmless, and the orphan report lists
+them. The undo file is written as the run goes, one line per group before its
+atomic, so an interrupted run can be undone too.
+
+### The cache folder
+
+`~/.cache/durtal-ebooks` (`--cache-dir`) holds:
+
+- `hashes.jsonl`;
+- each file's inspection (`inspect/`);
+- its covers and manifest (`derived/`), which the apply uploads exactly as
+  the plan made them;
+- the plans that were applied (`plans/`), which a resume reads;
+- unfinished multipart uploads (`uploads/`);
+- the last apply's upload speed.
+
+Deleting it costs only time: the next plan hashes and inspects again.
+
+### Rules for live runs
+
+The plan and the reconciliation may run against the live database and bucket
+at any time; they write nothing. An apply, a resume or an undo of the live
+catalogue needs all of these:
+
+- Joris's own yes, given as `--live`;
+- a backup from the last hour;
+- a plan made against the same database and bucket within 7 days.
+
+Try it on a preview first: `--preview <port>` uses a running preview's
+database and S3 folder (`docs/12_DEVELOPMENT.md`). The whole library goes in
+with SLN-498.
+
+---
+
 ## Python Dependencies
 
 | Package | Purpose |
