@@ -34,6 +34,16 @@ ellipsis, and four controls smaller than 44 px on a touch screen at 390 px.
   an import's preview (`import-client.tsx`, two) take the journal's pattern;
   "All imports" on an import's page takes `touch-hit`. They were 24 px tall
   on touch.
+- **Review fix (PR #140): five more small links.** With a paused book, a
+  re-read and the All time stats, five more title and section links were 24
+  or 20 px tall on touch. The dashboard's Currently reading titles
+  (`reading-tiles.tsx`) and the Paused titles (`hub-cards.tsx`) take the
+  journal's pattern. On `/reading/stats`, the Most re-read titles and the
+  ranked lists' labels (`RankList`, `stats-parts.tsx`) do too, and their
+  rows move apart on a coarse pointer (`pointer-coarse:space-y-5` and
+  `pointer-coarse:space-y-3`), so the 44 px press areas do not overlap. On
+  Year in review, "The journal", "The books" and "The notes" take
+  `touch-hit`.
 
 ## Completion Notes
 
@@ -48,4 +58,15 @@ ellipsis, and four controls smaller than 44 px on a touch screen at 390 px.
   budget.
 - The Hide Anathema switch is named "Hide Anathema in suggestions" in
   Chrome's accessibility tree, and on touch its hit area is 44 by 44 px.
-- `scripts/qa/test-local.py`: 239 files, 2,647 tests, all passed.
+- Review fix, on a production build with a book in progress, a paused book,
+  a re-read and a favourite passage, in headless Chrome, WebKit and Firefox:
+  `touch-audit.js` at 390 px with a coarse pointer also finds nothing on the
+  dashboard (`/`), the All time stats (`/reading/stats?year=all`) and Year in
+  review (`/reading/year/2026`), and no two `touch-hit` areas overlap on any
+  of the twelve pages. Each Most re-read and ranked title sits on its
+  number's baseline (0.01 px at most), with a mouse and on touch. The
+  alignment audit at 1440 and 390 and the page budgets pass. The design
+  audit's one finding is on `/`: the faint letter of a book card without a
+  cover (`book-card.tsx`, not changed here).
+- `scripts/qa/test-local.py`: 239 files, 2,647 tests, all passed; after the
+  review fix, with main merged in, 244 files, 2,710 tests, all passed.

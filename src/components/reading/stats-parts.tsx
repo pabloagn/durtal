@@ -45,13 +45,15 @@ export function RankList({ title, items }: { title?: string; items: RankItem[] }
   return (
     <div className="min-w-0">
       {title && <SectionHeading as="h3" title={title} />}
-      <ol className="space-y-2">
+      {/* On touch the rows are 44px apart, so the links' press areas do not overlap */}
+      <ol className="space-y-2 pointer-coarse:space-y-3">
         {items.map((item, i) => (
           <li key={`${item.label}-${i}`} className="min-w-0">
             <div className="flex items-baseline justify-between gap-3 text-sm">
               {item.href ? (
-                <Link href={item.href} className="lines-1 min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text">
-                  {item.label}
+                // The label cuts off inside the link: the link's touch area is not clipped
+                <Link href={item.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                  <span className="lines-1">{item.label}</span>
                 </Link>
               ) : (
                 <span className="lines-1 min-w-0 text-fg-primary">{item.label}</span>

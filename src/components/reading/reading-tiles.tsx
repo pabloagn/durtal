@@ -115,8 +115,9 @@ export function DashboardReading({
               <div key={tile.reading.readingId} className="flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3" data-dashboard-reading={tile.reading.readingId}>
                 <Cover s3Key={tile.cover} className="h-16 w-11" />
                 <div className="min-w-0 flex-1">
-                  <Link href={tile.href} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
-                    {tile.title}
+                  {/* The title cuts off inside the link: the link's touch area is not clipped */}
+                  <Link href={tile.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                    <span className="lines-1">{tile.title}</span>
                   </Link>
                   <ProgressBar value={tile.percent} label={tile.progressLabel} className="mt-2" />
                   <div className="mt-1.5 flex items-center justify-between gap-2">
