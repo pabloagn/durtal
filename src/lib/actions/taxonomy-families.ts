@@ -6,6 +6,7 @@ import { z } from "zod";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { governedEditQueries, readTaxonomyGovernance } from "@/lib/enrichment/governance";
 import {
   taxonomyFamilies,
   taxonomyApplicability,
@@ -719,6 +720,11 @@ export async function replaceTaxonomyAssignments(input: {
   const owner = parsed.level === "work" ? works : editions;
   // A work's history notes each item added or removed
   const before = parsed.level === "work" ? await workSnapshot(parsed.ownerId) : null;
+  // A book's governed items (SLN-462): an edit in place records Pablo's claims too
+  const governance =
+    parsed.level === "work" && parsed.kind === "book"
+      ? await readTaxonomyGovernance(db, parsed.ownerId, [family.slug])
+      : undefined;
   // A refused change reaches the caller as its rule's message, never as SQL
   await withReadableErrors(() => atomic((d) => [
     d.execute(
@@ -761,6 +767,7 @@ export async function replaceTaxonomyAssignments(input: {
           ),
         ]
       : []),
+    ...governedEditQueries(d, parsed.ownerId, family.slug, ids, governance),
   ]));
   changed();
   if (before) await recordWorkChanges(parsed.ownerId, before, await workSnapshot(parsed.ownerId));

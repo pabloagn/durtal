@@ -219,6 +219,8 @@ deleteEdition(id: string): Promise<{ id: string; cleanupPending: boolean }>
 
 Deletes the edition. Cascades to instances and junction rows. Then deletes its cover files and records `work.edition_deleted` on the work.
 
+Book enrichment (SLN-462): a work's claims may cite this edition's source records, which go with it. The delete is one unit: it refuses while an accepted claim's evidence all cites them ("An accepted enrichment value rests only on this edition's sources. Undo that value first."), otherwise it deletes that evidence, rejects the proposals left with none (`check`, `evidence_deleted`), and deletes the edition with its own claims.
+
 ---
 
 ## Instances (`src/lib/actions/instances.ts`)
@@ -441,6 +443,44 @@ Orders a book the library does not have yet. The author (found by name or create
 ### `updateOrderStatus(id, status, notes?)` / `deleteOrder(id)`
 
 Each status change writes the order and its history row in one transaction. It is refused with "The order changed; reload before changing its status" when another change moved the order first. A delete removes the order with its history rows (they cascade); the book's own status history records the change.
+
+---
+
+## Book enrichment (`src/lib/actions/enrichment.ts`, SLN-462)
+
+The inbox of SLN-470 and the book page read a book's claims and decide them here. The services behind them live in `src/lib/enrichment/` (`claims.ts`, `targets.ts`, `jobs.ts`, `loader.ts`, `governance.ts`) and take a connection, so scripts run the same code inside one postgres-js Drizzle transaction. Each write reads and checks first, makes its ids up front, then writes in one atomic unit with a row lock and a fingerprint check. Activity is recorded after the commit, and every apply or undo invalidates `CACHE_TAGS.works`.
+
+### `getWorkEnrichment(workId)`
+
+The book's claims, newest first, each with its evidence (excerpt, outlet, URL, retrieval date, extractor version) and a `fingerprint`: md5 of the claim, its evidence ids and its target's current value. Also its accepted values (the governed items its accepted claims link, and its value rows) and its applies.
+
+### `acceptEnrichmentClaims(items)`
+
+1 to 20 `{ claimId, fingerprint }`; one `batchId` names the call. Each item stands alone and returns in `applied` (with its `applicationId`) or `failed` (with a reason). An item is refused when its fingerprint is stale, the claim is no longer proposed, or its target refuses (an ID of that provider already there, an ID owned by another record, "No writer for <target>"). An apply writes the target (a taxonomy link of the term's item, a value row, a `works` column or a `catalogue_identifiers` row), sets the claim `accepted`, supersedes the dimension's other open proposals on a single-value dimension and the value it replaces, and logs one `enrichment_applications` row with `before` and `after`. Records `work.enrichment_applied`.
+
+### `rejectEnrichmentClaims(items)`
+
+1 to 20 `{ claimId, fingerprint, reason, note? }`; reasons `wrong_value`, `weak_evidence`, `wrong_book`, `not_independent`, `other`. Only a proposed claim is rejected. A value rejected as `wrong_value` or `wrong_book` is never proposed again; after another reason, only a proposal citing a new source record opens it again.
+
+### `createHumanEnrichmentClaim(input)`
+
+Pablo's edit: `{ workId, editionId?, dimension, value, note? }`, where `value` is `{ term }`, `{ number }`, `{ text }`, `{ placeId }` or `{ personId }` as the dimension's kind takes. Calls `requireBookWork` first. The claim is `human`, accepted by `pablo` and applied at once in the newest vocabulary version; the claim it replaces becomes superseded. Records `work.enrichment_applied`.
+
+### `undoEnrichmentApplication(id)` / `undoEnrichmentBatch(batchId)`
+
+Per-item results `{ undone, failed }`; a batch is undone newest first. An undo restores `before`: the target's value and every claim status the apply changed. Superseded proposals reopen, except one whose value has a newer open claim; the applied claim goes back to proposed, and no rule ever applies it again; a human claim the apply created becomes rejected (`undone`). Refused when the target changed since ("The value changed since it was applied; undo it from its newer apply first"), and for a removal by hand. Records `work.enrichment_undone`.
+
+### Hand edits of governed items
+
+`updateWorkTaxonomy` and the wizard read the governed items of the families they edit first (`readWorkTaxonomyGovernance`), and `workTaxonomyQueries` writes, in the same batch; `replaceTaxonomyAssignments` does the same for a book's family edited in place on the book page, a custom family included: a governed item Pablo adds becomes his accepted human claim with its apply (note "added by hand"), superseding an open proposal of that value; a governed item he removes rejects its accepted claim (`wrong_value`, note "removed by hand") with an apply row, so it is never proposed again. Items no term governs behave as before, and `work.taxonomy_added` and `work.taxonomy_removed` stay.
+
+### Services for scripts (`src/lib/enrichment/`)
+
+- `proposeClaims(items, conn?)`: writes proposals with their evidence, one unit per item, and returns `created`, `merged` (evidence added to the open claim of that value, which takes the new confidence), `skipped` (accepted already, its item linked already, rejected for good, or rejected on the same sources) or `refused` (unknown or retired term, wrong kind, a human proposal without Pablo's `storygraph_export` evidence, or an evidence guard). A concurrent proposal of the same value is retried as a merge.
+- `applyClaim(claimId, by, conn?)`: by Pablo, or by an enabled rule, which also needs the claim's confidence at its minimum, an `api` or `agent` claim never undone, an empty target, and room under its daily cap in a rolling 24 hours (`src/lib/enrichment/rules.ts`: 100 for exact identity links, `DAILY_EXACT_IDENTITY_APPLY_CAP`; 20 for every other rule apply, `DAILY_RULE_APPLY_CAP`; SLN-461's v1 proposal), counted under a transaction advisory lock.
+- `undoApplication(id, conn?)` and `createHumanClaim(input, conn?)`: the actions' services.
+- Jobs (`jobs.ts`): `enqueueEnrichmentJob` (folds into the open job of that book and kind; a running one runs again), `claimNextEnrichmentJob({ worker, kinds, jobIds?, workIds? })` (one `UPDATE … SKIP LOCKED` statement; takes an abandoned lease after 30 minutes; every claim counts an attempt; the fifth abandoned attempt fails), `finishEnrichmentJob` (stores `payload.outcome`; a rerun queues again with its attempts back at zero), `failEnrichmentJob` (retries after 2^attempts minutes, fails after five), `holdEnrichmentJob` (gives the attempt back and drops a pending rerun), `releaseHeldEnrichmentJobs(kind?)` (releases quota, rate-limit and budget holds; a book's cost ceiling waits for Pablo).
+- The vocabulary loader (`loader.ts`, run by `scripts/enrichment/vocabulary.ts`): `planVocabulary`, `applyVocabulary` and `undoVocabulary`. The only code path that creates terms (R4).
 
 ---
 

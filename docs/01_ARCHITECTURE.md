@@ -202,6 +202,10 @@ Reference data read through `cached()` (`src/lib/cache.ts`, `unstable_cache` wit
 
 Books, perfumes, films and paintings share the `works` table, told apart by `works.kind`. Each collection is an entry in `WORK_DOMAINS` (`src/lib/catalogue/domains.ts`): its labels, routes, capabilities and an `enabled` switch. Navigation, menus, search, the dashboard and every collection page read `getEnabledWorkKinds()` and `canUseWorkCapability()`, so a closed collection answers 404 and no page names it. The database has its own gate: `works_kind_enabled_check` lists the kinds a row may have, and only an activation migration widens it (`0053_open_perfumes`, `0054_film_kind_enabled`, `0055_open_paintings`). A collection opens when both say so; closing one is the switch alone, so its rows stay valid and come back when it opens again (see `docs/11_DEPLOYMENT.md`, Release order and Rolling back a collection).
 
+### Book Enrichment Job Queue
+
+Book enrichment (SLN-460) runs its stages from a queue that is a database table, `enrichment_jobs`, not a queue service. A job is one stage of work on one book (identity, facts, length, popularity, research, extract). A worker claims the next job with one `UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1)` statement, because the app's Neon HTTP driver has no interactive transactions; two workers never get the same job, and a lease abandoned for 30 minutes is claimed again. The worker is a script run by hand on the Mac (SLN-464), not a server process. The queue functions are in `src/lib/enrichment/jobs.ts`.
+
 ### Cascading Deletes
 
 Foreign keys use `onDelete: "cascade"` throughout the schema. Deleting a work removes all its editions; deleting an edition removes all its instances. This matches the domain model: if a work does not exist, neither do its publications or copies.
