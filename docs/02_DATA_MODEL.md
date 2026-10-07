@@ -518,7 +518,9 @@ content type and charset; `rawSha256`, `rawBytes`, `rawStoredBytes`, `rawKey`
 (pages); `textSha256` (the hash a text excerpt in `claim_evidence` names),
 `textChars` (code points), `textBytes`, `textKey`; the page's title, byline,
 publication date and language as it states them; the extractor and fetcher
-versions; the robots.txt decision (its URL and status, the matched group and
+versions (the extractor is Mozilla's Readability 0.6.0 on a linkedom 0.18.13
+document, `src/lib/enrichment/extract.ts`: the main text, paragraphs joined by
+a blank line, white space inside each collapsed); the robots.txt decision (its URL and status, the matched group and
 rule, the crawl delay, the fetch time); a MinHash `fingerprint` for
 syndication (R6); the run and the job. The text itself is in S3 under
 `bronze/evidence/` (docs/07). A refresh of the same owner and final URL
