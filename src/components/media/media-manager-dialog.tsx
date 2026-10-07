@@ -372,7 +372,7 @@ export function MediaManagerDialog({
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
-              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors pointer-coarse:min-h-11 ${
                 activeTab === tab.key
                   ? "bg-bg-tertiary text-fg-primary"
                   : "text-fg-secondary hover:text-fg-primary"
@@ -423,13 +423,13 @@ export function MediaManagerDialog({
                     ({items.length})
                   </span>
                 </p>
+                {/* On a phone's touch screen, two columns (one for backgrounds), so
+                    an image's controls are 44px and their areas stay apart */}
                 <div
                   className={`grid gap-2 ${
-                    isGallery
-                      ? "grid-cols-3 sm:grid-cols-4"
-                      : activeTab === "poster"
-                        ? "grid-cols-3 sm:grid-cols-4"
-                        : "grid-cols-2 sm:grid-cols-3"
+                    isGallery || activeTab === "poster"
+                      ? "grid-cols-3 sm:grid-cols-4 max-sm:pointer-coarse:grid-cols-2"
+                      : "grid-cols-2 sm:grid-cols-3 max-sm:pointer-coarse:grid-cols-1"
                   }`}
                 >
                   {items.map((item) => {
@@ -440,7 +440,9 @@ export function MediaManagerDialog({
 
                     return (
                       <div key={item.id} className="group relative">
-                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
+                        {/* On touch the controls are 44px: Select and Adjust on
+                            the left, Delete and Monochrome settings on the right */}
+                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10 pointer-coarse:bottom-auto pointer-coarse:top-14 pointer-coarse:size-11" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
                           aria-label={isSelected ? "Deselect image" : "Select image"}
@@ -450,7 +452,7 @@ export function MediaManagerDialog({
                             e.stopPropagation();
                             toggleSelection(item.id);
                           }}
-                          className={`absolute left-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-sm border transition-all ${
+                          className={`absolute left-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-sm border transition-all pointer-coarse:size-11 ${
                             isSelected
                               ? "border-accent-rose bg-accent-rose"
                               : "border-glass-border bg-bg-primary/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
@@ -473,7 +475,7 @@ export function MediaManagerDialog({
                               e.stopPropagation();
                               setTuningId(isTuning ? null : item.id);
                             }}
-                            className={`absolute left-7 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm transition-all ${
+                            className={`absolute left-7 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm transition-all pointer-coarse:left-auto pointer-coarse:right-1.5 pointer-coarse:top-14 pointer-coarse:size-11 ${
                               isTuning
                                 ? "bg-accent-rose text-fg-primary"
                                 : "bg-bg-primary/80 text-fg-muted opacity-0 hover:text-accent-rose group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
@@ -497,7 +499,7 @@ export function MediaManagerDialog({
                             });
                           }}
                           disabled={isDeletingThis}
-                          className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                          className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-bg-primary/80 text-fg-muted opacity-0 transition-all hover:bg-accent-red/20 hover:text-accent-red group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:size-11 pointer-coarse:opacity-100"
                         >
                           {isDeletingThis ? (
                             <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
@@ -565,7 +567,7 @@ export function MediaManagerDialog({
                                   ),
                                 })
                               }
-                              className="self-start text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                              className="self-start text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11"
                             >
                               Adjust
                             </button>
@@ -636,7 +638,7 @@ export function MediaManagerDialog({
               <button
                 type="button"
                 onClick={() => setShowUrlSection((v) => !v)}
-                className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors"
+                className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors pointer-coarse:min-h-11"
               >
                 <ChevronRight
                   className={`h-3 w-3 transition-transform ${showUrlSection ? "rotate-90" : ""}`}
@@ -660,7 +662,7 @@ export function MediaManagerDialog({
                   <button
                     type="submit"
                     disabled={urlLoading || !url.trim()}
-                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11"
                   >
                     {urlLoading && (
                       <Loader2

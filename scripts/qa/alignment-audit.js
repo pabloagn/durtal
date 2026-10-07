@@ -20,6 +20,8 @@
   // How far up from an icon the text row may be: a button in a CapAligned
   // slot, or a menu trigger, puts the row 5-7 levels above the svg
   const MAX_DEPTH = 8;
+  // A dialog can sit inside the page's markup (a title row's menu opens it)
+  const DIALOG = "dialog, [role=dialog]";
   const ctx = document.createElement("canvas").getContext("2d");
 
   function firstText(el) {
@@ -135,6 +137,8 @@
     let text = null;
     let holder = null;
     for (let depth = 0; depth < MAX_DEPTH && node.parentElement && !text; depth++) {
+      // A dialog's icons line up with its own text, not the page around it
+      if (node.matches?.(DIALOG)) break;
       const row = node.parentElement;
       const cs = getComputedStyle(row);
       const isRow =
@@ -203,6 +207,8 @@
       if (!cs.display.includes("flex") || cs.flexDirection.startsWith("column")) continue;
       controls = [...row.querySelectorAll('button, a[href], [role="button"]')].filter((c) => {
         if (heading.contains(c) || seen.has(c) || !visible(c) || !c.querySelector("svg")) return false;
+        // A dialog opened from the title row is not part of it
+        if (c.closest(DIALOG) !== heading.closest(DIALOG)) return false;
         if (c.parentElement.closest('button, a[href], [role="button"]')) return false;
         // Icon controls only: a text button sits on its own label
         if (c.textContent.trim().length > 2) return false;

@@ -78,7 +78,7 @@ export function CopiesStep({
           <button
             type="button"
             onClick={() => onDraftsChange((prev) => [...prev, newDraft()])}
-            className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary"
+            className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Add another copy

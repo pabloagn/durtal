@@ -225,7 +225,7 @@ function LoadedEditor({
               key={item.key}
               aria-pressed={control.key === item.key}
               onClick={() => setActive(item.key)}
-              className={`rounded-sm px-2 py-1 text-xs ${control.key === item.key ? "bg-accent-rose/20 text-fg-primary" : "text-fg-secondary hover:text-fg-primary"}`}
+              className={`rounded-sm px-2 py-1 text-xs pointer-coarse:min-h-11 ${control.key === item.key ? "bg-accent-rose/20 text-fg-primary" : "text-fg-secondary hover:text-fg-primary"}`}
             >
               {item.label}
             </button>

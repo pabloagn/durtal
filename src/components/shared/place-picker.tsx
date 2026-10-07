@@ -114,7 +114,7 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
             disabled={disabled}
             aria-label={`Clear ${label.toLowerCase()}`}
             data-tooltip="Clear"
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40 pointer-coarse:size-11"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
           </button>

@@ -81,6 +81,38 @@ change touches their files:
   `aria-hidden` and `data-decorative`, as a book's placeholder letter does, so
   the design audit no longer reads it as faint text (1.13).
 
+### On a touch screen
+
+The checks below found controls under 44 px on a touch screen in the media
+managers and the wizard, and the toast list wider than a phone's screen. Main
+has them too; they are fixed here because this change touches those screens.
+With a mouse nothing changes.
+
+- Media managers: the Poster / Background / Gallery tabs, the adjustment
+  editor's tabs and its slider, the monochrome sliders and "Reset to
+  defaults", "Or paste image URL" and its Add, a logo card's Adjust, and the
+  gallery's Shuffle on a person page are 44 px. An image's Select, Adjust,
+  Delete and Monochrome settings buttons are 44 px: Select and Adjust on the
+  left, Delete and Monochrome settings on the right, so no two overlap; on a
+  phone the images show in two columns (backgrounds in one) to make room.
+  A slider keeps its 4 px track line (drawn by its background, as the grid
+  size slider does).
+- Wizard: the narrow progress row's step buttons (44 px, with negative
+  margins, so the row keeps its height), the title's and author's field
+  button (`FieldActionButton`; a field with such a button pads 48 px on its
+  right instead of 32), the recommender list (also in the work edit form),
+  "Add another copy", and the taxonomy checklist's rows and filter
+  (`MultiSelectSection`). The place picker's Clear button grows too, since it
+  shares the field's button slot.
+- Toasts on a phone (`globals.css`): Sonner sets its list 100% wide and 16 px
+  in from the left, so the list ran 16 px past the screen. It now spans the
+  space between the two 16 px offsets, and each toast its full width: the
+  toasts sit where they did (docs/03, Toasts).
+- `scripts/qa/alignment-audit.js` no longer lines up a dialog's icons with
+  the page behind it. A book's media manager opens from the title row's menu,
+  inside the title row's markup, so the audit checked the dialog's Expand and
+  Close against the book's title under the dialog (43 px off).
+
 Nothing else changes on any page: the same labels, classes, toasts and
 confirmations. The progress row of the wizard is no longer a component made
 during render (a lint warning on main), so it no longer remounts on every
@@ -114,14 +146,15 @@ dead code and the suite ran again after merging main 0517d385:
   the wizard through every step to "Add to catalogue" and the new book's page.
   0 alignment deviations in any state, no console errors, and with a mouse no
   finding at all.
-- With touch at 390 px, the audits list controls under 44 px, the same on
-  main (same checks on a build of 2337b72b): in every media manager the tabs
-  (32 px), the adjustment editor's tabs (28 px) and an image's select (16 px),
-  delete (20 px) and adjust (28 px) buttons; in the wizard the narrow progress
-  row's step buttons (14 px), "Add another copy", the recommender list, the
-  taxonomy chips and the title's capitalize button; and after saving a book,
-  the toast list is 10 to 16 px wider than the screen. A person's dialog now
-  lists its select, delete and monochrome buttons too, because they show on a
-  touch screen (above); on main they were invisible there but still took taps.
+- With touch at 390 px, the first run listed the controls under 44 px and
+  the wide toast list that "On a touch screen" fixes (the same on a build of
+  2337b72b). After the fix, the same flows in the three browsers: 141 of 144
+  states pass with every audit. The other 3 are one state, a person's
+  monochrome settings, where the image details' Credit field sits at the
+  dialog's scroll edge with 4 to 5 px in view: the touch audit cuts a target
+  by the box that clips it, and scrolled into view the field is 44 px.
+  The page audits on the six routes: 54 of 54 page loads pass. Page weight:
+  every route within budget (`/library` 145 KB with the flows' books added).
+  No page scrolls sideways at 375 or 390 px.
 - Not run here: `docker build` (its package mirror is blocked in the cloud;
   GitHub builds the image on the PR) and page weight on the newest backup.

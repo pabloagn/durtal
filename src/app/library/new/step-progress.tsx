@@ -34,7 +34,8 @@ export function StepProgress({
               aria-label={s.label}
               disabled={i >= currentIdx || disabled}
               onClick={() => onStep(s.key)}
-              className="flex-1 py-1.5"
+              // On touch a 44px target, with negative margins so the row keeps its height
+              className="flex-1 py-1.5 pointer-coarse:-my-[15px] pointer-coarse:py-[21px]"
             >
               <span
                 className={`block h-0.5 rounded-full transition-colors duration-300 ${

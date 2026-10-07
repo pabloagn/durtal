@@ -53,7 +53,7 @@ export function MultiSelectSection({
           placeholder={`Filter ${title.toLowerCase()}...`}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="mb-2 h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+          className="mb-2 h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
         />
       )}
       {items.length === 0 ? (
@@ -65,7 +65,7 @@ export function MultiSelectSection({
           {filtered.map((item) => (
             <label
               key={item.id}
-              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-xs text-fg-secondary hover:bg-bg-tertiary"
+              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-xs text-fg-secondary hover:bg-bg-tertiary pointer-coarse:min-h-11"
             >
               <input
                 type="checkbox"
