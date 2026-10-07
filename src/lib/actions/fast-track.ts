@@ -14,6 +14,7 @@ import {
 } from "@/lib/catalogue/book-store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
+import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 type Result =
   | {
@@ -62,6 +63,7 @@ export async function fastTrackBook(
     ]);
     // A publisher name no house knows yet is decided when it is safe
     await autoResolveEditions([editionId]);
+    await queueNewBookEnrichment(book.id);
     invalidate(
       CACHE_TAGS.series,
       CACHE_TAGS.works,

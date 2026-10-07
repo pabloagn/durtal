@@ -154,6 +154,10 @@ describe.skipIf(!url)("atomic book writes", () => {
         coverUnavailable: false,
       });
       if (!result.ok) return;
+      // Its identity job, after the save (SLN-464): an owned book comes first
+      expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id=${result.workId}`).toEqual([
+        { kind: "identity", priority: 10, reason: "created" },
+      ]);
       expect(await counts()).toMatchObject({
         authors: 1,
         works: 1,
@@ -329,6 +333,17 @@ describe.skipIf(!url)("atomic book writes", () => {
       return result;
     }
 
+    it("queues the book's identity job for a new edition with an ISBN, and none without", async () => {
+      const { workId } = await book();
+      await c`delete from enrichment_jobs where work_id=${workId}`;
+      await createEdition({ workId, title: "No ISBN" });
+      expect(await c`select id from enrichment_jobs where work_id=${workId}`).toEqual([]);
+      await createEdition({ workId, title: "With ISBN", isbn13: ISBN });
+      expect(await c`select kind, payload->>'reason' as reason from enrichment_jobs where work_id=${workId}`).toEqual([
+        { kind: "identity", reason: "created" },
+      ]);
+    });
+
     it("leaves no contributor created by name when the edition is refused", async () => {
       const { workId } = await book();
       await createEdition({ workId, title: "First", isbn13: ISBN });
@@ -430,6 +445,10 @@ describe.skipIf(!url)("atomic book writes", () => {
         await c`select w.catalogue_status, (select count(*)::int from orders o where o.work_id = w.id) as orders from works w where w.slug=${slug}`;
       expect(work).toEqual({ catalogue_status: "on_order", orders: 1 });
       expect(created.status).toBe("placed");
+      // Its identity job, after the save (SLN-464): an ordered book comes second
+      expect(
+        await c`select j.kind, j.priority from enrichment_jobs j join works w on w.id = j.work_id where w.slug=${slug}`,
+      ).toEqual([{ kind: "identity", priority: 20 }]);
 
       const before = await counts();
       await expect(

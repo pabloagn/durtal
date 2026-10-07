@@ -1290,6 +1290,10 @@ describe.skipIf(!url)(
         const [kept] = await db.select().from(schema.instances).where(eq(schema.instances.id, copy.id));
         expect(kept.editionId).toBe(e.id);
         expect(await getIdentifyQueue()).toEqual([]);
+        // The book's identity job, once its placeholder has an ISBN (SLN-464)
+        expect(
+          (await db.execute(sql`select kind, payload->>'reason' as reason from enrichment_jobs where work_id = ${w.id}::uuid`)) as unknown as unknown[],
+        ).toEqual([{ kind: "identity", reason: "created" }]);
         await expect(identifyEdition(e.id, LOSER.isbn13)).rejects.toThrow("already identified");
 
         await undoIdentification(e.id, done.undo);

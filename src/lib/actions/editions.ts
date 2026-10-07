@@ -31,6 +31,7 @@ import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
 import { isbnClash, isbnTaken } from "@/lib/catalogue/isbn-clash";
+import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 export async function createEdition(input: CreateEditionInput) {
   const parsed = createEditionSchema.parse(input);
@@ -58,6 +59,8 @@ export async function createEdition(input: CreateEditionInput) {
 
   // A publisher name no house knows yet is decided when it is safe
   await autoResolveEditions([plan.id]);
+  // An ISBN is something to resolve: the book's identity job (SLN-464)
+  if (parsed.isbn13 || parsed.isbn10) await queueNewBookEnrichment(parsed.workId);
 
   const edition = await db.query.editions.findFirst({
     where: eq(editions.id, plan.id),

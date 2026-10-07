@@ -79,6 +79,7 @@ import {
   nextCatalogueStatus,
   type CatalogueStatus,
 } from "@/lib/utils/order-status-sync";
+import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 /**
  * Keep a work's catalogueStatus in line with ALL its orders (C1, H4), without
@@ -641,6 +642,7 @@ export async function createOrderForNewBook(input: {
     work.id,
     `Order created with status "${status}"`,
   );
+  await queueNewBookEnrichment(work.id);
   invalidate(CACHE_TAGS.orders, CACHE_TAGS.works, CACHE_TAGS.authors);
   return { order, slug: work.slug };
 }

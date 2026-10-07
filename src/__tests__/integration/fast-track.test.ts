@@ -134,6 +134,10 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
       workId: saved.works[0].id,
     });
     expect(saved.copies).toEqual([]);
+    // Its identity job, after the save (SLN-464)
+    expect(
+      (await db.execute(sql`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id = ${saved.works[0].id}::uuid`)) as unknown as unknown[],
+    ).toEqual([{ kind: "identity", priority: 100, reason: "created" }]);
     expect(saved.authors[0]).toMatchObject({
       name: "Marcel Schwob",
       sortName: "Schwob, Marcel",

@@ -115,3 +115,7 @@ docker-compose.override.yml
 # QA logs (scripts/qa/preview-local.py --log-sql): they hold catalogue data
 # =============================================================================
 *.jsonl
+
+# Book enrichment worker: source answers and reports hold catalogue data (SLN-464)
+enrichment-sources.json
+enrichment-report.md

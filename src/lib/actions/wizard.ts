@@ -29,6 +29,7 @@ import {
   wizardBookSchema,
   type WizardBookInput,
 } from "@/lib/validations/wizard";
+import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 /** The book that already uses an ISBN-13, for the wizard's edition step. */
 export async function isIsbnInUse(
@@ -181,6 +182,7 @@ export async function createBookFromWizard(
 
     // A publisher name no house knows yet is decided when it is safe
     await autoResolveEditions([editionId]);
+    await queueNewBookEnrichment(workId);
     invalidate(
       CACHE_TAGS.works,
       CACHE_TAGS.series,

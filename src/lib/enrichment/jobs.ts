@@ -121,6 +121,19 @@ export async function finishEnrichmentJob(input: { id: string; worker: string; o
   );
 }
 
+/**
+ * A heartbeat: renews a running job's lease while its worker still holds it,
+ * so a job longer than the lease is never taken over. False when the job is
+ * no longer this worker's.
+ */
+export async function renewEnrichmentJobLease(input: { id: string; worker: string }, conn: Db = appDb) {
+  const renewed = resultRows<{ id: string }>(
+    await conn.execute(sql`update enrichment_jobs set locked_at = now()
+      where id = ${input.id}::uuid and status = 'running' and locked_by = ${input.worker} returning id`),
+  );
+  return renewed.length === 1;
+}
+
 /** A failed attempt: retried after 2^attempts minutes, failed for good after the last */
 export async function failEnrichmentJob(input: { id: string; worker: string; error: unknown }, conn: Db = appDb) {
   return one(
@@ -153,13 +166,17 @@ export async function holdEnrichmentJob(input: { id: string; worker: string; rea
 
 /**
  * Releases the holds a stage's next run may retry: quota, rate limit and
- * budget. A book's cost ceiling waits for Pablo.
+ * budget. A book's cost ceiling waits for Pablo: only a run he names the
+ * book for (`jobIds`) releases it.
  */
-export async function releaseHeldEnrichmentJobs(kind?: EnrichmentJobKind, conn: Db = appDb) {
+export async function releaseHeldEnrichmentJobs(kind?: EnrichmentJobKind, conn: Db = appDb, options: { jobIds?: string[] } = {}) {
   const k = kind ? jobKindSchema.parse(kind) : null;
+  const named = options.jobIds?.length
+    ? sql`or (held_reason = 'work_cost_ceiling' and id in (${sql.join(options.jobIds.map((id) => sql`${id}::uuid`), sql`, `)}))`
+    : sql``;
   const released = resultRows<{ id: string }>(
     await conn.execute(sql`update enrichment_jobs set status = 'queued', held_reason = null, updated_at = now()
-      where status = 'held' and held_reason in ('quota', 'rate_limited', 'budget') ${k ? sql`and kind = ${k}` : sql``}
+      where status = 'held' and (held_reason in ('quota', 'rate_limited', 'budget') ${named}) ${k ? sql`and kind = ${k}` : sql``}
       returning id`),
   );
   return released.length;
