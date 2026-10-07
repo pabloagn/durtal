@@ -36,5 +36,6 @@ long book to the suggestions and a book of unknown length to the page rule.
   28 tests pass.
 - No layout change: the suggestions and their rows differ only for a book
   whose edition has a count outside the bounds.
-- `scripts/qa/test-local.py`: 254 files, 2,835 tests, all passed. Typecheck
-  clean; lint no new warning; `pnpm deadcode` clean.
+- `scripts/qa/test-local.py`: 254 files, 2,835 tests, all passed, before and
+  after the row change. Typecheck clean; lint no new warning; `pnpm deadcode`
+  clean.
