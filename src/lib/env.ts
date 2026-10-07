@@ -20,6 +20,16 @@ const required = z.preprocess(
 );
 
 const DEFAULT_S3_BUCKET = "durtal";
+const DEFAULT_EBOOKS_BUCKET = "durtal-ebooks";
+
+/** The CloudFront variables EBOOK_DELIVERY=cloudfront needs */
+const EBOOK_CDN_VARIABLES = ["EBOOK_CDN_URL", "EBOOK_CDN_KEY_PAIR_ID", "EBOOK_CDN_PRIVATE_KEY"] as const;
+
+/** A base64-encoded PEM private key: the value of EBOOK_CDN_PRIVATE_KEY */
+function isBase64PrivateKey(value: string) {
+  const pem = Buffer.from(value, "base64").toString("utf8");
+  return /^-----BEGIN (RSA )?PRIVATE KEY-----/.test(pem.trim());
+}
 
 const serverSchema = z.object({
   DATABASE_URL: z.preprocess(
@@ -47,10 +57,51 @@ const serverSchema = z.object({
     (v) => (v === "" ? undefined : v),
     z.string().regex(/^\d+(\.\d+)?$/, { error: "must be an amount in US dollars, such as 20 or 7.50" }).optional(),
   ),
+  /** The e-book bucket (SLN-491), its key prefix and region */
+  EBOOKS_BUCKET: optional.transform((v) => v ?? DEFAULT_EBOOKS_BUCKET),
+  EBOOKS_PREFIX: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .string()
+      .regex(/^([a-z0-9][a-z0-9._-]*\/)+$/, { error: "must be folder names ending in a slash, such as ebooks/" })
+      .refine((v) => !v.split("/").includes(".."), { error: "must not contain .." })
+      .optional()
+      .transform((v) => v ?? ""),
+  ),
+  EBOOKS_REGION: optional,
+  /** cloudfront: signed CloudFront URLs; app: the app streams the bytes itself */
+  EBOOK_DELIVERY: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.enum(["cloudfront", "app"], { error: "must be cloudfront or app" }).default("app"),
+  ),
+  EBOOK_CDN_URL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .url({ protocol: /^https$/, error: "must be an https URL, such as https://d111111abcdef8.cloudfront.net" })
+      .optional()
+      .transform((v) => v?.replace(/\/+$/, "")),
+  ),
+  EBOOK_CDN_KEY_PAIR_ID: optional,
+  EBOOK_CDN_PRIVATE_KEY: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().refine(isBase64PrivateKey, { error: "must be a base64-encoded PEM private key" }).optional(),
+  ),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-});
+})
+  .superRefine((env, ctx) => {
+    if (env.EBOOK_DELIVERY !== "cloudfront") return;
+    const missing = EBOOK_CDN_VARIABLES.filter((name) => !env[name]);
+    if (missing.length)
+      ctx.addIssue({
+        code: "custom",
+        path: ["EBOOK_DELIVERY"],
+        message: `cloudfront needs ${missing.join(", ")}`,
+      });
+  })
+  // The e-book bucket is in the app's region unless it says otherwise
+  .transform((env) => ({ ...env, EBOOKS_REGION: env.EBOOKS_REGION ?? env.AWS_REGION }));
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 

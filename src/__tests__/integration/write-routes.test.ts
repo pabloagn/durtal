@@ -4,7 +4,6 @@ import sharp from "sharp";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
-import { DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
@@ -19,35 +18,7 @@ const testDb = client ? drizzle(client, { schema }) : null;
 
 // An in-memory bucket for every S3 call: no request leaves the machine, and no key is needed
 const bucket = vi.hoisted(() => new Map<string, Buffer>());
-vi.mock("@/lib/s3/client", () => ({
-  S3_BUCKET: "local-test",
-  s3: {
-    send: vi.fn(async (command: unknown) => {
-      if (command instanceof PutObjectCommand) {
-        bucket.set(command.input.Key!, Buffer.from(command.input.Body as Uint8Array));
-        return {};
-      }
-      if (command instanceof GetObjectCommand) {
-        const body = bucket.get(command.input.Key!);
-        if (!body) throw Object.assign(new Error("The specified key does not exist."), { name: "NoSuchKey" });
-        return { Body: { transformToByteArray: async () => new Uint8Array(body) }, ContentLength: body.length };
-      }
-      if (command instanceof ListObjectsV2Command) {
-        const prefix = command.input.Prefix ?? "";
-        return { Contents: [...bucket.keys()].filter((k) => k.startsWith(prefix)).map((Key) => ({ Key })), IsTruncated: false };
-      }
-      if (command instanceof DeleteObjectsCommand) {
-        for (const { Key } of command.input.Delete?.Objects ?? []) bucket.delete(Key!);
-        return { Errors: [] };
-      }
-      if (command instanceof DeleteObjectCommand) {
-        bucket.delete(command.input.Key!);
-        return {};
-      }
-      throw new Error("Unexpected S3 command in a test");
-    }),
-  },
-}));
+vi.mock("@/lib/s3/client", async () => (await import("@/__tests__/helpers/memory-bucket")).memoryS3Client(bucket));
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
     {},

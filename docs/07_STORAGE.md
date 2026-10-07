@@ -1,6 +1,6 @@
 # Storage
 
-All images — book covers, author photos, media uploads, and import files — are stored in AWS S3. The bucket is organized using a medallion architecture (bronze/silver/gold) that separates raw data from production-ready assets.
+All images — book covers, author photos, media uploads, and import files — are stored in AWS S3. The bucket is organized using a medallion architecture (bronze/silver/gold) that separates raw data from production-ready assets. E-book files have a private bucket of their own ([eBook Files](#ebook-files)).
 
 ---
 
@@ -9,7 +9,7 @@ All images — book covers, author photos, media uploads, and import files — a
 | Setting | Value |
 |---|---|
 | Bucket | `durtal` (from `S3_BUCKET` env var) |
-| Region | `eu-central-1` (from `AWS_REGION` env var) |
+| Region | `eu-north-1` (from `AWS_REGION` env var) |
 | Client | AWS SDK v3 (`@aws-sdk/client-s3`) |
 | Auth | IAM user with read/write policy scoped to the bucket |
 
@@ -263,6 +263,63 @@ The app serves stored files itself through `GET /api/s3/read`, and only those un
 
 ---
 
+## eBook Files
+
+E-book files (SLN-491) live in their own private bucket, so versioning, lifecycle and delete protection apply to them alone, and the main bucket's cleanup sweeps and backup routine never touch them.
+
+| Setting | Value |
+|---|---|
+| Bucket | `durtal-ebooks` (`EBOOKS_BUCKET`) |
+| Prefix | none (`EBOOKS_PREFIX`; `EBOOKS_BUCKET=durtal` with `EBOOKS_PREFIX=ebooks/` keeps the same layout inside `durtal`) |
+| Region | `eu-north-1`, the app's (`EBOOKS_REGION`, default `AWS_REGION`) |
+| Client | its own S3 client for that region, `ebookS3()` in `src/lib/ebooks/storage.ts` |
+| Set up by | `scripts/aws/ebooks-storage.sh` from `infra/aws/ebooks/` (`docs/11_DEPLOYMENT.md`, eBook storage) |
+
+### Keys
+
+Built only from a checked 64-hex SHA-256, a known extension or name, or a uuid, never from text a client sends (`src/lib/ebooks/keys.ts`), each after the prefix:
+
+```
+files/{sha256[0:2]}/{sha256}.{ext}       the original bytes; never overwritten
+derived/{sha256}/cover-240.webp          a file's covers, three widths
+derived/{sha256}/cover-400.webp
+derived/{sha256}/cover-800.webp
+derived/{sha256}/manifest.json           what the ingest learned of the file
+staging/{uploadId}/{name}                browser uploads; expire in 2 days
+```
+
+The key is the checksum of the bytes, so storing the same file again is a no-op and a changed file is a new object. The extension is the format's (`epub`, `pdf`, `azw3` ...; a file of an unknown format is `.bin`).
+
+### Objects
+
+`putEbookObject` (`src/lib/ebooks/storage.ts`) writes every object with:
+
+- `ChecksumSHA256`: S3 refuses bytes that differ from it. A file is written with `If-None-Match: *` and is never overwritten (a `412` means it is already stored);
+- `Cache-Control: public, max-age=31536000, immutable`, the exact `Content-Type`, `Content-Disposition: inline; filename*=UTF-8''<title>.<ext>` and `x-amz-meta-sha256`;
+- SSE-S3 encryption; storage class `INTELLIGENT_TIERING` for files (never an archive tier: those restore asynchronously and would break instant open), `STANDARD` for derived and staged objects.
+
+A single `PUT` takes up to 5 GB; the ingest uploads larger files in parts with the same headers (`ebookObjectHeaders`). `headEbookObject(key, { checksum: true })` returns the size and S3's SHA-256 (for a multipart upload, a checksum of its parts; the metadata names the whole), `getEbookObjectRange(key, start, end)` streams a byte range, and `listEbookObjects(prefix)` lists in pages. In a preview (`--s3-dir DIR`) the same functions use files under `DIR/<bucket>/<key>`, refuse `..`, and read only the slice a range asks for.
+
+### Versioning, lifecycle and delete protection
+
+- Versioning is on. A noncurrent version expires after 30 days (the undo window), expired delete markers are removed, incomplete multipart uploads abort after 7 days and `staging/` objects expire after 2 days (`infra/aws/ebooks/lifecycle.json`).
+- The bucket policy lets every principal but the admin delete nothing under `files/`, delete no version and change neither versioning, lifecycle nor the policy itself. The app's user may read, write and list, and delete only under `staging/`. The app never deletes a book file.
+
+### Delivery
+
+The browser reads a file by HTTP Range, only the bytes it needs, so a 50 MB book opens as fast as a 5 MB one. It never receives an AWS credential or chooses a key: the app reads the file's row first, and signs or serves only rows read in the same request (`src/lib/ebooks/delivery/files.ts` makes the only values the signer accepts). Quarantined, missing and replaced files and files under DRM are never signed or served.
+
+- **CloudFront** (`EBOOK_DELIVERY=cloudfront`): CloudFront reads the private bucket through Origin Access Control and serves it from the nearest edge. `fileUrlFor(file)` returns a canned-policy signed URL (`src/lib/ebooks/delivery/sign.ts`, Node's own RSA-SHA1, the format of AWS's CloudFront signer). It is valid until the end of the next 6-hour window, so the same file has the same URL for 6 hours (one entry in every cache) and a URL is always good for at least 6 hours. Covers and manifests share one custom-policy signature for `derived/*` (`signedDerivedUrlBase`): a page of 48 covers costs one signature. CloudFront answers CORS itself (any origin: the signed URL is the credential) and exposes `Content-Range`.
+- **The app** (`EBOOK_DELIVERY=app`, the default, and always in previews): `GET /api/ebooks/files/[fileId]` streams the same bytes with Range support, and `/api/reader/[ebookId]/cover` the covers (`docs/05_API_REFERENCE.md`, eBooks).
+
+E-book files are never readable through `/api/s3/read`: it serves only the main bucket's `gold/` folders.
+
+### Verification
+
+`pnpm ebooks:verify` (`scripts/ebooks/verify.ts`) lists the bucket once, HEADs every object an `ebook_files` row names with its SHA-256, and compares size and checksum with the row. Its report (`reports/ebooks/verify-<timestamp>.md` and `.csv`, git-ignored) counts matches, missing objects, size or checksum mismatches, rows with no key, and objects under `files/` and `derived/` that no row names (older than 24 hours; younger ones are in flight: an object is written before its row). It is read-only, on a session that refuses writes. `--apply --backup FILE` (a pg_dump from the last hour) marks matches `verified` with `verified_at` and mismatches `missing`, one atomic write per 500 rows; quarantined and replaced files keep their status. It never deletes or changes an object.
+
+---
+
 ## S3 Operations
 
 Core operations in `src/lib/s3/covers.ts`:
@@ -310,7 +367,7 @@ The cleanup runs only after the database delete commits. It never fails the dele
 
 **Evidence objects** belong to no record's folders: no `ownedPrefixes` entry covers `bronze/evidence/` (a test pins it), and `deleteUnusedObjects` takes only `gold/` keys, so deleting a book never deletes an evidence object another book may share. A key named in a `source_records` payload (`rawKey`, `textKey`) counts as in use (`keysInUse`). Objects are written before their row, so a failed row write leaves an orphan. `scripts/enrichment/evidence.ts --purge` lists evidence objects older than a day that no row names; it deletes nothing until Pablo decides the retention (SLN-461; the planned rule keeps an object while any claim cites it and lets an uncited one go after 90 days, `EVIDENCE_RETENTION_DAYS`).
 
-To find files that no row references, run the read-only report. It lists `gold/` and `bronze/evidence/` objects older than 24 hours and never deletes anything:
+To find files that no row references, run the read-only report. It lists `gold/` and `bronze/evidence/` objects older than 24 hours, and the e-book bucket's `files/` and `derived/` objects that no `ebook_files` row names (a derived object belongs to the file whose checksum names its folder), with the same 24-hour rule. It never deletes anything:
 
 ```bash
 node --env-file=.env.local --import tsx scripts/maintenance/report-orphaned-s3.ts

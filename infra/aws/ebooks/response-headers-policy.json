@@ -1,0 +1,19 @@
+{
+  "Name": "durtal-ebooks-cors",
+  "Comment": "Durtal e-books: CORS answered by CloudFront; the signed URL is the credential",
+  "CorsConfig": {
+    "AccessControlAllowOrigins": { "Quantity": 1, "Items": ["*"] },
+    "AccessControlAllowHeaders": { "Quantity": 1, "Items": ["Range"] },
+    "AccessControlAllowMethods": { "Quantity": 3, "Items": ["GET", "HEAD", "OPTIONS"] },
+    "AccessControlAllowCredentials": false,
+    "AccessControlExposeHeaders": {
+      "Quantity": 4,
+      "Items": ["Content-Range", "Accept-Ranges", "Content-Length", "ETag"]
+    },
+    "AccessControlMaxAgeSec": 86400,
+    "OriginOverride": true
+  },
+  "SecurityHeadersConfig": {
+    "ContentTypeOptions": { "Override": true }
+  }
+}

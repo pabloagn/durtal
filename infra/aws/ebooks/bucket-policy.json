@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudFrontReadsThroughOriginAccessControl",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudfront.amazonaws.com" },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::__BUCKET__/*",
+      "Condition": { "StringEquals": { "AWS:SourceArn": "__DISTRIBUTION_ARN__" } }
+    },
+    {
+      "Sid": "NoBookFileIsDeleted",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:DeleteObject",
+      "Resource": "arn:aws:s3:::__BUCKET__/__PREFIX__files/*",
+      "Condition": { "ArnNotEquals": { "aws:PrincipalArn": "__ADMIN_ARN__" } }
+    },
+    {
+      "Sid": "OnlyTheAdminChangesProtection",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": [
+        "s3:DeleteObjectVersion",
+        "s3:PutBucketVersioning",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketPolicy"
+      ],
+      "Resource": ["arn:aws:s3:::__BUCKET__", "arn:aws:s3:::__BUCKET__/*"],
+      "Condition": { "ArnNotEquals": { "aws:PrincipalArn": "__ADMIN_ARN__" } }
+    }
+  ]
+}

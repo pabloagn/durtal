@@ -8,7 +8,7 @@ Server actions are called directly by server components and client components wi
 
 ## New books queue their identity and research jobs (SLN-464, SLN-469)
 
-After its save commits, each of these actions queues the book's identity job and its research job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. Queueing spends nothing: research spends only when the worker runs `--apply --kinds research`. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
+After its save commits, each of these actions queues the book's identity job and its research job with `queueNewBookEnrichment(workId)` (`src/lib/enrichment/queue.ts`): `createWork`, `createBookFromWizard`, `fastTrackBook` (`src/lib/actions/fast-track.ts`), `createOrderForNewBook`, `createEdition` when the edition has an ISBN, and `identifyEdition` when a placeholder gets its ISBN. The job's priority is the book's scope: owned 10, on order 20, wanted 30, the rest 100; a bulk e-book accession passes `BULK_ACCESSION_PRIORITY` (200). An open job of the book is merged, not duplicated. A book already researched queues its identity job only, so a new edition searches nothing again; a research job skipped because the book had no author does not count (SLN-530). Queueing spends nothing: research spends only when the worker runs `--apply --kinds research`. The queue never fails a save: a failure is logged with `[enrichment]`. The worker (`scripts/enrichment/worker.ts`) works the jobs by hand. When an edition's ISBN changes later, re-queue it with `--enqueue identity --only SLUG`.
 
 ## Works (`src/lib/actions/works.ts`)
 
@@ -816,14 +816,21 @@ The lists the book page's edit dialogs choose from, loaded when a dialog opens: 
 
 ## Media (`src/lib/actions/media.ts`)
 
-### `getMediaForWork(workId)` / `getMediaForAuthor(authorId)`
+### `getMediaForWork(workId)`
 
 ```typescript
 getMediaForWork(workId: string): Promise<Media[]>
-getMediaForAuthor(authorId: string): Promise<Media[]>
 ```
 
 Returns all media ordered by `sortOrder`.
+
+### `getMediaByType(ownerId, type, ownerType?)`
+
+```typescript
+getMediaByType(ownerId: string, type: string, ownerType?: MediaOwnerType): Promise<Media[]>
+```
+
+One owner's images of one type (`poster`, `background`, `gallery`), the active one first, then by `sortOrder`, newest first. `ownerType` defaults to `"work"`; an unknown owner is refused. The media manager (`src/components/media/media-manager-dialog.tsx`) loads each tab with it, for every kind of owner.
 
 ### `createMedia(input)`
 

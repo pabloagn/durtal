@@ -1,0 +1,29 @@
+{
+  "Rules": [
+    {
+      "ID": "noncurrent-versions-expire-after-30-days",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    },
+    {
+      "ID": "expired-delete-markers-are-removed",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "ExpiredObjectDeleteMarker": true }
+    },
+    {
+      "ID": "incomplete-multipart-uploads-abort-after-7-days",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    },
+    {
+      "ID": "staging-expires-after-2-days",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "__PREFIX__staging/" },
+      "Expiration": { "Days": 2 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 1 }
+    }
+  ]
+}
