@@ -84,7 +84,7 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
             {(header.readings > 0 || header.queued > 0 || header.notes > 0) && (
               <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} />
             )}
-            <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary">
+            <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
               All imports
             </Link>
           </div>

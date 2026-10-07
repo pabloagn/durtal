@@ -36,8 +36,9 @@ export default async function ReadingImportPage() {
               {imports.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3" data-import-item={i.id}>
                   <div className="min-w-0 flex-1">
-                    <Link href={`/reading/import/${i.id}`} className="lines-1 text-sm text-fg-primary transition-colors hover:text-accent-rose-text">
-                      {i.fileName ?? "Reading history"}
+                    {/* The title cuts off inside the link: the link's touch area is not clipped */}
+                    <Link href={`/reading/import/${i.id}`} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                      <span className="lines-1">{i.fileName ?? "Reading history"}</span>
                     </Link>
                     <p className="lines-1 text-xs text-fg-secondary">
                       {[
