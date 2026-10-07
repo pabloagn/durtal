@@ -7,7 +7,25 @@
  *   find it by search and by the favourites filter → export it → delete it →
  *   its page shows the not-found view and the export leaves it out.
  *
- *   node scripts/qa/journeys.mjs --disposable [baseUrl] [collection ...]
+ *   node scripts/qa/journeys.mjs --disposable [baseUrl] [journey ...]
+ *
+ * Without a journey name, every journey that needs no seed runs: the three
+ * collections, then these (SLN-516). Each makes what it needs and deletes the
+ * books, perfumes, films, paintings and collection it made at the end; the
+ * people, publisher, series and venues it made stay:
+ *
+ * - "collect": a perfume, a film and a painting in one collection; reorder,
+ *   reload, remove one (it stays in the library), delete the collection.
+ * - "books": a publisher, then a book through the add-book wizard with its
+ *   series, an edition of that publisher and a bought copy; the series and the
+ *   publisher list it; a second edition and its copy from the book's page;
+ *   a wanted book hunted in that publisher's edition: add the edition, order
+ *   it from the hunt, mark it delivered; the hunt reads received and the book
+ *   accessioned.
+ * - "kinds": one person writes a book, directs a film, composes a perfume and
+ *   paints a painting, and their page lists all four; a sample of one of two
+ *   formulations; a director's cut and a performer in two characters; a
+ *   museum's original lent to another museum, with a reproduction apart.
  *
  * The "reading" journey (SLN-447) drives the book page's reading tracker on the
  * book that scripts/qa/reading-journey.sql seeds: start mid-book, log, fix a
@@ -81,8 +99,10 @@ const COLLECTIONS = {
   films: { form: "Add film", placeholder: "The Thing", entity: "films", missing: "Film not found" },
   paintings: { form: "Add painting", placeholder: "The Garden of Earthly Delights", entity: "paintings", missing: "Painting not found" },
 };
-const JOURNEYS = [...Object.keys(COLLECTIONS), "reading", "import"];
-const chosen = only.length ? only : Object.keys(COLLECTIONS);
+// Without a name, every journey that needs no seed runs
+const SEEDLESS = [...Object.keys(COLLECTIONS), "collect", "books", "kinds"];
+const JOURNEYS = [...SEEDLESS, "reading", "import"];
+const chosen = only.length ? only : SEEDLESS;
 
 function findChrome() {
   if (process.env.CHROME) return process.env.CHROME;
@@ -175,7 +195,80 @@ const exportCsv = (entity) =>
     .then((r) => { if (r.status === 404) return ''; if (!r.ok) throw new Error('The export answered ' + r.status); return r.text(); })`);
 // The last dialog on screen: a closed dialog or a hidden popover (Why this? on every suggestion) draws no box
 const DIALOG = "([...document.querySelectorAll('[role=dialog], dialog')].filter((d) => d.getClientRects().length).pop())";
+// The open menu, so a menu item is not mistaken for a sidebar link of the same name
+const MENU = "document.querySelector('[role=menu]')";
 const pageText = () => evaluate("document.querySelector('main')?.innerText ?? ''");
+const toastSays = (text) => `[...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.includes(${JSON.stringify(text)}))`;
+/** A field of `scope` by its aria-label, else by its label's text: an input, a textarea or a Select */
+const labelled = (text, scope = "document") =>
+  `(() => { const s = ${scope}; const t = ${JSON.stringify(text)};
+    const named = [...s.querySelectorAll('input, textarea, [role=combobox]')].find((e) => e.getAttribute('aria-label') === t);
+    if (named) return named;
+    const l = [...s.querySelectorAll('label')].find((e) => e.textContent.trim().replace(/\\s*\\*$/, '') === t);
+    return l ? (l.htmlFor ? document.getElementById(l.htmlFor) : l.querySelector('input, textarea')) : null; })()`;
+/** Types `value` into the field labelled `text`, replacing what it held */
+async function fillIn(text, value, scope = "document") {
+  if (!(await evaluate(`!!${labelled(text, scope)}`))) throw new Error(`No "${text}" field`);
+  await type(labelled(text, scope), value);
+}
+/** Picks the first option of a Select that starts with `option`, or matches it when a RegExp */
+async function pickOption(text, option, scope = "document") {
+  const box = labelled(text, scope);
+  if (!(await evaluate(`!!${box}`))) throw new Error(`No "${text}" list`);
+  await evaluate(`${box}.click(), true`);
+  await waitFor(`${box}.parentElement.querySelector('[role=listbox]')`, `the ${text} list`);
+  const test = option instanceof RegExp ? `new RegExp(${JSON.stringify(option.source)}).test(t)` : `t.startsWith(${JSON.stringify(option)})`;
+  const ok = await evaluate(`(() => { const o = [...${box}.parentElement.querySelectorAll('[role=option]')].find((e) => { const t = e.textContent.trim().replace(/^✓\\s*/, ''); return ${test}; }); if (!o) return false; o.click(); return true; })()`);
+  if (!ok) throw new Error(`No "${option}" in ${text}`);
+  await sleep(250);
+}
+/** In an open search picker labelled `label`, finds `name` and picks it, or creates it */
+async function searchPick(label, name, scope = "document") {
+  const input = `${scope}.querySelector('input[aria-label=${JSON.stringify(label)}]')`;
+  await waitFor(input, `the ${label} search`);
+  await type(input, name);
+  const choice = `[...${input}.parentElement.querySelectorAll('button')].find((b) => !b.disabled && (b.textContent.trim().split(' · ')[0] === ${JSON.stringify(name)} || b.textContent.trim() === ${JSON.stringify(`Create “${name}”`)}))`;
+  await waitFor(choice, `"${name}" in the ${label} search`);
+  await evaluate(`${choice}.click(), true`);
+  await waitFor(`!${input}`, `the ${label} search to close`);
+  await sleep(300);
+}
+/** Adds a perfume, film or painting through its add form, titled `title`; resolves to its page */
+async function addRecord(name, title) {
+  const c = COLLECTIONS[name];
+  await go(`/${name}/new`);
+  await type(`document.querySelector('input[placeholder=${JSON.stringify(c.placeholder)}]')`, title);
+  return submitRecord(name);
+}
+async function submitRecord(name) {
+  await click(COLLECTIONS[name].form, "document.querySelector('main')");
+  await waitFor(`location.pathname !== '/${name}/new' && location.pathname.startsWith('/${name}/')`, "the new record's page");
+  return evaluate("location.pathname");
+}
+/** Deletes the record on `path` from its Actions menu */
+async function deleteRecord(name, path) {
+  await go(path);
+  await click("Actions", "document.querySelector('main')");
+  await click("Delete", MENU);
+  await waitFor(DIALOG, "the delete dialog");
+  await click("Delete", DIALOG);
+  await waitFor(`location.pathname === '/${name}'`, "the collection home after the delete");
+}
+/** Deletes the book on `path` from its title row's Actions menu */
+async function deleteBook(path) {
+  await go(path);
+  await click("Actions", "document.querySelector('main')");
+  await click("Delete Work", MENU);
+  await waitFor(DIALOG, "the delete dialog");
+  await click("Delete", DIALOG);
+  await waitFor("location.pathname === '/library'", "the library after the delete");
+}
+/** A valid ISBN-13 of the 979 range, from a number */
+function isbn13(n) {
+  const body = `979${String(n % 1e9).padStart(9, "0")}`;
+  const sum = [...body].reduce((s, d, i) => s + Number(d) * (i % 2 ? 3 : 1), 0);
+  return body + ((10 - (sum % 10)) % 10);
+}
 
 async function journey(name) {
   const c = COLLECTIONS[name];
@@ -188,13 +281,10 @@ async function journey(name) {
     steps.push(label);
   };
   try {
+    let path = "";
     await step("create", async () => {
-      await go(`/${name}/new`);
-      await type(`document.querySelector('input[placeholder=${JSON.stringify(c.placeholder)}]')`, title);
-      await click(c.form, "document.querySelector('main')");
-      await waitFor(`location.pathname !== '/${name}/new' && location.pathname.startsWith('/${name}/')`, "the new record's page");
+      path = await addRecord(name, title);
     });
-    const path = await evaluate("location.pathname");
     await step("reload", async () => {
       await go(path);
       if (!(await pageText()).includes(title)) throw new Error("The page does not show the title");
@@ -228,12 +318,7 @@ async function journey(name) {
       if (!csv.includes(renamed)) throw new Error("The export does not hold the record");
     });
     await step("delete", async () => {
-      await go(path);
-      await click("Actions", "document.querySelector('main')");
-      await click("Delete");
-      await waitFor(DIALOG, "the delete dialog");
-      await click("Delete", DIALOG);
-      await waitFor(`location.pathname === '/${name}'`, "the collection home after the delete");
+      await deleteRecord(name, path);
       // A loading boundary streams the page, so a missing record answers 200 with its not-found view
       await go(path);
       await waitFor(`document.querySelector('main').innerText.includes(${JSON.stringify(c.missing)})`, `"${c.missing}"`);
@@ -981,26 +1066,428 @@ async function importJourney() {
   }
 }
 
+/** Runs `steps` as one journey: each is [label, fn]; prints the steps that held and the one that did not */
+async function run(name, steps) {
+  const done = [];
+  try {
+    for (const [label, fn] of steps) {
+      await fn();
+      done.push(label);
+    }
+    console.log(`ok    ${name}: ${done.join(" → ")}`);
+    return true;
+  } catch (error) {
+    const toastText = await evaluate("[...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.innerText.replace(/\\s+/g, ' ')).join(' | ')").catch(() => "");
+    const where = await evaluate("location.pathname").catch(() => "?");
+    console.log(`FAIL  ${name}: ${done.join(" → ")}${done.length ? " → " : ""}✗ ${error.message} (on ${where})${toastText ? ` [toasts: ${toastText}]` : ""}`);
+    return false;
+  }
+}
+
+/**
+ * The collect journey (SLN-362): a perfume, a film and a painting in one
+ * collection, reordered, reloaded, one removed and kept in the library
+ */
+async function collectJourney() {
+  const stamp = Date.now().toString(36);
+  const shelf = `Journey shelf ${stamp}`;
+  const titles = { perfumes: `Journey scent ${stamp}`, films: `Journey reel ${stamp}`, paintings: `Journey panel ${stamp}` };
+  const paths = {};
+  let collection = "";
+  // The members in the collection's order, by their Move … earlier buttons
+  const order = "[...document.querySelectorAll('main button[aria-label$=\" earlier\"]')].map((b) => b.getAttribute('aria-label').replace(/^Move /, '').replace(/ earlier$/, '')).join(' | ')";
+  const expectOrder = (...names) => waitFor(`${order} === ${JSON.stringify(names.join(" | "))}`, `the order ${names.join(", ")}`);
+  const openCollections = async (path) => {
+    await go(path);
+    await click("Actions", "document.querySelector('main')");
+    await click("Collections", MENU);
+    await waitFor(`${DIALOG}?.querySelector('input[aria-label="Find or create a collection"]')`, "the collections dialog");
+    await type(`${DIALOG}.querySelector('input[aria-label="Find or create a collection"]')`, shelf);
+  };
+  return run("collect", [
+    ["add a perfume, a film and a painting", async () => {
+      for (const name of Object.keys(titles)) paths[name] = await addRecord(name, titles[name]);
+    }],
+    ["collect the perfume into a new collection", async () => {
+      await openCollections(paths.perfumes);
+      await click("Create & add", DIALOG);
+      await waitFor(toastSays("Collection created"), "the collection to be created");
+    }],
+    ["add the film and the painting to it", async () => {
+      for (const name of ["films", "paintings"]) {
+        await openCollections(paths[name]);
+        await waitFor(`[...${DIALOG}.querySelectorAll('button[type=submit]')].some((b) => b.textContent.trim() === 'Add' && !b.disabled)`, "Add, the collection found");
+        await click("Add", DIALOG);
+        await waitFor(toastSays("Added to collection"), `the ${name.slice(0, -1)} to be added`);
+      }
+    }],
+    ["open it: the three in the order added", async () => {
+      await go(`/collections?q=${encodeURIComponent(shelf)}`);
+      const href = await evaluate(`document.querySelector('main a[aria-label=${JSON.stringify(`Open ${shelf}`)}]')?.getAttribute('href') ?? ''`);
+      if (!href) throw new Error("The collection is not on /collections");
+      collection = href;
+      await go(collection);
+      await expectOrder(titles.perfumes, titles.films, titles.paintings);
+    }],
+    ["move the painting earlier, reload", async () => {
+      await click(`Move ${titles.paintings} earlier`);
+      await expectOrder(titles.perfumes, titles.paintings, titles.films);
+      await go(collection);
+      await expectOrder(titles.perfumes, titles.paintings, titles.films);
+    }],
+    ["remove the film: gone from the collection, kept in the library", async () => {
+      await click(`Remove ${titles.films} from collection`);
+      await waitFor(toastSays("Removed from collection. Kept in your library."), "the removal");
+      await go(collection);
+      await expectOrder(titles.perfumes, titles.paintings);
+      await go(paths.films);
+      if (!(await pageText()).includes(titles.films)) throw new Error("The film's page is gone");
+    }],
+    ["delete the collection and the three records", async () => {
+      await go(collection);
+      await click("Delete collection");
+      await waitFor(DIALOG, "the delete dialog");
+      await click("Delete collection", DIALOG);
+      await waitFor("location.pathname === '/collections'", "/collections after the delete");
+      for (const name of Object.keys(titles)) await deleteRecord(name, paths[name]);
+    }],
+  ]);
+}
+
+/**
+ * The books journey: a publisher, then a book in the add-book wizard with its
+ * series, an edition of that publisher and a bought copy; the series and the
+ * publisher list it; a second edition and its copy from the book's page; and
+ * acquisition: a wanted book hunted in the publisher's edition, the edition
+ * ordered from the hunt and delivered in the provenance pipeline
+ */
+async function booksJourney() {
+  const stamp = Date.now().toString(36);
+  const title = `Journey Book ${stamp}`;
+  const author = `Journey Writer ${stamp}`;
+  const series = `Journey Series ${stamp}`;
+  const house = `Journey House ${stamp}`;
+  const isbn = isbn13(Date.now());
+  const isbnTwo = isbn13(Date.now() + 1);
+  const wish = `Journey Wish ${stamp}`;
+  let housePath = "";
+  let book = "";
+  let wanted = "";
+  const main = "document.querySelector('main')";
+  const hunt = "[...document.querySelectorAll('main section')].find((s) => s.querySelector('h2, h3')?.textContent.trim().startsWith('Hunting for'))";
+  const next = async () => {
+    await evaluate("document.querySelector('main [data-shortcut=\"next\"]').click(), true");
+    await sleep(400);
+  };
+  /** The copy form of the open dialog or the wizard: a physical location, a format, how it came */
+  const copy = async (scope, format, acquired) => {
+    await pickOption("Location", /\(physical\)$/, scope);
+    await pickOption("Format", format, scope);
+    if (acquired) {
+      await click("Acquisition", scope);
+      await pickOption("Type", acquired.type, scope);
+      await fillIn("Source", acquired.source, scope);
+      await fillIn("Price", acquired.price, scope);
+      await fillIn("Currency", acquired.currency, scope);
+    }
+  };
+  return run("books", [
+    ["add a publisher", async () => {
+      await go("/publishers/new");
+      await fillIn("Name", house);
+      await click("Save publisher", main);
+      await waitFor("location.pathname.startsWith('/publishers/') && location.pathname !== '/publishers/new'", "the publisher's page");
+      housePath = await evaluate("location.pathname");
+    }],
+    ["add a book: series, an edition of the publisher, a bought copy", async () => {
+      await go("/library/new");
+      await click("Enter details manually");
+      await waitFor("document.getElementById('title')", "the details step");
+      await type("document.getElementById('title')", title);
+      await type("document.getElementById('author')", author);
+      await type("document.getElementById('seriesName')", series);
+      await type("document.getElementById('seriesPosition')", "1");
+      await click("Edition details");
+      await waitFor("document.getElementById('isbn13')", "the edition step");
+      await type("document.getElementById('isbn13')", isbn);
+      await type("document.getElementById('publisher')", house);
+      await evaluate("[...document.querySelectorAll('main button')].find((b) => b.textContent.trim().startsWith('Add copies')).click(), true");
+      await waitFor(`${labelled("Location")}`, "the copies step");
+      await copy("document", "Hardcover", { type: "Purchase", source: "Journey Books", price: "12.50", currency: "EUR" });
+      await next();
+      await waitFor("[...document.querySelectorAll('main button')].some((b) => b.textContent.trim() === 'Review')", "the categorize step");
+      await click("Review", main);
+      await waitFor("[...document.querySelectorAll('main button')].some((b) => b.textContent.trim() === 'Add to catalogue')", "the review");
+      if (!(await pageText()).includes(title)) throw new Error("The review does not show the title");
+      await click("Add to catalogue", main);
+      await waitFor("location.pathname.startsWith('/library/') && location.pathname !== '/library/new'", "the new book's page", 60000);
+      book = await evaluate("location.pathname");
+    }],
+    ["its page: author, series, edition, copy", async () => {
+      await go(book);
+      const text = await pageText();
+      for (const part of [title, author, series, isbn, house, "Hardcover", "Journey Books"])
+        if (!text.includes(part)) throw new Error(`The book's page does not show "${part}"`);
+    }],
+    ["the series and the publisher list it", async () => {
+      await go(`/series?q=${encodeURIComponent(series)}`);
+      const href = await evaluate(`document.querySelector('main a[aria-label=${JSON.stringify(`Open ${series}`)}]')?.getAttribute('href') ?? ''`);
+      if (!href) throw new Error("The series is not on /series");
+      await go(href);
+      await waitFor(`document.querySelector('main').innerText.includes(${JSON.stringify(title)})`, "the book in its series");
+      await go(housePath);
+      await waitFor(`document.querySelector('main').innerText.includes(${JSON.stringify(title)})`, "the book on its publisher's page");
+    }],
+    ["add a second edition and a copy of it", async () => {
+      await go(book);
+      await click("Add edition", main);
+      await waitFor(`${DIALOG}?.textContent.includes('Add Edition')`, "the edition form");
+      await fillIn("ISBN-13", isbnTwo, DIALOG);
+      await click("Create edition", DIALOG);
+      await waitFor(toastSays("Edition created"), "the edition to save");
+      await go(book);
+      await waitFor(`document.querySelector('main').innerText.includes(${JSON.stringify(isbnTwo)})`, "the second edition");
+      const label = await evaluate(`[...document.querySelectorAll('main [data-tooltip^="Add instance for"]')].map((b) => b.getAttribute('data-tooltip')).pop() ?? ''`);
+      if (!label) throw new Error("No Add instance for the second edition");
+      await evaluate(`[...document.querySelectorAll('main [data-tooltip^="Add instance for"]')].pop().click(), true`);
+      await waitFor(`${DIALOG} && ${labelled("Location", DIALOG)}`, "the copy form");
+      await copy(DIALOG, "Paperback");
+      await click("Create instance", DIALOG);
+      await waitFor(toastSays("Instance added"), "the copy to save");
+      await go(book);
+      if (!(await pageText()).includes("Paperback")) throw new Error("The second edition's copy is not on the page");
+    }],
+    ["a wanted book: hunt for the publisher's edition", async () => {
+      await go("/library/new");
+      await click("Enter details manually");
+      await waitFor("document.getElementById('title')", "the details step");
+      await type("document.getElementById('title')", wish);
+      await type("document.getElementById('author')", author);
+      await pickOption("Status", "Wanted", main);
+      await click("Fast Track");
+      await waitFor("location.pathname.startsWith('/library/') && location.pathname !== '/library/new'", "the new book's page", 60000);
+      wanted = await evaluate("location.pathname");
+      await waitFor(hunt, "Hunting for on a wanted book");
+      await click("Add target", hunt);
+      await pickOption("Edition preference", "From a publisher", hunt);
+      await type(labelled("Publisher", hunt), house);
+      const option = `[...${hunt}.querySelectorAll('[role=option]')].find((o) => o.querySelector('span')?.textContent.trim() === ${JSON.stringify(house)})`;
+      await waitFor(option, "the publisher in the search");
+      await evaluate(`${option}.click(), true`);
+      // The form's own Add target, below the heading's
+      await waitFor(`[...${hunt}.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'Add target').pop()?.disabled === false`, "Add target, the publisher chosen");
+      await evaluate(`[...${hunt}.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'Add target').pop().click(), true`);
+      await waitFor(toastSays("Added to acquisition targets"), "the target to save");
+      await go(wanted);
+      const text = await evaluate(`${hunt}?.innerText ?? ''`);
+      if (!text.includes(`${house} edition`) || !text.includes("wanted")) throw new Error(`Hunting for reads "${text.replace(/\s+/g, " ")}"`);
+    }],
+    ["find the edition, order it from the hunt", async () => {
+      await click("Add edition", main);
+      await waitFor(`${DIALOG}?.textContent.includes('Add Edition')`, "the edition form");
+      await fillIn("Publisher", house, DIALOG);
+      await click("Create edition", DIALOG);
+      await waitFor(toastSays("Edition created"), "the edition to save");
+      await go(wanted);
+      const order = await evaluate(`[...${hunt}.querySelectorAll('a')].find((a) => a.textContent.trim() === 'Order')?.getAttribute('href') ?? ''`);
+      if (!order) throw new Error("The hunt has no Order link");
+      await go(order);
+      await waitFor(`${DIALOG}?.textContent.includes('New Order') && ${labelled("Ordered edition", DIALOG)}`, "the order form with the hunt");
+      await pickOption("Ordered edition", new RegExp(house), DIALOG);
+      await click("Next", DIALOG);
+      await click("Next", DIALOG);
+      await click("Create Order", DIALOG);
+      await waitFor(toastSays(`Order for "${wish}" created`), "the order to save");
+      await go(wanted);
+      const text = await evaluate(`${hunt}?.innerText ?? ''`);
+      if (!text.includes("on order")) throw new Error(`Hunting for reads "${text.replace(/\s+/g, " ")}"`);
+      if (!(await pageText()).includes("On Order")) throw new Error("The book is not on order");
+    }],
+    ["it arrives: the hunt is received, the book accessioned", async () => {
+      await go("/provenance");
+      const card = `[...document.querySelectorAll('main button')].find((b) => b.textContent.includes(${JSON.stringify(wish)}))`;
+      await waitFor(card, "the order in the pipeline");
+      await evaluate(`${card}.click(), true`);
+      await waitFor("document.querySelector('[aria-label=\"Change status\"]')", "the order's panel");
+      await evaluate("document.querySelector('[aria-label=\"Change status\"]').click(), true");
+      await sleep(300);
+      await click("Delivered", "document.querySelector('[aria-label=\"Change status\"]').parentElement");
+      await waitFor(toastSays("Status updated to Delivered"), "the delivery to save");
+      await go(wanted);
+      const text = await evaluate(`${hunt}?.innerText ?? ''`);
+      if (!text.includes("received")) throw new Error(`Hunting for reads "${text.replace(/\s+/g, " ")}"`);
+      if (!(await pageText()).includes("Accessioned")) throw new Error("The book is not accessioned");
+    }],
+    ["delete the two books", async () => {
+      for (const path of [book, wanted]) await deleteBook(path);
+    }],
+  ]);
+}
+
+/**
+ * The kinds journey, across books, films, perfumes and paintings: one person
+ * writes a book, directs a film, composes a perfume and paints a painting, and
+ * their page lists all four; a sample of one of the perfume's formulations; a
+ * director's cut of the film with a performer in two characters; and the
+ * painting's original, owned by a museum and lent to another, with a
+ * reproduction of it kept apart
+ */
+async function kindsJourney() {
+  const stamp = Date.now().toString(36);
+  const person = `Journey Polymath ${stamp}`;
+  const actor = `Journey Player ${stamp}`;
+  const titles = { book: `Journey Novel ${stamp}`, films: `Journey Feature ${stamp}`, perfumes: `Journey Accord ${stamp}`, paintings: `Journey Canvas ${stamp}` };
+  const museum = `Journey Museum ${stamp}`;
+  const kunsthalle = `Journey Kunsthalle ${stamp}`;
+  const paths = {};
+  const main = "document.querySelector('main')";
+  /** The section of the page whose heading is `title` */
+  const section = (title) => `[...document.querySelectorAll('main section')].find((s) => s.querySelector('h2, h3')?.textContent.trim().startsWith(${JSON.stringify(title)}))`;
+  const sectionText = (title) => evaluate(`${section(title)}?.innerText ?? ''`);
+  return run("kinds", [
+    ["one person: the author of a book", async () => {
+      await go("/library/new");
+      await click("Enter details manually");
+      await waitFor("document.getElementById('title')", "the details step");
+      await type("document.getElementById('title')", titles.book);
+      await type("document.getElementById('author')", person);
+      await click("Fast Track");
+      await waitFor("location.pathname.startsWith('/library/') && location.pathname !== '/library/new'", "the new book's page", 60000);
+      paths.book = await evaluate("location.pathname");
+    }],
+    ["the director of a film, with a performer in two characters", async () => {
+      await go("/films/new");
+      await type(`document.querySelector('input[placeholder=${JSON.stringify(COLLECTIONS.films.placeholder)}]')`, titles.films);
+      await click("Add a person: direction and writing", main);
+      await searchPick("Search people: direction and writing", person);
+      await click("Add a person: cast", main);
+      await searchPick("Search people: cast", actor);
+      await fillIn(`${actor}: characters`, "The Twin / The Double");
+      paths.films = await submitRecord("films");
+    }],
+    ["the perfumer of a perfume and the painter of a painting", async () => {
+      await go("/perfumes/new");
+      await type(`document.querySelector('input[placeholder=${JSON.stringify(COLLECTIONS.perfumes.placeholder)}]')`, titles.perfumes);
+      await click("Add to people", main);
+      await searchPick("Search people", person);
+      paths.perfumes = await submitRecord("perfumes");
+      await go("/paintings/new");
+      await type(`document.querySelector('input[placeholder=${JSON.stringify(COLLECTIONS.paintings.placeholder)}]')`, titles.paintings);
+      await click("Add to painters", main);
+      await searchPick("Search painters", person);
+      paths.paintings = await submitRecord("paintings");
+    }],
+    ["their page lists the book, the film, the perfume and the painting", async () => {
+      await go(`/people?q=${encodeURIComponent(person)}`);
+      const href = await evaluate(`document.querySelector('main a[aria-label=${JSON.stringify(person)}]')?.getAttribute('href') ?? ''`);
+      if (!href) throw new Error("The person is not on /people");
+      await go(href);
+      for (const [heading, title] of [["Books", titles.book], ["Films", titles.films], ["Perfumes", titles.perfumes], ["Paintings", titles.paintings]])
+        if (!(await sectionText(heading)).includes(title)) throw new Error(`"${heading}" on their page does not list ${title}`);
+    }],
+    ["a sample of one of the perfume's two formulations", async () => {
+      await go(paths.perfumes);
+      for (const concentration of ["Eau de Parfum", "Extrait de Parfum"]) {
+        await click("Add formulation", main);
+        await waitFor(`${DIALOG} && ${labelled("Concentration", DIALOG)}`, "the formulation form");
+        await pickOption("Concentration", concentration, DIALOG);
+        await click("Add formulation", DIALOG);
+        await waitFor(toastSays("Formulation added"), "the formulation to save");
+        await go(paths.perfumes);
+      }
+      await click("Add", section("Bottles and samples"));
+      await waitFor(`${DIALOG} && ${labelled("Formulation", DIALOG)}`, "the bottle form");
+      await pickOption("Formulation", "Extrait", DIALOG);
+      await click("Sample", DIALOG);
+      await fillIn("Size", "2", DIALOG);
+      await click("Add sample", DIALOG);
+      await waitFor(toastSays("Sample added"), "the sample to save");
+      await go(paths.perfumes);
+      const text = await sectionText("Bottles and samples");
+      if (!/sample/i.test(text) || !text.includes("Extrait")) throw new Error(`The bottles read "${text.replace(/\s+/g, " ")}"`);
+    }],
+    ["the film's director's cut, the performer's two characters", async () => {
+      await go(paths.films);
+      const cast = await pageText();
+      if (!cast.includes(actor) || !cast.includes("The Twin") || !cast.includes("The Double")) throw new Error("The cast does not show the performer's two characters");
+      await click("Add version", main);
+      await waitFor(`${DIALOG} && ${labelled("Name", DIALOG)}`, "the version form");
+      await fillIn("Name", "Director's cut", DIALOG);
+      await fillIn("Runtime", "2h 10m", DIALOG);
+      await click("Add version", DIALOG);
+      await waitFor(`!${DIALOG}`, "the version form to close");
+      await go(paths.films);
+      const versions = await sectionText("Versions");
+      if (!versions.includes("Director's cut") || !versions.includes("2h 10m")) throw new Error(`The versions read "${versions.replace(/\s+/g, " ")}"`);
+    }],
+    ["the painting: a museum's original, lent to another; a reproduction apart", async () => {
+      await go(paths.paintings);
+      await click("Add original", main);
+      await waitFor(`${DIALOG} && ${labelled("Owned by", DIALOG)}`, "the object form");
+      await pickOption("Owned by", "A museum or institution", DIALOG);
+      await click("Choose: institution", DIALOG);
+      await searchPick("Search: institution", museum, DIALOG);
+      await click("Add", DIALOG);
+      await waitFor(toastSays("Object added"), "the original to save");
+      await go(paths.paintings);
+      await click("Actions", section("Original"));
+      await click("Record a loan", MENU);
+      await waitFor(`${DIALOG} && ${labelled("Where", DIALOG)}`, "the loan form");
+      await click("Choose: venue", DIALOG);
+      await searchPick("Search: venue", kunsthalle, DIALOG);
+      await fillIn("Exhibition or occasion", "Journey retrospective", DIALOG);
+      await click("Record", DIALOG);
+      await waitFor(toastSays("Location recorded"), "the loan to save");
+      await go(paths.paintings);
+      await click("Add reproduction", main);
+      await waitFor(`${DIALOG} && ${labelled("Label", DIALOG)}`, "the reproduction form");
+      await fillIn("Label", "Museum poster", DIALOG);
+      await pickOption("Reproduces", /./, DIALOG);
+      await click("Add", DIALOG);
+      await waitFor(toastSays("Object added"), "the reproduction to save");
+      await go(paths.paintings);
+      const original = await sectionText("Original");
+      for (const part of [museum, kunsthalle, "Journey retrospective"])
+        if (!original.includes(part)) throw new Error(`The original reads "${original.replace(/\s+/g, " ")}"`);
+      const reproductions = await sectionText("Reproductions");
+      if (!reproductions.includes("Museum poster") || reproductions.includes(museum)) throw new Error(`The reproductions read "${reproductions.replace(/\s+/g, " ")}"`);
+    }],
+    ["delete what the journey added", async () => {
+      // A kept sample or reproduction holds its perfume or painting: they go first
+      for (const [name, heading, toast] of [["perfumes", "Bottles and samples", "Deleted"], ["paintings", "Reproductions", "Object deleted"]]) {
+        await go(paths[name]);
+        await click("Actions", section(heading));
+        await click("Delete", MENU);
+        await waitFor(DIALOG, "the delete dialog");
+        await click("Delete", DIALOG);
+        await waitFor(toastSays(toast), `the ${heading.toLowerCase()} to go`);
+      }
+      for (const name of ["films", "perfumes", "paintings"]) await deleteRecord(name, paths[name]);
+      await deleteBook(paths.book);
+    }],
+  ]);
+}
+
 // A fresh next dev compiles each route on its first request: compile them here,
 // so the journeys' waits measure the app, not the compiler
 for (const name of chosen.filter((n) => COLLECTIONS[n]))
   for (const path of [`/${name}`, `/${name}/new`, `/${name}/journey-warm-up`])
     await fetch(base + path, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 
+if (chosen.some((n) => ["collect", "books", "kinds"].includes(n)))
+  for (const path of ["/collections", "/library/new", "/publishers/new", "/series", "/people", "/provenance", ...Object.keys(COLLECTIONS).map((n) => `/${n}/new`)])
+    await fetch(base + path, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 if (chosen.includes("reading"))
   await fetch(`${base}/library/journey-reading`, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 if (chosen.includes("import"))
   for (const path of ["/reading/import", "/library/new", "/reading/journal"])
     await fetch(base + path, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 
+const OTHERS = { collect: collectJourney, books: booksJourney, kinds: kindsJourney, reading: readingJourney, import: importJourney };
 let failed = 0;
 for (const name of chosen) {
-  if (name === "reading") {
-    if (!(await readingJourney())) failed++;
-    continue;
-  }
-  if (name === "import") {
-    if (!(await importJourney())) failed++;
+  if (OTHERS[name]) {
+    if (!(await OTHERS[name]())) failed++;
     continue;
   }
   if (!COLLECTIONS[name]) {
