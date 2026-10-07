@@ -443,9 +443,17 @@ async function checkEbookStorage(): Promise<CheckResult> {
   try {
     file = await withinLimit(readNewestDeliverableFile(), "The database");
     if (!file) {
-      await ebookS3().send(new HeadBucketCommand({ Bucket: bucket }), {
-        abortSignal: AbortSignal.timeout(EXTERNAL_TIMEOUT_MS),
-      });
+      try {
+        await ebookS3().send(new HeadBucketCommand({ Bucket: bucket }), {
+          abortSignal: AbortSignal.timeout(EXTERNAL_TIMEOUT_MS),
+        });
+      } catch (error) {
+        // Before the AWS setup there is neither a bucket nor a file: not set up, not broken
+        if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) {
+          return off("Not set up yet: no eBook bucket and no eBook file (scripts/aws/ebooks-storage.sh plan)");
+        }
+        throw error;
+      }
       return ok(`The bucket answered in ${since(start)} ms; no eBook file is stored yet`);
     }
     if (!(await withinLimit(headEbookObject(file.s3Key), "S3"))) {

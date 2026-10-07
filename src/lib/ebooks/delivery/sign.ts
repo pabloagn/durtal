@@ -6,10 +6,11 @@ import { isDeliverable, type CatalogueFile } from "./files";
 /*
  * CloudFront signed URLs (SLN-491), made with Node's own crypto: RSA-SHA1
  * over the policy, in CloudFront's URL-safe base64, exactly as AWS's
- * cloudfront-signer makes them (a test checks the two agree). A URL is
- * valid until the end of the next 6-hour window, so the same file gets the
- * same URL for 6 hours (one entry in every cache) and a URL handed out is
- * always good for at least 6 hours.
+ * cloudfront-signer makes them (checked against it when this was written;
+ * a test verifies every signature). A URL is valid until the end of the
+ * next 6-hour window, so the same file gets the same URL for 6 hours (one
+ * entry in every cache) and a URL handed out is always good for at least
+ * 6 hours.
  */
 
 const WINDOW_SECONDS = 6 * 60 * 60;

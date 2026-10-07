@@ -75,6 +75,36 @@ export async function ebookOrphans(database: Db, objects: EbookListedObject[], n
   return { unreferenced, inFlight };
 }
 
+/** S3's answer when the bucket does not exist: before the AWS setup */
+const noSuchBucket = (error: unknown) => (error as { name?: string }).name === "NoSuchBucket";
+
+/**
+ * The e-book part of the orphan report (scripts/maintenance/report-orphaned-s3.ts):
+ * the objects under files/ and derived/ that no row names. Before the AWS
+ * setup the bucket does not exist, and the report says so.
+ */
+export async function ebookOrphanReport(database: Db, now = Date.now()) {
+  const { bucket, prefix } = ebookStorage();
+  const prefixes = [`${prefix}files/`, `${prefix}derived/`];
+  let objects: EbookListedObject[];
+  try {
+    objects = [...(await listEbookObjects(prefixes[0])), ...(await listEbookObjects(prefixes[1]))];
+  } catch (error) {
+    if (noSuchBucket(error)) return { bucket, missing: true as const };
+    throw error;
+  }
+  const { unreferenced, inFlight } = await ebookOrphans(database, objects, now);
+  return {
+    bucket,
+    prefixes,
+    scanned: objects.length,
+    inFlight: inFlight.length,
+    orphans: unreferenced.length,
+    totalBytes: unreferenced.reduce((sum, object) => sum + object.size, 0),
+    objects: unreferenced.map((object) => ({ key: object.key, size: object.size, modified: object.lastModified?.toISOString() ?? null })),
+  };
+}
+
 /** Run `work` over `items`, a few at once, in order of the results */
 async function pooled<T, R>(items: T[], work: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);

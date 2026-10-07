@@ -82,7 +82,9 @@ Verification:
   (`/reports/` is git-ignored).
 - `scripts/maintenance/report-orphaned-s3.ts` lists the e-book bucket's
   `files/` and `derived/` objects no row names (a derived folder belongs to the
-  file whose checksum names it), never deleting any.
+  file whose checksum names it), never deleting any. Before the AWS setup the
+  bucket does not exist, and the report prints `ebooks: { bucket, missing:
+  true }` (`ebookOrphanReport` in `src/lib/ebooks/verify.ts`).
 
 The AWS setup, as code:
 
@@ -117,7 +119,8 @@ Environment and settings:
 - Settings › Integrations gains an "eBook storage" row: bucket, region,
   delivery, which variables are set, and a check that HEADs the newest stored
   file (or the bucket when there is none) and, with CloudFront, reads the first
-  byte of a signed cover (or file).
+  byte of a signed cover (or file). With no file and no bucket (before the AWS
+  setup) it says "Not set up yet", not "Not working".
 - `scripts/qa/preview-local.py` sets `EBOOK_DELIVERY=app`.
 
 Docs: `docs/05_API_REFERENCE.md` (the three routes), `docs/07_STORAGE.md`
@@ -129,7 +132,7 @@ setup, where the private key lives, rotation, the budget) and
 
 ## Completion Notes
 
-Tests, 51 new:
+Tests, 57 new:
 
 - `src/__tests__/ebooks/keys.test.ts` (8): the three key builders, the
   prefix, and refusal of anything that is not 64 hex, a known extension or
@@ -148,6 +151,10 @@ Tests, 51 new:
 - `cover-route.test.ts` (4), `preview-dir.test.ts` (5: writes under
   `DIR/<bucket>/<key>`, never overwrites, refuses a key that is not the
   bytes' checksum, reads exactly a range's slice, refuses `..`),
+  `before-setup.test.ts` (6: with neither a bucket nor a file Settings says
+  not set up yet; with the bucket and no file it works; a catalogued file in a
+  missing bucket fails; the orphan report names the bucket as missing, lists
+  orphans once it exists, and still fails on any other S3 error),
   `aws-setup.test.ts` (6: the JSON documents carry no account id or secret;
   only the admin may delete book files; `apply` refuses without
   `--yes-from-joris` before any AWS call; no AWS CLI v2 stops it; `plan`
@@ -162,7 +169,7 @@ Tests, 51 new:
 
 Gates, in a cloud container: `pnpm typecheck` clean; `pnpm lint` 0 errors
 (77 warnings, as on main); `pnpm deadcode` clean;
-`python3.12 scripts/qa/test-local.py` 270 files, 3,007 tests passed, 0
+`python3.12 scripts/qa/test-local.py` 271 files, 3,013 tests passed, 0
 skipped. `pnpm build`, then a preview (`--start --seed-large 50 --s3-dir`):
 `page-weight.js` every route within budget (`/library` 90 of 300 KB),
 `phone-audit.mjs` no sideways scroll, `interaction-audit.mjs` no failures,
