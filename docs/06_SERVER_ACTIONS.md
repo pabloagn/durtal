@@ -816,14 +816,21 @@ The lists the book page's edit dialogs choose from, loaded when a dialog opens: 
 
 ## Media (`src/lib/actions/media.ts`)
 
-### `getMediaForWork(workId)` / `getMediaForAuthor(authorId)`
+### `getMediaForWork(workId)`
 
 ```typescript
 getMediaForWork(workId: string): Promise<Media[]>
-getMediaForAuthor(authorId: string): Promise<Media[]>
 ```
 
 Returns all media ordered by `sortOrder`.
+
+### `getMediaByType(ownerId, type, ownerType?)`
+
+```typescript
+getMediaByType(ownerId: string, type: string, ownerType?: MediaOwnerType): Promise<Media[]>
+```
+
+One owner's images of one type (`poster`, `background`, `gallery`), the active one first, then by `sortOrder`, newest first. `ownerType` defaults to `"work"`; an unknown owner is refused. The media manager (`src/components/media/media-manager-dialog.tsx`) loads each tab with it, for every kind of owner.
 
 ### `createMedia(input)`
 

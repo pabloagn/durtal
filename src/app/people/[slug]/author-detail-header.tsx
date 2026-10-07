@@ -9,7 +9,7 @@ import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthorEditDialog } from "./author-edit-dialog";
 import { AuthorMergeDialog } from "./author-merge-dialog";
-import { AuthorMediaManagerDialog } from "@/components/media/author-media-manager-dialog";
+import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ExportMenu } from "@/components/shared/export-menu";
@@ -214,11 +214,12 @@ export function AuthorDetailHeader({
         authorId={authorId}
       />
 
-      <AuthorMediaManagerDialog
+      <MediaManagerDialog
         open={mediaOpen}
         onClose={() => setMediaOpen(false)}
-        authorId={authorId}
-        authorName={name}
+        entityType="author"
+        entityId={authorId}
+        title={name}
       />
 
       <AuthorMergeDialog
