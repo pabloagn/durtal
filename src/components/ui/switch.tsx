@@ -33,7 +33,7 @@ export function Switch({
       {...aria}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
-      className={`inline-flex h-5 w-9 shrink-0 items-center rounded-sm border transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`inline-flex h-5 w-9 shrink-0 items-center rounded-sm border transition-colors touch-hit duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
         checked
           ? "border-accent-rose bg-accent-rose/90"
           : "border-glass-border bg-bg-tertiary hover:border-fg-muted/30"

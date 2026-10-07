@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId } from "@/components/settings/settings-group";
+import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId, settingLabelId } from "@/components/settings/settings-group";
 import { updateAppSettings, type AppSettings } from "@/lib/actions/settings";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 
@@ -120,6 +120,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
           <Switch
             id="reading-suggest-hide-anathema"
             checked={settings.readingSuggestHideAnathema}
+            aria-labelledby={settingLabelId("reading-suggest-hide-anathema")}
             aria-describedby={settingDescriptionId("reading-suggest-hide-anathema")}
             onCheckedChange={(on) => save({ readingSuggestHideAnathema: on }, on ? "Anathema is hidden from suggestions" : "Anathema is suggested again")}
           />

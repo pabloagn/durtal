@@ -115,8 +115,8 @@ export function BookPicker({
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="lines-1 block text-sm text-fg-primary">{book.title}</span>
-                    <span className="lines-1 block text-xs text-fg-secondary">
+                    <span className="lines-1 text-sm text-fg-primary">{book.title}</span>
+                    <span className="lines-1 text-xs text-fg-secondary">
                       {[book.author, book.owned ? "Owned" : catalogueStatusLabel(book.catalogueStatus), state].filter(Boolean).join(" · ")}
                     </span>
                   </span>

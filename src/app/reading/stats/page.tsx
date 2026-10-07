@@ -260,11 +260,13 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             {rated.reread.length > 0 && (
               <div>
                 <SectionHeading as="h3" title="Most re-read" />
-                <ul className="space-y-1.5 text-sm" data-stats-reread="">
+                {/* On touch the rows are 44px apart, so the links' press areas do not overlap */}
+                <ul className="space-y-1.5 text-sm pointer-coarse:space-y-5" data-stats-reread="">
                   {rated.reread.map((r) => (
                     <li key={r.workId} className="flex items-baseline justify-between gap-3">
-                      <Link href={book(r)} className="lines-1 min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text">
-                        {r.title}
+                      {/* The title cuts off inside the link: the link's touch area is not clipped */}
+                      <Link href={book(r)} className="min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                        <span className="lines-1">{r.title}</span>
                       </Link>
                       <span className="shrink-0 text-xs text-fg-secondary tabular-nums">{r.reads.map((x) => (x === null ? "unrated" : formatRating(x))).join(" · ")}</span>
                     </li>
@@ -517,7 +519,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             action={
               <Link
                 href="/library?reading=unread&holding=owned"
-                className="text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary"
+                className="text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
                 data-stats-pile-link=""
               >
                 See them

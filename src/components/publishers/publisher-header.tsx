@@ -85,7 +85,7 @@ export function PublisherHeader({
               />
               <Link
                 href={`/publishers/${slug}/edit`}
-                className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
               >
                 Edit
               </Link>

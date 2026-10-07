@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ year: str
 
 const book = (b: { slug: string | null; workId: string }) => `/library/${b.slug ?? b.workId}`;
 const link = "text-fg-primary transition-colors hover:text-accent-rose-text";
-const evidence = "text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary";
+const evidence = "text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit";
 /** Covers a month shows at most; the rest are a "+38" tile to the journal, so a year of hundreds stays within the page budget */
 const WALL_MONTH = 12;
 
