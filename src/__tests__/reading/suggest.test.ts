@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isAtHand } from "@/lib/reading/at-hand";
 import { nextVolume } from "@/lib/reading/series";
-import { buildContext } from "@/lib/reading/suggest/build";
+import { MAX_PAGES, MIN_PAGES } from "@/lib/books/enrichment";
+import { bookPages, buildContext } from "@/lib/reading/suggest/build";
 import { FEATURES, WITHOUT_RATINGS, bayesianMean, betaTrust, boughtText } from "@/lib/reading/suggest/features";
 import { parseSuggestionParams, suggestionQuery, DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
 import { GATE_MIN_BOOKS, evaluatePredictions, gateDue, nextGate, predict, predictionText, type Evaluation } from "@/lib/reading/suggest/predict";
@@ -342,6 +343,23 @@ describe("candidates, feedback and constraints", () => {
     expect(titles({ home: HOME })).toEqual(["First of a series"]);
     expect(titles({ skipTypes: ["t-poetry"] })).toEqual(["Short", "No pages", "First of a series"]);
     expect(titles({ noNewSeries: true })).toEqual(["Short", "Medium", "No pages"]);
+  });
+
+  it("reads a page count outside 16 to 3,000 as unknown, as the page rule does", () => {
+    const books = [
+      book("Six volumes", { editions: [edition(3980)] }),
+      book("A leaflet", { editions: [edition(15)] }),
+      book("Shortest kept", { editions: [edition(MIN_PAGES)] }),
+      book("Longest kept", { editions: [edition(MAX_PAGES)] }),
+    ];
+    const ctx = context(books);
+    expect(books.map((b) => bookPages(b, ctx))).toEqual([null, null, MIN_PAGES, MAX_PAGES]);
+    const titles = (p: Partial<typeof DEFAULT_SUGGESTION_PARAMS>) =>
+      books.filter((b) => passes(b, ctx, { ...DEFAULT_SUGGESTION_PARAMS, scope: "all", ...p })).map((b) => b.title);
+    expect(titles({ length: "long" })).toEqual(["Longest kept"]);
+    expect(titles({ length: "short" })).toEqual(["Shortest kept"]);
+    // An unknown length passes only "any"
+    expect(titles({})).toHaveLength(4);
   });
 
   it("parses the constraints once for the page and the API: a bad value is an issue and is dropped", () => {
