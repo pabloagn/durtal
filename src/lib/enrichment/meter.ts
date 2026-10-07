@@ -46,6 +46,14 @@ export function monthlyCapUsd(): number | null {
   return Number(value);
 }
 
+/** A plan's line on the budget: the cap, this month's spend (settled and reserved) and what is left */
+export function capLine(spentThisMonth: number): string {
+  const cap = monthlyCapUsd();
+  const usd = (amount: number) => `$${amount.toFixed(2)}`;
+  if (cap === null) return "Monthly cap: not set (every metered call stops)";
+  return `Monthly cap: ${usd(cap)}; spent this month ${usd(spentThisMonth)}; left ${usd(Math.max(0, cap - spentThisMonth))}`;
+}
+
 /** How far a time zone's wall clock is ahead of UTC at an instant, in ms */
 function zoneOffset(at: number, timeZone: string): number {
   const parts = Object.fromEntries(
