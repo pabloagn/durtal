@@ -382,6 +382,25 @@ dialog::backdrop {
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 2px 16px rgba(0, 0, 0, 0.55);
 }
 
+/* A work card's frame (WORK_CARD, work-card.tsx), and on a book card the
+   cover image and the copy and actions chips at the cover's bottom right:
+   one short class each, not a long list, since every card of a page repeats
+   them (page weight, SLN-524). On touch the copy chip moves left, so its
+   44px press area and the menu's do not overlap. */
+@utility work-card {
+  container-type: inline-size;
+  @apply relative rounded-sm border border-glass-border bg-bg-secondary;
+}
+@utility cover-image {
+  @apply absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02];
+}
+@utility card-copy-slot {
+  @apply absolute bottom-1 right-8 z-20 hover-reveal-glass @[220px]:bottom-2 @[220px]:right-10 pointer-coarse:right-[52px];
+}
+@utility card-menu-slot {
+  @apply absolute bottom-1 right-1 z-20 hover-reveal-glass @[220px]:bottom-2 @[220px]:right-2;
+}
+
 /* An icon drawn from the sprite (IconSprite in the root layout): the Lucide
    stroke, 1.5px, without repeating its markup on every card */
 @utility sprite-icon {

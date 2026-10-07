@@ -19,7 +19,7 @@ import {
 } from "@/components/domains/domain-add-link";
 import { getWorkIdsWithEbooks } from "@/lib/ebooks/queries";
 import { mediaUrl } from "@/lib/s3/media-url";
-import { mediaCrop } from "@/lib/utils/media-style";
+import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { hasBookFilters, parseBookFilters } from "@/lib/library/filter-params";
 import { LIBRARY_SORTS, hasReadingFilters, parseReadingFilters } from "@/lib/reading/filter-params";
 import { cardReadingOf } from "@/lib/reading/card";
@@ -28,6 +28,18 @@ export const metadata = { title: "Library" };
 
 /** Search, sort, page and every filter (`parseReadingFilters`, `parseBookFilters`) */
 type LibraryParams = Record<string, string | undefined>;
+
+/**
+ * A book's card data without its empty fields. The page sends every card's
+ * props, 48 times, so a null, an unset reading or a false flag costs bytes
+ * and shows nothing (page weight, SLN-524). A false `isFavourite` stays: it
+ * still shows the star.
+ */
+function withoutEmpty<T extends object>(book: T): T {
+  return Object.fromEntries(
+    Object.entries(book).filter(([key, value]) => value != null && (value !== false || key === "isFavourite")),
+  ) as T;
+}
 
 interface PageProps {
   searchParams: Promise<LibraryParams>;
@@ -104,8 +116,10 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
     const coverVersion = activePoster
       ? activePoster.createdAt
       : firstEdition?.updatedAt;
+    // The default crop draws as no crop: it is not sent
+    const coverCrop = activePoster ? mediaCrop(activePoster) : null;
 
-    return {
+    return withoutEmpty({
       workId: work.id,
       slug: work.slug ?? "",
       title: work.title,
@@ -114,7 +128,7 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
       coverUrl: coverS3Key
         ? mediaUrl(coverS3Key, { version: coverVersion })
         : null,
-      coverCrop: activePoster ? mediaCrop(activePoster) : null,
+      coverCrop: mediaImageStyle(coverCrop) ? coverCrop : null,
       coverTone: activePoster?.tone ?? null,
       publicationYear: firstEdition?.publicationYear ?? work.originalYear,
       language: firstEdition?.language,
@@ -129,7 +143,7 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
       primaryEditionId: firstEdition?.id ?? null,
       hasDigitalEdition: digitalWorkIds.has(work.id),
       reading: cardReadingOf(work),
-    };
+    });
   });
 
 

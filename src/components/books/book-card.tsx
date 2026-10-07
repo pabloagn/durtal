@@ -100,7 +100,7 @@ function CoverImage({
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : undefined}
       decoding="async"
-      className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
+      className="protected-image cover-image"
       style={mediaImageStyle(crop)}
       onError={() => {
         // Retry after a short delay — the server was likely just overloaded
@@ -198,14 +198,14 @@ export function BookCard({
 
         {/* Copy button — hidden until hover, like the three-dot menu; stays visible with keyboard focus */}
         {/* On touch the copy chip moves left, so its 44px press area and the menu's do not overlap */}
-        {!isSelecting && <div className="absolute bottom-1 right-8 z-20 hover-reveal-glass @[220px]:bottom-2 @[220px]:right-10 pointer-coarse:right-[52px]">
+        {!isSelecting && <div className="card-copy-slot">
           <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
         </div>}
 
         {/* Three-dot menu — lives outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (
           <div
-            className="absolute bottom-1 right-1 z-20 hover-reveal-glass @[220px]:bottom-2 @[220px]:right-2"
+            className="card-menu-slot"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
