@@ -70,5 +70,5 @@ No schema change, no new package.
   `/people` 211 / 300 KB). `phone-audit.mjs` finds no page scrolling
   sideways; `interaction-audit.mjs` on `/reading/next`, `/library` and
   `/people/a-a-milne` finds no failure.
-- Typecheck clean. Lint: 0 errors, 77 warnings as on main. `pnpm deadcode`
+- Typecheck clean. Lint: 0 errors, 75 warnings as on main 2f696f56. `pnpm deadcode`
   clean.
