@@ -92,6 +92,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
     await client?.end();
   });
   beforeEach(async () => {
+    // A history entry left over from the last test must not land after the truncate
+    await settle();
     await q(`truncate works, authors, locations, activity_events, imports cascade`);
   });
 

@@ -35,6 +35,12 @@ asks for a fresh preview, as it should.
   before the preview.
 - `src/__tests__/activity/settled.test.ts`: `activitySettled` waits for
   writes held open, and resolves at once with none in flight.
+- Review (PR #138): `reading-queue.test.ts` and `reading-notes.test.ts` raced
+  the same way. With a delay before each history write, three queue tests
+  failed at 60 and 200 ms, and one notes test at 100 ms. They now call
+  `activitySettled()` before a merge preview and before counting
+  `work.queued` entries. `reading.test.ts` settles before each test
+  truncates `activity_events`, so a leftover entry never lands after it.
 
 ## Completion Notes
 

@@ -50,6 +50,7 @@ import { deleteEdition, updateEdition } from "@/lib/actions/editions";
 import { deleteWork } from "@/lib/actions/works";
 import { moveToExistingEdition } from "@/lib/actions/identify";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
+import { activitySettled } from "@/lib/activity/record";
 import { loadReading } from "@/lib/reading/service";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
 import { commitImport, createReadingImport, decideRow, undoImport } from "@/lib/reading/import/store";
@@ -133,6 +134,8 @@ describe.skipIf(!url)("quotes and notes with PostgreSQL", () => {
       const reading = await startReading({ workId: s, startedOn: "2026-09-01", startedPrecision: "day", timeZone: "Europe/Amsterdam" });
       await q(`insert into reading_sessions(reading_id, format, read_on, time_zone, end_page) values ($1, 'print', '2026-09-02', 'Europe/Amsterdam', 40)`, [reading.id]);
       const note = await createReadingNote({ workId: s, kind: "quote", body: "Beauty will be convulsive", readingId: reading.id, page: 40 });
+      // The merge's fingerprint covers the history entries, so the preview waits for startReading's (SLN-521)
+      await activitySettled();
       const preview = await previewMerge("works", s, t);
       expect(preview.blockers).toEqual([]);
       await executeMerge({
