@@ -80,7 +80,7 @@ function Row({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-start gap-3 border-t border-glass-border px-2 py-3 first:border-t-0 ${isDragging ? "relative z-10 bg-bg-secondary" : ""}`}
+      className={`grid grid-cols-[auto_auto_auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-t border-glass-border px-2 py-3 first:border-t-0 @[34rem]:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] ${isDragging ? "relative z-10 bg-bg-secondary" : ""}`}
       data-queue-row={row.workId}
     >
       <CapAligned height={32} coarseHeight={44} className="text-sm">
@@ -111,7 +111,13 @@ function Row({
         {row.note && <p className="text-xs italic text-fg-secondary">{row.note}</p>}
         <p className="text-xs text-fg-secondary">{row.added}</p>
       </div>
-      <CapAlignedControls height={32} coarseHeight={44} className="text-sm">
+      {/* Beside the title on a wide list. On a narrow one (a phone) they go under the text, which
+          keeps the width: a plain 32 px (44 px on touch) row, not centered on a line (SLN-539) */}
+      <CapAlignedControls
+        height={32}
+        coarseHeight={44}
+        className="col-start-4 text-sm @max-[34rem]:h-auto @max-[34rem]:*:block @max-[34rem]:*:my-0 @[34rem]:col-start-5"
+      >
         <span className="flex items-center gap-1">
           <Button
             size="sm"
@@ -240,7 +246,7 @@ export function QueueList({ rows: initial, filtered = false }: { rows: QueueRow[
         accessibility={{ announcements, screenReaderInstructions: { draggable: "Press Space to lift a book, the arrow keys to move it, Space to drop it, Escape to cancel." } }}
       >
         <SortableContext items={rows.map((r) => r.workId)} strategy={verticalListSortingStrategy}>
-          <ol className="rounded-sm border border-glass-border" data-queue-list="">
+          <ol className="@container rounded-sm border border-glass-border" data-queue-list="">
             {rows.map((row, i) => (
               <Row
                 key={row.workId}
