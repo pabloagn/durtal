@@ -27,6 +27,7 @@ S3 Bucket: durtal/
 |   +-- covers/      Original cover images from external APIs
 |   +-- uploads/     Raw user uploads
 |   +-- media/       Raw media uploads (pre-processing)
+|   +-- evidence/    Private copies of review and publisher pages (never served)
 |
 +-- silver/          Validated and parsed data
 |   +-- imports/     Parsed JSON, conflict reports, error logs
@@ -88,6 +89,25 @@ Where:
 ```
 gold/exports/{exportId}/library_export.csv
 ```
+
+### Evidence
+
+```
+bronze/evidence/{sha256 of the raw page}.raw.gz
+bronze/evidence/{sha256 of the stored text}.txt
+```
+
+The book enrichment's evidence store (SLN-468) keeps a private copy of each
+page it fetches, gzipped, and the page's main text, UTF-8 in Unicode NFC (key
+builders `evidenceRawKey` and `evidenceTextKey` in `src/lib/s3/keys.ts`). Keys
+are named by content hash, so two books that cite one review share one object,
+and an existing key is never uploaded again (`HeadObject` first). The copies
+exist only to check that a quoted excerpt matches the source character for
+character (R3, R10): they are outside `isReadableKey`, so `/api/s3/read`
+refuses them, no route sends them to the browser and no export includes them.
+Every read checks the hash (`readEvidenceText`, `readEvidencePage`); a missing
+object reads as "purged". The database keeps only hashes and keys, in
+`source_records.payload` (docs/02, "Evidence store and cost meter").
 
 ---
 
@@ -288,7 +308,9 @@ Every delete that removes rows with S3 keys also removes their files. The shared
 
 The cleanup runs only after the database delete commits. It never fails the delete. On an S3 or database error it logs `[s3-cleanup]` with the context and returns `true`. `deleteWork`, `deleteAuthor`, `deleteEdition`, `deleteCollection` and `deleteVenue` return it as `cleanupPending`. A single media delete keeps the raw `bronze/` upload; the owner's delete removes it.
 
-To find files that no row references, run the read-only report. It lists `gold/` objects older than 24 hours and never deletes anything:
+**Evidence objects** belong to no record's folders: no `ownedPrefixes` entry covers `bronze/evidence/` (a test pins it), and `deleteUnusedObjects` takes only `gold/` keys, so deleting a book never deletes an evidence object another book may share. A key named in a `source_records` payload (`rawKey`, `textKey`) counts as in use (`keysInUse`). Objects are written before their row, so a failed row write leaves an orphan. `scripts/enrichment/evidence.ts --purge` lists evidence objects older than a day that no row names; it deletes nothing until Pablo decides the retention (SLN-461; the planned rule keeps an object while any claim cites it and lets an uncited one go after 90 days, `EVIDENCE_RETENTION_DAYS`).
+
+To find files that no row references, run the read-only report. It lists `gold/` and `bronze/evidence/` objects older than 24 hours and never deletes anything:
 
 ```bash
 node --env-file=.env.local --import tsx scripts/maintenance/report-orphaned-s3.ts

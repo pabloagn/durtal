@@ -87,6 +87,7 @@ import { deleteAuthor, mergeAuthors } from "@/lib/actions/authors";
 import { deleteEdition } from "@/lib/actions/editions";
 import { deleteMedia, bulkDeleteMedia } from "@/lib/actions/media";
 import { deleteVenue } from "@/lib/actions/venues";
+import { keysInUse } from "@/lib/s3/cleanup";
 import { DELETE as deleteComment } from "@/app/api/comments/[commentId]/route";
 import { DELETE as deleteAttachment } from "@/app/api/comments/[commentId]/attachments/[attachmentId]/route";
 
@@ -221,6 +222,24 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     ).toEqual([]);
     expect(await db.select().from(schema.activityEvents)).toEqual([]);
     expect(await db.select().from(schema.galleryLayouts)).toEqual([]);
+  });
+
+  it("counts the evidence keys a source record's payload names as in use (SLN-468)", async () => {
+    const w = await work("Evidence");
+    const rawKey = `bronze/evidence/${"a".repeat(64)}.raw.gz`;
+    const textKey = `bronze/evidence/${"b".repeat(64)}.txt`;
+    const payload = { kind: "evidence_page", rawKey, textKey };
+    await db.insert(schema.sourceRecords).values({
+      entityKind: "book",
+      workId: w.id,
+      provider: "lrb",
+      retrievedAt: new Date(),
+      payload,
+      payloadHash: "c".repeat(64),
+      reviewStatus: "accepted",
+    });
+    const orphan = `bronze/evidence/${"d".repeat(64)}.txt`;
+    expect([...(await keysInUse([rawKey, textKey, orphan]))].sort()).toEqual([rawKey, textKey].sort());
   });
 
   it("keeps the files of a work that does not exist", async () => {

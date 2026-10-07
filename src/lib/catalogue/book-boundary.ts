@@ -29,11 +29,11 @@ export function bookReferenceCondition(workId: SQLWrapper): SQL {
   return sql`exists (select 1 from works book_scope where book_scope.id = ${workId} and book_scope.kind = 'book')`;
 }
 
-/** Reject an entire selection before any mutation, including related records. */
-export async function requireBookWorks(workIds: string[]): Promise<void> {
+/** Reject an entire selection before any mutation, including related records. A script passes its own connection. */
+export async function requireBookWorks(workIds: string[], conn: Pick<typeof db, "select"> = db): Promise<void> {
   const ids = [...new Set(z.array(z.uuid()).parse(workIds))];
   if (!ids.length) return;
-  const found = await db
+  const found = await conn
     .select({ id: works.id })
     .from(works)
     .where(
@@ -46,6 +46,6 @@ export async function requireBookWorks(workIds: string[]): Promise<void> {
     throw new Error("Book not found: this action only accepts existing books");
 }
 
-export async function requireBookWork(workId: string): Promise<void> {
-  await requireBookWorks([workId]);
+export async function requireBookWork(workId: string, conn: Pick<typeof db, "select"> = db): Promise<void> {
+  await requireBookWorks([workId], conn);
 }

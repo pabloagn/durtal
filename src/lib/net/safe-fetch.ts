@@ -87,32 +87,53 @@ export function createGuardedLookup(blocked: (address: string) => boolean = isBl
   };
 }
 
-interface HopResult {
-  redirect?: string;
-  image?: SafeImage;
+/** One answer of the guarded loop: the final hop, never a redirect */
+export interface GuardedAnswer {
+  url: URL;
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  /** Null when `readBody` declined to read it */
+  body: Buffer | null;
 }
 
-function requestOnce(
-  url: URL,
-  deadline: number,
-  maxBytes: number,
-  lookup: LookupFunction,
-): Promise<HopResult> {
+export type HopResult = { redirect: string } | { answer: GuardedAnswer };
+
+export interface GuardedFetchOptions {
+  allowHttp: boolean;
+  isBlockedAddress: (address: string) => boolean;
+  timeoutMs: number;
+  maxRedirects: number;
+  maxBytes: number;
+  headers: Record<string, string>;
+  /** What is downloaded ("Image", "Page"), for the messages */
+  noun: string;
+  /** Whether to read an answer's body, from its status and headers */
+  readBody: (status: number, headers: http.IncomingHttpHeaders) => boolean;
+  /** Checks the bytes read so far; an error it returns stops the transfer */
+  onChunk?: (chunks: Buffer[], total: number) => Error | null;
+  /** Runs before each hop, once the URL passed its check (the page fetcher checks its registry and robots.txt here) */
+  beforeHop?: (url: URL) => Promise<void>;
+  /** Sends one hop (the page fetcher paces and retries here); the default sends it once */
+  sendHop?: (url: URL, send: () => Promise<HopResult>) => Promise<HopResult>;
+}
+
+function requestOnce(url: URL, deadline: number, lookup: LookupFunction, o: GuardedFetchOptions): Promise<HopResult> {
   return new Promise((resolve, reject) => {
     const remaining = deadline - Date.now();
-    if (remaining <= 0) return reject(new SafeFetchError("timeout", "Image download timed out"));
+    if (remaining <= 0) return reject(new SafeFetchError("timeout", `${o.noun} download timed out`));
+    const tooLarge = () => new SafeFetchError("too_large", `${o.noun} is larger than ${Math.round(o.maxBytes / 1024 / 1024)} MB`);
 
     const client = url.protocol === "https:" ? https : http;
     const req = client.request(url, {
       method: "GET",
-      headers: { "User-Agent": USER_AGENT, Accept: ACCEPT },
+      headers: o.headers,
       lookup,
       // Never reuse pooled sockets: every connection goes through the guarded lookup.
       agent: false,
     });
     // Runs asynchronously, after `fail` below is defined.
     const timer = setTimeout(() => {
-      const err = new SafeFetchError("timeout", "Image download timed out");
+      const err = new SafeFetchError("timeout", `${o.noun} download timed out`);
       req.destroy(err);
       fail(err);
     }, remaining);
@@ -137,49 +158,71 @@ function requestOnce(
         if (!location) return fail(new SafeFetchError("bad_status", `Redirect ${status} without a location`));
         return settle(() => resolve({ redirect: location }));
       }
-      if (status < 200 || status >= 300) {
+      if (!o.readBody(status, res.headers)) {
         res.resume();
-        return fail(new SafeFetchError("bad_status", `The server answered ${status}`));
+        return settle(() => resolve({ answer: { url, status, headers: res.headers, body: null } }));
       }
 
       const declared = Number(res.headers["content-length"]);
-      if (Number.isFinite(declared) && declared > maxBytes) {
+      if (Number.isFinite(declared) && declared > o.maxBytes) {
         req.destroy();
-        return fail(new SafeFetchError("too_large", `Image is larger than ${Math.round(maxBytes / 1024 / 1024)} MB`));
+        return fail(tooLarge());
       }
 
       const chunks: Buffer[] = [];
       let total = 0;
-      let sniffed: SafeImage["contentType"] | null = null;
       res.on("data", (chunk: Buffer) => {
         if (settled) return;
         total += chunk.length;
-        if (total > maxBytes) {
-          const err = new SafeFetchError("too_large", `Image is larger than ${Math.round(maxBytes / 1024 / 1024)} MB`);
+        if (total > o.maxBytes) {
+          const err = tooLarge();
           req.destroy(err);
           return fail(err);
         }
         chunks.push(chunk);
-        // Refuse a non-image as soon as the first bytes arrive
-        if (!sniffed && total >= 12) {
-          sniffed = sniffImageType(Buffer.concat(chunks));
-          if (!sniffed) {
-            const err = new SafeFetchError("not_image", "The URL does not point to a JPEG, PNG, GIF or WebP image");
-            req.destroy(err);
-            return fail(err);
-          }
+        const refused = o.onChunk?.(chunks, total);
+        if (refused) {
+          req.destroy(refused);
+          return fail(refused);
         }
       });
       res.on("error", fail);
-      res.on("end", () => {
-        const buffer = Buffer.concat(chunks);
-        const contentType = sniffed ?? sniffImageType(buffer);
-        if (!contentType) return fail(new SafeFetchError("not_image", "The URL does not point to a JPEG, PNG, GIF or WebP image"));
-        settle(() => resolve({ image: { buffer, contentType, finalUrl: url.toString() } }));
-      });
+      res.on("end", () => settle(() => resolve({ answer: { url, status, headers: res.headers, body: Buffer.concat(chunks) } })));
     });
     req.end();
   });
+}
+
+/**
+ * The guarded request loop of every download from an outside URL: the URL
+ * check, the guarded lookup, redirects followed by hand with each hop checked
+ * again, one deadline for the whole transfer and a size cap while streaming.
+ */
+export async function guardedFetch(url: string, o: GuardedFetchOptions): Promise<GuardedAnswer> {
+  // The deadline counts time on the network only: a wait between two requests is not transfer
+  let budget = o.timeoutMs;
+  const lookup = createGuardedLookup(o.isBlockedAddress);
+  const send = o.sendHop ?? ((_url, sendOnce) => sendOnce());
+
+  let current = url;
+  for (let hop = 0; hop <= o.maxRedirects; hop++) {
+    if (!isSafeUrl(current, { allowHttp: o.allowHttp, isBlockedAddress: o.isBlockedAddress })) {
+      throw new SafeFetchError("blocked_url", hop === 0 ? "URL not allowed" : "Redirect to a URL that is not allowed");
+    }
+    const target = new URL(current);
+    await o.beforeHop?.(target);
+    const result = await send(target, async () => {
+      const start = Date.now();
+      try {
+        return await requestOnce(target, start + budget, lookup, o);
+      } finally {
+        budget -= Date.now() - start;
+      }
+    });
+    if ("answer" in result) return result.answer;
+    current = new URL(result.redirect, current).toString();
+  }
+  throw new SafeFetchError("too_many_redirects", `More than ${o.maxRedirects} redirects`);
 }
 
 export async function safeFetchImage(url: string, options: SafeFetchImageOptions = {}): Promise<SafeImage> {
@@ -190,17 +233,25 @@ export async function safeFetchImage(url: string, options: SafeFetchImageOptions
     maxRedirects = 5,
     isBlockedAddress: blocked = isBlockedAddress,
   } = options;
-  const deadline = Date.now() + timeoutMs;
-  const lookup = createGuardedLookup(blocked);
-
-  let current = url;
-  for (let hop = 0; hop <= maxRedirects; hop++) {
-    if (!isSafeUrl(current, { allowHttp, isBlockedAddress: blocked })) {
-      throw new SafeFetchError("blocked_url", hop === 0 ? "URL not allowed" : "Redirect to a URL that is not allowed");
-    }
-    const result = await requestOnce(new URL(current), deadline, maxBytes, lookup);
-    if (result.image) return result.image;
-    current = new URL(result.redirect!, current).toString();
-  }
-  throw new SafeFetchError("too_many_redirects", `More than ${maxRedirects} redirects`);
+  let sniffed: SafeImage["contentType"] | null = null;
+  const answer = await guardedFetch(url, {
+    allowHttp,
+    isBlockedAddress: blocked,
+    timeoutMs,
+    maxRedirects,
+    maxBytes,
+    headers: { "User-Agent": USER_AGENT, Accept: ACCEPT },
+    noun: "Image",
+    readBody: (status) => status >= 200 && status < 300,
+    // Refuse a non-image as soon as the first bytes arrive
+    onChunk: (chunks, total) => {
+      if (sniffed || total < 12) return null;
+      sniffed = sniffImageType(Buffer.concat(chunks));
+      return sniffed ? null : new SafeFetchError("not_image", "The URL does not point to a JPEG, PNG, GIF or WebP image");
+    },
+  });
+  if (!answer.body) throw new SafeFetchError("bad_status", `The server answered ${answer.status}`);
+  const contentType = sniffed ?? sniffImageType(answer.body);
+  if (!contentType) throw new SafeFetchError("not_image", "The URL does not point to a JPEG, PNG, GIF or WebP image");
+  return { buffer: answer.body, contentType, finalUrl: answer.url.toString() };
 }

@@ -414,7 +414,7 @@ Other accepted values are written to their column (`works.original_title`,
 | `enrichment_applications` | UUID; claim, work, edition, dimension, target; JSON `before` and `after` (the target's value and every claim status the apply changed); `applied_by` (`pablo`, `rule`), rule, batch, note; apply and undo times | Book only; names its claim's book, edition, dimension and target; written once, then only its undo time; index on `applied_at` (the daily cap) |
 | `enrichment_auto_accept_rules` | UUID; dimension (unique); `basis` (`exact_identifier_match`, `evaluation_gate`); `enabled` (default off), minimum confidence, gold-set version, measured precision, sample size, minimum sample, gate time, approval URL, enable time | Only on an `auto_accept_eligible` dimension, and an exact-identifier rule only on identity; enabled only with Pablo's approval URL and an enable time, and a gated rule only at 95% precision or more on at least the minimum sample (R8) |
 | `work_popularity_snapshots` | UUID; work, `metric`, `month` (first day), `value` (0 or more), source record (deferred key, not null) | Book only; unique `(work_id, metric, month)`; index `(metric, month)` |
-| `enrichment_jobs` | UUID; work, `kind` (`identity`, `facts`, `length`, `popularity`, `research`, `extract`), `status` (`queued`, `running`, `done`, `failed`, `held`); priority (lower first, default 100), attempts, run after, lock time and worker, `held_reason` (`quota`, `rate_limited`, `budget`, `work_cost_ceiling`), last error (500 characters); JSON `payload` (reason, dimension keys, vocabulary version, outcome), `rerun`, cost; timestamps, finish time | Book only; `running` exactly when locked; `held` exactly with a reason; finished exactly when done or failed; at most one open job (`queued`, `running`, `held`) per work and kind |
+| `enrichment_jobs` | UUID; work, `kind` (`identity`, `facts`, `length`, `popularity`, `research`, `extract`), `status` (`queued`, `running`, `done`, `failed`, `held`); priority (lower first, default 100), attempts, run after, lock time and worker, `held_reason` (`quota`, `rate_limited`, `budget`, `work_cost_ceiling`), last error (500 characters); JSON `payload` (reason, dimension keys, vocabulary version, outcome), `rerun`, cost; timestamps, finish time | Book only; `running` exactly when locked; `held` exactly with a reason; finished exactly when done or failed; at most one open job (`queued`, `running`, `held`) per work and kind; an index on `work_id` (migration 0078), so a work's delete or merge finds its done and failed jobs without a scan |
 
 **Guards at commit.** Constraint triggers check, at commit, that a `proposed` or
 `accepted` claim from an API or an agent has evidence (R1, R2), again when
@@ -450,6 +450,51 @@ evidence all cites the edition's source records ("An accepted enrichment value
 rests only on this edition's sources. Undo that value first."), otherwise it
 deletes the evidence that cites them, rejects the proposals left with none
 (`check`, `evidence_deleted`) and deletes the edition with its own claims.
+
+### Evidence store and cost meter
+
+Migration `0078_evidence_store` (SLN-468) adds the outlet registry and the cost
+ledger. An evidence document is a `source_records` row: a review or publisher
+page the evidence fetcher retrieved, or a search snippet of an outlet whose
+policy is `snippet_only`. Its `provider` is the outlet key, its `url` the final
+URL in canonical form (`canonicalEvidenceUrl`: no fragment, no tracking
+parameters), its `attribution` the outlet's name; it is `accepted`, verified at
+its retrieval time, with one row per document and owner (the book, or one of its
+editions). Readers recognise it by `payload.kind`.
+
+**The evidence payload** (`src/lib/enrichment/evidence-payload.ts`) holds no
+page text (R10), only hashes, keys and short metadata: `kind` (`evidence_page`,
+`evidence_text`), `retrievedVia` (`fetch`, `search:<provider>`), `outlet`, the
+`query` of a snippet; the requested, final and canonical URLs, HTTP status,
+content type and charset; `rawSha256`, `rawBytes`, `rawStoredBytes`, `rawKey`
+(pages); `textSha256` (the hash a text excerpt in `claim_evidence` names),
+`textChars` (code points), `textBytes`, `textKey`; the page's title, byline,
+publication date and language as it states them; the extractor and fetcher
+versions; the robots.txt decision (its URL and status, the matched group and
+rule, the crawl delay, the fetch time); a MinHash `fingerprint` for
+syndication (R6); the run and the job. The text itself is in S3 under
+`bronze/evidence/` (docs/07). A refresh of the same owner and final URL
+supersedes the older row (`supersedes_id`); the old text stays, so excerpts
+quoted from it still verify. Expression indexes on `payload ->> 'rawKey'` and
+`payload ->> 'textKey'` serve the S3 cleanup's in-use check, and a partial index
+on `url` serves reuse.
+
+| Table | Identity and fields | Integrity |
+| --- | --- | --- |
+| `evidence_outlets` | Slug `key` (primary key, no dot, never a reserved provider name such as `wikidata` or `manual`), name; `domains` (lowercase host names; a domain matches itself and its subdomains); `kind` (`review`, `essay`, `publisher`, `translator`, `academic`, `press`); `language` (ISO 639-1, null for several); `weight` 0–1; `syndication_group` (outlets of one group count as one source); `fetch_policy` (`fetch`, `snippet_only`, `excluded`); terms URL, the day they were checked, a one-line note; `status` (`active`, `retired`), seed version; timestamps | `fetch` only with `terms_checked_on`; a trigger refuses a domain that is not a host name or that another active outlet lists (a retired outlet's domains are free), and a key change; an outlet is retired, never deleted (stored documents name it). Seeded from `src/lib/enrichment/outlets-seed.ts` by `scripts/enrichment/evidence.ts --outlets` |
+| `enrichment_costs` | UUID; provider, operation; `status` (`reserved`, `settled`, `released`); JSON `estimated_units` and `units` (unit name to count); `estimated_cost_usd` and `cost_usd` (US dollars); price version; work (FK, SET NULL), job (FK `enrichment_jobs`, SET NULL), run; created and settled times | Book only on `work_id` (`book_parent_required`); a reserved row has no cost or units, a settled one has both, a released one no cost; append-only: a trigger refuses deletes and every change except one from `reserved` to `settled` or `released`, the foreign keys' SET NULL and an audited Harmonize move; indexes on created time, run, job and work |
+
+**The cost meter** (`metered`, `src/lib/enrichment/meter.ts`) reserves a call's
+estimated cost in its own short transaction, committed before the call: an
+advisory lock, then the reservation only if this month's settled cost, plus open
+reservations at their estimate, plus this estimate stay within
+`ENRICHMENT_MONTHLY_CAP_USD` (and the run's limit, which only lowers the cap).
+The month is the calendar month in `APP_TIMEZONE`. Past the cap, or without a
+cap, or without a price row for the provider and operation
+(`src/lib/enrichment/prices.ts`), the call is never made: `BudgetStop`, and the
+job in hand is held (`budget`) without an attempt. The settlement records the
+provider's own counts and adds the cost to `enrichment_jobs.cost`; a failed call
+settles at its estimate unless it was not billed, which releases it.
 
 ## Three-Tier Model
 

@@ -223,6 +223,44 @@ Wikidata calls: `wbsearchentities` then `wbgetentities` for a search (items whos
 
 ---
 
+## Evidence fetcher (SLN-468)
+
+The book enrichment fetches review and publisher pages as evidence through
+`createPageFetcher` (`src/lib/net/safe-fetch-page.ts`), never through plain
+`fetch`. It shares the guarded request loop of `safeFetchImage`: every resolved
+address is checked when the socket connects, redirects are followed by hand and
+checked again, one deadline counts network time (30 s), and the body is capped
+while it streams (5 MB). HTTPS only; HTML, XHTML or plain text only (a PDF fails
+as `unsupported_type`).
+
+- **Allowlist.** Only a URL of an active outlet of the registry
+  (`evidence_outlets`, docs/02) whose policy is `fetch`; every hop is checked
+  again, so a redirect off the registry fails as `off_registry`.
+- **Blocked hosts.** `goodreads.com`, `thestorygraph.com` and their subdomains
+  are refused in code, before any network call, whatever the registry holds.
+- **robots.txt** (RFC 9309, parsed by `src/lib/net/robots.ts`): read once per
+  host and cached for 24 hours, following up to 5 redirects. The groups that
+  name `DurtalBot` win, else `*`; the longest matching path wins, `Allow` on a
+  tie. A 4xx (other than 429) means no rules; a 5xx, a 429 or no answer skips the
+  host for the run. `Crawl-delay` is respected, and a host that asks for more
+  than 60 s is skipped.
+- **Pacing.** One request at a time per host, at least 5 s apart (or the
+  crawl delay); robots.txt counts as the first request. A 429 or 503 with a
+  `Retry-After` of at most 120 s waits once; a longer wait or a second refusal
+  skips the host for the run. Another 5xx or a network error is tried once
+  more.
+- **Manners.** The User-Agent is `DurtalBot/1.0 (personal book catalogue;
+  <contact>)` with the contact from `ENRICHMENT_CONTACT`; without it the fetcher
+  refuses to start. No cookie, login, `Authorization` or `Referer` header; a
+  401, 402 or 403 fails as `paywall_or_login` and is never retried; no archive
+  or cache copy; no page script runs.
+
+Every refusal has a typed reason for the run report (`EVIDENCE_FETCH_REASONS`).
+Search providers, model calls and their costs are metered by the cost meter
+(docs/02); page fetches and free official APIs are not.
+
+---
+
 ## Integration Summary
 
 | Service | Auth | Rate Limit | Used For |
@@ -232,3 +270,4 @@ Wikidata calls: `wbsearchentities` then `wbgetentities` for a search (items whos
 | Nominatim | None | 1 req/sec | Location geocoding |
 | Wikidata (perfumes) | None | 1 req/sec | Perfume identity lookup, reviewed before saving |
 | Art Institute of Chicago, The Met | None | 1 req/sec | Painting and original lookup; location only from "on view" |
+| Evidence outlets (review and publisher sites) | None | 1 request per 5 s per host, or its crawl delay | Book enrichment evidence, robots.txt and terms honoured |

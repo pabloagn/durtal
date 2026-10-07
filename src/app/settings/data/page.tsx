@@ -1,17 +1,30 @@
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/button";
 import {
+  SettingFact,
   SettingRow,
   SettingsGroup,
   SettingsIntro,
 } from "@/components/settings/settings-group";
-import { catalogueCounts, reviewQueueCounts } from "@/lib/settings/data";
+import { catalogueCounts, enrichmentSpend, evidenceCacheStats, reviewQueueCounts } from "@/lib/settings/data";
 import { ExportRow, RefreshCacheRow } from "./data-actions";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 
 export const metadata = { title: "Data settings" };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const usd = (amount: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+/** Bytes as KB, MB or GB, one decimal */
+function size(bytes: number) {
+  const units = ["bytes", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return unit === 0 ? `${value} bytes` : `${value.toFixed(1)} ${units[unit]}`;
+}
 
 /** A review queue: what it holds, how much waits, and a link to it. */
 function QueueRow({
@@ -39,7 +52,12 @@ function QueueRow({
 }
 
 export default async function DataSettingsPage() {
-  const [counts, queues] = await Promise.all([catalogueCounts(), reviewQueueCounts()]);
+  const [counts, queues, spend, evidence] = await Promise.all([
+    catalogueCounts(),
+    reviewQueueCounts(),
+    enrichmentSpend(),
+    evidenceCacheStats(),
+  ]);
   return (
     <>
       <SettingsIntro>
@@ -149,6 +167,21 @@ export default async function DataSettingsPage() {
             description="Every painting: painters, date, movements, genres, techniques, media, supports, the original's owner and size, what you own, rating and notes."
           />
         )}
+      </SettingsGroup>
+
+      <SettingsGroup title="Enrichment">
+        <SettingFact label="Spend this month" description="Paid search and model calls of the book enrichment, against the monthly cap.">
+          <span data-enrichment-spend="">
+            {spend.cap === null
+              ? `${usd(spend.spent + spend.reserved)}, no cap set`
+              : `${usd(spend.spent + spend.reserved)} of ${usd(spend.cap)}`}
+          </span>
+        </SettingFact>
+        <SettingFact label="Evidence cache" description="Private copies of review and publisher pages, kept to check quotes. Never shown or exported.">
+          <span data-evidence-cache="">
+            {plural(evidence.documents, "document", "documents")}, {size(evidence.bytes)}
+          </span>
+        </SettingFact>
       </SettingsGroup>
 
       <SettingsGroup title="Cache">
