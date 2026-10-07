@@ -883,9 +883,18 @@ function small() {
 window.__durtalBookScript = "ran";
 try { parent.__durtalBookScript = "ran"; top.__durtalBookScript = "ran"; } catch (e) {}
 //]]>
-</script>`,
+</script>
+<script type="text/javascript" src="ran.js"></script>`,
         },
         scriptText.chapters[1],
+      ],
+      files: [
+        {
+          id: "ran",
+          href: "ran.js",
+          type: "application/javascript",
+          data: Buffer.from('window.__durtalBookScriptFile = "ran";\ntry { top.__durtalBookScriptFile = "ran"; } catch (e) {}\n'),
+        },
       ],
     }),
   );

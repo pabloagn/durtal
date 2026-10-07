@@ -88,6 +88,8 @@ export default async function ReaderPage(props: PageProps) {
       {file && range && (
         <script
           nonce={nonce}
+          // Browsers hide a nonce from the DOM once it is used, so hydration sees nonce=""
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: prefetchScript({ fileId: file.id, url: file.url, range }) }}
         />
       )}
