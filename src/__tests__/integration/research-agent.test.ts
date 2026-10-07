@@ -47,6 +47,7 @@ import { SourceCache } from "@/lib/enrichment/source-cache";
 import { EvidenceFetchError, type FetchedPage } from "@/lib/net/safe-fetch-page";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
 import { createWork } from "@/lib/actions/works";
+import { createEdition } from "@/lib/actions/editions";
 import type { EnrichmentStage } from "@/lib/enrichment/stages";
 import type { Outlet } from "@/lib/enrichment/outlets";
 
@@ -388,5 +389,49 @@ describe.skipIf(!url)("the research agent", () => {
     expect(await c`select count(*)::int as n from enrichment_jobs where work_id in (${fresh.id}, ${done.id}) and status = 'queued'`).toEqual([{ n: 2 }]);
     expect(all.books).toBe((await c`select count(*)::int as n from works w where w.kind = 'book'
       and not exists (select 1 from enrichment_jobs j where j.work_id = w.id and j.kind = 'research' and j.status = 'done')`)[0].n);
+  });
+
+  it("researches a book skipped for having no author once it has one (SLN-530)", async () => {
+    const [w] = await c`insert into works ${c({ title: "Anonymous", slug: `anonymous-${randomUUID().slice(0, 6)}` })} returning id, slug`;
+    await enqueueEnrichmentJob({ workId: w.id, kind: "research", reason: "manual" }, conn);
+    await run();
+    expect(searches).toEqual([]);
+    expect(await c`select status, payload -> 'outcome' as outcome from enrichment_jobs where work_id = ${w.id}`).toEqual([
+      { status: "done", outcome: { result: "skipped", reason: "the book has no author" } },
+    ]);
+    const [a] = await c`insert into authors(name, slug) values ('Gaspard de la Nuit', ${randomUUID()}) returning id`;
+    await c`insert into work_authors(work_id, author_id, role) values (${w.id}, ${a.id}, 'author')`;
+    await enqueueScope(conn, { kind: "research", scope: "all", apply: true });
+    expect(await c`select status from enrichment_jobs where work_id = ${w.id} order by created_at`).toEqual([{ status: "done" }, { status: "queued" }]);
+    await run({ only: [w.slug] });
+    expect(searches.length).toBeGreaterThan(0);
+    // Researched now: the next scope run leaves it out
+    await c`delete from enrichment_jobs where status = 'queued'`;
+    await enqueueScope(conn, { kind: "research", scope: "all", apply: true });
+    expect(await c`select payload -> 'outcome' ->> 'result' as result from enrichment_jobs where work_id = ${w.id} order by created_at`).toEqual([
+      { result: "skipped" },
+      { result: "researched" },
+    ]);
+  });
+
+  it("queues only identity when a researched book gets a new edition; a book skipped for no author queues research (SLN-530)", async () => {
+    const researched = await book("Kaputt");
+    await run();
+    expect((await jobOf(researched.id)).payload.outcome.result).toBe("researched");
+    await createEdition({ workId: researched.id, title: "Kaputt", isbn13: "9780000000002" });
+    expect(await c`select kind, status from enrichment_jobs where work_id = ${researched.id} and kind <> 'extract' order by kind`).toEqual([
+      { kind: "identity", status: "queued" },
+      { kind: "research", status: "done" },
+    ]);
+
+    const skipped = await book("The Skin");
+    await c`update enrichment_jobs set status = 'done', finished_at = now(),
+      payload = payload || '{"outcome": {"result": "skipped", "reason": "the book has no author"}}'::jsonb where work_id = ${skipped.id}`;
+    await createEdition({ workId: skipped.id, title: "The Skin", isbn13: "9780000000019" });
+    expect(await c`select kind, status from enrichment_jobs where work_id = ${skipped.id} order by kind, created_at`).toEqual([
+      { kind: "identity", status: "queued" },
+      { kind: "research", status: "done" },
+      { kind: "research", status: "queued" },
+    ]);
   });
 });

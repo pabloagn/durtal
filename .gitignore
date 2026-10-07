@@ -97,6 +97,8 @@ htmlcov/
 # =============================================================================
 tmp/
 temp/
+# Reports of the e-book scripts (pnpm ebooks:verify): they hold catalogue data (SLN-491)
+/reports/
 *.tmp
 *.bak
 *.log

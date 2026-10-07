@@ -1,0 +1,7 @@
+{
+  "Name": "durtal-ebooks",
+  "Description": "Durtal e-books: CloudFront signs its requests to the private bucket",
+  "SigningProtocol": "sigv4",
+  "SigningBehavior": "always",
+  "OriginAccessControlOriginType": "s3"
+}

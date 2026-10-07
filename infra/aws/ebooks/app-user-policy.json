@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListTheEbookBucket",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::__BUCKET__"
+    },
+    {
+      "Sid": "ReadAndWriteEbookObjects",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::__BUCKET__/__PREFIX__*"
+    },
+    {
+      "Sid": "DeleteOnlyStagedUploads",
+      "Effect": "Allow",
+      "Action": ["s3:DeleteObject", "s3:AbortMultipartUpload"],
+      "Resource": "arn:aws:s3:::__BUCKET__/__PREFIX__staging/*"
+    }
+  ]
+}

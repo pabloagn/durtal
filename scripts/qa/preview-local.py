@@ -31,7 +31,8 @@ repository (.gitignore ignores *.jsonl).
 The preview has no S3: placeholder keys make every S3 call fail. With
 --s3-dir DIR, the app keeps its S3 objects as files under DIR for this run
 (DURTAL_PREVIEW_S3_DIR), so uploads, imports and e-books work. It is never
-set anywhere else.
+set anywhere else. E-book files sit under DIR/<e-book bucket>/<key>, and the
+app serves them by byte range itself (EBOOK_DELIVERY=app, always).
 
 With --seed-reader (needs --s3-dir), the e-book fixtures of
 src/__tests__/fixtures/ebooks/ are stored in DIR under their real keys and
@@ -365,6 +366,8 @@ def main():
         # src/lib/env.ts stops the server without AWS keys. These placeholders
         # pass that check and are no credential: an S3 call is refused.
         env.update(AWS_ACCESS_KEY_ID="preview-no-s3", AWS_SECRET_ACCESS_KEY="preview-no-s3")
+        # E-book files are always sent by the app's own Range route: a preview never needs AWS
+        env.update(EBOOK_DELIVERY="app")
         def psql(sql):
             return run("docker", "exec", "-i", container, "psql", "-q", "-X", "-A", "-t",
                        "-v", "ON_ERROR_STOP=1", "-U", "durtal_preview", "-d", DATABASE, input=sql)
