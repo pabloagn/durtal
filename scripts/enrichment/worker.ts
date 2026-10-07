@@ -15,12 +15,15 @@
  * - `--enable-identity-rules --dimensions KEY,… --approval URL`: turns on
  *   those identity dimensions' exact-match rules, with `--apply --backup`.
  * - `--disable-identity-rules [--dimensions KEY,…]`: turns them off at once.
+ * - `--determinism-check N`: sends N model requests of the cache again and
+ *   compares the answers (SLN-469). Paid: only with `--apply --backup`, and
+ *   it writes only cost rows.
  *
  *   pnpm exec tsx --tsconfig tsconfig.json scripts/enrichment/worker.ts \
  *     [--kinds identity] [--apply --backup FILE] [--undo RUN_ID]
  *     [--enqueue KIND --scope owned|on_order|wanted|all]
  *     [--enable-identity-rules --dimensions KEY,… --approval URL]
- *     [--disable-identity-rules [--dimensions KEY,…]] [--only SLUG,…]
+ *     [--disable-identity-rules [--dimensions KEY,…]] [--determinism-check N] [--only SLUG,…]
  *     [--limit N] [--report FILE] [--cache FILE] [--pace MS] [--env-dir DIR]
  */
 import { parseArgs } from "node:util";
@@ -39,6 +42,8 @@ import { recentBackup } from "@/lib/enrichment/backup";
 import { SourceCache } from "@/lib/enrichment/source-cache";
 import { HEARTBEAT_MS, assertReadOnly, enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
 import { disableIdentityRules, enableIdentityRules } from "@/lib/enrichment/identity-rules";
+import { determinismCheck } from "@/lib/enrichment/research/extract-stage";
+import { anthropicModel } from "@/lib/enrichment/research/model";
 
 const { values } = parseArgs({
   options: {
@@ -50,6 +55,7 @@ const { values } = parseArgs({
     scope: { type: "string" },
     "enable-identity-rules": { type: "boolean", default: false },
     "disable-identity-rules": { type: "boolean", default: false },
+    "determinism-check": { type: "string" },
     dimensions: { type: "string" },
     approval: { type: "string" },
     only: { type: "string" },
@@ -90,6 +96,12 @@ try {
     lines = await disableIdentityRules(conn, { dimensions: names(values.dimensions) });
   } else if (values["enable-identity-rules"]) {
     lines = await enableIdentityRules(conn, { dimensions: names(values.dimensions) ?? [], approvalUrl: values.approval, apply: values.apply });
+  } else if (values["determinism-check"]) {
+    const key = process.env.ANTHROPIC_API_KEY?.trim();
+    if (!values.apply || !key) throw new Error("--determinism-check makes paid calls: it needs --apply --backup and ANTHROPIC_API_KEY");
+    const runId = randomUUID();
+    const check = await determinismCheck(conn, { n: Number(values["determinism-check"]), cache: SourceCache.load(values.cache!), runId, model: anthropicModel(key) });
+    lines = [`# Determinism check ${runId}`, "", ...check];
   } else if (values.undo) {
     lines = (await undoRun(conn, { runId: values.undo, apply: values.apply })).lines;
   } else if (values.enqueue) {

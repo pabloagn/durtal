@@ -14,6 +14,8 @@ import { outletForUrl } from "@/lib/enrichment/outlets";
 import { loadOutlets } from "@/lib/enrichment/outlet-registry";
 import { BudgetStop, metered } from "@/lib/enrichment/meter";
 import { enrichmentUserAgent } from "@/lib/enrichment/user-agent";
+import { anthropicClient } from "@/lib/enrichment/research/model";
+import { EXTRACTION_MODEL } from "@/lib/enrichment/research/config";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "@/lib/s3/client";
 import {
@@ -43,6 +45,7 @@ export const INTEGRATION_IDS = [
   "enrichmentBudget",
   "tavily",
   "braveSearch",
+  "extractionModel",
 ] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 
@@ -108,14 +111,14 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       .groupBy(evidenceOutlets.fetchPolicy),
     evidenceCacheStats(),
     enrichmentSpend(),
-    // The research agent's searches, from the cost ledger
+    // The research agent's searches and model calls, from the cost ledger
     db
       .select({ provider: enrichmentCosts.provider, calls: count(), last: max(enrichmentCosts.createdAt) })
       .from(enrichmentCosts)
-      .where(inArray(enrichmentCosts.provider, ["tavily", "brave"]))
+      .where(inArray(enrichmentCosts.provider, ["tavily", "brave", EXTRACTION_MODEL.provider]))
       .groupBy(enrichmentCosts.provider),
   ]);
-  const lastSearch = (provider: string) => {
+  const lastUsed = (provider: string) => {
     const row = searches.find((s) => s.provider === provider);
     return row?.last ? `${formatDate(row.last)} (${row.calls} calls)` : "Never";
   };
@@ -241,7 +244,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       checkFrom: "server",
       facts: [
         { label: "Role", value: "Main search" },
-        { label: "Last used", value: lastSearch("tavily") },
+        { label: "Last used", value: lastUsed("tavily") },
       ],
     },
     {
@@ -252,7 +255,19 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
       checkFrom: "server",
       facts: [
         { label: "Role", value: "Fallback search" },
-        { label: "Last used", value: lastSearch("brave") },
+        { label: "Last used", value: lastUsed("brave") },
+      ],
+    },
+    {
+      id: "extractionModel",
+      name: "Anthropic",
+      purpose: "The research agent's extraction model: it reads the passages about a book and returns vocabulary terms with exact quotes. About $0.50 a book, through the budget; the check is free.",
+      env: [{ name: "ANTHROPIC_API_KEY", set: isSet("ANTHROPIC_API_KEY") }],
+      checkFrom: "server",
+      facts: [
+        { label: "Role", value: "Extraction model" },
+        { label: "Model", value: EXTRACTION_MODEL.model },
+        { label: "Last used", value: lastUsed(EXTRACTION_MODEL.provider) },
       ],
     },
   ];
@@ -553,6 +568,23 @@ async function checkBraveSearch(): Promise<CheckResult> {
   }
 }
 
+/** The pinned model's record, a free call */
+async function checkExtractionModel(): Promise<CheckResult> {
+  const key = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!key) return off("ANTHROPIC_API_KEY is not set: extraction refuses to apply");
+  const start = performance.now();
+  try {
+    await anthropicClient(key, EXTERNAL_TIMEOUT_MS).models.retrieve(EXTRACTION_MODEL.model);
+    return ok(`The key can use ${EXTRACTION_MODEL.model} (${since(start)} ms)`);
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 401 || status === 403) return failure("Anthropic refused the key");
+    if (status === 404) return failure(`The key cannot use ${EXTRACTION_MODEL.model}`);
+    if (status === 429) return warning("Over the rate limit; try again in a few minutes");
+    return failure("Anthropic could not be reached");
+  }
+}
+
 const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult>> = {
   database: checkDatabase,
   storage: checkStorage,
@@ -566,6 +598,7 @@ const CHECKS: Record<Exclude<IntegrationId, "mapbox">, () => Promise<CheckResult
   enrichmentBudget: checkEnrichmentBudget,
   tavily: checkTavily,
   braveSearch: checkBraveSearch,
+  extractionModel: checkExtractionModel,
 };
 
 /** A live check of one service. Mapbox is checked by the browser. */

@@ -513,6 +513,25 @@ book, with the run id in its payload. Each search is a row in
 budget or the book's ceiling (`maxCostPerWork`, $1.50) holds the job without
 an attempt.
 
+**Extraction (SLN-469).** The extract stage reads each stored document of a
+book and asks the extraction model (docs/08) which terms of the research
+dimensions it states. A document that names neither one of the book's titles
+nor an author's surname, as whole words, is not sent. A sent document carries
+only its passages: the whole text up to 12,000 code points, else windows of
+1,500 code points around each match. The code then checks every returned value:
+the term is current in its dimension (R4), the excerpt occurs exactly in the
+passage it names, after NFC and nothing else (R3), and it is 20 to 400 code
+points long. A value that passes becomes an `agent` claim with `text` evidence:
+the excerpt, its code point offsets in the stored text and the text's hash. A
+dimension that requires independent sources stores a value with fewer than two
+as `rejected` (`not_independent`); a later source proposes it again with all
+its evidence. Nothing is applied. Every request is a row in
+`enrichment_extractions`, so a document is never sent twice with one request.
+
+| Table | Identity and fields | Integrity |
+| --- | --- | --- |
+| `enrichment_extractions` | UUID; work (FK, CASCADE), source record (FK, CASCADE), vocabulary version (FK, RESTRICT); `dimension_keys` (the dimensions asked); extractor version (prompt, model and settings); `request_sha256` (the request as sent, or the relevance gate's inputs); `status` (`not_about_work`, `answered`, `invalid_answer`); JSON `passages` (id and code point offsets); values returned and verified; JSON `failures` (dimension, term, check, the excerpt cut to 200 characters); run (required), job (FK, SET NULL); created and undo times | Book only (`book_parent_required`); one row per source record and request hash while not undone (partial unique index); verified values only on an answered row; append-only: a trigger refuses deletes (the cascades of a work or record delete pass) and every change except one undo time, the job key's SET NULL and an audited Harmonize move; indexes on work, run and job |
+
 ### Evidence store and cost meter
 
 Migration `0078_evidence_store` (SLN-468) adds the outlet registry and the cost

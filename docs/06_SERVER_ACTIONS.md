@@ -388,7 +388,7 @@ Invalidates every `CACHE_TAGS` tag and the root layout, so the next page load re
 checkIntegration(id: IntegrationId): Promise<{ status: "ok" | "warning" | "error" | "off"; message: string }>
 ```
 
-A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata, the evidence fetcher (an outlet's robots.txt), the enrichment budget (the ledger, no call), Tavily (`GET /usage`, free) and Brave Search (one search of `count=1`, metered as operation `check`; at the budget cap it makes no call and warns). Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
+A live check of one outside service (`src/lib/settings/integrations.ts`): database (`select 1`), storage (`HeadBucket`, and the bucket's region against `AWS_REGION`), ISBNdb, Google Books, Open Library (one known ISBN), Google Places (ids only), Nominatim (`/status`), Wikidata, the evidence fetcher (an outlet's robots.txt), the enrichment budget (the ledger, no call), Tavily (`GET /usage`, free), Brave Search (one search of `count=1`, metered as operation `check`; at the budget cap it makes no call and warns) and the extraction model (`models.retrieve("claude-opus-5-5")`, free). Each has an 8 s limit and no cache. The message never holds a URL, header, body or secret. Mapbox is checked by the browser. Never called from `/api/health`.
 
 ---
 
