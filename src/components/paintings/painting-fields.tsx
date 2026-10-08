@@ -122,7 +122,7 @@ export function PaintersField({
                   },
                 ])
               }
-              className="rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
+              className="touch-hit rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
             >
               Unknown
             </button>

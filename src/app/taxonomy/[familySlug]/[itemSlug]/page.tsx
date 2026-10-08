@@ -102,14 +102,14 @@ async function ItemContent({
       <nav className="mb-6 flex items-center gap-1.5 text-sm text-fg-secondary">
         <Link
           href="/taxonomy"
-          className="transition-colors hover:text-fg-secondary"
+          className="touch-hit transition-colors hover:text-fg-secondary"
         >
           Taxonomy
         </Link>
         <span>/</span>
         <Link
           href={`/taxonomy/${family.slug}`}
-          className="transition-colors hover:text-fg-secondary"
+          className="touch-hit transition-colors hover:text-fg-secondary"
         >
           {family.name}
         </Link>

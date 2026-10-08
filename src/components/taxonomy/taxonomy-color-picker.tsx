@@ -84,7 +84,7 @@ export function TaxonomyColorPicker({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary"
+        className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary pointer-coarse:size-11"
         aria-label="Pick color"
       >
         {value ? (
@@ -99,7 +99,7 @@ export function TaxonomyColorPicker({
 
       {/* Popover */}
       {open && (
-        <div className="glass absolute left-0 top-full z-50 mt-1 w-52 p-3">
+        <div className="glass absolute left-0 top-full z-50 mt-1 w-52 p-3 pointer-coarse:w-64">
           {/* Preset grid: 4 columns x 3 rows */}
           <div className="grid grid-cols-4 gap-2">
             {PRESET_COLORS.map((preset) => {
@@ -111,7 +111,7 @@ export function TaxonomyColorPicker({
                   onClick={() => handlePresetClick(preset.hex)}
                   aria-label={preset.name}
                   data-tooltip={preset.name}
-                  className={`flex h-8 w-full items-center justify-center rounded-sm transition-all ${
+                  className={`flex h-8 w-full items-center justify-center rounded-sm transition-all pointer-coarse:h-11 ${
                     isActive
                       ? "ring-1 ring-fg-secondary ring-offset-1 ring-offset-bg-secondary"
                       : "hover:ring-1 hover:ring-fg-muted/30 hover:ring-offset-1 hover:ring-offset-bg-secondary"
@@ -133,7 +133,7 @@ export function TaxonomyColorPicker({
           <button
             type="button"
             onClick={handleClear}
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
           >
             <X className="h-3 w-3" strokeWidth={1.5} />
             <span>None</span>
@@ -155,13 +155,13 @@ export function TaxonomyColorPicker({
                 }
               }}
               placeholder="#a1b2c3"
-              className="h-7 flex-1 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+              className="h-7 flex-1 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
             />
             <button
               type="button"
               onClick={handleCustomSubmit}
               disabled={!/^#[0-9a-fA-F]{6}$/.test(customHex.trim())}
-              className="h-7 rounded-sm border border-glass-border bg-glass-highlight px-2 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40"
+              className="h-7 rounded-sm border border-glass-border bg-glass-highlight px-2 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:min-w-11"
             >
               Set
             </button>

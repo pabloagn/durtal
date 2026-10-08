@@ -71,7 +71,7 @@ export function AddButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
+      className="touch-hit inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
     >
       <CapAligned height={12}>
         <Plus className="h-3 w-3" strokeWidth={1.5} />
@@ -81,12 +81,16 @@ export function AddButton({
   );
 }
 
-/** A labelled row of chips: the label on the left, chips and Add on the right */
+/**
+ * A labelled row of chips: the label on the left, chips and Add on the right.
+ * On touch the rows, and the lines inside a row, sit further apart, so the
+ * 44px press area of Add does not overlap the row or line beside it.
+ */
 export function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 pointer-coarse:py-1.5">
       <span className="w-28 shrink-0 text-xs leading-6 text-fg-secondary">{label}</span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5 pointer-coarse:gap-y-2.5">{children}</div>
     </div>
   );
 }
