@@ -23,7 +23,7 @@ export default async function ReadingYearsPage() {
             <li key={y.year}>
               <Link
                 href={`/reading/year/${y.year}`}
-                className="block rounded-sm border border-glass-border bg-bg-secondary px-4 py-4 transition-colors hover:border-accent-rose/30"
+                className="block rounded-sm border border-glass-border bg-bg-secondary px-4 py-4 transition-colors hover:border-accent-primary/30"
                 data-review-year={y.year}
               >
                 <span className="type-stat block text-fg-primary tabular-nums">{y.year}</span>

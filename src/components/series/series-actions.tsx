@@ -48,7 +48,7 @@ export function SeriesActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
+      <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add books
       </Button>

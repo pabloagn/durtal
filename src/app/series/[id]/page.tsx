@@ -116,7 +116,7 @@ export default async function SeriesDetailPage({
           {next && read > 0 && (
             <p className="mt-3 text-sm text-fg-secondary" data-next-to-read="">
               Next to read:{" "}
-              <Link href={`/library/${next.slug ?? next.id}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+              <Link href={`/library/${next.slug ?? next.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
                 {next.position ? `${next.position}. ` : ""}
                 {next.title}
               </Link>

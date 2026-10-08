@@ -34,7 +34,7 @@ export function QueueHomeFilter({ home, homes, on }: { home: HomeOption | null; 
       href={on ? "/reading/next" : "/reading/next?hand=1"}
       aria-pressed={on}
       className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
-        on ? "border-accent-rose/10 bg-accent-plum/80 text-fg-primary" : "border-glass-border text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
+        on ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary" : "border-glass-border text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
       }`}
       data-queue-hand=""
     >

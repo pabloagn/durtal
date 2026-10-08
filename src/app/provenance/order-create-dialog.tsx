@@ -165,7 +165,7 @@ export function OrderCreateDialog({
             <div
               key={label}
               className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${
-                i <= step ? "bg-accent-rose/60" : "bg-glass-border"
+                i <= step ? "bg-accent-primary/60" : "bg-glass-border"
               }`}
             />
           ))}

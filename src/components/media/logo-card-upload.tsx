@@ -134,8 +134,8 @@ export function LogoCardUpload({
           setDragging(false);
           pick(e.dataTransfer.files);
         }}
-        className={`flex w-full flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-rose ${
-          dragging ? "border-accent-rose bg-accent-rose/5" : "border-glass-border hover:border-fg-muted/30"
+        className={`flex w-full flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary ${
+          dragging ? "border-accent-primary bg-accent-primary/5" : "border-glass-border hover:border-fg-muted/30"
         }`}
       >
         <Upload className="mb-2 h-4 w-4 text-fg-secondary" strokeWidth={1.5} />
@@ -192,7 +192,7 @@ export function LogoCardUpload({
                 onClick={() => setOptions((o) => ({ ...o, size: s.value }))}
                 className={`h-7 rounded-sm border px-2.5 text-xs transition-colors ${
                   (options.size ?? 0) === s.value
-                    ? "border-accent-rose/40 bg-accent-rose/10 text-fg-primary"
+                    ? "border-accent-primary/40 bg-accent-primary/10 text-fg-primary"
                     : "border-glass-border text-fg-secondary hover:text-fg-primary"
                 }`}
               >

@@ -192,9 +192,9 @@ export function creditKey() {
 }
 
 const SMALL_INPUT =
-  "h-7 min-w-0 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none";
+  "h-7 min-w-0 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none";
 const ICON_BUTTON =
-  "flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose";
+  "flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary";
 
 function CreditRow({
   entry,
@@ -232,7 +232,7 @@ function CreditRow({
             aria-label={`Role of ${name}`}
             value={entry.roleId}
             onChange={(e) => onChange({ ...entry, roleId: e.target.value as FilmCreditRole })}
-            className="h-6 shrink-0 rounded-sm border border-glass-border bg-transparent px-1 text-xs text-fg-secondary hover:border-fg-muted focus:border-accent-rose focus:outline-none"
+            className="h-6 shrink-0 rounded-sm border border-glass-border bg-transparent px-1 text-xs text-fg-secondary hover:border-fg-muted focus:border-accent-primary focus:outline-none"
           >
             {roles.map((role) => (
               <option key={role} value={role}>

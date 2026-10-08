@@ -68,13 +68,13 @@ export function PassageOfTheDay({
         }
       />
       <figure data-note={note.id}>
-        <blockquote className="border-l-2 border-accent-rose/40 pl-4" aria-live="polite">
+        <blockquote className="border-l-2 border-accent-primary/40 pl-4" aria-live="polite">
           <Prose className={long && !all ? "line-clamp-8" : ""}>
             <p className="whitespace-pre-line break-words">{note.body}</p>
           </Prose>
         </blockquote>
         <figcaption className="mt-2 pl-4.5 text-xs text-fg-secondary">
-          <Link href={`/library/${note.book.slug ?? note.book.id}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+          <Link href={`/library/${note.book.slug ?? note.book.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
             {note.book.title}
           </Link>
           {[note.book.author, where].filter(Boolean).map((part) => ` · ${part}`)}

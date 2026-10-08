@@ -56,7 +56,7 @@ export function OrganizationFilters({
         aria-current={active ? "page" : undefined}
         className={`${CHIP} ${
           active
-            ? "border-accent-rose/40 bg-accent-plum text-fg-primary"
+            ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
             : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
         }`}
       >
@@ -88,7 +88,7 @@ export function OrganizationFilters({
             clearTimeout(timer.current);
             timer.current = setTimeout(() => router.push(hrefWith("q", value)), 300);
           }}
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
+          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
         />
       </div>
       <nav aria-label="Roles" className="flex flex-wrap gap-2">

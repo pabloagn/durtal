@@ -110,7 +110,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                 href={y === null ? "/reading/stats?year=all" : y === current ? "/reading/stats" : `/reading/stats?year=${y}`}
                 aria-current={y === year ? "page" : undefined}
                 className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
-                  y === year ? "border-accent-rose/10 bg-accent-plum/80 text-fg-primary" : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
+                  y === year ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary" : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
                 }`}
               >
                 {y ?? "All time"}
@@ -265,7 +265,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   {rated.reread.map((r) => (
                     <li key={r.workId} className="flex items-baseline justify-between gap-3">
                       {/* The title cuts off inside the link: the link's touch area is not clipped */}
-                      <Link href={book(r)} className="min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                      <Link href={book(r)} className="min-w-0 text-fg-primary transition-colors hover:text-accent-primary touch-hit">
                         <span className="lines-1">{r.title}</span>
                       </Link>
                       <span className="shrink-0 text-xs text-fg-secondary tabular-nums">{r.reads.map((x) => (x === null ? "unrated" : formatRating(x))).join(" · ")}</span>
@@ -306,7 +306,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   <div key={label} className="min-w-0">
                     <dt className="text-xs text-fg-secondary">{label}</dt>
                     <dd className="lines-1">
-                      <Link href={book(ref!)} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+                      <Link href={book(ref!)} className="text-fg-primary transition-colors hover:text-accent-primary">
                         {ref!.title}
                       </Link>
                       <span className="text-fg-secondary"> · {words(ref!.value)}</span>

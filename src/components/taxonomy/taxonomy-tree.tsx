@@ -194,7 +194,7 @@ function SortableRow({
 
 function DragOverlayRow({ item }: { item: TaxonomyItemData }) {
   return (
-    <div className="rounded-sm border border-accent-rose/30 bg-bg-secondary px-3 py-1.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
+    <div className="rounded-sm border border-accent-primary/30 bg-bg-secondary px-3 py-1.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)]">
       <div className="flex items-center gap-2">
         {item.color && (
           <span

@@ -44,7 +44,7 @@ export function PickOne({ top, initiallyOpen = false }: { top: SuggestionRow[]; 
           <div className="flex gap-4" data-pick={current.workId}>
             <Cover s3Key={current.cover} className="h-28 w-20" />
             <div className="min-w-0 flex-1 space-y-1">
-              <Link href={current.href} className="type-item-title block text-fg-primary transition-colors hover:text-accent-rose-text">
+              <Link href={current.href} className="type-item-title block text-fg-primary transition-colors hover:text-accent-primary">
                 {current.title}
               </Link>
               {current.author && <p className="text-xs text-fg-secondary">{current.author}</p>}

@@ -61,7 +61,7 @@ export function LocationActions() {
 
   return (
     <>
-      <Button variant="primary" size="md" onClick={() => setOpen(true)}>
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
         <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
         Add location
       </Button>

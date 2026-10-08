@@ -169,8 +169,8 @@ export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
               height: `${blob.ry}%`,
               transform: `translate(-50%, -50%) rotate(${blob.rotation}deg)`,
               background: `radial-gradient(ellipse at center, ${blob.color.hex} 0%, transparent 55%)`,
-              opacity: blob.opacity,
-              filter: `blur(${blob.blur}px)`,
+              opacity: blob.opacity * 0.38,
+              filter: `blur(${blob.blur}px) saturate(0.6)`,
             }}
           />
         ))}

@@ -764,7 +764,7 @@ export function EditionForm({
                     onClick={() => toggleGenre(g.id)}
                     className={`rounded-sm border px-2 py-0.5 text-xs transition-colors ${
                       selected
-                        ? "border-accent-rose bg-accent-rose/10 text-accent-rose-text"
+                        ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
                         : "border-glass-border text-fg-secondary hover:border-fg-muted hover:text-fg-primary"
                     }`}
                   >
@@ -788,7 +788,7 @@ export function EditionForm({
                     onClick={() => toggleTag(t.id)}
                     className={`rounded-sm border px-2 py-0.5 text-xs transition-colors ${
                       selected
-                        ? "border-accent-rose bg-accent-rose/10 text-accent-rose-text"
+                        ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
                         : "border-glass-border text-fg-secondary hover:border-fg-muted hover:text-fg-primary"
                     }`}
                   >

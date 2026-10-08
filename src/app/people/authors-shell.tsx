@@ -109,7 +109,7 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
       return (
         <Link
           href={`/people/${author.slug}`}
-          className="flex items-center gap-2 hover:text-accent-rose-text"
+          className="flex items-center gap-2 hover:text-accent-primary"
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
             {author.photoUrl ? (
@@ -159,7 +159,7 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
           href={author.website}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent-rose-text hover:underline"
+          className="text-accent-primary hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           Link

@@ -5,79 +5,51 @@
    ========================================================================== */
 
 @theme {
-  /* ── Background ──────────────────────────────────────────────────────── */
-  --color-bg-primary: #030507;
-  --color-bg-secondary: #0a0d10;
-  --color-bg-tertiary: #14171c;
+  /* Quiet Glass: surfaces, readable foregrounds and role-specific states. */
+  --color-bg-primary: #07090d;
+  --color-bg-secondary: #0e1319;
+  --color-bg-tertiary: #171e26;
+  --color-fg-heading: #d8dcd8;
+  --color-fg-primary: #c5cacb;
+  --color-fg-secondary: #9ba4ad;
+  --color-fg-muted: #727b83;
+  --color-accent-primary: #8c9fae;
+  --color-selection-bg: #17232d;
+  --color-selection-fg: #d8dcd8;
+  --color-accent-underlay: #1c2a35;
+  --color-action-fill: #c5cdcf;
+  --color-action-hover: #d4dadb;
+  --color-action-fg: #10151a;
+  --color-border-subtle: #252e37;
+  --color-border-control: #687987;
 
-  /* ── Foreground ──────────────────────────────────────────────────────── */
-  --color-fg-primary: #c1c6c4;
-  --color-fg-secondary: #7d8380;
-  --color-fg-muted: #4a4f4d;
+  /* Functional colour; artwork and colour taxonomy keep their own hues. */
+  --color-accent-gold: #afa184;
+  --color-accent-sage: #a3ae9c;
+  --color-accent-red: #c4746e;
+  --color-accent-red-text: #d18b82;
+  --color-accent-blue: #8c9fae;
+  --color-accent-blue-text: #8c9fae;
+  --color-accent-slate: #687987;
 
-  /* ── Primary accent ──────────────────────────────────────────────────── */
-  --color-accent-rose: #7d3d52;
-  /* Rose for text: accent-rose is 2.3–2.6:1 on the backgrounds, this is 4.7–5.3:1.
-     accent-rose stays for fills, borders and rings. */
-  --color-accent-rose-text: #b96b83;
-
-  /* ── Selection / underlay ────────────────────────────────────────────── */
-  --color-accent-plum: #20131e;
-
-  /* ── Semantic accents ────────────────────────────────────────────────── */
-  --color-accent-gold: #c0a36e;
-  --color-accent-sage: #76946a;
-  --color-accent-red: #bb3e41;
-  /* Red for text: accent-red is 3.3–3.8:1 on the backgrounds, this is 4.7–5.3:1 */
-  --color-accent-red-text: #cf5f5e;
-  --color-accent-blue: #648493;
-  /* Blue for text: accent-blue is 4.4:1 on its own badge tint, this is 4.9-5.4:1 */
-  --color-accent-blue-text: #7293a2;
-  --color-accent-slate: #586e75;
-
-  /* ── Gothic underlay ─────────────────────────────────────────────────── */
-  --color-gothic-crimson: #8e4057;
-  --color-gothic-mulberry: #462941;
-
-  /* ── Glass ───────────────────────────────────────────────────────────── */
-  --color-glass-border: rgba(193, 198, 196, 0.06);
-  --color-glass-highlight: rgba(193, 198, 196, 0.03);
-  /* The glass material (`glass`, `glass-bar`): a dark tint over a blurred,
-     dimmed view of what lies behind, a hairline edge and a light from above.
-     The tint and the dimming keep fg-secondary text at 4.5:1 or more, also
-     over a white cover. */
-  --color-glass-tint: rgba(10, 13, 16, 0.88);
-  --color-glass-edge: rgba(193, 198, 196, 0.1);
-  --color-glass-edge-lit: rgba(222, 226, 224, 0.07);
-  --color-glass-sheen: rgba(222, 226, 224, 0.02);
-  /* What lies behind a dialog or the command palette */
-  --color-glass-veil: rgba(3, 5, 7, 0.62);
-  /* Glass on an image (`glass-chip`): the marks and small controls on a
-     cover, poster or photo. A lighter tint than the panels, so the image
-     shows through, blurred and deepened */
-  --color-glass-chip-tint: rgba(10, 13, 16, 0.72);
-  --color-glass-chip-edge: rgba(222, 226, 224, 0.14);
-  --color-glass-chip-lit: rgba(222, 226, 224, 0.18);
-  --color-glass-chip-sheen: rgba(222, 226, 224, 0.06);
-  /* A mark's color on glass: its accent lit toward fg-primary, so it reads
-     as light through the smoked glass and keeps 3:1 over any image */
+  /* Quiet boundaries. A strong outline is reserved for essential affordances. */
+  --color-glass-border: rgba(210, 220, 228, 0.07);
+  --color-glass-highlight: rgba(196, 210, 223, 0.075);
+  --color-glass-tint: rgba(14, 18, 23, 0.70);
+  --color-glass-edge: rgba(210, 220, 228, 0.07);
+  --color-glass-veil: rgba(7, 9, 13, 0.48);
+  --color-glass-chip-tint: rgba(7, 10, 14, 0.72);
+  --color-glass-chip-edge: transparent;
   --color-chip-gold: color-mix(in oklab, var(--color-accent-gold) 45%, var(--color-fg-primary));
-  --color-chip-rose: color-mix(in oklab, var(--color-accent-rose-text) 45%, var(--color-fg-primary));
+  --color-chip-accent: color-mix(in oklab, var(--color-accent-primary) 45%, var(--color-fg-primary));
   --color-chip-red: color-mix(in oklab, var(--color-accent-red-text) 45%, var(--color-fg-primary));
   --color-chip-sage: color-mix(in oklab, var(--color-accent-sage) 45%, var(--color-fg-primary));
   --color-chip-blue: color-mix(in oklab, var(--color-accent-blue-text) 45%, var(--color-fg-primary));
-
-  /* ── Over images ─────────────────────────────────────────────────────── */
-  /* The page's near-black, never pure black: a control on a cover or photo
-     (overlay), a banner dimmed behind a header (scrim), the lightbox around
-     an open image (scrim-deep). Text on them is fg-primary, never white. */
-  --color-overlay: rgba(3, 5, 7, 0.85);
-  --color-scrim: rgba(3, 5, 7, 0.7);
-  --color-scrim-deep: rgba(3, 5, 7, 0.9);
-
-  /* ── Border radius ───────────────────────────────────────────────────── */
-  --radius-sm: 2px;
-  --radius-md: 4px;
+  --color-overlay: rgba(7, 9, 13, 0.85);
+  --color-scrim: rgba(7, 9, 13, 0.70);
+  --color-scrim-deep: rgba(7, 9, 13, 0.90);
+  --radius-sm: 4px;
+  --radius-md: 6px;
   --radius-lg: 8px;
 
   /* ── Font families ───────────────────────────────────────────────────── */
@@ -117,7 +89,7 @@ html {
   -moz-osx-font-smoothing: grayscale;
   /* Native controls (select lists, date fields, checkboxes, autofill) in dark */
   color-scheme: dark;
-  accent-color: var(--color-accent-rose);
+  accent-color: var(--color-accent-primary);
   /* Always keep the scrollbar track, so centred pages do not move 3px
      between pages that scroll and pages that do not */
   overflow-y: scroll;
@@ -132,10 +104,10 @@ html {
 }
 
 /* One keyboard focus ring for every control. In the base layer, so a text
-   field can replace it with its own rose border (focus:outline-none). */
+   field can replace it with its own steel outline (focus:outline-none). */
 @layer base {
   :focus-visible {
-    outline: 1px solid var(--color-accent-rose);
+    outline: 2px solid var(--color-accent-primary);
     outline-offset: 2px;
   }
 }
@@ -208,8 +180,8 @@ dialog::backdrop {
 
 /* Selection */
 ::selection {
-  background-color: var(--color-accent-plum);
-  color: var(--color-fg-primary);
+  background-color: var(--color-selection-bg);
+  color: var(--color-selection-fg);
 }
 
 /* ==========================================================================
@@ -222,7 +194,7 @@ dialog::backdrop {
     border-color: var(--color-glass-border);
     box-shadow:
       0 0 0 1px var(--color-glass-border),
-      0 8px 24px -8px rgba(125, 61, 82, 0.08),
+      0 8px 24px -8px rgba(28, 42, 53, 0.14),
       0 2px 8px -2px rgba(0, 0, 0, 0.3);
   }
 }
@@ -349,7 +321,7 @@ dialog::backdrop {
 /* A 28px glass button on a card (copy, actions). The element keeps the
    glass-chip class itself: hover-reveal-glass looks for it */
 @utility chip-button {
-  @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border text-fg-primary hover:glass-chip-lift touch-hit;
+  @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border-0 text-fg-primary hover:glass-chip-lift pointer-coarse:h-11 pointer-coarse:w-11;
 }
 
 /* An icon button's padding around a 16px icon: 32px, 44px on touch, in rem
@@ -431,21 +403,10 @@ dialog::backdrop {
   }
 }
 
-/* Glass: one material for every surface that floats above the page: the
-   command palette, menus, popovers, tooltips, dialogs and the selection
-   toolbars. Subtle and controlled: most of what shows is the dark tint; the
-   blurred, slightly saturated view behind it only colors it, the edge is a
-   hairline lit from above, and the corners are 4px.
-
-   The material sits on a ::before layer, not on the element: a
-   backdrop-filter on the element would become the containing block of its
-   position: fixed children (pickers and hover cards inside a dialog). The
-   element needs a position (absolute, fixed, relative or a dialog) and no
-   background or border of its own.
-
-   So a glass surface never scrolls: the layer would scroll away with the
-   first screenful and leave the rest of the list on the bare page. The
-   element takes overflow-hidden and an element inside it scrolls. */
+/* Quiet Glass floats above content with a translucent tint and one neutral
+   hairline. No bevel, inset highlight or luminous top rim. The ::before layer
+   preserves fixed-position picker coordinates; the surface clips while a
+   child scrolls, keeping the material behind every line. */
 @utility glass {
   isolation: isolate;
   border-radius: var(--radius-md);
@@ -460,16 +421,12 @@ dialog::backdrop {
     z-index: -1;
     border-radius: inherit;
     pointer-events: none;
-    background:
-      linear-gradient(180deg, var(--color-glass-sheen), transparent 56px),
-      var(--color-glass-tint);
+    background: var(--color-glass-tint);
     /* The prefixed line first: after the standard one, Lightning CSS reads it
        as an override and drops the standard line, and Chrome has no blur */
-    -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
-    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
-    box-shadow:
-      inset 0 0 0 1px var(--color-glass-edge),
-      inset 0 1px 0 0 var(--color-glass-edge-lit);
+    -webkit-backdrop-filter: blur(24px) saturate(0.65) brightness(0.55);
+    backdrop-filter: blur(24px) saturate(0.65) brightness(0.55);
+    box-shadow: inset 0 0 0 1px var(--color-glass-edge);
   }
 }
 
@@ -485,37 +442,82 @@ dialog::backdrop {
     z-index: -1;
     pointer-events: none;
     background: var(--color-glass-tint);
-    -webkit-backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
-    backdrop-filter: blur(24px) saturate(1.5) brightness(0.3);
+    -webkit-backdrop-filter: blur(24px) saturate(0.65) brightness(0.55);
+    backdrop-filter: blur(24px) saturate(0.65) brightness(0.55);
   }
 }
 
-/* Glass on an image: the cover chips and the small controls on a cover,
-   poster or photo (copy, actions, selection, image adjustments). The image
-   behind shows through it blurred, deepened and dimmed, under a hairline
-   edge lit from above, like a drop of smoked glass on the print. Dim
-   enough that an icon keeps 3:1 and a label 4.5:1 over a white cover. The
-   dimming is in the tint, which every browser draws alike; the filter's
-   brightness stays mild, as browsers render a strong one differently (at
-   0.06 Safari drew the chips near black and Chrome a grey). The blur is
-   `--glass-chip-blur` (10px): a 16px mark takes 3px, as a wide radius on
-   so small a box keeps the image's edges. The element draws its own 1px
-   `border`; this colors it. `glass-chip-lift` brightens the sheen, for a
-   control's hover. */
+/* Image controls use a single dark material. Small indicators can reduce
+   --glass-chip-blur to preserve cover edges. No outline or sheen. */
 @utility glass-chip {
-  border-color: var(--color-glass-chip-edge);
-  background:
-    linear-gradient(180deg, var(--glass-chip-sheen, var(--color-glass-chip-sheen)), transparent 35%),
-    var(--color-glass-chip-tint);
-  -webkit-backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
-  backdrop-filter: blur(var(--glass-chip-blur, 10px)) saturate(1.8) brightness(0.6);
-  box-shadow:
-    inset 0 1px 0 0 var(--color-glass-chip-lit),
-    0 1px 3px rgba(3, 5, 7, 0.45);
+  border-color: transparent;
+  background: var(--color-glass-chip-tint);
+  -webkit-backdrop-filter: blur(var(--glass-chip-blur, 12px)) saturate(0.65) brightness(0.65);
+  backdrop-filter: blur(var(--glass-chip-blur, 12px)) saturate(0.65) brightness(0.65);
+  box-shadow: none;
 }
 
 @utility glass-chip-lift {
-  --glass-chip-sheen: rgba(222, 226, 224, 0.16);
+  background: color-mix(in srgb, var(--color-glass-chip-tint), var(--color-fg-primary) 7%);
+}
+
+/* One material behind adjacent artwork actions. The pseudo layer avoids
+   containing fixed menus; each button remains a separate accessible target. */
+@utility artwork-actions {
+  @apply absolute bottom-1 right-1 z-20 flex gap-0.5 rounded-sm p-0.5 @[220px]:bottom-2 @[220px]:right-2;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--color-glass-chip-tint);
+    -webkit-backdrop-filter: blur(12px) saturate(0.65) brightness(0.65);
+    backdrop-filter: blur(12px) saturate(0.65) brightness(0.65);
+    pointer-events: none;
+  }
+  /* Fade the material and controls themselves; never an ancestor of blur. */
+  &::before, & > button, & > div {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  &:focus-within::before, &:focus-within > button, &:focus-within > div { opacity: 1; }
+  @media (hover: hover) {
+    :where(.group):hover &::before, :where(.group):hover & > button, :where(.group):hover & > div { opacity: 1; }
+  }
+  @media (pointer: coarse) {
+    &::before, & > button, & > div { opacity: 1; }
+  }
+  & > button.glass-chip, & > div > button.glass-chip {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  & > button.chip-button:hover, & > div > button.chip-button:hover {
+    background: var(--color-glass-highlight);
+  }
+}
+
+/* Clear fields in creation/edit dialogs; labels and focus provide structure. */
+@utility input-open {
+  border-color: transparent;
+  background: transparent;
+  &:hover { background: var(--color-glass-highlight); }
+}
+
+/* Glass remains readable if the platform cannot blur, or requests opacity. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass::before, .glass-bar::before, .artwork-actions::before, .glass-chip {
+    background: var(--color-bg-secondary);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass::before, .glass-bar::before, .artwork-actions::before, .glass-chip {
+    background: var(--color-bg-secondary);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* The veil behind a dialog or the command palette: the page stays in view,
@@ -523,8 +525,8 @@ dialog::backdrop {
    on an overlay element. */
 @utility glass-veil {
   background: var(--color-glass-veil);
-  -webkit-backdrop-filter: blur(6px) saturate(1.2);
-  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(4px) saturate(0.8);
+  backdrop-filter: blur(4px) saturate(0.8);
 }
 
 /* Mosaic (`<Mosaic>`, src/components/shared/mosaic.tsx): pictures only, in
@@ -584,7 +586,7 @@ dialog::backdrop {
   box-shadow: 0 0 0 1px var(--color-glass-border);
   transition: opacity 240ms ease, box-shadow 160ms ease;
   &:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-accent-rose);
+    box-shadow: 0 0 0 2px var(--color-accent-primary);
   }
   & .mosaic-media {
     position: absolute;
@@ -630,7 +632,7 @@ dialog::backdrop {
 }
 
 @utility mosaic-tile-selected {
-  box-shadow: 0 0 0 2px var(--color-accent-rose);
+  box-shadow: 0 0 0 2px var(--color-accent-primary);
 }
 
 @utility mosaic-fill {
@@ -639,9 +641,8 @@ dialog::backdrop {
 }
 
 @utility glass-input-focus {
-  box-shadow:
-    0 0 0 1px var(--color-accent-rose),
-    0 0 12px -4px rgba(125, 61, 82, 0.3);
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
 }
 
 @utility scrollbar-hide {
@@ -687,15 +688,24 @@ dialog::backdrop {
   font-size: var(--text-4xl);
   line-height: var(--text-4xl--line-height);
   letter-spacing: -0.025em;
-  color: var(--color-fg-primary);
+  color: var(--color-fg-heading);
 }
 
-/* Every titled block on a page (SectionHeading), and dialog titles */
+/* Every titled block on a page (SectionHeading) */
 @utility type-section-title {
   font-family: var(--font-serif);
   font-size: var(--text-2xl);
   line-height: var(--text-2xl--line-height);
   color: var(--color-fg-primary);
+}
+
+/* Functional headings for floating forms, distinct from literary content. */
+@utility type-dialog-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+  color: var(--color-fg-heading);
 }
 
 /* Card titles, and the title of a block inside a section */
@@ -708,7 +718,7 @@ dialog::backdrop {
 
 /* A group of fields in a form or dialog */
 @utility type-group-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-lg);
   line-height: var(--text-lg--line-height);
   color: var(--color-fg-secondary);
@@ -754,7 +764,7 @@ dialog::backdrop {
     font-style: italic;
   }
   & a {
-    color: var(--color-accent-rose-text);
+    color: var(--color-accent-primary);
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 0.2em;
@@ -793,14 +803,14 @@ dialog::backdrop {
   appearance: none;
   height: 4px;
   background: var(--color-bg-tertiary);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   outline: none;
 }
 .crop-range-slider::-webkit-slider-thumb {
   appearance: none;
   width: 14px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--color-fg-secondary);
   cursor: pointer;
   border: 1px solid var(--color-glass-border);
@@ -812,7 +822,7 @@ dialog::backdrop {
 .crop-range-slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--color-fg-secondary);
   cursor: pointer;
   border: 1px solid var(--color-glass-border);
@@ -824,7 +834,7 @@ dialog::backdrop {
 .crop-range-slider::-moz-range-track {
   height: 4px;
   background: var(--color-bg-tertiary);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 /* On touch the slider is 44px tall: its track stays a 4px line drawn by the background */
 @media (pointer: coarse) {
@@ -864,7 +874,7 @@ dialog::backdrop {
   font-style: italic;
 }
 .bio-content a {
-  color: var(--color-accent-rose-text);
+  color: var(--color-accent-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: color 0.15s;
@@ -909,13 +919,13 @@ dialog::backdrop {
 .tiptap-content code {
   background: var(--color-bg-tertiary);
   padding: 0.1em 0.3em;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   font-size: 0.875em;
 }
 .tiptap-content pre {
   background: var(--color-bg-primary);
   padding: 0.75em;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   overflow-x: auto;
   margin: 0.5em 0;
 }
@@ -930,7 +940,7 @@ dialog::backdrop {
   margin: 0.5em 0;
 }
 .tiptap-content a {
-  color: var(--color-accent-rose-text);
+  color: var(--color-accent-primary);
   text-decoration: underline;
 }
 .tiptap-content ul,
@@ -984,8 +994,8 @@ dialog::backdrop {
     --color-fg-secondary: #4b504e;
     --color-fg-muted: #8a8f8d;
     --color-glass-border: rgba(22, 24, 26, 0.18);
-    --color-accent-rose-text: #7d3d52;
-    --color-accent-plum: #f1e7ee;
+    --color-accent-primary: #3e596c;
+    --color-selection-bg: #e0e7ec;
   }
   html {
     color-scheme: light;

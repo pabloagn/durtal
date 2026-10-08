@@ -190,7 +190,7 @@ export function EditionDetailCard({
                     <Badge variant="gold">1st ed.</Badge>
                   )}
                   {edition.isLimitedEdition && (
-                    <Badge variant="rose">Limited</Badge>
+                    <Badge variant="accent">Limited</Badge>
                   )}
                 </div>
               )}
@@ -301,7 +301,7 @@ export function EditionDetailCard({
       {edition.description && (
         <div className="border-b border-glass-border px-4 py-3">
           <div
-            className="max-w-2xl text-sm leading-relaxed text-fg-secondary [&_a]:text-accent-rose [&_a]:underline"
+            className="max-w-2xl text-sm leading-relaxed text-fg-secondary [&_a]:text-accent-primary [&_a]:underline"
             dangerouslySetInnerHTML={{
               __html: sanitizeDescriptionHtml(edition.description),
             }}
@@ -360,7 +360,7 @@ export function EditionDetailCard({
                     {c.author.slug ? (
                       <Link
                         href={`/people/${c.author.slug}`}
-                        className="text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
+                        className="text-xs text-fg-secondary transition-colors hover:text-accent-primary"
                       >
                         {c.author.name}
                       </Link>

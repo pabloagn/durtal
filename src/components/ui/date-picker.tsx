@@ -92,9 +92,9 @@ export function DatePicker({
           type="button"
           id={id}
           onClick={() => setOpen((prev) => !prev)}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-rose focus:outline-none focus:glass-input-focus pointer-coarse:h-11 ${
+          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus pointer-coarse:h-11 ${
             error ? "border-accent-red" : ""
-          } ${open ? "border-accent-rose" : ""}`}
+          } ${open ? "border-accent-primary" : ""}`}
         >
           {/* One line: a narrow field would break "YYYY-MM-DD" at its hyphens, off the icon's line */}
           <span className={`min-w-0 truncate ${value ? "text-fg-primary" : "text-fg-secondary"}`}>
@@ -133,7 +133,7 @@ export function DatePicker({
                 day_button:
                   "flex h-8 w-8 items-center justify-center rounded-sm text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary",
                 selected:
-                  "!bg-accent-rose/20 !text-fg-primary font-medium",
+                  "!bg-accent-primary/20 !text-fg-primary font-medium",
                 today: "font-bold text-accent-gold",
                 outside: "text-fg-muted/30",
                 disabled: "text-fg-muted/20 cursor-not-allowed hover:bg-transparent",

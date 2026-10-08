@@ -133,7 +133,7 @@ function FamilyAssignment({
                   refocus.current = true;
                   save(items.filter((i) => i.id !== item.id));
                 }}
-                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose touch-hit"
+                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary touch-hit"
               >
                 <X className="h-3 w-3" strokeWidth={1.5} />
               </button>
@@ -242,7 +242,7 @@ export function TaxonomyItemSearch({
         onKeyDown={(e) => e.key === "Escape" && (e.preventDefault(), onClose())}
         placeholder={`Search ${family.name.toLowerCase()}...`}
         aria-label={`Search ${family.name}`}
-        className="h-6 w-48 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+        className="h-6 w-48 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
       />
       <div className="absolute left-0 top-7 z-20 w-64 rounded-sm border border-glass-border bg-bg-secondary py-1 shadow-lg">
         {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
@@ -275,7 +275,7 @@ export function TaxonomyItemSearch({
             type="button"
             disabled={creating}
             onClick={create}
-            className="block w-full truncate px-2 py-1 text-left text-xs text-accent-rose-text hover:bg-bg-tertiary"
+            className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
             {creating ? "Creating..." : `Create “${name}”`}
           </button>

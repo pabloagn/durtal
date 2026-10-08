@@ -37,7 +37,7 @@ export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSw
             data-tooltip={mode.label}
             className={`flex items-center justify-center px-2 py-1.5 transition-colors pointer-coarse:size-11 ${
               value === mode.value
-                ? "bg-accent-plum text-fg-primary"
+                ? "bg-selection-bg text-fg-primary"
                 : "text-fg-muted hover:text-fg-secondary"
             }`}
           >

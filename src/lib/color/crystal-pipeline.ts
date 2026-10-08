@@ -32,11 +32,11 @@ const ROLE_OPACITY_SCALE: Record<CrystalColor["role"], number> = {
   halo: 0.50,
 };
 
-// Gothic fallback palette (from design tokens) used when extraction yields nothing
-const GOTHIC_FALLBACK_RGB: [number, number, number][] = [
-  [142, 64, 87],   // --color-gothic-crimson #8e4057
-  [70, 41, 65],    // --color-gothic-mulberry #462941
-  [88, 110, 117],  // --color-accent-slate #586e75
+// Ink fallback palette (from design tokens) used when extraction yields nothing
+const INK_FALLBACK_RGB: [number, number, number][] = [
+  [28, 42, 53],    // --color-accent-underlay #1c2a35
+  [23, 35, 45],    // --color-selection-bg #17232d
+  [104, 121, 135], // --color-accent-slate #687987
 ];
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -83,9 +83,8 @@ function scoreSwatch(
  * Lighter colors are more visually prominent on dark backgrounds,
  * so they get lower opacity. Range: 0.20 (lightest) to 0.40 (darkest).
  *
- * On the near-black page background (#030507), opacity below ~0.15 is
- * effectively invisible after blur. These values are calibrated to produce
- * a visible-but-subtle ambient glow.
+ * These stored palette strengths are attenuated by AmbientCrystals at render
+ * time, keeping existing artwork palettes compatible with the ink canvas.
  */
 function computeOpacity(lightness: number): number {
   const { minLightness, maxLightness } = DURTAL_CLAMP;
@@ -177,7 +176,7 @@ export function buildCrystalPalette(
 // ── Fallback ────────────────────────────────────────────────────────────────
 
 function buildFallbackPalette(): CrystalColor[] {
-  return GOTHIC_FALLBACK_RGB.slice(0, 3).map((rgb, i) => {
+  return INK_FALLBACK_RGB.slice(0, 3).map((rgb, i) => {
     const clamped = clampColor(rgb);
     const [, , cl] = rgbToHsl(...clamped);
     return {

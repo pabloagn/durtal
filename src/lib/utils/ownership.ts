@@ -194,19 +194,19 @@ export function getCatalogueStatusConfig(
     CatalogueStatusValue,
     { label: string; icon: string; color: string }
   > = {
-    tracked: { label: "Tracked", icon: "bookmark", color: "#6b7280" },
+    tracked: { label: "Tracked", icon: "bookmark", color: "var(--color-fg-secondary)" },
     shortlisted: {
       label: "Shortlisted",
       icon: "list-checks",
-      color: "#648493",
+      color: "var(--color-accent-blue)",
     },
-    wanted: { label: "Wanted", icon: "heart", color: "#c0a36e" },
-    on_order: { label: "On Order", icon: "package", color: "#b07d4f" },
-    accessioned: { label: "Accessioned", icon: "library", color: "#76946a" },
+    wanted: { label: "Wanted", icon: "heart", color: "var(--color-accent-gold)" },
+    on_order: { label: "On Order", icon: "package", color: "var(--color-accent-gold)" },
+    accessioned: { label: "Accessioned", icon: "library", color: "var(--color-accent-sage)" },
     deaccessioned: {
       label: "Deaccessioned",
       icon: "archive",
-      color: "#7d3d52",
+      color: "var(--color-accent-primary)",
     },
   };
   return config[status];
@@ -219,11 +219,11 @@ export function getAcquisitionPriorityConfig(
     "none" | "low" | "medium" | "high" | "urgent",
     { label: string; icon: string; color: string }
   > = {
-    none: { label: "None", icon: "minus", color: "#6b7280" },
-    low: { label: "Low", icon: "signal-low", color: "#648493" },
-    medium: { label: "Medium", icon: "signal-medium", color: "#c0a36e" },
-    high: { label: "High", icon: "signal-high", color: "#b07d4f" },
-    urgent: { label: "Urgent", icon: "alert-circle", color: "#a65454" },
+    none: { label: "None", icon: "minus", color: "var(--color-fg-secondary)" },
+    low: { label: "Low", icon: "signal-low", color: "var(--color-accent-blue)" },
+    medium: { label: "Medium", icon: "signal-medium", color: "var(--color-accent-gold)" },
+    high: { label: "High", icon: "signal-high", color: "var(--color-accent-gold)" },
+    urgent: { label: "Urgent", icon: "alert-circle", color: "var(--color-accent-red-text)" },
   };
   return config[priority];
 }
@@ -235,16 +235,16 @@ export function getInstanceStatusConfig(
     InstanceStatusValue,
     { label: string; icon: string; color: string }
   > = {
-    available: { label: "Available", icon: "check-circle", color: "#76946a" },
-    lent_out: { label: "Lent Out", icon: "share-2", color: "#c0a36e" },
-    in_transit: { label: "In Transit", icon: "truck", color: "#648493" },
-    in_storage: { label: "In Storage", icon: "box", color: "#586e75" },
-    missing: { label: "Missing", icon: "search", color: "#a65454" },
-    damaged: { label: "Damaged", icon: "alert-triangle", color: "#b07d4f" },
+    available: { label: "Available", icon: "check-circle", color: "var(--color-accent-sage)" },
+    lent_out: { label: "Lent Out", icon: "share-2", color: "var(--color-accent-gold)" },
+    in_transit: { label: "In Transit", icon: "truck", color: "var(--color-accent-blue)" },
+    in_storage: { label: "In Storage", icon: "box", color: "var(--color-accent-slate)" },
+    missing: { label: "Missing", icon: "search", color: "var(--color-accent-red-text)" },
+    damaged: { label: "Damaged", icon: "alert-triangle", color: "var(--color-accent-gold)" },
     deaccessioned: {
       label: "Deaccessioned",
       icon: "x-circle",
-      color: "#7d3d52",
+      color: "var(--color-accent-primary)",
     },
   };
   return config[status];

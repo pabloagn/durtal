@@ -52,7 +52,7 @@ function renderCell(p: PublisherItem, key: string) {
   switch (key) {
     case "name":
       return (
-        <Link href={`/publishers/${p.slug}`} className="hover:text-accent-rose-text">
+        <Link href={`/publishers/${p.slug}`} className="hover:text-accent-primary">
           {p.name}
         </Link>
       );
@@ -84,7 +84,7 @@ function renderCell(p: PublisherItem, key: string) {
           href={p.website}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent-rose-text hover:underline"
+          className="text-accent-primary hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           Link

@@ -111,7 +111,7 @@ export function CollectionControls({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" onClick={() => setAdd(true)}>
+        <Button variant="secondary" size="sm" onClick={() => setAdd(true)}>
           <Plus size={14} strokeWidth={1.5} />
           Add
         </Button>

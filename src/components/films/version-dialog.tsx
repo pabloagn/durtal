@@ -151,7 +151,7 @@ function ReleaseFields({
             aria-label={`Remove ${label.toLowerCase()}`}
             data-tooltip="Remove release"
             onClick={onRemove}
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary"
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>

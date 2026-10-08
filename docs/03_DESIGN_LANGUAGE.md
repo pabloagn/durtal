@@ -16,58 +16,43 @@ Information density is high, ornamentation is absent, and every pixel earns its 
 
 ## Color Palette
 
-### Backgrounds
+### Quiet Glass palette
 
-| Token | Hex | Usage |
+Approved in SLN-556. Neutral ink, charcoal and smoke, with muted steel interaction and restrained aged gold. Artwork keeps its original colours. Actual colour taxonomy is data and does not inherit the theme.
+
+| Token | Value | Role |
 |---|---|---|
-| `--color-bg-primary` | `#030507` | Page background, root |
-| `--color-bg-secondary` | `#0a0d10` | Cards, panels, sidebar |
-| `--color-bg-tertiary` | `#14171c` | Hover states, alternating rows, subtle borders |
+| `bg-primary` | #07090D | Page canvas |
+| `bg-secondary` | #0E1319 | Content surface |
+| `bg-tertiary` | #171E26 | Raised/hover surface |
+| `fg-heading` | #D8DCD8 | Page headings |
+| `fg-primary` | #C5CACB | Body text |
+| `fg-secondary` | #9BA4AD | Labels, metadata, needed secondary text |
+| `fg-muted` | #727B83 | Decoration, placeholders and disabled content |
+| `accent-primary` | #8C9FAE | Interaction, focus, links |
+| `selection-bg` / `selection-fg` | #17232D / #D8DCD8 | Selected regions |
+| `action-fill` / `action-hover` | #C5CDCF / #D4DADB | Main confirmation |
+| `action-fg` | #10151A | Text on silver actions |
+| `border-subtle` | #252E37 | Decorative separator |
+| `border-control` | #687987 | Essential control boundary when required |
+| `accent-underlay` | #1C2A35 | Restrained petrol depth |
+| `accent-gold` | #AFA184 | Ratings and rare marks |
+| `accent-sage` | #A3AE9C | Success |
+| `accent-red` / `accent-red-text` | #C4746E / #D18B82 | Destructive state / readable error text |
+| `accent-blue` / `accent-blue-text` | #8C9FAE | Information |
+| `accent-slate` | #687987 | Decorative secondary accent |
 
-### Foregrounds
+All tokens have the `--color-` prefix in CSS. Named roles replace the old rose/plum/crimson theme. Status still has a label or icon; colour is supplementary.
 
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-fg-primary` | `#c1c6c4` | Body text, titles, primary content |
-| `--color-fg-secondary` | `#7d8380` | Secondary text, descriptions, metadata, labels, counts, dates |
-| `--color-fg-muted` | `#4a4f4d` | Disabled text, placeholders, separators, decorative icons. Never text a reader needs |
+**Contrast.** Needed text is at least 4.5:1 (3:1 for qualifying large text). Secondary text is at least 6.65:1 across the three opaque surfaces. `fg-muted` is reserved for decoration and disabled content. Use `scripts/qa/design-audit.js`, then separately inspect pixels over glass and imagery: a DOM audit cannot fully measure the composited backdrop. Essential state indicators or boundaries meet 3:1; decorative panel edges need not.
 
-**Contrast.** Text that a reader needs is at least 4.5:1 against its background (3:1 at 24px and larger). `fg-secondary` is 4.6–5.3:1 on the three backgrounds; `fg-muted` is 2.2–2.5:1, so it is for decoration only. `scripts/qa/design-audit.js` lists every text under the limit, except disabled text and pure decoration. Decoration says so with `data-decorative` (with `aria-hidden`), like a cover's placeholder letter; text that is only `aria-hidden` is still checked, since a sighted reader still reads it.
+### Artwork, atmosphere and gradients
 
-### Accents
+Keep book covers, posters and paintings truthful. The header's cover-derived crystalline gradients remain, attenuated to 38% of their prior opacity with 60% saturation and the existing bounded fade. Missing palettes fall back to ink/petrol/steel. Cached warm palettes are attenuated at render time; no recolouring or live-data rewrite.
 
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-accent-rose` | `#7d3d52` | Primary interactive (buttons, focus rings, active states). Fills, borders and rings only |
-| `--color-accent-rose-text` | `#b96b83` | Rose text: links, active labels, rose badges (4.7–5.3:1) |
-| `--color-accent-plum` | `#20131e` | Selection highlight, active nav item background |
-| `--color-accent-slate` | `#586e75` | Secondary accent, info badges |
-| `--color-accent-gold` | `#c0a36e` | Metadata highlights, ratings, special indicators |
-| `--color-accent-sage` | `#76946a` | Success states, positive indicators |
-| `--color-accent-red` | `#bb3e41` | Destructive actions, error states. Fills, borders and icons only |
-| `--color-accent-red-text` | `#cf5f5e` | Red text: destructive actions, errors (4.7–5.3:1) |
-| `--color-accent-blue` | `#648493` | Links, informational badges |
+Use gradients for artwork atmosphere, timeline depth and image scrims where they clarify layering. Do not add bevels, bright rims, metallic reflections or gradient primary buttons. Body content remains on quiet opaque ink surfaces.
 
-### Over images
-
-Small controls and marks that sit on a cover, poster or portrait are glass on the image (`glass-chip`, see Glass): the selection box, the copy button, the card actions menu, the image adjustment button and the cover chips (`cover-chip.ts`, on book, film, perfume, painting and reader cards). Larger layers over an image use the page's near-black, never pure black or white:
-
-| Token | Value | Usage |
-|---|---|---|
-| `--color-overlay` | `bg-primary` at 85% | The media manager's hover actions over a whole thumbnail (`bg-overlay`) |
-| `--color-scrim` | `bg-primary` at 70% | A banner dimmed behind a page header (book, author, collection, publisher and film pages) |
-| `--color-scrim-deep` | `bg-primary` at 90% | The lightbox around an open image; its buttons keep 16px icons in `fg-secondary` |
-
-Text and icons on them are `fg-primary`; text on an `accent-rose` fill is `fg-primary` too (5.0:1). No `bg-black` or `text-white`, and no blur of their own: blur belongs to the glass.
-
-### Gothic Underlay
-
-| Token | Hex | Usage |
-|---|---|---|
-| `--color-gothic-crimson` | `#8e4057` | Hover glows, decorative border accents |
-| `--color-gothic-mulberry` | `#462941` | Deep underlay for focus states |
-
-All colors are desaturated and muted. No bright neons. Accents should feel like they are emerging from darkness, not projected onto it.
+Small image controls use `glass-chip`; adjacent book-card actions share `artwork-actions`, one tray with individually highlighted controls. Larger image layers use `overlay` (85% page ink), `scrim` (70%) and `scrim-deep` (90%). No `bg-black` or `text-white`. Labels stay opaque and use `fg-primary`; glass chip icon tones are mixed with foreground for readability.
 
 ---
 
@@ -109,7 +94,7 @@ Seven sizes, defined in `src/styles/globals.css`. Tailwind's own sizes are clear
 | `text-xs` | 14px | Metadata, field labels, small UI text |
 | `text-sm` | 16px | Body text, controls |
 | `text-lg` | 21px | Card and item titles, field group titles |
-| `text-2xl` | 30px | Section titles, dialog titles |
+| `text-2xl` | 30px | Section titles |
 | `text-3xl` | 38px | Stat numbers |
 | `text-4xl` | 46px | Page titles |
 
@@ -119,11 +104,12 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 
 | Role | Look | Use |
 |---|---|---|
-| `type-page-title` | Serif 46px, tight tracking, primary | The h1 of every page (`PageHeader`) |
-| `type-section-title` | Serif 30px, primary | Every titled block on a page, through `SectionHeading`; dialog titles |
+| `type-page-title` | Serif 46px, tight tracking, heading | The h1 of every page (`PageHeader`) |
+| `type-section-title` | Serif 30px, primary | Every titled block on a page, through `SectionHeading` |
 | `type-item-title` | Serif 21px, line height 1.375, primary | Card titles, the title of a block inside a section, empty and error states |
-| `type-group-title` | Serif 21px, secondary | A group of fields in a form or dialog |
+| `type-group-title` | Sans 21px, secondary | A group of fields in a form or dialog |
 | `type-stat` | Serif 38px, tight tracking | The number in a stat tile |
+| `type-dialog-title` | Sans 16px, medium, heading | Functional dialog title |
 | `type-label` | Sans 14px, medium, secondary | The label above a form field |
 | `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels |
 | `type-prose` | EB Garamond 21px on 32px lines, primary, old-style figures, at most 26em (about 65 characters) | Long reading text: book descriptions, bios, collection and series descriptions. Use `<Prose>` (`src/components/shared/prose.tsx`), which loads the font |
@@ -151,29 +137,26 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 | Token | Value | Usage |
 |---|---|---|
 | `--radius-none` | `0px` | No rounding |
-| `--radius-sm` | `2px` | Default for buttons, inputs, cards |
-| `--radius-md` | `4px` | Modals, larger containers |
+| `--radius-sm` | `4px` | Default for buttons, inputs, cards |
+| `--radius-md` | `6px` | Modals, larger containers |
 | `--radius-lg` | `8px` | Reserved (rarely used) |
 | `--radius-full` | `9999px` | Pills, avatars |
 
-The default is squared, not rounded. Everything feels precise and angular. No `rounded-full` or pill shapes.
+Corners are subtly softened: 4px controls and 6px floating surfaces. Avoid pill-shaped controls; circles remain appropriate for avatars and status dots.
 
 ### Glass
 
-One glass material, for surfaces that float above the page. Subtle and controlled, in the spirit of Linear: it reads first as a dark panel. The view behind it only tints it, and its edge catches a faint light from above. It is never a frosted card on the page itself.
-
-**The material** (`glass` in `src/styles/globals.css`):
+One shared smoked-glass material for floating surfaces. Underlying shapes visibly diffuse through it; foreground content stays opaque. Separation comes from tint, blur and shadow, with one faint, even boundary.
 
 | Layer | Value |
 |---|---|
-| Tint | `--color-glass-tint`: `bg-secondary` at 88% |
-| What lies behind | blurred 24px, saturation 150%, brightness 30% |
-| Light from above | `--color-glass-sheen`: a 2% white wash over the top 56px |
-| Edge | a 1px hairline (`--color-glass-edge`, 10%), its top line lit (`--color-glass-edge-lit`) |
-| Corners | 4px (`--radius-md`) |
-| Depth | three soft shadows: 1px contact, 32px float, 64px ambient |
+| Tint | `glass-tint`: rgba(14,18,23,0.70) |
+| Backdrop | 24px blur, 65% saturation, 55% brightness |
+| Edge | rgba(210,220,228,0.07), even on all sides |
+| Corners | 6px (`radius-md`) |
+| Depth | Soft contact, floating and ambient shadows |
 
-The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over any image: 4.64:1 at the lit top edge over pure white, measured on the screen. `design-audit.js` cannot see through glass, so check text on a glass surface by its pixels.
+No sheen, bright top line, bevel or inset highlight. If blur is unavailable or reduced transparency is requested, use opaque `bg-secondary`. Validate over warm, cool, bright and dark imagery; the material must diffuse shapes and preserve readable text.
 
 **Where it goes:**
 
@@ -184,10 +167,10 @@ The tint and the dimmed backdrop keep `fg-secondary` text at 4.5:1 or more over 
 | Tooltips | `glass` |
 | Selection toolbars | `glass` |
 | A bar fixed to a screen edge: the navigation bar on a phone, the sidebar (a drawer over the page on a phone), the reader's toolbar and progress bar | `glass-bar`: the same material, square corners, no shadow, a border only on the side facing the page |
-| A small control or mark on an image: cover chips, a card's copy, actions and selection controls, the image adjustment button | `glass-chip`: a 72% tint over the image blurred 10px (3px on a 16px cover mark, where a wide radius keeps the image's edges), saturated 180% and dimmed to 60%, a hairline edge lit from above (`border` on the element). The dimming is in the tint, so Chrome, Safari and Firefox draw it alike. The image shows through as smoked glass; an icon keeps 3:1 and a label 4.5:1 even over a white cover. Labels are `fg-primary`, a tone colors only the icon. `glass-chip-lift` brightens it on hover; controls that show on hover fade their glass (`hover-reveal-glass`), not a wrapper, so the blur is there all through the fade |
+| A small control or mark on an image | `glass-chip`: 72% ink tint, 12px blur (smaller for cover marks), 65% saturation and brightness, no visible border or inset shadow. `artwork-actions` groups adjacent controls in one 4px tray. Hover lifts only the target control; touch targets are 44px. |
 | What lies behind the phone drawer | `glass-veil` |
 
-`glass-veil` is the layer behind a modal surface: the page at 62% black, blurred 6px, so it stays in view but steps back.
+`glass-veil` is the layer behind a modal surface: the page at 48% ink, blurred 4px, so it stays in view but steps back.
 
 In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other order, Lightning CSS (Turbopack, Tailwind) reads the prefixed line as an override, drops the standard line, and Chrome shows no blur. `src/__tests__/glass-surfaces.test.ts` checks the order.
 
@@ -206,8 +189,8 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 - Dark background (`bg-secondary`)
 - Cover image with no border radius
 - Subtle 1px border in `bg-tertiary`
-- Hover: lifts with `accent-rose` border glow
-- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and an opaque backdrop (`bg-primary` at 85%, no blur), so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show on hover and keyboard focus, and always on a touch screen, which has no hover (`hover-reveal` in `globals.css`).
+- Hover: a quiet surface lift and restrained petrol shadow, without a coloured rim
+- The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and the shared `glass-chip` material, so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show on hover and keyboard focus, and always on a touch screen, which has no hover (`hover-reveal` in `globals.css`).
 - Text, through `CardHeading` (`src/components/shared/card-heading.tsx`): the title in the serif (`type-item-title`), then the author 4px under the title's last line. The block always takes two title lines and one author line, so every card has the same height; a one-line title leaves its free line above the info row, not between the title and the author. A title cut by its `line-clamp-2` shows in full on hover, like text cut by `lines-*`.
 - Info row, in secondary text: the status as a colored dot and its label (`CardStatus`; the tooltip adds the priority and the number of copies), the language from 200px card width, then on the right the rating (a gold star and the number, `CardRating`, from 160px) and the year (from 160px; 220px beside a rating). The status always fits whole.
 
@@ -226,38 +209,36 @@ Author, series, collection and dashboard cards follow the same layout. Author ca
 A view of the pictures alone: no card, no text, no chips (`<Mosaic>`, `src/components/shared/mosaic.tsx`; `mosaic*` utilities in `globals.css`). Every list with posters offers it beside the grid: books, people, films, perfumes, paintings and collections, and the choice is kept like the other views.
 
 - Justified rows: each picture keeps its own proportions (a painting is not cropped to a poster), every picture of a row has one height, and every row but the last fills the width, in reading order. A full row holds the size slider's value plus two pictures of the list's usual proportions, or fewer where they would be under 150px tall (a phone). The last row has the height of a full row; it does not stretch.
-- 4px between pictures, 2px corners, a hairline edge; each picture over its own tone while it loads, and the list's own stand-in (a title card, a monogram, a fan of covers) when there is none.
-- Hover: the picture eases forward (4%) and its title, and the author or house under it, appear at its foot on glass; the other pictures dim to 62%. Keyboard focus shows the title and a rose ring. In selection mode a click selects; a selected picture has a rose ring. A right-click opens the browser's menu for the link, not for the picture, so pictures stay protected.
+- 4px between pictures, 4px corners, a hairline edge; each picture over its own tone while it loads, and the list's own stand-in (a title card, a monogram, a fan of covers) when there is none.
+- Hover: the picture eases forward (4%) and its title, and the author or house under it, appear at its foot on glass; the other pictures dim to 62%. Keyboard focus shows the title and a steel focus ring. In selection mode a click selects; a selected picture has a steel focus ring. A right-click opens the browser's menu for the link, not for the picture, so pictures stay protected.
 
 ### Buttons
 
-Four variants:
+Four variants, using the shared `Button` / `buttonClass`:
 
-| Variant | Background | Border | Text | Usage |
-|---|---|---|---|---|
-| **Primary** | `accent-rose` | none | `fg-primary` | Primary actions |
-| **Secondary** | transparent | 1px `bg-tertiary` | `fg-secondary` | Secondary actions |
-| **Ghost** | transparent | none | `fg-secondary` | Tertiary actions |
-| **Danger** | transparent | 1px `accent-red` | `accent-red-text` | Destructive actions |
+| Variant | Treatment | Use |
+|---|---|---|
+| Primary | Flat `action-fill`, dark `action-fg`; hover `action-hover` | Main form/dialog confirmation |
+| Secondary | Neutral `glass-highlight`, no outline | Quiet ordinary actions, including Add book |
+| Ghost | Transparent, neutral hover | Utility actions, including Identify editions |
+| Danger | Subtle red tint, readable red text | Destructive actions |
 
-Three sizes: `sm`, `md` (default), `lg`. All squared (2px radius). Focus ring uses `accent-rose`.
+Fine-pointer heights are 28/32/36px for sm/md/lg, with 14px labels, 6px gaps and 10/12/14px horizontal padding. All use 4px corners. Coarse-pointer controls grow to at least 44px. Preserve a separate steel keyboard-focus outline; no bevels, coloured rims or glow.
 
-### Inputs
+### Inputs and dialog chrome
 
-- Minimal border (`bg-tertiary`)
-- Transparent background
-- `accent-rose` focus ring
-- No rounded corners (2px radius)
-- Optional label displayed above
+Default fields use a faint neutral boundary, 4px corners and a visible steel focus outline. Labels remain persistent. Text-entry controls use 14px text on desktop and at least 16px on touch. `Input appearance="open"` removes the redundant background/border from title entry while keeping its label and focus treatment.
+
+Functional dialog titles use `type-dialog-title` (Inter 16px, medium); form group titles use Inter. Literary page headings remain Cirka and prose remains Garamond. Shared dialogs remove the heavy header divider and group fields by spacing.
 
 ### Filters
 
 A list's filters open from the Filter button in a `glass` panel (`FilterDropdown`, `src/components/shared/filter-dropdown.tsx`). The panel never scrolls; its parts do.
 
-- **Groups**: a `type-caption` heading with a count badge of its chosen values, then its options. An option is a 14px box (plum when chosen) and its label; a count of books sits at the right in 12px mono, `fg-secondary`. A list of 8 options or more has its own search.
+- **Groups**: a `type-caption` heading with a count badge of its chosen values, then its options. An option is a 14px box (ink selection when chosen) and its label; a count of books sits at the right in 12px mono, `fg-secondary`. A list of 8 options or more has its own search.
 - **Sections** (the library, SLN-405): many groups go in sections. A rail on the left lists them, each with its count badge; the chosen section's groups show beside it, all open. The panel is 34rem wide (the window less 32px on a phone) and keeps one height, so it does not jump between sections. It hangs from the button and moves sideways to stay 16px inside the window.
 - **Colour swatches**: a colour group shows its options in two columns, each with a 14px swatch (2px radius, `glass-border` edge) in place of the box. A chosen swatch takes a check in the ink that reads better on it (`inkOn`) and an `fg-primary` edge. A colour nothing has stays in its place at 40% and cannot be chosen. Swatch colours are muted like the rest of the palette (`COLOR_BUCKETS`, `src/lib/color/color-buckets.ts`).
-- **Active filters**: under the filter bar, one chip per chosen value (`ActiveFilters`): `bg-secondary`, a `glass-border` edge, 28px high (44px on a touch screen), the group in `fg-secondary`, the value in `fg-primary`, a 12px X. The whole chip removes its filter; "Clear all" in rose text ends the row. These chips are page content, so they are never glass.
+- **Active filters**: under the filter bar, one chip per chosen value (`ActiveFilters`): `bg-secondary`, a `glass-border` edge, 28px high (44px on a touch screen), the group in `fg-secondary`, the value in `fg-primary`, a 12px X. The whole chip removes its filter; "Clear all" in steel text ends the row. These chips are page content, so they are never glass.
 
 ### Ratings
 
@@ -361,7 +342,7 @@ Goals and the rhythm never nag (SLN-455): no word says "behind", "lost" or "fail
 The reading charts (SLN-456, `src/components/reading/charts/`) are hand-drawn SVG, no chart library: bars (`BarChart`), the calendar (`CalendarHeatmap`), and ranked lists in HTML (`RankList`, a thin sage bar under each row's text).
 
 - **One tab stop.** Each chart sits in `ChartFrame`: an HTML wrapper with `tabIndex={0}`, `role="group"`, an `aria-label` naming the chart and `aria-describedby` pointing at its caption line. Its only other control is "Show as table".
-- **Arrow keys** move a focus point: Left and Right by one bar or day, Up and Down by a week in the calendar (by one in a bar chart), Home and End to the first and last (`moveFocus`, `src/lib/reading/charts.ts`). The focused mark has a rose outline. Focus leaving the chart clears it.
+- **Arrow keys** move a focus point: Left and Right by one bar or day, Up and Down by a week in the calendar (by one in a bar chart), Home and End to the first and last (`moveFocus`, `src/lib/reading/charts.ts`). The focused mark has a steel outline. Focus leaving the chart clears it.
 - **Caption line and live region.** Under the chart, a 14px `fg-secondary` line says the focused value ("March 2025: 4 books"), or the whole chart in words before a point is chosen; a polite live region says the same as the focus moves.
 - **The SVG** inside has `role="img"` with the summary as its `aria-label`, and nothing focusable in it. Hover shows a mark's exact value through `data-tooltip` on the mark; the keyboard value is the caption line, never a tooltip.
 - **"Show as table"** (a button with `aria-expanded`) shows the same numbers as a table under the chart.
@@ -386,7 +367,7 @@ Every page prints light and without the app around it (SLN-456, `@media print` i
 
 A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453) looks the same on the book page, on `/reading/notes` and on the hub.
 
-- The passage is long reading text: `Prose` (EB Garamond, the `type-prose` role, 4.5:1 or more), its line breaks kept (`whitespace-pre-line`). A quote has a 2px rule at its left (`border-accent-rose/40`) and 16px before the text; a note has none.
+- The passage is long reading text: `Prose` (EB Garamond, the `type-prose` role, 4.5:1 or more), its line breaks kept (`whitespace-pre-line`). A quote has a 2px rule at its left (`border-accent-primary/40`) and 16px before the text; a note has none.
 - His thought sits under it in 14px `fg-secondary` text, aligned with the passage's text (18px in for a quote).
 - Then one 12px line: where it is ("p. 212 · ch. 7 · 2nd read"; on `/reading/notes` the book's title first, a link), with the star (`FavouriteToggle`) and the menu at its right in `CapAlignedControls height={32} coarseHeight={44}`: 32px targets, 44px on touch. On touch, "Show all" grows to a 48px target with negative margins, so the line keeps its height.
 - Items are separated by a `glass-border` rule and 20px above and below; the first has no rule.
@@ -400,7 +381,7 @@ The e-book reader (`/reader/[ebookId]`, SLN-492; docs/04, Reader) is the book an
 
 - **Bars.** The top bar (Back, the serif title with the chapter beside it, Contents, Settings, Full screen) and the bottom bar (the chapter and the percent) are `glass-bar`. The bar's buttons sit on the title's cap-height center (`CapAligned`), are 32px (44px on a coarse pointer) and each has an `aria-label` and a tooltip with its key. Both bars show on open, hide together after 3 seconds of reading or on a turn, and come back together; hidden, they are `inert`.
 - **Dialogs.** Contents and Settings are glass dialogs over `glass-veil`, with real labels and named controls; they take focus, keep Tab inside, close on Escape and give focus back to their button.
-- **The page inside the book** uses the dark theme: the book's frames cannot see the app's CSS variables, so `src/lib/reader/presentation.ts` resolves `bg-primary`, `fg-primary`, `accent-blue-text` (links) and `accent-rose` (selection) to literal colours and writes them into each section's styles. Images stay as the publisher made them. The reading fonts are EB Garamond (Serif) and Inter (Sans), served from `public/fonts/reader/` under stable names the frames can load; "Original" keeps the book's own fonts.
+- **The page inside the book** uses the dark theme: the book's frames cannot see the app's CSS variables, so `src/lib/reader/presentation.ts` resolves `bg-primary`, `fg-primary`, `accent-blue-text` (links) and `accent-primary` (selection) to literal colours and writes them into each section's styles. Images stay as the publisher made them. The reading fonts are EB Garamond (Serif) and Inter (Sans), served from `public/fonts/reader/` under stable names the frames can load; "Original" keeps the book's own fonts.
 - **Errors** are a plain panel in the page: the title, the reason in one sentence, Retry, "Open the PDF instead" for another readable file, and Back. A place that no longer resolves opens at the start with a toast, never a blank page.
 
 ### Tooltips
@@ -450,11 +431,11 @@ Minimal, dark scrollbar that blends with the interface:
 
 ## Text Selection
 
-Selection uses the plum accent as background with primary foreground text:
+Selection uses the ink selection token as background with primary foreground text:
 
 ```css
 ::selection {
-  background-color: var(--color-accent-plum);
+  background-color: var(--color-selection-bg);
   color: var(--color-fg-primary);
 }
 ```
@@ -476,17 +457,17 @@ A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-a
 - `ProgressBar` (`src/components/shared/progress-bar.tsx`): 4px tall, 2px radius, `accent-blue` while reading and `accent-sage` when finished, on a `bg-tertiary` track. It is a `progressbar` whose `aria-valuetext` says the number in words ("44 percent, page 212 of 480"); the number is always shown as text nearby too.
 - `TiptapEditor` (`src/components/shared/tiptap-editor.tsx`) is the rich text field for reviews and notes: bold, italic, link, bulleted and numbered lists and quote, each an icon button with `aria-label` and a tooltip (44px on touch). It saves HTML and Tiptap JSON and opens an imported review from its HTML. `CommentEditor` is built on it with its own extra tools. `rich-text-editor.tsx` stays for author bios. A dialog that uses it loads it on opening, so a page ships no editor until then.
 - The book page's header row under the title holds the reading control first, then the Read button: both 32px tall (44px on touch) with an 8px gap.
-- `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the tab row of every reading page, under the page title: links with the collection switch's colors (the current one `accent-plum`, `aria-current="page"`), 32px tall, 44px on touch. The row is always one line: when the tabs do not fit (below `md` once later steps add theirs) it scrolls sideways inside itself, never the page, and the current tab is scrolled into view. Later reading pages add their tab to it in its fixed order; no page builds a second row.
+- `ReadingTabs` (`src/components/reading/reading-tabs.tsx`) is the tab row of every reading page, under the page title: links with the collection switch's colors (the current one `selection-bg`, `aria-current="page"`), 32px tall, 44px on touch. The row is always one line: when the tabs do not fit (below `md` once later steps add theirs) it scrolls sideways inside itself, never the page, and the current tab is scrolled into view. Later reading pages add their tab to it in its fixed order; no page builds a second row.
 - Lists that repeat a reading many times (the journal's rows, the dashboard's tiles, finished covers) are client components with small props (`src/components/reading/reading-tiles.tsx`), so a page sends each item's few fields once instead of its whole element tree.
 
 ### Keyboard, touch and motion
 
-- Every control takes focus with Tab and shows it: the rose focus ring, or a text field's rose border. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
+- Every control takes focus with Tab and shows it: the steel focus outline. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape.
 - Search: `S` opens the command palette from any page but the e-book reader (where `S` opens the reader's settings), as `⌘K` does; `/` goes to the page's own search field. Escape closes every search surface, one layer per press: the palette, a popover or menu, then the dialog around it. A list under a search field closes first (the field's text clears, as in the publisher and place pickers), and focus goes back to where it was. In a search field on a page, Escape leaves the field and keeps its text.
 - On a touch screen (a coarse pointer), every control's press area is at least 44 × 44px (WCAG 2.5.5), and the desktop look does not change. A link inside running text, and a plain text link with no box of its own (a name in a detail list), are exempt. A control that shows on hover also shows on a touch screen. Three ways, in this order:
   - **The control grows** where its row has room: `pointer-coarse:min-h-11` (or `h-11`, `size-11`). Buttons (`Button`, `buttonClass`), menu items, fields and selects, the filter row (search, sorts, Filter, views, the size slider), pagination, the collection switch and the settings nav do this.
   - **Beside text**, the control sits in `CapAligned` or `CapAlignedControls` with `coarseHeight={44}` and grows with it: the favourite star (cards, rows, headers), the header action menus, the book's marks.
-  - **A small mark that must keep its size** (a chip on a cover, a chip's ×, a back link, View all) gets an invisible press area: `touch-hit` (`globals.css`), a centred layer of at least 44 × 44px; it also positions the control (`relative`), and `chip-button` includes it. It needs no clipping ancestor (a `CapAligned` box clips; use `CapAlignedControls`), and two such areas must not overlap: on a card cover the copy chip moves left on touch so its area and the menu's stay apart.
+  - **A small mark that must keep its size** (a chip on a cover, a chip's ×, a back link, View all) gets an invisible press area: `touch-hit` (`globals.css`), a centred layer of at least 44 × 44px; it also positions the control (`relative`). It needs no clipping ancestor (a `CapAligned` box clips; use `CapAlignedControls`), and two such areas must not overlap: grouped artwork actions grow to separate 44px buttons on touch.
   - **A repeated icon button** keeps its classes short (page weight): `icon-hit` is its padding, 0.5rem and 0.875rem on touch (32px and 44px around a 16px icon at the default font size; in rem, so it grows with the reader's font size as the spacing scale does), and `icon-hit-end` pulls it past a column's end so the icon lines up (the favourite star in `CardHeading`). A title that cuts off (`lines-1`) clips its own overflow, so the cut goes on a span inside the link and `touch-hit` on the link.
 - Check it with `scripts/qa/touch-audit.js` at 390px with a coarse pointer (Chromium and WebKit `isMobile` and `hasTouch`; Firefox with `ui.primaryPointerCapabilities` set to 1): it lists every control whose press area, cut by any clipping ancestor up to the first one that scrolls it, is under 44px, and the text links apart. A control in a scrolling box (a dialog's body, a rail) counts whole, up to what the box shows, since the reader scrolls it into view; a small one is listed wherever it is scrolled. The rating input has 44px whole-star targets on touch (see Ratings).
 - A menu beside text goes in `CapAlignedControls`, never in `CapAligned`: `CapAligned`'s box clips, so a menu drawn inside it opens as a sliver whose items cannot be clicked. `CapAlignedControls` takes the same `height` and `coarseHeight` and clips nothing. `src/__tests__/cap-aligned-menus.test.ts` fails on a menu inside `CapAligned`.

@@ -46,7 +46,7 @@ export function HiddenList({ rows }: { rows: HiddenRow[] }) {
         <li key={row.workId} className="flex items-start gap-4 border-t border-glass-border px-3 py-3 first:border-t-0" data-hidden={row.workId}>
           <Cover s3Key={row.cover} className="h-16 w-11" />
           <div className="min-w-0 flex-1 space-y-0.5">
-            <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+            <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
               <span className="lines-1">{row.title}</span>
             </Link>
             {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}

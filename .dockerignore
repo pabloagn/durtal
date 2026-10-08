@@ -47,3 +47,6 @@ Taskfile.yml
 docker-compose.yml
 Dockerfile
 .dockerignore
+
+# Local e-book source files
+/ingestions/

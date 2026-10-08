@@ -126,7 +126,7 @@ export function WorkRecord({
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-accent-rose-text transition-colors hover:text-fg-primary"
+                    className="text-sm text-accent-primary transition-colors hover:text-fg-primary"
                   >
                     {link.label}
                   </a>

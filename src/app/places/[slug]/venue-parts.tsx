@@ -25,7 +25,7 @@ import { orderStatusLabel } from "@/lib/constants/orders";
 
 type ArtRow = VenueArt["here"]["rows"][number];
 
-const LINK = "text-fg-primary transition-colors hover:text-accent-rose-text";
+const LINK = "text-fg-primary transition-colors hover:text-accent-primary";
 const ROW = "rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5";
 
 /** "Shown 100 of 140": a part that lists fewer rows than it counts */

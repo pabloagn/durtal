@@ -131,9 +131,9 @@ export function LocationCard({
           <div className="flex items-center justify-between">
             <Link
               href={`/library?location=${id}`}
-              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-rose-text pointer-coarse:min-h-11"
+              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-primary pointer-coarse:min-h-11"
             >
-              <h3 className="type-item-title group-hover:text-accent-rose-text">
+              <h3 className="type-item-title group-hover:text-accent-primary">
                 {name}
               </h3>
               <Badge variant={type === "physical" ? "sage" : "blue"}>

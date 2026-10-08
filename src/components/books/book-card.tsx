@@ -149,7 +149,7 @@ export function BookCard({
     }
   }
 
-  const selectionRing = isSelected ? "ring-2 ring-accent-rose/50" : "";
+  const selectionRing = isSelected ? "ring-2 ring-accent-primary/50" : "";
 
   return (
     <div
@@ -197,18 +197,9 @@ export function BookCard({
           </div>
         </Link>
 
-        {/* Copy button — hidden until hover, like the three-dot menu; stays visible with keyboard focus */}
-        {/* On touch the copy chip moves left, so its 44px press area and the menu's do not overlap */}
-        {!isSelecting && <div className="card-copy-slot">
-          <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
-        </div>}
-
-        {/* Three-dot menu — lives outside overflow-hidden, opens upward into poster */}
         {!isSelecting && (
-          <div
-            className="card-menu-slot"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          >
+          <div className="artwork-actions" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
             <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
           </div>
         )}
@@ -220,7 +211,7 @@ export function BookCard({
           <div
             className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
               isSelected
-                ? "border-accent-rose bg-accent-rose text-fg-primary"
+                ? "border-accent-primary bg-selection-bg text-fg-primary"
                 : "glass-chip text-transparent"
             }`}
           >

@@ -126,7 +126,7 @@ function Grid({
                 height={CELL}
                 rx={2}
                 className={SHADES[shade(amount(c.day), max)]}
-                stroke={focus === c.index ? "var(--color-accent-rose)" : first ? "var(--color-fg-muted)" : "none"}
+                stroke={focus === c.index ? "var(--color-accent-primary)" : first ? "var(--color-fg-muted)" : "none"}
                 strokeWidth={focus === c.index ? 2 : first ? 0.5 : 0}
                 data-tooltip={text(c.day)}
                 data-cal-index={c.index}

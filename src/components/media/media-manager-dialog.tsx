@@ -454,7 +454,7 @@ export function MediaManagerDialog({
                           }}
                           className={`absolute left-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-sm border transition-all pointer-coarse:size-11 ${
                             isSelected
-                              ? "border-accent-rose bg-accent-rose"
+                              ? "border-accent-primary bg-selection-bg"
                               : "border-glass-border bg-bg-primary/70 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
                           }`}
                         >
@@ -477,8 +477,8 @@ export function MediaManagerDialog({
                             }}
                             className={`absolute left-7 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-sm transition-all pointer-coarse:left-auto pointer-coarse:right-1.5 pointer-coarse:top-14 pointer-coarse:size-11 ${
                               isTuning
-                                ? "bg-accent-rose text-fg-primary"
-                                : "bg-bg-primary/80 text-fg-muted opacity-0 hover:text-accent-rose group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                                ? "bg-selection-bg text-fg-primary"
+                                : "bg-bg-primary/80 text-fg-muted opacity-0 hover:text-accent-primary group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
                             }`}
                           >
                             <SlidersHorizontal className="h-3 w-3" strokeWidth={1.5} />
@@ -520,7 +520,7 @@ export function MediaManagerDialog({
                           aria-label={isGallery ? `Image details: ${item.altText || item.originalFilename || "gallery image"}` : undefined}
                           className={`relative w-full overflow-hidden rounded-sm border transition-all ${square && activeTab === "poster" ? "aspect-square bg-bg-tertiary" : ASPECT_CLASSES[activeTab]} ${
                             (item.isActive && !isGallery) || (isGallery && item.id === detailsId)
-                              ? "ring-2 ring-accent-rose border-accent-rose/30"
+                              ? "ring-2 ring-accent-primary border-accent-primary/30"
                               : "border-glass-border hover:border-fg-muted/30"
                           } ${!isGallery && !item.isActive ? "cursor-pointer" : ""}`}
                         >
@@ -544,7 +544,7 @@ export function MediaManagerDialog({
                           {/* Active indicator overlay */}
                           {item.isActive && !isGallery && (
                             <div className="absolute bottom-1 right-1">
-                              <Badge variant="rose">Active</Badge>
+                              <Badge variant="accent">Active</Badge>
                             </div>
                           )}
                         </button>
@@ -662,7 +662,7 @@ export function MediaManagerDialog({
                   <button
                     type="submit"
                     disabled={urlLoading || !url.trim()}
-                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-accent-rose px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-rose/90 disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11"
+                    className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-selection-bg px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-underlay disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11"
                   >
                     {urlLoading && (
                       <Loader2

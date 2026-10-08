@@ -55,7 +55,7 @@ export function ActiveFilters({
       <button
         type="button"
         onClick={onClearAll}
-        className="inline-flex h-7 items-center px-1.5 text-xs text-accent-rose-text transition-colors hover:text-accent-rose-text/80 pointer-coarse:h-11"
+        className="inline-flex h-7 items-center px-1.5 text-xs text-accent-primary transition-colors hover:text-accent-primary/80 pointer-coarse:h-11"
       >
         Clear all
       </button>

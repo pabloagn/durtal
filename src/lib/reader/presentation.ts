@@ -14,17 +14,17 @@ export const THEME_TOKENS = {
   background: "--color-bg-primary",
   text: "--color-fg-primary",
   link: "--color-accent-blue-text",
-  selection: "--color-accent-rose",
+  selection: "--color-selection-bg",
   muted: "--color-fg-secondary",
 } as const satisfies Record<keyof Presentation["colors"], string>;
 
 /** The dark theme's values, for when the document cannot be read (tests, the server) */
 const FALLBACK_COLORS: Presentation["colors"] = {
-  background: "#030507",
-  text: "#c1c6c4",
-  link: "#7293a2",
-  selection: "#7d3d52",
-  muted: "#7d8380",
+  background: "#07090d",
+  text: "#c5cacb",
+  link: "#8c9fae",
+  selection: "#17232d",
+  muted: "#9ba4ad",
 };
 
 /** The theme tokens as literal colours, read from the app's root element */
@@ -82,7 +82,7 @@ p, li, blockquote, dd { text-align: ${p.textAlign === "justify" ? "justify" : "s
 [align="center"] { text-align: center; }
 [align="right"] { text-align: right; }
 pre { white-space: pre-wrap !important; }
-::selection { background: color-mix(in srgb, ${selection} 60%, transparent); color: ${text}; }
+::selection { background: ${selection}; color: ${text}; }
 aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
 `;
 }

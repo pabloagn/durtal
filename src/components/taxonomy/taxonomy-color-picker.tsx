@@ -155,7 +155,7 @@ export function TaxonomyColorPicker({
                 }
               }}
               placeholder="#a1b2c3"
-              className="h-7 flex-1 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+              className="h-7 flex-1 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
             />
             <button
               type="button"

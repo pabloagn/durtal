@@ -207,7 +207,7 @@ export function WorkSearchStep({
               placeholder="Author name"
               // ↑ ↓ and Enter pick from the author suggestions
               data-picker=""
-              className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+              className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
             />
             {isSearchingAuthors && (
               <Loader2
@@ -268,7 +268,7 @@ export function WorkSearchStep({
       </p>
 
       {selectedWork && (
-        <div className="flex items-center gap-3 rounded-sm border border-accent-rose/20 bg-accent-plum/40 p-3">
+        <div className="flex items-center gap-3 rounded-sm border border-accent-primary/20 bg-selection-bg/40 p-3">
           <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {getPosterUrl(selectedWork) ? (
               <Image
@@ -312,7 +312,7 @@ export function WorkSearchStep({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by title..."
-          className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+          className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
           autoFocus
         />
         {isSearching && (
@@ -335,7 +335,7 @@ export function WorkSearchStep({
                 type="button"
                 onClick={() => onSelect(work)}
                 className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-bg-tertiary ${
-                  isSelected ? "bg-accent-plum/40" : ""
+                  isSelected ? "bg-selection-bg/40" : ""
                 }`}
               >
                 <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">

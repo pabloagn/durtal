@@ -124,7 +124,7 @@ export function AuthorTimelineRow({
     alignItems: "center",
     transition: "box-shadow 120ms ease",
     boxShadow: isHovered
-      ? "0 0 0 1px rgba(125,61,82,0.6), 0 0 12px -2px rgba(125,61,82,0.5)"
+      ? "0 0 0 1px var(--color-accent-primary)"
       : "none",
     zIndex: isHovered ? 5 : 1,
   };
@@ -134,8 +134,8 @@ export function AuthorTimelineRow({
     position: "absolute",
     inset: 0,
     background: isHovered
-      ? "linear-gradient(90deg, rgba(70,41,65,0.85) 0%, rgba(142,64,87,0.75) 100%)"
-      : "linear-gradient(90deg, rgba(32,19,30,0.80) 0%, rgba(125,61,82,0.55) 100%)",
+      ? "linear-gradient(90deg, var(--color-selection-bg) 0%, var(--color-accent-underlay) 100%)"
+      : "linear-gradient(90deg, var(--color-bg-secondary) 0%, var(--color-selection-bg) 100%)",
     transition: "background 120ms ease",
   };
 
@@ -148,7 +148,7 @@ export function AuthorTimelineRow({
         bottom: 0,
         width: Math.min(barWidth * 0.25, 40),
         background:
-          "linear-gradient(90deg, transparent 0%, rgba(3,5,7,0.70) 100%)",
+          "linear-gradient(90deg, transparent 0%, var(--color-scrim) 100%)",
         animation: "author-alive-pulse 2s ease-in-out infinite",
         pointerEvents: "none",
       }

@@ -11,9 +11,9 @@ export const VENUE_TYPE_LABELS: Record<VenueType, string> = {
   publisher: "Publisher", individual: "Individual", other: "Other",
   perfumery: "Perfumery", cinema: "Cinema",
 };
-export const VENUE_TYPE_BADGE_VARIANTS: Record<VenueType, "rose" | "gold" | "sage" | "blue" | "muted"> = {
-  bookshop: "rose", online_store: "blue", cafe: "gold", library: "sage",
-  museum: "sage", gallery: "gold", auction_house: "rose", market: "muted",
+export const VENUE_TYPE_BADGE_VARIANTS: Record<VenueType, "accent" | "gold" | "sage" | "blue" | "muted"> = {
+  bookshop: "accent", online_store: "blue", cafe: "gold", library: "sage",
+  museum: "sage", gallery: "gold", auction_house: "accent", market: "muted",
   fair: "muted", publisher: "blue", individual: "muted", other: "muted",
   perfumery: "gold", cinema: "blue",
 };

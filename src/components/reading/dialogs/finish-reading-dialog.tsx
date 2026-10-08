@@ -88,7 +88,7 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
             <Link
               href={`/library/${next.slug ?? next.id}?then=start`}
               onClick={onClose}
-              className="inline-flex h-8 items-center rounded-sm bg-accent-rose/80 px-3 text-sm text-fg-primary hover:bg-accent-rose pointer-coarse:h-11"
+              className="inline-flex h-8 items-center rounded-sm bg-action-fill px-3 text-sm text-action-fg hover:bg-action-hover pointer-coarse:h-11"
             >
               Start reading
             </Link>

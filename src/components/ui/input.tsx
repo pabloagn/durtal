@@ -10,10 +10,12 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   /** A small button inside the field, at its right end */
   suffix?: ReactNode;
+  /** Open fields for lightweight creation/edit forms. */
+  appearance?: "default" | "open";
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, suffix, className = "", id: idProp, ...props }, ref) => {
+  ({ label, error, suffix, appearance = "default", className = "", id: idProp, ...props }, ref) => {
     const generatedId = useId();
     const id = idProp ?? generatedId;
     const errorId = `${id}-error`;
@@ -22,9 +24,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         id={id}
         aria-describedby={error ? errorId : undefined}
-        className={`h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-all duration-150 focus:border-accent-rose focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 ${
+        className={`h-8 w-full rounded-sm border text-fg-primary placeholder:text-fg-muted transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 ${
           error ? "border-accent-red" : ""
-        } ${suffix ? "pr-8 pointer-coarse:pr-12" : ""} ${className}`}
+        } ${suffix ? "pr-8 pointer-coarse:pr-12" : appearance === "open" ? "pr-0" : ""} ${appearance === "open" ? "input-open pl-0 text-lg" : "border-glass-border bg-bg-primary/80 px-3 text-xs pointer-coarse:text-sm"} ${className}`}
         {...props}
       />
     );

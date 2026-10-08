@@ -65,7 +65,7 @@ export function VenueListItem({
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="type-item-title flex items-start gap-2">
-            <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
+            <h3 className="type-item-title truncate group-hover:text-accent-primary">
               {name}
             </h3>
           </div>
@@ -108,7 +108,7 @@ export function VenueListItem({
               href={website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-fg-muted transition-colors hover:text-accent-rose"
+              className="text-fg-muted transition-colors hover:text-accent-primary"
               aria-label={`Visit ${name} website`}
             >
               <CapAligned height={14} className="font-serif text-xs"><ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>

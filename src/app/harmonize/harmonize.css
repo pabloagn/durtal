@@ -53,9 +53,9 @@
   letter-spacing: -0.025em;
   margin-top: 12px;
 }
-/* Rose for text: accent-rose is 2.6:1 here, under 3:1 even at 46px */
+/* Rose for text: accent-primary is 2.6:1 here, under 3:1 even at 46px */
 .h-title-dot {
-  color: var(--color-accent-rose-text);
+  color: var(--color-accent-primary);
 }
 .h-intro {
   font-size: var(--text-xs);
@@ -90,7 +90,7 @@
   border-color: rgba(193, 198, 196, 0.22);
 }
 .h-button-primary {
-  background: var(--color-accent-rose);
+  background: var(--color-accent-primary);
   border-color: #94566a;
 }
 .h-button-primary:hover {
@@ -120,7 +120,7 @@
 }
 .h-stat-active {
   background: #151016;
-  border-color: var(--color-accent-rose);
+  border-color: var(--color-accent-primary);
 }
 .h-stat-label {
   display: flex;
@@ -162,7 +162,7 @@
 }
 .h-tabs button.h-tab-active {
   color: var(--color-fg-primary);
-  border-color: var(--color-accent-rose);
+  border-color: var(--color-accent-primary);
 }
 .h-tabs button > span {
   font-family: var(--font-mono);
@@ -386,7 +386,7 @@
   background: rgba(118, 148, 106, 0.06);
 }
 .h-confidence-low {
-  color: #c0a36e;
+  color: var(--color-accent-gold);
 }
 .h-review-body {
   padding: 26px 24px;

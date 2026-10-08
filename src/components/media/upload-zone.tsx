@@ -256,7 +256,7 @@ export function UploadZone({
         onClick={() => inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors ${
           isDragging
-            ? "border-accent-rose bg-accent-rose/5"
+            ? "border-accent-primary bg-accent-primary/5"
             : "border-glass-border hover:border-fg-muted/30"
         }`}
       >

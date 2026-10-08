@@ -108,7 +108,7 @@ export function MergeDialog({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items..."
-            className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+            className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
           />
           <div className="max-h-40 overflow-y-auto rounded-sm border border-glass-border bg-bg-primary/40">
             {filteredTargets.length === 0 ? (
@@ -123,7 +123,7 @@ export function MergeDialog({
                   onClick={() => setTargetId(target.id)}
                   className={`flex w-full items-center px-3 py-1.5 text-left text-sm transition-colors ${
                     targetId === target.id
-                      ? "bg-accent-rose/10 text-fg-primary"
+                      ? "bg-accent-primary/10 text-fg-primary"
                       : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
                   }`}
                 >

@@ -17,7 +17,7 @@ function OrganizationRow({ organization: o }: { organization: DirectoryOrganizat
         className="group flex items-baseline gap-4 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary"
       >
         <div className="min-w-0 flex-1">
-          <h3 className="type-item-title truncate group-hover:text-accent-rose-text">{o.name}</h3>
+          <h3 className="type-item-title truncate group-hover:text-accent-primary">{o.name}</h3>
           <p className="truncate text-xs text-fg-secondary">{about || " "}</p>
           <p className="truncate text-xs text-fg-secondary sm:hidden">{counts}</p>
         </div>

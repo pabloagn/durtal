@@ -494,7 +494,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                 <div className="min-w-0 flex-1 pr-3">
                   <Link
                     href={`/people/${selection.author.slug}`}
-                    className="block truncate font-serif text-sm font-medium text-fg-primary hover:text-accent-rose-text"
+                    className="block truncate font-serif text-sm font-medium text-fg-primary hover:text-accent-primary"
                   >
                     {selection.author.name}
                   </Link>
@@ -513,7 +513,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
               {selection.author.nationalityCode && selection.author.nationalityName && (
                 <button
                   onClick={() => showNationality(selection.author.nationalityCode!)}
-                  className="mt-2 block w-full border-t border-glass-border pt-2 text-left text-xs leading-snug text-fg-secondary transition-colors hover:text-accent-rose-text"
+                  className="mt-2 block w-full border-t border-glass-border pt-2 text-left text-xs leading-snug text-fg-secondary transition-colors hover:text-accent-primary"
                 >
                   {`All authors from ${shortCountryName(selection.author.nationalityName)} \u2192`}
                 </button>
@@ -558,7 +558,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                   <li key={a.id}>
                     <Link
                       href={`/people/${a.slug}`}
-                      className="flex items-baseline justify-between gap-2 py-0.5 text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
+                      className="flex items-baseline justify-between gap-2 py-0.5 text-xs text-fg-secondary transition-colors hover:text-accent-primary"
                     >
                       <span className="truncate">{a.name}</span>
                       <span className="flex-shrink-0 font-mono text-micro text-fg-secondary">
@@ -580,7 +580,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                     <button
                       key={n.code}
                       onClick={() => showNationality(n.code)}
-                      className="block w-full rounded-sm bg-accent-plum/60 px-2 py-1.5 text-left text-xs leading-snug text-fg-primary transition-colors hover:bg-accent-plum"
+                      className="block w-full rounded-sm bg-selection-bg/60 px-2 py-1.5 text-left text-xs leading-snug text-fg-primary transition-colors hover:bg-selection-bg"
                     >
                       {`Show all ${n.count} ${n.count === 1 ? "person" : "people"} from ${shortCountryName(n.name)} \u2192`}
                     </button>

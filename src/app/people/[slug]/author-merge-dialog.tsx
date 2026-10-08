@@ -123,7 +123,7 @@ export function AuthorMergeDialog({
             </CapAligned>
             <div className="min-w-0 flex-shrink-0 text-right">
               <p className="text-xs text-fg-secondary">Will be kept</p>
-              <p className="text-sm font-medium text-accent-rose-text">
+              <p className="text-sm font-medium text-accent-primary">
                 {targetAuthorName}
               </p>
             </div>
@@ -136,7 +136,7 @@ export function AuthorMergeDialog({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for duplicates..."
-          className="h-9 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+          className="h-9 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
         />
 
         {/* Results */}

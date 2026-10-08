@@ -19,7 +19,7 @@ export function SettingsNav() {
                 aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-2.5 rounded-sm border px-2.5 py-1.5 text-sm transition-colors duration-150 pointer-coarse:min-h-11 ${
                   active
-                    ? "border-accent-rose/10 bg-accent-plum/80 text-fg-primary"
+                    ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary"
                     : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
                 }`}
               >

@@ -260,7 +260,7 @@ function Painters({ painting }: { painting: Painting }) {
           {credit.personId ? (
             <Link
               href={`/paintings?painter=${credit.personId}`}
-              className="transition-colors hover:text-accent-rose-text"
+              className="transition-colors hover:text-accent-primary"
             >
               {attributedName(credit)}
             </Link>
@@ -470,7 +470,7 @@ export default async function PaintingPage({
                         {i > 0 && ", "}
                         <Link
                           href={`/paintings?movement=${m.id}`}
-                          className="transition-colors hover:text-accent-rose-text"
+                          className="transition-colors hover:text-accent-primary"
                         >
                           {m.name}
                         </Link>
@@ -482,7 +482,7 @@ export default async function PaintingPage({
               <dt className="text-fg-secondary">Original</dt>
               <dd className="text-fg-primary">
                 {primaryView ? (
-                  <a href="#painting-objects" className="transition-colors hover:text-accent-rose-text">
+                  <a href="#painting-objects" className="transition-colors hover:text-accent-primary">
                     {primary?.ownership === "unknown" ? "Owner unknown" : primaryView.owner}
                   </a>
                 ) : (
@@ -498,7 +498,7 @@ export default async function PaintingPage({
                         {primary?.currentWhereabouts?.venueId ? (
                           <Link
                             href={`/paintings?venue=${primary.currentWhereabouts.venueId}`}
-                            className="transition-colors hover:text-accent-rose-text"
+                            className="transition-colors hover:text-accent-primary"
                           >
                             {now.place}
                           </Link>
@@ -521,7 +521,7 @@ export default async function PaintingPage({
               <dt className="text-fg-secondary">In the collection</dt>
               <dd className="text-fg-primary">
                 {held.length ? (
-                  <a href="#painting-objects" className="transition-colors hover:text-accent-rose-text">
+                  <a href="#painting-objects" className="transition-colors hover:text-accent-primary">
                     {held.length === 1
                       ? objectName({ kind: held[0].kind as ArtObjectKind, label: held[0].label })
                       : `${held.length} objects`}

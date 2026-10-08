@@ -136,7 +136,7 @@ export function DataTable<T>({
               return (
               <tr
                 key={id}
-                className={`border-b border-glass-border/50 transition-colors hover:bg-bg-secondary ${isSelecting ? "cursor-pointer" : ""} ${isSelected ? "bg-accent-rose/5" : ""}`}
+                className={`border-b border-glass-border/50 transition-colors hover:bg-bg-secondary ${isSelecting ? "cursor-pointer" : ""} ${isSelected ? "bg-accent-primary/5" : ""}`}
                 onClick={isSelecting && onSelect ? () => onSelect(id) : undefined}
               >
                 {isSelecting && (
@@ -144,7 +144,7 @@ export function DataTable<T>({
                     <div
                       className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
                         isSelected
-                          ? "border-accent-rose bg-accent-rose text-fg-primary"
+                          ? "border-accent-primary bg-selection-bg text-fg-primary"
                           : "border-glass-border bg-overlay text-transparent"
                       }`}
                     >

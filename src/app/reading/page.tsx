@@ -134,7 +134,7 @@ export default async function ReadingPage() {
                   <li key={item.workId} className="min-w-0" data-hub-next-item={item.workId}>
                     <Link href={`/library/${item.slug ?? item.workId}`} className="group block">
                       <Cover s3Key={item.cover} className="aspect-[2/3] w-full" />
-                      <span className="lines-1 mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-rose-text">{item.title}</span>
+                      <span className="lines-1 mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-primary">{item.title}</span>
                     </Link>
                     <div className="mt-1">
                       <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
@@ -163,7 +163,7 @@ export default async function ReadingPage() {
                     </Link>
                     <div className="min-w-0 flex-1 space-y-1">
                       {/* The title cuts off inside the link: the link's touch area is not clipped */}
-                      <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                      <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
                         <span className="lines-1">{row.title}</span>
                       </Link>
                       {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}

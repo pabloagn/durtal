@@ -449,7 +449,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       {author.slug ? (
                         <Link
                           href={`/people/${author.slug}`}
-                          className="transition-colors hover:text-accent-rose-text"
+                          className="transition-colors hover:text-accent-primary"
                         >
                           {author.name}
                         </Link>
@@ -545,7 +545,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
-                        className="text-xs text-accent-rose-text transition-colors hover:text-fg-primary"
+                        className="text-xs text-accent-primary transition-colors hover:text-fg-primary"
                       >
                         {wr.recommender.name}
                       </Link>
@@ -559,7 +559,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                           // In running text: the CapAligned box on the link
                           // itself, sized by the name's type (text-xs), so
                           // the icon sits on the name's cap-height center
-                          className="ml-1 inline-block overflow-hidden align-[0.5cap] text-xs text-fg-muted transition-colors hover:text-accent-rose"
+                          className="ml-1 inline-block overflow-hidden align-[0.5cap] text-xs text-fg-muted transition-colors hover:text-accent-primary"
                           style={{ height: 12, marginBlock: -6 }}
                         >
                           <ExternalLink className="block h-3 w-3" strokeWidth={1.5} />

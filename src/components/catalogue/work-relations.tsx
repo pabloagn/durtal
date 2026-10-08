@@ -317,7 +317,7 @@ export function LinkedWorksSection({
                     <li key={r.id} className="flex items-start gap-3 text-sm">
                       <div className="min-w-0 flex-1">
                         <p className="text-fg-primary">
-                          <Link href={r.other.href} className="transition-colors hover:text-accent-rose-text">
+                          <Link href={r.other.href} className="transition-colors hover:text-accent-primary">
                             {r.other.title}
                           </Link>
                           <span className="text-fg-secondary">
@@ -334,7 +334,7 @@ export function LinkedWorksSection({
                                     href={r.source.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="transition-colors hover:text-accent-rose-text"
+                                    className="transition-colors hover:text-accent-primary"
                                   >
                                     Source: {r.source.label}
                                   </a>

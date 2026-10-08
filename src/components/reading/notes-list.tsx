@@ -20,7 +20,7 @@ function meta(note: NotesListRow, withBook: boolean, edition: NoteEdition | null
   if (!withBook) return where;
   return (
     <>
-      <Link href={note.book.href} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+      <Link href={note.book.href} className="text-fg-primary transition-colors hover:text-accent-primary">
         {note.book.title}
       </Link>
       {[note.book.author, where].filter(Boolean).map((part) => ` · ${part}`)}
@@ -63,7 +63,7 @@ export function NotesList({ rows, byBook, editions }: { rows: NotesListRow[]; by
           <SectionHeading
             as="h3"
             title={
-              <Link href={group.book.href} className="transition-colors hover:text-accent-rose-text">
+              <Link href={group.book.href} className="transition-colors hover:text-accent-primary">
                 {group.book.title}
               </Link>
             }

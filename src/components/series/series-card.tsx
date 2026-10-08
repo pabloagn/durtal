@@ -60,7 +60,7 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
             series card has the same height. The covers show no overlay. */}
         <CardHeading
           title={s.title}
-          titleClassName="group-hover:text-accent-rose-text"
+          titleClassName="group-hover:text-accent-primary"
           subtitle={s.originalTitle !== s.title ? s.originalTitle : null}
           subtitleClassName="text-xs italic text-fg-secondary"
           action={
@@ -105,7 +105,7 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
+        <h3 className="type-item-title truncate group-hover:text-accent-primary">
           {s.title}
         </h3>
         {s.originalTitle && s.originalTitle !== s.title && (

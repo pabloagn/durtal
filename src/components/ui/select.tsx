@@ -215,9 +215,9 @@ export function Select({
             }
           }}
           onKeyDown={handleKeyDown}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-rose focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 ${
+          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:text-sm ${
             error ? "border-accent-red" : ""
-          } ${isOpen ? "border-accent-rose" : ""} ${className}`}
+          } ${isOpen ? "border-accent-primary" : ""} ${className}`}
         >
           {/* One line: a narrow trigger cuts the label with an ellipsis (the
               tooltip shows it whole) instead of wrapping out of its 32px */}
@@ -257,9 +257,9 @@ export function Select({
                     aria-selected={isSelected}
                     onClick={() => handleSelect(opt.value)}
                     onMouseEnter={() => setFocusIndex(idx)}
-                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-sm transition-colors ${
+                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-xs transition-colors ${
                       isSelected
-                        ? "bg-accent-rose/10 text-fg-primary"
+                        ? "bg-accent-primary/10 text-fg-primary"
                         : isFocused
                           ? "bg-bg-tertiary text-fg-primary"
                           : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
@@ -268,7 +268,7 @@ export function Select({
                     <span>{opt.label}</span>
                     <div className="flex items-center gap-1.5">
                       {isSelected && (
-                        <span className="text-micro text-accent-rose-text">
+                        <span className="text-micro text-accent-primary">
                           &#10003;
                         </span>
                       )}

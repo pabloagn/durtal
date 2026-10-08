@@ -144,7 +144,7 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
                         else next.delete(t.id);
                         setForm({ ...form, excluded: next });
                       }}
-                      className="h-3.5 w-3.5 accent-accent-rose"
+                      className="h-3.5 w-3.5 accent-accent-primary"
                     />
                     {t.name}
                   </label>

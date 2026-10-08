@@ -86,7 +86,7 @@ export function PipelineOrderCard({
       {...attributes}
       className={`w-full rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
         isDragging && !isDragOverlay ? "opacity-30" : ""
-      } ${isDragOverlay ? "shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-accent-rose/40" : ""}`}
+      } ${isDragOverlay ? "shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-accent-primary/40" : ""}`}
     >
       <div className="flex items-start gap-2.5">
         {/* Poster */}
@@ -174,7 +174,7 @@ export function PipelineColumn({
       ref={setNodeRef}
       className={`flex min-w-[160px] max-w-[200px] flex-shrink-0 flex-col rounded-sm border transition-colors ${
         isOver && isDropTarget
-          ? "border-accent-rose/50 bg-accent-rose/5"
+          ? "border-accent-primary/50 bg-accent-primary/5"
           : isActive
             ? "border-glass-border bg-bg-secondary/60"
             : "border-glass-border/50 bg-bg-secondary/20"
