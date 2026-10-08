@@ -7,7 +7,9 @@
  *
  * The target is the control's box, grown by a `::before` or `::after` hit
  * area when it has one, and cut by any ancestor that clips its overflow (a
- * press outside the clip never reaches the control). Left out: links inside a sentence (their line is the
+ * press outside the clip never reaches the control) up to the first one that
+ * scrolls it: a scroller brings the control into view, so it counts whole, up
+ * to what the scroller shows. Left out: links inside a sentence (their line is the
  * target, as WCAG allows), controls hidden or disabled, controls inside a
  * larger control, and the sr-only input of a label that is itself measured.
  *
@@ -75,12 +77,47 @@
     return text.length > own.length + 2;
   }
 
+  /** Overflow on one axis: "clip" cuts the content, "scroll" can bring it into view, null does neither */
+  function overflowOn(n, s, axis) {
+    const value = axis === "x" ? s.overflowX : s.overflowY;
+    if (/hidden|clip/.test(value)) return "clip";
+    if (!/auto|scroll/.test(value)) return null;
+    // A box that could scroll but has nothing more to show only clips
+    const more = axis === "x" ? n.scrollWidth - n.clientWidth : n.scrollHeight - n.clientHeight;
+    return more > 1 ? "scroll" : "clip";
+  }
+
   /**
-   * The target box: the element, grown by a positioned ::before/::after hit
-   * area, then cut by every ancestor that clips its overflow (a cap-box
-   * clips), since a press outside the clip does not reach the control. A
-   * scrolling box brings its content into view: what clips beyond it (a
-   * glass dialog around its scrolling body) cuts the scroller, not the target.
+   * How much of a box a press can reach on each axis. Every ancestor that
+   * clips its overflow cuts it, since a press outside the clip does not reach
+   * the control, up to the first ancestor that scrolls on that axis: the
+   * reader scrolls the control into view there, so it counts whole, up to
+   * what that scroller itself shows. A control half-scrolled at a dialog
+   * body's edge is not small; a small one is small wherever it scrolls.
+   */
+  function reach(from, rect) {
+    let { left, right, top, bottom } = rect;
+    let width = null;
+    let height = null;
+    for (let n = from.parentElement; n && n !== document.documentElement && (width === null || height === null); n = n.parentElement) {
+      const s = getComputedStyle(n);
+      const x = width === null ? overflowOn(n, s, "x") : null;
+      const y = height === null ? overflowOn(n, s, "y") : null;
+      if (!x && !y) continue;
+      const c = n.getBoundingClientRect();
+      const view = x === "scroll" || y === "scroll" ? reach(n, c) : null;
+      if (x === "scroll") width = Math.min(Math.max(0, right - left), view.width, n.clientWidth);
+      if (y === "scroll") height = Math.min(Math.max(0, bottom - top), view.height, n.clientHeight);
+      if (x === "clip") ({ left, right } = { left: Math.max(left, c.left), right: Math.min(right, c.right) });
+      if (y === "clip") ({ top, bottom } = { top: Math.max(top, c.top), bottom: Math.min(bottom, c.bottom) });
+    }
+    return { width: width ?? Math.max(0, right - left), height: height ?? Math.max(0, bottom - top) };
+  }
+
+  /**
+   * The target: the element, grown by a positioned ::before/::after hit
+   * area, then cut by the ancestors that clip it (a cap-box clips), as
+   * `reach` says.
    */
   function target(el) {
     const r = el.getBoundingClientRect();
@@ -99,21 +136,7 @@
         bottom: Math.max(box.bottom, cy + h / 2),
       };
     }
-    let scrollsX = false;
-    let scrollsY = false;
-    for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
-      const s = getComputedStyle(n);
-      // Only a hidden or clipped overflow cuts the target; a scrolling box brings its content into view
-      const clipX = !scrollsX && /hidden|clip/.test(s.overflowX);
-      const clipY = !scrollsY && /hidden|clip/.test(s.overflowY);
-      scrollsX ||= /auto|scroll/.test(s.overflowX);
-      scrollsY ||= /auto|scroll/.test(s.overflowY);
-      if (!clipX && !clipY) continue;
-      const c = n.getBoundingClientRect();
-      if (clipX) box = { ...box, left: Math.max(box.left, c.left), right: Math.min(box.right, c.right) };
-      if (clipY) box = { ...box, top: Math.max(box.top, c.top), bottom: Math.min(box.bottom, c.bottom) };
-    }
-    return { width: Math.max(0, box.right - box.left), height: Math.max(0, box.bottom - box.top) };
+    return reach(el, box);
   }
 
   function label(el) {

@@ -181,6 +181,9 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 | `pnpm db:migrate` | `drizzle-kit migrate` |
 | `pnpm db:push` | `drizzle-kit push` |
 | `pnpm db:studio` | `drizzle-kit studio` |
+| `pnpm ebooks:ingest` | Plan, apply, resume or undo an e-book ingestion (`docs/09_INGESTION_PIPELINE.md`, eBook ingestion). `--preview PORT` runs it against a running preview's database and S3 folder (`scripts/qa/preview-local.py --start --port PORT --s3-dir DIR`) |
+| `pnpm ebooks:reconcile` | Reconcile folders, the catalogue and the bucket; read-only. `--preview PORT` as above |
+| `pnpm ebooks:verify` | Verify every stored e-book file against its row (`docs/07_STORAGE.md`, Verification) |
 
 ---
 
@@ -266,6 +269,10 @@ Ruff configuration in `pyproject.toml`:
 | `csv-parse` | ^6.2 | CSV parsing for imports |
 | `isbn3` | ^2.0 | ISBN validation |
 | `leaflet` / `react-leaflet` | ^1.9 / ^5.0 | Map component for locations |
+| `@zip.js/zip.js` | ^2.23 | Reading e-book zips (EPUB, CBZ, FB2Z) by range, without loading the whole file |
+| `htmlparser2` | ^10.1 | Parsing OPF, NCX, XHTML and FB2 for metadata and text counts |
+| `pdfjs-dist` | 6.4.299 (exact) | PDF metadata, text and first-page covers (the legacy build in Node) |
+| `@napi-rs/canvas` | ^1.0 | The canvas pdf.js draws a PDF's first page on |
 
 ### Node.js (Development)
 

@@ -11,7 +11,7 @@ import {
   undoEnrichment,
 } from "@/lib/books/enrichment-store";
 import { sourcePayloadHash } from "@/lib/publishers/enrichment";
-import type { MatchCandidate } from "@/lib/match/plan";
+import type { BookRecord } from "@/lib/books/enrichment";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_BOOK_ENRICHMENT_TEST_DATABASE_URL;
@@ -27,7 +27,8 @@ const sql = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
 
 const DESCRIPTION =
   "Three brothers, a murdered father and a trial: Dostoevsky's last novel argues with itself about faith, freedom and guilt.";
-const record = (over: Partial<MatchCandidate> = {}): MatchCandidate => ({
+const record = (over: Partial<BookRecord> = {}): BookRecord => ({
+  authors: ["Fyodor Dostoyevsky"],
   title: "The Brothers Karamazov",
   subtitle: null,
   publisher: "Farrar, Straus and Giroux",
@@ -56,9 +57,11 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
     await sql?.end();
   });
   beforeEach(async () => {
-    await db`truncate works cascade`;
+    await db`truncate works, authors cascade`;
     const [work] = await db`insert into works (title, original_year) values ('The Brothers Karamazov', 1880) returning id`;
     ids.work = work.id;
+    const [author] = await db`insert into authors(name) values ('Fyodor Dostoyevsky') returning id`;
+    await db`insert into work_authors(work_id, author_id, role) values (${work.id}, ${author.id}, 'author')`;
     const editions = await db`insert into editions
         (work_id, title, isbn_13, isbn_10, publisher, language, cover_s3_key, thumbnail_s3_key, cover_source_url, metadata_source, metadata_locked)
       values
@@ -74,7 +77,16 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
   it("reads only unlocked, non-placeholder editions with an ISBN and an empty field", async () => {
     const rows = await loadEnrichableEditions(db);
     expect(rows.map((r) => r.id)).toEqual([ids.edition]);
-    expect(rows[0]).toMatchObject({ workOriginalYear: 1880, workDescription: null });
+    expect(rows[0]).toMatchObject({ workOriginalYear: 1880, workDescription: null, authors: ["Fyodor Dostoyevsky"] });
+  });
+
+  it("requires co-author evidence as well as the primary author", async () => {
+    const [coauthor] = await db`insert into authors(name) values ('Another Writer') returning id`;
+    await db`insert into work_authors(work_id, author_id, role) values (${ids.work}, ${coauthor.id}, 'co_author')`;
+    const [row] = await loadEnrichableEditions(db);
+    expect(row.authors).toEqual(["Another Writer", "Fyodor Dostoyevsky"]);
+    expect(planEdition(row, { isbndb: record() }).accepted).toEqual([]);
+    expect(planEdition(row, { isbndb: record({ authors: row.authors }) }).accepted).toEqual(["isbndb"]);
   });
 
   it("fills only the plan's empty columns, keeps covers, ISBNs and publisher links, and records provenance", async () => {
@@ -150,6 +162,25 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
     const [work] = await db`select description from works where id = ${ids.work}`;
     expect(work.description).toBeNull();
     expect(await db`select id from source_records`).toEqual([]);
+  });
+
+  it.each(["locked", "placeholder", "isbn", "work", "author"])("refuses a plan when its edition becomes %s", async (change) => {
+    const [row] = await loadEnrichableEditions(db);
+    const plan = planEdition(row, { isbndb: record() });
+    if (change === "author") await db`update authors set name = 'Another Author'`;
+    if (change === "locked") await db`update editions set metadata_locked = true where id = ${ids.edition}`;
+    if (change === "placeholder") await db`update editions set metadata_source = 'phantom_canon' where id = ${ids.edition}`;
+    if (change === "isbn") await db`update editions set isbn_13 = '9780140449136', isbn_10 = null where id = ${ids.edition}`;
+    if (change === "work") {
+      const [other] = await db`insert into works(title) values ('Another book') returning id`;
+      await db`update editions set work_id = ${other.id} where id = ${ids.edition}`;
+    }
+    await expect(db.begin((tx) => applyEditionPlan(tx as unknown as postgres.Sql, plan,
+      { runId: "stale", retrievedAt: new Date(), isbn: row.isbn13! }))).rejects.toThrow(/changed|locked|placeholder/);
+    expect(await db`select id from source_records`).toEqual([]);
+    const [after] = await db`select description, page_count from editions where id = ${ids.edition}`;
+    expect(after).toEqual({ description: null, page_count: null });
+    expect((await db`select description from works where id = ${ids.work}`)[0].description).toBeNull();
   });
 
   it("assesses the holes read-only and finds an original year that is an edition year", async () => {

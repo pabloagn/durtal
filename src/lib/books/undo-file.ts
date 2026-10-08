@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { EnrichmentUndo } from "./enrichment-store";
 
 /**
@@ -8,9 +8,13 @@ import type { EnrichmentUndo } from "./enrichment-store";
  * receives the values the run wrote.
  */
 export function reserveUndoFile(path: string, runId: string) {
+  const empty: EnrichmentUndo = { runId, written: [] };
+  reserve(path, JSON.stringify(empty, null, 2));
+}
+
+function reserve(path: string, content: string) {
   try {
-    const empty: EnrichmentUndo = { runId, written: [] };
-    writeFileSync(path, JSON.stringify(empty, null, 2), { flag: "wx" });
+    writeFileSync(path, content, { flag: "wx" });
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "EEXIST") throw new Error(`${path} exists: it may be another run's undo file. Nothing written.`);
@@ -27,4 +31,25 @@ export function completeUndoFile(path: string, undo: EnrichmentUndo) {
 /** The write failed and rolled back: its empty undo file goes too */
 export function releaseUndoFile(path: string) {
   rmSync(path, { force: true });
+}
+
+/**
+ * The undo log of a long run (SLN-494): JSON lines, its header first. It is
+ * reserved like an undo file, and each unit of work appends its line before
+ * its write, so a crash between the two leaves a line whose rows never
+ * existed, which the undo skips.
+ */
+export function reserveUndoLog(path: string, header: Record<string, unknown>) {
+  reserve(path, JSON.stringify(header) + "\n");
+}
+
+export function appendUndoLog(path: string, entry: unknown) {
+  appendFileSync(path, JSON.stringify(entry) + "\n");
+}
+
+/** The header and the entries of an undo log */
+export function readUndoLog<H, E>(path: string): { header: H; entries: E[] } {
+  const [first, ...rest] = readFileSync(path, "utf8").split("\n").filter((line) => line.trim());
+  if (!first) throw new Error(`${path} is empty: it is not an undo log`);
+  return { header: JSON.parse(first) as H, entries: rest.map((line) => JSON.parse(line) as E) };
 }

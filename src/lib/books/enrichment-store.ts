@@ -10,6 +10,7 @@ import {
   WORK_FILL_COLUMNS,
   BOOK_SOURCE_LABEL,
   editionUpdate,
+  authorsAgree,
   type BookSource,
   type EditionFillColumn,
   type EditionPlan,
@@ -63,12 +64,15 @@ export async function loadEnrichableEditions(
       metadata_locked: boolean;
       metadata_source: string | null;
       work_title: string;
+      authors: string[];
       work_description: string | null;
       work_original_year: number | null;
     }[]
   >`select e.id, e.work_id, e.title, e.isbn_13, e.isbn_10, e.publisher, e.publication_year,
       e.page_count, e.language, e.binding, e.description, e.metadata_locked, e.metadata_source,
-      w.title as work_title, w.description as work_description, w.original_year as work_original_year
+      w.title as work_title, w.description as work_description, w.original_year as work_original_year,
+      array(select distinct a.name from work_authors wa join authors a on a.id = wa.author_id
+        where wa.work_id = w.id and wa.role in ('author', 'co_author') order by a.name) as authors
     from editions e join works w on w.id = e.work_id and w.kind = 'book'
     where not e.metadata_locked
       and coalesce(e.metadata_source, '') <> 'phantom_canon'
@@ -94,6 +98,7 @@ export async function loadEnrichableEditions(
     metadataLocked: r.metadata_locked,
     metadataSource: r.metadata_source,
     workTitle: r.work_title,
+    authors: r.authors,
     workDescription: r.work_description,
     workOriginalYear: r.work_original_year,
   }));
@@ -108,6 +113,20 @@ export async function applyEditionPlan(
   plan: EditionPlan,
   { runId, retrievedAt, isbn }: { runId: string; retrievedAt: Date; isbn: string },
 ): Promise<Written[]> {
+  // The caller supplies one transaction for the entire apply. Hold the identity
+  // until the fills and provenance commit, including while waiting for another editor.
+  const [current] = await tx`select e.work_id, e.isbn_13, e.isbn_10, e.title, e.metadata_locked,
+      e.metadata_source, w.title as work_title,
+      array(select distinct a.name from work_authors wa join authors a on a.id = wa.author_id
+        where wa.work_id = w.id and wa.role in ('author', 'co_author') order by a.name) as authors
+    from editions e join works w on w.id = e.work_id and w.kind = 'book'
+    where e.id = ${plan.editionId} for update of e, w`;
+  if (!current || current.metadata_locked || current.metadata_source === "phantom_canon" ||
+      current.work_id !== plan.workId || current.isbn_13 !== plan.identity.isbn13 ||
+      current.isbn_10 !== plan.identity.isbn10 || current.title !== plan.identity.title ||
+      current.work_title !== plan.identity.workTitle || !authorsAgree(current.authors, plan.identity.authors) ||
+      (isbn !== current.isbn_13 && isbn !== current.isbn_10))
+    throw new Error("Edition identity changed, is locked or is a placeholder; make a new plan");
   const written: Written[] = [];
   const update = editionUpdate(plan);
   for (const column of EDITION_FILL_COLUMNS) {

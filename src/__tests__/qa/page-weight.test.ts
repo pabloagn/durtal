@@ -88,13 +88,14 @@ describe("page-weight.js", () => {
     ]);
     expect(config.routes.some((r) => r.path === "/library/new")).toBe(true);
   });
-  it("gives the quoted book, the import preview, the Year in review and the reader rows their notes, and no other row", async () => {
+  it("gives the quoted book, the import preview, the Year in review, the reader and the ingestion run rows their notes, and no other row", async () => {
     const { readFileSync } = await import("node:fs");
     const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; ifNone?: string; list?: string }[] };
     expect(config.routes.find((r) => r.path === "/reading/import/*")?.ifNone).toBe("no import");
     expect(config.routes.find((r) => r.path === "/reading/year/*")?.ifNone).toBe("no finished year");
     expect(config.routes.find((r) => r.list === "/reading/notes")?.ifNone).toBe("no quotes");
+    expect(config.routes.find((r) => r.path === "/ebooks/runs/*")?.ifNone).toBe("no ingestion run");
     expect(config.routes.find((r) => r.path === "/reader/*")?.ifNone).toBe("no e-book");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/reader/*"]);
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/runs/*", "/reader/*"]);
   });
 });

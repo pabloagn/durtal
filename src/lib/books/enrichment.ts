@@ -11,7 +11,7 @@
  * - Never a locked edition, a placeholder edition (`phantom_canon`, left to
  *   the Identify queue) or an edition without an ISBN.
  * - A source counts only when its record has the edition's exact ISBN and its
- *   title agrees with the edition's.
+ *   title and authors agree with the catalogue.
  * - Only empty fields are filled, with plausible values. Two sources that
  *   disagree hold the field for review. A value that differs from a filled
  *   one is reported, never changed.
@@ -74,11 +74,16 @@ export interface EditionRow {
   metadataLocked: boolean;
   metadataSource: string | null;
   workTitle: string;
+  authors: string[];
   workDescription: string | null;
   workOriginalYear: number | null;
 }
 
-export type SourceRecords = Partial<Record<BookSource, MatchCandidate | null>>;
+/** Author evidence is required for automatic enrichment, including cached records. */
+export interface BookRecord extends MatchCandidate {
+  authors: string[];
+}
+export type SourceRecords = Partial<Record<BookSource, BookRecord | null>>;
 
 export interface Fill {
   column: EditionFillColumn;
@@ -94,9 +99,11 @@ export interface Finding {
 export interface EditionPlan {
   editionId: string;
   workId: string;
+  /** The identity checked when planning, revalidated under lock before writing. */
+  identity: Pick<EditionRow, "isbn13" | "isbn10" | "title" | "workTitle" | "authors">;
   /** Why the edition was left alone */
   skipped?: string;
-  /** Sources that passed the ISBN and title checks */
+  /** Sources that passed the ISBN, title and author checks */
   accepted: BookSource[];
   /** Sources that failed them, with the reason */
   rejected: Partial<Record<BookSource, string>>;
@@ -147,6 +154,16 @@ export function titlesAgree(a: string | null, b: string | null): boolean {
   const wb = words(b);
   const shared = [...wa].filter((w) => wb.has(w)).length;
   return shared / Math.min(wa.size, wb.size) >= 0.75;
+}
+
+/** Conservative author agreement: complete names, accents and name order normalized.
+ * Initials, partial names, missing names and unrecognised aliases need review.
+ */
+export function authorsAgree(catalogue: string[], source: string[] | undefined): boolean {
+  const names = (values: string[]) => [...new Set(values.map((v) => normalizeSearchText(v).split(/\s+/).sort().join(" ")).filter(Boolean))].sort();
+  const ours = names(catalogue);
+  const theirs = names(source ?? []);
+  return ours.length > 0 && ours.length === theirs.length && ours.every((name, i) => name === theirs[i]);
 }
 
 /** The record has this edition's ISBN, 13 or 10 digits */
@@ -240,6 +257,7 @@ export function planEdition(
   const plan: EditionPlan = {
     editionId: edition.id,
     workId: edition.workId,
+    identity: { isbn13: edition.isbn13, isbn10: edition.isbn10, title: edition.title, workTitle: edition.workTitle, authors: [...edition.authors] },
     accepted: [],
     rejected: {},
     fills: [],
@@ -259,6 +277,8 @@ export function planEdition(
     if (!sameIsbn(edition, record)) plan.rejected[source] = "another ISBN";
     else if (!titlesAgree(edition.title, record.title) && !titlesAgree(edition.workTitle, record.title))
       plan.rejected[source] = `title "${record.title ?? ""}" does not match`;
+    else if (!authorsAgree(edition.authors, record.authors))
+      plan.rejected[source] = "missing or conflicting author evidence";
     else usable.push([source, record]);
   }
   plan.accepted = usable.map(([s]) => s);

@@ -35,6 +35,8 @@
 /reading/year/[year]        One year's review, made to print
 /reading/import             Import reading history: upload, past imports
 /reading/import/[id]        One import's preview, decisions, commit and undo
+/ebooks/runs                eBooks: ingestion runs, newest first
+/ebooks/runs/[runId]        One ingestion run: its reconciliation and its files
 /series                     Series index
 /series/[id]                Series detail
 /series/suggestions         Books that match a series by title
@@ -334,7 +336,8 @@ personal rating.
 `DetailColumns`: the reading column holds the synopsis (`Prose`), Cast (billing
 order, characters, credited names; the first twelve until "Show all"), Crew by
 role, Linked works, Versions (each cut with its runtime and releases: territory,
-format, date, distributor), Copies, Wanted (see below), Sources and Your notes. The record column holds
+format, date, distributor), Copies, Wanted (see below), Sources ("Look up" asks
+Wikidata, see below) and Your notes. The record column holds
 Details (original title, first release, countries, languages, production,
 added), Genres (edited in place) and Media counts. Then the gallery and related
 films ("More by {director}", "Shared cast", "Shared genres").
@@ -349,6 +352,23 @@ to it" opens `?add=version`). Dialogs add and edit versions with their
 releases, and copies (physical or digital, version and release, status,
 storage, acquisition, disposal). A version a copy names, and a film with
 copies, cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed.
+
+Film sources (SLN-376). "Look up" in Sources searches Wikidata by title, or by
+a Wikidata, IMDb or TMDB id or link; each hit shows its year and director, so
+a remake reads apart from the original. The review shows what Wikidata says
+beside what the film has: titles, the first release, countries and original
+languages, the running time (on the film's first version, or a new one), cast
+and crew with their characters, production companies, the IMDb, TMDB and
+Letterboxd ids, each release with its date, place and format, and the poster
+on Wikimedia Commons with its author and license. An empty field can be
+filled; a different or locked value stays; people, companies and releases are
+only added, never replaced or removed (people and companies not in the library
+are made, credited as attributed). A first release more than a year apart
+stops the save until "It is the same film" is on, and a Wikidata film another
+film here holds cannot be saved to this one. The poster is off until chosen,
+and goes through the media pipeline with its credit. A later lookup lists what
+changed in Wikidata since the last save. Saving keeps Wikidata as an accepted
+source.
 
 ### Paintings (`/paintings`)
 
@@ -829,6 +849,16 @@ What an import will do, before anything is written (SLN-450), from `getImportPre
 - Decisions are saved at once, one row each. Defaults: Exact rows import, and Want to read rows whose book is neither queued nor being read; Already in Durtal, Cannot import and Not imported rows skip; the rest wait.
 - **Private notes** (SLN-453), after the sections: every row whose Goodreads `Private Notes` is not empty, 50 at a time ("Show 50 more", `?notes=100`). Each: the row's title and author, the book it matched (or "Choose this row's book first"), the note's first three lines (at most 300 characters), and Import and Skip (`decideImportNote`, one UPDATE of `note_decision`), or what happened: "Imported", "Already in Durtal (Same source)", "Too long to import (12,400 characters; at most 10,000)". "Import all private notes" sets every note with a book to import in one UPDATE. A note's decision is its own: a row whose readings are already in Durtal still brings its note. Default on upload: import for rows in Exact, pending otherwise; an import uploaded before this step shows its notes pending. The commit writes each note to import as a note on its book (`source` import, the row's latest read in Durtal, the key `goodreads-note:<Book Id>`), never twice; undo removes the notes not edited since and lists the kept ones.
 
+### Ingestion runs (`/ebooks/runs`)
+
+Every apply of the e-book ingestion, upload batch and verification, newest first (SLN-494), from `listRuns` (`src/lib/ebooks/runs.ts`). Read only. Each row (`RunRow`): the kind, the machine and its folders as a link (one line, the machine and folders in its tooltip), then the start time, how long it ran and its counts ("12 new eBooks · 3 formats added · 1 quarantined"), with a state badge: Running, Interrupted, Reconciled (an exact reconciliation), "N exceptions", Failed or Finished. Shows 50; "Show 50 more" raises the count in the URL (`?show=100`, at most 5,000). Settings › Integrations has a row "Ingestion runs" that links here.
+
+### Ingestion run (`/ebooks/runs/[runId]`)
+
+One run (SLN-494). Read only. The title is the kind and the start time, the description the machine and how long it ran, and the state badge sits beside it. Then the reconciliation line ("On disk 6,000 · in Neon 6,000 · in S3 6,000 · exceptions 0"), the counts line, how many stored files are no longer in the inbox and how many objects are in flight. While the run is running the page refreshes every 10 seconds while it is visible; an interrupted run says on which machine it resumes.
+
+Sections, each a `SectionHeading` with its count, only those with files: Reconciliation exceptions (what keeps it from being exact), Failed, Quarantined, DRM, Changed since the plan, Ignored, Duplicates, New eBooks, Formats added, Changed files, Already stored, Not done yet. Each file shows its path under the run's folder on one line (the full path in its tooltip), its format and size, and its reason or the e-book's title. Each section shows 50; "Show 50 more" raises that section's count in the URL (`?ignored=100#ignored`). The e-book's title becomes a link when the e-book page exists (SLN-497).
+
 ### Places (`/places`)
 
 Paginated index of venues (`venues` table): bookshops, online stores, museums, galleries, perfumeries, cinemas, fairs, auction houses and other places.
@@ -917,7 +947,7 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
 - **Display** (`/settings/display`): cookies in this browser, the same ones the pages change (`src/lib/preferences.ts`): collapsed sidebar; each list's view, grid size and page size; a reset of all of them (not the reader's), after a confirmation.
 - **Reader** (`/settings/reader`): font, size, line height, margins, alignment, with a preview. Saved in a cookie in this browser, for the e-book reader (SLN-489).
 - **Reading** (`/settings/reading`, SLN-451): saved in `app_settings` for every device. "A reading day ends at" (midnight to 06:00; "Past days stay as they were"), "A reading week starts on" (Monday or Sunday), "Days I'd like to read each week" (Off, or 1 to 7; "5 of 7 leaves room for rest days", SLN-455), "Reading goals" (the goal dialog's button), "Ask “Still reading?” after" (15 minutes to 8 hours).
-- **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). eBooks (e-books, linked to a book, files stored, last added) and whether the REST and media maintenance routes ask for a token. The book enrichment's two services (SLN-468): the **Evidence fetcher** (`ENRICHMENT_CONTACT`; active outlets per fetch policy, documents stored, last fetch; its check reads the robots.txt of the first outlet that may be fetched, off without the contact, a warning when no outlet may be fetched) and the **Enrichment budget** (`ENRICHMENT_MONTHLY_CAP_USD`; spent this month, open reservations, cap, last paid call; its check reads the ledger, no network: ok under 80% of the cap, a warning from 80%, an error at the cap, off without a cap).
+- **Integrations** (`/settings/integrations`): every outside service with what it is for, the environment variables it reads (set or not, never their values) and a live check when the page opens ("Check again"). eBooks (e-books, linked to a book, files stored, last added), with a row "Ingestion runs" (how many, and a link to `/ebooks/runs`), and whether the REST and media maintenance routes ask for a token. The book enrichment's two services (SLN-468): the **Evidence fetcher** (`ENRICHMENT_CONTACT`; active outlets per fetch policy, documents stored, last fetch; its check reads the robots.txt of the first outlet that may be fetched, off without the contact, a warning when no outlet may be fetched) and the **Enrichment budget** (`ENRICHMENT_MONTHLY_CAP_USD`; spent this month, open reservations, cap, last paid call; its check reads the ledger, no network: ok under 80% of the cap, a warning from 80%, an error at the cap, off without a cap).
 - **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; reading (SLN-458): Readings (the Durtal reading CSV), Reading sessions, Quotes and notes (also as the Markdown commonplace book) and the Goodreads file (CSV only; when it carries half-star ratings, a dialog first says "12 half-star ratings will be rounded up", from `getGoodreadsExportNotice`); Enrichment (SLN-468): "Spend this month" (spent and reserved, of the cap) and "Evidence cache" (documents, and the stored size with each object counted once), read by `enrichmentSpend` and `evidenceCacheStats` in `src/lib/settings/data.ts`; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.

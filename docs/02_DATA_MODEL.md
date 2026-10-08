@@ -2285,7 +2285,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
 | Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
-| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations` | — |
+| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations`, `ebook_ingest_runs`, `ebook_ingest_items` | — |
 | Settings | `app_settings` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
@@ -2511,13 +2511,25 @@ One stored file, keyed by its bytes. No work id: it reaches a work only through 
 | `verified_at` | TIMESTAMPTZ | nullable | |
 | `drm` | TEXT | nullable, CHECK in (`adobe-adept`, `kindle`, `readium-lcp`, `apple-fairplay`, `pdf-password`, `unknown`) (`ebook_files_drm_check`) | A DRM file is stored and listed, never opened |
 | `source_host`, `source_path`, `source_mtime` | | nullable | Where the file was found |
-| `metadata` | JSONB | NOT NULL, default `{}` | What the file itself says |
+| `metadata` | JSONB | NOT NULL, default `{}` | What the file itself says (below) |
 | `word_count`, `char_count`, `front_back_word_count`, `page_estimate`, `text_language`, `text_tool_version` | | nullable | Text counts, agreed with the book enrichment epic |
 | `manifest_key`, `cover_key` | TEXT | nullable | Derived objects; in `KEY_COLUMNS` |
 | `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
 UNIQUE (`id`, `ebook_id`) (`ebook_files_id_ebook_unique`): the key the preferred file,
 positions and annotations reference.
+
+`metadata`, written by the ingestion (SLN-494), holds what the file says, as
+`src/lib/ebooks/ingest/inspect/types.ts` reads it: `title`, `subtitle`,
+`titleSort`, `authors` (each with `name`, `fileAs` and `role`), `description`,
+`subjects`, `publisher`, `language`, `date`, `identifiers` (each a `scheme` and a
+`value`), `series`, `seriesIndex` and `contributors`. A sidecar `metadata.opf`
+wins field by field; then the file's own fields are kept under `embedded`, and
+`sidecar` is `true`. A sidecar's rating, read dates and custom columns are
+never read in. Also: `details` (what the format adds, such as an EPUB's version,
+layout and direction, a PDF's page count, a comic's pages), `problem` (why a
+quarantined file was quarantined), `textReason` (why the text has no counts)
+and `coverReason` (why there is no cover).
 
 ### `ebook_positions`
 
@@ -2571,6 +2583,64 @@ Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.
 | `deleted_at` | TIMESTAMPTZ | nullable (a tombstone for sync) |
 
 Index (`ebook_id`, `deleted_at`, `progression`).
+
+### `ebook_ingest_runs`
+
+One apply of the ingestion, one browser upload batch or one verification
+(SLN-494, migration `0081_ebook_ingest`). Read by `/ebooks/runs`.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `kind` | TEXT | NOT NULL, CHECK in (`apply`, `upload`, `verify`) (`ebook_ingest_runs_kind_check`) | |
+| `state` | TEXT | NOT NULL, default `'running'`, CHECK in (`running`, `finished`, `interrupted`, `failed`) (`ebook_ingest_runs_state_check`) | `finished` when its reconciliation is exact, `failed` when it is not; `interrupted` until a resume |
+| `host` | TEXT | nullable | The machine's name; null for uploads |
+| `roots` | TEXT[] | NOT NULL, default `{}` | The folders given |
+| `plan_sha256` | TEXT | nullable | The SHA-256 of the plan file an apply executed |
+| `tool_version` | INTEGER | NOT NULL | |
+| `counts` | JSONB | NOT NULL, default `{}` | One count per item outcome, plus `failed` and `pending`; a verification counts `verified`, `missing`, `differ`, `noKey`, `unreferenced` and `inFlight` |
+| `reconciliation` | JSONB | nullable | Written when the run ends: `onDisk`, `inNeon`, `inS3`, `exact`, `exceptions` (each a `side`, `kind`, `path`, `reason` and whether it is `blocking`), `noLongerInInbox`, `inFlight` |
+| `started_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | Index `ebook_ingest_runs_started_idx` (`started_at`) |
+| `finished_at` | TIMESTAMPTZ | nullable | |
+
+### `ebook_ingest_items`
+
+One file a run considered. Every path a run saw stays, so where a file came from
+is always answerable.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | UUID | PK, auto | |
+| `run_id` | UUID | NOT NULL, FK → `ebook_ingest_runs.id`, CASCADE | |
+| `source_host`, `source_path` | TEXT | `source_path` NOT NULL | UNIQUE (`run_id`, `source_path`) (`ebook_ingest_items_run_path_unique`) |
+| `size_bytes` | BIGINT | NOT NULL | |
+| `source_mtime` | TIMESTAMPTZ | nullable | |
+| `sha256` | TEXT | nullable, index | Null for a file never hashed (ignored) |
+| `format` | TEXT | nullable, CHECK in `EBOOK_FORMATS` (`ebook_ingest_items_format_check`) | |
+| `state` | TEXT | NOT NULL, default `'pending'`, CHECK in (`pending`, `stored`, `registered`, `done`, `failed`) (`ebook_ingest_items_state_check`) | `stored`: its object and derived objects are in S3 and verified; `registered`: its rows are written; index (`run_id`, `state`) |
+| `outcome` | TEXT | nullable, CHECK (`ebook_ingest_items_outcome_check`) | Below |
+| `reason` | TEXT | nullable | Plain words, for ignored, quarantined, changed and failed items |
+| `attempts` | INTEGER | NOT NULL, default `0` | A resume skips an item after 5 |
+| `last_error` | TEXT | nullable | |
+| `ebook_id` | UUID | nullable, FK → `ebooks.id`, SET NULL | |
+| `file_id` | UUID | nullable, FK → `ebook_files.id`, SET NULL | A duplicate names the file its first path stored |
+| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
+
+Outcomes (`INGEST_OUTCOMES` in `src/lib/db/schema/ebook-ingest.ts`):
+
+- `new_ebook`: the file made a new e-book, `pending` until matched.
+- `new_format`: a new file of an e-book already catalogued, or of one the same
+  run made (another file in its folder, or a folder with the same sidecar uuid).
+- `replaced_file`: a changed file of a format the e-book has. The old file
+  becomes `replaced` and the preferred file moves to the new one.
+- `already_stored`: its checksum is in `ebook_files`. Nothing is written.
+- `duplicate_in_run`: the same bytes as another path in the run. Stored once.
+- `quarantined`: stored with status `quarantined`, with the reason, and never
+  served.
+- `ignored`: not an e-book, too large, or a text file outside a sidecar folder.
+  Never stored.
+- `changed_since_plan`: the file changed between the plan and the apply. Plan
+  again to take it.
 
 Readings alone hold read status, dates and ratings: a read-through, with its
 dates, sessions and rating, is a `readings` row (below). The reader keeps its

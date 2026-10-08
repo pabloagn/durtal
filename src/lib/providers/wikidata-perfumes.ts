@@ -1,6 +1,16 @@
-import { fetchOk } from "@/lib/api/external-fetch";
-import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { ProviderError, type ProviderAdapter, type ProviderDetail } from "./contract";
+import {
+  entityLabel as label,
+  providerUserAgent,
+  wikidataApi,
+  wikidataDate,
+  wikidataEntities,
+  wikidataItemIds as itemIds,
+  wikidataValues as values,
+  type WikidataEntity as Entity,
+} from "./wikidata";
+
+export { wikidataDate };
 
 /*
  * Wikidata as a perfume provider (SLN-377). Its API is documented and its
@@ -9,8 +19,9 @@ import { ProviderError, type ProviderAdapter, type ProviderDetail } from "./cont
  * pyramids and no concentrations, so those stay with the person.
  */
 
-const API = "https://www.wikidata.org/w/api.php";
-const HEADERS = { "User-Agent": "Durtal personal catalogue (perfume lookup)", Accept: "application/json" };
+const userAgent = () => providerUserAgent("perfume lookup");
+const api = (params: Record<string, string>, signal: AbortSignal) => wikidataApi(params, userAgent(), signal);
+const entities = (ids: string[], props: string, signal: AbortSignal) => wikidataEntities(ids, props, userAgent(), signal);
 
 /** The Wikidata items and properties this provider reads */
 export const WIKIDATA = {
@@ -23,57 +34,7 @@ export const WIKIDATA = {
   publicationDate: "P577",
 } as const;
 
-interface Claim {
-  mainsnak?: { snaktype?: string; datavalue?: { value?: unknown } };
-  rank?: string;
-}
-interface Entity {
-  id: string;
-  missing?: string;
-  labels?: Record<string, { value: string }>;
-  descriptions?: Record<string, { value: string }>;
-  claims?: Record<string, Claim[]>;
-}
-
-async function api(params: Record<string, string>, signal: AbortSignal): Promise<Record<string, unknown>> {
-  const url = `${API}?${new URLSearchParams({ ...params, format: "json", origin: "*" })}`;
-  const res = await fetchOk(url, { headers: HEADERS, signal });
-  const data = (await res.json()) as Record<string, unknown> & { error?: { info?: string } };
-  if (data.error) throw new ProviderError(`Wikidata: ${data.error.info ?? "the request was refused"}`, "unavailable");
-  return data;
-}
-
-async function entities(ids: string[], props: string, signal: AbortSignal): Promise<Entity[]> {
-  if (!ids.length) return [];
-  const data = await api({ action: "wbgetentities", ids: ids.slice(0, 50).join("|"), props, languages: "en" }, signal);
-  return Object.values((data.entities ?? {}) as Record<string, Entity>).filter((e) => !e.missing);
-}
-
-const label = (e: Entity) => e.labels?.en?.value ?? null;
-/** The values of a property, best rank first; deprecated statements are left out */
-function values(e: Entity, property: string): unknown[] {
-  const claims = (e.claims?.[property] ?? []).filter((c) => c.rank !== "deprecated" && c.mainsnak?.snaktype === "value");
-  const preferred = claims.filter((c) => c.rank === "preferred");
-  return (preferred.length ? preferred : claims).map((c) => c.mainsnak!.datavalue!.value);
-}
-const itemIds = (e: Entity, property: string) =>
-  values(e, property)
-    .map((v) => (v as { id?: string }).id)
-    .filter((id): id is string => !!id && /^Q\d+$/.test(id));
 const isPerfume = (e: Entity) => itemIds(e, WIKIDATA.instanceOf).includes(WIKIDATA.perfume);
-
-/** A Wikidata time as a catalogue date; a decade becomes a range, coarser times are dropped */
-export function wikidataDate(value: unknown): CatalogueDateInput | null {
-  const { time, precision } = (value ?? {}) as { time?: string; precision?: number };
-  const match = /^\+(\d{1,4})-(\d{2})-(\d{2})T/.exec(time ?? "");
-  if (!match) return null;
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  if (precision === 11 && month && day) return { precision: "day", start: { year, month, day } };
-  if (precision === 10 && month) return { precision: "month", start: { year, month } };
-  if (precision === 9) return { precision: "year", start: { year } };
-  if (precision === 8) return { precision: "range", start: { year: year - (year % 10) }, end: { year: year - (year % 10) + 9 } };
-  return null;
-}
 
 interface Named {
   id: string;

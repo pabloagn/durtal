@@ -34,7 +34,6 @@ import { randomUUID } from "node:crypto";
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import dotenv from "dotenv";
 import postgres from "postgres";
-import type { MatchCandidate } from "@/lib/match/plan";
 import { cleanRecord, isbndbRecord } from "@/lib/match/source";
 import type { IsbndbBook } from "@/lib/api/isbndb";
 import { serverEnv } from "@/lib/env";
@@ -44,6 +43,7 @@ import {
   planEdition,
   suspectOriginalYear,
   type BookSource,
+  type BookRecord,
   type EditionPlan,
   type EditionRow,
 } from "@/lib/books/enrichment";
@@ -133,7 +133,7 @@ if (values.apply && !recentBackup(values.backup))
   throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
 
 // ── Sources, paced and cached ───────────────────────────────────────────────
-type Cache = Record<string, Partial<Record<BookSource, MatchCandidate | null>>>;
+type Cache = Record<string, Partial<Record<BookSource, BookRecord | null>>>;
 const cache: Cache = existsSync(values.cache!) ? JSON.parse(readFileSync(values.cache!, "utf8")) : {};
 const pace = Number(values.pace);
 let lastCall = 0;
@@ -147,7 +147,7 @@ async function paced<T>(fn: () => Promise<T>): Promise<T> {
 /** A source's quota or rate limit refused a call: the run stops there */
 class QuotaStop extends Error {}
 
-async function fromIsbndb(isbn: string): Promise<MatchCandidate | null> {
+async function fromIsbndb(isbn: string): Promise<BookRecord | null> {
   // serverEnv also reads the old ISBNDN_API_KEY spelling
   const key = serverEnv().ISBNDB_API_KEY?.trim();
   if (!key) throw new QuotaStop("ISBNDB_API_KEY is not set");
@@ -163,10 +163,10 @@ async function fromIsbndb(isbn: string): Promise<MatchCandidate | null> {
     throw new QuotaStop(`ISBNdb refused a call (HTTP ${res.status}): over the plan's rate or daily limit`);
   if (!res.ok) throw new Error(`ISBNdb: HTTP ${res.status}`);
   const book = ((await res.json()) as { book?: IsbndbBook }).book;
-  return book ? isbndbRecord(book) : null;
+  return book ? { ...isbndbRecord(book), authors: book.authors ?? [] } : null;
 }
 
-async function fromOpenLibrary(isbn: string): Promise<MatchCandidate | null> {
+async function fromOpenLibrary(isbn: string): Promise<BookRecord | null> {
   const res = await paced(() =>
     fetch(`https://openlibrary.org/isbn/${isbn}.json`, {
       headers: { "User-Agent": enrichmentUserAgent() },
@@ -177,7 +177,22 @@ async function fromOpenLibrary(isbn: string): Promise<MatchCandidate | null> {
   if (res.status === 429) throw new QuotaStop("Open Library refused a call (HTTP 429): over its rate limit");
   if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
   const d = await res.json();
-  return cleanRecord({
+  const authors: string[] = [];
+  // Edition records carry author references, not names. Every lookup is paced;
+  // an unresolved name leaves the source unusable rather than guessing identity.
+  for (const ref of d.authors ?? []) {
+    const key = ref.key;
+    if (typeof key !== "string" || !/^\/authors\/OL\d+A$/.test(key)) return { ...cleanRecord({ title: d.title }), authors: [] };
+    const author = await paced(() => fetch(`https://openlibrary.org${key}.json`, {
+      headers: { "User-Agent": enrichmentUserAgent() }, signal: AbortSignal.timeout(10_000),
+    }));
+    if (author.status === 429) throw new QuotaStop("Open Library refused an author lookup (HTTP 429)");
+    if (!author.ok) throw new Error(`Open Library author: HTTP ${author.status}`);
+    const name = (await author.json()).name;
+    if (typeof name !== "string" || !name.trim()) throw new Error("Open Library author has no name");
+    authors.push(name);
+  }
+  return { ...cleanRecord({
     title: d.title,
     subtitle: d.subtitle,
     publisher: d.publishers?.[0],
@@ -188,13 +203,13 @@ async function fromOpenLibrary(isbn: string): Promise<MatchCandidate | null> {
     language: String(d.languages?.[0]?.key ?? "").split("/").pop(),
     binding: d.physical_format,
     description: typeof d.description === "string" ? d.description : d.description?.value,
-  });
+  }), authors };
 }
 
 async function records(isbn: string) {
   const cached = (cache[isbn] ??= {});
   for (const source of BOOK_SOURCES) {
-    if (source in cached) continue;
+    if (source in cached && (cached[source] === null || Array.isArray(cached[source]?.authors))) continue;
     try {
       cached[source] = source === "isbndb" ? await fromIsbndb(isbn) : await fromOpenLibrary(isbn);
     } catch (error) {
@@ -221,7 +236,7 @@ const written: Written[] = [];
  */
 async function assertReadOnly(tx: postgres.TransactionSql) {
   const refused = await tx
-    .savepoint((sp) => sp`update works set updated_at = updated_at where false`)
+    .savepoint((sp) => (sp as unknown as postgres.Sql)`update works set updated_at = updated_at where false`)
     .then(
       () => false,
       (error: { code?: string }) => error.code === "25006",

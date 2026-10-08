@@ -214,6 +214,33 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
     expect(bucket.objects.has(portrait.originalS3Key!)).toBe(true);
   });
 
+  it("accepts encoded greys and ignores only fully transparent colour pixels", async () => {
+    const pixels = Buffer.from(Array.from({ length: 256 }, (_, n) => [n, n, n]).flat());
+    for (const format of ["png", "jpeg", "webp"] as const) {
+      const image = await sharp(pixels, { raw: { width: 16, height: 16, channels: 3 } }).toFormat(format).toBuffer();
+      expect(await isMonochromeImage(image), format).toBe(true);
+    }
+    const rgba = (alpha: number) => sharp(Buffer.from([255, 0, 0, alpha]), { raw: { width: 1, height: 1, channels: 4 } }).png().toBuffer();
+    expect(await isMonochromeImage(await rgba(0))).toBe(true);
+    expect(await isMonochromeImage(await rgba(1))).toBe(false);
+    for (const [pixel, expected] of [[[100, 101, 100], true], [[100, 102, 100], false]] as const) {
+      const image = await sharp(Buffer.from(pixel), { raw: { width: 1, height: 1, channels: 3 } }).png().toBuffer();
+      expect(await isMonochromeImage(image)).toBe(expected);
+    }
+  });
+
+  it("detects colour pixels whose RGB channel means cancel out", async () => {
+    const balanced = await sharp(Buffer.from([255, 0, 0, 0, 255, 255]), { raw: { width: 2, height: 1, channels: 3 } }).png().toBuffer();
+    expect(await isMonochromeImage(balanced)).toBe(false);
+    const person = await createPerson({ name: "Balanced colours", domains: ["book"] });
+    bucket.objects.add("legacy/balanced.png");
+    bucket.bodies.set("legacy/balanced.png", balanced);
+    await c`insert into media(author_id, type, s3_key, width, height) values (${person.id}, 'background', 'legacy/balanced.png', 2, 1)`;
+    await c`update authors set photo_s3_key = 'legacy/balanced.png' where id = ${person.id}`;
+    expect((await scanAuthorMedia()).every((r) => r.colour)).toBe(true);
+    expect((await scanLegacyAuthorPhotos())[0].colour).toBe(true);
+  });
+
   it("serves every author image in monochrome: portrait, background and gallery", async () => {
     const person = await createPerson({ name: "David Peace", domains: ["book"] });
     // Small pictures: the colour rule does not depend on size, and large ones only took time (SLN-538)

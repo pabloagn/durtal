@@ -716,6 +716,8 @@ A row's Goodreads private note: one UPDATE of `note_decision`, apart from the ro
 ### `commitReadingImport({ importId })`
 Locks the import (`select ... for update`, status pending, completed or undone), checks every matched row's readings again against what Durtal holds now, and writes the rows decided import and not yet written through `writeReadings(rows, { source: "import", importId })`. `source`, `sourceKey` and `importId` come from the server, never from the page. A book's rows go in one call, so the count rule sees them together, in chunks of at most 100 readings; after each chunk, each row's outcome goes to `written` in one UPDATE. Totals: the file's Durtal value, else the edition's `page_count`, else Goodreads' `Number of Pages`, never below the position. An edition matched by ISBN that has no `goodreads_id` gets a `catalogue_identifiers` row (provider `goodreads`, kind `edition`) when the file has a Book Id and that id is free; its id goes into `written`. Then the import's counts, `error_log` (row and reason only), status `completed` and `completed_at`. A commit stopped half way finishes when run again. Then the to-read rows decided import (SLN-452): Up Next items at the bottom, in the file's Date Added order, oldest first (file order without it), in chunks of 100, `source` `import` with `import_id` and the row's `source_key`; a key already in Up Next writes nothing, and a book queued by hand or started meanwhile is skipped with its reason. Each written item goes into `written.queueItem` (`{ id, workId, position, editionId, note }`). Then the private notes (SLN-453) of rows decided import, with a book and no note written: each becomes a `reading_notes` row (`kind` note, `source` import, `import_id`, the private note with its tags stripped and its line breaks kept, the row's latest read in Durtal, written by this commit or matched as already there, else none, that reading's edition when it is on the note's book (SLN-480), and `source_key` from `goodreadsNoteKey`), and its id goes to `written.noteIds` in the same write. A key already in Durtal writes nothing ("Already in Durtal (Same source)"); a note over 10,000 characters is left out ("Too long to import (12,400 characters; at most 10,000)"). An import committed before this step writes only its notes. Returns `{ written, present, refused, rows, queued, queuePresent, queueSkipped, notes, notesPresent }`.
 
+Each rating change saves its original and final value in `reading_import_rows.written` in the same atomic transaction as the reading and rating. Goodreads identifier inserts save their undo ids in the same SQL statement. These journals survive a lost response or failed summary update; retry preserves them, and undo can recover them before the import completes. A row with a durable rating or identifier journal cannot change its book or reading decisions until undone; it can still be retried.
+
 ### `undoReadingImport({ importId })`
 Deletes the import's readings not edited since (their `updated_at` equals their `created_at` and they have no sessions), any reading with this `import_id` included, in chunks of 100. Puts each book rating back to `before` only while `works.rating` still equals `after`; removes the identifiers it added; keeps in `written` only the readings it kept; status `undone`. Up Next items (SLN-452) go when their position, edition and note still equal what was written; moved or edited ones stay. Notes (SLN-453) go first: the import's notes not edited since (`updated_at` equals `created_at`), those in `written.noteIds` and any the rows miss; then `noteIds` is cleared, and edited notes stay. Returns `{ removed, kept, queueRemoved, queueKept, notesRemoved, notesKept }`. Can be run again; an undone import keeps its decisions and can be committed again.
 
@@ -752,6 +754,42 @@ Wikidata cannot be reached, so manual entry goes on.
 - `recordPerfumeEntrySource({ perfumeId, link, retrievedOn })`: a new
   perfume's source: a Wikidata item as an accepted observation, any other
   link cited as the person's own source, without reading it.
+
+## Film sources (`src/lib/actions/film-sources.ts`, SLN-376)
+
+Wikidata is the one film source with a documented public API and no key
+(`src/lib/providers/wikidata-films.ts`, through the provider contract; it
+shares its Wikidata calls with the perfume provider in
+`src/lib/providers/wikidata.ts`). TMDB needs a key, IMDb and Letterboxd have no
+open API: `FILM_SOURCES` (`src/lib/catalogue/film-sources.ts`) says why each is
+cited and not looked up. Every action returns `{ error }` instead of throwing
+when Wikidata cannot be reached, so manual entry goes on.
+
+- `searchFilmSource(text)`: up to ten Wikidata films (instances of a film
+  class) by title, or the one a Wikidata id or link, an IMDb `tt` id or a TMDB
+  movie link names; each with its year and director.
+- `reviewFilmSource({ filmId | null, externalId })`: the film's title,
+  original title, description, first release, countries and languages set
+  against the film, each `fill`, `same`, `conflict`, `locked` or `unlisted`
+  (no name is in Durtal's list); the cast and crew (with characters, in
+  billing order when Wikidata gives one) and production companies, matched by
+  Wikidata id, then by one exact name; the IMDb, TMDB and Letterboxd ids (and
+  another film holding one); the running time against the first version; each
+  release with its place, country and format; the Commons poster with its
+  terms; the first-release years here and on Wikidata (`differs` when more
+  than a year apart); another film here holding this Wikidata film; and what
+  changed since the last accepted answer. Reads only.
+- `applyFilmSource({ filmId, fingerprint, externalId, sameFilm, fields,
+  credits, organizations, identifiers, runtime, releases })`: checks the
+  film's fingerprint, fetches the item again and keeps it as an accepted
+  source. Fills the chosen empty fields, adds the chosen credits and companies
+  (made when missing, credited as attributed, with their Wikidata ids),
+  registers the chosen ids, and puts the running time and the chosen releases
+  on the first version (made when the film has none), each citing the answer.
+  Nothing on the film is replaced or removed. A locked Wikidata source,
+  another film holding the item, or a different year without `sameFilm`
+  refuses the save. The poster is saved by the page through
+  `/api/media/from-url` with its Commons credit.
 
 ## Painting sources (`src/lib/actions/painting-sources.ts`, SLN-378)
 

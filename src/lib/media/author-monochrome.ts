@@ -53,13 +53,17 @@ export interface AuthorMonochromeChange {
   after: { s3Key: string; originalS3Key: string };
 }
 
-/** Whether an image has no colour: its colour channels have the same mean. */
+/** Whether every visible pixel is neutral, allowing one 8-bit level of encoding noise. */
 export async function isMonochromeImage(buffer: Buffer): Promise<boolean> {
   const sharp = (await import("sharp")).default;
-  const [r, g, b] = (await sharp(buffer).stats()).channels;
-  if (!g || !b) return true;
-  // Rounding in the WebP encoder leaves a trace of chroma in grey images
-  return Math.abs(r.mean - g.mean) < 0.5 && Math.abs(g.mean - b.mean) < 0.5;
+  const { data, info } = await sharp(buffer).toColourspace("srgb").ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (let at = 0; at < data.length; at += info.channels) {
+    // Fully transparent pixels cannot contribute colour to the displayed image.
+    if (data[at + 3] === 0) continue;
+    const r = data[at], g = data[at + 1], b = data[at + 2];
+    if (Math.max(r, g, b) - Math.min(r, g, b) > 1) return false;
+  }
+  return true;
 }
 
 /** Every author image row, with whether the file it shows is in colour. */
