@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildPredictionContext, type PredictionRow } from "@/lib/reading/suggest/prediction-load";
 import { isAtHand } from "@/lib/reading/at-hand";
 import { nextVolume } from "@/lib/reading/series";
 import { MAX_PAGES, MIN_PAGES } from "@/lib/books/enrichment";
@@ -473,5 +474,75 @@ describe("worth re-reading", () => {
       read("Being read", 5, { lastFinishedOn: "2012-01-01", open: true }),
     ];
     expect(worthRereading(context(books)).map((r) => r.text)).toEqual(["You gave Nadja 5 in 2012. Read it again?", "Favourite is a favourite, last read in 2015. Read it again?"]);
+  });
+});
+
+describe("the targeted prediction context", () => {
+  it("keeps the whole library's term frequencies and neighbour order without loading unrelated books", () => {
+    const terms = [
+      { key: "s:rare", name: "Rare" },
+      { key: "t:common", name: "Common" },
+    ];
+    const rated = Array.from({ length: 34 }, (_, i) =>
+      read(`Neighbour ${i % 3}`, ((i % 9) + 1) / 2, {
+        id: `neighbour-${i}`,
+        terms: i % 2 ? terms : [terms[0]],
+        originalLanguage: null,
+      }),
+    );
+    const unread = Array.from({ length: 18 }, (_, i) =>
+      book(`Unread ${i}`, {
+        terms: i === 17 ? [] : [terms[i % 2]],
+        originalLanguage: null,
+      }),
+    );
+    const full = context([...rated, ...unread]);
+    const df = new Map<string, number>();
+    for (const b of full.books)
+      for (const key of new Set(b.terms.map((t) => t.key)))
+        df.set(key, (df.get(key) ?? 0) + 1);
+    const row = (b: SuggestBook): PredictionRow => ({
+      id: b.id,
+      title: b.title,
+      slug: b.slug,
+      taste: b.taste,
+      authors: b.authors,
+      translatorIds: b.translatorIds,
+      recommenders: b.recommenders,
+      seriesId: b.seriesId,
+      seriesTitle: b.seriesTitle,
+      seriesPosition: b.seriesPosition,
+      workTypeId: b.workTypeId,
+      workTypeName: null,
+      originalLanguage: b.originalLanguage,
+      originalYear: null,
+      fineTerms: b.terms,
+    });
+    let predicted = 0;
+    for (const b of unread) {
+      const small = buildPredictionContext({
+        books: [...rated, b].map(row),
+        bookCount: full.books.length,
+        termCounts: [...df].map(([key, count]) => ({ key, count })),
+      });
+      expect(small.idf).toEqual(full.idf);
+      expect(small.meanTaste).toBe(full.meanTaste);
+      expect(evaluatePredictions(small)).toEqual(evaluatePredictions(full));
+      const summary = (p: ReturnType<typeof predict>) =>
+        p && {
+          value: p.value,
+          low: p.low,
+          high: p.high,
+          neighbours: p.neighbours.map((n) => [
+            n.book.id,
+            n.similarity,
+            n.rating,
+          ]),
+        };
+      const p = predict(small.byId.get(b.id)!, small);
+      expect(summary(p)).toEqual(summary(predict(b, full)));
+      if (p) predicted++;
+    }
+    expect(predicted).toBe(17);
   });
 });

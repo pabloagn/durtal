@@ -123,7 +123,7 @@ export async function loadBooks(execute: Execute, homeId: string | null): Promis
 }
 
 /** The fine terms, plus the work type, the original language and the century */
-export function termsOf(row: Row): SuggestTerm[] {
+export function termsOf(row: Pick<Row, "fineTerms" | "workTypeId" | "workTypeName" | "originalLanguage" | "originalYear">): SuggestTerm[] {
   const terms = [...row.fineTerms];
   if (row.workTypeId) terms.push({ key: `wt:${row.workTypeId}`, name: row.workTypeName ?? "Work type" });
   if (row.originalLanguage) terms.push({ key: `l:${row.originalLanguage}`, name: languageName(row.originalLanguage) ?? row.originalLanguage });
@@ -141,7 +141,7 @@ export function toBooks(rows: Row[], homes: SuggestHome[]): SuggestBook[] {
     return {
       ...row,
       feedback: row.feedback as SuggestFeedback | null,
-      terms: termsOf({ ...row, fineTerms, workTypeName, originalYear, workCover }),
+      terms: termsOf({ ...row, fineTerms, workTypeName, originalYear }),
       atHandHomes: homes.filter((h) => copies.some((c) => isAtHand(c, h.id))).map((h) => h.id),
       cover: workCover,
     };

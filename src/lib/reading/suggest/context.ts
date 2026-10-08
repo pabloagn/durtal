@@ -9,6 +9,7 @@ import { homeOptions } from "../at-hand";
 import { readingToday } from "../day";
 import { buildContext } from "./build";
 import { loadBooks, toBooks } from "./load";
+import { buildPredictionContext, loadPrediction } from "./prediction-load";
 import { evaluatePredictions, gateDue, nextGate } from "./predict";
 import type { SuggestContext } from "./types";
 
@@ -95,5 +96,18 @@ export async function getSuggestionContext({ homeId: stored = null, now = new Da
     gate: parsedGate.success ? parsedGate.data : null,
   });
   ctx.gate = await ensureGate(ctx, ctx.gate, now);
+  return ctx;
+}
+
+/** A book page's prediction, with the same fresh stored gate and daily evaluation as suggestions. */
+export async function getBookPredictionContext(workId: string, { now = new Date() }: { now?: Date } = {}): Promise<SuggestContext> {
+  const [load, settingsRows] = await Promise.all([
+    loadPrediction(withoutJit, workId),
+    db.execute(sql`select reading_prediction_gate as gate from app_settings limit 1`),
+  ]);
+  const ctx = buildPredictionContext(load);
+  const [settings] = resultRows<{ gate: unknown }>(settingsRows);
+  const parsedGate = predictionGateSchema.safeParse(settings?.gate);
+  ctx.gate = await ensureGate(ctx, parsedGate.success ? parsedGate.data : null, now);
   return ctx;
 }
