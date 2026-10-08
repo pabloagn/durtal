@@ -164,6 +164,12 @@ export {
 export { ebooks, ebooksRelations, ebookFiles, ebookFilesRelations } from "./ebooks";
 export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
 export { ebookAnnotations, ebookAnnotationsRelations } from "./ebook-annotations";
+export {
+  ebookIngestRuns,
+  ebookIngestRunsRelations,
+  ebookIngestItems,
+  ebookIngestItemsRelations,
+} from "./ebook-ingest";
 
 // ── Book enrichment (SLN-462) ───────────────────────────────────────────────
 export {

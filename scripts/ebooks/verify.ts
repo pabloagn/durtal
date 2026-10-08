@@ -7,14 +7,15 @@
  * proves it first.
  *
  * `--apply --backup FILE` (a pg_dump custom-format backup written in the
- * last hour) marks matches verified and mismatches missing. It never
- * deletes or changes an object.
+ * last hour) marks matches verified and mismatches missing, and records a
+ * verification run for /ebooks/runs. It never deletes or changes an object.
  *
  *   pnpm ebooks:verify [--apply --backup FILE] [--report-dir DIR] [--env-dir DIR]
  *
  * Reports: reports/ebooks/verify-<timestamp>.md and .csv (git-ignored).
  */
 import { parseArgs } from "node:util";
+import { hostname } from "node:os";
 import { resolve } from "node:path";
 import dotenv from "dotenv";
 
@@ -48,6 +49,7 @@ try {
     apply: values.apply,
     backup: values.backup,
     reportDir: resolve(values["report-dir"]!),
+    host: hostname().replace(/\.local$/i, ""),
   });
   const count = (outcome: string) => report.rows.filter((r) => r.outcome === outcome).length;
   console.log(

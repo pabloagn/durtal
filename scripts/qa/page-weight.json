@@ -30,6 +30,8 @@
     { "path": "/reading/suggestions", "maxKB": 300, "maxMs": 1000 },
     { "path": "/reading/import", "maxKB": 300, "maxMs": 1000 },
     { "path": "/settings/reading", "maxKB": 300, "maxMs": 1000 },
-    { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"], "ifNone": "no import" }
+    { "path": "/reading/import/*", "maxKB": 400, "maxMs": 1000, "skip": ["ebooks"], "ifNone": "no import" },
+    { "path": "/ebooks/runs", "maxKB": 300, "maxMs": 800 },
+    { "path": "/ebooks/runs/*", "maxKB": 300, "maxMs": 800, "ifNone": "no ingestion run" }
   ]
 }

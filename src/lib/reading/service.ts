@@ -613,8 +613,16 @@ const CHUNK = 100;
  */
 export async function writeReadings(
   rawRows: WriteReadingRow[],
-  opts: { source: ReadingSource; importId?: string | null },
+  opts: {
+    source: ReadingSource;
+    importId?: string | null;
+    /** Import file row for each input: persist rating undo in the same atomic write. */
+    importRowNumbers?: number[];
+  },
 ): Promise<WriteOutcome[]> {
+  if (opts.importRowNumbers && (opts.source !== "import" || !opts.importId ||
+      opts.importRowNumbers.length !== rawRows.length || opts.importRowNumbers.some((n) => !Number.isInteger(n) || n < 1)))
+    throw new Error("Import rating checkpoints require an import and one file row per reading");
   const outcomes: (WriteOutcome | null)[] = rawRows.map(() => null);
   const parsed = rawRows.map((row, i) => {
     const result = writeReadingRowSchema.safeParse(row);
@@ -716,7 +724,14 @@ export async function writeReadings(
     });
     await withReadableErrors(() =>
       atomic((d) =>
-        chunk.flatMap(({ id, row, totals, position, current, startedOn, finishedOn, bookRating }) => [
+        chunk.flatMap(({ id, row, i, totals, position, current, startedOn, finishedOn, bookRating }) => [
+          ...(opts.importRowNumbers ? [
+            d.execute(sql`select row_no from reading_import_rows where import_id = ${opts.importId}::uuid
+              and row_no = ${opts.importRowNumbers[i]} for update`),
+            d.execute(assertSql(sql`exists (select 1 from reading_import_rows where import_id = ${opts.importId}::uuid
+              and row_no = ${opts.importRowNumbers[i]} and work_id = ${row.workId}::uuid and decision = 'import')`,
+              "The import row changed; reload before committing")),
+          ] : []),
           // A row whose key arrived meanwhile is skipped, so the chunk can be repeated
           d
             .insert(readings)
@@ -753,9 +768,34 @@ export async function writeReadings(
             .onConflictDoNothing({ target: readings.sourceKey }),
           d.execute(sql`insert into reading_status_history (reading_id, from_status, to_status, notes)
             select id, null, status, ${`Written (${opts.source})`} from readings where id = ${id}::uuid`),
-          ...(bookRating && bookRating.after !== bookRating.before
-            ? [d.update(works).set({ rating: bookRating.after, updatedAt: new Date() }).where(eq(works.id, row.workId))]
-            : []),
+          // The row's undo rating is a durable journal, even if the response or
+          // the later import summary is lost. Read the old value under a lock,
+          // and change it only when this transaction inserted the reading.
+          ...(opts.importRowNumbers && row.rating != null
+            ? [d.execute(sql`
+                with before as materialized (
+                  select w.id, w.rating from works w where w.id = ${row.workId}::uuid for update
+                ), changed as (
+                  update works w set rating = ${row.rating}, updated_at = now()
+                  from before b where w.id = b.id
+                    and (${row.bookRating === "replace"} or b.rating is null)
+                    and b.rating is distinct from ${row.rating}::numeric
+                    and exists (select 1 from readings where id = ${id}::uuid)
+                  returning b.rating as before, w.rating as after
+                )
+                update reading_import_rows r set written =
+                  coalesce(r.written, '{"readings":[],"bookRating":null,"identifiers":[]}'::jsonb) ||
+                  jsonb_build_object('bookRating', jsonb_build_object(
+                    'workId', ${row.workId}::text,
+                    'before', case when r.written->'bookRating' is not null and r.written->'bookRating' <> 'null'::jsonb
+                      then r.written->'bookRating'->'before' else to_jsonb(c.before) end,
+                    'after', c.after))
+                from changed c where r.import_id = ${opts.importId}::uuid and r.row_no = ${opts.importRowNumbers[i]}
+              `)]
+            : bookRating && bookRating.after !== bookRating.before
+              ? [d.update(works).set({ rating: bookRating.after, updatedAt: new Date() }).where(and(eq(works.id, row.workId),
+                  sql`exists (select 1 from readings where id = ${id}::uuid)`))]
+              : []),
           // An open row starts the book: it leaves Up Next, only when the row was written
           ...(isOpenStatus(row.status)
             ? [d.execute(sql`delete from reading_queue where work_id = ${row.workId}::uuid and exists (select 1 from readings where id = ${id}::uuid)`)]

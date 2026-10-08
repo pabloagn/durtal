@@ -316,7 +316,22 @@ E-book files are never readable through `/api/s3/read`: it serves only the main 
 
 ### Verification
 
-`pnpm ebooks:verify` (`scripts/ebooks/verify.ts`) lists the bucket once, HEADs every object an `ebook_files` row names with its SHA-256, and compares size and checksum with the row. Its report (`reports/ebooks/verify-<timestamp>.md` and `.csv`, git-ignored) counts matches, missing objects, size or checksum mismatches, rows with no key, and objects under `files/` and `derived/` that no row names (older than 24 hours; younger ones are in flight: an object is written before its row). It is read-only, on a session that refuses writes. `--apply --backup FILE` (a pg_dump from the last hour) marks matches `verified` with `verified_at` and mismatches `missing`, one atomic write per 500 rows; quarantined and replaced files keep their status. It never deletes or changes an object.
+`pnpm ebooks:verify` (`scripts/ebooks/verify.ts`) lists the bucket once, HEADs every object an `ebook_files` row names with its SHA-256, and compares size and checksum with the row. Its report (`reports/ebooks/verify-<timestamp>.md` and `.csv`, git-ignored) counts matches, missing objects, size or checksum mismatches, rows with no key, and objects under `files/` and `derived/` that no row names (older than 24 hours; younger ones are in flight: an object is written before its row). It is read-only, on a session that refuses writes. `--apply --backup FILE` (a pg_dump from the last hour) marks matches `verified` with `verified_at` and mismatches `missing`, one atomic write per 500 rows; quarantined and replaced files keep their status, and the verification is recorded as a run of kind `verify` with its counts (`/ebooks/runs`). It never deletes or changes an object.
+
+### Ingestion
+
+How the ingestion (SLN-494, `docs/09_INGESTION_PIPELINE.md`, eBook ingestion) stores a file, in `storeObject` (`src/lib/ebooks/ingest/store.ts`):
+
+1. **HEAD** the key with `ChecksumMode: ENABLED`. An object there with the same size and checksum is adopted: nothing is uploaded. One that differs fails the file, and the object is left as it is.
+2. **Up to 256 MiB**, one `PutObject` with `ChecksumSHA256`, `If-None-Match: *` and the headers above. A `412` means the key exists, which by construction means the same bytes. It is verified like any other.
+3. **Above 256 MiB**, a multipart upload in 16 MiB parts with `ChecksumAlgorithm: SHA256`, so S3 checks every part. The upload id is kept in the cache folder (`uploads/<sha256>.json`). A restart lists the parts S3 has and sends only the others. An upload S3 no longer knows (aborted after 7 days) starts again. Every part is read, so the whole file is hashed on the way: bytes that are not the planned SHA-256 (the file changed after the plan) abort the upload and fail the file. `CompleteMultipartUpload` carries `If-None-Match: *`.
+4. **HEAD again**: the stored size and checksum must equal the local ones. An object this upload stored must carry the composite checksum of the parts it sent (the SHA-256 of their SHA-256s with `-<parts>`): its `x-amz-meta-sha256` was written from the plan and proves nothing about the bytes. An object another writer stored (found by the first HEAD, or a 412) is matched by the composite checksum recomputed locally, or, written with other part sizes, by its `x-amz-meta-sha256`. Anything else fails the file, which is then listed with its reason.
+
+A 5xx, a throttle or a network error is tried again after 1, 4 and 16 seconds; any other error is not retried.
+
+**Order.** For each e-book (a group of files), the original files go first, each followed by its derived objects (covers in three widths and the manifest, made by the plan into the cache folder). Then the group's rows go in one atomic write: the e-book, its files, a replaced file's new status, the preferred file and cover, and the run's items. So an object is always written before the row that names it. An object with no row is either in flight (under 24 hours old) or an orphan, which the verification and the orphan report list. A row never names an object that is not there. The undo file's line for a group is written before its atomic.
+
+The app never deletes an object, and an undo removes rows only.
 
 ---
 
@@ -350,6 +365,8 @@ Every delete that removes rows with S3 keys also removes their files. The shared
 3. Delete the files. The candidates are the stored keys under `gold/`, plus every object under the folders that only the deleted record used.
 4. Keep every candidate that a remaining row still stores. `KEY_COLUMNS` lists the columns checked, the e-book keys among them (`ebooks.cover_key`, `ebook_files.s3_key`, `manifest_key`, `cover_key`), so no e-book object is ever reported unused. A test fails if a new `*s3*` column is not in `KEY_COLUMNS`.
 5. Delete the rest in batches of 1000 with `DeleteObjects`, and delete their `image_adjustments` rows.
+
+In a preview (`scripts/qa/preview-local.py --s3-dir DIR`) the folder listing and the batch delete use the files under DIR, as uploads do (SLN-549), so a preview delete removes its files and reports nothing pending.
 
 | Delete | Stored keys | Folders swept |
 |---|---|---|

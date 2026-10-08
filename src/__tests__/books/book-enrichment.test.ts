@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EDITION_FILL_COLUMNS,
+  authorsAgree,
   NEVER_WRITTEN_COLUMNS,
   WORK_FILL_COLUMNS,
   editionUpdate,
@@ -10,7 +11,7 @@ import {
   titlesAgree,
   type EditionRow,
 } from "@/lib/books/enrichment";
-import type { MatchCandidate } from "@/lib/match/plan";
+import type { BookRecord } from "@/lib/books/enrichment";
 
 const DESCRIPTION =
   "Zosima's monastery, the father's murder and three brothers who cannot agree on God: a novel about faith, doubt and freedom.";
@@ -30,11 +31,13 @@ const edition = (over: Partial<EditionRow> = {}): EditionRow => ({
   metadataLocked: false,
   metadataSource: "isbndb",
   workTitle: "The Brothers Karamazov",
+  authors: ["Fyodor Dostoyevsky"],
   workDescription: null,
   workOriginalYear: 1880,
   ...over,
 });
-const record = (over: Partial<MatchCandidate> = {}): MatchCandidate => ({
+const record = (over: Partial<BookRecord> = {}): BookRecord => ({
+  authors: ["Fyodor Dostoyevsky"],
   title: "The Brothers Karamazov: A Novel in Four Parts",
   subtitle: null,
   publisher: "Farrar, Straus and Giroux",
@@ -92,6 +95,26 @@ describe("which editions and sources count", () => {
       open_library: 'title "Crime and Punishment" does not match',
     });
     expect(plan.fills).toEqual([]);
+  });
+
+  it("rejects matching ISBN/title records with missing or conflicting authors", () => {
+    const row = { ...edition(), authors: ["Fyodor Dostoyevsky"] };
+    for (const authors of [[], ["An Unrelated Author"], ["Fyodor Dostoyevsky", "An Unrelated Author"]]) {
+      const plan = planEdition(row, { isbndb: { ...record(), authors } });
+      expect(plan.accepted).toEqual([]);
+      expect(plan.fills).toEqual([]);
+      expect(plan.workFills).toEqual([]);
+      expect(plan.rejected.isbndb).toMatch(/author/);
+    }
+  });
+
+  it("normalizes full author names without treating initials or shared surnames as agreement", () => {
+    expect(authorsAgree(["Péter Nádas"], ["Nádas, Péter"])).toBe(true);
+    expect(authorsAgree(["Mary Shelley", "Percy Shelley"], ["Percy Shelley", "Mary Shelley"])).toBe(true);
+    expect(authorsAgree(["Mary Shelley"], ["Percy Shelley"])).toBe(false);
+    expect(authorsAgree(["Mary Shelley"], ["M. Shelley"])).toBe(false);
+    expect(authorsAgree([], ["Mary Shelley"])).toBe(false);
+    expect(authorsAgree(["Mary Shelley"], undefined)).toBe(false);
   });
 
   it("agrees on titles with a subtitle or most words in common", () => {
