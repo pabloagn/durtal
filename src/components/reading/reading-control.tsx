@@ -1,7 +1,11 @@
 "use client";
 
 import { BookMarked, ChevronDown } from "lucide-react";
-import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import {
   bookReadingState,
@@ -55,22 +59,29 @@ export function ReadingControl() {
       }
     >
       {readingMenu(state).map((action) => (
-        <DropdownMenuItem key={action} onClick={() => run(action)}>
-          <span className="flex-1">{READING_ACTION_LABELS[action]}</span>
-          {KEY_OF[action] && (
-            <span className="ml-4 font-mono text-micro text-fg-secondary">R {KEY_OF[action]!.toUpperCase()}</span>
-          )}
+        <DropdownMenuItem
+          key={action}
+          onClick={() => run(action)}
+          shortcut={
+            KEY_OF[action] ? `R ${KEY_OF[action]!.toUpperCase()}` : undefined
+          }
+        >
+          {READING_ACTION_LABELS[action]}
         </DropdownMenuItem>
       ))}
       {/* Up Next (SLN-452), for an unread or read book */}
       {queuable && (state === "unread" || state === "read") && (
         <>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => void toggleQueue()}>
-            <span className="flex-1" data-queue-toggle="">
-              {data.queuePlace ? `In Up Next, ${ordinal(data.queuePlace)} · Remove` : "Add to Up Next"}
+          <DropdownMenuItem
+            onClick={() => void toggleQueue()}
+            shortcut={`R ${READING_KEYS.queue.toUpperCase()}`}
+          >
+            <span data-queue-toggle="">
+              {data.queuePlace
+                ? `In Up Next, ${ordinal(data.queuePlace)} · Remove`
+                : "Add to Up Next"}
             </span>
-            <span className="ml-4 font-mono text-micro text-fg-secondary">R {READING_KEYS.queue.toUpperCase()}</span>
           </DropdownMenuItem>
         </>
       )}

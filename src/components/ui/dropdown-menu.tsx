@@ -4,6 +4,7 @@ import {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   createContext,
   useContext,
@@ -15,6 +16,8 @@ import {
   type Ref,
 } from "react";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { placeMenu } from "@/lib/utils/menu-placement";
 
 /* ── Context ────────────────────────────────────────────────────────────── */
 
@@ -77,6 +80,62 @@ export function DropdownMenu({
 
   const close = useCallback(() => setOpen(false), [setOpen]);
 
+  // The native top layer escapes card/toolbar clipping while keeping the
+  // menu beside its trigger in the DOM (dialog focus restoration uses this).
+  useLayoutEffect(() => {
+    if (!isOpen || !menuRef.current || !triggerRef.current) return;
+    const menu = menuRef.current;
+    const trigger = triggerRef.current;
+    menu.showPopover?.();
+    function position() {
+      const viewport = window.visualViewport;
+      const bounds = {
+        left: viewport?.offsetLeft ?? 0,
+        top: viewport?.offsetTop ?? 0,
+        width: viewport?.width ?? window.innerWidth,
+        height: viewport?.height ?? window.innerHeight,
+      };
+      menu.style.setProperty(
+        "--menu-width",
+        `${Math.max(0, bounds.width - 16)}px`,
+      );
+      const list = menu.firstElementChild as HTMLElement;
+      const placement = placeMenu(
+        trigger.getBoundingClientRect(),
+        {
+          width: menu.getBoundingClientRect().width,
+          height: list.scrollHeight,
+        },
+        bounds,
+        align,
+        side,
+      );
+      menu.style.left = `${placement.left}px`;
+      menu.style.top = `${placement.top}px`;
+      menu.style.setProperty("--menu-height", `${placement.height}px`);
+    }
+    position();
+    const observer = new ResizeObserver(position);
+    observer.observe(trigger);
+    observer.observe(menu);
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Node && menu.contains(event.target)) return;
+      position();
+    };
+    window.addEventListener("resize", position);
+    document.addEventListener("scroll", onScroll, true);
+    window.visualViewport?.addEventListener("resize", position);
+    window.visualViewport?.addEventListener("scroll", position);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", position);
+      document.removeEventListener("scroll", onScroll, true);
+      window.visualViewport?.removeEventListener("resize", position);
+      window.visualViewport?.removeEventListener("scroll", position);
+      menu.hidePopover?.();
+    };
+  }, [isOpen, align, side]);
+
   // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
@@ -114,7 +173,9 @@ export function DropdownMenu({
 
     function getItems(): HTMLElement[] {
       return Array.from(
-        menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])'),
+        menu.querySelectorAll<HTMLElement>(
+          '[role="menuitem"]:not([aria-disabled="true"])',
+        ),
       );
     }
 
@@ -157,15 +218,6 @@ export function DropdownMenu({
     });
   }, [isOpen]);
 
-  const alignClass =
-    align === "start"
-      ? "left-0"
-      : align === "center"
-        ? "left-1/2 -translate-x-1/2"
-        : "right-0";
-
-  const sideClass = side === "top" ? "bottom-full mb-1" : "top-full mt-1";
-
   return (
     <DropdownMenuContext.Provider value={{ close }}>
       <div ref={containerRef} className="relative inline-flex">
@@ -188,9 +240,13 @@ export function DropdownMenu({
           <div
             ref={menuRef}
             role="menu"
-            className={`glass absolute z-50 min-w-[180px] overflow-hidden py-1 ${alignClass} ${sideClass}`}
+            aria-label={label}
+            popover="manual"
+            className="glass dropdown-panel fixed z-50 overflow-hidden"
           >
-            {children}
+            <div className="dropdown-list overflow-y-auto overscroll-contain py-1">
+              {children}
+            </div>
           </div>
         )}
       </div>
@@ -206,6 +262,7 @@ interface DropdownMenuItemProps {
   disabled?: boolean;
   variant?: "default" | "danger";
   icon?: ReactNode;
+  shortcut?: string;
 }
 
 export function DropdownMenuItem({
@@ -214,11 +271,12 @@ export function DropdownMenuItem({
   disabled = false,
   variant = "default",
   icon,
+  shortcut,
 }: DropdownMenuItemProps) {
   const { close } = useContext(DropdownMenuContext);
 
   const baseClass =
-    "flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors outline-none pointer-coarse:min-h-11";
+    "dropdown-item py-2 text-sm text-left transition-colors outline-none pointer-coarse:min-h-11";
   const variantClass =
     variant === "danger"
       ? "text-accent-red-text hover:bg-accent-red/10 focus:bg-accent-red/10"
@@ -247,12 +305,22 @@ export function DropdownMenuItem({
       }}
       className={`${baseClass} ${variantClass} ${disabledClass}`}
     >
-      {icon && (
-        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
-          {icon}
-        </span>
-      )}
-      {children}
+      <span className="dropdown-icon" data-menu-icon={icon ? "" : undefined}>
+        {icon && (
+          <CapAligned height={16}>
+            <span className="flex size-4 items-center justify-center">
+              {icon}
+            </span>
+          </CapAligned>
+        )}
+      </span>
+      <span className="dropdown-label">{children}</span>
+      <span
+        className="dropdown-shortcut font-mono text-micro text-fg-secondary"
+        data-menu-shortcut={shortcut ? "" : undefined}
+      >
+        {shortcut}
+      </span>
     </div>
   );
 }
@@ -260,15 +328,13 @@ export function DropdownMenuItem({
 /* ── DropdownMenuSeparator ──────────────────────────────────────────────── */
 
 export function DropdownMenuSeparator() {
-  return <div role="separator" className="my-1 border-t border-glass-border" />;
+  return (
+    <div role="separator" className="-mx-3 my-1 border-t border-glass-border" />
+  );
 }
 
 /* ── DropdownMenuLabel ──────────────────────────────────────────────────── */
 
 export function DropdownMenuLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="type-caption px-3 py-1.5">
-      {children}
-    </div>
-  );
+  return <div className="type-caption py-1.5 break-words">{children}</div>;
 }

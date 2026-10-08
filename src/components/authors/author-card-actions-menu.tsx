@@ -31,8 +31,7 @@ export function AuthorCardActionsMenu({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   function handleCopyName() {
-    const copyText =
-      firstName && lastName ? `${firstName} ${lastName}` : name;
+    const copyText = firstName && lastName ? `${firstName} ${lastName}` : name;
     navigator.clipboard.writeText(copyText).then(
       () => toast.success("Name copied to clipboard"),
       () => toast.error("Failed to copy name"),
@@ -72,13 +71,13 @@ export function AuthorCardActionsMenu({
         >
           Copy name
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           icon={<Pencil className="h-4 w-4" strokeWidth={1.5} />}
           onClick={handleEdit}
         >
           Edit
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           icon={<Trash2 className="h-4 w-4" strokeWidth={1.5} />}
           variant="danger"

@@ -1042,3 +1042,55 @@ dialog::backdrop {
 @page {
   margin: 0.5in;
 }
+
+/* Dropdowns share intrinsic icon, label and shortcut tracks. Only the list
+   scrolls, so the smoked-glass material stays behind every action. */
+.dropdown-panel {
+  inset: auto;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  width: max-content;
+  min-width: min(180px, var(--menu-width, calc(100vw - 16px)));
+  max-width: min(32rem, var(--menu-width, calc(100vw - 16px)));
+}
+.dropdown-list {
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr) max-content;
+  padding-inline: 12px;
+  max-height: var(--menu-height, calc(100dvh - 16px));
+}
+.dropdown-list:has([data-menu-icon]) {
+  grid-template-columns: 16px minmax(0, 1fr) max-content;
+  --menu-icon-gap: 10px;
+}
+.dropdown-list > * { grid-column: 1 / -1; }
+.dropdown-item {
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  margin-inline: -12px;
+  padding-inline: 12px;
+  cursor: pointer;
+}
+.dropdown-icon { align-self: start; }
+.dropdown-label {
+  min-width: 0;
+  margin-left: var(--menu-icon-gap, 0px);
+  overflow-wrap: anywhere;
+}
+.dropdown-shortcut {
+  align-self: start;
+  line-height: 24px;
+  text-align: right;
+  white-space: nowrap;
+}
+.dropdown-shortcut[data-menu-shortcut] { margin-left: 20px; }
+/* The rating menu intentionally has two independent columns. */
+.dropdown-list > .grid .dropdown-item {
+  grid-template-columns: 0 minmax(0, 1fr) max-content;
+  grid-column: auto;
+  margin-inline: 0;
+}
