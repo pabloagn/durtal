@@ -141,7 +141,7 @@ export function SelectionToolbar({
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleBulkDelete}
         title={`Delete ${selectedCount} ${selectedCount === 1 ? one : many}`}
-        description={`Are you sure you want to delete the selected ${many}? This action cannot be undone.`}
+        description="This cannot be undone."
         itemName={displayName}
         cascade={cascade}
       />

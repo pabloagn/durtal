@@ -120,7 +120,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         </ul>
       </nav>
 
-      {empty && <EmptyState icon={BarChart3} title={`No reading in ${span}`} description="Finished books, sessions and pages show here." />}
+      {empty && <EmptyState icon={BarChart3} title={`No reading in ${span}`} />}
       <div className="space-y-14">
         {!empty && (
           <StatsSection title={year === null ? "All time in numbers" : `${year} in numbers`} id="numbers">

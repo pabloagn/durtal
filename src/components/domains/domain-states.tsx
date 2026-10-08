@@ -5,7 +5,7 @@ import { SectionError } from "@/components/shared/section-error";
 import { Spinner } from "@/components/ui/spinner";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
-import { DomainAddLink, domainDescription } from "./domain-add-link";
+import { DomainAddLink } from "./domain-add-link";
 
 /** A collection home while it loads: its title stays, its records follow. */
 export function DomainLoading({ kind }: { kind: WorkKind }) {
@@ -13,7 +13,6 @@ export function DomainLoading({ kind }: { kind: WorkKind }) {
     <>
       <PageHeader
         title={WORK_DOMAINS[kind].pluralLabel}
-        description={domainDescription(kind)}
         actions={<DomainAddLink kind={kind} />}
       />
       <div className="flex items-center justify-center py-16">

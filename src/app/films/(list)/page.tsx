@@ -5,10 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { DomainSwitch } from "@/components/domains/domain-switch";
-import {
-  DomainAddLink,
-  domainDescription,
-} from "@/components/domains/domain-add-link";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { FilmFilters } from "@/components/films/film-filters";
 import { FilmGrid } from "@/components/films/film-grid";
 import { getFilmCount, getFilms } from "@/lib/actions/films";
@@ -59,7 +56,6 @@ export default async function FilmsPage({
     <>
       <PageHeader
         title="Films"
-        description={domainDescription("film")}
         actions={<DomainAddLink kind="film" />}
         tabs={<DomainSwitch current="film" searchParams={params} />}
       />
@@ -67,7 +63,6 @@ export default async function FilmsPage({
         <EmptyState
           icon={DOMAIN_ICONS.film}
           title="No films yet"
-          description="Add your first film: who made it and who plays in it, then its versions and the copies you keep."
           action={<DomainAddLink kind="film" />}
         />
       ) : (

@@ -364,7 +364,6 @@ export function HarmonizeWorkspace({
           <h1>
             Harmonize<span className="h-title-dot">.</span>
           </h1>
-          <p className="h-intro">A little order, a more coherent library.</p>
         </div>
         <div className="h-scan-control">
           <button className="h-button" onClick={refresh} disabled={busy}>
@@ -1232,7 +1231,6 @@ function MergeReview({
         open={confirm}
         onClose={() => !pending && setConfirm(false)}
         title="One record, fully connected"
-        description="Review the result before merging."
       >
         <div className="h-merge-confirm">
           <p className="h-section-label">Keep</p>

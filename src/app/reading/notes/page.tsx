@@ -85,7 +85,6 @@ export default async function ReadingNotesPage({ searchParams }: { searchParams:
         <EmptyState
           icon={Quote}
           title="No quotes yet"
-          description="Keep the passages you love and your own notes, with the page and the reading they belong to."
           action={<AddQuoteButton variant="secondary" />}
         />
       ) : (

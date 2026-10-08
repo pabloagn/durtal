@@ -95,7 +95,6 @@ export function WantedSection({
         id={`${choices.kind}-wanted`}
         title="Wanted"
         count={targets.length || undefined}
-        description={targets.length ? "What you want to buy, and its orders" : undefined}
         action={
           canAdd && (
             <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
