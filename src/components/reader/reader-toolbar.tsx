@@ -22,7 +22,12 @@ function BarButton({
     <CapAligned height={32} coarseHeight={44}>
       <button
         type="button"
-        onClick={onClick}
+        onClick={(event) => {
+          // WebKit does not focus buttons on a pointer click. Give the
+          // dialog a concrete opener to restore when it closes.
+          event.currentTarget.focus({ preventScroll: true });
+          onClick();
+        }}
         aria-label={label}
         data-tooltip={label}
         data-tooltip-keys={keys}

@@ -280,5 +280,21 @@ same way as one before headers, and reports an app-route body failure as a
 network error. Two regressions reproduce these cases.
 
 Focused validation: 127 reader, film and page-budget tests pass; typecheck
-passes; lint reports no errors and 75 existing warnings. Final full-suite
-and browser review results follow when complete.
+passes; lint reports no errors and 75 existing warnings. The headless contract check passed 152/154 cases and exposed two WebKit
+dialog focus-return failures: clicking a button there does not focus it.
+Toolbar buttons now establish focus before opening a dialog. The affected
+checks then passed 6/6 in Chrome, WebKit and Firefox; all other 148 contract
+checks had passed.
+
+Final browser audits on the reading view, Contents, Settings, the book page
+and Settings > Reader: 45 page/width/browser combinations, at 1440, 768 and
+390 px, with zero alignment deviations over 0.5 px, low contrast, unnamed
+or nested controls, and zero undersized touch targets. Page weight: 29/29
+populated routes within budget; 4 empty detail routes skipped as configured.
+The reader was 26 KB and 5 ms against 400 KB and 800 ms. Production webpack
+build and dead-code checks pass (two existing configuration hints).
+
+The full local database suite and GitHub CI are rerun on the final unchanged
+checkout; their final results are recorded on PR #175 and SLN-492. The
+previously accepted phone performance exceptions remain with SLN-553. No
+live data operation or migration was performed.
