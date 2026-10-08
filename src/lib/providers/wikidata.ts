@@ -1,4 +1,4 @@
-import { fetchOk } from "@/lib/api/external-fetch";
+import { ExternalFetchError, fetchOk } from "@/lib/api/external-fetch";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { ProviderError } from "./contract";
 
@@ -64,6 +64,41 @@ export function wikidataStatements(e: WikidataEntity, property: string, { all = 
 
 /** The values of a property, best rank first */
 export const wikidataValues = (e: WikidataEntity, property: string): unknown[] => wikidataStatements(e, property).map((c) => c.mainsnak!.datavalue!.value);
+
+/**
+ * One property's values on each of some items, a `wbgetclaims` call per item:
+ * a country's or a language's code without its whole claims, which run to
+ * megabytes for a country. A few calls run at once. An item that does not
+ * answer has no values; a rate limit or timeout stops the lookup.
+ */
+export async function wikidataPropertyValues(
+  ids: string[],
+  property: string,
+  userAgent: string,
+  signal: AbortSignal,
+  { parallel = 4 } = {},
+): Promise<Map<string, unknown[]>> {
+  const found = new Map<string, unknown[]>();
+  const queue = [...new Set(ids)];
+  let stopped = false;
+  const next = async (): Promise<void> => {
+    if (stopped) return;
+    const id = queue.shift();
+    if (!id) return;
+    try {
+      const data = await wikidataApi({ action: "wbgetclaims", entity: id, property, props: "" }, userAgent, signal);
+      found.set(id, wikidataValues({ id, claims: data.claims as WikidataEntity["claims"] }, property));
+    } catch (error) {
+      if (signal.aborted || (error instanceof ExternalFetchError && (error.timedOut || error.status === 429))) {
+        stopped = true;
+        throw error;
+      }
+    }
+    return next();
+  };
+  await Promise.all(Array.from({ length: Math.min(parallel, queue.length) }, next));
+  return found;
+}
 
 /** The item ids a value or a qualifier names */
 export const itemId = (value: unknown) => {
