@@ -164,6 +164,27 @@ describe("the timer chip", () => {
     expect(chip.querySelector("[data-timer-pause]")!.getAttribute("aria-label")).toBe("Resume timer");
   });
 
+  it.each([
+    [3599, "59:59", "59 minutes"],
+    [3600, "1h00", "1 hour"],
+    [43199, "11h59", "11 hours 59 minutes"],
+    [360000, "100h00", "100 hours"],
+  ])("keeps the rail clock unambiguous at %s seconds", async (seconds, visible, spoken) => {
+    const pausedAt = new Date().toISOString();
+    await renderChip("rail", running({ startedAt: new Date(Date.parse(pausedAt) - Number(seconds) * 1000).toISOString(), pausedAt }));
+    const button = host.querySelector("[data-timer-time]")!;
+    const time = button.querySelector(".tabular-nums")!;
+    const displayed = time.children.length ? [...time.children].filter((s) => !s.classList.contains("hidden")).map((s) => s.textContent).join("") : time.textContent;
+    expect(displayed).toBe(visible);
+    expect(button.getAttribute("aria-label")).toBe(`Timer for Nadja, ${spoken}, paused`);
+  });
+
+  it("keeps the full hour clock in the phone layout", async () => {
+    const pausedAt = new Date().toISOString();
+    await renderChip("phone", running({ startedAt: new Date(Date.parse(pausedAt) - 43199 * 1000).toISOString(), pausedAt }));
+    expect(host.querySelector("[data-timer-time] .tabular-nums")!.textContent).toBe("11:59:59");
+  });
+
   it("renders nothing while no timer runs", async () => {
     await renderChip("expanded", null);
     expect(host.querySelector("[data-timer-chip]")).toBeNull();

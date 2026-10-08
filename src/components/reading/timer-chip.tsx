@@ -59,7 +59,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
       {layout !== "phone" && elapsed >= 3600 ? (
         <>
           <span className={layout === "rail" ? "hidden" : "@max-[71px]/timer-time:hidden"}>{clockText(elapsed)}</span>
-          <span className={layout === "rail" ? "" : "hidden @max-[71px]/timer-time:inline"}>{clockText(elapsed).slice(0, -3)}</span>
+          <span className={layout === "rail" ? "" : "hidden @max-[71px]/timer-time:inline"}>{clockText(elapsed).slice(0, -3).replace(":", "h")}</span>
         </>
       ) : clockText(elapsed)}
     </span>
