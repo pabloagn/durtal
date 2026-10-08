@@ -100,7 +100,7 @@ export function TaxonomyItemRow({
 
   return (
     <div
-      className={`group flex h-9 items-center gap-1.5 border-b border-glass-border/40 px-2 transition-colors ${
+      className={`group flex h-9 items-center gap-1.5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:h-auto pointer-coarse:min-h-12 pointer-coarse:py-0.5 ${
         isSelected
           ? "bg-accent-primary/6 border-accent-primary/10"
           : "hover:bg-bg-tertiary/30"
@@ -156,7 +156,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary"
+            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:whitespace-normal pointer-coarse:break-words"
           >
             {item.name}
           </Link>

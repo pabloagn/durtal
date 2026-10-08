@@ -43,4 +43,14 @@ Focused validation:
 - Evidence: `/tmp/sln-564-controls-results.json`, `/tmp/sln-564-controls-desktop.png`, `/tmp/sln-564-controls-touch.png`, `/tmp/sln-564-controls-menu-open.png`; supplied screenshots are the before evidence. Logs use `/tmp/sln-564-*`.
 - pnpm's sandboxed launcher stalled; checks ran with the same installed project executables. The locked-package installation completed using pnpm 10.26.1; lockfile unchanged.
 
+Independent review requested a correction to taxonomy touch spacing: the 44px ellipsis targets extended beyond the existing 36px rows and overlapped vertically by 8px. Coarse-pointer rows now have automatic height, a 48px minimum and vertical padding; coarse-pointer names wrap, including unbroken labels. Desktop rows retain their 36px height and truncated names.
+
+Review-fix validation:
+
+- Typecheck passes; lint passes with 0 errors / 75 existing warnings. Five focused suites pass: 30/30 tests, zero skipped (the original four plus publisher taxonomy).
+- Actual TaxonomyTree/TaxonomyItemRow/DropdownMenu static fixture covers nested parent/leaf and flat rows, a standalone row without drag actions, plus a synthetic no-action row copied from the rendered row. At 390px, 320px and 280px coarse pointer, ellipsis targets measure 44×44px; all adjacent row hit targets have zero overlap and the viewport has zero horizontal overflow. Rows grow from 49px as labels wrap; the synthetic no-action row remains at least 48px. Desktop rows measure 36px.
+- Enter collapses a parent, Space expands it, Enter opens Actions and focuses Rename, Escape returns focus to Actions. Rename focuses its input; Enter commits once and Escape cancels without another rename and exits edit mode.
+- Evidence: `/tmp/sln-564-taxonomy-results.json`, `/tmp/sln-564-taxonomy-{390,320,280}.png`; fixture source/check scripts in `/tmp/sln-564-taxonomy-fixture/`; affected check logs `/tmp/sln-564-taxonomy-{typecheck,lint,focused-tests,static}.log`.
+- Additive review fix is ready for independent delta review. Full application QA still requires the coordinator's heavy slot.
+
 **READY_FOR_HEAVY_VALIDATION**. No heavy slot has been granted. Full `pnpm test:local` (zero skipped), production/Docker build, DB-backed route/browser checks, page-weight and alignment audits on representative affected routes remain required before merge. Assigned DB preview port: **3422**, not started. Independent review and an explicit merge slot are also pending. Keep this worktree available; do not merge or archive it at this checkpoint.
