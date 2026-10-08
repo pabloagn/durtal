@@ -1,6 +1,6 @@
 # Task 0414: Readable dropdown menus
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-08
 **Priority**: HIGH
 **Type**: Fix
@@ -22,6 +22,14 @@ SLN-562: make action, reading, export, card, bulk and contextual menus readable 
 
 ## Completion Notes
 
-Focused checks: 44 existing/placement tests and 3 new keyboard/focus tests pass. Typecheck passes; lint has zero errors and 75 existing warnings. Desktop book actions and reading menus keep ordinary labels on one line; measured book-page alignment has no issues over 0.5px.
+- Frozen functional source: `ff008179ae6feff89cdac59ce8322fa16b0c9b6d`. Independent code review approved it; its disabled-row cursor finding was fixed before final gates. No functional source changed during final validation.
+- `pnpm test:local`: 304 files and 3,283 tests passed, zero skipped; all three Python test scripts passed. PostgreSQL used 93 isolated disposable databases.
+- `pnpm typecheck` passed. `pnpm lint` passed with zero errors and 75 existing warnings. Production `pnpm build` and Docker image build passed. Remote lint/typecheck, full database tests and Docker build passed on the frozen functional head.
+- Production page weight passed on all 30 populated routes; three optional empty-fixture routes skipped (finished year, reading import and ingestion run). Library: 101 KB / 300 KB; book detail: 170 KB / 400 KB; person detail: 77 KB / 400 KB.
+- Headless Chromium desktop/touch and Playwright WebKit desktop/touch checks covered content width, mixed/absent icons and shortcuts, long/unbroken/short/absent labels, card clipping, two-column bulk rating, marks, queue/note menus, native top-layer hit testing, disabled cursors, arrow/Home/End navigation, Escape and dialog focus return. Menus stayed within the viewport and coarse-pointer rows measured at least 44px. At 320 × 260, the inner list scrolled and End brought the final action into view. Every measured icon/column alignment stayed within 0.5px.
+- The repository interaction audit passed on populated `/reading/next` and `/reading/notes`, including two dialogs, keyboard focus, Escape, reduced motion and touch checks. Existing non-menu touch controls under 44px remain in SLN-564's trigger/control scope; dropdown rows meet 44px.
+- Direct reduced-motion measurements in Chromium and WebKit confirmed 0.01ms animation/transition durations, one iteration, auto scrolling and no remaining animations after settling. Chromium reduced-transparency emulation produced opaque `rgb(14, 19, 25)` glass with backdrop-filter `none` and the same 6px radius. Both engines retained viewport bounds and inner scrolling at 390 × 844 and 320 × 260 when `visualViewport` was absent. Detailed measurements and screenshots are `/tmp/sln-562-fallback-motion.*`, `/tmp/sln-562-opaque-reduced-transparency.png` and `/tmp/sln-562-*-reduced-motion.png`.
+- Verified browser boundary: native manual Popover and CSS subgrid in Chromium 153.0.8010.12 and Playwright WebKit 26.6. No legacy Popover polyfill or older-browser compatibility is claimed; `visualViewport` is optional and its fallback was measured.
+- QA used synthetic fixtures only at preview port 3421. Evidence and logs are `/tmp/sln-562-*`, including actions/reading and short-screen screenshots, full-suite JSON/log reports, production page weights and browser matrices. No live services were restarted or mutated.
 
-Full local tests, production/Docker builds, production page-weight and remaining responsive browser checks are in progress on disposable fixtures at preview port 3421. This draft is awaiting independent review and an explicit integration slot; it must not be merged yet.
+Draft PR #183 remains unmerged. The worktree stays available for independent UI review and the coordinator's explicit merge slot. This completion-record update changes no functional source.
