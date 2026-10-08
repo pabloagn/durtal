@@ -169,7 +169,7 @@ export function Dialog({
                 onClick={() => setExpanded((prev) => !prev)}
                 aria-label={expanded ? "Collapse" : "Expand"}
                 data-tooltip={expanded ? "Collapse" : "Expand"}
-                className="block rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
+                className="action-icon-sm"
               >
                 {expanded ? (
                   <Minimize2 className="h-4 w-4" strokeWidth={1.5} />
@@ -184,7 +184,7 @@ export function Dialog({
               aria-label={`Close ${title}`}
               data-tooltip="Close"
               data-tooltip-keys="esc"
-              className="block rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
+              className="action-icon-sm"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />
             </button>

@@ -146,7 +146,7 @@ function SortableRow({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div className="flex items-center">
+      <div className="flex items-center pointer-coarse:items-start">
         {/* Collapse toggle for hierarchical items */}
         {depth >= 0 && hasChildren && (
           <button
@@ -157,7 +157,7 @@ function SortableRow({
               e.stopPropagation();
               onToggleCollapse(item.id);
             }}
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg-secondary"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg-secondary pointer-coarse:mt-3.5"
             style={{ marginLeft: `${depth * 20}px` }}
           >
             {isCollapsed ? (
