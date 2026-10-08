@@ -1073,7 +1073,6 @@ dialog::backdrop {
   align-items: center;
   margin-inline: -12px;
   padding-inline: 12px;
-  cursor: pointer;
 }
 .dropdown-icon { align-self: start; }
 .dropdown-label {
