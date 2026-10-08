@@ -106,6 +106,32 @@ describe("RangeSource", () => {
     expect(error).toMatchObject({ kind: "network" });
   });
 
+  it("falls back when the CDN connection fails after response headers", async () => {
+    const s = server();
+    const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (url === "https://cdn.test/f") {
+        const response = new Response(null, { status: 206 });
+        vi.spyOn(response, "arrayBuffer").mockRejectedValue(new TypeError("Connection closed"));
+        return response;
+      }
+      return s.fetch(url, init);
+    });
+    const r = source(s, { ebookId: "body-download-fallback", fetch });
+    expect(Array.from(await r.read(0, 4))).toEqual(expected(0, 4));
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(s.asked).toEqual(["/api/ebooks/files/f bytes=0-65535"]);
+  });
+
+  it("reports a body download failure on the app route as a network error", async () => {
+    const s = server();
+    const response = new Response(null, { status: 206 });
+    vi.spyOn(response, "arrayBuffer").mockRejectedValue(new TypeError("Connection closed"));
+    const fetch = vi.fn(async () => response);
+    const r = source(s, { url: "/api/ebooks/files/f", fetch });
+    await expect(r.read(0, 4)).rejects.toMatchObject({ kind: "network" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("clamps reads to the file", async () => {
     const s = server();
     const r = source(s);

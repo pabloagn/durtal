@@ -164,11 +164,30 @@ export class RangeSource {
 
   async #fetchRange(start: number, end: number): Promise<Chunk> {
     const viaCdn = this.#url !== this.#options.fallbackUrl;
-    let response: Response;
     try {
       this.requests++;
-      response = await this.#fetch(this.#url, { headers: { Range: `bytes=${start}-${end - 1}` } });
+      const response = await this.#fetch(this.#url, { headers: { Range: `bytes=${start}-${end - 1}` } });
+      if (response.status === 403 && viaCdn && this.#options.refreshUrl && !this.#refreshed) {
+        this.#refreshed = true;
+        this.#url = await this.#options.refreshUrl().catch(() => this.#url);
+        return this.#fetchRange(start, end);
+      }
+      if (response.status === 403) throw new ReadError("expired", "The link to this eBook has expired");
+      if (response.status !== 206 && response.status !== 200)
+        throw new ReadError("network", `The file could not be read (${response.status})`);
+      // Reading the body can fail after fetch has received the headers. It
+      // needs the same network recovery as a connection that never opened.
+      const body = new Uint8Array(await response.arrayBuffer());
+      this.transferred += body.byteLength;
+      if (response.status === 200) {
+        // The server sent the whole file: keep the part asked for
+        return { start, bytes: body.slice(start, end) };
+      }
+      const range = /^bytes (\d+)-(\d+)\//.exec(response.headers.get("content-range") ?? "");
+      const from = range ? Number(range[1]) : start;
+      return { start: from, bytes: body };
     } catch (error) {
+      if (error instanceof ReadError) throw error;
       if (viaCdn) {
         // CloudFront cannot be reached: the app route serves the same bytes
         rememberAppRoute(this.#options.ebookId);
@@ -177,23 +196,6 @@ export class RangeSource {
       }
       throw new ReadError("network", error instanceof Error ? error.message : "The connection failed");
     }
-    if (response.status === 403 && viaCdn && this.#options.refreshUrl && !this.#refreshed) {
-      this.#refreshed = true;
-      this.#url = await this.#options.refreshUrl().catch(() => this.#url);
-      return this.#fetchRange(start, end);
-    }
-    if (response.status === 403) throw new ReadError("expired", "The link to this eBook has expired");
-    if (response.status !== 206 && response.status !== 200)
-      throw new ReadError("network", `The file could not be read (${response.status})`);
-    const body = new Uint8Array(await response.arrayBuffer());
-    this.transferred += body.byteLength;
-    if (response.status === 200) {
-      // The server sent the whole file: keep the part asked for
-      return { start, bytes: body.slice(start, end) };
-    }
-    const range = /^bytes (\d+)-(\d+)\//.exec(response.headers.get("content-range") ?? "");
-    const from = range ? Number(range[1]) : start;
-    return { start: from, bytes: body };
   }
 }
 

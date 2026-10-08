@@ -269,3 +269,16 @@ The cloud container cannot run `docker build`, use `.env.local`, take
 backups or reach the live database: the merging thread re-checks the docker
 build (`scripts/vendor-pdfjs.mjs` runs inside it). Safari itself was not
 used; headless WebKit stands in for it. No migration.
+
+## Review follow-up, 8 October 2026
+
+Merged current main into PR #175 without rewriting its history, preserving
+the newer ingestion pages, preview cleanup, touch audit and film ISO fix.
+Review found that a failed response-body download bypassed the app-route
+fallback. RangeSource now handles a connection failure after headers the
+same way as one before headers, and reports an app-route body failure as a
+network error. Two regressions reproduce these cases.
+
+Focused validation: 127 reader, film and page-budget tests pass; typecheck
+passes; lint reports no errors and 75 existing warnings. Final full-suite
+and browser review results follow when complete.
