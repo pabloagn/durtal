@@ -126,7 +126,7 @@ export function TaxonomyItemRow({
       )}
 
       {/* Color dot */}
-      <div className="shrink-0 pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:items-center">
+      <div className="flex shrink-0 items-center pointer-coarse:h-11">
         <TaxonomyColorPicker
           value={item.color}
           onChange={(color) => onColorChange(item.id, color)}
