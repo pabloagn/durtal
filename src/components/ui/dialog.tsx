@@ -142,6 +142,27 @@ export function Dialog({
     <dialog
       ref={dialogRef}
       tabIndex={-1}
+      onKeyDown={(event) => {
+        // Native modal dialogs may tab into browser chrome after the last
+        // control. Keep the keyboard cycle inside, including short confirms.
+        if (event.key !== "Tab" || event.defaultPrevented ||
+            (event.target as HTMLElement).closest("dialog") !== event.currentTarget) return;
+        const dialog = event.currentTarget;
+        const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex], [contenteditable="true"]',
+        )).filter((el) => el.tabIndex >= 0 && !el.matches(":disabled") &&
+          !el.closest("[inert]") && el.getClientRects().length > 0 &&
+          getComputedStyle(el).visibility !== "hidden");
+        const first = controls[0];
+        const last = controls.at(-1);
+        const active = document.activeElement;
+        if (!first || active === dialog ||
+            (event.shiftKey ? active === first : active === last)) {
+          event.preventDefault();
+          (event.shiftKey ? last : first)?.focus();
+          if (!first) dialog.focus();
+        }
+      }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
