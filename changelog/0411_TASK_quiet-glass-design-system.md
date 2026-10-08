@@ -1,6 +1,6 @@
 # Task 0411: Quiet Glass design system
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-08
 **Priority**: HIGH
 **Type**: Enhancement
@@ -28,4 +28,6 @@ SLN-556 implements the approved Quiet Glass direction: neutral ink and smoke, st
 - Cross-browser matrix: 144 page/dialog states pass alignment, contrast, accessible-name, overflow and coarse-pointer touch audits at 1440/768/390px in headless Chrome, WebKit and Firefox. Artwork fixtures cover warm, cool, green, monochrome, bright and missing-cover cases.
 - Pixel-sampled secondary-text contrast on floating glass: 4.74:1 over white, 6.37:1 over warm, 6.81:1 over cool and 7.61:1 over dark backgrounds.
 - Production page-weight checks pass for all 29 populated routes; four optional routes have no fixture records. Library HTML is 99KB against its 300KB budget.
-- Nested-dialog review fixed three undersized quick-edit touch controls and the author-picker rows. Native modal keyboard behaviour is preserved, including its permitted cycle through browser chrome; Escape dismisses a keyboard tooltip before the dialog. Final browser verification, reader performance comparison and PR/CI review are pending. SLN-557's image-adjustment layout redesign is explicitly deferred.
+- Final interaction review passes 54 additional states across Chrome, WebKit and Firefox at desktop and phone widths: artwork menus, nested edit/delete/media dialogs, enabled confirmations, reader settings/contents, keyboard dismissal and focus return. Three undersized quick-edit controls and author-picker rows now have full touch targets. Native modal keyboard behaviour is preserved.
+- Five-run reader performance comparison passes initial EPUB/PDF loading, desktop reopen, 300 page turns, memory and idle budgets. Cached phone reopen remains over its existing SLN-553 budget (880ms against 400ms; prior reader-core measurement approximately 1,490ms). This known reader limitation remains open; the design change does not claim to resolve it.
+- Production Docker build passes. Implementation and review are in PR #179. No dependency, schema or live-data changes. SLN-557's image-adjustment layout redesign is explicitly deferred.
