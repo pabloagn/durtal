@@ -4,6 +4,7 @@
  * Seed taste evidence only on the disposable preview before running; no live URL is accepted.
  */
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { buildContext } from "@/lib/reading/suggest/build";
@@ -20,6 +21,20 @@ import {
   type Prediction,
 } from "@/lib/reading/suggest/predict";
 
+class ParityMismatch extends Error {}
+
+/** Compare complete values in memory without attaching snapshot data to an error. */
+function compare(
+  actual: unknown,
+  expected: unknown,
+  target: number,
+  category: string,
+) {
+  if (!isDeepStrictEqual(actual, expected)) {
+    throw new ParityMismatch(`Target ${target}: ${category} differs`);
+  }
+}
+
 const argument = process.argv.indexOf("--database-url");
 const url = argument >= 0 ? process.argv[argument + 1] : "";
 const parsed = URL.parse(url);
@@ -35,7 +50,7 @@ if (
 const client = postgres(url, {
   max: 1,
   onnotice: () => {},
-  connection: { default_transaction_read_only: "on", jit: "off" },
+  connection: { default_transaction_read_only: true, jit: "off" },
 });
 const db = drizzle(client);
 const execute = (query: Parameters<typeof db.execute>[0]) => db.execute(query);
@@ -78,33 +93,23 @@ try {
     const ctx = buildPredictionContext(
       await loadPrediction(execute, target.id),
     );
-    assert.equal(
-      ctx.books.length,
-      full.rated.length + 1,
-      `Selected-book count differs at target ${i}`,
-    );
-    assert.deepEqual(
-      [...ctx.idf].sort(),
-      [...full.idf].sort(),
-      `IDF differs at target ${i}`,
-    );
-    assert.deepEqual(
+    compare(ctx.books.length, full.rated.length + 1, i, "selected-book count");
+    compare([...ctx.idf].sort(), [...full.idf].sort(), i, "IDF");
+    compare(
       ctx.rated.map((b) => [b.id, b.taste]),
       full.rated.map((b) => [b.id, b.taste]),
-      `Taste order differs at target ${i}`,
+      i,
+      "taste order",
     );
-    assert.equal(ctx.meanTaste, full.meanTaste, `Mean differs at target ${i}`);
-    assert.deepEqual(
+    compare(ctx.meanTaste, full.meanTaste, i, "mean taste");
+    compare(
       evaluatePredictions(ctx),
       evaluatePredictions(full),
-      `Gate evaluation differs at target ${i}`,
+      i,
+      "gate evaluation",
     );
     const p = predict(ctx.byId.get(target.id)!, ctx);
-    assert.deepEqual(
-      summary(p),
-      summary(predict(target, full)),
-      `Prediction differs at target ${i}`,
-    );
+    compare(summary(p), summary(predict(target, full)), i, "prediction");
     if (p) predictions++;
   }
   assert.ok(predictions > 0, "Expected non-null predictions");
@@ -155,6 +160,10 @@ try {
       2,
     ),
   );
+} catch (error) {
+  if (!(error instanceof ParityMismatch)) throw error;
+  console.error(error.message);
+  process.exitCode = 1;
 } finally {
   await client.end();
 }
