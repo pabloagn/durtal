@@ -226,6 +226,16 @@ Four variants, using the shared `Button` / `buttonClass`:
 
 Fine-pointer heights are 28/32/36px for sm/md/lg, with 14px labels, 6px gaps and 10/12/14px horizontal padding. All use 4px corners. Coarse-pointer controls grow to at least 44px. Preserve a separate steel keyboard-focus outline; no bevels, coloured rims or glow.
 
+| Size | Use | Icon-only utility |
+|---|---|---|
+| sm · 28px | Dense edition/copy rows, selection toolbars, dialog header controls, cover overlays | `action-icon-sm`; overlays use `chip-button glass-chip` |
+| md · 32px | Entity headers and ordinary secondary action rows; use md for labelled actions beside md icons | `action-icon` |
+| lg · 36px | Roomier standalone confirmations, never a utility menu beside smaller controls | Use a labelled `Button` |
+
+`action-control` supplies shared alignment, 4px corners, transitions, disabled opacity and an inset steel focus outline that survives a cap box or glass edge. `action-ghost` supplies the quiet utility surface: transparent at rest, a neutral highlight on hover/menu-open and a subdued active fill. The ellipsis has no persistent box or border; it stays at its row's hierarchy. Favourite controls keep their gold mark and the same neutral surface states. Interface action icons are 16px with 1.5px strokes, including Copy, Collection and Export. Cover controls keep the restrained glass material and 28px visible desktop scale.
+
+Keep neighbouring targets separate: each icon utility grows its actual box to 44 × 44px on touch, and labelled buttons grow to at least 44px high/wide. Do not add `touch-hit` to these growing controls. Use 8px between header actions, 4px in dense edition/dialog rows, and `CapAlignedControls` (with the matching height and `coarseHeight={44}`) beside titles. Rows wrap whole controls when labels need room; preserve the cap center and avoid clipping focus. Hover, focus, active/menu-open, pressed and disabled states must not change padding, borders or dimensions. Export keeps its label and swaps a same-size busy icon to avoid shifting the row. Sidebar/navigation geometry and dropdown content spacing have their own guidance.
+
 ### Inputs and dialog chrome
 
 Default fields use a faint neutral boundary, 4px corners and a visible steel focus outline. Labels remain persistent. Text-entry controls use 14px text on desktop and at least 16px on touch. `Input appearance="open"` removes the redundant background/border from title entry while keeping its label and focus treatment.

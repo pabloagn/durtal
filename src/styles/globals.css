@@ -318,10 +318,33 @@ dialog::backdrop {
   }
 }
 
+/* Shared action chrome. Inset focus survives cap boxes and glass clipping;
+   states change only paint, never control geometry. Sidebar controls opt out. */
+@utility action-control {
+  @apply inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40;
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+@utility action-ghost {
+  @apply text-fg-secondary hover:bg-glass-highlight hover:text-fg-primary active:bg-bg-tertiary/80 aria-expanded:bg-glass-highlight aria-expanded:text-fg-primary;
+}
+
+/* Default utility action: 32px, a 16px icon, independent 44px touch boxes. */
+@utility action-icon {
+  @apply action-control action-ghost size-8 p-0 pointer-coarse:size-11;
+}
+
+/* Dense rows, small dialog chrome and cover overlays use the 28px tier. */
+@utility action-icon-sm {
+  @apply action-control action-ghost size-7 p-0 pointer-coarse:size-11;
+}
+
 /* A 28px glass button on a card (copy, actions). The element keeps the
    glass-chip class itself: hover-reveal-glass looks for it */
 @utility chip-button {
-  @apply h-7 w-7 shrink-0 items-center justify-center rounded-sm border-0 text-fg-primary hover:glass-chip-lift pointer-coarse:h-11 pointer-coarse:w-11;
+  @apply action-control h-7 w-7 border-0 text-fg-primary hover:glass-chip-lift active:glass-chip-lift aria-expanded:glass-chip-lift pointer-coarse:h-11 pointer-coarse:w-11;
 }
 
 /* An icon button's padding around a 16px icon: 32px, 44px on touch, in rem

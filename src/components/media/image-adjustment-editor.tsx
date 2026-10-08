@@ -355,11 +355,13 @@ export function ImageAdjustButton({
   source,
   className = "",
   label = "Adjust image",
+  appearance = "glass",
   onSaved,
 }: {
   source: string;
   className?: string;
   label?: string;
+  appearance?: "glass" | "ghost";
   onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -375,9 +377,9 @@ export function ImageAdjustButton({
           event.stopPropagation();
           setOpen(true);
         }}
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm border glass-chip text-fg-primary hover:glass-chip-lift ${className}`}
+        className={`${appearance === "glass" ? "chip-button glass-chip" : "action-icon-sm"} ${className}`}
       >
-        <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+        <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
       </button>
       {open && (
         <Dialog

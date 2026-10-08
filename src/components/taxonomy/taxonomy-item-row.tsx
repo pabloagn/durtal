@@ -92,9 +92,9 @@ export function TaxonomyItemRow({
 
   const trigger = (
     <button
-      className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-bg-tertiary hover:text-fg-primary group-focus-within:opacity-100 pointer-coarse:size-11 pointer-coarse:opacity-100"
+      className="action-icon-sm opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
     >
-      <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+      <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
     </button>
   );
 

@@ -136,7 +136,7 @@ function Row({
                 type="button"
                 aria-label={`More for ${row.title}`}
                 data-tooltip="More"
-                className="flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11"
+                className="action-icon"
                 data-queue-menu={row.workId}
               >
                 <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />

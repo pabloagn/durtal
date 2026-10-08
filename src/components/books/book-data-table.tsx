@@ -117,7 +117,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
         </Link>
         {/* The copy button on the title's line: a column of the text's lines, an empty line for the marks' */}
         <span className="flex flex-col">
-          <CapAlignedControls height={28}>
+          <CapAlignedControls height={28} coarseHeight={44}>
             <CopyBookButton {...book} />
           </CapAlignedControls>
           {(book.isRare || book.isPoison) && <span aria-hidden="true" className="block h-[1lh]" />}

@@ -176,7 +176,7 @@ export function AuthorDetailHeader({
                 ids={[authorId]}
                 side="bottom"
                 align="end"
-                size="sm"
+                size="md"
               />
               <EntityActionMenu items={actionItems} />
             </CapAlignedControls>
