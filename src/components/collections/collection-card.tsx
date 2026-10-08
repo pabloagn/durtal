@@ -112,7 +112,7 @@ export function CollectionCard({
         )}
       </div>
 
-      {/* The name and description grow naturally; the row aligns the card edges */}
+      {/* Names wrap in full; descriptive prose is a preview, with the full text on the collection page */}
       <div className="card-body">
         <CardHeading
           title={collection.name}
@@ -126,6 +126,7 @@ export function CollectionCard({
           }
           subtitle={collection.description}
           subtitleLines={2}
+          subtitleClassName="lines-2 text-sm text-fg-secondary"
           action={
             collection.isFavourite === undefined ? undefined : (
               <FavouriteToggle

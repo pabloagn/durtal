@@ -24,6 +24,7 @@
 - **NEVER** modify the database schema without updating `docs/02_DATA_MODEL.md` to match
 
 ### Always
+- **ALWAYS** assess affected call sites and likely regressions before changing shared UI. Before merging, verify the rendered result with long, short and absent content across affected layouts and viewport sizes; readable text alone does not prove usable card proportions.
 - **ALWAYS** read relevant docs under `docs/` before making architectural decisions
 - **ALWAYS** use the three-tier data model: Work → Edition → Instance
 - **ALWAYS** run `pnpm typecheck` before considering TypeScript changes complete
