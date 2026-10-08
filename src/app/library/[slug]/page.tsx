@@ -380,8 +380,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                     name={work.title}
                     shortcut
                   />
-                  <CollectionButton workId={work.id} title={work.title} />
+                  <CollectionButton workId={work.id} title={work.title} size="md" />
                   <CopyBookButton
+                    size="md"
                     title={work.title}
                     authorNames={primaryAuthors.map((a) => a.name)}
                   />

@@ -97,18 +97,16 @@ export function SelectionToolbar({
 
         {/* Nothing in the bar wraps: every item keeps one line, so the
             row's center is each label's center */}
-        <button
+        <Button variant="ghost" size="sm"
           onClick={() => onSelectAll(allIds)}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           Select all
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="sm"
           onClick={onDeselectAll}
-          className="whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
           Deselect
-        </button>
+        </Button>
 
         <div className="h-4 w-px bg-glass-border" />
 
@@ -130,11 +128,11 @@ export function SelectionToolbar({
         {/* Close */}
         <button
           onClick={onExitSelection}
-          className="ml-1 block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary touch-hit"
+          className="action-icon-sm"
           aria-label="Exit selection"
           data-tooltip="Exit selection"
         >
-          <X className="block h-3.5 w-3.5" strokeWidth={1.5} />
+          <X className="block h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
 

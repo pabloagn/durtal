@@ -204,7 +204,7 @@ export function EditionDetailCard({
                     <ImageAdjustButton
                       source={mediaUrl((edition.coverS3Key || edition.thumbnailS3Key)!)}
                       label="Adjust edition cover"
-                      className="touch-hit"
+                      appearance="ghost"
                     />
                   )}
                   {workId && (
@@ -427,8 +427,8 @@ function TitleLineActions({
     // The slot is one title line tall and carries the title's type, so
     // 0.5cap resolves against it; the row inside takes the body type again
     <div className="type-item-title @[460px]:h-[1lh]">
-      <div className="@[460px]:-my-3.5 @[460px]:inline-block @[460px]:h-7 @[460px]:align-[0.5cap]">
-        <div className="flex flex-wrap items-center gap-1 font-sans text-sm font-normal not-italic tracking-normal @[460px]:float-left @[460px]:h-7 @[460px]:flex-nowrap">
+      <div className="@[460px]:cap-touch @[460px]:inline-block @[460px]:align-[0.5cap]" style={{ "--cap-box": "28px" } as React.CSSProperties}>
+        <div className="flex flex-wrap items-center gap-1 font-sans text-sm font-normal not-italic tracking-normal @[460px]:float-left @[460px]:h-(--cap-h) @[460px]:flex-nowrap">
           {children}
         </div>
       </div>

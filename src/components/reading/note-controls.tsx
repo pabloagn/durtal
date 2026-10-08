@@ -14,7 +14,7 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
 import { useOptionalReading } from "./reading-provider";
 
 const menuButton =
-  "flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11";
+  "action-icon";
 
 /**
  * A quote's or note's star and menu (SLN-453): Edit opens the note dialog

@@ -210,7 +210,7 @@ export function WorkActionsMenu({
           ids={[work.id]}
           side="bottom"
           align="end"
-          size="sm"
+          size="md"
         />
         {/* A hand on the menu starts its dialogs' lists, so they open full */}
         <div
