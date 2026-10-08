@@ -3,7 +3,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
-import { ENTITIES, SOLARIS, SOLARIS_REMAKE, stubState, wikidataFetch, type StubState } from "@/__tests__/fixtures/films/wikidata";
+import { CROSSING, ENTITIES, SOLARIS, SOLARIS_REMAKE, stubState, wikidataFetch, type StubState } from "@/__tests__/fixtures/films/wikidata";
 
 const url = process.env.DURTAL_FILM_SOURCES_TEST_DATABASE_URL;
 if (url) {
@@ -182,6 +182,52 @@ describe.skipIf(!url)("film source lookup", () => {
     const last = (await getFilm(film.id))!;
     expect(last.credits).toHaveLength(5);
     expect(last.versions[0].releases.map((r) => r.territoryLabel ?? "France")).toEqual(["Soviet Union", "Cannes Film Festival", "France"]);
+  });
+
+  it("matches countries and languages by ISO code where their English names differ from Durtal's lists (SLN-551)", async () => {
+    // Durtal's lists carry ISO names; Wikidata says "United States", "France", "Spanish" and "Cantonese"
+    await c`update countries set name = 'France, French Republic' where id = ${france}`;
+    const [{ id: us }] = await c`insert into countries(name, alpha_2, alpha_3) values ('United States of America', 'US', 'USA') returning id`;
+    // A former country: Wikidata gives it no code, so its English name still matches
+    const [{ id: soviet }] = await c`insert into countries(name, alpha_2, alpha_3) values ('Soviet Union', 'SU', 'SUN') returning id`;
+    const [{ id: spanish }] = await c`insert into languages(name, iso_639_1, iso_639_3) values ('Spanish; Castilian', 'es', 'spa') returning id`;
+    // No ISO 639-1 code: matched by its 639-3 code
+    const [{ id: yue }] = await c`insert into languages(name, iso_639_3) values ('Yue Chinese', 'yue') returning id`;
+    // A name alone does not override a code: "Cantonese" here is not the language Wikidata's code names
+    await c`insert into languages(name, iso_639_3) values ('Cantonese', 'xxx')`;
+    const film = await createFilm({ title: "Crossing" });
+
+    const review = (await reviewFilmSource({ filmId: film.id, externalId: CROSSING })) as { fields: { field: string }[]; releases: unknown[] };
+    expect(review.fields.filter((f) => f.field === "countries" || f.field === "languages")).toEqual([
+      { field: "countries", label: "Countries", here: null, source: "United States, France", verdict: "fill", unmatched: [] },
+      { field: "languages", label: "Original languages", here: null, source: "Spanish, Cantonese", verdict: "fill", unmatched: [] },
+    ]);
+    expect(review.releases).toMatchObject([
+      { index: 0, place: "Venice Film Festival", country: null, format: "festival" },
+      { index: 1, place: "United States", country: { id: us, name: "United States of America" }, format: "theatrical" },
+      { index: 2, place: "Soviet Union", country: { id: soviet, name: "Soviet Union" }, format: "theatrical" },
+    ]);
+
+    const saved = await applyFilmSource({
+      filmId: film.id,
+      fingerprint: film.fingerprint,
+      externalId: CROSSING,
+      fields: ["countries", "languages"],
+      credits: [],
+      organizations: [],
+      identifiers: [],
+      runtime: false,
+      releases: [0, 1, 2],
+    });
+    expect(saved).toMatchObject({ added: ["Countries", "Original languages", "3 releases"] });
+    const after = (await getFilm(film.id))!;
+    expect(after.countries.map((x) => x.id)).toEqual([us, france]);
+    expect(after.languages.map((x) => x.id)).toEqual([spanish, yue]);
+    expect(after.versions[0].releases.map((r) => [r.territoryLabel, r.countryId])).toEqual([
+      ["Venice Film Festival", null],
+      [null, us],
+      [null, soviet],
+    ]);
   });
 
   it("tells a remake from the film it remakes: a different year waits for the person, and one Wikidata film is one film here", async () => {

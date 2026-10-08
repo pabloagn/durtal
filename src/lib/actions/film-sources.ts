@@ -1,13 +1,13 @@
 "use server";
 
 import { z } from "zod";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { catalogueIdentifiers, countries, languages, media, sourceRecords, works } from "@/lib/db/schema";
 import { stableStringify } from "@/lib/harmonization/normalize";
 import { catalogueDateSchema, catalogueDateText, type CatalogueDateInput } from "@/lib/catalogue/dates";
 import { CREDIT_ROLES } from "@/lib/catalogue/credits";
-import { FILM_SOURCES, filmSourceChanges, releaseFormat, type FilmImage, type FilmProposals } from "@/lib/catalogue/film-sources";
+import { FILM_SOURCES, filmSourceChanges, releaseFormat, type FilmImage, type FilmLanguage, type FilmPlace, type FilmProposals } from "@/lib/catalogue/film-sources";
 import { FILM_RELEASE_FORMAT_LABELS } from "@/lib/catalogue/film-labels";
 import type { FILM_RELEASE_FORMATS } from "@/lib/catalogue/films";
 import { ProviderError, type ProviderDetail } from "@/lib/providers/contract";
@@ -26,7 +26,8 @@ import { createFilmVersion, getFilm, updateFilm, updateFilmVersion } from "./fil
  * field, and cast, crew, companies and releases are only ever added: a
  * different value stays a conflict for the person, and nothing the film has
  * is replaced or removed, since Wikidata's lists are often partial. People and
- * companies are matched by their Wikidata id first, then by one exact name. A
+ * companies are matched by their Wikidata id first, then by one exact name;
+ * countries and languages by their ISO code first, then by English name. A
  * Wikidata film belongs to one film here, and a different year stops the save
  * until the person confirms it is the same film: a remake is a separate film.
  */
@@ -70,7 +71,7 @@ export async function searchFilmSource(text: string): Promise<{ hits: FilmSource
   }
 }
 
-/** `unlisted`: none of the names is in Durtal's countries or languages, so nothing can be filled */
+/** `unlisted`: none of the countries or languages is in Durtal's lists, so nothing can be filled */
 export type FieldVerdict = "fill" | "same" | "conflict" | "locked" | "unlisted";
 type Match = { id: string; name: string } | null;
 export interface FilmSourceReview {
@@ -129,15 +130,56 @@ function proposalsOf(found: { proposals: { level: string; fields: Record<string,
 const sameShape = (value: CatalogueDateInput | null | undefined) =>
   value ? (JSON.parse(stableStringify(catalogueDateSchema.parse(value))) as CatalogueDateInput) : null;
 
-/** Local rows of a list, by their English name */
-async function byName(table: typeof countries | typeof languages, names: string[]) {
-  if (!names.length) return new Map<string, { id: string; name: string }>();
+const lowerIn = (column: typeof countries.name | typeof languages.name, values: string[]) =>
+  sql`lower(${column}) in (${sql.join(values.map((v) => sql`${v.toLowerCase()}`), sql`, `)})`;
+const anyOf = (conditions: (SQL | false)[]) => or(...conditions.filter((c): c is SQL => !!c));
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/**
+ * Durtal's country for each Wikidata country or place: by its ISO 3166-1
+ * alpha-2 code, else by its English name, which often differs ("United
+ * States" here is "United States of America")
+ */
+async function countryMatcher(places: FilmPlace[]): Promise<(p: FilmPlace) => Match> {
+  if (!places.length) return () => null;
+  const codes = [...new Set(places.flatMap((p) => (p.alpha2 ? [p.alpha2.toUpperCase()] : [])))];
   const rows = await db
-    .select({ id: table.id, name: table.name })
-    .from(table)
-    .where(sql`lower(${table.name}) in (${sql.join(names.map((n) => sql`${n.toLowerCase()}`), sql`, `)})`);
-  return new Map(rows.map((r) => [r.name.toLowerCase(), r]));
+    .select({ id: countries.id, name: countries.name, alpha2: countries.alpha2 })
+    .from(countries)
+    .where(anyOf([codes.length > 0 && inArray(countries.alpha2, codes), lowerIn(countries.name, places.map((p) => p.name))]));
+  return (p) => {
+    const row = (p.alpha2 && rows.find((r) => r.alpha2 === p.alpha2!.toUpperCase())) || rows.find((r) => sameName(r.name, p.name));
+    return row ? { id: row.id, name: row.name } : null;
+  };
 }
+
+/** Durtal's language for each Wikidata language: by its ISO 639-1 code, else its 639-3 code, else its English name */
+async function languageMatcher(spoken: FilmLanguage[]): Promise<(l: FilmLanguage) => Match> {
+  if (!spoken.length) return () => null;
+  const iso1 = [...new Set(spoken.flatMap((l) => (l.iso6391 ? [l.iso6391.toLowerCase()] : [])))];
+  const iso3 = [...new Set(spoken.flatMap((l) => (l.iso6393 ? [l.iso6393.toLowerCase()] : [])))];
+  const rows = await db
+    .select({ id: languages.id, name: languages.name, iso6391: languages.iso6391, iso6393: languages.iso6393 })
+    .from(languages)
+    .where(
+      anyOf([
+        iso1.length > 0 && inArray(languages.iso6391, iso1),
+        iso3.length > 0 && inArray(languages.iso6393, iso3),
+        lowerIn(languages.name, spoken.map((l) => l.name)),
+      ]),
+    );
+  return (l) => {
+    const row =
+      (l.iso6391 && rows.find((r) => r.iso6391 === l.iso6391!.toLowerCase())) ||
+      (l.iso6393 && rows.find((r) => r.iso6393 === l.iso6393!.toLowerCase())) ||
+      rows.find((r) => sameName(r.name, l.name));
+    return row ? { id: row.id, name: row.name } : null;
+  };
+}
+
+/** The matcher of a list field */
+const matcherOf = (field: ListField, entries: FilmPlace[] | FilmLanguage[]) =>
+  field === "countries" ? countryMatcher(entries as FilmPlace[]) : languageMatcher(entries as FilmLanguage[]);
 
 async function heldIdentifier(providerId: string, externalId: string) {
   const [row] = await db
@@ -203,15 +245,15 @@ async function buildReview(film: Film | null, found: Found): Promise<FilmSourceR
     fields.push({ field, label: FIELD_LABELS[field], here: show(current[field]), source: show(value)!, verdict: verdictOf(field, changes, conflicts) });
   }
 
-  // Countries and original languages: matched to Durtal's lists by name, filled only when the film has none
-  for (const [field, proposed, here, table] of [
-    ["countries", work.countries ?? [], film?.countries ?? [], countries],
-    ["languages", work.languages ?? [], film?.languages ?? [], languages],
+  // Countries and original languages: matched to Durtal's lists by ISO code, else by name; filled only when the film has none
+  for (const [field, proposed, here] of [
+    ["countries", work.countries ?? [], film?.countries ?? []],
+    ["languages", work.languages ?? [], film?.languages ?? []],
   ] as const) {
     if (!proposed.length) continue;
-    const local = await byName(table, proposed.map((p) => p.name));
-    const matched = proposed.flatMap((p) => local.get(p.name.toLowerCase()) ?? []);
-    const unmatched = proposed.filter((p) => !local.has(p.name.toLowerCase())).map((p) => p.name);
+    const match = await matcherOf(field, proposed);
+    const matched = proposed.flatMap((p) => match(p) ?? []);
+    const unmatched = proposed.filter((p) => !match(p)).map((p) => p.name);
     const ids = new Set(matched.map((m) => m.id));
     const same = ids.size > 0 && here.length === ids.size && here.every((h) => ids.has(h.id));
     const verdict: FieldVerdict = !ids.size ? "unlisted" : same ? "same" : locks.record ? "locked" : here.length ? "conflict" : "fill";
@@ -271,9 +313,9 @@ async function buildReview(film: Film | null, found: Found): Promise<FilmSourceR
         verdict: (locks.record ? "locked" : !version?.runtimeSeconds ? "fill" : Math.abs(version.runtimeSeconds - runtimeSeconds) < 60 ? "same" : "conflict") as FieldVerdict,
       }
     : null;
-  const places = await byName(countries, releases.flatMap((r) => (r.place ? [r.place.name] : [])));
+  const placeCountry = await countryMatcher(releases.flatMap((r) => (r.place ? [r.place] : [])));
   const reviewed = releases.map((r, index) => {
-    const country = r.place ? (places.get(r.place.name.toLowerCase()) ?? null) : null;
+    const country = r.place ? placeCountry(r.place) : null;
     const format = releaseFormat(r.place?.name ?? null);
     const date = sameShape(r.releaseDate);
     const here = !!version?.releases.some(
@@ -407,8 +449,8 @@ export async function applyFilmSource(input: z.input<typeof applySchema>): Promi
         if (!film.sourceRecordId) patch.sourceRecordId = observation.id;
       }
       if (field === "countries" || field === "languages") {
-        const local = await byName(field === "countries" ? countries : languages, (work[field] ?? []).map((p) => p.name));
-        const ids = [...new Set((work[field] ?? []).flatMap((p) => local.get(p.name.toLowerCase())?.id ?? []))];
+        const match = await matcherOf(field, work[field] ?? []);
+        const ids = [...new Set((work[field] ?? []).flatMap((p) => match(p)?.id ?? []))];
         if (field === "countries") patch.countryIds = ids;
         else patch.languageIds = ids;
       }

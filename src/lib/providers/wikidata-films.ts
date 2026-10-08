@@ -13,6 +13,7 @@ import {
   wikidataDate,
   wikidataEntities,
   wikidataItemIds as itemIds,
+  wikidataPropertyValues as propertyValues,
   wikidataStatements as statements,
   wikidataValues as values,
   type WikidataEntity as Entity,
@@ -21,9 +22,10 @@ import {
 /*
  * Wikidata as a film provider (SLN-376). Its API is documented, needs no key
  * and its data is CC0. It knows a film's identity (titles, the first release,
- * countries, original languages, running time, its IMDb, TMDb and Letterboxd
- * ids), its makers and cast in its editors' order, its production companies,
- * and its release dates per country or festival. Its cast lists are often
+ * countries and original languages with their ISO codes, running time, its
+ * IMDb, TMDb and Letterboxd ids), its makers and cast in its editors' order,
+ * its production companies, and its release dates per country or festival
+ * (each place with its country code when it has one). Its cast lists are often
  * partial, and it never says how a film was released, so nothing it says is
  * taken as complete. A poster or still is read from Wikimedia Commons with
  * the author and license Commons gives.
@@ -51,6 +53,11 @@ export const WIKIDATA_FILM = {
   characterRole: "P453",
   characterName: "P4633",
   ordinal: "P1545",
+  /** On a country or a release's place: ISO 3166-1 alpha-2 */
+  countryCode: "P297",
+  /** On a language: ISO 639-1, else ISO 639-3 */
+  languageCode: "P218",
+  languageCode3: "P220",
 } as const;
 
 /** The classes Wikidata files films under (P31), feature to short, live to animated */
@@ -86,11 +93,17 @@ export type FilmCreditRole = (typeof FILM_CREDIT_PROPERTIES)[number][1];
 const SECONDS = { Q7727: 60, Q11574: 1, Q25235: 3600 } as Record<string, number>;
 /** At most this many people, characters, places and companies are named for one film */
 const MAX_LINKED = 400;
+/** At most this many countries, languages and release places have their codes read, a call each, in that order */
+const MAX_CODED = 40;
 
 interface Named {
   id: string;
   label: string;
 }
+/** A country or a release's place, with its ISO 3166-1 alpha-2 code when Wikidata states one */
+type Place = Named & { alpha2: string | null };
+/** A language, with its ISO 639-1 and 639-3 codes when Wikidata states them */
+type Language = Named & { iso6391: string | null; iso6393: string | null };
 export interface WikidataFilmPayload {
   id: string;
   label: string | null;
@@ -98,9 +111,9 @@ export interface WikidataFilmPayload {
   title: { text: string; language: string } | null;
   description: string | null;
   /** Each publication date, with the country or festival it names */
-  releases: { date: unknown; place: Named | null }[];
-  countries: Named[];
-  languages: Named[];
+  releases: { date: unknown; place: Place | null }[];
+  countries: Place[];
+  languages: Language[];
   /** Running times in seconds, in Wikidata's order */
   runtimes: number[];
   /** Cast and crew in credit order; a person may hold several roles */
@@ -124,6 +137,30 @@ export function earliestDate(times: unknown[]): CatalogueDateInput | null {
     return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
   });
   return dates[0] ?? null;
+}
+
+/** A code's value when it has the code's form */
+const code = (value: unknown, form: RegExp) => (typeof value === "string" && form.test(value.trim()) ? value.trim() : null);
+
+/**
+ * The ISO codes of a film's countries, release places and languages, which
+ * match Durtal's lists where the English names differ ("United States" for
+ * "United States of America"). A language without a 639-1 code is asked for
+ * its 639-3 code. Past the cap, a name is matched by itself.
+ */
+async function isoCodes(countryIds: string[], languageIds: string[], releasePlaceIds: string[], signal: AbortSignal) {
+  const coded = new Set([...new Set([...countryIds, ...languageIds, ...releasePlaceIds])].slice(0, MAX_CODED));
+  const spoken = languageIds.filter((id) => coded.has(id));
+  const places = [...coded].filter((id) => !spoken.includes(id));
+  const alpha2 = await propertyValues(places, WIKIDATA_FILM.countryCode, userAgent(), signal);
+  const iso1 = await propertyValues(spoken, WIKIDATA_FILM.languageCode, userAgent(), signal);
+  const without = spoken.filter((id) => !(iso1.get(id) ?? []).some((v) => code(v, /^[a-z]{2}$/)));
+  const iso3 = await propertyValues(without, WIKIDATA_FILM.languageCode3, userAgent(), signal);
+  const first = (found: Map<string, unknown[]>, id: string, form: RegExp) => (found.get(id) ?? []).map((v) => code(v, form)).find(Boolean) ?? null;
+  return {
+    place: (n: Named): Place => ({ ...n, alpha2: first(alpha2, n.id, /^[A-Z]{2}$/) }),
+    language: (n: Named): Language => ({ ...n, iso6391: first(iso1, n.id, /^[a-z]{2}$/), iso6393: first(iso3, n.id, /^[a-z]{3}$/) }),
+  };
 }
 
 /** A running time in seconds, from a Wikidata quantity */
@@ -288,7 +325,11 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
       ...credits.flatMap((c) => (c.id ? [c.id] : [])),
       ...credits.flatMap((c) => c.characterIds),
     ];
-    const names = new Map((await wikidataEntities(linked, "labels", userAgent(), signal, { max: MAX_LINKED })).map((e) => [e.id, label(e)]));
+    const [entities, codes] = await Promise.all([
+      wikidataEntities(linked, "labels", userAgent(), signal, { max: MAX_LINKED }),
+      isoCodes(countryIds, languageIds, published.flatMap((p) => (p.placeId ? [p.placeId] : [])), signal),
+    ]);
+    const names = new Map(entities.map((e) => [e.id, label(e)]));
     const named = (id: string | null): Named | null => {
       const name = id ? names.get(id) : null;
       return id && name ? { id, label: name } : null;
@@ -308,9 +349,12 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
       label: label(item),
       title: titleValue?.text && titleValue.language ? { text: titleValue.text, language: titleValue.language } : null,
       description: item.descriptions?.en?.value ?? null,
-      releases: published.map((p) => ({ date: p.date, place: named(p.placeId) })),
-      countries: many(countryIds),
-      languages: many(languageIds),
+      releases: published.map((p) => {
+        const place = named(p.placeId);
+        return { date: p.date, place: place && codes.place(place) };
+      }),
+      countries: many(countryIds).map(codes.place),
+      languages: many(languageIds).map(codes.language),
       runtimes: [...new Set(values(item, WIKIDATA_FILM.duration).map(seconds).filter((n): n is number => !!n))],
       credits: people
         .filter((c): c is typeof c & { person: Named } => !!c.person)
@@ -341,8 +385,11 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
     if (p.description) work.description = p.description;
     const released = earliestDate((p.releases ?? []).map((r) => r.date));
     if (released) work.releaseDate = released;
-    if (p.countries?.length) work.countries = p.countries.map((c) => ({ wikidataId: c.id, name: c.label }));
-    if (p.languages?.length) work.languages = p.languages.map((l) => ({ wikidataId: l.id, name: l.label }));
+    // Codes only when stated; an answer saved before codes were read has none
+    const place = (c: Place) => ({ wikidataId: c.id, name: c.label, ...(c.alpha2 ? { alpha2: c.alpha2 } : {}) });
+    if (p.countries?.length) work.countries = p.countries.map(place);
+    if (p.languages?.length)
+      work.languages = p.languages.map((l) => ({ wikidataId: l.id, name: l.label, ...(l.iso6391 ? { iso6391: l.iso6391 } : {}), ...(l.iso6393 ? { iso6393: l.iso6393 } : {}) }));
     if (p.credits?.length)
       work.credits = p.credits.map((c) => ({ wikidataId: c.person.id, name: c.person.label, roleId: c.role, characters: c.role === "film.cast" ? c.characters : [] }));
     if (p.companies?.length) work.organizations = p.companies.map((o) => ({ wikidataId: o.id, name: o.label, role: "production_company" }));
@@ -353,7 +400,7 @@ export const wikidataFilms: ProviderAdapter<"film"> = {
     if (p.runtimes?.length) proposals.push({ level: "version", fields: { runtimeSeconds: p.runtimes[0] } });
     for (const r of p.releases ?? []) {
       const date = wikidataDate(r.date);
-      if (date) proposals.push({ level: "release", fields: { releaseDate: date, place: r.place ? { wikidataId: r.place.id, name: r.place.label } : null } });
+      if (date) proposals.push({ level: "release", fields: { releaseDate: date, place: r.place ? place(r.place) : null } });
     }
     return proposals;
   },
