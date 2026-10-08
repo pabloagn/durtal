@@ -30,9 +30,7 @@ export function EntityActionMenu({
   const destructiveItems = items.filter((i) => i.variant === "destructive");
 
   const trigger = (
-    <button
-      className="action-icon"
-    >
+    <button className="action-icon">
       <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
     </button>
   );
@@ -44,13 +42,9 @@ export function EntityActionMenu({
           key={item.label}
           onClick={item.onClick}
           icon={<item.icon className="h-3.5 w-3.5" strokeWidth={1.5} />}
+          shortcut={item.shortcut}
         >
-          <span className="flex-1">{item.label}</span>
-          {item.shortcut && (
-            <span className="ml-4 font-mono text-micro text-fg-secondary">
-              {item.shortcut}
-            </span>
-          )}
+          {item.label}
         </DropdownMenuItem>
       ))}
 
@@ -63,13 +57,9 @@ export function EntityActionMenu({
               onClick={item.onClick}
               variant="danger"
               icon={<item.icon className="h-3.5 w-3.5" strokeWidth={1.5} />}
+              shortcut={item.shortcut}
             >
-              <span className="flex-1">{item.label}</span>
-              {item.shortcut && (
-                <span className="ml-4 font-mono text-micro text-accent-red/60">
-                  {item.shortcut}
-                </span>
-              )}
+              {item.label}
             </DropdownMenuItem>
           ))}
         </>

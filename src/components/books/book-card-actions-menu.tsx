@@ -3,13 +3,7 @@
 import { SpriteIcon } from "@/components/ui/sprite-icon";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Pencil,
-  Trash2,
-  RefreshCw,
-  Image,
-  FolderPlus,
-} from "lucide-react";
+import { Pencil, Trash2, RefreshCw, Image, FolderPlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -75,31 +69,30 @@ export function BookCardActionsMenu({
           Edit
         </DropdownMenuItem>
         <DropdownMenuItem
-          icon={<Trash2 className="h-4 w-4" strokeWidth={1.5} />}
-          variant="danger"
-          onClick={() => setDeleteOpen(true)}
-        >
-          Delete
-        </DropdownMenuItem>
-        <DropdownMenuItem
           icon={<RefreshCw className="h-4 w-4" strokeWidth={1.5} />}
           onClick={() => setMatchOpen(true)}
         >
           Match again
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           icon={<Image className="h-4 w-4" strokeWidth={1.5} />}
           onClick={() => setMediaOpen(true)}
         >
           Manage media
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           icon={<FolderPlus className="h-4 w-4" strokeWidth={1.5} />}
           onClick={() => setCollectionOpen(true)}
         >
           Add to collection
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          icon={<Trash2 className="h-4 w-4" strokeWidth={1.5} />}
+          variant="danger"
+          onClick={() => setDeleteOpen(true)}
+        >
+          Delete
         </DropdownMenuItem>
       </DropdownMenu>
 
