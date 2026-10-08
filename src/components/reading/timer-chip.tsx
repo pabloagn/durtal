@@ -54,9 +54,21 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
   const paused = !!timer.pausedAt;
   const ask = !paused && shouldAsk(elapsed, checkMinutes);
   const name = `Timer for ${timer.title}, ${durationSpoken(elapsed)}${paused ? ", paused" : ""}`;
+  const longHours = elapsed >= 100 * 3600;
+  const compactClock = elapsed >= 10 * 3600 ? `${Math.floor(elapsed / 3600)}h` : clockText(elapsed).slice(0, -3).replace(":", "h");
   const time = (
     <span className={`tabular-nums ${paused ? "text-fg-secondary" : "text-fg-primary"}`} aria-hidden>
-      {clockText(elapsed)}
+      {layout !== "phone" && elapsed >= 3600 ? (
+        <>
+          <span className={layout === "rail" ? "hidden" : longHours ? "@max-[82px]/timer-time:hidden" : "@max-[71px]/timer-time:hidden"}>{clockText(elapsed)}</span>
+          <span className={layout === "rail" ? "" : longHours ? "hidden @max-[82px]/timer-time:inline" : "hidden @max-[71px]/timer-time:inline"}>{compactClock}</span>
+        </>
+      ) : layout === "expanded" && elapsed >= 600 ? (
+        <>
+          <span className="@max-[47px]/timer-time:hidden">{clockText(elapsed)}</span>
+          <span className="hidden @max-[47px]/timer-time:inline">{Math.floor(elapsed / 60)}m</span>
+        </>
+      ) : clockText(elapsed)}
     </span>
   );
   const pauseButton = (
@@ -125,7 +137,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
             aria-label={name}
             data-tooltip={ask ? "Still reading?" : `Timer for ${timer.title}`}
             data-tooltip-side="right"
-            className="inline-flex h-7 w-11 items-center justify-center rounded-sm text-xs transition-colors hover:bg-bg-tertiary/50"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-sm text-xs transition-colors hover:bg-bg-tertiary/50"
             data-timer-time=""
           >
             {time}
@@ -148,10 +160,10 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
     );
 
   return (
-    <div className="px-3 pb-2" data-timer-chip="expanded">
+    <div className="@container/timer px-3 pb-2" data-timer-chip="expanded">
       <div role="group" aria-label="Reading timer" className="flex items-start gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-2 py-1.5">
         {/* No icon on a blank thumb: at this size it reads as a misaligned icon beside the time */}
-        <Cover s3Key={timer.cover} className="h-9 w-6" icon={false} />
+        <Cover s3Key={timer.cover} className="h-9 w-6 pointer-coarse:@max-[204px]/timer:hidden" icon={false} />
         {/* The time and title open the menu with Discard, as the time does in the rail and the phone bar */}
         <div className="flex min-w-0 flex-1 [&>div]:min-w-0 [&>div]:flex-1">
           {menu(
@@ -159,7 +171,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
               type="button"
               aria-label={name}
               data-tooltip={ask ? "Still reading?" : `Timer for ${timer.title}`}
-              className="min-w-0 flex-1 rounded-sm text-left transition-colors hover:bg-bg-tertiary/50"
+              className="@container/timer-time min-w-0 flex-1 rounded-sm text-left transition-colors hover:bg-bg-tertiary/50 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:pb-1"
               data-timer-time=""
             >
               <span className="block text-sm leading-5">{time}</span>

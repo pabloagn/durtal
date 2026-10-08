@@ -10,8 +10,7 @@ import { ReadingDialogsProvider } from "@/components/reading/reading-dialogs-pro
 import { TimerProvider } from "@/components/reading/timer-provider";
 import { TimerAlerts } from "@/components/reading/timer-chip";
 import { Toaster } from "sonner";
-import { usePreference } from "@/lib/hooks/use-preference";
-import { SIDEBAR, sidebarWidth } from "@/lib/preferences";
+import { useSidebarPreference } from "@/lib/hooks/use-sidebar-preference";
 import { lockPageScroll } from "@/lib/utils/scroll-lock";
 
 /** Reader view: /reader/{ebookId}, full viewport, no sidebar (the reading view, eBooks sub-issue 3) */
@@ -25,23 +24,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isReaderView = READER_VIEW_RE.test(pathname);
 
   const [commandOpen, setCommandOpen] = useState(false);
-  const [compact, setCompact] = useState(false);
   const [phone, setPhone] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef(false);
-  // A cookie, so the server renders the saved width (Settings, Display)
-  const [storedWidth, setStoredWidth] = usePreference<number>(SIDEBAR.key, SIDEBAR.expanded);
-
-  // Preserve the saved desktop width while giving small screens usable content space.
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 800px)");
-    const update = () => setCompact(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  const effectiveWidth = compact ? SIDEBAR.collapsed : sidebarWidth(storedWidth);
+  const { width: effectiveWidth, setWidth, toggle } = useSidebarPreference();
 
   // The drawer exists below md only: it closes when the screen grows past md
   useEffect(() => {
@@ -168,7 +155,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
         <Sidebar
           width={effectiveWidth}
-          onWidthChange={setStoredWidth}
+          onWidthChange={setWidth}
+          onToggle={toggle}
           onCommandPalette={openCommandPalette}
           drawer={phone}
           drawerOpen={navOpen}
