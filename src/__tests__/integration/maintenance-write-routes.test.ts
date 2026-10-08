@@ -9,7 +9,8 @@ import * as schema from "@/lib/db/schema";
 /**
  * The write routes no other suite covers, against PostgreSQL:
  * POST /api/works/refresh-slugs. (The old reader's progress route went with
- * it in SLN-490; the new reader's routes have their own suites.)
+ * it in SLN-490; the new reader's position route is covered by
+ * reader-core.test.ts.)
  */
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_MAINTENANCE_ROUTES_TEST_DATABASE_URL;

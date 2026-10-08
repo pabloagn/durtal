@@ -2533,7 +2533,18 @@ and `coverReason` (why there is no cover).
 
 ### `ebook_positions`
 
-The reader's place in one file, per device. Created empty; the reader writes it from sub-issue 3.
+The reader's place in one file, per device, written by the reader (SLN-492) through
+`POST /api/reader/[ebookId]/position` (`savePosition`, `src/lib/reader/positions.ts`).
+`device_id` is the `durtal-device` cookie (a random uuid the proxy sets on the first
+reader page) and `device_label` comes from the user agent ("iPhone · Safari").
+
+The rule: the newest place by the reader's own clock wins. A save upserts on
+(`file_id`, `device_id`) and changes `locator`, `progression`, `chapter`,
+`device_label` and `updated_at` only when its `client_updated_at` is newer than the
+stored one, so a request that arrives late never moves a device back;
+`furthest_progression` keeps the greatest progression any save sent, late or not, and
+`client_updated_at` the newest time. A `client_updated_at` more than 5 minutes in the
+future is refused.
 
 | Column | Type | Constraints |
 |---|---|---|

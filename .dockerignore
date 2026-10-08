@@ -28,6 +28,8 @@ next-env.d.ts
 
 # Not part of the web app
 scripts
+# ... but `pnpm build` copies pdf.js's run-time files with this one
+!scripts/vendor-pdfjs.mjs
 # Test config: it imports a reporter from scripts/, which the image leaves out
 vitest.config.ts
 data

@@ -22,6 +22,8 @@
 /organizations/[slug]       Organization detail (same slug as its publisher page)
 /recommenders               Recommender index
 /recommenders/[id]          Recommender detail
+/reader/[ebookId]           The e-book reader: one book, full viewport, no sidebar
+                            (?file=<id> opens another of its files)
 /reading                    Reading: what is being read now, Up next, the passage
                             of the day, paused, recently finished
 /reading/next               Up Next: the books to read next, in order
@@ -921,6 +923,18 @@ Items in one family. **Actions**: Create, merge and delete items.
 The works or editions linked to one item.
 
 ---
+
+### Reader (`/reader/[ebookId]`)
+
+The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no timer chip, no tab row. A full page load (the Read button is a plain link), because the page brings its own Content-Security-Policy (`src/proxy.ts`). The page (`src/app/reader/[ebookId]/page.tsx`) reads everything in one query (`readReaderBook`, `src/lib/ebooks/delivery/reader-book.ts`): the e-book, its readable files (stored or verified, no DRM, a format the reader opens, in the order EPUB, KEPUB, AZW3, MOBI, AZW, FB2, FBZ, PDF, CBZ), the file to open (`?file=` when it names one of them, else the preferred file, else the first), this device's place in it, and the delivery URL. It runs the reader's plug-ins' loaders (`plugins.ts`) beside that query. An inline script asks for the book's first byte ranges as the HTML arrives (docs/07, Reading e-books by range), and the reading font is preloaded. Opens EPUB, KEPUB, MOBI, AZW, AZW3, FB2, FBZ, CBZ and PDF.
+
+- **Top bar** (`glass-bar`): Back (to the page the reader came from when it is in Durtal, else the linked book's page, else `/library`), the title with the current chapter, Contents (`t`), Settings (`s`) and Full screen (`f`, only where the Fullscreen API exists, so never on an iPhone). **Bottom bar** (`glass-bar`): the chapter and the percent. Both show on open and hide together after 3 seconds of reading or on a page turn; they come back on a tap in the middle, when the pointer nears the top or bottom edge, or when focus moves into them. Hidden bars are `inert`.
+- **Contents**: a glass dialog with the book's nested table of contents; an item jumps there.
+- **Settings**: font (Sans, Serif, System, Original), size, line height, margins and alignment, saved in the `durtal-reader-settings` cookie that Settings › Reader edits too.
+- **Keys**, from the app and from inside the book alike (`src/lib/reader/input.ts`): → and Space for the next page, ← and Shift+Space for the previous one (← and → go left and right, so a right-to-left book turns the right way), PageDown and PageUp, Home and End for the first and last page, `t`, `s`, `f`, and Esc to close the open panel, else leave full screen. No key fires while focus is in a text field or a slider, or while a dialog or the command palette is open (Esc aside).
+- **Touch and mouse**: a tap or click on the left 30% goes left, on the right 30% goes right, in the middle shows or hides the bars; a swipe of 40 px or more, mostly sideways, turns toward where the finger went; a long press selects text and never turns. The wheel turns one page per gesture.
+- **The place**: the reader opens at this device's saved place; a place that no longer resolves opens at the start with a note ("Your place in this book could not be found, so it opens at the start."). After a turn the place is queued and saved at most once every 2 seconds, and sent with `sendBeacon` when the page is hidden or goes away (`POST /api/reader/[ebookId]/position`).
+- **Failures** never spin forever: "This eBook could not be opened" with the reason ("The file is damaged or not a valid eBook.", "This kind of file cannot be read here.", "The file could not be downloaded. Check the connection."), Retry, "Open the PDF instead" for each other readable file, and Back. An e-book with no readable file says "This eBook cannot be read here".
 
 ### Settings (`/settings`)
 

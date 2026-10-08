@@ -314,6 +314,18 @@ The browser reads a file by HTTP Range, only the bytes it needs, so a 50 MB book
 
 E-book files are never readable through `/api/s3/read`: it serves only the main bucket's `gold/` folders.
 
+### Reading e-books by range
+
+The reader (SLN-492) reads only the bytes it shows, from the CDN or the app route above. Every request names an explicit range (`bytes=a-b`): the size is known from the catalogue, so there are no suffix ranges and no conditional headers, and a cross-origin read from CloudFront stays a simple request with no CORS preflight.
+
+- **First ranges with the HTML.** An inline script in the reader page (with the page's nonce) asks for the book's first ranges as the HTML arrives, while the engine's code downloads (`src/lib/reader/first-range.ts`): for a zip (EPUB, FBZ, CBZ) its central directory, from the manifest's `zip.cdOffset` when there is one (else the last 65,557 bytes), and its first 64 KiB; for a PDF its first 256 KiB and its last 64 KiB; for MOBI and AZW3 the first 64 KiB; a plain FB2 whole. The engine starts from those bytes instead of asking again.
+- **Zips** (`src/lib/reader/engines/foliate/zip-reader.ts`): zip.js reads the archive through a reader that knows each entry's extent from the central directory, so an entry's header and data come in one request, and keeps decoded entries in an LRU (32 entries, 8 MB).
+- **MOBI, AZW3, FB2 and PDF** read through a `RemoteBlob` (`src/lib/reader/engines/foliate/remote-blob.ts`): `slice(a, b).arrayBuffer()` over ranges. A miss fetches at least 64 KiB; a read whose start is already held fetches only the rest; recent ranges are kept (8 MB).
+- **Large images come after the text.** In a reflowable EPUB, an image of 96 KiB or more is first a blank of its size, read from its first bytes (`deferred-images.ts`, `image-size.ts`), and gets its bytes once the section is shown, so a 10 MB plate at the head of a chapter does not hold its first page back.
+- **Failures.** A 403 from CloudFront (an expired signed URL) gets a fresh URL from `/api/ebooks/files/[fileId]/url` once and the read is retried; a network failure against CloudFront switches that book to the app route for the rest of the session.
+
+Measured by `node scripts/qa/reader-perf.mjs` (budgets in `scripts/qa/reader-perf.json`): the 50 MB illustrated EPUB fetches under 1 MB before its first page, the 300 MB scanned PDF under 2 MB.
+
 ### Verification
 
 `pnpm ebooks:verify` (`scripts/ebooks/verify.ts`) lists the bucket once, HEADs every object an `ebook_files` row names with its SHA-256, and compares size and checksum with the row. Its report (`reports/ebooks/verify-<timestamp>.md` and `.csv`, git-ignored) counts matches, missing objects, size or checksum mismatches, rows with no key, and objects under `files/` and `derived/` that no row names (older than 24 hours; younger ones are in flight: an object is written before its row). It is read-only, on a session that refuses writes. `--apply --backup FILE` (a pg_dump from the last hour) marks matches `verified` with `verified_at` and mismatches `missing`, one atomic write per 500 rows; quarantined and replaced files keep their status, and the verification is recorded as a run of kind `verify` with its counts (`/ebooks/runs`). It never deletes or changes an object.

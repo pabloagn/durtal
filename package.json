@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "dev": "node scripts/vendor-pdfjs.mjs && next dev --turbopack",
+    "build": "node scripts/vendor-pdfjs.mjs && next build",
     "start": "next start",
     "lint": "eslint src/",
     "deadcode": "knip --include files,dependencies,unlisted",
@@ -45,6 +45,7 @@
     "@tiptap/starter-kit": "^3.22.0",
     "@zip.js/zip.js": "^2.23.0",
     "cmdk": "^1.1.1",
+    "construct-style-sheets-polyfill": "3.1.0",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "htmlparser2": "^10.1.0",

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatFileSize, formatPrice, formatDate } from "@/lib/utils/format";
 import { InstanceEditDialog } from "./instance-edit-dialog";
@@ -252,12 +251,13 @@ export function InstanceDetail({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <Link
+                  {/* A full page load: the reader's page brings its own content policy (eBooks sub-issue 3) */}
+                  <a
                     href={`/reader/${ebook.id}`}
                     className="ml-3 text-fg-primary transition-colors hover:text-accent-rose-text"
                   >
                     Open
-                  </Link>
+                  </a>
                 </dd>
               </>
             )}

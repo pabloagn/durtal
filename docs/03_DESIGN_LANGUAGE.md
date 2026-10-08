@@ -394,6 +394,15 @@ A quote or note (`NoteItemView`, `src/components/reading/note-item.tsx`, SLN-453
 - **The passage of the day** on `/reading` is the same quote layout under a `SectionHeading` "Passage of the day" with "Another" at its right, then a caption: the book (a link), author and page. A passage over 600 characters opens at 8 lines with "Show all".
 - **The note dialog** is a `max-w-lg` dialog: Quote / Note (`SegmentedControl`), the labelled text area, page and chapter side by side, the reading, "Your thought" (`TiptapEditor`) for a quote, and a Favourite switch. On touch the empty text area has a one-line hint, "To copy a printed page, tap and hold here, then Scan Text."
 
+### The reading view
+
+The e-book reader (`/reader/[ebookId]`, SLN-492; docs/04, Reader) is the book and two bars, nothing else.
+
+- **Bars.** The top bar (Back, the serif title with the chapter beside it, Contents, Settings, Full screen) and the bottom bar (the chapter and the percent) are `glass-bar`. The bar's buttons sit on the title's cap-height center (`CapAligned`), are 32px (44px on a coarse pointer) and each has an `aria-label` and a tooltip with its key. Both bars show on open, hide together after 3 seconds of reading or on a turn, and come back together; hidden, they are `inert`.
+- **Dialogs.** Contents and Settings are glass dialogs over `glass-veil`, with real labels and named controls; they take focus, keep Tab inside, close on Escape and give focus back to their button.
+- **The page inside the book** uses the dark theme: the book's frames cannot see the app's CSS variables, so `src/lib/reader/presentation.ts` resolves `bg-primary`, `fg-primary`, `accent-blue-text` (links) and `accent-rose` (selection) to literal colours and writes them into each section's styles. Images stay as the publisher made them. The reading fonts are EB Garamond (Serif) and Inter (Sans), served from `public/fonts/reader/` under stable names the frames can load; "Original" keeps the book's own fonts.
+- **Errors** are a plain panel in the page: the title, the reason in one sentence, Retry, "Open the PDF instead" for another readable file, and Back. A place that no longer resolves opens at the start with a toast, never a blank page.
+
 ### Tooltips
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
