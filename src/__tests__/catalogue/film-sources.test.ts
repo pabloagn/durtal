@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ExternalFetchError } from "@/lib/api/external-fetch";
 import { FILM_SOURCES, filmSourceChanges, releaseFormat, type FilmProposals } from "@/lib/catalogue/film-sources";
 import { adapterProblems, ProviderError, type ProviderAdapter } from "@/lib/providers/contract";
 import { providersFor } from "@/lib/providers/registry";
@@ -161,6 +162,23 @@ describe("film sources", () => {
       { wikidataId: "Q900206", name: "Spanish" },
       { wikidataId: "Q900207", name: "Cantonese" },
     ]);
+  });
+
+  it.each(["rate_limited", "timeout"] as const)("stops ISO lookups after a %s response", async (reason) => {
+    const base = wikidataFetch(state);
+    const codeCalls: URL[] = [];
+    vi.stubGlobal("fetch", (input: string | URL) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("action") !== "wbgetclaims") return base(input);
+      codeCalls.push(url);
+      return reason === "rate_limited"
+        ? Promise.resolve(new Response("", { status: 429 }))
+        : Promise.reject(new ExternalFetchError("Wikidata did not answer in time", null, true));
+    });
+    await expect(fetchProviderDetail(films, CROSSING)).rejects.toMatchObject({ reason });
+    // Calls already in flight may finish, but a refusal must not start another batch.
+    expect(codeCalls.length).toBeLessThanOrEqual(4);
+    expect(codeCalls.every((url) => url.searchParams.get("property") === "P297")).toBe(true);
   });
 
   it("names a large cast in pages of 50, and keeps a film without a poster", async () => {

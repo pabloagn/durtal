@@ -71,3 +71,12 @@ Built and checked in a cloud container, on main 4214bb77 (with #164):
 - No page or schema change, so no page weight or layout audit and no
   migration. Not run here: `docker build` (GitHub builds the image on the
   PR).
+
+## Review follow-up (8 October 2026)
+
+Merged current main into the PR without rewriting history. Review found that
+ISO-property lookups swallowed HTTP 429 and individual request timeouts, then
+continued the queue. They now stop scheduling requests and preserve the
+provider's rate-limit/timeout error; ordinary unavailable optional codes still
+fall back to names. Two regressions fail before the correction. Final validation
+results are recorded on the PR and Linear issue.
