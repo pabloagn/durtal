@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useCallback, useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { NAV_SECTIONS, isSectionActive } from "@/lib/navigation";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { GO_TO } from "@/lib/shortcuts/shortcuts";
@@ -20,6 +20,7 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 export function Sidebar({
   width,
   onWidthChange,
+  onToggle,
   onCommandPalette,
   drawer,
   drawerOpen,
@@ -27,6 +28,7 @@ export function Sidebar({
 }: {
   width: number;
   onWidthChange: (width: number) => void;
+  onToggle: () => void;
   onCommandPalette: () => void;
   /** The screen is below md, so the sidebar is a drawer */
   drawer: boolean;
@@ -80,10 +82,6 @@ export function Sidebar({
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   }, []);
 
-  const handleDoubleClick = useCallback(() => {
-    onWidthChange(isCollapsed ? SIDEBAR.expanded : SIDEBAR.collapsed);
-  }, [isCollapsed, onWidthChange]);
-
   // Prevent text selection while dragging
   useEffect(() => {
     if (dragging) {
@@ -113,22 +111,30 @@ export function Sidebar({
       } ${dragging ? "transition-none" : "duration-200"}`}
       style={{ "--sidebar-w": `${width}px` } as React.CSSProperties}
     >
-      {/* Logo */}
-      <div className="flex h-14 shrink-0 items-center overflow-hidden px-5">
-        <div className="flex w-full font-serif text-2xl tracking-tight">
+      {/* The toggle stays in the same icon column in both desktop states. */}
+      <div className="flex h-14 shrink-0 items-center gap-2 overflow-hidden px-5 font-serif text-2xl md:pl-1.5 md:pr-3">
+        <CapAligned height={44} className="hidden w-11 md:block">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={rail ? "Expand navigation" : "Collapse navigation"}
+            aria-expanded={!rail}
+            aria-controls="app-sidebar"
+            data-tooltip={rail ? "Expand navigation" : "Collapse navigation"}
+            data-tooltip-expanded="true"
+            data-tooltip-side="right"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary/50 hover:text-fg-primary focus-visible:-outline-offset-2"
+          >
+            {rail ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.5} /> : <PanelLeftClose className="h-4 w-4" strokeWidth={1.5} />}
+          </button>
+        </CapAligned>
+        <div className={`flex min-w-0 flex-1 font-serif text-2xl tracking-tight ${isCollapsed ? "md:invisible" : ""}`}>
           <Link
             href="/"
             onClick={closeOnClick}
             className="text-fg-primary whitespace-nowrap touch-hit"
           >
-            {isCollapsed ? (
-              <>
-                <span className="md:hidden">Durtal</span>
-                <span className="hidden md:inline">D</span>
-              </>
-            ) : (
-              "Durtal"
-            )}
+            Durtal
           </Link>
           <CapAligned height={44} className="-mr-3 ml-auto md:hidden">
             <button
@@ -148,20 +154,20 @@ export function Sidebar({
       </div>
 
       {/* Search trigger. On touch it and the links below are 44 px high, and 44 px wide in the rail (SLN-541) */}
-      <div className="shrink-0 overflow-hidden px-3 pb-2">
+      <div className="shrink-0 overflow-hidden pl-1.5 pr-[5px] pb-2">
         <button
           onClick={onCommandPalette}
           // Collapsed, the button is an icon: its tooltip names it
-          aria-label={rail ? "Search" : undefined}
+          aria-label="Search"
           data-tooltip={rail ? "Search" : undefined}
           data-tooltip-keys="mod k"
           data-tooltip-side="right"
-          className={`flex w-full items-center gap-2 rounded-sm border border-glass-border bg-bg-primary/50 px-3 py-2.5 text-sm text-fg-secondary transition-all duration-150 hover:border-fg-muted/20 hover:text-fg-secondary focus-visible:-outline-offset-1 md:py-1.5 pointer-coarse:min-h-11 touch-hit ${
-            isCollapsed ? "md:justify-center md:gap-0 md:px-0" : ""
-          }`}
+          className="flex h-11 w-full min-w-11 items-center gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-[13px] text-sm text-fg-secondary transition-colors duration-150 hover:border-fg-muted/20 hover:text-fg-primary focus-visible:-outline-offset-2 md:h-[38px] pointer-coarse:h-11"
         >
-          <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-          <span className={isCollapsed ? "md:hidden" : ""}>Search...</span>
+          <CapAligned height={14} className="w-4">
+            <Search className="mx-auto h-3.5 w-3.5" strokeWidth={1.5} />
+          </CapAligned>
+          <span className={`min-w-0 truncate ${isCollapsed ? "md:invisible" : ""}`}>Search...</span>
           {/* A phone has no keyboard shortcut */}
           <kbd
             className={`ml-auto hidden font-mono text-micro text-fg-secondary ${
@@ -175,7 +181,7 @@ export function Sidebar({
 
       {/* Navigation: it scrolls when the sections do not fit, in the drawer too. On touch its
           44 px links may not fit, and a finger scrolls it: no scrollbar takes the rail's width */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2 pointer-coarse:scrollbar-hide">
+      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pl-1.5 pr-[5px] py-2 scrollbar-hide">
         <ul className="space-y-0.5">
           {NAV_SECTIONS.map(({ href, label }) => {
             const Icon = SECTION_ICONS[href];
@@ -187,20 +193,21 @@ export function Sidebar({
                   href={href}
                   onClick={closeOnClick}
                   // Collapsed, the link is an icon: its tooltip names it
-                  aria-label={rail ? label : undefined}
+                  aria-label={label}
+                  aria-current={isActive ? "page" : undefined}
                   data-tooltip={rail ? label : undefined}
                   data-tooltip-keys={go ? `g then ${go.key}` : undefined}
                   data-tooltip-side="right"
-                  className={`flex items-center gap-2.5 rounded-sm px-2.5 py-2.5 text-sm transition-all duration-150 md:py-1.5 pointer-coarse:min-h-11 touch-hit ${
-                    isCollapsed ? "md:justify-center md:gap-0 md:px-0" : ""
-                  } ${
+                  className={`flex h-11 min-w-11 items-center gap-2.5 rounded-sm px-[13px] text-sm transition-colors duration-150 focus-visible:-outline-offset-2 md:h-[38px] pointer-coarse:h-11 ${
                     isActive
                       ? "bg-selection-bg/80 text-fg-primary border border-accent-primary/10"
                       : "text-fg-secondary border border-transparent hover:bg-bg-tertiary/50 hover:text-fg-primary"
                   }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span className={`truncate ${isCollapsed ? "md:hidden" : ""}`}>
+                  <CapAligned height={16} className="w-4">
+                    <Icon className="h-4 w-4" strokeWidth={1.5} />
+                  </CapAligned>
+                  <span className={`min-w-0 truncate ${isCollapsed ? "md:invisible" : ""}`}>
                     {label}
                   </span>
                 </Link>
@@ -211,15 +218,17 @@ export function Sidebar({
       </nav>
 
       {/* The running timer (SLN-451): the phone bar carries it below md */}
-      {!drawer && <TimerChip layout={rail ? "rail" : "expanded"} />}
+      {!drawer && (
+        <div className="shrink-0 [&:has([data-timer-chip])]:h-[100px]" data-sidebar-timer="">
+          <TimerChip layout={rail || width < 200 ? "rail" : "expanded"} />
+        </div>
+      )}
 
       {/* Footer */}
       <div
-        className={`shrink-0 border-t border-glass-border px-5 py-3 ${
-          isCollapsed ? "md:hidden" : ""
-        }`}
+        className="flex h-11 shrink-0 items-center overflow-hidden border-t border-glass-border px-5"
       >
-        <p className="font-mono text-micro text-fg-secondary">
+        <p className={`truncate font-mono text-micro text-fg-secondary ${isCollapsed ? "md:invisible" : ""}`}>
           catalogue &middot; index &middot; archive
         </p>
       </div>
@@ -231,7 +240,8 @@ export function Sidebar({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onDoubleClick={handleDoubleClick}
+        onPointerCancel={handlePointerUp}
+        onDoubleClick={onToggle}
       />
     </aside>
   );

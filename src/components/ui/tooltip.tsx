@@ -43,8 +43,9 @@ function tipFor(target: EventTarget | null, byKeyboard: boolean): Tip | null {
   const anchor = target.closest<HTMLElement>("[data-tooltip]");
   if (anchor) {
     const text = anchor.dataset.tooltip?.trim();
-    // No tooltip on a control whose menu is open
-    if (!text || anchor.getAttribute("aria-expanded") === "true") return null;
+    // No tooltip on a control whose menu is open. A persistent layout
+    // toggle can opt in: its expanded state does not cover its tooltip.
+    if (!text || (anchor.getAttribute("aria-expanded") === "true" && anchor.dataset.tooltipExpanded !== "true")) return null;
     const tokens = anchor.dataset.tooltipKeys?.trim().split(/\s+/) ?? null;
     const side = anchor.dataset.tooltipSide as Side | undefined;
     return {

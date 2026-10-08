@@ -9,6 +9,8 @@ import type { ViewMode } from "@/components/books/view-mode-switcher";
 /** The sidebar's width in px: collapsed, or dragged between min and max. */
 export const SIDEBAR = {
   key: "durtal-sidebar-width",
+  expandedKey: "durtal-sidebar-expanded-width",
+  compactKey: "durtal-sidebar-compact-expanded",
   expanded: 224,
   collapsed: 56,
   min: 120,
@@ -21,6 +23,12 @@ export function sidebarWidth(stored: unknown): number {
     (stored === SIDEBAR.collapsed || (stored >= SIDEBAR.min && stored <= SIDEBAR.max))
     ? stored
     : SIDEBAR.expanded;
+}
+
+/** An expanded width to restore after collapsing, including older width cookies. */
+export function sidebarExpandedWidth(stored: unknown): number {
+  const width = sidebarWidth(stored);
+  return width === SIDEBAR.collapsed ? SIDEBAR.expanded : width;
 }
 
 /** The reading tracker's "I'm at" home on this device: a location id, or "none" (SLN-447). */

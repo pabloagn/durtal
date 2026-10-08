@@ -15,13 +15,13 @@ import {
   settingDescriptionId,
 } from "@/components/settings/settings-group";
 import { clearPreferences, usePreference } from "@/lib/hooks/use-preference";
+import { useSidebarPreference } from "@/lib/hooks/use-sidebar-preference";
 import {
   GRID_SIZES,
   LIST_PREFERENCES,
   READER_SETTINGS_KEY,
   SIDEBAR,
   VIEW_MODE_LABELS,
-  sidebarWidth,
   type ListPreference,
 } from "@/lib/preferences";
 import { DEFAULT_PER_PAGE, PAGE_SIZES } from "@/lib/utils/pagination";
@@ -40,20 +40,20 @@ const PAGE_SIZE_OPTIONS = PAGE_SIZES.map((size) => ({
 const LIST_COLUMNS = "sm:grid-cols-[minmax(0,1fr)_8.5rem_8.5rem_8.5rem]";
 
 function SidebarSetting() {
-  const [stored, setStored] = usePreference<number>(SIDEBAR.key, SIDEBAR.expanded);
-  const collapsed = sidebarWidth(stored) === SIDEBAR.collapsed;
+  const { width, toggle } = useSidebarPreference();
+  const collapsed = width === SIDEBAR.collapsed;
   return (
     <SettingRow
       id="sidebar-collapsed"
       label="Collapsed sidebar"
-      description="Show only the icons. Dragging the sidebar's edge or double-clicking it changes this too."
+      description="Show only the icons. The sidebar toggle, dragging its edge or double-clicking it changes this too."
       controlHeight={20}
     >
       <Switch
         id="sidebar-collapsed"
         checked={collapsed}
         aria-describedby={settingDescriptionId("sidebar-collapsed")}
-        onCheckedChange={(on) => setStored(on ? SIDEBAR.collapsed : SIDEBAR.expanded)}
+        onCheckedChange={toggle}
       />
     </SettingRow>
   );

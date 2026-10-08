@@ -125,7 +125,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
             aria-label={name}
             data-tooltip={ask ? "Still reading?" : `Timer for ${timer.title}`}
             data-tooltip-side="right"
-            className="inline-flex h-7 w-11 items-center justify-center rounded-sm text-xs transition-colors hover:bg-bg-tertiary/50"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-sm text-xs transition-colors hover:bg-bg-tertiary/50"
             data-timer-time=""
           >
             {time}
