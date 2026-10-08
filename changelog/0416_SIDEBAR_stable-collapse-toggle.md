@@ -16,6 +16,7 @@ Add a visible, accessible collapse control and keep sidebar navigation geometry 
 - The sidebar toggle and resize-handle double-click share the same preference operation as Settings → Display. Cookies preserve the last custom expanded width, the desktop choice and an independent explicit expansion override for the 768–800px tablet rail.
 - Search and navigation keep one fixed icon column, 38px mouse rows, 44px touch rows and 2px navigation gaps. Label visibility preserves the line boxes. Cap-height alignment and color-only row transitions avoid icon movement during the width transition.
 - The footer keeps its allocation in both states. A running timer reserves 100px in either layout, and narrow expanded widths use its rail layout. The rail's time button is also a full 44px target.
+- Production touch QA found that the expanded timer's time button shrank below 44px at narrow custom widths. It now has a 44px minimum touch target; a timer container query hides its decorative cover below 204px of content width on coarse pointers to preserve room for the time, pause and stop controls.
 - The phone drawer retains its labelled links and close control. Reduced motion continues to use the existing global preference.
 - The tooltip has a local opt-in for the sidebar toggle's expanded state; existing menu tooltip suppression is unchanged.
 
