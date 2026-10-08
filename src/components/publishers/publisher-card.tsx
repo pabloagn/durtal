@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CardHeading } from "@/components/shared/card-heading";
 import { Monogram } from "@/components/shared/no-photo";
 
 export interface PublisherItem {
@@ -69,22 +69,13 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         className="absolute inset-0 z-10 rounded-sm"
       />
       <PublisherLogo name={p.name} url={p.logoUrl} card={p.logoIsCard} className="aspect-[3/2] rounded-t-sm border-b border-glass-border" />
-      {/* The row carries the name's type: the star sits on the cap-height
-          center of the name's first line */}
-      <div className="type-item-title flex items-start gap-2 p-4 pb-2">
-        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-primary">
-          {p.name}
-        </h3>
-        <CapAligned height={32} coarseHeight={44} className="relative z-20 icon-hit-end">
-          <FavouriteToggle
-            favourite={p.isFavourite}
-            target={{ entity: "publisher", id: p.id }}
-            name={p.name}
-          />
-        </CapAligned>
+      <div className="px-4 pt-4 pb-2">
+        <CardHeading title={p.name} titleClassName="group-hover:text-accent-primary"
+          action={<FavouriteToggle favourite={p.isFavourite} target={{ entity: "publisher", id: p.id }} name={p.name} />}
+        />
       </div>
-      {/* Fixed rows: every publisher card has the same height */}
-      <div className="flex h-5 min-w-0 items-center gap-1.5 overflow-hidden px-4">
+      {/* Metadata wraps without clipping at narrow widths */}
+      <div className="flex min-h-5 min-w-0 flex-wrap items-center gap-1.5 px-4">
         {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
         {p.kind === "group" && <Badge variant="gold">Group</Badge>}
         {/* Beside the type badge a narrow card has no room for the country */}
@@ -96,13 +87,13 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
                 : "contents"
             }
           >
-            <Badge variant="muted" className="min-w-0">
-              <span className="truncate">{p.country}</span>
+            <Badge variant="muted" className="min-w-0 whitespace-normal">
+              <span className="[overflow-wrap:anywhere]">{p.country}</span>
             </Badge>
           </span>
         )}
       </div>
-      <p className="mt-2 lines-1 px-4 text-xs text-fg-secondary">
+      <p className="mt-2 min-h-[1lh] [overflow-wrap:anywhere] px-4 text-xs text-fg-secondary">
         {p.parentName ? `Imprint of ${p.parentName}` : null}
       </p>
       <div className="mt-auto flex items-center justify-between gap-2 px-4 pb-3.5 pt-3">
@@ -117,7 +108,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
             rel="noopener noreferrer"
             aria-label={`${p.name} website`}
             data-tooltip={`${p.name} website`}
-            className="relative z-20 hidden text-fg-muted transition-colors hover:text-accent-primary @[160px]:block"
+            className="relative z-20 flex h-7 w-7 items-center justify-center text-fg-secondary transition-colors hover:text-accent-primary pointer-coarse:h-11 pointer-coarse:w-11"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
           </a>

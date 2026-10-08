@@ -26,11 +26,11 @@ function Row({
     <section className="mb-10">
       <HorizontalCarousel title={title} titleHref={href}>
         {films.map((film) => (
-          <div key={film.id} className="w-[160px] flex-shrink-0 snap-start">
+          <div key={film.id} className="carousel-card">
             <FilmCard film={film} />
             {/* Why the card is here, under it, as on a book's related rows */}
             {caption && (
-              <p className="mt-1.5 lines-2 text-micro text-fg-secondary">{caption(film)}</p>
+              <p className="mt-1.5 min-h-[2lh] [overflow-wrap:anywhere] text-micro text-fg-secondary">{caption(film)}</p>
             )}
           </div>
         ))}

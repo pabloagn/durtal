@@ -36,12 +36,12 @@ export function RecentPeopleGrid({
   roles: Record<string, PersonRole[]>;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <div className="catalogue-grid">
       {people.map((author) => (
         <Link
           key={author.id}
           href={`/people/${author.slug ?? ""}`}
-          className="group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
+          className="catalogue-card group rounded-sm border border-glass-border bg-bg-secondary card-interactive"
         >
           {/* While the photo loads, the frame shows its main color */}
           <div
@@ -62,12 +62,12 @@ export function RecentPeopleGrid({
               <Monogram name={author.name} />
             )}
           </div>
-          <div className="p-3.5">
+          <div className="card-body">
             {/* The author card's layout: two name lines, one
                 nationality line, then years and the book count */}
             <CardHeading title={author.name} subtitle={author.nationality} />
             <PersonRoles roles={roles[author.id]} className="mt-1" />
-            <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
+            <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-2 font-mono text-micro text-fg-secondary">
               {author.birthYear && (
                 <span>
                   {`${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`}

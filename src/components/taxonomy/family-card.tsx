@@ -68,8 +68,8 @@ export function FamilyCard({ family }: FamilyCardProps) {
           </div>
         </CapAligned>
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <h3 className="type-item-title truncate transition-colors group-hover:text-accent-primary">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h3 className="type-item-title [overflow-wrap:anywhere] transition-colors group-hover:text-accent-primary">
               {family.name}
             </h3>
             {family.isSystem && (
@@ -79,15 +79,15 @@ export function FamilyCard({ family }: FamilyCardProps) {
             )}
           </div>
           {/* Two lines kept even without a description: equal card heights */}
-          <p className="mt-0.5 lines-2 text-xs leading-relaxed text-fg-secondary">
+          <p className="mt-0.5 min-h-[2lh] [overflow-wrap:anywhere] text-xs leading-relaxed text-fg-secondary">
             {family.description}
           </p>
-          <p className="mt-0.5 lines-1 text-xs text-fg-secondary">{appliesTo}</p>
+          <p className="mt-0.5 min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{appliesTo}</p>
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="mt-3 flex items-center gap-3 overflow-hidden whitespace-nowrap border-t border-glass-border/40 pt-2.5">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-glass-border/40 pt-2.5">
         <span className="font-mono text-micro text-fg-secondary">
           {family.itemCount} item{family.itemCount === 1 ? "" : "s"}
         </span>

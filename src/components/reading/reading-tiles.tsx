@@ -53,12 +53,12 @@ export function FinishedCovers({ reads, className }: { reads: FinishedItem[]; cl
       {reads.map((read) => (
         <Link key={read.id} href={read.href} className="group block min-w-0" data-hub-finished={read.id}>
           <Cover s3Key={read.cover} className="aspect-[2/3] w-full" />
-          <span className="lines-1 mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-primary">{read.title}</span>
+          <span className="block min-h-[1lh] [overflow-wrap:anywhere] mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-primary">{read.title}</span>
           {/* Stars, then the date: a narrow cover (six to a row) has no room for both on one line */}
           <span className="mt-1 flex h-5 items-center">
             <RatingStars value={read.rating} />
           </span>
-          <span className="lines-1 font-mono text-micro text-fg-secondary">{read.date}</span>
+          <span className="block min-h-[1lh] [overflow-wrap:anywhere] font-mono text-micro text-fg-secondary">{read.date}</span>
         </Link>
       ))}
     </div>
@@ -116,16 +116,16 @@ export function DashboardReading({
               <div key={tile.reading.readingId} className="flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3" data-dashboard-reading={tile.reading.readingId}>
                 <Cover s3Key={tile.cover} className="h-16 w-11" />
                 <div className="min-w-0 flex-1">
-                  {/* The title cuts off inside the link: the link's touch area is not clipped */}
+                  {/* The full title wraps inside the link and keeps its touch area */}
                   <Link href={tile.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                    <span className="lines-1">{tile.title}</span>
+                    <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{tile.title}</span>
                   </Link>
                   <ProgressBar value={tile.percent} label={tile.progressLabel} className="mt-2" />
                   <div className="mt-1.5 flex items-center justify-between gap-2">
-                    <span className="lines-1 text-xs text-fg-secondary">{tile.position}</span>
+                    <span className="block min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{tile.position}</span>
                     <LogButton reading={tile.reading} title={tile.title} />
                   </div>
-                  {tile.estimate && <EstimateLine estimate={tile.estimate} lines="lines-2" className="mt-1" />}
+                  {tile.estimate && <EstimateLine estimate={tile.estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
                 </div>
               </div>
             ))}
@@ -136,7 +136,7 @@ export function DashboardReading({
       {finished.length > 0 && (
         <section className="mt-12">
           <SectionHeading title="Recently finished" icon={BookCheck} action={<SectionLink href="/reading/journal" />} />
-          <FinishedCovers reads={finished} className="grid grid-cols-2 gap-4 sm:grid-cols-4" />
+          <FinishedCovers reads={finished} className="catalogue-grid" />
         </section>
       )}
     </>
@@ -169,11 +169,11 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
           <li key={row.reading.readingId} className="flex items-center gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
             <Cover s3Key={row.cover} className="h-12 w-8" />
             <div className="min-w-0 flex-1">
-              {/* The title cuts off inside the link: the link's touch area is not clipped */}
+              {/* The full title wraps inside the link and keeps its touch area */}
               <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                <span className="lines-1">{row.title}</span>
+                <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{row.title}</span>
               </Link>
-              <p className="lines-1 text-xs text-fg-secondary">{row.line}</p>
+              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line}</p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
               {row.translated && (

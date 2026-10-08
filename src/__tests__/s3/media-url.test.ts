@@ -51,10 +51,10 @@ describe("isMediaWidth", () => {
 describe("maxCardWidth", () => {
   it("is the widest card over every container width", () => {
     expect(maxCardWidth(2)).toBe(544);
-    expect(maxCardWidth(6)).toBe(184);
+    expect(maxCardWidth(6)).toBe(432);
   });
 
-  it("keeps the default grid at or under 400px on a 2x screen", () => {
-    expect(maxCardWidth(6) * 2).toBeLessThanOrEqual(400);
+  it("accounts for the single readable card before a second column fits", () => {
+    for (const columns of [3, 4, 5, 6, 7, 8]) expect(maxCardWidth(columns)).toBeGreaterThanOrEqual(432);
   });
 });

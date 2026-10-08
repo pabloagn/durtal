@@ -8,16 +8,16 @@ import { coverToneStyle } from "@/lib/utils/media-style";
 
 /**
  * The anatomy every work card shares, whatever its collection (SLN-478): the
- * picture's frame, then `CardHeading` (two title lines, one subtitle line),
+ * picture's frame, then the naturally wrapping `CardHeading`,
  * then `WorkCardInfo`. `BookCard` is the model; the film, perfume and
  * painting cards and the home page's tiles follow it, so cards of different
- * collections in one row line up: titles, subtitles and info rows at the
- * same heights.
+ * collections in one row share artwork/title starts and bottom-aligned
+ * info rows, while names and descriptions take the space they need.
  */
 export const WORK_CARD = "work-card group card-interactive";
 
 /** The text under a work card's picture */
-export const WORK_CARD_BODY = "p-3.5";
+export const WORK_CARD_BODY = "card-body";
 
 /**
  * A work card's info row: the status (or the open reading) on the left; the
@@ -47,7 +47,7 @@ export function WorkCardInfo({
   year?: ReactNode;
 }) {
   return (
-    <div className="mt-2.5 flex h-5 items-center gap-2">
+    <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1">
       {reading ? (
         <CardReading reading={reading} status={status} priority={priority} copies={copies} />
       ) : (
@@ -55,10 +55,9 @@ export function WorkCardInfo({
       )}
       {language && language !== "en" && (
         <span className="hidden @[200px]:contents">
-          {/* A long name ("Norwegian Bokmål") shrinks first and cuts off;
-              the status never does */}
-          <Badge variant="blue" className="min-w-0 shrink-[999]">
-            <span className="truncate">{languageName(language)}</span>
+          {/* Long language names wrap onto their own row when necessary */}
+          <Badge variant="blue" className="max-w-full whitespace-normal">
+            <span className="[overflow-wrap:anywhere]">{languageName(language)}</span>
           </Badge>
         </span>
       )}

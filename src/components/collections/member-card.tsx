@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 /**
  * One member of a collection, whatever it is: an edition of a book, a whole
  * book, a film, a perfume or a painting. Every card has the same frame and
- * fixed text lines, so a mixed collection keeps one height per row; the image
+ * naturally wrapping text, with each row stretching to its tallest member; the image
  * in the frame keeps its collection's shape (a cover, a poster, a bottle, a
  * picture), whole.
  */
@@ -42,19 +42,19 @@ export function MemberCard({
       >
         <div className="w-full">{image}</div>
       </Link>
-      {/* Fixed lines: every member card has the same height */}
+      {/* Text grows with its content instead of clipping */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <Link href={href} className="lines-2 type-item-title">
+        <Link href={href} className="block min-h-[2lh] [overflow-wrap:anywhere] type-item-title">
           {title}
         </Link>
-        <p className="mt-1 lines-1 text-sm text-fg-secondary">{byline}</p>
-        <p className="mt-2 lines-1 text-xs text-fg-secondary">{facts}</p>
+        <p className="mt-1 min-h-[1lh] [overflow-wrap:anywhere] text-sm text-fg-secondary">{byline}</p>
+        <p className="mt-2 min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{facts}</p>
         <p
-          className={`mt-1 lines-1 text-xs text-fg-secondary ${noteMono ? "font-mono" : ""}`}
+          className={`mt-1 min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary ${noteMono ? "font-mono" : ""}`}
         >
           {note}
         </p>
-        <div className="mt-auto flex items-center justify-between pt-3">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3">
           {actions}
         </div>
       </div>

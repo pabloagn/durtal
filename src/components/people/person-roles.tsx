@@ -21,7 +21,7 @@ export function PersonRoles({
   const line = formatPersonRoles(roles, preferKind, preferRoles);
   return (
     <p
-      className={`lines-1 text-xs text-fg-secondary ${className}`}
+      className={`min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary ${className}`}
       data-tooltip={line && line.full !== line.text ? line.full : undefined}
     >
       {line ? line.text : " "}

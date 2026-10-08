@@ -62,7 +62,7 @@ export function CollectionCard({
   const poster = collectionPoster(collection.media);
   const count = collectionCountLabel(collection);
   return (
-    <div className="group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
         href={`/collections/${collection.id}`}
         aria-label={`Open ${collection.name}`}
@@ -112,9 +112,8 @@ export function CollectionCard({
         )}
       </div>
 
-      {/* Two name lines and two description lines, always: every
-          collection card has the same height */}
-      <div className="p-3.5">
+      {/* The name and description grow naturally; the row aligns the card edges */}
+      <div className="card-body">
         <CardHeading
           title={collection.name}
           icon={
@@ -137,8 +136,8 @@ export function CollectionCard({
             )
           }
         />
-        <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
-          {footer && <span className="min-w-0 truncate">{footer}</span>}
+        <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
+          {footer && <span className="min-w-0 [overflow-wrap:anywhere]">{footer}</span>}
           <span className="ml-auto shrink-0">
             {count}
           </span>

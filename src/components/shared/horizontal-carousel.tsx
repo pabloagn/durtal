@@ -57,7 +57,7 @@ export function HorizontalCarousel({
   }
 
   return (
-    <div>
+    <div className="@container">
       <SectionHeading
         as={as}
         count={count}

@@ -58,7 +58,7 @@ export function CardStatus({
           className={`block h-1.5 w-1.5 rounded-full ${STATUS_DOT[details.info.variant]}`}
         />
       </CapAligned>
-      <span className="truncate">{details.info.label}</span>
+      <span className="[overflow-wrap:anywhere]">{details.info.label}</span>
     </span>
   );
 }
@@ -92,7 +92,7 @@ export function CardReading({
           className={`block h-1.5 w-1.5 rounded-full ${reading.state === "reading" ? "bg-accent-blue" : "bg-fg-secondary"}`}
         />
       </CapAligned>
-      <span className="truncate">{cardReadingLabel(reading)}</span>
+      <span className="[overflow-wrap:anywhere]">{cardReadingLabel(reading)}</span>
     </span>
   );
 }

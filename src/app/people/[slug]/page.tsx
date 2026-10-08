@@ -350,7 +350,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                 )}
                 <PaginatedSection {...paging} noun="books">
                 <div
-                  className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${hasRecord ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
+                  className="catalogue-grid"
                 >
                   {paging.items.map((work) => {
                     const workActivePoster = work.media?.find(
@@ -410,7 +410,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
               <section key={group.kind} className="mb-8">
                 <SectionHeading title={group.label} count={group.cards.length} />
                 <div
-                  className={`grid grid-cols-2 gap-4 sm:grid-cols-3 ${hasRecord ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}
+                  className="catalogue-grid"
                 >
                   {group.cards.map(({ id, card }) => (
                     <div key={id}>

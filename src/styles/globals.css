@@ -359,9 +359,39 @@ dialog::backdrop {
    one short class each, not a long list, since every card of a page repeats
    them (page weight, SLN-524). On touch the copy chip moves left, so its
    44px press area and the menu's do not overlap. */
+/* Readable catalogue cards grow with their text; rows stretch to the tallest
+   member. Shelves size against their own container, not the viewport. */
+@utility catalogue-card {
+  @apply flex h-full min-w-0 flex-col;
+}
+@utility card-body {
+  @apply flex min-w-0 flex-1 flex-col p-3.5;
+  & > :last-child:not(.card-heading) {
+    margin-top: auto;
+    padding-top: 10px;
+    height: auto;
+    min-height: 30px;
+  }
+}
+@utility catalogue-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 208px), 1fr));
+}
+@utility carousel-card {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 clamp(min(100%, 208px), 32cqi, 256px);
+  min-width: 0;
+  scroll-snap-align: start;
+  & > .work-card, & > .catalogue-card {
+    flex: 1;
+    height: auto;
+  }
+}
 @utility work-card {
   container-type: inline-size;
-  @apply relative rounded-sm border border-glass-border bg-bg-secondary;
+  @apply catalogue-card relative rounded-sm border border-glass-border bg-bg-secondary;
 }
 @utility cover-image {
   @apply absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02];
