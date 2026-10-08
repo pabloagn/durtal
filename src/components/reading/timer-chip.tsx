@@ -54,12 +54,19 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
   const paused = !!timer.pausedAt;
   const ask = !paused && shouldAsk(elapsed, checkMinutes);
   const name = `Timer for ${timer.title}, ${durationSpoken(elapsed)}${paused ? ", paused" : ""}`;
+  const longHours = elapsed >= 100 * 3600;
+  const compactClock = elapsed >= 10 * 3600 ? `${Math.floor(elapsed / 3600)}h` : clockText(elapsed).slice(0, -3).replace(":", "h");
   const time = (
     <span className={`tabular-nums ${paused ? "text-fg-secondary" : "text-fg-primary"}`} aria-hidden>
       {layout !== "phone" && elapsed >= 3600 ? (
         <>
-          <span className={layout === "rail" ? "hidden" : "@max-[71px]/timer-time:hidden"}>{clockText(elapsed)}</span>
-          <span className={layout === "rail" ? "" : "hidden @max-[71px]/timer-time:inline"}>{clockText(elapsed).slice(0, -3).replace(":", "h")}</span>
+          <span className={layout === "rail" ? "hidden" : longHours ? "@max-[82px]/timer-time:hidden" : "@max-[71px]/timer-time:hidden"}>{clockText(elapsed)}</span>
+          <span className={layout === "rail" ? "" : longHours ? "hidden @max-[82px]/timer-time:inline" : "hidden @max-[71px]/timer-time:inline"}>{compactClock}</span>
+        </>
+      ) : layout === "expanded" && elapsed >= 600 ? (
+        <>
+          <span className="@max-[47px]/timer-time:hidden">{clockText(elapsed)}</span>
+          <span className="hidden @max-[47px]/timer-time:inline">{Math.floor(elapsed / 60)}m</span>
         </>
       ) : clockText(elapsed)}
     </span>

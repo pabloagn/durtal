@@ -142,7 +142,7 @@ describe("the timer chip", () => {
     expect(stop.getAttribute("data-tooltip")).toBe("Stop timer");
     // The time never jitters and is not a live region
     const time = chip.querySelector(".tabular-nums")!;
-    expect(time.textContent).toMatch(/^12:0\d$/);
+    expect(time.firstElementChild?.textContent ?? time.textContent).toMatch(/^12:0\d$/);
     expect(chip.querySelector("[aria-live]")).toBeNull();
     if (layout === "expanded") {
       const pause = chip.querySelector("[data-timer-pause]")!;
@@ -167,8 +167,11 @@ describe("the timer chip", () => {
   it.each([
     [3599, "59:59", "59 minutes"],
     [3600, "1h00", "1 hour"],
-    [43199, "11h59", "11 hours 59 minutes"],
-    [360000, "100h00", "100 hours"],
+    [35999, "9h59", "9 hours 59 minutes"],
+    [36000, "10h", "10 hours"],
+    [43199, "11h", "11 hours 59 minutes"],
+    [360000, "100h", "100 hours"],
+    [363599, "100h", "100 hours 59 minutes"],
   ])("keeps the rail clock unambiguous at %s seconds", async (seconds, visible, spoken) => {
     const pausedAt = new Date().toISOString();
     await renderChip("rail", running({ startedAt: new Date(Date.parse(pausedAt) - Number(seconds) * 1000).toISOString(), pausedAt }));
