@@ -1,6 +1,6 @@
 # Task 0415: Unify action control scale (SLN-564)
 
-**Status**: In Progress
+**Status**: In Review
 **Created**: 2026-10-08
 **Priority**: HIGH
 **Type**: Enhancement
@@ -29,40 +29,27 @@ Assessed the shared Button/buttonClass, EntityActionMenu, FavouriteToggle, Expor
 
 ## Completion Notes
 
-Prepared on isolated branch `codex/sln-564-action-control-scale`, based on main `ca85766f855cc57a07506a46074212194e607f18`. No new dependencies, schema changes or live data writes.
+Ready for independent review on `codex/sln-564-action-control-scale`, PR #182. Final rendered source is `86d8269b21c2c686501565e6abcdc9f26929ca04`; this completion record is a later documentation-only update. No new dependencies, schema changes or live data writes.
 
-Focused validation:
+### Integration and corrections
 
-- TypeScript `tsc --noEmit`: pass.
-- ESLint `eslint src/`: pass, 0 errors / 75 warnings.
-- Four focused suites: 17/17 pass, zero skipped (cap-aligned menus, exports, selection, collection views).
-- Tailwind/PostCSS compilation: pass. A static headless fixture caught an inherited utility media-order issue in sm; the explicit sm declaration now retains 44px touch targets.
-- Static fixture using actual Button, EntityActionMenu, ExportMenu, CopyBookButton, CapAlignedControls and Dialog (synthetic favourite/collection paint): short/long titles and short/long/absent descriptions, mixed labels/icons, long labels and disabled controls. This is primitive evidence, not full application route QA.
-- Headless Chrome at 1200px and 390px coarse pointer: every header icon target is 32px desktop / 44px touch, icons 16px, centers identical within each row, no touch overlaps or phone overflow. Repository alignment audit: 25 desktop / 17 phone checks, zero deviations over 0.5px. Dialog coarse check: both controls 44px, 21 alignment checks with no deviations.
-- Enter opens the real entity menu and focuses its first item; Escape (key code 27) closes it and returns focus. Menu-open/closed boxes are identical. Dialog Escape closes it. Headless desktop hover flags match owner instructions.
-- Evidence: `/tmp/sln-564-controls-results.json`, `/tmp/sln-564-controls-desktop.png`, `/tmp/sln-564-controls-touch.png`, `/tmp/sln-564-controls-menu-open.png`; supplied screenshots are the before evidence. Logs use `/tmp/sln-564-*`.
-- pnpm's sandboxed launcher stalled; checks ran with the same installed project executables. The locked-package installation completed using pnpm 10.26.1; lockfile unchanged.
+- Additive merge `f11b71f6e0489f9d9cdbb3e1060ffb861b8ed55e` integrates reviewed menu source `c6033fe6cf1b0bf0cb9098b41dd9c5680153e242`. The EntityActionMenu conflict preserves this ticket's action trigger and the menu ticket's separate shortcut API. No dropdown source change is owned by this ticket.
+- Additive main reconciliation `22276e1b685d373ac19baff6fb8eca8950b5f8ae` includes landed menu PR #183 (`c014d42241ce86eb0de8091ff300f96dcc8d1eed`). Its tracked tree is identical to corrected source `a7100f8fd1eb483189ef059832991a38cebc4310`; proof: `/tmp/sln-564-main-reconciliation.json`.
+- Review and actual application measurements corrected overlapping taxonomy touch rows, multiline first-line alignment and the FavouriteToggle inline-flex baseline. Taxonomy rows retain 36px desktop height, grow from 49px with wrapped touch labels, and contain their separate 44px action targets. Favourite controls use flex to preserve cap alignment.
+- After the full suite, two strictly presentational taxonomy classes changed: `0ef06dc15920881fb7d140a114cdbcce88416d8f` uses flex for the colour slot on both pointer types, eliminating a measured 2px desktop dot offset with actual Inter; `86d8269b21c2c686501565e6abcdc9f26929ca04` reveals drag handles at 60% opacity on coarse pointers. Neither changes handlers, data flow or DOM contracts. Source through `0ef06dc1` received independent approval; the final visibility delta still requires independent review.
 
-Independent review requested a correction to taxonomy touch spacing: the 44px ellipsis targets extended beyond the existing 36px rows and overlapped vertically by 8px. Coarse-pointer rows now have automatic height, a 48px minimum and vertical padding; coarse-pointer names wrap, including unbroken labels. Desktop rows retain their 36px height and truncated names.
+### Completed local validation
 
-Review-fix validation:
+- Full `pnpm test:local` on corrected source `a7100f8f` / identical-tree reconciliation `22276e1b`: **304 files, 3,283 tests, zero skipped**, plus three Python test scripts. Isolated test databases and the test container were removed. Report: `/private/var/folders/th/0crh6pkx2nb4y2g2hv8jh3sc0000gn/T/durtal-tests-i99i_cs2/summary.json`; log: `/tmp/sln-564-corrected-full-tests.log`.
+- Final source `86d8269b`: typecheck passes; lint passes with zero errors / 75 existing warnings; four affected focused suites pass **12/12, zero skipped**; production build passes; Docker build passes (`durtal-sln-564:86d8269b`, no registry push). Evidence: `/tmp/sln-564-final-style-validation.json` and `/tmp/sln-564-final-style-{typecheck,lint,focused,build,docker}.log`.
+- Broad production matrix on `0ef06dc1`: **35 distinct routes, 152 route/layout/browser configurations, 3,113 alignment checks**, zero alignment, overlap, viewport-overflow or icon-size failures. Chromium covers 1280/736px fine and 390/320px coarse layouts; WebKit covers representative desktop/coarse routes. Synthetic short/long/absent work descriptions, long person names, and flat/nested taxonomy names are exercised. Evidence: `/tmp/sln-564-app-matrix-results.json`.
+- Final source `86d8269b` affected reruns: actual Inter taxonomy checks at 1280px fine and 390/320/280px coarse pass for flat and nested lists. Colour/action centres match exactly; first-line icon offsets stay within 0.32px fine / 0.18px coarse; action targets are 44×44px on touch with zero adjacent-row overlap or viewport overflow. Idle coarse drag handles are visible; keyboard focus has full opacity and an outline. Rename, collapse/expand and menu keyboard handling pass. Evidence: `/tmp/sln-564-app-taxonomy-results.json` and `/tmp/sln-564-taxonomy-app-{tree,flat}-{1280,390,320,280}.png`.
+- Final Chromium and WebKit state checks cover desktop and 320px touch layouts. Each case measures **all 12 expected selection-toolbar operations**, at 28px desktop / 44px touch, with zero overlap or alignment findings. Stable busy Export/favourite boxes, 16px layout icons, disabled/aria-busy states, inset focus, hover/active/open geometry and dialog keyboard/focus return all pass. Evidence: `/tmp/sln-564-app-states-results.json` and `/tmp/sln-564-app-{chromium,webkit}-{desktop,touch}-selection.png`. Earlier empty selection arrays were a locator error and are not evidence; the final locator is anchored to visible Exit selection and requires every expected operation. Dialog measurements wait for the existing entrance animation to settle.
+- Reduced-motion and visualViewport-fallback checks pass in Chromium and WebKit; Chromium reduced-transparency menus use opaque fill without backdrop blur. Evidence: `/tmp/sln-564-app-fallback-motion.json`. Browser evidence covers current Chromium / Playwright WebKit, not an unspecified legacy browser.
+- Final page-weight audit passes all **30 populated routes**; three optional empty-fixture routes skip. The original repository interaction audit passed work/person/queue/note routes and found seven hover-only taxonomy drag handles. The final affected two-route taxonomy rerun has **no failures**. Historical failures remain recorded honestly in `/tmp/sln-564-interaction.log`; final results are `/tmp/sln-564-final2-page-weight.log`, `/tmp/sln-564-final2-interaction-taxonomy.log` and `/tmp/sln-564-final2-browser-validation.json`.
 
-- Typecheck passes; lint passes with 0 errors / 75 existing warnings. Five focused suites pass: 30/30 tests, zero skipped (the original four plus publisher taxonomy).
-- Actual TaxonomyTree/TaxonomyItemRow/DropdownMenu static fixture covers nested parent/leaf and flat rows, a standalone row without drag actions, plus a synthetic no-action row copied from the rendered row. At 390px, 320px and 280px coarse pointer, ellipsis targets measure 44×44px; all adjacent row hit targets have zero overlap and the viewport has zero horizontal overflow. Rows grow from 49px as labels wrap; the synthetic no-action row remains at least 48px. Desktop rows measure 36px.
-- Enter collapses a parent, Space expands it, Enter opens Actions and focuses Rename, Escape returns focus to Actions. Rename focuses its input; Enter commits once and Escape cancels without another rename and exits edit mode.
-- Evidence: `/tmp/sln-564-taxonomy-results.json`, `/tmp/sln-564-taxonomy-{390,320,280}.png`; fixture source/check scripts in `/tmp/sln-564-taxonomy-fixture/`; affected check logs `/tmp/sln-564-taxonomy-{typecheck,lint,focused-tests,static}.log`.
-- Additive review fix is ready for independent delta review. Full application QA still requires the coordinator's heavy slot.
+### Cleanup and remaining gates
 
-### Integration and production alignment correction
+The production preview on port 3422 is stopped, disposable container `durtal-preview-4ef9777c` is removed, and this worker's heavy-test lock is released. Enriched disposable fixtures remain at `/tmp/sln-564-fixtures.dump`; shared media remains at `/tmp/durtal-quiet-glass-s3`. Keep the worktree available.
 
-The coordinator granted the heavy slot. Additive merge `f11b71f6e0489f9d9cdbb3e1060ffb861b8ed55e` integrates reviewed menu head `c6033fe6cf1b0bf0cb9098b41dd9c5680153e242`. The EntityActionMenu conflict preserves this ticket's `action-icon` trigger and the menu ticket's separate shortcut API; globals retain both action utilities and menu tracks.
-
-That integration passed typecheck, lint (0 errors / 75 warnings), all 304 files / 3,283 tests with zero skipped and three Python scripts, production build and Docker build. Production page-weight checks passed all 30 populated routes; three optional empty-fixture routes skipped. These checks preceded the alignment correction below and final validation will run again on the corrected source.
-
-Production measurements found favourite icons 12px off in cap-aligned collection/place slots (6px on touch) because the shared inline-flex baseline changed their placement. FavouriteToggle now uses a flex block, preserving target dimensions and eliminating the measured offset. Wrapped coarse-pointer taxonomy names also placed controls on the multiline block's centre. Their first line now reserves 44px; the row's controls, colour/count slots and rename input align to that line, while later lines retain the normal text leading. Nested collapse indicators follow the first line. A direct prototype measurement put both row icons within 0.18px of the text cap centre, with separate 44px action targets contained by their rows.
-
-Final heavy validation is in progress. Independent integration/alignment delta review, reconciliation with origin/main after PR #183 lands, final published-head CI and an explicit merge slot remain required. Preview port is **3422**; enriched synthetic fixtures are preserved at `/tmp/sln-564-fixtures.dump`, shared media at `/tmp/durtal-quiet-glass-s3`. Keep this worktree available; do not merge or archive at this checkpoint.
-
-Independent delta review found the colour slot's anonymous desktop line box placed dots 2px below action icons with Inter. The slot now uses flex on both pointer types, preserving its 44px coarse height. A prototype using the exact built app Inter font measured desktop offset 2px → 0px and unchanged 0px offsets at 390/320/280px. The full suite on the preceding source completed successfully and remains the logic-coverage evidence; this one-class styling delta changes no handlers, data flow or DOM contract. Final typecheck/lint, production/Docker builds and actual-font browser measurements cover the corrected rendered styles.
-
-The repository interaction audit passed work/person/queue/note routes but found seven taxonomy drag handles hidden on coarse pointers. They now use the existing 60% reveal opacity on coarse pointers as well as desktop hover, preserving keyboard focus visibility, dimensions and drag handlers. Affected taxonomy interaction/render checks and final builds cover this visibility-only correction. Selection evidence is being rechecked with a locator anchored to the visible Exit selection button and assertions requiring all twelve operations; earlier empty-array assertions are not accepted as toolbar evidence.
+Independent review of the final visibility/documentation delta, green CI on the final published documentation head and an explicit coordinator merge slot remain required. Do not merge or archive at this checkpoint. Linear is moving to In Review; no completion or merge is claimed.
