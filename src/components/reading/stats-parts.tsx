@@ -52,7 +52,7 @@ export function RankList({ title, items }: { title?: string; items: RankItem[] }
             <div className="flex items-baseline justify-between gap-3 text-sm">
               {item.href ? (
                 // The label cuts off inside the link: the link's touch area is not clipped
-                <Link href={item.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+                <Link href={item.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-primary touch-hit">
                   <span className="lines-1">{item.label}</span>
                 </Link>
               ) : (
@@ -86,7 +86,7 @@ export function NameList({ people, max = 24 }: { people: { authorId: string; nam
       {people.slice(0, max).map((a, i) => (
         <span key={a.authorId}>
           {i > 0 && ", "}
-          <Link href={`/people/${a.slug}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+          <Link href={`/people/${a.slug}`} className="text-fg-primary transition-colors hover:text-accent-primary">
             {a.name}
           </Link>
         </span>

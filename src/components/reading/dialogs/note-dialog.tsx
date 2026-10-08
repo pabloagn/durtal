@@ -218,7 +218,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
             autoFocus={!coarse}
             aria-describedby={coarse && !body ? hintId : undefined}
             placeholder={kind === "quote" ? "The words as the book has them" : "Your note"}
-            className="w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-rose focus:outline-none pointer-coarse:text-base"
+            className="w-full rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm text-fg-primary transition-colors placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:text-base"
             data-note-body=""
           />
           {coarse && !body && (

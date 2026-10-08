@@ -166,7 +166,7 @@ export function SeriesFormDialog({
                 checked={isComplete}
                 onChange={(e) => setIsComplete(e.target.checked)}
                 disabled={pending}
-                className="h-4 w-4 rounded-sm border-glass-border accent-accent-rose"
+                className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
               />
               Series is complete
             </label>

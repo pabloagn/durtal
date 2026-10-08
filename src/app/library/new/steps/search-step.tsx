@@ -96,7 +96,7 @@ export function SearchStep({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-9 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
+            className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-9 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
             autoFocus
           />
           {isSearching && (

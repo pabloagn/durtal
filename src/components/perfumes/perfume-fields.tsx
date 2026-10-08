@@ -63,7 +63,7 @@ export function OrganizationRolesField({
               if (taken(entry.organizationId, role, index)) return;
               onChange(value.map((o, i) => (i === index ? { ...o, role } : o)));
             }}
-            className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-rose focus:outline-none"
+            className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none"
           >
             {Object.entries(PERFUME_ORGANIZATION_ROLE_LABELS).map(([role, label]) => (
               <option
@@ -177,7 +177,7 @@ export function CreditListField({
                   ),
                 )
               }
-              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-rose focus:outline-none"
+              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none"
             >
               {Object.entries(PERFUME_CREDIT_ROLE_LABELS).map(([role, roleLabel]) => (
                 <option key={role} value={role}>

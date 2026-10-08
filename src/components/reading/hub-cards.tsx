@@ -36,7 +36,7 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
       <div className="min-w-0 flex-1">
         <CardHeading
           title={
-            <Link href={href} className="transition-colors hover:text-accent-rose-text">
+            <Link href={href} className="transition-colors hover:text-accent-primary">
               {open.work.title}
             </Link>
           }
@@ -65,7 +65,7 @@ export function PausedRow({ open, day }: { open: OpenReading; day: DayContext })
       <Cover s3Key={open.cover} className="h-12 w-8" />
       <div className="min-w-0 flex-1">
         {/* The title cuts off inside the link: the link's touch area is not clipped */}
-        <Link href={bookHref(open.work)} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+        <Link href={bookHref(open.work)} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
           <span className="lines-1">{open.work.title}</span>
         </Link>
         <p className="lines-1 text-xs text-fg-secondary">

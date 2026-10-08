@@ -133,7 +133,7 @@ export function AddSeriesBooksDialog({
                         return next;
                       })
                     }
-                    className="h-4 w-4 rounded-sm border-glass-border accent-accent-rose"
+                    className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
                   />
                   <div className="flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
                     {w.cover && (

@@ -69,7 +69,7 @@ export function FamilyCard({ family }: FamilyCardProps) {
         </CapAligned>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <h3 className="type-item-title truncate transition-colors group-hover:text-accent-rose-text">
+            <h3 className="type-item-title truncate transition-colors group-hover:text-accent-primary">
               {family.name}
             </h3>
             {family.isSystem && (

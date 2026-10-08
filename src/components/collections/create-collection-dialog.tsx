@@ -67,7 +67,7 @@ export function CreateCollectionDialog({
             requestId.current = crypto.randomUUID();
             setOpen(true);
           }}
-          variant="primary"
+          variant="secondary" size="sm"
           data-tooltip="New collection"
           data-tooltip-keys="a then c"
         >
@@ -87,6 +87,8 @@ export function CreateCollectionDialog({
         <form onSubmit={submit} className="space-y-4">
           <Input
             label="Name"
+            appearance="open"
+            className="font-medium text-lg"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Strange tales"

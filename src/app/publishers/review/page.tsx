@@ -56,7 +56,7 @@ export default async function ReviewPublisherNames({
         <p className="mb-4 text-sm">
           <Link
             href="/publishers/review"
-            className="text-accent-rose-text transition-colors hover:text-fg-primary"
+            className="text-accent-primary transition-colors hover:text-fg-primary"
           >
             Show every name
           </Link>

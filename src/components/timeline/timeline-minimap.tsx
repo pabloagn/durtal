@@ -147,7 +147,7 @@ export function TimelineMinimap({
             bottom: 0,
             left: `${leftPct}%`,
             width: `${widthPct}%`,
-            backgroundColor: "var(--color-accent-rose)",
+            backgroundColor: "var(--color-accent-primary)",
             opacity: 0.35,
             borderRadius: "var(--radius-sm)",
             cursor: "grab",

@@ -79,7 +79,7 @@ export function AuthorCard({
     }
   }
 
-  const selectionRing = isSelected ? "ring-2 ring-accent-rose/50" : "";
+  const selectionRing = isSelected ? "ring-2 ring-accent-primary/50" : "";
 
   return (
     <div
@@ -138,7 +138,7 @@ export function AuthorCard({
           <div
             className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
               isSelected
-                ? "border-accent-rose bg-accent-rose text-fg-primary"
+                ? "border-accent-primary bg-selection-bg text-fg-primary"
                 : "glass-chip text-transparent"
             }`}
           >

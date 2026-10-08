@@ -227,7 +227,7 @@ export function CommentEditor({
             type="button"
             onClick={handleSubmit}
             disabled={submitting || editorEmpty}
-            className="flex h-6 w-6 items-center justify-center rounded-sm bg-accent-rose/80 text-fg-primary transition-colors hover:bg-accent-rose disabled:opacity-30 disabled:cursor-not-allowed"
+            className="flex h-6 w-6 items-center justify-center rounded-sm bg-action-fill text-action-fg transition-colors hover:bg-action-hover disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ArrowUp className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

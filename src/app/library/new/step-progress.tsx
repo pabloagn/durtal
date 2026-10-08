@@ -23,7 +23,7 @@ export function StepProgress({
       {/* Six labels need about 600px: a narrow screen shows the current
           step and a bar, as the order dialog does */}
       <div className="sm:hidden">
-        <p className="text-micro font-medium text-accent-rose-text">
+        <p className="text-micro font-medium text-accent-primary">
           Step {currentIdx + 1} of {STEPS.length} — {STEPS[currentIdx].label}
         </p>
         <div className="mt-1 flex gap-1.5">
@@ -42,7 +42,7 @@ export function StepProgress({
                   i < currentIdx
                     ? "bg-accent-sage"
                     : i === currentIdx
-                      ? "bg-accent-rose/60"
+                      ? "bg-accent-primary/60"
                       : "bg-bg-tertiary"
                 }`}
               />
@@ -67,7 +67,7 @@ export function StepProgress({
                 onClick={() => isCompleted && onStep(s.key)}
                 className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
                   isCurrent
-                    ? "bg-accent-plum text-accent-rose-text"
+                    ? "bg-selection-bg text-accent-primary"
                     : isCompleted
                       ? "text-fg-secondary hover:text-fg-primary cursor-pointer"
                       : "text-fg-secondary cursor-default"

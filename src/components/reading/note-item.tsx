@@ -24,7 +24,7 @@ export function NoteItemView({ note, meta, controls }: { note: Pick<NoteItem, "i
   return (
     <div data-note={note.id} data-note-kind={note.kind}>
       {note.kind === "quote" ? (
-        <blockquote className="border-l-2 border-accent-rose/40 pl-4">
+        <blockquote className="border-l-2 border-accent-primary/40 pl-4">
           <Prose className={clamp}>{text}</Prose>
         </blockquote>
       ) : (

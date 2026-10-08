@@ -16,7 +16,7 @@ export default function ImportPage() {
 
       <p className="mb-6 text-sm text-fg-secondary" data-reading-import-link="">
         Importing reading history from Goodreads or StoryGraph? Use{" "}
-        <Link href="/reading/import" className="text-fg-primary underline decoration-glass-border underline-offset-2 transition-colors hover:text-accent-rose-text">
+        <Link href="/reading/import" className="text-fg-primary underline decoration-glass-border underline-offset-2 transition-colors hover:text-accent-primary">
           Reading › Import
         </Link>
       </p>

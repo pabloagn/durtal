@@ -60,7 +60,7 @@ export function SeriesSuggestions({
             {showSeriesTitles ? (
               <Link
                 href={`/series/${seriesId}`}
-                className="type-item-title hover:text-accent-rose-text"
+                className="type-item-title hover:text-accent-primary"
               >
                 {items[0].seriesTitle}
               </Link>

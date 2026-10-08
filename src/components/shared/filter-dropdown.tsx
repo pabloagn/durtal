@@ -71,7 +71,7 @@ interface FilterDropdownProps {
 /** A count badge: a group's or a section's chosen values */
 function CountBadge({ count }: { count: number }) {
   return (
-    <span className="flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full bg-accent-plum/30 px-1 text-micro font-medium leading-none text-fg-secondary">
+    <span className="flex h-[16px] min-w-[16px] shrink-0 items-center justify-center rounded-full bg-selection-bg/30 px-1 text-micro font-medium leading-none text-fg-secondary">
       {count}
     </span>
   );
@@ -120,7 +120,7 @@ function OptionRow({
           <span
             aria-hidden
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
-              checked ? "border-accent-plum bg-accent-plum" : "border-glass-border bg-transparent"
+              checked ? "border-selection-bg bg-selection-bg" : "border-glass-border bg-transparent"
             }`}
           >
             {checked && (
@@ -302,7 +302,7 @@ export function FilterDropdown({
                   [group.key]: e.target.value,
                 }))
               }
-              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs text-fg-secondary outline-none placeholder:text-fg-muted/60 focus:border-accent-rose"
+              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs text-fg-secondary outline-none placeholder:text-fg-muted/60 focus:border-accent-primary"
             />
           </div>
         )}
@@ -365,14 +365,14 @@ export function FilterDropdown({
         onFocus={onIntent}
         className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
           activeCount > 0
-            ? "bg-accent-plum/20 text-fg-primary"
+            ? "bg-selection-bg/20 text-fg-primary"
             : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
         }`}
       >
         <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
         Filter
         {activeCount > 0 && (
-          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent-rose text-micro font-medium leading-none text-fg-primary">
+          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-selection-bg text-micro font-medium leading-none text-fg-primary">
             {activeCount}
           </span>
         )}
@@ -396,7 +396,7 @@ export function FilterDropdown({
                 onClick={() => {
                   onClearAll();
                 }}
-                className="text-xs text-accent-rose-text transition-colors hover:text-accent-rose-text/80"
+                className="text-xs text-accent-primary transition-colors hover:text-accent-primary/80"
               >
                 Clear all
               </button>

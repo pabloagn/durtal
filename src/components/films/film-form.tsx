@@ -113,7 +113,7 @@ function SameTitle({ title }: { title: string }) {
           <li key={film.id} className="text-fg-secondary">
             <Link
               href={filmHref(film)}
-              className="text-fg-primary transition-colors hover:text-accent-rose-text"
+              className="text-fg-primary transition-colors hover:text-accent-primary"
             >
               {film.title}
             </Link>
@@ -124,7 +124,7 @@ function SameTitle({ title }: { title: string }) {
             {" · "}
             <Link
               href={`${filmHref(film)}?add=version`}
-              className="text-accent-rose-text transition-colors hover:text-fg-primary"
+              className="text-accent-primary transition-colors hover:text-fg-primary"
             >
               Add a version to it
             </Link>

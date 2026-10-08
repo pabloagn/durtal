@@ -53,7 +53,7 @@ export function MultiSelectSection({
           placeholder={`Filter ${title.toLowerCase()}...`}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="mb-2 h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
+          className="mb-2 h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
         />
       )}
       {items.length === 0 ? (

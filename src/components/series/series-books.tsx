@@ -81,7 +81,7 @@ function PositionField({
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         if (e.key === "Escape") setValue(book.position ?? "");
       }}
-      className="h-7 w-12 rounded-sm border border-glass-border bg-bg-primary/80 text-center font-mono text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+      className="h-7 w-12 rounded-sm border border-glass-border bg-bg-primary/80 text-center font-mono text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
     />
   );
 }
@@ -146,7 +146,7 @@ export function SeriesBooks({
           <div className="min-w-0 flex-1">
             <div className="type-item-title flex items-start gap-4">
               <Link href={`/library/${book.slug}`} className="min-w-0 flex-1">
-                <h3 className="line-clamp-1 text-fg-primary hover:text-accent-rose-text">
+                <h3 className="line-clamp-1 text-fg-primary hover:text-accent-primary">
                   {book.title}
                 </h3>
               </Link>

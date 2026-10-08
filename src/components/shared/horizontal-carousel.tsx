@@ -65,7 +65,7 @@ export function HorizontalCarousel({
           titleHref ? (
             <a
               href={titleHref}
-              className="transition-colors hover:text-accent-rose-text"
+              className="transition-colors hover:text-accent-primary"
             >
               {title}
             </a>

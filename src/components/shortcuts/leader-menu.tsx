@@ -56,7 +56,7 @@ export function LeaderMenu({
                 data-active={i === active || undefined}
                 onMouseEnter={() => onActiveChange(i)}
                 onClick={() => onPick(i)}
-                className="flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors data-[active]:bg-accent-plum/60 data-[active]:text-fg-primary"
+                className="flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors data-[active]:bg-selection-bg/60 data-[active]:text-fg-primary"
               >
                 <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                 {/* The label and its smaller preview share one baseline */}

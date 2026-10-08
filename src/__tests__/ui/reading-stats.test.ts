@@ -168,7 +168,7 @@ describe("the stats charts", () => {
     await key(frame, "Home");
     expect(caption()).toBe("January 2025: 3 books");
     // The focused bar has an outline
-    expect(figure.querySelectorAll('svg [stroke="var(--color-accent-rose)"]')).toHaveLength(1);
+    expect(figure.querySelectorAll('svg [stroke="var(--color-accent-primary)"]')).toHaveLength(1);
   });
 
   it("moves through the calendar a day with Left and Right and a week with Up and Down", async () => {

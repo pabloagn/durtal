@@ -254,7 +254,7 @@ export function InstanceDetail({
                   {/* A full page load: the reader's page brings its own content policy (eBooks sub-issue 3) */}
                   <a
                     href={`/reader/${ebook.id}`}
-                    className="ml-3 text-fg-primary transition-colors hover:text-accent-rose-text"
+                    className="ml-3 text-fg-primary transition-colors hover:text-accent-primary"
                   >
                     Open
                   </a>

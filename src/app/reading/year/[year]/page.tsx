@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ year: str
 }
 
 const book = (b: { slug: string | null; workId: string }) => `/library/${b.slug ?? b.workId}`;
-const link = "text-fg-primary transition-colors hover:text-accent-rose-text";
+const link = "text-fg-primary transition-colors hover:text-accent-primary";
 const evidence = "text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit";
 /** Covers a month shows at most; the rest are a "+38" tile to the journal, so a year of hundreds stays within the page budget */
 const WALL_MONTH = 12;
@@ -170,7 +170,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                     <span className="mb-2 block text-xs text-fg-secondary">{label}</span>
                     <Cover s3Key={b!.cover} className="aspect-[2/3] w-full" eager />
                     <div className="mt-2">
-                      <CardHeading title={b!.title} subtitle={words(b!)} titleClassName="transition-colors group-hover:text-accent-rose-text" />
+                      <CardHeading title={b!.title} subtitle={words(b!)} titleClassName="transition-colors group-hover:text-accent-primary" />
                     </div>
                   </Link>
                 </li>
@@ -239,7 +239,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
               }
             />
             <figure>
-              <blockquote className="border-l-2 border-accent-rose/40 pl-4">
+              <blockquote className="border-l-2 border-accent-primary/40 pl-4">
                 <Prose>
                   <p className="whitespace-pre-line break-words">{review.favouritePassage.body}</p>
                 </Prose>

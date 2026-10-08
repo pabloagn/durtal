@@ -142,7 +142,7 @@ export function TiptapEditor({
           {label}
         </label>
       )}
-      <div className="rounded-sm border border-glass-border bg-bg-secondary/30 focus-within:border-accent-rose">
+      <div className="rounded-sm border border-glass-border bg-bg-secondary/30 focus-within:border-accent-primary">
         <EditorContent editor={editor} />
         <div className="flex items-center justify-between border-t border-glass-border px-1.5 py-1">
           <div className="flex flex-wrap items-center gap-0.5" role="toolbar" aria-label={`${label} formatting`}>

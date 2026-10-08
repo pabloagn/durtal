@@ -53,7 +53,7 @@ export function RowCheckbox({ checked }: { checked: boolean }) {
     <div
       className={`absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-[2px] border transition-colors ${
         checked
-          ? "border-accent-rose bg-accent-rose text-fg-primary"
+          ? "border-accent-primary bg-selection-bg text-fg-primary"
           : "glass-chip text-transparent"
       }`}
     >
@@ -105,7 +105,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
         return (
         <div
           key={book.workId}
-          className={`group flex items-start gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 ${isSelected ? "bg-accent-rose/5" : ""}`}
+          className={`group flex items-start gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 ${isSelected ? "bg-accent-primary/5" : ""}`}
           onClick={handleRowClick}
         >
           <Link
@@ -138,7 +138,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
           <div className="min-w-0 flex-1">
             {/* First line: the title, then the marks, status and rating */}
             <div className="type-item-title flex gap-3">
-              <h3 className="type-item-title min-w-0 flex-1 truncate transition-colors group-hover:text-accent-rose-text">
+              <h3 className="type-item-title min-w-0 flex-1 truncate transition-colors group-hover:text-accent-primary">
                 {book.title}
               </h3>
               <CapAlignedControls height={20}>

@@ -17,7 +17,7 @@ export function EditionQuotes({ editionId, quotes, notes, href }: { editionId: s
     <div className="border-b border-glass-border px-4 py-3 text-xs" data-edition-quotes={editionId}>
       <span className="text-fg-secondary">Quotes: </span>
       {count ? (
-        <a href={href} className="text-fg-secondary transition-colors hover:text-accent-rose-text" data-edition-quotes-count="">
+        <a href={href} className="text-fg-secondary transition-colors hover:text-accent-primary" data-edition-quotes-count="">
           {count}
         </a>
       ) : (

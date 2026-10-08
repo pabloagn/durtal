@@ -71,9 +71,9 @@ export function SegmentedControl<T extends string>({
                 move(index, -1);
               }
             }}
-            className={`h-8 rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 pointer-coarse:min-w-11 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`h-8 rounded-sm border px-3 text-xs transition-colors pointer-coarse:h-11 pointer-coarse:text-sm pointer-coarse:min-w-11 disabled:cursor-not-allowed disabled:opacity-40 ${
               active
-                ? "border-accent-rose/40 bg-accent-plum text-fg-primary"
+                ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
                 : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
             }`}
           >

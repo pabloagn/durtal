@@ -99,7 +99,7 @@ export function FormulationsSection({
                 key={f.id}
                 className={`flex items-start gap-3 rounded-sm border px-3 py-2.5 transition-colors ${
                   selected
-                    ? "border-accent-rose/30 bg-accent-plum/15"
+                    ? "border-accent-primary/30 bg-selection-bg/15"
                     : "border-glass-border bg-bg-secondary/40"
                 }`}
               >
@@ -116,7 +116,7 @@ export function FormulationsSection({
                       href={selected ? clearHref : f.href}
                       scroll={false}
                       aria-current={selected ? "true" : undefined}
-                      className="transition-colors hover:text-accent-rose-text"
+                      className="transition-colors hover:text-accent-primary"
                     >
                       {f.name}
                     </Link>

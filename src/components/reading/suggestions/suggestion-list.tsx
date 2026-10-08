@@ -90,7 +90,7 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex gap-1.5 text-sm">
           {/* The title cuts off inside the link: the link's touch area is not clipped */}
-          <Link href={row.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+          <Link href={row.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-primary touch-hit">
             <span className="lines-1">{row.title}</span>
           </Link>
           {row.isPoison && (

@@ -72,7 +72,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}
       <div className="type-item-title flex items-start gap-2 p-4 pb-2">
-        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-rose-text">
+        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-primary">
           {p.name}
         </h3>
         <CapAligned height={32} coarseHeight={44} className="relative z-20 icon-hit-end">
@@ -117,7 +117,7 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
             rel="noopener noreferrer"
             aria-label={`${p.name} website`}
             data-tooltip={`${p.name} website`}
-            className="relative z-20 hidden text-fg-muted transition-colors hover:text-accent-rose @[160px]:block"
+            className="relative z-20 hidden text-fg-muted transition-colors hover:text-accent-primary @[160px]:block"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
           </a>
@@ -141,7 +141,7 @@ export function PublisherListItem({
       >
         <PublisherLogo name={p.name} url={p.logoUrl} className="h-10 w-10 flex-shrink-0 rounded-sm [&_span]:text-xs" />
         <div className="min-w-0 flex-1">
-          <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
+          <h3 className="type-item-title truncate group-hover:text-accent-primary">
             {p.name}
           </h3>
           <p className="truncate text-xs text-fg-secondary">

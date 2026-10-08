@@ -100,7 +100,7 @@ function PeopleLinks({ people }: { people: CreditView[] }) {
         <span key={person.id}>
           {i > 0 && ", "}
           {person.href ? (
-            <Link href={person.href} className="transition-colors hover:text-accent-rose-text">
+            <Link href={person.href} className="transition-colors hover:text-accent-primary">
               {person.name}
             </Link>
           ) : (
@@ -461,7 +461,7 @@ export default async function FilmPage({
                         {cast.length > starring.length && (
                           <a
                             href="#film-cast"
-                            className="text-fg-secondary transition-colors hover:text-accent-rose-text"
+                            className="text-fg-secondary transition-colors hover:text-accent-primary"
                           >
                             {" "}
                             and more
@@ -482,7 +482,7 @@ export default async function FilmPage({
                   <dd className="text-fg-primary">
                     {heldSummary ? (
                       // Inline padding: a target over 24px high beside the rating's larger one, and no change to the line
-                      <a href="#film-copies" className="py-1 transition-colors hover:text-accent-rose-text">
+                      <a href="#film-copies" className="py-1 transition-colors hover:text-accent-primary">
                         {heldSummary}
                       </a>
                     ) : (

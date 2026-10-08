@@ -87,7 +87,7 @@ export function SourcesSection({
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="transition-colors hover:text-accent-rose-text"
+                        className="transition-colors hover:text-accent-primary"
                       >
                         {source.attribution ?? source.provider}
                       </a>

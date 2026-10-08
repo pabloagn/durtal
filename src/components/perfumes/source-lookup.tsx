@@ -119,7 +119,7 @@ function Lookup({ perfume, onDone }: { perfume: { id: string; title: string; fin
         <p className="flex items-start gap-1.5 text-sm text-fg-primary">
           {review.url ? (
             <>
-              <a href={review.url} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-accent-rose-text">
+              <a href={review.url} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-accent-primary">
                 {review.title} on Wikidata
               </a>
               <CapAligned height={12}>

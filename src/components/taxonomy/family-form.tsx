@@ -109,7 +109,7 @@ export function FamilyForm({
                     checked={chosen.has(key)}
                     disabled={used && chosen.has(key)}
                     onChange={(e) => toggle(option, e.target.checked)}
-                    className="h-3.5 w-3.5 rounded-sm border-glass-border bg-bg-primary accent-accent-rose"
+                    className="h-3.5 w-3.5 rounded-sm border-glass-border bg-bg-primary accent-accent-primary"
                   />
                   <span className="text-sm text-fg-secondary">
                     {taxonomyScopeLabel(option.kind, option.level)}
@@ -140,7 +140,7 @@ export function FamilyForm({
             checked={value.hierarchical}
             disabled={isSystem || (hierarchyLocked && value.hierarchical)}
             onChange={(e) => set({ hierarchical: e.target.checked })}
-            className="h-3.5 w-3.5 rounded-sm border-glass-border bg-bg-primary accent-accent-rose"
+            className="h-3.5 w-3.5 rounded-sm border-glass-border bg-bg-primary accent-accent-primary"
           />
           <span className="text-xs font-medium text-fg-secondary">
             Hierarchical

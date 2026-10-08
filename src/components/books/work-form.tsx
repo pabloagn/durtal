@@ -304,6 +304,8 @@ export function WorkForm({
             <div className="space-y-3">
               <TitleInput
                 id={id("title")}
+                appearance="open"
+                className="font-medium text-lg"
                 label="Title"
                 value={values.title}
                 onValueChange={(title) => set("title", title)}
@@ -338,12 +340,12 @@ export function WorkForm({
                   onChange={(e) => set("workTypeId", e.target.value)}
                 />
                 <div className="flex items-end pb-0.5">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-secondary">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-secondary pointer-coarse:min-h-11">
                     <input
                       type="checkbox"
                       checked={values.isAnthology}
                       onChange={(e) => set("isAnthology", e.target.checked)}
-                      className="h-4 w-4 rounded-sm border-glass-border accent-accent-rose"
+                      className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
                     />
                     Anthology
                   </label>
@@ -458,7 +460,7 @@ export function WorkForm({
                       set("recommenderIds", [...values.recommenderIds, val]);
                     }
                   }}
-                  className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
+                  className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
                 >
                   <option value="">Add recommender...</option>
                   {recommenders
@@ -502,7 +504,7 @@ export function WorkForm({
                     aria-label={`Role of ${author.name}`}
                     value={author.role}
                     onChange={(e) => updateAuthorRole(author.id, e.target.value)}
-                    className="h-7 appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-rose focus:outline-none"
+                    className="h-7 pointer-coarse:h-11 pointer-coarse:text-sm appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-primary focus:outline-none"
                   >
                     {AUTHOR_ROLE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -531,7 +533,7 @@ export function WorkForm({
                     value={authorSearch}
                     onChange={(e) => setAuthorSearch(e.target.value)}
                     placeholder="Search author by name..."
-                    className="mb-2 h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-rose focus:outline-none"
+                    className="mb-2 h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
                     onKeyDown={(e) => {
                       if (e.key === "Escape" && !isComposing(e)) {
                         // The author search closes; the dialog stays
@@ -549,7 +551,7 @@ export function WorkForm({
                             type="button"
                             onClick={() => addExistingAuthor(a)}
                             disabled={authorAlreadyAdded(a.id)}
-                            className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40"
+                            className="flex pointer-coarse:min-h-11 w-full items-center rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40"
                           >
                             {a.name}
                           </button>
@@ -560,7 +562,7 @@ export function WorkForm({
                         type="button"
                         onClick={() => addNewAuthor(authorSearch)}
                         disabled={isAddingAuthor}
-                        className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                        className="flex pointer-coarse:min-h-11 w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
                       >
                         {isAddingAuthor ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
@@ -577,7 +579,7 @@ export function WorkForm({
                       setShowAuthorAdd(false);
                       setAuthorSearch("");
                     }}
-                    className="mt-2 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                    className="mt-2 pointer-coarse:min-h-11 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
                   >
                     Cancel
                   </button>
@@ -586,7 +588,7 @@ export function WorkForm({
                 <button
                   type="button"
                   onClick={() => setShowAuthorAdd(true)}
-                  className="flex items-center gap-1.5 rounded-sm border border-dashed border-glass-border px-3 py-2 text-sm text-fg-secondary transition-colors hover:border-bg-secondary hover:text-fg-primary"
+                  className="flex pointer-coarse:min-h-11 items-center gap-1.5 rounded-sm border border-dashed border-glass-border px-3 py-2 text-sm text-fg-secondary transition-colors hover:border-bg-secondary hover:text-fg-primary"
                 >
                   <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Add author

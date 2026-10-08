@@ -107,7 +107,7 @@ export function VenueInstitutions({
                         {branch.slug ? (
                           <Link
                             href={`/places/${branch.slug}`}
-                            className="text-fg-primary transition-colors hover:text-accent-rose-text"
+                            className="text-fg-primary transition-colors hover:text-accent-primary"
                           >
                             {branch.name}
                           </Link>

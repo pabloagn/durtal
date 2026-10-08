@@ -9,12 +9,12 @@ import { FadeImage } from "@/components/shared/fade-image";
  */
 
 const TONES = [
-  "--color-accent-rose",
+  "--color-accent-primary",
   "--color-accent-slate",
   "--color-accent-gold",
   "--color-accent-sage",
   "--color-accent-blue",
-  "--color-gothic-mulberry",
+  "--color-selection-bg",
 ] as const;
 
 /**
@@ -110,7 +110,7 @@ export function Monogram({ name }: { name: string }) {
 }
 
 const PLATE_TONES: Record<string, string> = {
-  rose: "--color-accent-rose",
+  accent: "--color-accent-primary",
   gold: "--color-accent-gold",
   sage: "--color-accent-sage",
   blue: "--color-accent-blue",
@@ -130,7 +130,7 @@ export function PlacePlate({
   kind: string;
   city: string | null;
   street: string | null;
-  /** A badge variant (rose, gold, sage, blue, muted); none keeps the frame */
+  /** A badge variant (accent, gold, sage, blue, muted); none keeps the frame */
   tone?: string;
 }) {
   return (

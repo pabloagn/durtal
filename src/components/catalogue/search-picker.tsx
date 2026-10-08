@@ -88,7 +88,7 @@ export function SearchPicker({
         onKeyDown={(e) => e.key === "Escape" && (e.preventDefault(), e.stopPropagation(), onClose())}
         placeholder={placeholder}
         aria-label={label}
-        className="h-7 w-56 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+        className="h-7 w-56 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
       />
       <div className="glass absolute left-0 top-8 z-30 w-72 py-1">
         {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
@@ -114,7 +114,7 @@ export function SearchPicker({
             type="button"
             disabled={creating}
             onClick={create}
-            className="block w-full truncate px-2 py-1 text-left text-xs text-accent-rose-text hover:bg-bg-tertiary"
+            className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
             {creating ? "Creating..." : createLabel(name)}
           </button>

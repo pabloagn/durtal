@@ -188,7 +188,7 @@ function Lookup({ film, onDone }: { film: Film; onDone: () => void }) {
         <p className="flex items-start gap-1.5 text-sm text-fg-primary">
           {review.url ? (
             <>
-              <a href={review.url} target="_blank" rel="noopener noreferrer" className="touch-hit transition-colors hover:text-accent-rose-text">
+              <a href={review.url} target="_blank" rel="noopener noreferrer" className="touch-hit transition-colors hover:text-accent-primary">
                 {review.title} on Wikidata
               </a>
               <CapAligned height={12}>

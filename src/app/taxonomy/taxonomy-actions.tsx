@@ -124,7 +124,7 @@ function ReorderFamiliesDialog({
                   data-tooltip={`Move ${family.name} up`}
                   disabled={index === 0}
                   onClick={() => move(index, -1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose disabled:opacity-30"
+                  className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary disabled:opacity-30"
                 >
                   <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
@@ -134,7 +134,7 @@ function ReorderFamiliesDialog({
                   data-tooltip={`Move ${family.name} down`}
                   disabled={index === order.length - 1}
                   onClick={() => move(index, 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-rose disabled:opacity-30"
+                  className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary disabled:opacity-30"
                 >
                   <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>

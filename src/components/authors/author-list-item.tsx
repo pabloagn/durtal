@@ -70,7 +70,7 @@ export function AuthorListItem({
     }
   }
 
-  const selectionBg = isSelected ? "bg-accent-rose/5" : "";
+  const selectionBg = isSelected ? "bg-accent-primary/5" : "";
 
   return (
     <div
@@ -107,7 +107,7 @@ export function AuthorListItem({
         {/* Name and years, nationality and the book count, then the roles */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
-            <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-rose-text">
+            <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-primary">
               {name}
             </h3>
             {years && (

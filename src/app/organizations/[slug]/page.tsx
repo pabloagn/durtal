@@ -29,7 +29,7 @@ import {
 } from "@/lib/catalogue/organizations";
 import { VENUE_TYPE_LABELS } from "@/lib/catalogue/venues";
 
-const LINK = "text-accent-rose-text transition-colors hover:text-fg-primary";
+const LINK = "text-accent-primary transition-colors hover:text-fg-primary";
 
 /** One read per request for the page and its title; a malformed or overlong address finds nothing */
 const loadOrganization = cache(async (slug: string) => {
@@ -249,7 +249,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
                 {bookSentence(ORGANIZATION_ROLE_LABELS[kind].one, publishing)}{" "}
                 <Link
                   href={`/publishers/${organization.slug}`}
-                  className="text-fg-primary underline decoration-glass-border underline-offset-4 hover:text-accent-rose-text"
+                  className="text-fg-primary underline decoration-glass-border underline-offset-4 hover:text-accent-primary"
                 >
                   Open the publisher page
                 </Link>

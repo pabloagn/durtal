@@ -153,9 +153,9 @@ export function Dialog({
     >
       {/* Header. The row carries the title's type: the buttons sit on the
           title's cap-height center, also when a description follows */}
-      <div className="type-section-title flex shrink-0 items-start justify-between border-b border-glass-border px-6 py-4">
+      <div className="type-dialog-title flex shrink-0 items-start justify-between px-6 pb-3 pt-5">
         <div className="min-w-0 flex-1">
-          <h2 className="type-section-title">{title}</h2>
+          <h2 className="type-dialog-title">{title}</h2>
           {description && (
             <p className="mt-1 text-sm text-fg-secondary">{description}</p>
           )}
@@ -169,7 +169,7 @@ export function Dialog({
                 onClick={() => setExpanded((prev) => !prev)}
                 aria-label={expanded ? "Collapse" : "Expand"}
                 data-tooltip={expanded ? "Collapse" : "Expand"}
-                className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
+                className="block rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
               >
                 {expanded ? (
                   <Minimize2 className="h-4 w-4" strokeWidth={1.5} />
@@ -184,7 +184,7 @@ export function Dialog({
               aria-label={`Close ${title}`}
               data-tooltip="Close"
               data-tooltip-keys="esc"
-              className="block rounded-sm p-1.5 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
+              className="block rounded-sm p-1.5 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-secondary pointer-coarse:p-3.5"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />
             </button>
@@ -195,7 +195,7 @@ export function Dialog({
       {/* Body. It scrolls, not the dialog: the glass stays behind every
           line, and the header stays in view. It grows from its content
           (flex-auto): from a zero basis, Safari gives it no height */}
-      <div className="min-h-0 flex-auto overflow-y-auto px-6 pb-6 pt-5">
+      <div className="min-h-0 flex-auto overflow-y-auto px-6 pb-6 pt-3">
         {children}
       </div>
     </dialog>

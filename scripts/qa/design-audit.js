@@ -18,23 +18,14 @@
  */
 (() => {
   const TOKENS = {
-    "030507": "bg-primary",
-    "0a0d10": "bg-secondary",
-    "14171c": "bg-tertiary",
-    c1c6c4: "fg-primary",
-    "7d8380": "fg-secondary",
-    "4a4f4d": "fg-muted",
-    "7d3d52": "accent-rose",
-    "20131e": "accent-plum",
-    c0a36e: "accent-gold",
-    "76946a": "accent-sage",
-    bb3e41: "accent-red",
-    648493: "accent-blue",
-    "586e75": "accent-slate",
-    "8e4057": "gothic-crimson",
-    462941: "gothic-mulberry",
+    "07090d": "bg-primary", "0e1319": "bg-secondary", "171e26": "bg-tertiary",
+    d8dcd8: "fg-heading", c5cacb: "fg-primary", "9ba4ad": "fg-secondary", "727b83": "fg-muted",
+    "8c9fae": "accent-primary", "17232d": "selection-bg", "1c2a35": "accent-underlay",
+    c5cdcf: "action-fill", d4dadb: "action-hover", "10151a": "action-fg",
+    "252e37": "border-subtle", "687987": "border-control",
+    afa184: "accent-gold", a3ae9c: "accent-sage", c4746e: "accent-red", d18b82: "accent-red-text",
   };
-  const PAGE_BG = { r: 3, g: 5, b: 7, a: 1 };
+  const PAGE_BG = { r: 7, g: 9, b: 13, a: 1 };
   const INTERACTIVE =
     "a[href], button, [role=button], input:not([type=hidden]), select, textarea";
 

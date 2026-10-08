@@ -338,7 +338,7 @@ export function AddToCollectionDialog({
                       className="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
                     >
                       <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${amount ? "border-accent-rose bg-accent-rose/25" : "border-glass-border"}`}
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${amount ? "border-accent-primary bg-accent-primary/25" : "border-glass-border"}`}
                       >
                         {all ? (
                           <Check size={12} />

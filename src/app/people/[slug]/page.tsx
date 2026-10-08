@@ -280,14 +280,14 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                     )}
                     {quotesText && (
                       <RecordField label="Quotes">
-                        <Link href={notesHref({ authorId: author.id })} className="transition-colors hover:text-accent-rose-text" data-person-quotes="">
+                        <Link href={notesHref({ authorId: author.id })} className="transition-colors hover:text-accent-primary" data-person-quotes="">
                           {quotesText}
                         </Link>
                       </RecordField>
                     )}
                     {translatedText && (
                       <RecordField label="From translations">
-                        <Link href={notesHref({ translatorId: author.id })} className="transition-colors hover:text-accent-rose-text" data-person-translated-quotes="">
+                        <Link href={notesHref({ translatorId: author.id })} className="transition-colors hover:text-accent-primary" data-person-translated-quotes="">
                           {translatedText}
                         </Link>
                       </RecordField>
@@ -315,7 +315,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                           href={link.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-accent-rose-text transition-colors hover:text-fg-primary"
+                          className="text-sm text-accent-primary transition-colors hover:text-fg-primary"
                         >
                           {link.label}
                         </a>

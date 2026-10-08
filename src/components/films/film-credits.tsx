@@ -25,7 +25,7 @@ const SHOWN = 12;
 export function CreditName({ credit }: { credit: CreditView }) {
   if (credit.href)
     return (
-      <Link href={credit.href} className="transition-colors hover:text-accent-rose-text">
+      <Link href={credit.href} className="transition-colors hover:text-accent-primary">
         {credit.name}
       </Link>
     );

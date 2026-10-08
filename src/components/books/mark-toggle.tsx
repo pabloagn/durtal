@@ -244,7 +244,7 @@ export function MarkToggle({
                   autoFocus
                   defaultValue={date}
                   aria-label={`${mark.label} date`}
-                  className="h-7 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-2 font-mono text-xs text-fg-primary [color-scheme:dark] focus:border-accent-rose focus:outline-none"
+                  className="h-7 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-2 font-mono text-xs text-fg-primary [color-scheme:dark] focus:border-accent-primary focus:outline-none"
                 />
                 <button
                   type="submit"

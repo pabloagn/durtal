@@ -51,7 +51,7 @@ export function CopiesStep({
       {locations.length === 0 ? (
         <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-4 text-xs text-fg-secondary">
           No locations exist yet. Go to{" "}
-          <a href="/locations" className="text-accent-rose-text underline">
+          <a href="/locations" className="text-accent-primary underline">
             /locations
           </a>{" "}
           to create one first.

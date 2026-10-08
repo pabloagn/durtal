@@ -5,12 +5,12 @@ import type { AcquisitionPriority, CatalogueStatus } from "@/lib/types";
 import { formatRating } from "@/lib/utils/rating";
 import { cardReadingLabel, cardReadingTooltip, type CardReadingValue } from "@/lib/reading/card";
 
-/** The dot color per status variant (fills, so the lighter rose and red) */
+/** The dot color per status variant (fills, so the legible interaction and status colours) */
 const STATUS_DOT = {
   muted: "bg-fg-secondary",
   blue: "bg-accent-blue",
   gold: "bg-accent-gold",
-  rose: "bg-accent-rose-text",
+  accent: "bg-accent-primary",
   sage: "bg-accent-sage",
   red: "bg-accent-red-text",
 } as const;

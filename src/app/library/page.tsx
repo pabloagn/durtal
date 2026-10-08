@@ -171,7 +171,7 @@ export default async function LibraryPage({ searchParams }: PageProps) {
           <>
             <Link
               href="/library/identify"
-              className={`${buttonClass("ghost", "md")} whitespace-nowrap`}
+              className={`${buttonClass("ghost", "sm")} whitespace-nowrap`}
             >
               <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} />
               Identify editions

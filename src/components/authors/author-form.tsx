@@ -194,7 +194,7 @@ function DateFields({
           type="checkbox"
           checked={values[approximate]}
           onChange={(e) => set(approximate, e.target.checked)}
-          className="h-4 w-4 rounded-sm border-glass-border accent-accent-rose"
+          className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
         />
         {word} year is approximate
       </label>

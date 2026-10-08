@@ -24,7 +24,7 @@ export function OnThisDay({ hits, serverToday, dayStartHour, reviewYears }: { hi
         <Fragment key={`${h.kind}-${h.workId}-${h.year}`}>
           {i === 0 ? "On this day in " : "; in "}
           {h.year} you {h.kind}{" "}
-          <Link href={`/library/${h.slug ?? h.workId}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+          <Link href={`/library/${h.slug ?? h.workId}`} className="text-fg-primary transition-colors hover:text-accent-primary">
             {h.title}
           </Link>
           {h.kind === "finished" && h.rating !== null ? ` (${formatRating(h.rating)})` : ""}
@@ -34,7 +34,7 @@ export function OnThisDay({ hits, serverToday, dayStartHour, reviewYears }: { hi
       {review && (
         <>
           {shown.length > 0 && " "}
-          <Link href={`/reading/year/${reviewYear}`} className="text-fg-primary transition-colors hover:text-accent-rose-text" data-hub-review-link="">
+          <Link href={`/reading/year/${reviewYear}`} className="text-fg-primary transition-colors hover:text-accent-primary" data-hub-review-link="">
             Your {reviewYear} in review
           </Link>
         </>

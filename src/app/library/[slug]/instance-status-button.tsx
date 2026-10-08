@@ -113,14 +113,14 @@ export function InstanceStatusButton({
                 value={lentTo}
                 onChange={(e) => setLentTo(e.target.value)}
                 placeholder="Name (optional)..."
-                className="h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-rose focus:outline-none"
+                className="h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
                 autoFocus
               />
               <div className="flex gap-1.5">
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="flex-1 rounded-sm bg-accent-rose/10 px-2 py-1 text-xs text-accent-rose-text hover:bg-accent-rose/20 disabled:opacity-50"
+                  className="flex-1 rounded-sm bg-accent-primary/10 px-2 py-1 text-xs text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50"
                 >
                   {isPending ? "..." : "Confirm"}
                 </button>
@@ -142,7 +142,7 @@ export function InstanceStatusButton({
                 disabled={isPending}
                 className={`w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-bg-tertiary disabled:opacity-50 ${
                   s === currentStatus
-                    ? "text-accent-rose-text"
+                    ? "text-accent-primary"
                     : "text-fg-secondary"
                 }`}
               >

@@ -1,4 +1,4 @@
-type Variant = "default" | "rose" | "gold" | "sage" | "blue" | "red" | "muted";
+type Variant = "default" | "accent" | "gold" | "sage" | "blue" | "red" | "muted";
 
 interface BadgeProps {
   variant?: Variant;
@@ -8,7 +8,7 @@ interface BadgeProps {
 
 const variantStyles: Record<Variant, string> = {
   default: "bg-bg-tertiary/60 text-fg-secondary border border-glass-border",
-  rose: "bg-accent-rose/10 text-accent-rose-text border border-accent-rose/15",
+  accent: "bg-accent-primary/10 text-accent-primary border border-accent-primary/15",
   gold: "bg-accent-gold/10 text-accent-gold border border-accent-gold/15",
   sage: "bg-accent-sage/10 text-accent-sage border border-accent-sage/15",
   blue: "bg-accent-blue/10 text-accent-blue-text border border-accent-blue/15",

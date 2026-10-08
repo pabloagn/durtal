@@ -23,7 +23,7 @@ function WebsiteLink({ url, name }: { url: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`${name} website`}
-      className="relative z-20 inline-flex min-w-0 items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-accent-rose-text"
+      className="relative z-20 inline-flex min-w-0 items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-accent-primary"
     >
       <ExternalLink className="h-3 w-3 shrink-0" strokeWidth={1.5} />
       <span className="truncate">{websiteLabel(url)}</span>
@@ -48,7 +48,7 @@ export function RecommenderCard({
       {/* The row carries the name's type: the star sits on the cap-height
           center of the name's first line */}
       <div className="type-item-title flex items-start gap-2 p-4 pb-2">
-        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-rose-text">
+        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-primary">
           {r.name}
         </h3>
         <CapAligned height={32} coarseHeight={44} className="relative z-20 icon-hit-end">
@@ -86,7 +86,7 @@ export function RecommenderListItem({
         <span className="font-serif text-sm text-fg-muted/50">{r.name[0]}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="type-item-title truncate group-hover:text-accent-rose-text">
+        <h3 className="type-item-title truncate group-hover:text-accent-primary">
           {r.name}
         </h3>
         {r.url && <WebsiteLink url={r.url} name={r.name} />}

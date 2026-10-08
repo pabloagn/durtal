@@ -87,7 +87,7 @@ export function BarChart({
                     className={fill}
                     data-tooltip={b.text}
                   />
-                  {focus === i && <rect x={labelWidth - 2} y={y + 1} width={room + 4} height={ROW - 2} rx={2} fill="none" stroke="var(--color-accent-rose)" strokeWidth={1.5} />}
+                  {focus === i && <rect x={labelWidth - 2} y={y + 1} width={room + 4} height={ROW - 2} rx={2} fill="none" stroke="var(--color-accent-primary)" strokeWidth={1.5} />}
                   <text x={labelWidth + w + 6} y={y + ROW / 2 + CAP_HALF} className="fill-fg-secondary text-micro tabular-nums">
                     {b.value.toLocaleString("en-US")}
                   </text>
@@ -123,7 +123,7 @@ export function BarChart({
                       <g key={i}>
                         <rect x={x} y={6 + plot - h} width={barWidth} height={Math.max(b.value > 0 ? 2 : 0, h)} rx={2} className={fill} data-tooltip={b.text} />
                         {focus === i && (
-                          <rect x={x - 3} y={4} width={barWidth + 6} height={plot + 4} rx={2} fill="none" stroke="var(--color-accent-rose)" strokeWidth={1.5} />
+                          <rect x={x - 3} y={4} width={barWidth + 6} height={plot + 4} rx={2} fill="none" stroke="var(--color-accent-primary)" strokeWidth={1.5} />
                         )}
                         <text x={x + barWidth / 2} y={height - 5} textAnchor="middle" className="fill-fg-secondary text-micro">
                           {b.label}

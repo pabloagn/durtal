@@ -83,7 +83,7 @@ export function ChartFrame({
           at.current = null;
           setFocus(null);
         }}
-        className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-accent-rose/60"
+        className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/60"
         style={{ height }}
         data-chart-frame=""
       >

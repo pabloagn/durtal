@@ -102,7 +102,7 @@ export function RetailersSection({
                       href={listing.link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="transition-colors hover:text-accent-rose-text"
+                      className="transition-colors hover:text-accent-primary"
                     >
                       {listing.retailerName}
                       {listing.venueName ? `, ${listing.venueName}` : ""}

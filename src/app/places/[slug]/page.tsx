@@ -238,7 +238,7 @@ async function PlaceContent({ slug }: { slug: string }) {
                         href={venue.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
+                        className="flex items-start gap-2 break-all text-sm text-accent-primary transition-colors hover:underline"
                       >
                         <CapAligned height={14}><Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                         {venue.website}
@@ -267,7 +267,7 @@ async function PlaceContent({ slug }: { slug: string }) {
                         href={`https://instagram.com/${venue.instagramHandle.replace(/^@/, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-start gap-2 break-all text-sm text-accent-rose-text transition-colors hover:underline"
+                        className="flex items-start gap-2 break-all text-sm text-accent-primary transition-colors hover:underline"
                       >
                         <CapAligned height={14}><AtSign className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} /></CapAligned>
                         {venue.instagramHandle.startsWith("@")

@@ -197,7 +197,7 @@ function ChoiceRow<T extends string>({
             onClick={() => onChange(o.value)}
             className={`h-8 pointer-coarse:h-11 rounded-sm border px-3 text-sm transition-colors ${
               value === o.value
-                ? "border-accent-rose/40 bg-accent-plum text-fg-primary"
+                ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
                 : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
             }`}
           >

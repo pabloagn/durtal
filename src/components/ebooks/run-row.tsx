@@ -34,7 +34,7 @@ export function RunRow({ run }: { run: RunSummary }) {
   return (
     <li className="flex items-center gap-4 px-4 py-3" data-run-row={run.id}>
       <div className="min-w-0 flex-1">
-        <Link href={`/ebooks/runs/${run.id}`} className="block text-sm text-fg-primary transition-colors hover:text-accent-rose-text touch-hit">
+        <Link href={`/ebooks/runs/${run.id}`} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
           <span className="lines-1" data-tooltip={place}>
             {RUN_KIND_LABEL[run.kind] ?? run.kind} · {place}
           </span>

@@ -35,7 +35,7 @@ import { PublisherHeader } from "@/components/publishers/publisher-header";
 import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishers/publisher-books";
 import { mediaUrl } from "@/lib/s3/media-url";
 
-const LINK = "text-accent-rose-text transition-colors hover:text-fg-primary";
+const LINK = "text-accent-primary transition-colors hover:text-fg-primary";
 /** One read per request for the page and its title */
 const loadPublisher = cache(getPublisher);
 
@@ -251,7 +251,7 @@ export default async function PublisherPage({
         {p.notes && (
           <section className="mb-8">
             <SectionHeading title="Notes" />
-            <p className="max-w-3xl whitespace-pre-wrap border-l border-accent-rose pl-3 text-sm text-fg-secondary">
+            <p className="max-w-3xl whitespace-pre-wrap border-l border-accent-primary pl-3 text-sm text-fg-secondary">
               {p.notes}
             </p>
           </section>
@@ -307,7 +307,7 @@ export default async function PublisherPage({
             <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
               {targets.map((t) => (
                 <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm">
-                  <Link href={`/library/${t.work.slug ?? t.work.id}`} className="text-fg-primary transition-colors hover:text-accent-rose-text">
+                  <Link href={`/library/${t.work.slug ?? t.work.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
                     {t.work.title}
                   </Link>
                   <span className="text-fg-secondary">

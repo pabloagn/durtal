@@ -87,7 +87,7 @@ export function RangeSlider({
 
         {/* Active range fill */}
         <div
-          className="absolute top-1/2 h-px -translate-y-1/2 bg-accent-plum"
+          className="absolute top-1/2 h-px -translate-y-1/2 bg-accent-primary"
           style={{ left: `${leftPct}%`, right: `${100 - rightPct}%` }}
         />
 
@@ -102,7 +102,7 @@ export function RangeSlider({
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp("min")}
           aria-label={label ? `${label} minimum` : "Range minimum"}
-          className="range-thumb-min pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-accent-plum [&::-webkit-slider-thumb]:bg-bg-secondary [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-accent-plum [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-accent-plum [&::-moz-range-thumb]:bg-bg-secondary"
+          className="range-thumb-min pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-accent-primary [&::-webkit-slider-thumb]:bg-bg-secondary [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-accent-primary [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-accent-primary [&::-moz-range-thumb]:bg-bg-secondary"
         />
 
         {/* Max thumb */}
@@ -116,7 +116,7 @@ export function RangeSlider({
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp("max")}
           aria-label={label ? `${label} maximum` : "Range maximum"}
-          className="range-thumb-max pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-accent-plum [&::-webkit-slider-thumb]:bg-bg-secondary [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-accent-plum [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-accent-plum [&::-moz-range-thumb]:bg-bg-secondary"
+          className="range-thumb-max pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-accent-primary [&::-webkit-slider-thumb]:bg-bg-secondary [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-accent-primary [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-accent-primary [&::-moz-range-thumb]:bg-bg-secondary"
         />
       </div>
 

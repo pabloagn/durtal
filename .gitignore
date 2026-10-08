@@ -123,3 +123,6 @@ docker-compose.override.yml
 # Book enrichment worker: source answers and reports hold catalogue data (SLN-464)
 enrichment-sources.json
 enrichment-report.md
+
+# Local e-book source files
+/ingestions/

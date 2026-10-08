@@ -54,6 +54,8 @@ export function DetailsStep({
       <div className="space-y-4">
         <TitleInput
           label="Title"
+            appearance="open"
+            className="font-medium text-lg"
           id="title"
           value={work.title}
           onValueChange={(title) => onChange({ title })}
@@ -148,7 +150,7 @@ export function DetailsStep({
                 onChange({ recommenderIds: [...recommenderIds, val] });
               }
             }}
-            className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-rose focus:outline-none pointer-coarse:h-11"
+            className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
           >
             <option value="">Add recommender...</option>
             {recommenders

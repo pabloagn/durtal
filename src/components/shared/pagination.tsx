@@ -225,7 +225,7 @@ export function Pagination({
                   href={href(p)}
                   aria-label={`Page ${p}`}
                   aria-current={p === current ? "page" : undefined}
-                  className={`${control} ${p === current ? "border-accent-rose bg-accent-plum text-fg-primary" : ""}`}
+                  className={`${control} ${p === current ? "border-accent-primary bg-selection-bg text-fg-primary" : ""}`}
                 >
                   {p}
                 </Link>

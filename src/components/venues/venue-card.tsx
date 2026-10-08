@@ -139,7 +139,7 @@ export function VenueCard({
                 href={website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-auto text-fg-muted transition-colors hover:text-accent-rose"
+                className="ml-auto text-fg-muted transition-colors hover:text-accent-primary"
                 aria-label={`Visit ${name} website`}
                 data-tooltip={`Visit ${name} website`}
               >

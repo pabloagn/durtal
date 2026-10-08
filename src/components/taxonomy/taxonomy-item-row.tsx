@@ -102,7 +102,7 @@ export function TaxonomyItemRow({
     <div
       className={`group flex h-9 items-center gap-1.5 border-b border-glass-border/40 px-2 transition-colors ${
         isSelected
-          ? "bg-accent-rose/6 border-accent-rose/10"
+          ? "bg-accent-primary/6 border-accent-primary/10"
           : "hover:bg-bg-tertiary/30"
       }`}
       onClick={() => onSelect(item.id)}
@@ -144,7 +144,7 @@ export function TaxonomyItemRow({
               if (e.key === "Enter") commitRename();
               if (e.key === "Escape") cancelRename();
             }}
-            className="h-6 w-full rounded-sm border border-accent-rose/40 bg-bg-primary/80 px-1.5 text-sm text-fg-primary outline-none"
+            className="h-6 w-full rounded-sm border border-accent-primary/40 bg-bg-primary/80 px-1.5 text-sm text-fg-primary outline-none"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -156,7 +156,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-rose-text"
+            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary"
           >
             {item.name}
           </Link>

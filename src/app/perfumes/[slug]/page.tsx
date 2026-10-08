@@ -432,7 +432,7 @@ export default async function PerfumePage({
                   {i > 0 && ", "}
                   <Link
                     href={`/perfumes?house=${house.organizationId}`}
-                    className="text-fg-primary transition-colors hover:text-accent-rose-text"
+                    className="text-fg-primary transition-colors hover:text-accent-primary"
                   >
                     {house.name}
                   </Link>
@@ -454,7 +454,7 @@ export default async function PerfumePage({
                     {p.personId ? (
                       <Link
                         href={`/perfumes?perfumer=${p.personId}`}
-                        className="transition-colors hover:text-accent-rose-text"
+                        className="transition-colors hover:text-accent-primary"
                       >
                         {p.name}
                       </Link>
@@ -501,7 +501,7 @@ export default async function PerfumePage({
                           aria-current={current ? "true" : undefined}
                           className={`rounded-sm border px-2 py-0.5 text-xs leading-5 transition-colors pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center ${
                             current
-                              ? "border-accent-rose/40 bg-accent-plum text-fg-primary"
+                              ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
                               : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
                           }`}
                         >
@@ -516,7 +516,7 @@ export default async function PerfumePage({
             <dt className="text-fg-secondary">In the collection</dt>
             <dd className="text-fg-primary">
               {heldSummary ? (
-                <a href="#perfume-bottles" className="transition-colors hover:text-accent-rose-text">
+                <a href="#perfume-bottles" className="transition-colors hover:text-accent-primary">
                   {heldSummary}
                 </a>
               ) : (
