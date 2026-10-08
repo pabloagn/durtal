@@ -47,17 +47,30 @@ const items = () =>
   [...host.querySelectorAll('[role="menuitem"]')] as HTMLElement[];
 
 function Menu({ run }: { run: () => void }) {
-  return h(
-    DropdownMenu,
-    { label: "Actions", trigger: h("button", null, "Actions") },
-    h(DropdownMenuItem, { disabled: true }, "Unavailable"),
-    h(
-      DropdownMenuItem,
-      { icon: h("svg"), shortcut: "E W", onClick: run },
-      "Edit Taxonomy",
-    ),
-    h(DropdownMenuItem, null, "A long command without an icon or shortcut"),
-  );
+  return h(DropdownMenu, {
+    label: "Actions",
+    trigger: h("button", null, "Actions") as Parameters<
+      typeof DropdownMenu
+    >[0]["trigger"],
+    children: [
+      h(DropdownMenuItem, {
+        key: "disabled",
+        disabled: true,
+        children: "Unavailable",
+      }),
+      h(DropdownMenuItem, {
+        key: "edit",
+        icon: h("svg"),
+        shortcut: "E W",
+        onClick: run,
+        children: "Edit Taxonomy",
+      }),
+      h(DropdownMenuItem, {
+        key: "long",
+        children: "A long command without an icon or shortcut",
+      }),
+    ],
+  });
 }
 
 describe("shared dropdown keyboard and focus", () => {

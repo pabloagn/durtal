@@ -118,6 +118,14 @@ export function DropdownMenu({
     const observer = new ResizeObserver(position);
     observer.observe(trigger);
     observer.observe(menu);
+    // Content can grow while the panel is already constrained, without
+    // changing its border box (for example a timer title or a queued label).
+    const contentObserver = new MutationObserver(position);
+    contentObserver.observe(menu.firstElementChild!, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
     const onScroll = (event: Event) => {
       if (event.target instanceof Node && menu.contains(event.target)) return;
       position();
@@ -128,6 +136,7 @@ export function DropdownMenu({
     window.visualViewport?.addEventListener("scroll", position);
     return () => {
       observer.disconnect();
+      contentObserver.disconnect();
       window.removeEventListener("resize", position);
       document.removeEventListener("scroll", onScroll, true);
       window.visualViewport?.removeEventListener("resize", position);
