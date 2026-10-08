@@ -130,7 +130,7 @@ export default async function PublishersPage({
         title="Publishers"
         description="Publishing houses and imprints you collect · edition counts refer to your catalogue"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/publishers/review"
               className={buttonClass("ghost", "sm")}

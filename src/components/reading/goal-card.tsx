@@ -59,7 +59,7 @@ function Card({ goal, today }: { goal: GoalProgress; today: string }) {
   return (
     <article className="rounded-sm border border-glass-border bg-bg-secondary p-4" data-goal-card={goal.metric}>
       <div className="type-item-title flex items-start gap-2">
-        <h3 className="lines-1 min-w-0 flex-1" data-goal-title="">
+        <h3 className="min-h-[1lh] [overflow-wrap:anywhere] min-w-0 flex-1" data-goal-title="">
           {title}
         </h3>
         <CapAligned height={24} coarseHeight={44}>
@@ -67,7 +67,7 @@ function Card({ goal, today }: { goal: GoalProgress; today: string }) {
         </CapAligned>
       </div>
       <ProgressBar value={Math.min(goal.count, goal.target)} max={goal.target} label={title} tone="sage" className="mt-3" />
-      <p className="lines-2 mt-2 text-xs text-fg-secondary" data-goal-line="">
+      <p className="min-h-[2lh] [overflow-wrap:anywhere] mt-2 text-xs text-fg-secondary" data-goal-line="">
         {goalLine(goal, today)}
       </p>
     </article>
@@ -94,7 +94,7 @@ export function GoalLine({ goal, serverToday, dayStartHour }: { goal: GoalProgre
   const current = useBrowserGoals([goal], serverToday, day).find((g) => g.metric === goal.metric) ?? goal;
   const today = day ?? serverToday;
   return (
-    <p className="lines-1 text-sm text-fg-secondary" data-dashboard-goal="">
+    <p className="min-h-[1lh] [overflow-wrap:anywhere] text-sm text-fg-secondary" data-dashboard-goal="">
       {goalTitle(current.metric, current.count, current.target)} this year · {goalShortLine(current, today)}
     </p>
   );

@@ -19,11 +19,11 @@ function Row({
     <section className="mb-10">
       <HorizontalCarousel title={title} titleHref={href}>
         {perfumes.map((perfume) => (
-          <div key={perfume.id} className="w-[168px] flex-shrink-0 snap-start">
+          <div key={perfume.id} className="carousel-card">
             <PerfumeCard perfume={perfume} />
             {/* Why the card is here, under it, as on a book's related rows */}
             {caption && (
-              <p className="mt-1.5 lines-2 text-micro text-fg-secondary">{caption(perfume)}</p>
+              <p className="mt-1.5 min-h-[2lh] [overflow-wrap:anywhere] text-micro text-fg-secondary">{caption(perfume)}</p>
             )}
           </div>
         ))}

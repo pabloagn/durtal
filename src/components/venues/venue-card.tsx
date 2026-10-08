@@ -1,6 +1,7 @@
 "use client";
 
 import { VENUE_TYPE_LABELS, VENUE_TYPE_BADGE_VARIANTS } from "@/lib/catalogue/venues";
+import { CardHeading } from "@/components/shared/card-heading";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import Link from "next/link";
 import { ExternalLink, Star, MapPin } from "lucide-react";
@@ -48,7 +49,7 @@ export function VenueCard({
   const badgeVariant = VENUE_TYPE_BADGE_VARIANTS[type] ?? "muted";
 
   return (
-    <div className="@container group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className="@container catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link href={href} className="block">
         {/* Image / color band */}
         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
@@ -78,42 +79,15 @@ export function VenueCard({
       </Link>
 
       {/* Meta */}
-      <div className="p-3.5">
-          {/* Fixed rows: every place card has the same height */}
-          {/* The row carries the name's type: the star sits on the
-              cap-height center of the name's first line */}
-          <div className="type-item-title mb-1.5 flex items-start gap-2">
-            <h3 className="type-item-title lines-2 min-w-0 flex-1">
-              {/* Same link as the image above: one Tab stop per card */}
-              <Link href={href} tabIndex={-1}>
-                {name}
-              </Link>
-            </h3>
-            {/* A narrow card gives the row to the name */}
-            <span className="hidden @[220px]:contents">
-              <Badge variant={badgeVariant} className="mt-0.5 shrink-0">
-                {VENUE_TYPE_LABELS[type]}
-              </Badge>
-            </span>
-            <CapAligned height={32} coarseHeight={44} className="icon-hit-end">
-              <FavouriteToggle
-                favourite={isFavorite}
-                target={{ entity: "venue", id }}
-                name={name}
-              />
-            </CapAligned>
-          </div>
-
-          <p className="mb-2 flex h-4 items-start gap-1 text-xs text-fg-secondary">
-            {location && (
-              <>
-                <CapAligned height={12}><MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} /></CapAligned>
-                <span className="lines-1 min-w-0">{location}</span>
-              </>
-            )}
-          </p>
-
-          <div className="flex h-4 items-center justify-between gap-2">
+      <div className="card-body">
+          <CardHeading
+            title={<Link href={href} tabIndex={-1}>{name}</Link>}
+            subtitle={location ? <span className="flex gap-1"><CapAligned height={12}><MapPin className="h-3 w-3" strokeWidth={1.5} /></CapAligned><span>{location}</span></span> : null}
+            subtitleClassName="text-xs text-fg-secondary"
+            action={<FavouriteToggle favourite={isFavorite} target={{ entity: "venue", id }} name={name} />}
+          />
+          <div className="my-2"><Badge variant={badgeVariant}>{VENUE_TYPE_LABELS[type]}</Badge></div>
+          <div className="flex min-h-4 flex-wrap items-center justify-between gap-2">
             {/* Rating dots */}
             {personalRating != null && personalRating > 0 && (
               <div className="flex items-center gap-0.5">
@@ -139,7 +113,7 @@ export function VenueCard({
                 href={website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-auto text-fg-muted transition-colors hover:text-accent-primary"
+                className="ml-auto flex h-7 w-7 items-center justify-center pointer-coarse:h-11 pointer-coarse:w-11 text-fg-secondary transition-colors hover:text-accent-primary"
                 aria-label={`Visit ${name} website`}
                 data-tooltip={`Visit ${name} website`}
               >

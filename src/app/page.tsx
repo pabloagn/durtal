@@ -314,7 +314,7 @@ async function DashboardContent() {
             icon={BookOpen}
             href={singleDomain ? "/library?sort=recent" : undefined}
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          <div className="catalogue-grid">
             {recent.map((item) => item.card)}
           </div>
         </section>
@@ -324,7 +324,7 @@ async function DashboardContent() {
       {collections.length > 0 && (
         <section className="mt-12">
           <SectionHeader title="Collections" icon={FolderOpen} href="/collections" />
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="catalogue-grid">
             {collections.map((collection) => (
               <CollectionCard
                 key={collection.id}
@@ -349,7 +349,7 @@ async function DashboardContent() {
             icon={Star}
             href="/library?sort=rating"
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          <div className="catalogue-grid">
             {stats.topRatedWorks.map((work) => (
               <BookCard key={work.id} {...workToCardProps(work)} />
             ))}
@@ -381,7 +381,7 @@ async function DashboardContent() {
             icon={ShoppingCart}
             href="/library?status=wanted,shortlisted"
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          <div className="catalogue-grid">
             {stats.wantedWorks.map((work) => (
               <BookCard key={work.id} {...workToCardProps(work)} />
             ))}

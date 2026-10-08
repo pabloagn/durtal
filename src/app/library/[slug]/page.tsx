@@ -700,7 +700,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
             {workCollections.map((collection) => (
               <div
                 key={collection.id}
-                className="w-[160px] flex-shrink-0 snap-start"
+                className="carousel-card"
               >
                 <CollectionCard
                   collection={collection}
@@ -743,7 +743,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
             caption={
               workCollections.length > 1
                 ? (w) => (
-                    <p className="mt-1.5 lines-2 text-micro text-fg-secondary">
+                    <p className="mt-1.5 min-h-[2lh] [overflow-wrap:anywhere] text-micro text-fg-secondary">
                       {w.reasons.map((r) => r.name).join(" · ")}
                     </p>
                   )

@@ -163,7 +163,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
 
         {highlights.length > 0 && (
           <StatsSection title="Highlights" id="highlights">
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" data-review-highlights="">
+            <ul className="catalogue-grid" data-review-highlights="">
               {highlights.map(([label, b, words]) => (
                 <li key={label} className="min-w-0 break-inside-avoid">
                   <Link href={book(b!)} className="group block">

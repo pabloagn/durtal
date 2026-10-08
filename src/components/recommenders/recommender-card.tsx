@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { ExternalLink } from "lucide-react";
 import { websiteLabel } from "@/lib/validations/recommenders";
@@ -23,10 +23,10 @@ function WebsiteLink({ url, name }: { url: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`${name} website`}
-      className="relative z-20 inline-flex min-w-0 items-center gap-1 text-xs text-fg-secondary transition-colors hover:text-accent-primary"
+      className="relative z-20 inline-flex min-w-0 items-center gap-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11 text-xs text-fg-secondary transition-colors hover:text-accent-primary"
     >
       <ExternalLink className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-      <span className="truncate">{websiteLabel(url)}</span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">{websiteLabel(url)}</span>
     </a>
   );
 }
@@ -44,22 +44,12 @@ export function RecommenderCard({
         aria-label={`Open ${r.name}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      {/* Fixed rows: every recommender card has the same height */}
-      {/* The row carries the name's type: the star sits on the cap-height
-          center of the name's first line */}
-      <div className="type-item-title flex items-start gap-2 p-4 pb-2">
-        <h3 className="type-item-title lines-2 min-w-0 flex-1 group-hover:text-accent-primary">
-          {r.name}
-        </h3>
-        <CapAligned height={32} coarseHeight={44} className="relative z-20 icon-hit-end">
-          <FavouriteToggle
-            favourite={r.isFavourite}
-            target={{ entity: "recommender", id: r.id }}
-            name={r.name}
-          />
-        </CapAligned>
+      <div className="px-4 pt-4 pb-2">
+        <CardHeading title={r.name} titleClassName="group-hover:text-accent-primary"
+          action={<FavouriteToggle favourite={r.isFavourite} target={{ entity: "recommender", id: r.id }} name={r.name} />}
+        />
       </div>
-      <div className="flex h-4 min-w-0 items-center px-4">
+      <div className="flex min-h-4 min-w-0 items-center px-4">
         {r.url && <WebsiteLink url={r.url} name={r.name} />}
       </div>
       <p className="mt-auto px-4 pb-3.5 pt-3 font-mono text-micro text-fg-secondary">

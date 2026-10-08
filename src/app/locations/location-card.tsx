@@ -128,18 +128,18 @@ export function LocationCard({
     <>
       <Card className="group transition-colors hover:border-fg-muted/20">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <Link
               href={`/library?location=${id}`}
-              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-accent-primary pointer-coarse:min-h-11"
+              className="block min-w-[min(100%,12rem)] flex-1 transition-colors hover:text-accent-primary touch-hit"
             >
-              <h3 className="type-item-title group-hover:text-accent-primary">
+              <h3 className="type-item-title [overflow-wrap:anywhere] group-hover:text-accent-primary">
                 {name}
               </h3>
-              <Badge variant={type === "physical" ? "sage" : "blue"}>
-                {type}
-              </Badge>
-              {!isActive && <Badge variant="red">Inactive</Badge>}
+              <span className="mt-1 flex flex-wrap gap-2">
+                <Badge variant={type === "physical" ? "sage" : "blue"}>{type}</Badge>
+                {!isActive && <Badge variant="red">Inactive</Badge>}
+              </span>
             </Link>
 
             {/* The row carries the title's type: the count and the buttons

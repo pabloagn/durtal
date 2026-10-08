@@ -31,7 +31,7 @@ function countsLabel(s: SeriesItem) {
 /** Grid card: the first books' covers side by side, like a shelf. */
 export function SeriesCard({ series: s }: { series: SeriesItem }) {
   return (
-    <div className="group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
+    <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
         href={`/series/${s.id}`}
         aria-label={`Open ${s.title}`}
@@ -55,9 +55,8 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
           <ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />
         )}
       </div>
-      <div className="p-3.5">
-        {/* Two title lines and one original-title line, always: every
-            series card has the same height. The covers show no overlay. */}
+      <div className="card-body">
+        {/* Full titles remain readable; the shared body aligns the footer */}
         <CardHeading
           title={s.title}
           titleClassName="group-hover:text-accent-primary"
@@ -71,8 +70,8 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
             />
           }
         />
-        <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
-          <span className="min-w-0 truncate">{countsLabel(s)}</span>
+        <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
+          <span className="min-w-0 [overflow-wrap:anywhere]">{countsLabel(s)}</span>
           {s.isComplete && (
             <span className="ml-auto shrink-0 text-accent-gold">Complete</span>
           )}

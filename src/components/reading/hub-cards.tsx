@@ -43,11 +43,11 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
           subtitle={open.author ?? ""}
         />
         <ProgressBar value={r.currentPercent ?? 0} label={progressLabel(open)} className="mt-3" />
-        <p className="lines-1 mt-2 text-xs text-fg-secondary" data-hub-position="">
+        <p className="min-h-[1lh] [overflow-wrap:anywhere] mt-2 text-xs text-fg-secondary" data-hub-position="">
           {positionText(r)}
           {last ? ` · last read ${last}` : ""}
         </p>
-        {estimate && <EstimateLine estimate={estimate} lines="lines-2" className="mt-1" />}
+        {estimate && <EstimateLine estimate={estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
         <div className="mt-3">
           <ReadingCardActions reading={refOf(open)} href={href} title={open.work.title} />
         </div>
@@ -66,9 +66,9 @@ export function PausedRow({ open, day }: { open: OpenReading; day: DayContext })
       <div className="min-w-0 flex-1">
         {/* The title cuts off inside the link: the link's touch area is not clipped */}
         <Link href={bookHref(open.work)} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-          <span className="lines-1">{open.work.title}</span>
+          <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{open.work.title}</span>
         </Link>
-        <p className="lines-1 text-xs text-fg-secondary">
+        <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">
           {[open.author, positionText(r), since ? `paused ${agoText(since, day)}` : null].filter(Boolean).join(" · ")}
         </p>
       </div>

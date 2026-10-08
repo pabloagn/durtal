@@ -83,7 +83,7 @@ export function AuthorCard({
 
   return (
     <div
-      className={`@container group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive ${selectionRing}`}
+      className={`@container catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive ${selectionRing}`}
       onClick={handleCardClick}
     >
       {/* Photo area — relative wrapper so dropdown escapes overflow-hidden */}
@@ -161,16 +161,15 @@ export function AuthorCard({
 
       {/* Meta — navigates on click. The link covers the text, so the
           favourite star can sit above it */}
-      <div className="relative">
+      <div className="relative flex flex-1 flex-col">
         <Link
           href={href}
           aria-label={name}
           className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={-1}
         />
-        <div className="p-3.5">
-          {/* Two name lines and one nationality line, always: every author
-              card has the same height. The portrait shows no overlay. */}
+        <div className="card-body">
+          {/* Names and nationality stay fully readable at every card width */}
           <CardHeading
             title={name}
             subtitle={nationality}
@@ -184,9 +183,9 @@ export function AuthorCard({
               )
             }
           />
-          {/* What the person is: one line, reserved when empty */}
+          {/* Roles wrap as needed, with a minimum line when empty */}
           <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} className="mt-1" />
-          <div className="mt-2.5 flex h-5 items-center gap-2 font-mono text-micro text-fg-secondary">
+          <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
             {years && <span>{years}</span>}
             {worksCount > 0 && (
               <span className="ml-auto shrink-0">

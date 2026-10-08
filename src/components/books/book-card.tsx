@@ -234,7 +234,7 @@ export function BookCard({
 
       {/* Meta — navigates when not selecting. The link covers the text, so
           the favourite star can sit above it */}
-      <div className="relative">
+      <div className="relative flex flex-1 flex-col">
         <Link
           href={href}
           aria-label={title}
@@ -242,8 +242,7 @@ export function BookCard({
           tabIndex={-1}
         />
         <div className={WORK_CARD_BODY}>
-          {/* Two title lines and one author line, always: every book card
-              has the same height, and the author sits under the title */}
+          {/* Names wrap naturally; row stretching aligns the footer */}
           <CardHeading
             title={title}
             subtitle={authorName}

@@ -36,7 +36,7 @@ export function WorkCarousel<T extends WorkCardData>({
         const coverKey =
           poster?.thumbnailS3Key ?? poster?.s3Key ?? edition?.thumbnailS3Key;
         return (
-          <div key={work.id} className="w-[160px] flex-shrink-0 snap-start">
+          <div key={work.id} className="carousel-card">
             <BookCard
               workId={work.id}
               slug={work.slug ?? ""}
