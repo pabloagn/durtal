@@ -56,7 +56,12 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
   const name = `Timer for ${timer.title}, ${durationSpoken(elapsed)}${paused ? ", paused" : ""}`;
   const time = (
     <span className={`tabular-nums ${paused ? "text-fg-secondary" : "text-fg-primary"}`} aria-hidden>
-      {clockText(elapsed)}
+      {layout !== "phone" && elapsed >= 3600 ? (
+        <>
+          <span className={layout === "rail" ? "hidden" : "@max-[71px]/timer-time:hidden"}>{clockText(elapsed)}</span>
+          <span className={layout === "rail" ? "" : "hidden @max-[71px]/timer-time:inline"}>{clockText(elapsed).slice(0, -3)}</span>
+        </>
+      ) : clockText(elapsed)}
     </span>
   );
   const pauseButton = (
@@ -159,7 +164,7 @@ export function TimerChip({ layout }: { layout: TimerChipLayout }) {
               type="button"
               aria-label={name}
               data-tooltip={ask ? "Still reading?" : `Timer for ${timer.title}`}
-              className="min-w-0 flex-1 rounded-sm text-left transition-colors hover:bg-bg-tertiary/50 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+              className="@container/timer-time min-w-0 flex-1 rounded-sm text-left transition-colors hover:bg-bg-tertiary/50 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:pb-1"
               data-timer-time=""
             >
               <span className="block text-sm leading-5">{time}</span>
