@@ -100,7 +100,7 @@ export function TaxonomyItemRow({
 
   return (
     <div
-      className={`group flex h-9 items-center gap-1.5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:h-auto pointer-coarse:min-h-12 pointer-coarse:py-0.5 ${
+      className={`group flex h-9 items-center gap-1.5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:h-auto pointer-coarse:min-h-12 pointer-coarse:items-start pointer-coarse:py-0.5 ${
         isSelected
           ? "bg-accent-primary/6 border-accent-primary/10"
           : "hover:bg-bg-tertiary/30"
@@ -110,7 +110,7 @@ export function TaxonomyItemRow({
       {/* Drag handle */}
       <div
         ref={dragHandleProps?.setActivatorNodeRef}
-        className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 focus-visible:opacity-100 active:cursor-grabbing"
+        className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 focus-visible:opacity-100 active:cursor-grabbing pointer-coarse:h-11"
         {...dragHandleProps?.listeners}
         {...dragHandleProps?.attributes}
       >
@@ -126,10 +126,12 @@ export function TaxonomyItemRow({
       )}
 
       {/* Color dot */}
-      <TaxonomyColorPicker
-        value={item.color}
-        onChange={(color) => onColorChange(item.id, color)}
-      />
+      <div className="shrink-0 pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:items-center">
+        <TaxonomyColorPicker
+          value={item.color}
+          onChange={(color) => onColorChange(item.id, color)}
+        />
+      </div>
 
       {/* Name */}
       <div className="min-w-0 flex-1">
@@ -144,7 +146,7 @@ export function TaxonomyItemRow({
               if (e.key === "Enter") commitRename();
               if (e.key === "Escape") cancelRename();
             }}
-            className="h-6 w-full rounded-sm border border-accent-primary/40 bg-bg-primary/80 px-1.5 text-sm text-fg-primary outline-none"
+            className="h-6 w-full rounded-sm border border-accent-primary/40 bg-bg-primary/80 px-1.5 text-sm text-fg-primary outline-none pointer-coarse:h-11"
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -156,7 +158,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:whitespace-normal pointer-coarse:break-words"
+            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:first-line:leading-11"
           >
             {item.name}
           </Link>
@@ -164,9 +166,11 @@ export function TaxonomyItemRow({
       </div>
 
       {/* Entity count */}
-      <Badge variant="muted" className="flex-shrink-0">
-        {item.entityCount}
-      </Badge>
+      <div className="shrink-0 pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:items-center">
+        <Badge variant="muted" className="flex-shrink-0">
+          {item.entityCount}
+        </Badge>
+      </div>
 
       {/* Action menu */}
       <DropdownMenu trigger={trigger} label="Actions" align="end">
