@@ -663,8 +663,13 @@ export async function updateReading(input: UpdateReadingInput) {
           : null;
   const positionChanged = !!patch.currentPosition || patch.currentChapter !== undefined;
   if (startGiven || positionChanged) await refuseWhileTiming(reading.id);
-  const sessions = startGiven || positionChanged ? await loadSessions(reading.id) : [];
-  if (patch.currentPosition && !sessionOrder(sessions).length)
+  // Every open-reading edit uses the same prospective history replay, including
+  // totals-only, edition/unit changes and non-position metadata. Closed readings
+  // keep their saved finish/abandon position unless explicitly corrected.
+  const sessions = isOpenStatus(reading.status) || startGiven || positionChanged
+    ? await loadSessions(reading.id) : [];
+  const orderedSessions = sessionOrder(sessions);
+  if (patch.currentPosition && !orderedSessions.length)
     throw new Error("Log progress once before editing the current position");
   const values: Partial<typeof readings.$inferInsert> = {};
   if (patch.totalMinutes !== undefined) values.totalMinutes = patch.totalMinutes;
@@ -705,8 +710,10 @@ export async function updateReading(input: UpdateReadingInput) {
     const start = remapPosition(reading.startPercent, totals);
     Object.assign(values, {
       totalPages: totals.totalPages,
-      currentPage: current.page,
-      currentMinutes: patch.totalMinutes !== undefined ? current.minutes : reading.currentMinutes,
+      ...(!isOpenStatus(reading.status) ? {
+        currentPage: current.page,
+        currentMinutes: patch.totalMinutes !== undefined ? current.minutes : reading.currentMinutes,
+      } : {}),
       ...(patch.totalMinutes !== undefined ? { startMinutes: start.minutes } : {}),
       startPage:
         reading.startPage != null || reading.startPercent != null
@@ -729,17 +736,15 @@ export async function updateReading(input: UpdateReadingInput) {
           ? patch.totalMinutes
           : totals.totalMinutes,
     };
-    // This is the independent baseline; the requested current place is applied
-    // only through a session correction below.
-    const current = startGiven && !sessionOrder(sessions).length && isOpenStatus(reading.status)
-      ? completePosition(startGiven, totals)
-      : positionInUnit({ page: reading.currentPage, minutes: reading.currentMinutes, percent: reading.currentPercent }, reading.unit, totals);
+    // Open current counters come only from the shared prospective replay below.
+    // A closed reading retains its independent saved finish/abandon position.
+    const current = positionInUnit({ page: reading.currentPage, minutes: reading.currentMinutes, percent: reading.currentPercent }, reading.unit, totals);
     const start = startGiven
       ? completePosition(startGiven, totals)
       : positionInUnit({ page: reading.startPage, minutes: reading.startMinutes, percent: reading.startPercent }, reading.unit, totals);
     Object.assign(values, {
       ...totals,
-      ...positionValues({ ...current, chapter: reading.currentChapter }),
+      ...(!isOpenStatus(reading.status) ? positionValues({ ...current, chapter: reading.currentChapter }) : {}),
       startPage: start.page, startPercent: start.percent, startMinutes: start.minutes,
     });
   }
@@ -822,10 +827,11 @@ export async function updateReading(input: UpdateReadingInput) {
   }
   if (patch.currentChapter !== undefined) values.currentChapter = patch.currentChapter;
   const nextReading = { ...reading, ...values } as Reading;
-  // With logs, compare against history under the final totals/start, never the
-  // request itself. The baseline may exceed a smaller total until corrected.
-  if (positionChanged && isOpenStatus(reading.status)) {
-    const baseline = positionValues(planPositions(nextReading, sessionOrder(sessions)).position);
+  // Compare and save the same canonical history replay under final totals/start
+  // on every open-reading branch, never a conversion of cached current counters.
+  // This baseline may exceed a smaller total until explicitly corrected.
+  if (isOpenStatus(reading.status)) {
+    const baseline = positionValues(planPositions(nextReading, orderedSessions).position);
     Object.assign(nextReading, baseline);
     Object.assign(values, baseline);
   }
@@ -833,7 +839,7 @@ export async function updateReading(input: UpdateReadingInput) {
     page: nextReading.currentPage, percent: nextReading.currentPercent, minutes: nextReading.currentMinutes,
   }, totals) ? patch.currentPosition : undefined;
   const correction =
-    (currentCorrection || patch.currentChapter !== undefined) && (currentCorrection || sessionOrder(sessions).length)
+    (currentCorrection || patch.currentChapter !== undefined) && (currentCorrection || orderedSessions.length)
       ? correctLastLog(
           nextReading,
           sessions,
@@ -848,7 +854,7 @@ export async function updateReading(input: UpdateReadingInput) {
   }
   if (patch.currentChapter !== undefined)
     values.currentChapter = patch.currentChapter;
-  if (startGiven && !sessionOrder(sessions).length)
+  if (startGiven && !orderedSessions.length)
     nextReading.currentChapter = patch.currentChapter !== undefined ? patch.currentChapter : reading.currentChapter;
   // Stage one coherent, valid reading row before any query is built: totals,
   // start and corrected current counters must satisfy constraints together.
@@ -886,7 +892,7 @@ export async function updateReading(input: UpdateReadingInput) {
               .where(eq(readingSessions.id, correction.corrected.id)),
           ]
         : []),
-      ...(startGiven || correction
+      ...(isOpenStatus(reading.status) || startGiven || correction
         ? recomputeQueries(
             d,
             finalReading,
@@ -895,7 +901,7 @@ export async function updateReading(input: UpdateReadingInput) {
             !!currentCorrection,
           )
         : []),
-      ...(startGiven && !sessionOrder(sessions).length
+      ...(startGiven && !orderedSessions.length
         ? [
             d
               .update(readings)

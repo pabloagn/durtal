@@ -482,6 +482,24 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(await value<number>(`select count(*)::int from activity_events where event_key = 'work.reading_edition_changed'`)).toBe(0);
     });
 
+    it("keeps a cross-edition snapshot canonical through totals, chapter and metadata edits", async () => {
+      const workId = await book("Sequential cross-edition totals");
+      const readingEdition = await edition(workId, 600);
+      const sessionEdition = await edition(workId, 400);
+      const reading = await startReading({ workId, editionId: readingEdition });
+      const last = await recordProgress({ readingId: reading.id, page: 200, readOn: "2026-09-02", timeZone: "UTC", durationSeconds: 1200, note: "Keep" }, { source: "manual", editionId: sessionEdition, format: "print" });
+      expect(last.reading).toMatchObject({ currentPage: 300, currentPercent: 50 });
+      const session = await q(`select id, edition_id, format, source, read_on, duration_seconds, note, pages_total, end_page, end_percent, end_minutes, created_at from reading_sessions where id = $1`, [last.session.id]);
+      const history = await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id]);
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 1200 })).toMatchObject({ currentPage: 600, currentPercent: 50 });
+      for (const chapter of ["II", null]) {
+        expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: chapter })).toMatchObject({ currentPage: 600, currentPercent: 50, currentChapter: chapter });
+        expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 })).toMatchObject({ currentPage: 600, currentPercent: 50, currentChapter: chapter });
+        expect(await q(`select id, edition_id, format, source, read_on, duration_seconds, note, pages_total, end_page, end_percent, end_minutes, created_at from reading_sessions where id = $1`, [last.session.id])).toEqual(session);
+        expect(await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id])).toEqual(history);
+      }
+    });
+
     it("maps the place onto a new edition, and back after a deleted session", async () => {
       const { workId, reading } = await started({ title: "Switch" });
       await log(reading.id, { page: 212, readOn: "2026-09-02" });

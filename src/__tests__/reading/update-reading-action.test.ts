@@ -170,6 +170,56 @@ describe("exported updateReading combined and sequential saves", () => {
     expect(store.writes.every((w) => w.table === "readings")).toBe(true);
   });
 
+  it("replays a cross-edition print snapshot consistently through totals-only, chapter-only and metadata-only saves", async () => {
+    Object.assign(store.sessions[0], { editionId: "33333333-3333-4333-8333-333333333333", pagesTotal: 400, endPage: 200 });
+    const history = structuredClone(store.sessions);
+    expect(await edit({ totalPages: 1200 })).toMatchObject({ currentPage: 600, currentPercent: 50 });
+    for (const chapter of ["II", null]) {
+      expect(await edit({ currentChapter: chapter })).toMatchObject({ currentPage: 600, currentPercent: 50, currentChapter: chapter });
+      expect(await edit({ rating: 4 })).toMatchObject({ currentPage: 600, currentPercent: 50, currentChapter: chapter });
+      expect(store.sessions[0]).toMatchObject({ editionId: history[0].editionId, pagesTotal: 400, endPage: 200, endPercent: 50, source: history[0].source, readOn: history[0].readOn, durationSeconds: history[0].durationSeconds, note: history[0].note, createdAt: history[0].createdAt });
+    }
+  });
+
+  // Every initial save must agree with the existing status-aware service replay;
+  // later non-position edits cannot move its counters. Test the Cartesian product
+  // to catch action branches drifting from shared replay under changed totals.
+  it.each(["reading", "paused", "finished", "abandoned"] as const)("keeps canonical prospective positions stable across all unit/edition/start/source branches for %s", async (status) => {
+    const initial = snapshot();
+    const position = (reading: ReadingWithFingerprint) => ({ page: reading.currentPage, percent: reading.currentPercent, minutes: reading.currentMinutes });
+    for (const unit of ["pages", "minutes", "percent"] as const) {
+      for (const crossEdition of [false, true]) {
+        for (const behind of [false, true]) {
+          for (const editStart of [false, true]) {
+            store.reading = structuredClone(initial.reading); store.sessions = structuredClone(initial.sessions); store.writes = [];
+            Object.assign(store.reading, { status, unit, format: unit === "minutes" ? "audio" : "print", totalMinutes: 600, startMinutes: 0, currentMinutes: 300 });
+            Object.assign(store.sessions[0], { format: store.reading.format, startMinutes: 0, endMinutes: 300 });
+            if (crossEdition) Object.assign(store.sessions[0], { editionId: "33333333-3333-4333-8333-333333333333", pagesTotal: 400, endPage: 200 });
+            if (behind) {
+              Object.assign(store.reading, { startPage: 400, startPercent: 66.67, startMinutes: 400, currentPage: 400, currentPercent: 66.67, currentMinutes: 400 });
+              Object.assign(store.sessions[0], { source: "reader", startPage: crossEdition ? 267 : 400, startPercent: 66.67, startMinutes: 400 });
+            }
+            const endpoints = { ...store.sessions[0] };
+            const reading = await edit({ totalPages: 1200, totalMinutes: 1200, ...(editStart ? { startPercent: 10 } : {}), rating: 3 });
+            const saved = position(reading);
+            // Closed readings intentionally freeze their recorded finish/abandon
+            // position; recomputeQueries follows the same status rule.
+            if (status === "reading" || status === "paused") {
+              const canonical = planPositions(store.reading, sessionOrder(store.sessions)).position;
+              expect(saved).toEqual({ page: canonical.page, percent: canonical.percent, minutes: canonical.minutes });
+            }
+            for (const chapter of ["II", null]) {
+              expect(position(await edit({ currentChapter: chapter }))).toEqual(saved);
+              expect(position(await edit({ rating: 4 }))).toEqual(saved);
+            }
+            expect(store.reading.status).toBe(status);
+            expect(store.sessions[0]).toMatchObject({ editionId: endpoints.editionId, source: endpoints.source, pagesTotal: endpoints.pagesTotal, endPage: endpoints.endPage, endMinutes: endpoints.endMinutes, endPercent: endpoints.endPercent, readOn: endpoints.readOn, durationSeconds: endpoints.durationSeconds, note: endpoints.note, createdAt: endpoints.createdAt });
+          }
+        }
+      }
+    }
+  });
+
   it.each([{ page: 0 }, { page: 100 }, { percent: 50 }, { minutes: 10 }])("refuses every explicit sessionless current edit atomically even with totals/start/metadata (%j)", async (currentPosition) => {
     store.sessions = []; Object.assign(store.reading, { currentPage: 0, currentPercent: 0 });
     const before = snapshot();
