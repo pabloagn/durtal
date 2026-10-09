@@ -89,3 +89,10 @@ walk now uses the strict containment rule before duplicate or BODY filtering.
 Focused BODY and background controls retain failures after reverse re-entry;
 only measured browser-chrome BODY stops are allowed. The regression also
 verifies disclosure, dialog, focus and scroll restoration after that failure.
+
+Native visibility diagnosis: suppressing animations in the focus-ring probe
+restarted the real 150ms dialog entrance when its temporary style was removed.
+Only transitions are now suppressed. The serial native regression reproduces
+the old restart, then verifies unchanged animation count, full opacity, focus
+and temporary-style cleanup in Chromium, Firefox and WebKit. It still reports
+a deliberately missing ring. Product animation CSS is unchanged.
