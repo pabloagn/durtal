@@ -12,6 +12,7 @@ const epub: ContinueFile = {
   id: "epub",
   ebookId,
   sha256: sha,
+  sizeBytes: 200,
   s3Key: ebookFileKey(sha, "epub"),
   format: "epub",
   status: "stored",

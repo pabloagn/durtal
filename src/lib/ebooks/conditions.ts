@@ -1,38 +1,53 @@
-import { isReadableFormat } from "./formats";
-import { isDeliveryFileKey, parseStageKey } from "./keys";
-import { medallionOf } from "./medallion";
+import { isEbookFormat, isReadableFormat } from "./formats";
+import { isDeliveryFileKey, isSha256, parseStageKey } from "./keys";
+import { acceptedPublication, jsonRecord } from "./publication-evidence";
+export {
+  ebookFileDownloadableCondition,
+  ebookFileNativeReadableCondition,
+  type EbookFileSqlColumns,
+} from "./eligibility-sql";
 
-/** Catalogue fields only: no database connection or object-store access. */
+/** Catalogue fields only: persisted metadata is unknown until validated. */
 export interface EbookFileEligibility {
   status: string;
   drm: string | null;
   s3Key: string;
   sha256: string;
+  sizeBytes: number;
   format: string;
-  metadata?: Record<string, unknown>;
+  metadata?: unknown;
+  manifestKey?: string | null;
 }
 
-/** Recorded delivery eligibility, preserving SLN-569's accepted legacy keys. */
+/** Recorded eligibility; storage verification belongs to the publication writer. */
 export function isEbookFileDownloadable(file: EbookFileEligibility): boolean {
-  if ((file.status !== "stored" && file.status !== "verified") || file.drm)
-    return false;
-  if (!isDeliveryFileKey(file.s3Key, file.sha256, file.format)) return false;
-  if (!parseStageKey(file.s3Key)) return true;
-  const stages = medallionOf(file.metadata);
-  return (
-    !!stages?.validation.downloadable &&
-    stages.validation.integrity === "verified" &&
-    stages.validation.drm === "clear" &&
-    stages.gold.some(
-      (object) => object.key === file.s3Key && object.sha256 === file.sha256,
+  try {
+    if (
+      (file.status !== "stored" && file.status !== "verified") ||
+      file.drm !== null ||
+      typeof file.s3Key !== "string" ||
+      !isSha256(file.sha256) ||
+      !isEbookFormat(file.format) ||
+      !Number.isSafeInteger(file.sizeBytes) ||
+      file.sizeBytes <= 0 ||
+      !isDeliveryFileKey(file.s3Key, file.sha256, file.format)
     )
-  );
+      return false;
+    const metadata = file.metadata === undefined ? {} : file.metadata;
+    if (!jsonRecord(metadata)) return false;
+    if (!parseStageKey(file.s3Key))
+      return !Object.hasOwn(metadata, "medallion");
+    return acceptedPublication(metadata, file) !== null;
+  } catch {
+    return false;
+  }
 }
 
-/** A stored link or a recognized extension alone never makes a staged file readable. */
 export function isEbookFileNativeReadable(file: EbookFileEligibility): boolean {
   if (!isEbookFileDownloadable(file) || !isReadableFormat(file.format))
     return false;
-  const stages = medallionOf(file.metadata);
-  return !stages || stages.validation.nativeReadable === true;
+  return (
+    !parseStageKey(file.s3Key) ||
+    acceptedPublication(file.metadata, file)?.validation.nativeReadable === true
+  );
 }

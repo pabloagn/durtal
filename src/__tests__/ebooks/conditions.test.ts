@@ -2,46 +2,49 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isEbookFileDownloadable,
   isEbookFileNativeReadable,
-  type EbookFileEligibility,
 } from "@/lib/ebooks/conditions";
 import { ebookFileKey, ebookGoldFileKey } from "@/lib/ebooks/keys";
-import { MEDALLION_VERSION } from "@/lib/ebooks/medallion";
+import {
+  malformedPublicationCases,
+  publicationFixture,
+} from "./publication-fixture";
 
-const sha = "ab".repeat(32);
+const file = publicationFixture();
+const sha = file.sha256;
 const key = ebookGoldFileKey(sha, "epub");
-const object = {
-  key,
-  sha256: sha,
-  size: 200,
-  contentType: "application/epub+zip",
-};
-const metadata = {
-  medallion: {
-    version: MEDALLION_VERSION,
-    bronze: object,
-    silver: object,
-    validation: {
-      integrity: "verified",
-      drm: "clear",
-      downloadable: true,
-      nativeReadable: true,
-      reason: null,
-    },
-    gold: [object],
-  },
-};
-const file: EbookFileEligibility = {
-  sha256: sha,
-  s3Key: key,
-  status: "stored",
-  drm: null,
-  format: "epub",
-  metadata,
-};
+const object = file.metadata.medallion.gold[0];
+const metadata = file.metadata;
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe("recorded ebook eligibility", () => {
+  it.each(malformedPublicationCases())(
+    "fails closed for malformed persisted JSON %#",
+    (malformed) => {
+      expect(() => isEbookFileDownloadable(malformed)).not.toThrow();
+      expect(() => isEbookFileNativeReadable(malformed)).not.toThrow();
+      expect(isEbookFileDownloadable(malformed)).toBe(false);
+      expect(isEbookFileNativeReadable(malformed)).toBe(false);
+    },
+  );
+  it("refuses malformed medallion evidence even on legacy keys", () => {
+    for (const medallion of [null, {}, [], false, "invalid"]) {
+      expect(
+        isEbookFileDownloadable({
+          ...file,
+          s3Key: ebookFileKey(sha, "epub"),
+          metadata: { medallion },
+        }),
+      ).toBe(false);
+    }
+    expect(
+      isEbookFileDownloadable({
+        ...file,
+        s3Key: ebookFileKey(sha, "epub"),
+        metadata: {},
+      }),
+    ).toBe(true);
+  });
   it("accepts an inspected gold publication for download and reading", () => {
     for (const status of ["stored", "verified"]) {
       expect(isEbookFileDownloadable({ ...file, status })).toBe(true);
@@ -118,6 +121,27 @@ describe("recorded ebook eligibility", () => {
     ]) {
       expect(isEbookFileDownloadable({ ...file, s3Key })).toBe(false);
     }
+  });
+
+  it("requires actual boolean approval and safely ignores malformed publication members", () => {
+    const malformed = {
+      medallion: {
+        ...metadata.medallion,
+        gold: [null, false, "not-an-object"],
+      },
+    };
+    expect(isEbookFileDownloadable({ ...file, metadata: malformed })).toBe(
+      false,
+    );
+    const falseApproval = {
+      medallion: {
+        ...metadata.medallion,
+        validation: { ...metadata.medallion.validation, downloadable: "true" },
+      },
+    };
+    expect(isEbookFileDownloadable({ ...file, metadata: falseApproval })).toBe(
+      false,
+    );
   });
 
   it("keeps download-only capability separate from native reading", () => {
