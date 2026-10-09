@@ -20,15 +20,24 @@ export const CHIP =
   "inline-flex max-w-full items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary";
 
 /** The remove button of a chip, on the cap-height center of its text */
-export function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
+export function RemoveButton({
+  label,
+  onClick,
+  touchTarget = false,
+}: {
+  label: string;
+  onClick: () => void;
+  /** The credit row reserves room for separate 44px targets on touch. */
+  touchTarget?: boolean;
+}) {
   return (
-    <CapAligned height={16}>
+    <CapAligned height={16} coarseHeight={touchTarget ? 44 : undefined}>
       <button
         type="button"
         aria-label={label}
         data-tooltip={label}
         onClick={onClick}
-        className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary"
+        className={`flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary ${touchTarget ? "pointer-coarse:size-11" : ""}`}
       >
         <X className="h-3 w-3" strokeWidth={1.5} />
       </button>

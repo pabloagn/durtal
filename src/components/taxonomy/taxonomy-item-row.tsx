@@ -110,9 +110,10 @@ export function TaxonomyItemRow({
       {/* Drag handle */}
       <div
         ref={dragHandleProps?.setActivatorNodeRef}
-        className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 focus-visible:opacity-100 active:cursor-grabbing pointer-coarse:h-11 pointer-coarse:opacity-60"
+        className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 focus-visible:opacity-100 active:cursor-grabbing pointer-coarse:size-11 pointer-coarse:opacity-60"
         {...dragHandleProps?.listeners}
         {...dragHandleProps?.attributes}
+        aria-label={`Reorder ${item.name}`}
       >
         <GripVertical className="h-3 w-3" strokeWidth={1.5} />
       </div>
@@ -158,7 +159,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:first-line:leading-11"
+            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:first-line:leading-11"
           >
             {item.name}
           </Link>

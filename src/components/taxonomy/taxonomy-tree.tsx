@@ -157,7 +157,7 @@ function SortableRow({
               e.stopPropagation();
               onToggleCollapse(item.id);
             }}
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg-secondary pointer-coarse:mt-3.5"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg-secondary pointer-coarse:mt-0.5 pointer-coarse:size-11"
             style={{ marginLeft: `${depth * 20}px` }}
           >
             {isCollapsed ? (
