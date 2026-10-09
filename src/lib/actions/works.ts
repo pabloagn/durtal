@@ -14,6 +14,7 @@ import { curationQueries } from "@/lib/catalogue/curation-store";
 import { planBookWork, workSubjectQueries } from "@/lib/catalogue/book-store";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { ebooksForWork, lockReaderBindings, lockReaderNotes, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { workSeriesPlan, resultRows } from "@/lib/series/work-series";
 import { deleteUnusedObjects, workObjects } from "@/lib/s3/cleanup";
 import {
@@ -647,12 +648,18 @@ function recordWorkDiffs(
 }
 
 export async function deleteWork(id: string) {
+  return withReaderWriteRetry(() => deleteWorkOnce(id));
+}
+
+async function deleteWorkOnce(id: string) {
   await requireBookWork(id);
   // Read the file keys first: the cascade removes the rows that name them.
   const stored = await workObjects(id);
 
   // Polymorphic records have no FK cascade; they go in the same write.
   const results = await atomic((d) => [
+    lockReaderBindings(d, ebooksForWork(id), sql`select id from reading_notes where work_id=${id}::uuid`),
+    lockReaderNotes(d, sql`select id from reading_notes where work_id=${id}::uuid`),
     d
       .delete(comments)
       .where(and(eq(comments.entityType, "work"), eq(comments.entityId, id))),
@@ -679,7 +686,7 @@ export async function deleteWork(id: string) {
   ]);
   invalidate(CACHE_TAGS.works, CACHE_TAGS.series, CACHE_TAGS.media);
 
-  const deleted = (results[3] as { id: string }[]).length > 0;
+  const deleted = (results.at(-1) as { id: string }[]).length > 0;
   const cleanupPending =
     deleted && (await deleteUnusedObjects(stored, `work ${id}`));
   return { id, cleanupPending };

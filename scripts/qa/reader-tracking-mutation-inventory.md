@@ -210,3 +210,54 @@ PostgreSQL references for this protocol:
 [row/advisory locks and deadlocks](https://www.postgresql.org/docs/16/explicit-locking.html).
 The lock-order and retry obligations are explicit because a deferred unlocked
 query cannot make concurrent decisions serialize.
+
+## Draft implementation checkpoint after the quiet window
+
+The source now includes the concrete `reading-tracker` plug-in registration,
+eager four-handler controller, visible readiness-failure component, bounded
+receipt route, persistent device-scoped sitting queue, atomic first sitting,
+quote insertion through SLN-500's actual prepared-highlight functions, and
+deferred keep/delete quote confirmation. It consumes SLN-493's controller hooks
+and SLN-553's real timer availability; those source dependencies must be merged
+before typechecking this branch. No compatibility shim acknowledges readiness.
+
+The controller stages cumulative snapshots while creation or its ten-second
+Undo is pending, preserves receipt IDs across amendments, suppresses counting
+while a same-book manual timer exists, and flushes on visibility/close. The
+server rejects timer-overlapping snapshots. Six controller tests have been
+authored but not run in this checkpoint. Existing pure-policy tests from before
+the quiet window remain evidence for their earlier source, not this new code.
+
+Recovery has its own read-only preview and `imports.source='reader'` operation
+journal. Commit rebuilds catalogue ownership from the database, writes in
+batches of at most 100 through `writeReadings(source='backfill')`, and journals
+only inserted IDs and their exact database fingerprints in the same batch.
+Undo removes only unchanged, operation-owned readings and restores their saved
+Up Next entries when no later open reading claimed the book. It creates no
+historical sessions, ratings, identifiers or private notes. Preserved historical
+dates are the sole input; the removed 0075/0076 data has not been reconstructed.
+
+Pre-DML book/annotation/note locks now cover reading and note mutations,
+edition edits/deletion, instance edits/deletion, location deletion, work
+deletion, same-book placeholder replacement, generic work/edition/instance
+merges and recovery Undo. The complete discovered book set is locked before
+note rows. Whole-operation retries are limited to 40P01/40001. Existing raw
+guard triggers remain a fallback, not a substitute for callsite ordering.
+
+Still outstanding before source approval and deployment:
+
+- The actual SLN-500 annotation-controller refresh API after quote insertion;
+  no invented event or unimplemented bridge method was added.
+- Paired Undo of a quote deleted from the notes surface. The current existing
+  note snapshot restore deliberately does not trust a client-supplied annotation
+  reference; it restores an ordinary quote. A server-owned linkage proof and
+  reviewed live-highlight restoration are still needed.
+- Safe retained-quote detachment for copy/edition unlink or cross-book moves,
+  and the final SLN-495 relink writer. Source prelocks alone do not implement
+  those semantics; the earlier rejected broad detach rewrite was never applied.
+- Targeted controller/queue tests, real shared-source typecheck/lint, disposable
+  receipt/backfill/quote concurrency tests, migration generation on approved
+  current main, and the combined native-browser/full validation gates.
+
+The latest source received a TypeScript parser-only syntax check with zero
+diagnostics. That is not a typecheck, test pass, runtime or database claim.

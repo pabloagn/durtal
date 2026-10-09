@@ -2,7 +2,9 @@
 
 import { db } from "@/lib/db";
 import { editions, instances } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { atomic } from "@/lib/db/atomic";
+import { lockReaderEbooks, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import {
   createInstanceSchema,
   updateInstanceSchema,
@@ -32,10 +34,12 @@ export async function createInstance(input: CreateInstanceInput) {
 export async function updateInstance(id: string, input: UpdateInstanceInput) {
   parseId(id);
   const data = updateInstanceSchema.parse(input);
-  await db
-    .update(instances)
+  await withReaderWriteRetry(() => atomic((d) => [
+    lockReaderEbooks(d, sql`select id from ebooks where instance_id=${id}::uuid`),
+    d.update(instances)
     .set({ ...data, updatedAt: new Date() })
-    .where(eq(instances.id, id));
+    .where(eq(instances.id, id)),
+  ]));
 
   const inst = await db.query.instances.findFirst({
     where: eq(instances.id, id),
@@ -56,6 +60,7 @@ export async function updateInstance(id: string, input: UpdateInstanceInput) {
 }
 
 export async function deleteInstance(id: string) {
+  parseId(id);
   const inst = await db.query.instances.findFirst({
     where: eq(instances.id, id),
     columns: { id: true },
@@ -66,7 +71,10 @@ export async function deleteInstance(id: string) {
     },
   });
 
-  await db.delete(instances).where(eq(instances.id, id));
+  await withReaderWriteRetry(() => atomic((d) => [
+    lockReaderEbooks(d, sql`select id from ebooks where instance_id=${id}::uuid`),
+    d.delete(instances).where(eq(instances.id, id)),
+  ]));
 
   if (inst?.edition) {
     recordActivity("work", inst.edition.workId, "work.instance_deleted", {

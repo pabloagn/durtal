@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
@@ -9,7 +10,7 @@ import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId, setting
 import { updateAppSettings, type AppSettings } from "@/lib/actions/settings";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 
-type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes" | "readingRhythmDays" | "readingSuggestHideAnathema">;
+type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes" | "readingRhythmDays" | "readingSuggestHideAnathema" | "readingAutoTrackEbooks">;
 
 const HOURS = [0, 1, 2, 3, 4, 5, 6].map((h) => ({ value: String(h), label: h === 0 ? "Midnight" : `0${h}:00` }));
 const WEEK_STARTS = [
@@ -56,6 +57,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
           readingTimerCheckMinutes: result.settings.readingTimerCheckMinutes,
           readingRhythmDays: result.settings.readingRhythmDays,
           readingSuggestHideAnathema: result.settings.readingSuggestHideAnathema,
+          readingAutoTrackEbooks: result.settings.readingAutoTrackEbooks,
         });
         toast.success(message);
         router.refresh();
@@ -70,6 +72,19 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
   return (
     <>
       <SettingsIntro>These settings apply on every device.</SettingsIntro>
+      <SettingsGroup title="eBook reader">
+        <SettingRow id="reading-auto-track-ebooks" label="Track eBook reading automatically"
+          description="Start tracking after five active minutes in a linked book. Books you have already finished ask you to start a re-read.">
+          <Switch id="reading-auto-track-ebooks" checked={settings.readingAutoTrackEbooks}
+            aria-labelledby={settingLabelId("reading-auto-track-ebooks")}
+            aria-describedby={settingDescriptionId("reading-auto-track-ebooks")}
+            onCheckedChange={(on) => save({ readingAutoTrackEbooks: on }, on ? "Automatic eBook tracking is on" : "Automatic eBook tracking is off")} />
+        </SettingRow>
+        <SettingRow id="reading-recover-ebooks" label="Earlier eBook reading" labelFor={false}
+          description="Review preserved history and choose which readings to recover. Unknown dates remain blank.">
+          <Link href="/settings/reading/ebooks" className="text-sm underline">Review reading history</Link>
+        </SettingRow>
+      </SettingsGroup>
       <SettingsGroup title="Days and weeks">
         <SettingRow
           id="reading-day-start-hour"

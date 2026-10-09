@@ -36,6 +36,8 @@ export interface AppSettings {
   readingWeekStart: 1 | 7;
   /** Minutes of running time after which a timer asks "Still reading?" */
   readingTimerCheckMinutes: number;
+  /** Automatically start a first reading after five active minutes in the reader. */
+  readingAutoTrackEbooks: boolean;
   /** Days he would like to read each week, 1 to 7; null: no rhythm (SLN-455) */
   readingRhythmDays: number | null;
   /** Suggestions leave out books marked Anathema (SLN-457) */
@@ -55,6 +57,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   readingDayStartHour: 4,
   readingWeekStart: 1,
   readingTimerCheckMinutes: 90,
+  readingAutoTrackEbooks: true,
   readingRhythmDays: null,
   readingSuggestHideAnathema: false,
   readingPredictionGate: null,
@@ -70,6 +73,7 @@ const SETTINGS_COLUMNS = {
   readingDayStartHour: appSettings.readingDayStartHour,
   readingWeekStart: appSettings.readingWeekStart,
   readingTimerCheckMinutes: appSettings.readingTimerCheckMinutes,
+  readingAutoTrackEbooks: appSettings.readingAutoTrackEbooks,
   readingRhythmDays: appSettings.readingRhythmDays,
   readingSuggestHideAnathema: appSettings.readingSuggestHideAnathema,
   readingPredictionGate: appSettings.readingPredictionGate,
@@ -109,6 +113,16 @@ export async function getAppSettings(): Promise<AppSettings> {
     if (databaseErrorCode(error) === NO_TABLE) return DEFAULT_SETTINGS;
     throw error;
   }
+}
+
+/** Shared by 553's request-scoped runtime and the tracker. No success-shaped defaults. */
+export async function getPersistedReaderSettings(): Promise<Pick<AppSettings,
+  "readingTimerCheckMinutes" | "readingAutoTrackEbooks" | "readingDayStartHour">> {
+  const row = await readSettingsRow();
+  if (!row) throw new Error("Reader settings are unavailable");
+  const parsed = appSettingsInputSchema.required().pick({ readingTimerCheckMinutes: true, readingAutoTrackEbooks: true, readingDayStartHour: true }).safeParse(row);
+  if (!parsed.success) throw new Error("Reader settings are invalid");
+  return parsed.data;
 }
 
 type Saved = { ok: true; settings: AppSettings } | { ok: false; error: string };

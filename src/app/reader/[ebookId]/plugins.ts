@@ -1,13 +1,23 @@
 import type { ComponentType, ReactNode } from "react";
 import { createElement } from "react";
+import { ReaderTracking, ReaderTrackingFailure } from "@/components/reading/reader-tracking";
+import { loadReaderTracking } from "@/lib/reading/reader";
+import { READER_TRACKING_CONTROLLER_ID } from "@/lib/reading/reader-controller";
 
 export interface ReaderPlugin {
   id: string;
   load?(context: { ebookId: string }): Promise<unknown>;
   Component: ComponentType<{ data: unknown }>;
 }
-/** The tracker adds its client component here in SLN-454. Loaders never enter the client bundle. */
-export const readerPlugins: ReaderPlugin[] = [];
+/** The readiness fields are consumed by the shared controller loader (SLN-493). */
+const readingTrackerPlugin = {
+  id: READER_TRACKING_CONTROLLER_ID,
+  load: loadReaderTracking,
+  Component: ReaderTracking,
+  controller: true as const,
+  Failure: ReaderTrackingFailure,
+};
+export const readerPlugins: ReaderPlugin[] = [readingTrackerPlugin];
 
 export async function loadReaderPlugins(
   context: { ebookId: string },

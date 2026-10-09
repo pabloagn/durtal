@@ -68,6 +68,22 @@ export async function getEbook(id: string): Promise<EbookRow | null> {
   return row ? withSortedFiles(row) : null;
 }
 
+/** One batch for reading cards; apply the same delivery rules as the Read button. */
+export async function getReaderLinksForWorks(workIds: string[]): Promise<Map<string, string>> {
+  if (!workIds.length) return new Map();
+  const rows = resultRows<EbookRow & { workId: string }>(await db.execute(sql`
+    select e.work_id as "workId", ${EBOOK_COLUMNS}
+    from ebooks eb join instances i on i.id=eb.instance_id join editions e on e.id=i.edition_id
+    where eb.match_state='linked' and i.status<>'deaccessioned'
+      and e.work_id in (select value::uuid from jsonb_array_elements_text(${JSON.stringify(workIds)}::jsonb))
+    order by eb.created_at,eb.id`));
+  const links = new Map<string, string>();
+  for (const row of rows) {
+    if (!links.has(row.workId) && withSortedFiles(row).files.some((file) => file.nativeReadable)) links.set(row.workId, row.id);
+  }
+  return links;
+}
+
 /** The e-books linked to the active copies of a work's editions, with their files */
 export async function getEbooksForWork(workId: string): Promise<EbookRow[]> {
   const rows = resultRows<EbookRow>(

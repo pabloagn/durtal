@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { withReadableErrors } from "@/lib/db/errors";
@@ -28,6 +28,7 @@ import { readingDay, readingPeriodStart } from "./dates";
 import { readingDayStartHour } from "./day";
 import { stopProblem, stopTimes, TIMER_GONE } from "./timer";
 import { getAppSettings } from "@/lib/actions/settings";
+import { lockReaderNotes, notesForReading, retireReaderSittings } from "./reader-write-locks";
 import { formatMinutes, percentOf, positionChanges, positionInUnit, remapPosition } from "./positions";
 import { duplicateVerdicts, type ExistingReading } from "./duplicates";
 import {
@@ -49,7 +50,7 @@ import {
  */
 
 export type Reading = typeof readings.$inferSelect;
-export type Session = typeof readingSessions.$inferSelect;
+export type Session = typeof readingSessions.$inferSelect & { readerWentBack?: boolean };
 export type ReadingWithFingerprint = Reading & { fingerprint: string };
 type Db = typeof db;
 
@@ -90,7 +91,10 @@ export function sessionOrder(sessions: Session[]) {
 }
 
 async function loadSessions(readingId: string) {
-  return db.select().from(readingSessions).where(eq(readingSessions.readingId, readingId));
+  return db.select({ ...getTableColumns(readingSessions),
+    readerWentBack: sql<boolean>`exists(select 1 from reader_sitting_receipts c
+      where c.original_session_id=${readingSessions.id} and c.going_back)`,
+  }).from(readingSessions).where(eq(readingSessions.readingId, readingId));
 }
 
 export interface Pos {
@@ -152,7 +156,7 @@ export function planPositions(reading: Reading, ordered: Session[]) {
       : s.editionId === reading.editionId
         ? { ...pageMapped, page: s.endPage ?? pageMapped.page, minutes: pageMapped.minutes ?? s.endMinutes }
         : remapPosition(s.endPercent, reading);
-    if (s.source === "reader" && end.percent != null && position.percent != null && end.percent < position.percent) continue;
+    if (s.source === "reader" && !s.readerWentBack && end.percent != null && position.percent != null && end.percent < position.percent) continue;
     lastPositionSession = s;
     position = { ...end, chapter: s.endChapter ?? position.chapter };
   }
@@ -167,10 +171,12 @@ export function planPositions(reading: Reading, ordered: Session[]) {
 /** The statements that lock a reading and check it is the row the write was computed from */
 function guardReading(d: Db, readingId: string, fingerprint: string, message = STALE_READING) {
   return [
+    lockReaderNotes(d, notesForReading(readingId)),
     d.execute(sql`select id from readings where id = ${readingId}::uuid for update`),
     d.execute(
       assertSql(sql`coalesce((${readingFingerprintSql(readingId)}) = ${fingerprint}, false)`, message),
     ),
+    retireReaderSittings(d, readingId, "reading_edited"),
   ];
 }
 
@@ -241,7 +247,11 @@ export function openReadingMessage(status: string) {
  */
 export async function createReading(
   raw: CreateReadingInput,
-  opts: { source: ReadingSource; sourceKey?: string | null; importId?: string | null },
+  opts: { source: ReadingSource; sourceKey?: string | null; importId?: string | null;
+    /** Internal synchronous composition: reader creation and its first receipt share a transaction. */
+    beforeInsert?: (d: Db) => unknown[];
+    afterInsert?: (d: Db, created: { id: string; editionId: string | null; totalPages: number | null; start: Pos }) => unknown[];
+  },
 ): Promise<ReadingWithFingerprint & { unqueued: boolean }> {
   const input = createReadingSchema.parse(raw);
   if (opts.sourceKey) {
@@ -288,6 +298,7 @@ export async function createReading(
   const status = input.status ?? "reading";
   const results = await withReadableErrors(() =>
     atomic((d) => [
+      ...(opts.beforeInsert?.(d) ?? []),
       d.insert(readings).values({
         id,
         workId: input.workId,
@@ -310,12 +321,13 @@ export async function createReading(
         sourceKey: opts.sourceKey ?? null,
         importId: opts.importId ?? null,
       }),
+      ...(opts.afterInsert?.(d, { id, editionId, totalPages: totals.totalPages, start }) ?? []),
       d.insert(readingStatusHistory).values({ readingId: id, fromStatus: null, toStatus: status, notes: `Started (${opts.source})` }),
       // Starting a book takes it off Up Next (SLN-452)
       d.delete(readingQueue).where(eq(readingQueue.workId, input.workId)).returning({ id: readingQueue.id }),
     ]),
   );
-  const unqueued = ((results as unknown[])[2] as unknown[] | undefined)?.length ? true : false;
+  const unqueued = (results.at(-1) as unknown[] | undefined)?.length ? true : false;
   return { ...(await loadReading(id))!, unqueued };
 }
 
@@ -694,6 +706,9 @@ export async function writeReadings(
     importId?: string | null;
     /** Import file row for each input: persist rating undo in the same atomic write. */
     importRowNumbers?: number[];
+    /** Internal recovery journal, composed with each bounded write transaction. */
+    beforeChunk?: (d: Db, rows: { id: string; row: WriteReadingRow }[]) => unknown[];
+    afterChunk?: (d: Db, rows: { id: string; row: WriteReadingRow }[]) => unknown[];
   },
 ): Promise<WriteOutcome[]> {
   if (opts.importRowNumbers && (opts.source !== "import" || !opts.importId ||
@@ -800,7 +815,9 @@ export async function writeReadings(
     });
     await withReadableErrors(() =>
       atomic((d) =>
-        chunk.flatMap(({ id, row, i, totals, position, current, startedOn, finishedOn, bookRating }) => [
+        [
+        ...(opts.beforeChunk?.(d, chunk) ?? []),
+        ...chunk.flatMap(({ id, row, i, totals, position, current, startedOn, finishedOn, bookRating }) => [
           ...(opts.importRowNumbers ? [
             d.execute(sql`select row_no from reading_import_rows where import_id = ${opts.importId}::uuid
               and row_no = ${opts.importRowNumbers[i]} for update`),
@@ -877,6 +894,8 @@ export async function writeReadings(
             ? [d.execute(sql`delete from reading_queue where work_id = ${row.workId}::uuid and exists (select 1 from readings where id = ${id}::uuid)`)]
             : []),
         ]),
+        ...(opts.afterChunk?.(d, chunk) ?? []),
+        ],
       ),
     );
     // What each row became: written, or already there under its key

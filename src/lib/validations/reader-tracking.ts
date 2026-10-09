@@ -10,8 +10,8 @@ const percent = z.number().min(0).max(100).transform((value) => Math.round(value
 export function readerSessionSchema(defaultTimeZone: string) {
   const zone = timeZoneSchema.parse(defaultTimeZone);
   return z.strictObject({
-    sittingId: z.uuid(),
-    readingId: z.uuid(),
+    sittingId: z.uuid().transform((id) => id.toLowerCase()),
+    readingId: z.uuid().transform((id) => id.toLowerCase()),
     revision: z.number().int().min(1).max(2_147_483_647),
     startedAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)),
     endedAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)),

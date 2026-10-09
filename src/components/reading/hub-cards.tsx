@@ -48,8 +48,9 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
           {last ? ` · last read ${last}` : ""}
         </p>
         {estimate && <EstimateLine estimate={estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <ReadingCardActions reading={refOf(open)} href={href} title={open.work.title} />
+          {open.ebookId && <a href={`/reader/${open.ebookId}`} className="touch-hit text-xs text-fg-secondary underline">Open eBook</a>}
         </div>
       </div>
     </article>
@@ -94,6 +95,7 @@ export function tileItem(open: OpenReading, estimate?: ReadingEstimate): TileIte
   return {
     estimate,
     reading: refOf(open),
+    ebookId: open.ebookId,
     title: open.work.title,
     href: bookHref(open.work),
     cover: open.cover,

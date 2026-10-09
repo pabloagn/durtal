@@ -13,6 +13,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { readerBindingsLockSql, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { fieldLabel, entityDefinition } from "./registry";
 import { recordRef, sameScope } from "./engine";
 import { isBlank, stableStringify } from "./normalize";
@@ -414,13 +415,18 @@ function unknownReferencesSql(table: string, key: string, known: Reference[]) {
     "A new relationship needs a merge strategy before this record can be merged.",
   );
 }
-export async function executeMerge(input: {
+type MergeInput = {
   entity: string;
   sourceId: string;
   targetId: string;
   fingerprint: string;
   choices: Record<string, "source" | "target">;
-}) {
+};
+export async function executeMerge(input: MergeInput) {
+  return withReaderWriteRetry(() => executeMergeOnce(input));
+}
+
+async function executeMergeOnce(input: MergeInput) {
   const entity = entityDefinition(input.entity);
   const { data, fingerprint } = await loadSnapshot(entity.table, [
     input.sourceId,
@@ -463,9 +469,17 @@ export async function executeMerge(input: {
   const refs = mergeReferences(entity.table);
   const operationId = randomUUID();
   const foreignRefs = refs.filter((r) => !r.polymorphic);
+  const readerEntity = ["works", "editions", "instances"].includes(input.entity);
+  const bookPredicate = input.entity === "works" ? sql`e.work_id` : input.entity === "editions" ? sql`i.edition_id` : sql`eb.instance_id`;
+  const notePredicate = input.entity === "works" ? sql`n.work_id` : input.entity === "editions" ? sql`n.edition_id` : sql`r.instance_id`;
+  const readerNotes = sql`select n.id from reading_notes n left join readings r on r.id=n.reading_id
+    where ${notePredicate} in (${source.id}::uuid,${target.id}::uuid)`;
   const queries: SQL[] = [
     sql`set local lock_timeout = '5s'`,
     sql`set local statement_timeout = '30s'`,
+    ...(readerEntity ? [readerBindingsLockSql(sql`select eb.id from ebooks eb join instances i on i.id=eb.instance_id
+      join editions e on e.id=i.edition_id where ${bookPredicate} in (${source.id}::uuid,${target.id}::uuid)`, readerNotes),
+      sql`select public.durtal_reader_lock_quote_notes(array(${readerNotes})::uuid[])`] : []),
     lockSql([
       entity.table,
       ...refs.map((r) => r.table),
