@@ -97,6 +97,14 @@ manifests. This is asset provenance evidence, not a browser or build result.
 
 ### Exact upstream preference contract
 
+Root relayed independent `SOURCE_APPROVE` for exact asset commit `16a5f5d3`:
+all 203 hashes matched and 17 isolated tests passed, including four independent
+failure cases. Approval covers staging and provenance, not runtime CSP.
+
+Root then authorized normal integration of independently approved navigation
+commit `f1c4cadf994592755b3ac214f291c9e4e7fc1eea`. Merge `e7cb4c69` completed
+without conflicts; no parent history or primary checkout was rewritten.
+
 Add these fields to SLN-501's existing strict `presentationSchema`:
 
 ```ts
@@ -149,3 +157,23 @@ unimplemented integration work, not checkpoint proof.
 
 Use the existing common `navigate(..., { source: "goto" })` for page-strip
 jumps. No extra jump-source variant is proposed.
+
+### Owned worker and backing allocation source checkpoint
+
+`pdf-worker.ts` creates a per-document native module worker from the exact
+versioned same-origin URL and hands its explicit port to `PDFWorker.create`.
+No global worker port or fake-worker fallback is used. Initialization failure
+terminates the native port; close destroys both abstractions once. Worker
+load/message failures are observed through a promise for the adapter to race.
+This does not claim the HTTP CSP has been wired or verified.
+
+`canvas-ledger.ts` reserves bytes and page slots synchronously before canvas
+creation, including pending work. It enforces the reviewed aggregate/pixel
+limits and three/four page slots, freezes raster plans, cancels its own paint
+before zeroing backing dimensions, releases failed/reentrant allocations and
+cleans every owner even when one cancellation throws. The renderer must evict
+cached pages before reserving replacements or reducing the spread mode.
+
+Ten focused lifecycle tests passed, zero skips. Scoped TypeScript, source lint
+and whitespace checks passed. Test worker/paint objects are deliberate doubles;
+real worker startup, raster painting and memory/performance proof remain gated.
