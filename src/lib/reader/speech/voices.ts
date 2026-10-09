@@ -194,3 +194,14 @@ export function groupSpeechVoices(
     .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
     .map(([language, members]) => ({ language, voices: members }));
 }
+
+/** The UI is English; unfamiliar or unsupported tags keep a truthful tag label. */
+export function speechLanguageLabel(language: string | null): string {
+  const tag = speechLanguage(language);
+  if (!tag || tag === "und") return "this language";
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
