@@ -7,6 +7,7 @@ import {
   installDisclosureHelpers,
   withDisclosures,
   walkKeyboard,
+  reachByTab,
 } from "./interaction-disclosures.mjs";
 import { effectiveTarget } from "./interaction-target.mjs";
 const { Window } = await import(
@@ -56,7 +57,7 @@ function fixture(html, { skip = "", ringless = "" } = {}) {
   };
   const io = {
     evaluate,
-    async press(key) {
+    async press(key, shift = false) {
       keys.push(key);
       if (key === "Tab") {
         const controls = [
@@ -71,7 +72,9 @@ function fixture(html, { skip = "", ringless = "" } = {}) {
         );
         const next =
           controls[
-            (controls.indexOf(window.document.activeElement) + 1) %
+            (controls.indexOf(window.document.activeElement) +
+              (shift ? -1 : 1) +
+              controls.length) %
               controls.length
           ];
         next?.focus();
@@ -278,6 +281,22 @@ test("dialog Tab rejects a background control regardless of document focus", asy
     ),
     true,
   );
+});
+
+test("native reverse Tab can reach a summary when forward Tab retains the last stop", async () => {
+  const f = fixture(
+    '<button id="before">Before</button><details><summary id="target">History</summary><button>Edit</button></details><button id="last">Last</button>',
+  );
+  f.window.document.getElementById("last").focus();
+  const originalPress = f.io.press;
+  f.io.press = async (key, shift) => {
+    if (shift) await originalPress(key, shift);
+  };
+  const target = await f.io.evaluate(
+    '__ia.id(document.getElementById("target"))',
+  );
+  assert.equal(await reachByTab(f.io, target, 20), true);
+  assert.equal(f.window.document.activeElement.id, "target");
 });
 
 test("CLI refuses unsafe targets before finding or starting any browser", () => {

@@ -143,13 +143,20 @@ export function installDisclosureHelpers() {
 
 /** Reach the exact element through native Tab, never HTMLElement.focus(). */
 export async function reachByTab(io, id, limit = 500) {
-  const seen = new Set();
-  for (let i = 0; i < limit; i++) {
-    const active = await io.evaluate("window.__ia.id(document.activeElement)");
-    if (active === id) return true;
-    if (active && seen.has(active)) return false;
-    if (active) seen.add(active);
-    await io.press("Tab");
+  // Headless Firefox can retain the last document stop on forward Tab.
+  // A bounded native reverse walk proves reachability without forcing focus
+  // or treating any background/document focus state as an exception.
+  for (const shift of [false, true]) {
+    const seen = new Set();
+    for (let i = 0; i < limit; i++) {
+      const active = await io.evaluate(
+        "window.__ia.id(document.activeElement)",
+      );
+      if (active === id) return true;
+      if (active && seen.has(active)) break;
+      if (active) seen.add(active);
+      await io.press("Tab", shift);
+    }
   }
   return false;
 }

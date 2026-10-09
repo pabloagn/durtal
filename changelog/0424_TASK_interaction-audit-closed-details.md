@@ -34,7 +34,7 @@ no product UI change is included.
 
 ## Completion Notes
 
-Source checkpoint only: eleven pure synthetic DOM/geometry/CLI regressions pass
+Source checkpoint only: twelve pure synthetic DOM/geometry/CLI regressions pass
 with zero skips. They cover freshly inserted nested content, unreachable
 summaries, skipped focus targets, missing focus indicators, restoration after
 a deliberate failure, host guards and effective touch geometry. The existing
@@ -52,3 +52,8 @@ browser chrome owns focus. Accept only BODY with measured
 controls. Three regressions cover those states, and actual browser reports
 count only observed instances of the narrow exception. Native evidence is
 still pending the heavy-slot grant.
+
+Native Firefox diagnosis: forward Tab can retain the last page control while
+Shift+Tab reaches the preceding summary. Reachability now tries bounded
+native walks in both directions, without forced focus or broader dialog
+exceptions. The failed forward-only trace is retained locally.
