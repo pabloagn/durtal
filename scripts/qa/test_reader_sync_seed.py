@@ -25,8 +25,14 @@ class ReaderSyncSeed(unittest.TestCase):
                 sql = preview.reader_seed(output)
             alternate = (fixtures / "text.pdf").read_bytes() + b"\n% Durtal reader sync alternate format\n"
             sha = hashlib.sha256(alternate).hexdigest()
-            target = output / "durtal-ebooks" / f"files/{sha[:2]}/{sha}.pdf"
+            target = output / "durtal" / f"files/{sha[:2]}/{sha}.pdf"
             self.assertEqual(target.read_bytes(), alternate)
+            first_epub = (fixtures / "epub3.epub").read_bytes()
+            epub_sha = hashlib.sha256(first_epub).hexdigest()
+            self.assertEqual(
+                (output / "durtal" / f"files/{epub_sha[:2]}/{epub_sha}.epub").read_bytes(),
+                first_epub,
+            )
             self.assertIn("'00000000-0000-4000-a000-e00000000001', '00000000-0000-4000-a000-000000000001'", sql)
             self.assertIn(sha, sql)
             self.assertEqual(sql.count("insert into ebooks("), len(preview.READER_EBOOKS))
