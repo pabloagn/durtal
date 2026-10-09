@@ -54,6 +54,25 @@ Each patch is marked in the code with a `Durtal patch N (VENDORED.md)` comment.
 
 ## Updating
 
+### SLN-502 asset preparation (runtime integration pending)
+
+`pdfjs-assets.json` records the exact installed pdf.js 6.4.299 package/API
+identity and every staged worker, CMap, standard-font, wasm, ICC and license
+asset's source path, byte size and SHA-256. `scripts/qa/stage-pdfjs-assets.mjs`
+reproduces the inventory and copies those assets into the git-ignored
+`public/vendor/pdfjs/6.4.299/` directory. It also retains the original viewer
+CSS as extraction evidence. It does not change `scripts/vendor-pdfjs.mjs`,
+runtime URLs or vendored JavaScript.
+
+The inventory is explicitly `installed-unpatched-staging`: the copied worker
+has the exact installed bytes. Applying established patch 4, extracting
+`layers.css`, wiring versioned URLs and enforcing HTTP worker CSP remain
+separate, gated integration work. Runtime validation must verify those
+transformations and their output hashes; this inventory alone proves none of
+their browser behavior.
+
+### Engine updates
+
 Copy the files above from the new commit, apply the patches again, update
 the commit and date here, and run `node scripts/qa/reader-engine-check.mjs`
 in the three browsers and `node scripts/qa/reader-perf.mjs` on a preview with

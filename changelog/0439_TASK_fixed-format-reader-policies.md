@@ -54,6 +54,14 @@ these tests are synthetic arrays/geometry; installed pdf.js source is read
 directly for security compatibility checks. No performance or native-browser
 proof is claimed.
 
+Root relayed independent `PURE_SOURCE_APPROVE` for exact commit `9f40c641`:
+82 tests passed, zero skipped (75 supplied plus seven adversarial checks).
+Review covered extreme/exhausted canvas budgets, all four rotations with
+crop/zoom, high byte ranges and text sampling. Runtime allocation reservations,
+early cancellation, measured-glyph production and native PDF performance
+remain integration gates. This approval does not cover subsequent asset
+preparation changes.
+
 Scoped TypeScript and lint checks cover the new files only. Full typecheck,
 lint, deadcode, unfiltered zero-skip database suite, default Mac build, Docker,
 CI, real large fixtures, all nine browser/width combinations, audits and every
@@ -64,3 +72,80 @@ Upstream contract dependency: `locatorSchema` at the base commit still caps
 `text.highlight` at 2,048 characters; SLN-500's shared validation must accept
 the specified 10,000-character annotation quote before these locators are
 integrated. That schema is intentionally unchanged here.
+
+### Asset preparation checkpoint
+
+Root subsequently authorized exact installed asset acquisition. The additive
+`scripts/qa/stage-pdfjs-assets.mjs` copies 203 installed assets to the ignored
+`public/vendor/pdfjs/6.4.299/` folder and writes the reproducible inventory
+`src/vendor/foliate-js/pdfjs-assets.json`. Package and exported API versions
+must both be 6.4.299. Every copied byte is rehashed before the publication
+marker is written. No dependency is installed and no runtime source is wired.
+
+Manifest SHA-256:
+`3e8dc01789c4dd3bae28eb76565caf12540526d23503c2b3fafd490f5e71d5a8`.
+Mode is `installed-unpatched-staging`; the existing worker patch and actual
+layer-CSS extraction/CSP headers remain integration work. The original viewer
+CSS is retained only as extraction evidence. The current vendor build script,
+package scripts, adapter, UI and owner files remain unchanged.
+
+Asset checkpoint validation: the three asset staging/version tests and ten
+installed document/security-option tests passed (13 total, zero skips).
+Every one of the 203 staged files matches its installed source bytes and
+manifest hash; two independent staging directories produced identical
+manifests. This is asset provenance evidence, not a browser or build result.
+
+### Exact upstream preference contract
+
+Add these fields to SLN-501's existing strict `presentationSchema`:
+
+```ts
+fixedFit: z.enum(["page", "width"]),
+cropMargins: z.enum(["auto", "on", "off"]),
+pdfThemePages: z.boolean(),
+```
+
+Defaults: desktop/tablet `fixedFit: "page"`, phone `fixedFit: "width"`;
+all classes `cropMargins: "auto"`, `pdfThemePages: true`. Keep defaults in
+`PRESENTATION_DEFAULTS`, so partial book overrides do not acquire fields they
+did not set. Existing field-wise salvage plus effective-presentation merging
+reads old rows over the new defaults. Use existing scope/save actions, and
+leave zoom ephemeral. No extra migration.
+
+### Measured PDF text contract for SLN-503/SLN-508 (proposed)
+
+Adapter-internal provider, bound to the opened file's hash:
+
+```ts
+interface PdfTextPageRequest {
+  fileHash: string;
+  pageIndex: number; // zero-based section index
+  signal: AbortSignal;
+}
+pdfPageText(request: PdfTextPageRequest): Promise<{
+  fileHash: string; pageIndex: number; pageLabel: string; text: string;
+}>
+locatorForPdfTextOffsets(
+  request: PdfTextPageRequest & { start: number; end: number }
+): Promise<DurtalLocator | null>
+```
+
+Offsets are UTF-16 in the exact `pdfPageText` result before search folding or
+speech segmentation. The producer must measure actual text-layer glyph or
+ligature ranges at a known viewport, temporarily laying out detached content
+in one owned offscreen measurement host if necessary; no page raster is
+needed. Geometry then feeds `PdfPageTextGeometry` and the pure locator builder.
+Never invent glyph widths by proportional subdivision or accept empty
+detached DOMRects as an exact locator. Return null when measurement is absent.
+
+Each request owns only its measurement host/text-layer task and late-result
+delivery. Aborting search/speech must not cancel visible renders, destroy the
+PDF loading task, or abort shared transport work still used by rendering.
+Shared reads/page proxies require consumer leases; document close separately
+invalidates all owners. Keep at most six shared PDF transport reads in flight,
+bound page/geometry caches, and retire document references after at most one
+second of pdf.js destruction. These effectful producers/leases are gated,
+unimplemented integration work, not checkpoint proof.
+
+Use the existing common `navigate(..., { source: "goto" })` for page-strip
+jumps. No extra jump-source variant is proposed.
