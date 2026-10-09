@@ -84,3 +84,11 @@ Review correction: five focused abandoned-claim wake regressions passed before
 the QUIET-494 window, covering a newly visible tab after 31 seconds, cancellation
 while hidden/destroyed, blocked-head preservation and a peer ownership race.
 TypeScript passed. All local checking is paused during QUIET-494.
+
+Hidden-delete review correction (source only during QUIET-494): hide/expiry now
+commits irreversible delete sealing before device preflight, lifecycle body
+planning, replay locks or reuse of an in-flight replay. Direct lifecycle claim
+also seals before deferred selection. It preserves whole original quote effects,
+revisions, claim tokens and auth blocking. Native regression source covers failed
+preflight, oversized composed delete and sealing behind a blocked head. These
+new regressions and static checks have not run; the quiet window remains active.

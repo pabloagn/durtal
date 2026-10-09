@@ -565,6 +565,40 @@ export async function runOfflineStoreChecks() {
       }
     },
   );
+  await check("hide seals deletes even when device preflight fails", async () => {
+    const operation = deletion(1); await store.enqueue(operation);
+    const transport = createReaderTransport({ store, window: null, locks: null,
+      preflight: async () => { throw new Error("Offline preflight"); },
+      positionAcknowledged: () => true, decodeAnnotations: () => ({ outcomes: [] }) });
+    try {
+      await transport.requestReplay("lifecycle");
+      const row = (await store.inspect())[0];
+      assert(row.state === "waiting" && row.claim === null && row.annotation?.undo?.state === "sealed", "Failed preflight retained Undo");
+      assert(JSON.stringify(row.mutation) === JSON.stringify(operation.mutation), "Rewrote original effect");
+    } finally { transport.destroy(); }
+  });
+  await check("hide seals an oversized whole quote effect before lifecycle planning", async () => {
+    const operation = deletion(1);
+    if (operation.mutation.kind !== "annotations") throw new Error("Expected delete");
+    operation.mutation = { ...operation.mutation, body: { ...operation.mutation.body,
+      deletes: [{ ...operation.mutation.body.deletes[0], quoteEffect: { action: "delete-quote", noteId: OTHER,
+        expectedNoteVersion: "界".repeat(22_000), expectedBindingVersion: "opaque" } }] } };
+    await store.enqueue(operation);
+    const original = JSON.stringify(operation.mutation), plan = await store.claim(claimOptions("lifecycle"));
+    assert(plan.kind === "stop" && plan.reason === "lifecycle_body_too_large", "Oversized lifecycle sent");
+    const row = (await store.inspect())[0];
+    assert(row.annotation?.undo?.state === "sealed" && JSON.stringify(row.mutation) === original && row.claim === null,
+      "Oversized effect was split, claimed or left Undo-able");
+  });
+  await check("hide seals deletes behind a blocked head without unblocking or claiming", async () => {
+    await store.enqueue(input(1)); const claimed = await store.claim(claimOptions());
+    assert(claimed.kind === "claim", "Expected position claim");
+    await store.settle(claimed.references, "blocked"); await store.enqueue(deletion(2));
+    await store.sealDeletes("lifecycle");
+    const all = await store.inspect();
+    assert(all[0].state === "blocked" && all[1].state === "waiting" && all[1].annotation?.undo?.state === "sealed",
+      "Sealing changed blockers or skipped deferred intent");
+  });
   return { passed: passed.length, skipped: 0, checks: passed };
 }
 

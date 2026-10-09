@@ -361,7 +361,37 @@ export async function openOfflineStore(options: StoreOptions) {
       } satisfies BookRecord),
     );
   }
+  async function sealDeletesInTransaction(
+    tx: IDBTransaction,
+    all: StoredOperation[],
+    mode: "foreground" | "lifecycle",
+    nowMs: number,
+  ): Promise<string[]> {
+    const books: string[] = [];
+    for (let index = 0; index < all.length; index++) {
+      const row = all[index], undo = row.annotation?.undo;
+      if (undo?.state !== "undoable" ||
+        (mode !== "lifecycle" && (undo.until === null || undo.until > nowMs))) continue;
+      // The whole immutable quote effect/revision remains in mutation.body.
+      // Sealing changes neither claim ownership nor authentication blocking.
+      const sealed: StoredOperation = { ...row, annotation: { ...row.annotation!,
+        undo: { ...undo, state: "sealed" } } };
+      await request(tx.objectStore("outbox").put(sealed));
+      all[index] = sealed;
+      books.push(row.mutation.ebookId);
+    }
+    return books;
+  }
   return {
+    /** Hide/expiry is a durable irreversible transition independent of network,
+     * device preflight, head blocking, payload size and eventual claim selection.
+     */
+    async sealDeletes(mode: "foreground" | "lifecycle"): Promise<number> {
+      const books = await transaction("readwrite", async (tx) =>
+        sealDeletesInTransaction(tx, await rows(tx), mode, now()));
+      for (const ebookId of new Set(books)) notify(ebookId);
+      return books.length;
+    },
     async enqueue(input: DurableInput): Promise<void> {
       const valid = validate(input);
       await transaction("readwrite", (tx) => insert(tx, valid));
@@ -440,8 +470,9 @@ export async function openOfflineStore(options: StoreOptions) {
       options: Parameters<typeof planReplayClaim>[1],
     ): Promise<StoreClaim> {
       return transaction("readwrite", async (tx) => {
-        const all = await rows(tx),
-          first = all[0];
+        const all = await rows(tx);
+        await sealDeletesInTransaction(tx, all, options.mode, options.nowMs);
+        const first = all[0];
         // Preserve the blocked head priority, including device changes.
         if (
           first?.state !== "blocked" &&

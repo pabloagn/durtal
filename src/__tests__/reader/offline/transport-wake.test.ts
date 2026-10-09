@@ -39,6 +39,7 @@ function setup(
   });
   const inspect = vi.fn(async () => rows);
   const store = {
+    sealDeletes: vi.fn(async () => 0),
     inspect,
     claim: vi.fn(
       async (claimOptions: Parameters<typeof planReplayClaim>[1]) => {

@@ -295,7 +295,14 @@ export function createReaderTransport(options: TransportOptions) {
     });
     schedule(delay);
   }
-  function requestReplay(mode: "foreground" | "lifecycle"): Promise<void> {
+  async function requestReplay(mode: "foreground" | "lifecycle"): Promise<void> {
+    if (stopped) return;
+    // Even an existing foreground request, unavailable identity or oversized
+    // lifecycle body must not leave hidden delete intents Undo-able.
+    await options.store.sealDeletes(mode);
+    return startReplay(mode);
+  }
+  function startReplay(mode: "foreground" | "lifecycle"): Promise<void> {
     if (stopped) return Promise.resolve();
     if (inFlight) return inFlight;
     clearTimer();
