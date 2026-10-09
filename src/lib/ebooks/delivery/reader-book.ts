@@ -2,7 +2,8 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { formatRank, READABLE_FORMATS } from "../formats";
-import type { CatalogueFile } from "./files";
+import { medallionOf } from "../medallion";
+import { isDeliverable, type CatalogueFile } from "./files";
 
 /*
  * What the reader page needs, in one query (eBooks sub-issue 3): the
@@ -51,14 +52,13 @@ const readable = sql.join(
 /** The reader's e-book, or null when there is none */
 export async function readReaderBook(
   ebookId: string,
-  options: { deviceId?: string | null; fileId?: string | null } = {},
-): Promise<ReaderBook | null> {
+  options: { deviceId?: string | null; fileId?: string | null } = {}): Promise<ReaderBook | null> {
   const [row] = resultRows<Row>(
     await db.execute(sql`select eb.id, eb.title, eb.authors, eb.language,
         eb.preferred_file_id as "preferredFileId", w.slug as "workSlug",
         coalesce((select json_agg(json_build_object('id', f.id, 'ebookId', f.ebook_id, 'sha256', f.sha256,
             's3Key', f.s3_key, 'format', f.format, 'sizeBytes', f.size_bytes, 'contentType', f.content_type,
-            'status', f.status, 'drm', f.drm, 'manifestKey', f.manifest_key) order by f.created_at, f.id)
+            'status', f.status, 'drm', f.drm, 'metadata', f.metadata, 'manifestKey', f.manifest_key) order by f.created_at, f.id)
           from ebook_files f
           where f.ebook_id = eb.id and f.status in ('stored', 'verified') and f.drm is null
             and f.format in (${readable})), '[]'::json) as files,
@@ -73,7 +73,9 @@ export async function readReaderBook(
       where eb.id = ${ebookId}::uuid`),
   );
   if (!row) return null;
-  const files = [...row.files].sort((a, b) => formatRank(a.format) - formatRank(b.format));
+  const files = row.files
+    .filter((f) => isDeliverable(f) && (!medallionOf(f.metadata) || medallionOf(f.metadata)!.validation.nativeReadable))
+    .sort((a, b) => formatRank(a.format) - formatRank(b.format));
   const byId = (id: string | null | undefined) => (id ? files.find((f) => f.id === id.toLowerCase()) : undefined);
   const file = byId(options.fileId) ?? byId(row.preferredFileId) ?? files[0] ?? null;
   const place = file ? (row.places.find((p) => p.fileId === file.id) ?? null) : null;

@@ -3,8 +3,7 @@ import {
   GoogleBooksQuotaError,
   googleBooksFetch,
   googleBooksOverQuota,
-  lastGoogleBooksCall,
-} from "@/lib/api/google-books-quota";
+  lastGoogleBooksCall } from "@/lib/api/google-books-quota";
 import { and, count, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ebookFiles, ebookIngestRuns, ebooks, enrichmentCosts, evidenceOutlets, sourceRecords } from "@/lib/db/schema";
@@ -25,8 +24,7 @@ import { coverUrlFor, ebookDelivery, fileUrlFor } from "@/lib/ebooks/delivery/ur
 import {
   EXTERNAL_TIMEOUT_MS,
   ExternalFetchError,
-  fetchWithTimeout,
-} from "@/lib/api/external-fetch";
+  fetchWithTimeout } from "@/lib/api/external-fetch";
 
 /**
  * The outside services Durtal talks to, and a live check of each (Settings,
@@ -126,9 +124,7 @@ export async function integrationsOverview(): Promise<IntegrationsOverview> {
         and(
           inArray(enrichmentCosts.provider, ["tavily", "brave", EXTRACTION_MODEL.provider]),
           eq(enrichmentCosts.status, "settled"),
-          ne(enrichmentCosts.operation, "check"),
-        ),
-      )
+          ne(enrichmentCosts.operation, "check")))
       .groupBy(enrichmentCosts.provider),
   ]);
   const lastUsed = (provider: string) => {
@@ -306,8 +302,8 @@ function ebookStorageInfo(): IntegrationInfo {
     id: "ebookStorage",
     name: "eBook storage",
     purpose: cloudfront
-      ? "Keeps eBook files in their own bucket. CloudFront sends them to the browser by signed URLs that last at least 6 hours."
-      : "Keeps eBook files in their own bucket. The app sends them to the browser itself; CloudFront is not set up.",
+      ? "Keeps validated eBook files in gold/ebooks/ in the private bucket. CloudFront sends them to the browser by signed URLs that last at least 6 hours."
+      : "Keeps validated eBook files in gold/ebooks/ in the private bucket. The app sends them to the browser itself; CloudFront is not set up.",
     env: [
       { name: "EBOOKS_BUCKET", set: isSet("EBOOKS_BUCKET"), optional: true },
       { name: "EBOOKS_PREFIX", set: isSet("EBOOKS_PREFIX"), optional: true },
@@ -319,7 +315,7 @@ function ebookStorageInfo(): IntegrationInfo {
     ],
     checkFrom: "server",
     facts: [
-      { label: "Bucket", value: prefix ? `${bucket}, under ${prefix}` : bucket },
+      { label: "Bucket", value: prefix ? `${bucket}; legacy prefix ${prefix}` : bucket },
       { label: "Region", value: region },
       { label: "Delivery", value: cloudfront ? "CloudFront, signed URLs" : "The app" },
     ],
@@ -340,8 +336,7 @@ const since = (start: number) => Math.round(performance.now() - start);
 async function httpCheck(
   name: string,
   request: () => Promise<Response>,
-  statuses: Record<number, CheckResult> = {},
-): Promise<CheckResult> {
+  statuses: Record<number, CheckResult> = {}): Promise<CheckResult> {
   const start = performance.now();
   let res: Response;
   try {
@@ -354,8 +349,7 @@ async function httpCheck(
     return failure(
       timedOut
         ? `${name} did not answer within ${EXTERNAL_TIMEOUT_MS / 1000} s`
-        : `${name} could not be reached`,
-    );
+        : `${name} could not be reached`);
   }
   // Read the answer, so the connection is freed; its content is not used
   await res.arrayBuffer().catch(() => undefined);
@@ -370,9 +364,7 @@ function withinLimit<T>(work: Promise<T>, name: string): Promise<T> {
     new Promise<T>((_, reject) =>
       setTimeout(
         () => reject(new Error(`${name} did not answer within ${EXTERNAL_TIMEOUT_MS / 1000} s`)),
-        EXTERNAL_TIMEOUT_MS,
-      ),
-    ),
+        EXTERNAL_TIMEOUT_MS)),
   ]);
 }
 
@@ -386,8 +378,7 @@ async function checkDatabase(): Promise<CheckResult> {
     return failure(
       error instanceof Error && /did not answer/.test(error.message)
         ? error.message
-        : "The database refused the connection",
-    );
+        : "The database refused the connection");
   }
 }
 
@@ -417,8 +408,7 @@ async function checkStorage(): Promise<CheckResult> {
       return failure(
         actual
           ? `The bucket is in ${actual}, but AWS_REGION is ${region}`
-          : `The bucket is not in ${region}`,
-      );
+          : `The bucket is not in ${region}`);
     }
     if (status === 403) return failure("The credentials cannot read this bucket");
     if (status === 404) return failure(`There is no bucket named ${S3_BUCKET}`);
@@ -535,11 +525,9 @@ async function checkGoogleBooks(): Promise<CheckResult> {
     () =>
       googleBooksFetch(`https://www.googleapis.com/books/v1/volumes?${params}`, {
         cache: "no-store",
-      }).catch((error: unknown) =>
-        error instanceof GoogleBooksQuotaError
+      }).catch((error: unknown) => (error instanceof GoogleBooksQuotaError
           ? new Response(null, { status: 429 })
-          : Promise.reject(error),
-      ),
+          : Promise.reject(error))),
     {
       400: failure("Google Books refused the key"),
       403: warning("Over the quota, or the Books API is off for this key"),
@@ -554,9 +542,7 @@ async function checkGoogleBooks(): Promise<CheckResult> {
 function checkOpenLibrary(): Promise<CheckResult> {
   return httpCheck("Open Library", () =>
     fetchWithTimeout(
-      `https://openlibrary.org/search.json?isbn=${PROBE_ISBN}&limit=1&fields=key`,
-      { headers: { "User-Agent": USER_AGENT }, cache: "no-store" },
-    ),
+      `https://openlibrary.org/search.json?isbn=${PROBE_ISBN}&limit=1&fields=key`, { headers: { "User-Agent": USER_AGENT }, cache: "no-store" }),
   );
 }
 
@@ -598,8 +584,7 @@ function checkWikidata(): Promise<CheckResult> {
   return httpCheck("Wikidata", () =>
     fetchWithTimeout(
       "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q42&props=info&format=json",
-      { headers: { "User-Agent": USER_AGENT }, cache: "no-store" },
-    ),
+      { headers: { "User-Agent": USER_AGENT }, cache: "no-store" }),
   );
 }
 
@@ -642,8 +627,7 @@ function checkTavily(): Promise<CheckResult> {
       401: failure("Tavily refused the key"),
       429: warning("Over the rate limit of the usage call; try again in a few minutes"),
       432: warning("Over the plan's credits for this month"),
-    },
-  );
+    });
 }
 
 /** A check answer that was not billed: a refusal, or no answer */

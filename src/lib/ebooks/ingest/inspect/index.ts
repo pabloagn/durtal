@@ -25,7 +25,10 @@ export async function inspectFile(source: ByteSource, format: EbookFormat): Prom
     case "mobi":
     case "azw":
     case "azw3":
-      if (magic.startsWith("TPZ")) return emptyInspection(format, { text: { kind: "none", reason: "Topaz book: its text is not read" } });
+      if (magic.startsWith("TPZ")) return emptyInspection(format, {
+          details: { unverified: true, nativeReadable: false },
+          text: { kind: "none", reason: "Topaz integrity and DRM are not verified" },
+        });
       return inspectMobi(source, format);
     case "pdf":
       return inspectPdf(source);

@@ -3,10 +3,12 @@ import path from "node:path";
 import { inArray } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { atomicOn } from "@/lib/db/atomic";
-import { ebookFiles, ebookIngestRuns } from "@/lib/db/schema";
+import { ebookFiles, ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
 import { recentBackup } from "@/lib/enrichment/backup";
-import { ebooksPrefix } from "./keys";
-import { ebookObjectKind, ebookStorage, headEbookObject, isNoSuchBucket, listEbookObjects, type EbookListedObject } from "./storage";
+import { medallionOf } from "./medallion";
+import { verifyPublication } from "./publication";
+import { ebooksPrefix, parseStageKey } from "./keys";
+import { ebookInventoryPrefixes, listEbookInventory, objectMatches, ebookObjectKind, ebookStorage, headEbookObject, isNoSuchBucket, type EbookListedObject } from "./storage";
 
 /*
  * The e-book bucket against the catalogue (SLN-491). Read-only by default:
@@ -55,8 +57,10 @@ export interface VerifyReport {
  * belongs to the file whose checksum names its folder.
  */
 export async function ebookOrphans(database: Db, objects: EbookListedObject[], now = Date.now()) {
-  const rows = await database.select({ s3Key: ebookFiles.s3Key, sha256: ebookFiles.sha256 }).from(ebookFiles);
-  const keys = new Set(rows.map((r) => r.s3Key));
+  const rows = await database.select({ s3Key: ebookFiles.s3Key, sha256: ebookFiles.sha256, metadata: ebookFiles.metadata, manifestKey: ebookFiles.manifestKey, coverKey: ebookFiles.coverKey }).from(ebookFiles);
+  const keys = new Set(rows.flatMap((r) => [r.s3Key, r.manifestKey, r.coverKey, ...(medallionOf(r.metadata)?.gold.map((o) => o.key) ?? [])].filter((key): key is string => !!key)));
+  const items = await database.select({ sha256: ebookIngestItems.sha256 }).from(ebookIngestItems);
+  const evidenceHashes = new Set([...rows.map((r) => r.sha256), ...items.map((i) => i.sha256)]);
   const checksums = new Set(rows.map((r) => r.sha256));
   const prefix = ebooksPrefix();
   const cutoff = now - IN_FLIGHT_HOURS * 3600_000;
@@ -64,12 +68,19 @@ export async function ebookOrphans(database: Db, objects: EbookListedObject[], n
   const inFlight: EbookListedObject[] = [];
   for (const object of objects) {
     const kind = ebookObjectKind(object.key, prefix);
-    const named =
-      kind === "file"
+    const stage = parseStageKey(object.key);
+    const canonical = /^(bronze|silver|gold)\/ebooks\//.test(object.key);
+    const named = stage
+      ? stage.stage === "gold"
+        ? keys.has(object.key)
+        : evidenceHashes.has(stage.sha256)
+      : canonical
+        ? false
+        : kind === "file"
         ? keys.has(object.key)
         : kind === "derived"
           ? checksums.has(object.key.slice(prefix.length).split("/")[1] ?? "")
-          : true; // staging/ expires by itself; anything else is not the catalogue's
+          : true;
     if (named) continue;
     if (object.lastModified && object.lastModified.getTime() < cutoff) unreferenced.push(object);
     else inFlight.push(object);
@@ -84,10 +95,10 @@ export async function ebookOrphans(database: Db, objects: EbookListedObject[], n
  */
 export async function ebookOrphanReport(database: Db, now = Date.now()) {
   const { bucket, prefix } = ebookStorage();
-  const prefixes = [`${prefix}files/`, `${prefix}derived/`];
+  const prefixes = ebookInventoryPrefixes(prefix);
   let objects: EbookListedObject[];
   try {
-    objects = [...(await listEbookObjects(prefixes[0])), ...(await listEbookObjects(prefixes[1]))];
+    objects = await listEbookInventory();
   } catch (error) {
     if (isNoSuchBucket(error)) return { bucket, missing: true as const };
     throw error;
@@ -121,10 +132,10 @@ async function pooled<T, R>(items: T[], work: (item: T) => Promise<R>): Promise<
 /** Every file row against the bucket (listed here, unless the caller listed it). Reads only. */
 export async function verifyEbookStorage(database: Db, now = Date.now(), listing?: EbookListedObject[]): Promise<VerifyReport> {
   const { bucket, prefix } = ebookStorage();
-  const objects = listing ?? (await listEbookObjects(prefix));
+  const objects = listing ?? (await listEbookInventory());
   const listed = new Set(objects.map((o) => o.key));
   const rows = await database
-    .select({ id: ebookFiles.id, s3Key: ebookFiles.s3Key, sha256: ebookFiles.sha256, sizeBytes: ebookFiles.sizeBytes, status: ebookFiles.status })
+    .select({ id: ebookFiles.id, s3Key: ebookFiles.s3Key, sha256: ebookFiles.sha256, sizeBytes: ebookFiles.sizeBytes, status: ebookFiles.status, metadata: ebookFiles.metadata })
     .from(ebookFiles)
     .orderBy(ebookFiles.id);
   const checked = await pooled(rows, async (row): Promise<VerifiedRow> => {
@@ -133,9 +144,11 @@ export async function verifyEbookStorage(database: Db, now = Date.now(), listing
     const head = listed.has(row.s3Key) ? await headEbookObject(row.s3Key, { checksum: true }) : null;
     if (!head) return { ...base, outcome: "missing-object", actualSize: null, actualSha256: null, checksum: null };
     // A multipart upload's checksum is of its parts: S3 checked each part, and the metadata names the whole
-    const actualSha256 = head.checksumType === "full" ? head.sha256 : head.metadataSha256;
+    const matched = head.size === row.sizeBytes && (await objectMatches(row.s3Key, row.sizeBytes, row.sha256));
+    const actualSha256 = head.checksumType === "full" ? head.sha256 : matched ? row.sha256 : null;
+    const publicationProblem = matched ? await verifyPublication(row.metadata) : null;
     const outcome: VerifyOutcome =
-      head.size !== row.sizeBytes ? "size-mismatch" : actualSha256 !== row.sha256 ? "checksum-mismatch" : "verified";
+      head.size !== row.sizeBytes ? "size-mismatch" : !matched || publicationProblem ? "checksum-mismatch" : "verified";
     return { ...base, outcome, actualSize: head.size, actualSha256, checksum: head.checksumType };
   });
   const { unreferenced, inFlight } = await ebookOrphans(database, objects, now);
@@ -153,14 +166,12 @@ export async function applyEbookVerification(database: Db, report: VerifyReport)
   for (let at = 0; at < verified.length; at += ROWS_PER_WRITE) {
     const ids = verified.slice(at, at + ROWS_PER_WRITE);
     await atomicOn(database, (d) => [
-      d.update(ebookFiles).set({ status: "verified", verifiedAt: report.at, updatedAt: report.at }).where(inArray(ebookFiles.id, ids)),
-    ]);
+      d.update(ebookFiles).set({ status: "verified", verifiedAt: report.at, updatedAt: report.at }).where(inArray(ebookFiles.id, ids))]);
   }
   for (let at = 0; at < missing.length; at += ROWS_PER_WRITE) {
     const ids = missing.slice(at, at + ROWS_PER_WRITE);
     await atomicOn(database, (d) => [
-      d.update(ebookFiles).set({ status: "missing", updatedAt: report.at }).where(inArray(ebookFiles.id, ids)),
-    ]);
+      d.update(ebookFiles).set({ status: "missing", updatedAt: report.at }).where(inArray(ebookFiles.id, ids))]);
   }
   return { verified: verified.length, missing: missing.length };
 }

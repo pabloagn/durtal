@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { ebookFiles, ebookIngestItems } from "@/lib/db/schema";
 import type { IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
-import { ebooksPrefix } from "../keys";
-import { ebookStorage, listEbookObjects } from "../storage";
+import { ebooksPrefix, parseStageKey } from "../keys";
+import { listEbookInventory } from "../storage";
 import { verifyEbookStorage, type VerifyOutcome } from "../verify";
 import { walkRoots } from "./group";
 import { HashCache } from "./hash";
@@ -78,6 +78,8 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
         .where(eq(ebookIngestItems.runId, options.runId))
     : [];
   const itemByPath = new Map(items.map((i) => [i.path, i]));
+  // A valid older publication cannot hide a failed operation in this run.
+  for (const item of items) if (item.state === "failed") exceptions.push({ side: "disk", kind: "failed", path: item.path, reason: item.lastError ?? "Failed", blocking: true });
 
   // On disk: every file under the roots, taken or not
   const walked = await walkRoots(options.roots, { exclude: options.exclude });
@@ -104,6 +106,7 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
 
   const firstPath = new Map<string, string>();
   for (const file of examined) {
+    if (itemByPath.get(file.path)?.state === "failed") continue;
     if (!file.sha256) {
       exceptions.push({ side: "disk", kind: "ignored", path: file.path, reason: file.reason ?? "Not taken", blocking: false });
       continue;
@@ -126,18 +129,10 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
     const item = itemByPath.get(file.path);
     if (item?.outcome === "changed_since_plan")
       exceptions.push({ side: "disk", kind: "changed", path: file.path, reason: "Changed since the plan: plan again to take it", blocking: true });
-    else if (item?.state === "failed")
-      exceptions.push({ side: "disk", kind: "failed", path: file.path, reason: item.lastError ?? "Failed", blocking: true });
     else exceptions.push({ side: "disk", kind: "not-stored", path: file.path, reason: "Not in the catalogue", blocking: true });
   }
-  // Failed items whose file is no longer under the roots
-  const onDisk = new Set(examined.map((f) => f.path));
-  for (const item of items)
-    if (item.state === "failed" && !onDisk.has(item.path))
-      exceptions.push({ side: "disk", kind: "failed", path: item.path, reason: item.lastError ?? "Failed", blocking: true });
-
   // In Neon and in S3: every row's object by size and checksum; every object a row names
-  const objects = await listEbookObjects(ebookStorage().prefix);
+  const objects = await listEbookInventory();
   const listed = new Set(objects.map((o) => o.key));
   const report = await verifyEbookStorage(db, now, objects);
   const rowById = new Map(rows.map((r) => [r.id, r]));
@@ -166,7 +161,7 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
     roots: options.roots,
     onDisk: files.length,
     inNeon: rows.length,
-    inS3: objects.filter((o) => o.key.startsWith(`${prefix}files/`)).length,
+    inS3: objects.filter((o) => o.key.startsWith(`${prefix}files/`) || parseStageKey(o.key)?.stage === "bronze").length,
     exact: !exceptions.some((e) => e.blocking),
     exceptions,
     noLongerInInbox,

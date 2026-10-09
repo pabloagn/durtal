@@ -6,7 +6,7 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { readUndoLog } from "@/lib/books/undo-file";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { previewS3Dir } from "@/lib/s3/preview-dir";
-import { ebookStorage, isNoSuchBucket, listEbookObjects } from "../storage";
+import { ebookStorage, ebookCredentialIdentity, isNoSuchBucket, listEbookInventory } from "../storage";
 import { planIngest, type IngestPlan, type PlanOptions, type PlanTarget } from "./plan";
 import { reconcileIngest, type ReconcileOptions } from "./reconcile";
 import { undoIngest, type UndoEntry, type UndoResult } from "./register";
@@ -57,8 +57,13 @@ export function isLocalDatabase(url: string): boolean {
 
 /** The database and bucket a plan is made against */
 export function currentTarget(databaseUrl: string): PlanTarget {
-  const { bucket, prefix } = ebookStorage();
-  return { database: databaseFingerprint(databaseUrl), bucket, prefix, preview: !!previewS3Dir() };
+  const { bucket, prefix, region } = ebookStorage();
+  return { database: databaseFingerprint(databaseUrl), bucket, prefix,
+    region,
+    credentialIdentity: ebookCredentialIdentity(),
+    preview: !!previewS3Dir(),
+    previewRoot: previewS3Dir(),
+  };
 }
 
 const stampOf = (at: string) => at.replace(/[:.]/g, "-");
@@ -70,11 +75,10 @@ const stampOf = (at: string) => at.replace(/[:.]/g, "-");
  * for an empty one, and says so.
  */
 export async function planCommand(options: Omit<PlanOptions, "storedKeys"> & { roots: string[]; reportDir: string }) {
-  const { prefix } = ebookStorage();
   let bucketMissing = false;
   const storedKeys = new Set<string>();
   try {
-    for (const object of await listEbookObjects(`${prefix}files/`)) storedKeys.add(object.key);
+    for (const object of await listEbookInventory()) storedKeys.add(object.key);
   } catch (error) {
     if (!isNoSuchBucket(error)) throw error;
     bucketMissing = true;

@@ -32,7 +32,7 @@ describe("the e-book bucket in a preview's folder", () => {
   it("writes under DIR/<bucket>/<key>, and never overwrites a file", async () => {
     const key = ebookFileKey(sha, "epub");
     expect(await putEbookObject({ key, body: bytes, contentType: "application/epub+zip" })).toEqual({ created: true, sha256: sha });
-    expect(new Uint8Array(readFileSync(join(dir, "durtal-ebooks", key)))).toEqual(bytes);
+    expect(new Uint8Array(readFileSync(join(dir, "durtal", key)))).toEqual(bytes);
     expect((await putEbookObject({ key, body: bytes, contentType: "application/epub+zip" })).created).toBe(false);
   });
 

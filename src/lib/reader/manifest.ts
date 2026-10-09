@@ -1,4 +1,4 @@
-import { ebookDerivedKey, isSha256 } from "@/lib/ebooks/keys";
+import { isManifestKey, isSha256 } from "@/lib/ebooks/keys";
 import { getEbookObjectRange } from "@/lib/ebooks/storage";
 
 /**
@@ -27,8 +27,8 @@ async function readCdOffset(key: string): Promise<number | null> {
 export async function zipCdOffset(file: { sha256: string; manifestKey: string | null }): Promise<number | null> {
   if (!file.manifestKey || !isSha256(file.sha256)) return null;
   // Only the key keys.ts builds for this checksum
-  const key = ebookDerivedKey(file.sha256, "manifest.json");
-  if (file.manifestKey !== key) return null;
+  const key = file.manifestKey;
+  if (!isManifestKey(key, file.sha256)) return null;
   if (cache.has(key)) return cache.get(key) ?? null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const read = readCdOffset(key).catch(() => null);

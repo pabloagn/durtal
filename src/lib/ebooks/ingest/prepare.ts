@@ -10,6 +10,7 @@ import { readRecord0 } from "./inspect/mobi";
 import { sniffFormat, SNIFF_HEAD_BYTES, type SniffResult } from "./sniff";
 import type { ByteSource } from "./source";
 import { openZip } from "./zip";
+import { validationFor, type Validation } from "../medallion";
 import type { DrmKind, FileMetadata } from "./inspect/types";
 
 /*
@@ -21,7 +22,7 @@ import type { DrmKind, FileMetadata } from "./inspect/types";
  */
 
 /** Goes up whenever a prepared file would come out differently */
-export const PREPARE_VERSION = 1;
+export const PREPARE_VERSION = 2;
 
 export interface DerivedObject {
   /** cover-240.webp, cover-400.webp, cover-800.webp or manifest.json */
@@ -47,6 +48,7 @@ export interface PreparedFile {
   size: number;
   format: EbookFormat;
   contentType: string;
+  validation: Validation;
   drm: DrmKind | null;
   problem: string | null;
   metadata: FileMetadata;
@@ -83,12 +85,12 @@ export function derivedCachePath(cacheDir: string, sha256: string, name: string)
   return path.join(cacheDir, "derived", sha256, name);
 }
 
-const inspectCachePath = (cacheDir: string, sha256: string) => path.join(cacheDir, "inspect", `${sha256}.json`);
+const inspectCachePath = (cacheDir: string, sha256: string, format: EbookFormat) => path.join(cacheDir, "inspect", `${sha256}-${format}.json`);
 const sha256Of = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 /** A cached preparation, when its version and every derived file still match */
-function cached(cacheDir: string, sha256: string): PreparedFile | null {
-  const file = inspectCachePath(cacheDir, sha256);
+function cached(cacheDir: string, sha256: string, format: EbookFormat): PreparedFile | null {
+  const file = inspectCachePath(cacheDir, sha256, format);
   if (!existsSync(file)) return null;
   try {
     const prepared = JSON.parse(readFileSync(file, "utf8")) as PreparedFile;
@@ -109,7 +111,7 @@ function cached(cacheDir: string, sha256: string): PreparedFile | null {
  * metadata; damaged files get a problem in plain words.
  */
 export async function prepareFile(source: ByteSource, sha256: string, format: EbookFormat, cacheDir: string): Promise<PreparedFile> {
-  const hit = cached(cacheDir, sha256);
+  const hit = cached(cacheDir, sha256, format);
   if (hit) return hit;
 
   const inspection = await inspectFile(source, format);
@@ -132,15 +134,20 @@ export async function prepareFile(source: ByteSource, sha256: string, format: Eb
     } else coverReason = inspection.drm ? "DRM: the file is not opened" : "Damaged: the file is not opened";
     const body = readable && inspection.text ? extractBodyText(inspection.text, inspection.metadata.language) : null;
     text = body
-      ? { wordCount: body.wordCount, charCount: body.charCount, frontBackWordCount: body.frontBackWordCount, pageEstimate: body.pageEstimate, language: body.language, toolVersion: body.toolVersion, reason: body.reason }
-      : { wordCount: null, charCount: null, frontBackWordCount: null, pageEstimate: null, language: null, toolVersion: TEXT_TOOL_VERSION, reason: readable ? "No text read" : coverReason };
+      ? { wordCount: body.wordCount, charCount: body.charCount, frontBackWordCount: body.frontBackWordCount, pageEstimate: body.pageEstimate, language: body.language, toolVersion: body.toolVersion, reason: body.reason,
+        }
+      : { wordCount: null, charCount: null, frontBackWordCount: null, pageEstimate: null, language: null, toolVersion: TEXT_TOOL_VERSION, reason: readable ? "No text read" : coverReason,
+        };
   } finally {
     await inspection.close?.();
   }
   const manifest = makeManifest({ sha256, format, size: source.size }, inspection.manifest);
   write("manifest.json", new TextEncoder().encode(JSON.stringify(manifest)), "application/json");
 
+  const inspected = ["epub", "kepub", "pdf", "mobi", "azw", "azw3", "fb2", "fbz", "cbz", "txt"].includes(format) && !inspection.details.unverified;
+
   const prepared: PreparedFile = {
+    validation: validationFor(format, inspection.problem, inspection.drm, inspected),
     version: PREPARE_VERSION,
     sha256,
     size: source.size,
@@ -155,7 +162,7 @@ export async function prepareFile(source: ByteSource, sha256: string, format: Eb
     derived,
     opfUuid: (inspection as { opf?: { uuid: string | null } | null }).opf?.uuid ?? null,
   };
-  mkdirSync(path.dirname(inspectCachePath(cacheDir, sha256)), { recursive: true });
-  writeFileSync(inspectCachePath(cacheDir, sha256), JSON.stringify(prepared));
+  mkdirSync(path.dirname(inspectCachePath(cacheDir, sha256, format)), { recursive: true });
+  writeFileSync(inspectCachePath(cacheDir, sha256, format), JSON.stringify(prepared));
   return prepared;
 }

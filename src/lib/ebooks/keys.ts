@@ -2,13 +2,14 @@ import { serverEnv } from "@/lib/env";
 import { EBOOK_FORMATS, type EbookFormat } from "./formats";
 
 /*
- * Keys in the e-book bucket (SLN-491). Every key is built from a checked
+ * Legacy keys remain available under EBOOKS_PREFIX. Canonical medallion
+ * keys below always start with the layer. Every key is built from a checked
  * 64-hex checksum, a known extension or name, or a uuid, never from text a
- * client sends, and starts with EBOOKS_PREFIX (empty by default):
+ * client sends. Legacy keys (empty prefix by default):
  *
  *   files/<sha256[0:2]>/<sha256>.<ext>   the original bytes, never overwritten
  *   derived/<sha256>/<name>              covers and the manifest of one file
- *   staging/<uploadId>/<name>            browser uploads, expire in 2 days
+ *   staging/<uploadId>/<name>            browser uploads (legacy compatibility)
  */
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
@@ -16,8 +17,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** The file extension of each format; a file of an unknown format is stored as .bin */
 const EXTENSIONS: Record<EbookFormat, string> = Object.fromEntries(
-  EBOOK_FORMATS.map((format) => [format, format === "other" ? "bin" : format]),
-) as Record<EbookFormat, string>;
+  EBOOK_FORMATS.map((format) => [format, format === "other" ? "bin" : format])) as Record<EbookFormat, string>;
 const KNOWN_EXTENSIONS = new Set(Object.values(EXTENSIONS));
 
 /** The cover widths every file's derived folder holds */
@@ -88,4 +88,82 @@ export function coverKeySha256(key: string | null | undefined, prefix = ebooksPr
   if (!key?.startsWith(`${prefix}derived/`)) return null;
   const match = /^derived\/([a-f0-9]{64})\/cover-(240|400|800)\.webp$/.exec(key.slice(prefix.length));
   return match ? match[1] : null;
+}
+
+/** Layer-first eBook keys. Legacy helpers above remain for stored rows. */
+function domainFolder(sha256: string, format: EbookFormat) {
+  checkedSha256(sha256);
+  if (!(EBOOK_FORMATS as readonly string[]).includes(format)) throw new Error("Unknown e-book format");
+  return `ebooks/${format}/${sha256.slice(0, 2)}/${sha256}`;
+}
+export function ebookBronzeKey(sha256: string, format: EbookFormat): string {
+  return `bronze/${domainFolder(sha256, format)}/source.${ebookExtension(format)}`;
+}
+export function ebookGoldFileKey(sha256: string, format: EbookFormat): string {
+  return `gold/${domainFolder(sha256, format)}/file.${ebookExtension(format)}`;
+}
+export function ebookSilverKey(sha256: string, format: EbookFormat, reportHash: string): string {
+  return `silver/${domainFolder(sha256, format)}/v2/${checkedSha256(reportHash)}.json`;
+}
+export function ebookGoldDerivedKey(sha256: string, format: EbookFormat, reportHash: string, name: string): string {
+  if (!(EBOOK_DERIVED_NAMES as readonly string[]).includes(name)) throw new Error("Unknown derived object");
+  return `gold/${domainFolder(sha256, format)}/derived/v2/${checkedSha256(reportHash)}/${name}`;
+}
+export interface StageKey {
+  stage: "bronze" | "silver" | "gold";
+  format: EbookFormat;
+  sha256: string;
+  kind: "file" | "report" | "derived";
+  reportHash?: string;
+  name?: string;
+}
+export function parseStageKey(key: string): StageKey | null {
+  const match = /^(bronze|silver|gold)\/ebooks\/([a-z0-9]+)\/([a-f0-9]{2})\/([a-f0-9]{64})\/(.+)$/.exec(key);
+  if (!match) return null;
+  const [, stage, format, hh, sha256, tail] = match;
+  if (!(EBOOK_FORMATS as readonly string[]).includes(format) || hh !== sha256.slice(0, 2)) return null;
+  const base = {
+    stage: stage as StageKey["stage"],
+    format: format as EbookFormat,
+    sha256,
+  };
+  if ((stage === "bronze" && tail === `source.${ebookExtension(base.format)}`) || (stage === "gold" && tail === `file.${ebookExtension(base.format)}`))
+    return { ...base, kind: "file" };
+  const report = /^v2\/([a-f0-9]{64})\.json$/.exec(tail);
+  if (stage === "silver" && report) return { ...base, kind: "report", reportHash: report[1] };
+  const derived = /^derived\/v2\/([a-f0-9]{64})\/(cover-(?:240|400|800)\.webp|manifest\.json)$/.exec(tail);
+  if (stage === "gold" && derived)
+    return {
+      ...base,
+      kind: "derived",
+      reportHash: derived[1],
+      name: derived[2],
+    };
+  return null;
+}
+export function isLegacyFileKey(key: string, sha256?: string, format?: string, prefix = ebooksPrefix()): boolean {
+  if (!key.startsWith(prefix)) return false;
+  const match = /^files\/([a-f0-9]{2})\/([a-f0-9]{64})\.([a-z0-9]+)$/.exec(key.slice(prefix.length));
+  return (
+    !!match &&
+    match[1] === match[2].slice(0, 2) &&
+    KNOWN_EXTENSIONS.has(match[3]) &&
+    (!sha256 || sha256 === match[2]) &&
+    (!format || ebookExtension(format as EbookFormat) === match[3])
+  );
+}
+export function isDeliveryFileKey(key: string, sha256: string, format: string): boolean {
+  const parsed = parseStageKey(key);
+  return parsed ? parsed.stage === "gold" && parsed.kind === "file" && parsed.sha256 === sha256 && parsed.format === format : isLegacyFileKey(key, sha256, format);
+}
+export function derivedKeyForWidth(key: string, width: EbookCoverWidth): string | null {
+  const stage = parseStageKey(key);
+  if (stage?.stage === "gold" && stage.kind === "derived" && stage.name?.startsWith("cover-"))
+    return ebookGoldDerivedKey(stage.sha256, stage.format, stage.reportHash!, `cover-${width}.webp`);
+  const sha256 = coverKeySha256(key);
+  return sha256 ? ebookDerivedKey(sha256, `cover-${width}.webp`) : null;
+}
+export function isManifestKey(key: string, sha256: string): boolean {
+  const stage = parseStageKey(key);
+  return stage ? stage.stage === "gold" && stage.kind === "derived" && stage.name === "manifest.json" && stage.sha256 === sha256 : key === ebookDerivedKey(sha256, "manifest.json");
 }

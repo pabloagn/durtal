@@ -11,8 +11,7 @@ describe("serverEnv", () => {
     vi.stubEnv("DATABASE_URL", "");
     vi.stubEnv("AWS_ACCESS_KEY_ID", "");
     expect(() => serverEnv()).toThrow(
-      /DATABASE_URL: must be a Postgres connection URL\n {2}- AWS_ACCESS_KEY_ID: is required/,
-    );
+      /DATABASE_URL: must be a Postgres connection URL\n {2}- AWS_ACCESS_KEY_ID: is required/);
   });
 
   it("applies defaults for the region and bucket", () => {
@@ -36,7 +35,7 @@ describe("serverEnv", () => {
     vi.stubEnv("AWS_REGION", "eu-north-1");
     expect(serverEnv()).toMatchObject({
       EBOOK_DELIVERY: "app",
-      EBOOKS_BUCKET: "durtal-ebooks",
+      EBOOKS_BUCKET: "durtal",
       EBOOKS_PREFIX: "",
       EBOOKS_REGION: "eu-north-1",
     });

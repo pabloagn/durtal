@@ -12,15 +12,13 @@ import { z } from "zod/v4";
 /** Empty strings count as unset. */
 const optional = z.preprocess(
   (v) => (v === "" ? undefined : v),
-  z.string().optional(),
-);
+  z.string().optional());
 const required = z.preprocess(
   (v) => (v === "" ? undefined : v),
-  z.string({ error: "is required" }),
-);
+  z.string({ error: "is required" }));
 
 const DEFAULT_S3_BUCKET = "durtal";
-const DEFAULT_EBOOKS_BUCKET = "durtal-ebooks";
+const DEFAULT_EBOOKS_BUCKET = "durtal";
 
 /** The CloudFront variables EBOOK_DELIVERY=cloudfront needs */
 const EBOOK_CDN_VARIABLES = ["EBOOK_CDN_URL", "EBOOK_CDN_KEY_PAIR_ID", "EBOOK_CDN_PRIVATE_KEY"] as const;
@@ -34,8 +32,7 @@ function isBase64PrivateKey(value: string) {
 const serverSchema = z.object({
   DATABASE_URL: z.preprocess(
     (v) => (v === "" ? undefined : v),
-    z.url({ error: "must be a Postgres connection URL" }),
-  ),
+    z.url({ error: "must be a Postgres connection URL" })),
   AWS_ACCESS_KEY_ID: required,
   AWS_SECRET_ACCESS_KEY: required,
   AWS_REGION: optional.transform((v) => v ?? "us-east-1"),
@@ -72,8 +69,7 @@ const serverSchema = z.object({
   /** cloudfront: signed CloudFront URLs; app: the app streams the bytes itself */
   EBOOK_DELIVERY: z.preprocess(
     (v) => (v === "" ? undefined : v),
-    z.enum(["cloudfront", "app"], { error: "must be cloudfront or app" }).default("app"),
-  ),
+    z.enum(["cloudfront", "app"], { error: "must be cloudfront or app" }).default("app")),
   EBOOK_CDN_URL: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z
@@ -84,8 +80,7 @@ const serverSchema = z.object({
   EBOOK_CDN_KEY_PAIR_ID: optional,
   EBOOK_CDN_PRIVATE_KEY: z.preprocess(
     (v) => (v === "" ? undefined : v),
-    z.string().refine(isBase64PrivateKey, { error: "must be a base64-encoded PEM private key" }).optional(),
-  ),
+    z.string().refine(isBase64PrivateKey, { error: "must be a base64-encoded PEM private key" }).optional()),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -117,8 +112,7 @@ export function serverEnv(): ServerEnv {
     // TODO(SLN-309): drop the misspelled name after one release.
     if (!warnedIsbndbRename) {
       console.warn(
-        "[env] ISBNDN_API_KEY is deprecated. Rename it to ISBNDB_API_KEY.",
-      );
+        "[env] ISBNDN_API_KEY is deprecated. Rename it to ISBNDB_API_KEY.");
       warnedIsbndbRename = true;
     }
     isbndbKey = process.env.ISBNDN_API_KEY;
@@ -130,12 +124,10 @@ export function serverEnv(): ServerEnv {
   });
   if (!result.success) {
     const lines = result.error.issues.map(
-      (issue) => `  - ${issue.path.join(".")}: ${issue.message}`,
-    );
+      (issue) => `  - ${issue.path.join(".")}: ${issue.message}`);
     throw new Error(
       `Invalid environment configuration:\n${lines.join("\n")}\n` +
-        "See .env.example and docs/13_CONFIGURATION.md.",
-    );
+        "See .env.example and docs/13_CONFIGURATION.md.");
   }
   return result.data;
 }

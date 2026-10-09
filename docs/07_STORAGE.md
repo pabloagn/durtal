@@ -1,6 +1,6 @@
 # Storage
 
-All images — book covers, author photos, media uploads, and import files — are stored in AWS S3. The bucket is organized using a medallion architecture (bronze/silver/gold) that separates raw data from production-ready assets. E-book files have a private bucket of their own ([eBook Files](#ebook-files)).
+All images — book covers, author photos, media uploads, and import files — are stored in AWS S3. The bucket is organized using a medallion architecture (bronze/silver/gold) that separates raw data from production-ready assets. E-book files use separate private prefixes in the same bucket ([eBook Files](#ebook-files)).
 
 ---
 
@@ -265,85 +265,103 @@ The app serves stored files itself through `GET /api/s3/read`, and only those un
 
 ## eBook Files
 
-E-book files (SLN-491) live in their own private bucket, so versioning, lifecycle and delete protection apply to them alone, and the main bucket's cleanup sweeps and backup routine never touch them.
+SLN-569 stores eBooks in the existing private `durtal` bucket in `eu-north-1`.
+Layers come first: `bronze/{media,ebooks}/`, `silver/{media,ebooks}/` and
+`gold/{media,ebooks}/`. Existing image keys and legacy eBook keys remain valid;
+this rollout does not migrate them. `EBOOKS_BUCKET` defaults to `durtal`.
+`EBOOKS_PREFIX` describes legacy keys only and never prepends the new hierarchy.
 
-| Setting | Value |
-|---|---|
-| Bucket | `durtal-ebooks` (`EBOOKS_BUCKET`) |
-| Prefix | none (`EBOOKS_PREFIX`; `EBOOKS_BUCKET=durtal` with `EBOOKS_PREFIX=ebooks/` keeps the same layout inside `durtal`) |
-| Region | `eu-north-1`, the app's (`EBOOKS_REGION`, default `AWS_REGION`) |
-| Client | its own S3 client for that region, `ebookS3()` in `src/lib/ebooks/storage.ts` |
-| Set up by | `scripts/aws/ebooks-storage.sh` from `infra/aws/ebooks/` (`docs/11_DEPLOYMENT.md`, eBook storage) |
-
-### Keys
-
-Built only from a checked 64-hex SHA-256, a known extension or name, or a uuid, never from text a client sends (`src/lib/ebooks/keys.ts`), each after the prefix:
+### Immutable keys and evidence
 
 ```
-files/{sha256[0:2]}/{sha256}.{ext}       the original bytes; never overwritten
-derived/{sha256}/cover-240.webp          a file's covers, three widths
-derived/{sha256}/cover-400.webp
-derived/{sha256}/cover-800.webp
-derived/{sha256}/manifest.json           what the ingest learned of the file
-staging/{uploadId}/{name}                browser uploads; expire in 2 days
+bronze/ebooks/{format}/{hh}/{sha256}/source.{ext}
+silver/ebooks/{format}/{hh}/{sha256}/v2/{reportHash}.json
+gold/ebooks/{format}/{hh}/{sha256}/file.{ext}
+gold/ebooks/{format}/{hh}/{sha256}/derived/v2/{reportHash}/cover-{240,400,800}.webp
+gold/ebooks/{format}/{hh}/{sha256}/derived/v2/{reportHash}/manifest.json
 ```
 
-The key is the checksum of the bytes, so storing the same file again is a no-op and a changed file is a new object. The extension is the format's (`epub`, `pdf`, `azw3` ...; a file of an unknown format is `.bin`).
+`format` is inspected, `hh` is the SHA-256's first two characters, and key
+parsers validate the entire shape. Dates, source paths, hosts and runs belong
+in `ebook_ingest_runs` and `ebook_ingest_items`, outside raw-byte identity.
+The existing unique source checksum deduplicates identical bytes.
 
-### Objects
+Bronze preserves original bytes. Silver records the source/bronze identity,
+inspection/extraction versions, integrity and DRM decisions, native-reader and
+download capabilities, normalized metadata, extraction results and derived
+checksums. Its content hash versions the report without replacing evidence.
+Silver versioning is in immutable keys; it does not imply bucket versioning.
 
-`putEbookObject` (`src/lib/ebooks/storage.ts`) writes every object with:
+Silver excludes report-dependent gold keys to avoid circular hashing. Gold
+file bytes are deduplicated by source checksum; each derived publication has
+its report's own folder. Future processing changes create new derived objects
+and a publication marker without overwriting an old publication.
 
-- `ChecksumSHA256`: S3 refuses bytes that differ from it. A file is written with `If-None-Match: *` and is never overwritten (a `412` means it is already stored);
-- `Cache-Control: public, max-age=31536000, immutable`, the exact `Content-Type`, `Content-Disposition: inline; filename*=UTF-8''<title>.<ext>` and `x-amz-meta-sha256`;
-- SSE-S3 encryption; storage class `INTELLIGENT_TIERING` for files (never an archive tier: those restore asynchronously and would break instant open), `STANDARD` for derived and staged objects.
+### Promotion, recovery and verification
 
-A single `PUT` takes up to 5 GB; the ingest uploads larger files in parts with the same headers (`ebookObjectHeaders`). `headEbookObject(key, { checksum: true })` returns the size and S3's SHA-256 (for a multipart upload, a checksum of its parts; the metadata names the whole), `getEbookObjectRange(key, start, end)` streams a byte range, and `listEbookObjects(prefix)` lists in pages. In a preview (`--s3-dir DIR`) the same functions use files under `DIR/<bucket>/<key>`, refuse `..`, and read only the slice a range asks for.
+The read-only plan caches the exact artifacts. Apply verifies bronze, then
+silver, then accepted gold bytes/covers, and writes the gold manifest last.
+That publication marker references silver and every accepted artifact's size
+and checksum. The group's catalogue rows are written atomically only after
+the complete publication verifies. Stage references/checksums live in existing
+`ebook_files.metadata.medallion`; no schema migration is needed.
 
-### Versioning, lifecycle and delete protection
+DRM, corrupt and unverified formats retain bronze/silver evidence and
+quarantined rows naming bronze, with no gold publication. Recognized format
+alone does not verify integrity or absence of DRM. Verified plain text is
+available to download without a native Read link; unsupported Topaz never
+becomes readable just because its format is `azw`.
 
-- Versioning is on. A noncurrent version expires after 30 days (the undo window), expired delete markers are removed, incomplete multipart uploads abort after 7 days and `staging/` objects expire after 2 days (`infra/aws/ebooks/lifecycle.json`).
-- The bucket policy lets every principal but the admin delete nothing under `files/`, delete no version and change neither versioning, lifecycle nor the policy itself. The app's user may read, write and list, and delete only under `staging/`. The app never deletes a book file.
+Each write is conditional (`If-None-Match: *`) with S3 SHA-256 validation and
+SSE-S3. Gold files use Intelligent-Tiering without asynchronous archive tiers;
+evidence and derived objects use Standard. Multipart uploads retain their
+bucket, region, credential identity, key and part size. Resume validates the
+same plan and complete stage publication before registration. Composite
+checksums that cannot be compared locally, or absent checksums, require a
+streamed full byte hash; uploader metadata alone is insufficient evidence.
 
-### Delivery
+Verification/reconciliation checks every referenced stage and derived width,
+including the silver report and publication marker. Bronze/silver evidence
+remains traceable through catalogue checksums and run items; incomplete or
+unreferenced gold is reported with the existing 24-hour in-flight allowance.
+The shared orphan report delegates `gold/ebooks/` to eBook-aware checks.
 
-The browser reads a file by HTTP Range, only the bytes it needs, so a 50 MB book opens as fast as a 5 MB one. It never receives an AWS credential or chooses a key: the app reads the file's row first, and signs or serves only rows read in the same request (`src/lib/ebooks/delivery/files.ts` makes the only values the signer accepts). Quarantined, missing and replaced files and files under DRM are never signed or served.
+### Legacy compatibility and delivery
 
-- **CloudFront** (`EBOOK_DELIVERY=cloudfront`): CloudFront reads the private bucket through Origin Access Control and serves it from the nearest edge. `fileUrlFor(file)` returns a canned-policy signed URL (`src/lib/ebooks/delivery/sign.ts`, Node's own RSA-SHA1, the format of AWS's CloudFront signer). It is valid until the end of the next 6-hour window, so the same file has the same URL for 6 hours (one entry in every cache) and a URL is always good for at least 6 hours. Covers and manifests share one custom-policy signature for `derived/*` (`signedDerivedUrlBase`): a page of 48 covers costs one signature. CloudFront answers CORS itself (any origin: the signed URL is the credential) and exposes `Content-Range`.
-- **The app** (`EBOOK_DELIVERY=app`, the default, and always in previews): `GET /api/ebooks/files/[fileId]` streams the same bytes with Range support, and `/api/reader/[ebookId]/cover` the covers (`docs/05_API_REFERENCE.md`, eBooks).
+Stored `files/{hh}/{sha256}.{ext}`, `derived/{sha256}/{name}` and `staging/`
+keys, including the configured legacy prefix, are preserved. Already
+catalogued sources remain duplicate no-ops; this rollout does not rewrite
+old rows. Old preparation plans must be replanned after the tool-version bump.
 
-E-book files are never readable through `/api/s3/read`: it serves only the main bucket's `gold/` folders.
+The default app delivery streams byte ranges through
+`GET/HEAD /api/ebooks/files/[fileId]`; covers use `/api/reader/[ebookId]/cover`.
+Only accepted gold or valid legacy file keys from catalogue rows are delivered.
+Quarantined, missing, replaced and DRM rows are refused. Native-reader selection
+also checks the inspection's capability. `/api/s3/read` never serves eBooks.
 
-### Reading e-books by range
+Optional CloudFront signing retains its stable six-hour windows. New derived
+signatures are scoped to the accepted report folder; legacy signatures cover
+only the legacy derived folder. Bronze, silver and media are never signed.
+No existing CloudFront distribution is modified. Private CDN provisioning and
+edge acceptance remain separate SLN-491 rollout work; SLN-569 does not complete
+that ticket or the reader epic. The reader's Range fallback remains supported.
 
-The reader (SLN-492) reads only the bytes it shows, from the CDN or the app route above. Every request names an explicit range (`bytes=a-b`): the size is known from the catalogue, so there are no suffix ranges and no conditional headers, and a cross-origin read from CloudFront stays a simple request with no CORS preflight.
+### Scoped AWS protection
 
-- **First ranges with the HTML.** An inline script in the reader page (with the page's nonce) asks for the book's first ranges as the HTML arrives, while the engine's code downloads (`src/lib/reader/first-range.ts`): for a zip (EPUB, FBZ, CBZ) its central directory, from the manifest's `zip.cdOffset` when there is one (else the last 65,557 bytes), and its first 64 KiB; for a PDF its first 256 KiB and its last 64 KiB; for MOBI and AZW3 the first 64 KiB; a plain FB2 whole. The engine starts from those bytes instead of asking again.
-- **Zips** (`src/lib/reader/engines/foliate/zip-reader.ts`): zip.js reads the archive through a reader that knows each entry's extent from the central directory, so an entry's header and data come in one request, and keeps decoded entries in an LRU (32 entries, 8 MB).
-- **MOBI, AZW3, FB2 and PDF** read through a `RemoteBlob` (`src/lib/reader/engines/foliate/remote-blob.ts`): `slice(a, b).arrayBuffer()` over ranges. A miss fetches at least 64 KiB; a read whose start is already held fetches only the rest; recent ranges are kept (8 MB).
-- **Large images come after the text.** In a reflowable EPUB, an image of 96 KiB or more is first a blank of its size, read from its first bytes (`deferred-images.ts`, `image-size.ts`), and gets its bytes once the section is shown, so a 10 MB plate at the head of a chapter does not hold its first page back.
-- **Failures.** A 403 from CloudFront (an expired signed URL) gets a fresh URL from `/api/ebooks/files/[fileId]/url` once and the read is retried; a network failure against CloudFront switches that book to the app route for the rest of the session.
+`scripts/aws/ebooks-storage.sh plan` renders exact merged bucket policy,
+lifecycle and app multipart policy documents. `apply --apply-reviewed-plan` applies
+only those scoped documents after review (`docs/11_DEPLOYMENT.md`).
+The broad existing managed `DurtalS3Access` policy is preserved. An explicit
+bucket-policy deny protects eBook artifacts from non-admin deletion; canonical
+stage writes require conditional creation. The exact personal administrator
+role is the deletion exception. Images and legacy staging are outside these
+new protection resources.
 
-Measured by `node scripts/qa/reader-perf.mjs` (budgets in `scripts/qa/reader-perf.json`): the 50 MB illustrated EPUB fetches under 1 MB before its first page, the 300 MB scanned PDF under 2 MB.
-
-### Verification
-
-`pnpm ebooks:verify` (`scripts/ebooks/verify.ts`) lists the bucket once, HEADs every object an `ebook_files` row names with its SHA-256, and compares size and checksum with the row. Its report (`reports/ebooks/verify-<timestamp>.md` and `.csv`, git-ignored) counts matches, missing objects, size or checksum mismatches, rows with no key, and objects under `files/` and `derived/` that no row names (older than 24 hours; younger ones are in flight: an object is written before its row). It is read-only, on a session that refuses writes. `--apply --backup FILE` (a pg_dump from the last hour) marks matches `verified` with `verified_at` and mismatches `missing`, one atomic write per 500 rows; quarantined and replaced files keep their status, and the verification is recorded as a run of kind `verify` with its counts (`/ebooks/runs`). It never deletes or changes an object.
-
-### Ingestion
-
-How the ingestion (SLN-494, `docs/09_INGESTION_PIPELINE.md`, eBook ingestion) stores a file, in `storeObject` (`src/lib/ebooks/ingest/store.ts`):
-
-1. **HEAD** the key with `ChecksumMode: ENABLED`. An object there with the same size and checksum is adopted: nothing is uploaded. One that differs fails the file, and the object is left as it is.
-2. **Up to 256 MiB**, one `PutObject` with `ChecksumSHA256`, `If-None-Match: *` and the headers above. A `412` means the key exists, which by construction means the same bytes. It is verified like any other.
-3. **Above 256 MiB**, a multipart upload in 16 MiB parts with `ChecksumAlgorithm: SHA256`, so S3 checks every part. The upload id is kept in the cache folder (`uploads/<sha256>.json`). A restart lists the parts S3 has and sends only the others. An upload S3 no longer knows (aborted after 7 days) starts again. Every part is read, so the whole file is hashed on the way: bytes that are not the planned SHA-256 (the file changed after the plan) abort the upload and fail the file. `CompleteMultipartUpload` carries `If-None-Match: *`.
-4. **HEAD again**: the stored size and checksum must equal the local ones. An object this upload stored must carry the composite checksum of the parts it sent (the SHA-256 of their SHA-256s with `-<parts>`): its `x-amz-meta-sha256` was written from the plan and proves nothing about the bytes. An object another writer stored (found by the first HEAD, or a 412) is matched by the composite checksum recomputed locally, or, written with other part sizes, by its `x-amz-meta-sha256`. Anything else fails the file, which is then listed with its reason.
-
-A 5xx, a throttle or a network error is tried again after 1, 4 and 16 seconds; any other error is not retried.
-
-**Order.** For each e-book (a group of files), the original files go first, each followed by its derived objects (covers in three widths and the manifest, made by the plan into the cache folder). Then the group's rows go in one atomic write: the e-book, its files, a replaced file's new status, the preferred file and cover, and the run's items. So an object is always written before the row that names it. An object with no row is either in flight (under 24 hours old) or an orphan, which the verification and the orphan report list. A row never names an object that is not there. The undo file's line for a group is written before its atomic.
-
-The app never deletes an object, and an undo removes rows only.
+Lifecycle only aborts incomplete uploads under the three canonical eBook
+prefixes after seven days. No image/current-object expiration is introduced.
+Bucket-wide versioning, encryption, ownership and public-access settings are
+unchanged; there is no new bucket. Undo removes untouched rows only, retaining
+S3 objects and evidence.
 
 ---
 

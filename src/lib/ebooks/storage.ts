@@ -8,18 +8,15 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
+  S3Client } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/env";
 import { previewObjectPath, previewS3Dir } from "@/lib/s3/preview-dir";
-import { ebooksPrefix, isSha256 } from "./keys";
+import { ebooksPrefix, isSha256, parseStageKey } from "./keys";
 
 /*
- * The e-book bucket (SLN-491): its own bucket (EBOOKS_BUCKET, default
- * durtal-ebooks) in EBOOKS_REGION, so versioning, lifecycle and delete
- * protection apply to e-books alone. Every read and write of it goes through
- * here. In a preview (DURTAL_PREVIEW_S3_DIR) objects are files under
- * DIR/<bucket>/<key>, and a range read reads only that slice of the file.
+ * Private eBook storage in durtal: canonical medallion stages and prefixed
+ * legacy objects share this client. In a preview, objects are files under
+ * DIR/<bucket>/<key>, and range reads return only the requested slice.
  */
 
 export interface EbookStorage {
@@ -33,10 +30,18 @@ export function ebookStorage(): EbookStorage {
   return { bucket: env.EBOOKS_BUCKET, prefix: env.EBOOKS_PREFIX, region: env.EBOOKS_REGION };
 }
 
-const globalForEbooks = globalThis as unknown as { ebookS3?: { region: string; client: S3Client } };
+const globalForEbooks = globalThis as unknown as { ebookS3?: { region: string; client: S3Client }; ebookCli?: { client: S3Client; identity: string; owner: string } };
+/** CLI-only initialization; the app keeps its existing IAM client. */
+export function initializeEbookCli(client: S3Client, identity: string, owner: string) {
+  globalForEbooks.ebookCli = { client, identity, owner };
+}
+export const ebookCredentialIdentity = () =>
+  globalForEbooks.ebookCli?.identity ?? `app-iam:${createHash("sha256").update(serverEnv().AWS_ACCESS_KEY_ID).digest("hex").slice(0, 16)}`;
+export const ebookOwner = () => (globalForEbooks.ebookCli ? { ExpectedBucketOwner: globalForEbooks.ebookCli.owner } : {});
 
 /** The client for the e-book bucket's region (the app's own client may be in another) */
 export function ebookS3(): S3Client {
+  if (globalForEbooks.ebookCli) return globalForEbooks.ebookCli.client;
   const { region } = ebookStorage();
   const cached = globalForEbooks.ebookS3;
   if (cached?.region === region) return cached.client;
@@ -52,7 +57,9 @@ export function ebookS3(): S3Client {
 }
 
 /** files/, derived/ or staging/: what a key holds, after the prefix */
-export function ebookObjectKind(key: string, prefix = ebooksPrefix()): "file" | "derived" | "staging" | null {
+export function ebookObjectKind(key: string, prefix = ebooksPrefix()): "file" | "derived" | "staging" | "bronze" | "silver" | null {
+  const stage = parseStageKey(key);
+  if (stage) return stage.stage === "bronze" ? "bronze" : stage.stage === "silver" ? "silver" : stage.kind === "file" ? "file" : "derived";
   if (!key.startsWith(prefix)) return null;
   const rest = key.slice(prefix.length);
   if (rest.startsWith("files/")) return "file";
@@ -65,9 +72,7 @@ export function ebookObjectKind(key: string, prefix = ebooksPrefix()): "file" | 
 function contentDisposition(filename: string | undefined) {
   if (!filename) return "inline";
   const encoded = encodeURIComponent(filename.replace(/[\u0000-\u001f\u007f]/g, "")).replace(
-    /['()*]/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
+    /['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   return `inline; filename*=UTF-8''${encoded}`;
 }
 
@@ -120,15 +125,25 @@ export async function putEbookObject(input: {
 }): Promise<{ created: boolean; sha256: string }> {
   const sha256 = createHash("sha256").update(input.body).digest("hex");
   const kind = ebookObjectKind(input.key);
+  const immutable = !!parseStageKey(input.key) || kind === "file";
   if (!kind) throw new Error("Not a key of the e-book bucket");
-  if (kind === "file" && !input.key.includes(`/${sha256}.`)) throw new Error("A file's key must be the checksum of its bytes");
+  if (kind === "file" && !(parseStageKey(input.key)?.sha256 === sha256 || input.key.includes(`/${sha256}.`))) throw new Error("A file's key must be the checksum of its bytes");
 
   const dir = previewS3Dir();
   if (dir) {
     const file = previewFile(dir, input.key);
-    if (kind === "file" && (await stat(file).catch(() => null))) return { created: false, sha256 };
+    if (immutable && (await stat(file).catch(() => null))) {
+      if ((await headEbookObject(input.key, { checksum: true }))?.sha256 !== sha256) throw new Error("The existing e-book object differs");
+      return { created: false, sha256 };
+    }
     await mkdir(path.dirname(file), { recursive: true });
-    await writeFile(file, input.body);
+    try {
+      await writeFile(file, input.body, immutable ? { flag: "wx" } : undefined);
+    } catch (err) {
+      if (!immutable || (err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      if (!(await objectMatches(input.key, input.body.byteLength, sha256))) throw new Error("The existing e-book object differs");
+      return { created: false, sha256 };
+    }
     return { created: true, sha256 };
   }
   try {
@@ -139,14 +154,18 @@ export async function putEbookObject(input: {
         Body: input.body,
         ContentLength: input.body.byteLength,
         ChecksumSHA256: hexToBase64(sha256),
-        ...(kind === "file" ? { IfNoneMatch: "*" } : {}),
+        ...(immutable ? { IfNoneMatch: "*" } : {}),
+        ...ebookOwner(),
         ...ebookObjectHeaders({ key: input.key, contentType: input.contentType, sha256, filename: input.filename }),
       }),
     );
     return { created: true, sha256 };
   } catch (err) {
     // 412: the file is already stored under its checksum
-    if (kind === "file" && statusOf(err) === 412) return { created: false, sha256 };
+    if (immutable && statusOf(err) === 412) {
+      if (!(await objectMatches(input.key, input.body.byteLength, sha256))) throw new Error("The existing e-book object differs");
+      return { created: false, sha256 };
+    }
     throw err;
   }
 }
@@ -187,6 +206,7 @@ export async function headEbookObject(key: string, options: { checksum?: boolean
     const head = await ebookS3().send(
       new HeadObjectCommand({
         Bucket: ebookStorage().bucket,
+        ...ebookOwner(),
         Key: key,
         ...(options.checksum ? { ChecksumMode: "ENABLED" as const } : {}),
       }),
@@ -240,8 +260,7 @@ export async function getEbookObjectRange(key: string, start: number, end?: numb
   }
   try {
     const object = await ebookS3().send(
-      new GetObjectCommand({ Bucket: ebookStorage().bucket, Key: key, Range: `bytes=${start}-${end ?? ""}` }),
-    );
+      new GetObjectCommand({ Bucket: ebookStorage().bucket, ...ebookOwner(), Key: key, Range: `bytes=${start}-${end ?? ""}` }));
     if (!object.Body || object.ContentLength == null) return null;
     return { body: object.Body.transformToWebStream(), length: object.ContentLength };
   } catch (err) {
@@ -265,8 +284,7 @@ export async function listEbookObjects(prefix: string): Promise<EbookListedObjec
   let token: string | undefined;
   do {
     const page = await ebookS3().send(
-      new ListObjectsV2Command({ Bucket: ebookStorage().bucket, Prefix: prefix, ContinuationToken: token }),
-    );
+      new ListObjectsV2Command({ Bucket: ebookStorage().bucket, ...ebookOwner(), Prefix: prefix, ContinuationToken: token }));
     for (const object of page.Contents ?? [])
       if (object.Key) objects.push({ key: object.Key, size: object.Size ?? 0, lastModified: object.LastModified ?? null });
     if (page.IsTruncated && !page.NextContinuationToken) throw new Error("The e-book bucket's listing was truncated without a continuation token");
@@ -287,4 +305,35 @@ async function listPreview(root: string, prefix: string): Promise<EbookListedObj
     objects.push({ key, size: info.size, lastModified: info.mtime });
   }
   return objects.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+/** Full checksums are authoritative; composite/absent checksums require actual streamed bytes. */
+export async function objectMatches(key: string, size: number, sha256: string): Promise<boolean> {
+  const head = await headEbookObject(key, { checksum: true });
+  if (!head || head.size !== size) return false;
+  if (head.checksumType === "full") return head.sha256 === sha256;
+  const object = await getEbookObjectRange(key, 0);
+  if (!object) return false;
+  const hash = createHash("sha256");
+  const reader = object.body.getReader();
+  let bytes = 0;
+  try {
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      hash.update(part.value);
+      bytes += part.value.length;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return bytes === size && hash.digest("hex") === sha256;
+}
+
+export function ebookInventoryPrefixes(prefix = ebooksPrefix()) {
+  return ["bronze/ebooks/", "silver/ebooks/", "gold/ebooks/", `${prefix}files/`, `${prefix}derived/`];
+}
+export async function listEbookInventory() {
+  const objects = (await Promise.all(ebookInventoryPrefixes().map((prefix) => listEbookObjects(prefix)))).flat();
+  return [...new Map(objects.map((object) => [object.key, object])).values()];
 }
