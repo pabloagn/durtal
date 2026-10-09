@@ -61,6 +61,11 @@ class ProofGuards(unittest.TestCase):
                     PROOF.prepare(args)
 
     def test_direct_node_soft_timeout_preserves_delayed_after_finally_marker(self):
+        for phase, cleanup_seconds in (("busy", 1.4), ("awaiting signal", 1.15)):
+            with self.subTest(phase=phase):
+                self.check_direct_node_cleanup(cleanup_seconds)
+
+    def check_direct_node_cleanup(self, cleanup_seconds):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             marker = root / "after-finally.json"
@@ -73,12 +78,15 @@ const marker=process.argv[process.argv.indexOf('--execute-reviewed-manifest')+1]
 let stop!:()=>void;
 const stopped=new Promise<void>(resolve=>{stop=resolve;});
 process.on('SIGTERM',()=>stop());
+// A signal listener and unresolved Promise alone do not keep Node's loop alive.
+// Model the running proof's active I/O/timers, including after the busy delay.
+const keepAlive=setInterval(()=>{},1000);
 process.stdout.write(`ready:${process.pid}\\n`);
 // Delay signal acknowledgement beyond the tsx CLI's two 30ms waits.
 const blockedUntil=Date.now()+500;
 while(Date.now()<blockedUntil) {}
 try { await stopped; }
-finally { await pause(200); writeFileSync(marker,JSON.stringify({afterFinally:true,pid:process.pid}),{flag:'wx'}); }
+finally { await pause(200); writeFileSync(marker,JSON.stringify({afterFinally:true,pid:process.pid}),{flag:'wx'}); clearInterval(keepAlive); }
 """)
             node = Path(shutil.which("node")).resolve()
             argv = PROOF.pooled_argv(node, marker, "0" * 64, script)
@@ -93,7 +101,7 @@ finally { await pause(200); writeFileSync(marker,JSON.stringify({afterFinally:tr
                 self.assertTrue(ready, "Tiny local child did not become ready")
                 self.assertEqual(child.stdout.readline().strip(), f"ready:{child.pid}")
                 started = time.monotonic()
-                code, timed_out, hard_stopped = PROOF.wait_for_proof(child, started, 2, {"seconds": 1.4, "terminationSeconds": 0.2})
+                code, timed_out, hard_stopped = PROOF.wait_for_proof(child, started, 2, {"seconds": cleanup_seconds, "terminationSeconds": 0.2})
                 self.assertEqual((code, timed_out, hard_stopped), (0, True, False))
                 self.assertLess(time.monotonic()-started, 2)
                 self.assertEqual(json.loads(marker.read_text()), {"afterFinally": True, "pid": child.pid})

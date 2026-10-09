@@ -113,3 +113,12 @@ f0f49793 manifest 23e41a893c0696b75a44645684bcaddfb3188ce52c0e51412acf25e9d2a4b8
 remains unchanged for review provenance. The approved implementation and pooled
 proof controls are unchanged; the direct-launch checkpoint/manifest need fresh
 independent approval before any live proof.
+
+PR198 CI run 37985895010 failed in the Python signal regression before database
+suites started: the tiny fixture's unresolved top-level await had no referenced
+event-loop handle and Node exited 13. The fixture now holds a referenced timer
+through cleanup, and checks SIGTERM both during its 500ms busy delay and after
+that delay. All seven Python tests passed locally; removing the timer in a
+negative control reproduces exit 13 and fails the added awaiting-signal case.
+The production launcher/transaction/proof behavior is unchanged. Full remote
+CI and disposable execution remain pending; no database suite was skipped.
