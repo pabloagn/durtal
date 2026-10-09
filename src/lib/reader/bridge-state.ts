@@ -1,10 +1,27 @@
 import { createReaderEventBus, type ReaderContext } from "./events";
+import { createControllerReadiness, type ReaderControllerFailureCode } from "./controller-readiness";
+import type { ReactElement, ReactNode } from "react";
+export type ReaderPluginView = {
+  id: string;
+  node: ReactNode;
+  controller?: true;
+  failure?: ReaderControllerFailureCode;
+  failureNode?: ReactElement<ReaderControllerFailureProps>;
+};
+export type ReaderControllerFailureProps = {
+  id: string;
+  code: ReaderControllerFailureCode;
+  onRetry?: () => void;
+};
 export type ReaderSlot = "toolbar-status" | "top-bar" | "selection-actions";
 type Fill = { element: HTMLElement; order: number; sequence: number };
 const slots: ReaderSlot[] = ["toolbar-status", "top-bar", "selection-actions"];
 
 /** Internal controller: plugin code uses only the bridge's public hooks and fills. */
-export function createReaderBridge(context: ReaderContext) {
+export function createReaderBridge(
+  context: ReaderContext,
+  options: { requiredControllerIds?: readonly string[]; failures?: Readonly<Record<string, ReaderControllerFailureCode>> } = {},
+) {
   const listeners = new Set<() => void>();
   const slotListeners = new Set<() => void>();
   const targets = new Map<ReaderSlot, HTMLElement>();
@@ -31,8 +48,19 @@ export function createReaderBridge(context: ReaderContext) {
         .sort((a, b) => a.order - b.order || a.sequence - b.sequence)
         .forEach((fill) => target.append(fill.element));
   };
+  const bus = createReaderEventBus();
+  const controllers = createControllerReadiness(bus, options.requiredControllerIds ?? [], options.failures);
   return {
-    bus: createReaderEventBus(),
+    bus,
+    start: controllers.start,
+    destroy: controllers.destroy,
+    installController: controllers.install,
+    whenControllersReady: controllers.whenReady,
+    isControllerPermitCurrent: controllers.isPermitCurrent,
+    reportControllerFailure: controllers.fail,
+    acknowledgeVisibleControllerFailure: controllers.visibleFailure,
+    subscribeControllerReadiness: controllers.subscribe,
+    getControllerReadinessSnapshot: controllers.getSnapshot,
     subscribe(fn: () => void) {
       listeners.add(fn);
       return () => {

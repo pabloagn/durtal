@@ -6,7 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
+  useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
 import {
@@ -181,7 +181,8 @@ type ReaderViewProps = {
   otherPlace: ReaderPlace | null;
   deviceId: string | null;
   backHref: string;
-  plugins: { id: string; node: ReactNode }[];
+  plugins: import("@/lib/reader/bridge-state").ReaderPluginView[];
+  requiredControllerIds?: readonly string[];
 };
 export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
@@ -189,6 +190,8 @@ export function ReaderView(props: ReaderViewProps) {
     <ReaderBridgeProvider
       key={`${props.ebook.id}:${props.file?.id}:${attempt}`}
       plugins={props.plugins}
+      requiredControllerIds={props.requiredControllerIds}
+      onRetry={() => setAttempt((n) => n + 1)}
       context={{
         ebookId: props.ebook.id,
         fileId: props.file?.id ?? "",
@@ -255,6 +258,11 @@ function ReaderSession({
   );
   const [clock, setClock] = useState("");
   const statusFilled = useReaderSlotFilled("toolbar-status");
+  const controllerReadiness = useSyncExternalStore(
+    bridge.subscribeControllerReadiness,
+    bridge.getControllerReadinessSnapshot,
+    bridge.getControllerReadinessSnapshot,
+  );
   const [chapter, setChapter] = useState<string | null>(
     place?.tocLabel ?? null,
   );
@@ -275,7 +283,8 @@ function ReaderSession({
       shortcutsOpen ||
       runningOpen ||
       peeking ||
-      status.kind !== "ready",
+      status.kind !== "ready" ||
+      !controllerReadiness.ready,
   });
 
   // The book's look: the settings, the theme's colours and the reader's own fonts
@@ -391,6 +400,7 @@ function ReaderSession({
       source: JumpSource,
       originMark?: string,
     ) => {
+      if (!bridge.getControllerReadinessSnapshot().ready) return false;
       try {
         await navigationRef.current?.navigate(target, { source, originMark });
         return true;
@@ -403,15 +413,17 @@ function ReaderSession({
         return false;
       }
     },
-    [],
+    [bridge],
   );
   const historyStep = useCallback((direction: -1 | 1) => {
+    if (!bridge.getControllerReadinessSnapshot().ready) return;
     void navigationRef.current
       ?.historyStep(direction)
       .catch(() => setNotice("That place could not be opened."));
-  }, []);
+  }, [bridge]);
   const chapterStep = useCallback(
     (direction: -1 | 1) => {
+      if (!bridge.getControllerReadinessSnapshot().ready) return;
       const current = navigationRef.current?.history.current?.locator;
       const positions = indexRef.current;
       if (!current || !positions) return;
@@ -443,7 +455,7 @@ function ReaderSession({
         "chapter",
       );
     },
-    [navigate],
+    [bridge, navigate],
   );
 
   const toggleFullscreen = useCallback(() => {
@@ -461,6 +473,7 @@ function ReaderSession({
       direction: "next" | "prev" | "goLeft" | "goRight",
       failure: string,
     ) => {
+      if (!bridge.getControllerReadinessSnapshot().ready) return;
       // Visual/resume intent is immediate; reading activity waits for painted movement.
       bars.hide();
       syncRef.current?.dismiss();
@@ -499,7 +512,7 @@ function ReaderSession({
           void document.exitFullscreen().catch(() => {});
       },
       activity: (kind) => {
-        bridge.bus.activity(kind);
+        if (bridge.getControllerReadinessSnapshot().ready) bridge.bus.activity(kind);
       },
       pointer: (_x, y) => bars.pointerAt(y),
     };
@@ -538,6 +551,8 @@ function ReaderSession({
       return;
     }
     let cancelled = false;
+    const startupAbort = new AbortController();
+    let phase: "controllers" | "engine" = "controllers";
     let engine: ReaderEngine | null = null;
     let opened = false;
     let reported = false;
@@ -566,7 +581,7 @@ function ReaderSession({
         },
         pointer: (x, y) => actions.current?.pointer?.(x, y),
       },
-      isBlocked,
+      isBlocked: () => isBlocked() || !bridge.getControllerReadinessSnapshot().ready,
       hasSelection: () => !!engine?.locatorFromSelection(),
       selectionEscape: () => {
         if (!engine?.locatorFromSelection()) return false;
@@ -592,16 +607,29 @@ function ReaderSession({
         }
       },
     });
-    input.attach(document);
     const historyInput = createHistoryInput({
-      blocked: isBlocked,
+      blocked: () => isBlocked() || !bridge.getControllerReadinessSnapshot().ready,
       available: (direction) =>
         !!(direction < 0
           ? navigationRef.current?.history.back
           : navigationRef.current?.history.forward),
       step: historyStep,
     });
-    historyInput.attach(document);
+    let recoveryTimeout: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribeReadiness = bridge.subscribeControllerReadiness(() => {
+      if (bridge.getControllerReadinessSnapshot().ready) {
+        if (recoveryTimeout) clearTimeout(recoveryTimeout);
+        recoveryTimeout = null;
+      } else {
+        navigationRef.current?.cancel();
+        paceRef.current?.interrupt();
+        if (opened && !recoveryTimeout) recoveryTimeout = setTimeout(() => {
+          recoveryTimeout = null;
+          if (!cancelled && !bridge.getControllerReadinessSnapshot().ready)
+            setStatus({ kind: "error", message: "A reader feature could not start. Try opening the book again." });
+        }, OPEN_TIMEOUT_MS);
+      }
+    });
     let unregisterShortcuts = () => {};
     const indexAbort = new AbortController();
     let indexTimer: ReturnType<typeof setTimeout> | null = null;
@@ -667,18 +695,34 @@ function ReaderSession({
     const timeout = setTimeout(() => {
       if (opened || cancelled) return;
       cancelled = true;
+      startupAbort.abort();
+      input.destroy();
+      historyInput.destroy();
       engine?.destroy();
       setStatus({
         kind: "error",
-        message: "The file took too long to download. Check the connection.",
+        message: phase === "controllers"
+          ? "A reader feature could not start. Try opening the book again."
+          : "The file took too long to download. Check the connection.",
       });
     }, OPEN_TIMEOUT_MS);
 
     void (async () => {
       try {
-        const { createFoliateEngine } =
-          await import("@/lib/reader/engines/foliate/engine");
-        if (cancelled) return;
+        const engineModule = import("@/lib/reader/engines/foliate/engine");
+        // Imports and the page's byte prefetch stay parallel with controller readiness.
+        const [{ createFoliateEngine }, permit] = await Promise.all([
+          engineModule, bridge.whenControllersReady(startupAbort.signal),
+        ]);
+        if (cancelled || startupAbort.signal.aborted) return;
+        let admitted = permit;
+        while (!bridge.isControllerPermitCurrent(admitted)) {
+          admitted = await bridge.whenControllersReady(startupAbort.signal);
+          if (cancelled || startupAbort.signal.aborted) return;
+        }
+        phase = "engine";
+        input.attach(document);
+        historyInput.attach(document);
         engine = createFoliateEngine();
         engineRef.current = engine;
         let latest: EngineEvents["relocate"] | null = null;
@@ -687,6 +731,7 @@ function ReaderSession({
           setStatus({ kind: "error", message });
         });
         engine.on("ready", (info) => {
+          if (cancelled) return;
           const positions = new PositionIndex(
             info,
             readIndexCache(localStorageOrNull(), file.sha256),
@@ -695,6 +740,7 @@ function ReaderSession({
           setIndex(positions);
         });
         engine.on("document", ({ doc }) => {
+          if (cancelled) return;
           input.attach(doc);
           historyInput.attach(doc);
         });
@@ -702,6 +748,7 @@ function ReaderSession({
           if (!external) void navigate({ href }, "link", originMark);
         });
         engine.on("selection", (selected) => {
+          if (cancelled) return;
           setSelection(selected);
           const value = selected
             ? {
@@ -810,6 +857,12 @@ function ReaderSession({
             return ((await res.json()) as { url: string }).url;
           },
         };
+        while (!bridge.isControllerPermitCurrent(admitted)) {
+          phase = "controllers";
+          admitted = await bridge.whenControllersReady(startupAbort.signal);
+          if (cancelled || startupAbort.signal.aborted) return;
+        }
+        phase = "engine";
         const { resolved } = await engine.open(source, {
           container,
           presentation: presentationRef.current!,
@@ -818,7 +871,12 @@ function ReaderSession({
               ? { fraction: openingPlace.locator.totalProgression }
               : (place ?? undefined),
         });
-        if (cancelled) return;
+        if (cancelled || startupAbort.signal.aborted) return;
+        while (!bridge.isControllerPermitCurrent(admitted)) {
+          phase = "controllers";
+          admitted = await bridge.whenControllersReady(startupAbort.signal);
+          if (cancelled || startupAbort.signal.aborted) return;
+        }
         opened = true;
         clearTimeout(timeout);
         setStatus({ kind: "ready" });
@@ -943,6 +1001,11 @@ function ReaderSession({
         postponeIndex();
       } catch {
         if (cancelled) return;
+        cancelled = true;
+        startupAbort.abort();
+        input.destroy();
+        historyInput.destroy();
+        engine?.destroy();
         clearTimeout(timeout);
         // The engine says what kind of failure it was; this is for the rest
         if (!reported)
@@ -955,6 +1018,9 @@ function ReaderSession({
 
     return () => {
       cancelled = true;
+      startupAbort.abort();
+      unsubscribeReadiness();
+      if (recoveryTimeout) clearTimeout(recoveryTimeout);
       clearTimeout(timeout);
       if (noticeTimer) clearTimeout(noticeTimer);
       document.removeEventListener("visibilitychange", visibility);

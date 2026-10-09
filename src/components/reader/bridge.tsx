@@ -1,6 +1,7 @@
 "use client";
 import {
   Component,
+  cloneElement,
   createContext,
   useContext,
   useEffect,
@@ -11,13 +12,16 @@ import {
   useSyncExternalStore,
   type ReactNode,
   type ErrorInfo,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import {
   createReaderBridge,
   type ReaderBridgeController,
   type ReaderSlot,
+  type ReaderPluginView,
 } from "@/lib/reader/bridge-state";
+import { READER_CONTROLLER_EVENTS, type ReaderControllerHandlers, type ReaderControllerFailureCode } from "@/lib/reader/controller-readiness";
 import type { ReaderContext, ReaderEvents } from "@/lib/reader/events";
 import {
   registerReaderKey,
@@ -27,13 +31,14 @@ import {
 
 const Bridge = createContext<ReaderBridgeController | null>(null);
 const Order = createContext(0);
+const PluginIdentity = createContext<string | null>(null);
 function useBridge() {
   const bridge = useContext(Bridge);
   if (!bridge) throw new Error("Reader hooks require ReaderBridgeProvider");
   return bridge;
 }
 class PluginBoundary extends Component<
-  { id: string; children: ReactNode },
+  { id: string; children: ReactNode; controller?: true; bridge: ReaderBridgeController },
   { failed: boolean }
 > {
   state = { failed: false };
@@ -41,6 +46,8 @@ class PluginBoundary extends Component<
     return { failed: true };
   }
   componentDidCatch(error: Error, info: ErrorInfo) {
+    if (this.props.controller)
+      this.props.bridge.reportControllerFailure(this.props.id, "reader_controller_failed", this.props.bridge.getControllerReadinessSnapshot().epoch);
     console.error(
       `[reader] Plug-in ${this.props.id} crashed:`,
       error,
@@ -55,28 +62,106 @@ class PluginBoundary extends Component<
 export function ReaderBridgeProvider({
   context,
   plugins,
+  requiredControllerIds = [],
+  onRetry,
   children,
 }: {
   context: ReaderContext;
-  plugins: { id: string; node: ReactNode }[];
+  plugins: ReaderPluginView[];
+  requiredControllerIds?: readonly string[];
+  onRetry?: () => void;
   children: (bridge: ReaderBridgeController) => ReactNode;
 }) {
   // Provider lifecycle is one open book; ReaderView keys it by e-book/file/retry.
-  const [bridge] = useState(() => createReaderBridge(context));
-  useEffect(() => {
-    bridge.bus.start();
-    return () => bridge.bus.destroy();
+  const [bridge] = useState(() => {
+    for (const plugin of plugins) {
+      if (plugin.controller && (!requiredControllerIds.includes(plugin.id) || !plugin.failureNode))
+        throw new Error(`Reader controller configuration is incomplete: ${plugin.id}`);
+      if (requiredControllerIds.includes(plugin.id) && !plugin.controller)
+        throw new Error(`Required reader plugin must declare its controller: ${plugin.id}`);
+    }
+    return createReaderBridge(context, {
+      requiredControllerIds,
+      failures: Object.fromEntries(plugins.filter((plugin) => plugin.controller && plugin.failure)
+        .map((plugin) => [plugin.id, plugin.failure!])),
+    });
+  });
+  useLayoutEffect(() => {
+    bridge.start();
+    return () => bridge.destroy();
   }, [bridge]);
   return (
     <Bridge.Provider value={bridge}>
       {children(bridge)}
       {plugins.map((plugin, order) => (
         <Order.Provider key={plugin.id} value={order}>
-          <PluginBoundary id={plugin.id}>{plugin.node}</PluginBoundary>
+          <PluginIdentity.Provider value={plugin.id}>
+            <PluginHost plugin={plugin} bridge={bridge} onRetry={onRetry} />
+          </PluginIdentity.Provider>
         </Order.Provider>
       ))}
     </Bridge.Provider>
   );
+}
+
+function PluginHost({ plugin, bridge, onRetry }: {
+  plugin: ReaderPluginView; bridge: ReaderBridgeController; onRetry?: () => void;
+}) {
+  const readiness = useSyncExternalStore(bridge.subscribeControllerReadiness,
+    bridge.getControllerReadinessSnapshot, bridge.getControllerReadinessSnapshot);
+  const failure = readiness.controllers.find((controller) => controller.id === plugin.id)?.code;
+  if (plugin.controller && failure)
+    return plugin.failureNode ? <PluginBoundary id={plugin.id} bridge={bridge}>{cloneElement(plugin.failureNode, { code: failure, onRetry })}</PluginBoundary> : null;
+  return <PluginBoundary id={plugin.id} controller={plugin.controller} bridge={bridge}>{plugin.node}</PluginBoundary>;
+}
+
+/** Functional handlers are installed together before their generation is acknowledged. */
+export function useReaderController(id: string, handlers: ReaderControllerHandlers) {
+  const bridge = useBridge();
+  const identity = useContext(PluginIdentity);
+  if (identity !== id) throw new Error("Reader controller must match its configured plugin identity");
+  for (const event of READER_CONTROLLER_EVENTS)
+    if (typeof handlers[event] !== "function") throw new Error(`Missing reader controller handler: ${event}`);
+  const latest = useRef(handlers);
+  useLayoutEffect(() => { latest.current = handlers; });
+  useLayoutEffect(() => bridge.installController(id, {
+    activity: (event) => latest.current.activity(event),
+    location: (event) => latest.current.location(event),
+    end: (event) => latest.current.end(event),
+    selection: (event) => latest.current.selection(event),
+  }), [bridge, id]);
+}
+
+/** Visible means a connected surface with painted area inside this viewport. */
+export function readerControllerFailureVisible(element: HTMLElement | null): boolean {
+  if (!element?.isConnected || element.ownerDocument.visibilityState === "hidden") return false;
+  const view = element.ownerDocument.defaultView;
+  if (!view) return false;
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    const style = view.getComputedStyle(node);
+    if (node.hidden || node.getAttribute("aria-hidden") === "true" || style.display === "none" ||
+      style.visibility === "hidden" || style.visibility === "collapse" || style.opacity === "0") return false;
+  }
+  return [...element.getClientRects()].some((rect) => rect.width > 0 && rect.height > 0 &&
+    rect.bottom > 0 && rect.right > 0 && rect.top < view.innerHeight && rect.left < view.innerWidth);
+}
+
+/** A feature-owned failure must actually render before the plain reader is admitted. */
+export function useReaderControllerFailure(id: string, code: ReaderControllerFailureCode,
+  noticeRef: RefObject<HTMLElement | null>) {
+  const bridge = useBridge();
+  const identity = useContext(PluginIdentity);
+  if (identity !== id) throw new Error("Reader failure must match its configured plugin identity");
+  useLayoutEffect(() => {
+    const epoch = bridge.getControllerReadinessSnapshot().epoch;
+    bridge.reportControllerFailure(id, code, epoch);
+    let revoke = () => {};
+    const frame = requestAnimationFrame(() => {
+      if (readerControllerFailureVisible(noticeRef.current))
+        revoke = bridge.acknowledgeVisibleControllerFailure(id, code, epoch);
+    });
+    return () => { cancelAnimationFrame(frame); revoke(); };
+  }, [bridge, id, code, noticeRef]);
 }
 
 export function useReaderEvent<K extends keyof ReaderEvents>(

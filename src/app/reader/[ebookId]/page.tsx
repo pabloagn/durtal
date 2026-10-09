@@ -21,7 +21,7 @@ import { readerLatinFace } from "@/lib/reader/fonts";
 import { zipCdOffset } from "@/lib/reader/manifest";
 import { readerSettings } from "@/lib/reader/settings-cookie";
 import { READER_SETTINGS_KEY } from "@/lib/preferences";
-import { loadReaderPlugins } from "./plugins";
+import { getRequiredReaderControllerIds, loadReaderPlugins } from "./plugins";
 import { ReaderView, type ReaderViewFile } from "./reader-view";
 
 type PageProps = {
@@ -117,6 +117,7 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
  */
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
+  const requiredControllerIds = getRequiredReaderControllerIds();
   const [bookResult, pluginsResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId),
     loadReaderPlugins(request),
@@ -167,6 +168,7 @@ export default async function ReaderPage(props: PageProps) {
         deviceId={request.deviceId}
         backHref={book.workSlug ? `/library/${book.workSlug}` : "/library"}
         plugins={plugins}
+        requiredControllerIds={requiredControllerIds}
       />
     </>
   );

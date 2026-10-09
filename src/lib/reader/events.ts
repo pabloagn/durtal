@@ -136,6 +136,12 @@ export function createReaderEventBus(
       }
     },
     start() {
+      if (destroyed) {
+        activityAt.clear();
+        previous = null;
+        first = true;
+        arrivedAtEnd = false;
+      }
       destroyed = false;
     },
     destroy() {

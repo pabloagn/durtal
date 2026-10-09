@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   loadReaderPlugins,
+  getRequiredReaderControllerIds,
   readerPlugins,
   type ReaderPlugin,
 } from "@/app/reader/[ebookId]/plugins";
@@ -45,5 +46,48 @@ describe("reader plugin server boundary", () => {
     finish[1]();
     finish[0]();
     expect((await result).map((plugin) => plugin.id)).toEqual(["one", "two"]);
+  });
+});
+
+
+describe("required controller plugin configuration", () => {
+  const Component = () => null;
+  const Failure = () => null;
+  it("retains configured IDs and failure descriptors across failed and nonserialisable loaders", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const plugins: ReaderPlugin[] = [
+      { id: "failed", controller: true, Component, Failure, load: async () => { throw new Error("unavailable"); } },
+      { id: "invalid", controller: true, Component, Failure, load: async () => ({ handler: () => {} }) },
+    ];
+    expect(getRequiredReaderControllerIds(plugins)).toEqual(["failed", "invalid"]);
+    const results = await loadReaderPlugins({ ebookId: "book" }, plugins);
+    expect(results.map(({ id }) => id)).toEqual(["failed", "invalid"]);
+    for (const result of results) {
+      expect(result).toMatchObject({ controller: true, node: null, failure: "reader_controller_load_failed" });
+      expect(result.failureNode?.props.id).toBe(result.id);
+    }
+    error.mockRestore();
+  });
+  it("keeps the eager failure descriptor without declaring successful tracking data", async () => {
+    const result = await loadReaderPlugins({ ebookId: "book" }, [
+      { id: "configured", controller: true, Component, Failure, load: async () => ({ status: "disabled" }) },
+    ]);
+    expect(result[0].controller).toBe(true);
+    expect(result[0].failure).toBeUndefined();
+    expect(result[0].failureNode?.props.id).toBe("configured");
+  });
+  it("rejects duplicate IDs and missing feature-owned failure renderers before loader work", async () => {
+    const load = vi.fn(async () => null);
+    await expect(loadReaderPlugins({ ebookId: "book" }, [
+      { id: "duplicate", Component, load }, { id: "duplicate", Component, load },
+    ])).rejects.toThrow("unique");
+    await expect(loadReaderPlugins({ ebookId: "book" }, [
+      { id: "missing-failure", controller: true, Component, load },
+    ])).rejects.toThrow("failure surface");
+    expect(load).not.toHaveBeenCalled();
+  });
+  it("has no required controller in the unchanged empty production registry", () => {
+    expect(getRequiredReaderControllerIds()).toEqual([]);
+    expect(readerPlugins).toEqual([]);
   });
 });
