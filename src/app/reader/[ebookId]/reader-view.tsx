@@ -9,7 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import { ReaderBridgeProvider } from "@/components/reader/bridge";
+import {
+  ReaderBridgeProvider,
+  useReaderSlotFilled,
+} from "@/components/reader/bridge";
 import {
   ReaderNotice,
   resumeNoticeText,
@@ -20,7 +23,28 @@ import { readerPercent } from "@/lib/reader/events";
 import { positionUrl } from "@/lib/reader/device";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { createPlaceSync } from "@/lib/reader/sync/session";
-import { ContentsDialog } from "@/components/reader/contents-dialog";
+import { ReturnChip } from "@/components/reader/return-chip";
+import { PositionIndex, flattenContents } from "@/lib/reader/position-index";
+import {
+  readIndexCache,
+  writeIndexCache,
+} from "@/lib/reader/position-index-cache";
+import {
+  createReaderNavigation,
+  type ReaderNavigation,
+  type JumpSource,
+} from "@/lib/reader/navigation";
+import { createHistoryInput } from "@/lib/reader/history-input";
+import type { GoToMode } from "@/lib/reader/goto";
+import { PaceModel } from "@/lib/reader/pace";
+import {
+  mutedInk,
+  renderRunningLines,
+  runningPositions,
+  saveRunningPositions,
+  type RunningPositions,
+} from "@/lib/reader/running-lines";
+import { lazy, Suspense } from "react";
 import { OpenError } from "@/components/reader/open-error";
 import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
@@ -35,17 +59,47 @@ import type {
   Prefetched,
   ReaderEngine,
   ReaderFormat,
-  TocItem,
 } from "@/lib/reader/engine";
 import { readerFontFaces } from "@/lib/reader/fonts";
 import { PREFETCH_GLOBAL } from "@/lib/reader/first-range";
-import { createReaderInput, type ReaderActions } from "@/lib/reader/input";
+import {
+  createReaderInput,
+  registerCoreReaderShortcuts,
+  type ReaderActions,
+} from "@/lib/reader/input";
 import { createPositionQueue } from "@/lib/reader/position-queue";
 import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
 import {
   presentationFrom,
   resolveThemeColors,
 } from "@/lib/reader/presentation";
+const GoToDialog = lazy(() =>
+  import("@/components/reader/goto-dialog").then((module) => ({
+    default: module.GoToDialog,
+  })),
+);
+const ContentsPanel = lazy(() =>
+  import("@/components/reader/contents-panel").then((module) => ({
+    default: module.ContentsPanel,
+  })),
+);
+const ShortcutSheet = lazy(() =>
+  import("@/components/reader/shortcut-sheet").then((module) => ({
+    default: module.ShortcutSheet,
+  })),
+);
+const RunningLinesPopover = lazy(() =>
+  import("@/components/reader/running-lines-popover").then((module) => ({
+    default: module.RunningLinesPopover,
+  })),
+);
+const localStorageOrNull = () => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
 
 export interface ReaderViewFile {
   id: string;
@@ -57,6 +111,7 @@ export interface ReaderViewFile {
   expiresAt: string | null;
   fallbackUrl: string;
   cdOffset: number | null;
+  charCount?: number | null;
 }
 
 /** A book that has not opened by then shows the error, never an endless wait */
@@ -102,7 +157,10 @@ function samePlace(a: DurtalLocator | null, b: DurtalLocator | null): boolean {
   );
 }
 
-const isBlocked = () => !!document.querySelector("dialog[open], [cmdk-root]");
+const isBlocked = () =>
+  !!document.querySelector(
+    'dialog[open]:not([data-reader-side-panel]), dialog[open][data-reader-modal], [data-reader-running-lines][data-open="true"], [cmdk-root]',
+  );
 
 /**
  * The reading view (eBooks sub-issue 3): the engine in the page, the input
@@ -110,7 +168,12 @@ const isBlocked = () => !!document.querySelector("dialog[open], [cmdk-root]");
  * device's place saved as the reader goes.
  */
 type ReaderViewProps = {
-  ebook: { id: string; title: string; authors: string[] };
+  ebook: {
+    id: string;
+    title: string;
+    authors: string[];
+    language?: string | null;
+  };
   file: ReaderViewFile | null;
   alternatives: { id: string; label: string }[];
   place: ReaderPlace | null;
@@ -173,7 +236,25 @@ function ReaderSession({
           message: "This eBook has no file the reader can open.",
         },
   );
-  const [toc, setToc] = useState<TocItem[]>([]);
+  const [index, setIndex] = useState<PositionIndex | null>(null);
+  const indexRef = useRef<PositionIndex | null>(null);
+  const navigationRef = useRef<ReaderNavigation | null>(null);
+  const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
+    null,
+  );
+  const [, historyChanged] = useState(0);
+  const [returnTurns, setReturnTurns] = useState(0);
+  const paceRef = useRef<PaceModel | null>(null);
+  const [gotoOpen, setGotoOpen] = useState(false);
+  const [gotoMode, setGotoMode] = useState<GoToMode | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [runningOpen, setRunningOpen] = useState(false);
+  const [peeking, setPeeking] = useState(false);
+  const [positions, setPositions] = useState<RunningPositions>(() =>
+    runningPositions(null),
+  );
+  const [clock, setClock] = useState("");
+  const statusFilled = useReaderSlotFilled("toolbar-status");
   const [chapter, setChapter] = useState<string | null>(
     place?.tocLabel ?? null,
   );
@@ -187,7 +268,14 @@ function ReaderSession({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
   const bars = useReaderBars({
-    held: contentsOpen || settingsOpen || status.kind !== "ready",
+    held:
+      contentsOpen ||
+      settingsOpen ||
+      gotoOpen ||
+      shortcutsOpen ||
+      runningOpen ||
+      peeking ||
+      status.kind !== "ready",
   });
 
   // The book's look: the settings, the theme's colours and the reader's own fonts
@@ -205,8 +293,158 @@ function ReaderSession({
   const presentationRef = useRef(presentation);
   useEffect(() => {
     presentationRef.current = presentation;
+    paceRef.current?.interrupt();
     if (presentation) engineRef.current?.setPresentation(presentation);
   }, [presentation]);
+
+  useEffect(() => {
+    setPositions(runningPositions(localStorageOrNull()));
+    paceRef.current = new PaceModel(localStorageOrNull());
+  }, []);
+  useEffect(() => {
+    if (positions.clock === "off") return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let alignment: ReturnType<typeof setTimeout> | null = null;
+    const update = () =>
+      setClock(
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+    const visible = () => {
+      if (timer) clearInterval(timer);
+      if (alignment) clearTimeout(alignment);
+      timer = null;
+      alignment = null;
+      if (document.visibilityState !== "hidden") {
+        update();
+        const untilMinute = 60_000 - (Date.now() % 60_000);
+        // Align to a minute without introducing a sub-30-second idle timer.
+        alignment = setTimeout(
+          () => {
+            alignment = null;
+            update();
+            timer = setInterval(update, 60_000);
+          },
+          untilMinute < 30_000 ? untilMinute + 60_000 : untilMinute,
+        );
+      }
+    };
+    visible();
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      if (timer) clearInterval(timer);
+      if (alignment) clearTimeout(alignment);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [positions.clock]);
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !index || !relocation || !presentation) return;
+    if (!relocation.paginated) {
+      engine.setMarginalia(null);
+      return;
+    }
+    const fraction = relocation.locator.totalProgression;
+    const characters =
+      file?.charCount ?? index.info.linearSize * index.textRatio;
+    const language = ebook.language ?? index.info.language;
+    engine.setMarginalia(
+      renderRunningLines({
+        positions,
+        index,
+        locator: relocation.locator,
+        chapter,
+        timeLeftChapter:
+          paceRef.current?.remaining(
+            language,
+            Math.max(0, index.chapterEnd(fraction) - fraction) * characters,
+            "chapter",
+          ) ?? "Learning your pace",
+        timeLeftBook:
+          paceRef.current?.remaining(
+            language,
+            (1 - fraction) * characters,
+            "book",
+          ) ?? "Learning your pace",
+        clock,
+        linear: relocation.linear,
+        statusFilled,
+        color: mutedInk(presentation.colors),
+      }),
+    );
+  }, [
+    index,
+    relocation,
+    presentation,
+    positions,
+    clock,
+    chapter,
+    statusFilled,
+    file?.charCount,
+    ebook.language,
+  ]);
+  const navigate = useCallback(
+    async (
+      target: import("@/lib/reader/engine").GoToTarget,
+      source: JumpSource,
+      originMark?: string,
+    ) => {
+      try {
+        await navigationRef.current?.navigate(target, { source, originMark });
+        return true;
+      } catch (error) {
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "That place could not be opened.",
+        );
+        return false;
+      }
+    },
+    [],
+  );
+  const historyStep = useCallback((direction: -1 | 1) => {
+    void navigationRef.current
+      ?.historyStep(direction)
+      .catch(() => setNotice("That place could not be opened."));
+  }, []);
+  const chapterStep = useCallback(
+    (direction: -1 | 1) => {
+      const current = navigationRef.current?.history.current?.locator;
+      const positions = indexRef.current;
+      if (!current || !positions) return;
+      const fraction = current.totalProgression;
+      if (positions.fallback) {
+        if (direction < 0 && current.progression > 0.000001)
+          void navigate({ href: current.href }, "chapter");
+        else
+          void navigationRef.current
+            ?.chapterStep(direction)
+            .catch(() => setNotice("That chapter could not be opened."));
+        return;
+      }
+      const active =
+        positions.chapters.find(
+          (item) => item.href === navigationRef.current?.current?.tocItem?.href,
+        ) ?? positions.chapterAt(fraction);
+      const previous = positions.chapters
+        .filter((item) => item.fraction < (active?.fraction ?? fraction) - 1e-9)
+        .at(-1);
+      const target =
+        direction > 0
+          ? positions.nextChapter(active?.fraction ?? fraction)
+          : active && !navigationRef.current?.current?.atChapterStart
+            ? active
+            : previous;
+      void navigate(
+        target ? { href: target.href } : { fraction: direction > 0 ? 1 : 0 },
+        "chapter",
+      );
+    },
+    [navigate],
+  );
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenEnabled) return;
@@ -219,26 +457,48 @@ function ReaderSession({
   // What the input layer does, read at the moment of each input
   const actions = useRef<ReaderActions | null>(null);
   useEffect(() => {
+    const turn = (
+      direction: "next" | "prev" | "goLeft" | "goRight",
+      failure: string,
+    ) => {
+      // Visual/resume intent is immediate; reading activity waits for painted movement.
+      bars.hide();
+      syncRef.current?.dismiss();
+      void navigationRef.current
+        ?.turn(direction)
+        .catch(() => setNotice(failure));
+    };
     actions.current = {
-      next: () => void engineRef.current?.next(),
-      prev: () => void engineRef.current?.prev(),
-      left: () => void engineRef.current?.goLeft(),
-      right: () => void engineRef.current?.goRight(),
-      first: () => void engineRef.current?.goTo({ fraction: 0 }),
-      last: () => void engineRef.current?.goTo({ fraction: 1 }),
+      next: () => turn("next", "The next page could not be opened."),
+      prev: () => turn("prev", "The previous page could not be opened."),
+      left: () => turn("goLeft", "That page could not be opened."),
+      right: () => turn("goRight", "That page could not be opened."),
+      first: () => void navigate({ fraction: 0 }, "edge"),
+      last: () => void navigate({ fraction: 1 }, "edge"),
       toggleBars: bars.toggle,
-      contents: () => setContentsOpen(true),
-      settings: () => setSettingsOpen(true),
+      contents: () => {
+        paceRef.current?.interrupt();
+        setContentsOpen(true);
+      },
+      settings: () => {
+        paceRef.current?.interrupt();
+        setSettingsOpen(true);
+      },
       fullscreen: toggleFullscreen,
+      goto: () => {
+        paceRef.current?.interrupt();
+        setGotoOpen(true);
+      },
+      shortcuts: () => {
+        paceRef.current?.interrupt();
+        setShortcutsOpen(true);
+      },
+      chapter: chapterStep,
       escape: () => {
         if (document.fullscreenElement)
           void document.exitFullscreen().catch(() => {});
       },
       activity: (kind) => {
-        if (kind === "turn") {
-          bars.hide();
-          syncRef.current?.dismiss();
-        }
         bridge.bus.activity(kind);
       },
       pointer: (_x, y) => bars.pointerAt(y),
@@ -281,6 +541,7 @@ function ReaderSession({
     let engine: ReaderEngine | null = null;
     let opened = false;
     let reported = false;
+    let postponeIndex = () => {};
     setStatus({ kind: "opening" });
 
     const input = createReaderInput({
@@ -295,8 +556,14 @@ function ReaderSession({
         contents: () => actions.current?.contents(),
         settings: () => actions.current?.settings(),
         fullscreen: () => actions.current?.fullscreen(),
+        goto: () => actions.current?.goto?.(),
+        chapter: (direction) => actions.current?.chapter?.(direction),
+        shortcuts: () => actions.current?.shortcuts?.(),
         escape: () => actions.current?.escape(),
-        activity: (kind) => actions.current?.activity?.(kind),
+        activity: (kind) => {
+          postponeIndex();
+          actions.current?.activity?.(kind);
+        },
         pointer: (x, y) => actions.current?.pointer?.(x, y),
       },
       isBlocked,
@@ -326,6 +593,18 @@ function ReaderSession({
       },
     });
     input.attach(document);
+    const historyInput = createHistoryInput({
+      blocked: isBlocked,
+      available: (direction) =>
+        !!(direction < 0
+          ? navigationRef.current?.history.back
+          : navigationRef.current?.history.forward),
+      step: historyStep,
+    });
+    historyInput.attach(document);
+    let unregisterShortcuts = () => {};
+    const indexAbort = new AbortController();
+    let indexTimer: ReturnType<typeof setTimeout> | null = null;
 
     const url = positionUrl(ebook.id, navigator);
     const queue = createPositionQueue({ url });
@@ -359,6 +638,7 @@ function ReaderSession({
     let hiddenAt: number | null =
       document.visibilityState === "hidden" ? Date.now() : null;
     const visibility = () => {
+      paceRef.current?.interrupt();
       if (document.visibilityState === "hidden") hiddenAt = Date.now();
       else {
         if (hiddenAt !== null && Date.now() - hiddenAt >= 60_000)
@@ -406,8 +686,21 @@ function ReaderSession({
           reported = true;
           setStatus({ kind: "error", message });
         });
-        engine.on("ready", (info) => setToc(info.toc));
-        engine.on("document", ({ doc }) => input.attach(doc));
+        engine.on("ready", (info) => {
+          const positions = new PositionIndex(
+            info,
+            readIndexCache(localStorageOrNull(), file.sha256),
+          );
+          indexRef.current = positions;
+          setIndex(positions);
+        });
+        engine.on("document", ({ doc }) => {
+          input.attach(doc);
+          historyInput.attach(doc);
+        });
+        engine.on("link", ({ href, external, originMark }) => {
+          if (!external) void navigate({ href }, "link", originMark);
+        });
         engine.on("selection", (selected) => {
           setSelection(selected);
           const value = selected
@@ -422,11 +715,29 @@ function ReaderSession({
           bridge.update({ selection: value });
           bridge.bus.emit("selection", value);
         });
-        engine.on("relocate", (relocation) => {
+        const publish = (relocation: EngineEvents["relocate"]) => {
           const { locator, chapter: label, reason, atEnd } = relocation;
-          latest = relocation;
+          setRelocation(relocation);
           setChapter(label);
           setPercent(Math.round(locator.totalProgression * 100));
+          bridge.update({
+            locator,
+            percent: readerPercent(locator),
+            chapter: label,
+          });
+          if (
+            reason === "layout" ||
+            (relocation.origin && relocation.origin !== "human")
+          ) {
+            paceRef.current?.interrupt();
+            return;
+          }
+          paceRef.current?.arrive(
+            relocation,
+            ebook.language ?? indexRef.current?.info.language ?? null,
+            document.visibilityState !== "hidden",
+          );
+          setReturnTurns((turns) => (reason === "jump" ? 0 : turns + 1));
           // The landing on open is not a new place; every move after it is
           if (opened) {
             const local: ReaderPlace = {
@@ -445,11 +756,6 @@ function ReaderSession({
               setNotice(null);
             } else sync.localPlace(local);
             save(locator, label);
-            bridge.update({
-              locator,
-              percent: readerPercent(locator),
-              chapter: label,
-            });
             bridge.bus.location({
               locator,
               kind: reason,
@@ -459,6 +765,28 @@ function ReaderSession({
             });
             if (reason === "turn")
               bridge.bus.activity(relocation.activity ?? "turn");
+          }
+        };
+        const navigation = createReaderNavigation({
+          engine,
+          commit: publish,
+          changed: () => historyChanged((value) => value + 1),
+          interrupt: () => paceRef.current?.interrupt(),
+          fatal: () =>
+            setStatus({
+              kind: "error",
+              message:
+                "The original page could not be restored. Reopen the book to continue.",
+            }),
+        });
+        navigationRef.current = navigation;
+        engine.on("relocate", (relocation) => {
+          if (cancelled) return;
+          latest = relocation;
+          if (opened) navigation.relocate(relocation);
+          else {
+            setChapter(relocation.chapter);
+            setPercent(Math.round(relocation.locator.totalProgression * 100));
           }
         });
         const source: BookSource = {
@@ -512,6 +840,13 @@ function ReaderSession({
           noticeTimer = setTimeout(() => setNotice(null), 4000);
         }
         if (landing) {
+          navigation.start(landing);
+          setRelocation(landing);
+          paceRef.current?.arrive(
+            landing,
+            ebook.language ?? indexRef.current?.info.language ?? null,
+            document.visibilityState !== "hidden",
+          );
           sync.localPlace({
             deviceId: deviceId ?? "",
             deviceLabel: "Browser",
@@ -535,6 +870,77 @@ function ReaderSession({
         }
         if (landing && (!ownPlace || resolved?.status !== "exact"))
           save(landing.locator, landing.chapter);
+        unregisterShortcuts = registerCoreReaderShortcuts([
+          "arrowleft",
+          "arrowright",
+          "space",
+          "shift space",
+          "pageup",
+          "pagedown",
+          "home",
+          "end",
+          "t",
+          "s",
+          "escape",
+          "g",
+          "[",
+          "]",
+          "alt arrowleft",
+          "alt arrowright",
+          "?",
+          ...(document.fullscreenEnabled ? ["f"] : []),
+        ]);
+        let indexing = false;
+        postponeIndex = () => {
+          if (indexing || cancelled) return;
+          if (indexTimer) clearTimeout(indexTimer);
+          indexTimer = setTimeout(() => {
+            indexing = true;
+            void (async () => {
+              const currentIndex = indexRef.current;
+              if (!engine || !currentIndex || cancelled) return;
+              const hrefs = [
+                ...new Set(
+                  [
+                    ...flattenContents(currentIndex.contents),
+                    ...flattenContents(currentIndex.info.pageList),
+                  ]
+                    .map((item) => item.href)
+                    .filter(Boolean),
+                ),
+              ];
+              for await (const entry of engine.indexAnchors({
+                hrefs,
+                signal: indexAbort.signal,
+              })) {
+                if (cancelled) return;
+                currentIndex.set(
+                  entry.href,
+                  entry.fraction,
+                  entry.sectionLabel,
+                  entry.textRatio,
+                );
+              }
+              if (cancelled) return;
+              currentIndex.rebuild();
+              writeIndexCache(
+                localStorageOrNull(),
+                file.sha256,
+                currentIndex.fractions,
+              );
+              const updated = new PositionIndex(
+                currentIndex.info,
+                currentIndex.fractions,
+              );
+              updated.textRatio = currentIndex.textRatio;
+              indexRef.current = updated;
+              setIndex(updated);
+            })().catch(() => {
+              /* Immediate section positions remain usable if indexing fails. */
+            });
+          }, 2000);
+        };
+        postponeIndex();
       } catch {
         if (cancelled) return;
         clearTimeout(timeout);
@@ -556,6 +962,13 @@ function ReaderSession({
       sync.destroy();
       syncRef.current = null;
       queue.destroy();
+      indexAbort.abort();
+      if (indexTimer) clearTimeout(indexTimer);
+      unregisterShortcuts();
+      historyInput.destroy();
+      navigationRef.current?.destroy();
+      navigationRef.current = null;
+      paceRef.current?.interrupt();
       input.destroy();
       engine?.destroy();
       engineRef.current = null;
@@ -564,10 +977,10 @@ function ReaderSession({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.id]);
 
-  const pick = useCallback((href: string) => {
-    setContentsOpen(false);
-    void engineRef.current?.goTo({ href });
-  }, []);
+  const pick = useCallback(
+    (href: string) => navigate({ href }, "contents"),
+    [navigate],
+  );
 
   const onBack = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
     // Back to the page this one was opened from, when it is in this app
@@ -621,16 +1034,57 @@ function ReaderSession({
             chapter={chapter}
             backHref={backHref}
             onBack={onBack}
-            onContents={() => setContentsOpen(true)}
-            onSettings={() => setSettingsOpen(true)}
+            onContents={() => {
+              paceRef.current?.interrupt();
+              setContentsOpen(true);
+            }}
+            onSettings={() => {
+              paceRef.current?.interrupt();
+              setSettingsOpen(true);
+            }}
             fullscreen={fullscreen}
             onFullscreen={toggleFullscreen}
+            onShortcuts={() => {
+              paceRef.current?.interrupt();
+              setShortcutsOpen(true);
+            }}
           />
           <ReaderBottomBar
             visible={bars.visible}
             chapter={chapter}
             percent={percent}
             bridge={bridge}
+            index={index}
+            locator={relocation?.locator}
+            linear={relocation?.linear}
+            timeLeftChapter={
+              index && relocation
+                ? paceRef.current?.remaining(
+                    ebook.language ?? index.info.language,
+                    Math.max(
+                      0,
+                      index.chapterEnd(relocation.locator.totalProgression) -
+                        relocation.locator.totalProgression,
+                    ) *
+                      (file?.charCount ??
+                        index.info.linearSize * index.textRatio),
+                    "chapter",
+                  )
+                : undefined
+            }
+            onGoTo={() => {
+              paceRef.current?.interrupt();
+              setGotoOpen(true);
+            }}
+            onRunningLines={() => {
+              paceRef.current?.interrupt();
+              setRunningOpen(true);
+            }}
+            onScrub={(fraction) => void navigate({ fraction }, "scrubber")}
+            onPeek={(active) => {
+              setPeeking(active);
+              if (active) paceRef.current?.interrupt();
+            }}
           />
         </>
       }
@@ -650,10 +1104,11 @@ function ReaderSession({
                 onClick={() => {
                   const target = offer;
                   syncRef.current?.dismiss();
-                  void engineRef.current?.goTo(
+                  void navigate(
                     target.fileId === file.id
                       ? target.locator
                       : { fraction: target.locator.totalProgression },
+                    "resume",
                   );
                 }}
               >
@@ -677,12 +1132,57 @@ function ReaderSession({
         bridge={bridge}
         onClear={() => engineRef.current?.clearSelection()}
       />
-      <ContentsDialog
-        open={contentsOpen}
-        onClose={() => setContentsOpen(false)}
-        toc={toc}
-        onPick={pick}
-      />
+      <Suspense fallback={null}>
+        {index && contentsOpen && (
+          <ContentsPanel
+            open={contentsOpen}
+            onClose={() => setContentsOpen(false)}
+            index={index}
+            current={
+              relocation?.tocItem ??
+              (relocation
+                ? index.chapterAt(relocation.locator.totalProgression)
+                : null)
+            }
+            onPick={pick}
+          />
+        )}
+      </Suspense>
+      {index && navigationRef.current && (
+        <ReturnChip
+          navigation={navigationRef.current}
+          index={index}
+          visible={bars.visible || returnTurns < 3}
+          onStep={historyStep}
+        />
+      )}
+      <Suspense fallback={null}>
+        {index && gotoOpen && (
+          <GoToDialog
+            open
+            onClose={() => setGotoOpen(false)}
+            index={index}
+            initialMode={gotoMode}
+            onModeChange={setGotoMode}
+            onGo={(target) => navigate(target, "goto")}
+          />
+        )}
+        {shortcutsOpen && (
+          <ShortcutSheet open onClose={() => setShortcutsOpen(false)} />
+        )}
+        {runningOpen && (
+          <RunningLinesPopover
+            open
+            onClose={() => setRunningOpen(false)}
+            value={positions}
+            available={!!relocation?.paginated}
+            onChange={(value) => {
+              setPositions(value);
+              saveRunningPositions(localStorageOrNull(), value);
+            }}
+          />
+        )}
+      </Suspense>
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

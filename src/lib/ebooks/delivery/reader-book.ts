@@ -16,6 +16,7 @@ import { isDeliverable, type CatalogueFile } from "./files";
 
 export interface ReaderFile extends CatalogueFile {
   readonly manifestKey: string | null;
+  readonly charCount: number | null;
 }
 
 export interface ReaderBook {
@@ -53,13 +54,14 @@ const readable = sql.join(
 /** The reader's e-book, or null when there is none */
 export async function readReaderBook(
   ebookId: string,
-  options: { deviceId?: string | null; fileId?: string | null } = {}): Promise<ReaderBook | null> {
+  options: { deviceId?: string | null; fileId?: string | null } = {},
+): Promise<ReaderBook | null> {
   const [row] = resultRows<Row>(
     await db.execute(sql`select eb.id, eb.title, eb.authors, eb.language,
         eb.preferred_file_id as "preferredFileId", w.slug as "workSlug",
         coalesce((select json_agg(json_build_object('id', f.id, 'ebookId', f.ebook_id, 'sha256', f.sha256,
             's3Key', f.s3_key, 'format', f.format, 'sizeBytes', f.size_bytes, 'contentType', f.content_type,
-            'status', f.status, 'drm', f.drm, 'metadata', f.metadata, 'manifestKey', f.manifest_key) order by f.created_at, f.id)
+            'status', f.status, 'drm', f.drm, 'metadata', f.metadata, 'manifestKey', f.manifest_key, 'charCount', f.char_count) order by f.created_at, f.id)
           from ebook_files f
           where f.ebook_id = eb.id and f.status in ('stored', 'verified') and f.drm is null
             and f.format in (${readable})), '[]'::json) as files,
@@ -78,7 +80,12 @@ export async function readReaderBook(
   );
   if (!row) return null;
   const files = row.files
-    .filter((f) => isDeliverable(f) && (!medallionOf(f.metadata) || medallionOf(f.metadata)!.validation.nativeReadable))
+    .filter(
+      (f) =>
+        isDeliverable(f) &&
+        (!medallionOf(f.metadata) ||
+          medallionOf(f.metadata)!.validation.nativeReadable),
+    )
     .sort((a, b) => formatRank(a.format) - formatRank(b.format));
   const byId = (id: string | null | undefined) =>
     id ? files.find((f) => f.id === id.toLowerCase()) : undefined;

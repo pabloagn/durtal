@@ -36,7 +36,7 @@ describe("locatorFromRelocate", () => {
       sectionIndex: 3,
       progression: 1,
       totalProgression: 0,
-      position: 42,
+      position: 43,
       cfi: "epubcfi(/6/8!/4/2/1:0)",
       tocLabel: "Chapter III",
       pageLabel: "139",

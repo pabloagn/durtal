@@ -34,6 +34,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { checkNavigation, goto, readerPlace, waitUI } from "./reader-navigation-checks.mjs";
 
 const config = JSON.parse(readFileSync(new URL("./reader-perf.json", import.meta.url), "utf8"));
 const args = process.argv.slice(2);
@@ -124,7 +125,7 @@ const send = (method, params = {}, sessionId) =>
 const PROBE = `(() => {
   const top = window.top === window;
   const raf = window.requestAnimationFrame.bind(window);
-  const state = top ? (window.__durtalPerfState = { watch: false, frames: 0, timers: [], events: [], loafs: [] }) : null;
+  const state = top ? (window.__durtalPerfState = { watch: false, frames: 0, timers: [], events: [], loafs: [], tasks: [] }) : null;
   const shared = () => { try { return window.top.__durtalPerfState; } catch { return null; } };
   window.requestAnimationFrame = (cb) => raf((t) => { const s = shared(); if (s?.watch) s.frames++; cb(t); });
   for (const name of ["setTimeout", "setInterval"]) {
@@ -140,6 +141,9 @@ const PROBE = `(() => {
     new PerformanceObserver((list) => {
       for (const e of list.getEntries()) state.loafs.push({ start: e.startTime, duration: e.duration, blocking: e.blockingDuration ?? 0 });
     }).observe({ type: "long-animation-frame", buffered: true });
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) state.tasks.push({ start: e.startTime, duration: e.duration });
+    }).observe({ type: "longtask", buffered: true });
   } catch {}
   let first = true;
   addEventListener("relocate", (event) => {
@@ -187,6 +191,7 @@ async function newPage(profileName) {
         url: request.url,
         method: request.method,
         type,
+        body: request.postData ?? null,
         range: request.headers.Range ?? request.headers.range ?? null,
         status: null,
         start: timestamp,
@@ -276,14 +281,116 @@ async function heapMB(page) {
   return mb(metrics.find((m) => m.name === "JSHeapUsedSize").value);
 }
 
-async function key(page, k, code) {
-  await page.call("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, windowsVirtualKeyCode: code === "ArrowRight" ? 39 : code === "KeyT" ? 84 : 27 });
-  await page.call("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: code === "ArrowRight" ? 39 : code === "KeyT" ? 84 : 27 });
+async function key(page, k, code, modifiers = 0) {
+  const virtual = { ArrowRight: 39, ArrowLeft: 37, KeyT: 84, KeyG: 71, Enter: 13, Home: 36, End: 35, BracketLeft: 219, BracketRight: 221, Escape: 27 }[code] ?? 0;
+  await page.call("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, modifiers, windowsVirtualKeyCode: virtual });
+  await page.call("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, modifiers, windowsVirtualKeyCode: virtual });
 }
+const driver = page => ({
+  open: n => openBook(page, n), evaluate: expression => page.evaluate(expression),
+  key: (k, code, modifiers) => key(page, k, code, modifiers),
+  fill: text => page.call("Input.insertText", { text }),
+  savedPage: async label => {
+    const request = await waitFor(() => [...page.requests.values()].find(request => {
+      if (!isSave(request) || !request.body) return false;
+      try { return JSON.parse(request.body).locator?.pageLabel === label; } catch { return false; }
+    }), 5000, "position with pageLabel");
+    return !!request;
+  },
+});
 
 // ── The rows ────────────────────────────────────────────────────────────────
 
 const MEASURE = {
+  async navigation(row, profileName) {
+    const times = [], smooth = [], tasks = [], loafs = [], inputs = [];
+    for (let run = 0; run < runs; run++) {
+      const page = await newPage(profileName);
+      try {
+        const d = driver(page);
+        await openBook(page, row.fixture);
+        if (row.action === "index") {
+          const first = page.reports.find(report => report.kind === "first").at;
+          await waitUI(d, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+          times.push(await page.evaluate("performance.now()") - first);
+          tasks.push(await page.evaluate(`window.__durtalPerfState.tasks.filter(task => task.start >= ${first} && task.duration > 50).length`));
+          for (const fixture of row.additionalFixtures ?? []) {
+            await openBook(page, fixture);
+            const beginning = page.reports.find(report => report.kind === "first").at;
+            await waitUI(d, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+            times.push(await page.evaluate("performance.now()") - beginning);
+            tasks.push(await page.evaluate(`window.__durtalPerfState.tasks.filter(task => task.start >= ${beginning} && task.duration > 50).length`));
+          }
+          continue;
+        }
+        await waitUI(d, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+        let before = page.reports.length;
+        let start = 0;
+        const mark = async () => { before = page.reports.length; start = await page.evaluate("performance.now()"); };
+        if (row.action === "goto") {
+          d.beforeCommit = mark; await goto(d, "Page", "57");
+        } else if (row.action === "history") {
+          await goto(d, "Percent", "70"); await mark(); await key(page, "ArrowLeft", "ArrowLeft", 1);
+        } else if (row.action === "contents") {
+          await mark(); await key(page, "t", "KeyT");
+          await waitUI(d, "!!document.querySelector('[role=tree] [role=treeitem]')");
+          await page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+          const state = await page.evaluate("({ now: performance.now(), events: window.__durtalPerfState.events })");
+          times.push(state.now - start);
+          inputs.push(Math.max(16, ...state.events.filter(event => event.start >= start && event.name === "keydown").map(event => event.duration)));
+          continue;
+        } else if (row.action === "toc") {
+          if (row.preloaded) {
+            await goto(d, "Percent", "0.95");
+            await waitUI(d, "document.querySelector('foliate-view').renderer.getContents().some(section => section.index === 1)");
+          }
+          await key(page, "t", "KeyT");
+          await waitUI(d, "!!document.querySelector('[role=tree]')");
+          await page.evaluate(`(() => {
+            const button = [...document.querySelectorAll('[role=treeitem] button')].find(button => button.textContent.trim() === ${JSON.stringify(row.preloaded ? "Chapter 2" : "Chapter 90")});
+            if (!button) throw Error("Missing contents target");
+            button.setAttribute("data-qa-toc-pick", ""); button.scrollIntoView({ block: "center" });
+          })()`);
+          await sleep(100);
+          const rect = await page.evaluate("(() => { const r = document.querySelector('[data-qa-toc-pick]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
+          await mark();
+          await page.call("Input.dispatchMouseEvent", { type: "mousePressed", ...rect, button: "left", clickCount: 1 });
+          await page.call("Input.dispatchMouseEvent", { type: "mouseReleased", ...rect, button: "left", clickCount: 1 });
+        } else if (row.action === "drag" || row.action === "release") {
+          await key(page, "g", "KeyG"); await waitUI(d, "!!document.querySelector('dialog[open]')");
+          await key(page, "Escape", "Escape"); await waitUI(d, "!document.querySelector('dialog[open]')");
+          const rect = await page.evaluate("(() => { const r = document.querySelector('[role=slider]').getBoundingClientRect(); return { x: r.x, y: r.y + r.height / 2, width: r.width }; })()");
+          if (rect.width < 220) throw Error("Scrubber width under 220px");
+          const origin = await page.evaluate(readerPlace);
+          await page.evaluate(`(() => {
+            const state = window.__durtalScrubQA = { intervals: [], start: performance.now(), stopped: false };
+            let previous;
+            const frame = now => { if (previous !== undefined) state.intervals.push(now - previous); previous = now; if (!state.stopped) requestAnimationFrame(frame); };
+            requestAnimationFrame(frame);
+          })()`);
+          await page.call("Input.dispatchMouseEvent", { type: "mousePressed", x: rect.x + 1, y: rect.y, button: "left", clickCount: 1 });
+          for (let tick = 0; tick <= 120; tick++) {
+            await page.call("Input.dispatchMouseEvent", { type: "mouseMoved", x: rect.x + 1 + (rect.width - 2) * tick / 120, y: rect.y, buttons: 1 });
+            await sleep(2000 / 120);
+          }
+          if ((await page.evaluate(readerPlace)).cfi !== origin.cfi) throw Error("Peek moved the book before release");
+          const sampled = await page.evaluate(`(() => {
+            const state = window.__durtalScrubQA; state.stopped = true; const end = performance.now();
+            return { smooth: state.intervals.filter(ms => ms <= 16.7).length / Math.max(1, state.intervals.length) * 100,
+              tasks: window.__durtalPerfState.tasks.filter(task => task.start >= state.start && task.start <= end && task.duration > 50).length,
+              loafs: window.__durtalPerfState.loafs.filter(frame => frame.start >= state.start && frame.start <= end && frame.duration > 50).length };
+          })()`);
+          smooth.push(sampled.smooth); tasks.push(sampled.tasks); loafs.push(sampled.loafs);
+          await mark();
+          await page.call("Input.dispatchMouseEvent", { type: "mouseReleased", x: rect.x + rect.width - 1, y: rect.y, button: "left", clickCount: 1 });
+        }
+        const painted = await waitFor(() => page.reports.slice(before).find(report => report.kind === "painted"), 15000, row.label);
+        times.push(painted.at - start);
+      } finally { await page.close(); }
+    }
+    return { ms: p75(times), all: times.map(Math.round), inpP95: percentile(inputs, 0.95),
+      smoothPercent: smooth.length ? Math.min(...smooth) : null, longTasks: Math.max(0, ...tasks), longFrames: Math.max(0, ...loafs) };
+  },
   /** A book not seen before: a fresh context per run */
   async open(row, profileName) {
     const times = [];
@@ -389,8 +496,12 @@ const MEASURE = {
   async idle(row, profileName) {
     const page = await newPage(profileName);
     try {
+      if (row.runningLines) await page.call("Page.addScriptToEvaluateOnNewDocument", { source: `try {
+        localStorage.setItem("durtal-reader-running-lines", JSON.stringify({ v: 1, positions: { chapter: "headerLeft", page: "footerRight", location: "off", percent: "footerRight", timeLeftChapter: "footerLeft", timeLeftBook: "footerRight", clock: "headerRight" } }));
+      } catch {}` });
       await openBook(page, row.fixture);
       await waitFor(() => [...page.requests.values()].find((r) => isSave(r) && r.status), 15_000, "the first position save");
+      await waitUI(driver(page), "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
       // The bars hide 3 s after the open
       await sleep(4000);
       const startedAt = Date.now() / 1000;
@@ -433,12 +544,22 @@ function judge(budget, m) {
   if ("timers" in budget) at("timers fired", m.timers.length, budget.timers, "");
   if ("saves" in budget) at("position saves", m.saves, budget.saves, "");
   if ("otherRequests" in budget) at("other requests", m.others.length, budget.otherRequests, "");
+  if ("smoothPercent" in budget) at("frames at 60fps", m.smoothPercent, budget.smoothPercent, "%", m.smoothPercent >= budget.smoothPercent);
+  if ("longTasks" in budget) at("long tasks over 50ms", m.longTasks, budget.longTasks, "");
+  if ("longFrames" in budget) at("animation frames over 50ms", m.longFrames, budget.longFrames, "");
+  if ("minTimerMs" in budget) at("shortest idle timer", m.timers.length ? Math.min(...m.timers.map(timer => Number(timer.split(" ").at(-1)))) : Infinity, budget.minTimerMs, " ms", m.timers.every(timer => Number(timer.split(" ").at(-1)) >= budget.minTimerMs));
   return checks;
 }
 
 let failed = 0;
 const report = [];
 await sleep(300);
+for (const profileName of Object.keys(config.profiles).filter(name => !onlyProfiles || onlyProfiles.includes(name))) {
+  const page = await newPage(profileName);
+  try { await checkNavigation(driver(page)); console.log("ok   navigation assertions (" + profileName + ")"); }
+  catch (error) { failed++; console.log("FAIL navigation assertions (" + profileName + "): " + error.message); }
+  finally { await page.close(); }
+}
 for (const row of config.rows) {
   if (onlyRows && !onlyRows.includes(row.id)) continue;
   for (const [profileName, budget] of Object.entries(row.budgets)) {

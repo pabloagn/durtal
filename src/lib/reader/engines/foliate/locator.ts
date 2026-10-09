@@ -167,7 +167,8 @@ export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
     progression: unit(input.sectionFraction),
     totalProgression: unit(input.fraction),
   };
-  if (Number.isFinite(input.location)) locator.position = input.location;
+  // Foliate is zero based. Stored legacy numbers are never navigation addresses.
+  if (Number.isFinite(input.location)) locator.position = input.location! + 1;
   if (input.pdfPage) {
     locator.pdf = { page: input.pdfPage };
   } else if (input.cfi) {
@@ -180,6 +181,43 @@ export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
   if (input.pageLabel?.trim())
     locator.pageLabel = input.pageLabel.trim().slice(0, 40);
   return locator;
+}
+
+/** At most 80 visible characters, never extending beyond their first paragraph. */
+export function visibleOriginRange(visible: Range): Range {
+  const range = visible.cloneRange();
+  const doc = range.startContainer.ownerDocument;
+  if (!doc) return range;
+  const start =
+    range.startContainer.nodeType === 1
+      ? (range.startContainer as Element)
+      : range.startContainer.parentElement;
+  let paragraph: Node | null =
+    start?.closest("p, h1, h2, h3, h4, h5, h6, li, blockquote") ?? null;
+  const root = paragraph ?? range.commonAncestorContainer;
+  const walker = doc.createTreeWalker(root, 4);
+  let remaining = 80;
+  for (
+    let node: Node | null = root.nodeType === TEXT ? root : walker.nextNode();
+    node;
+    node = walker.nextNode()
+  ) {
+    if (!visible.intersectsNode(node)) continue;
+    if (!paragraph && node.textContent?.trim())
+      paragraph =
+        node.parentElement?.closest(
+          "p, h1, h2, h3, h4, h5, h6, li, blockquote",
+        ) ?? node;
+    if (paragraph && node !== paragraph && !paragraph.contains(node)) break;
+    const from = node === visible.startContainer ? visible.startOffset : 0;
+    const to =
+      node === visible.endContainer ? visible.endOffset : (node as Text).length;
+    const take = Math.min(remaining, Math.max(0, to - from));
+    range.setEnd(node, from + take);
+    remaining -= take;
+    if (!remaining) break;
+  }
+  return range;
 }
 
 /** Selection context is around the entire quote, never around its first 64 characters. */
