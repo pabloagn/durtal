@@ -69,6 +69,8 @@ describe("similarity evidence", () => {
     for (const [from, shiftKey, expected] of [
       [close, true, area],
       [area, false, close],
+      [close, false, area],
+      [area, true, close],
     ] as const) {
       const tab = new KeyboardEvent("keydown", {
         key: "Tab",

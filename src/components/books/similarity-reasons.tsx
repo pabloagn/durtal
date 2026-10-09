@@ -40,19 +40,20 @@ export function SimilarityReasons({
           "button:not([disabled]), [tabindex='0']",
         );
         if (!dialog || !stops?.length) return;
-        const first = stops[0];
-        const last = stops[stops.length - 1];
-        if (
-          event.shiftKey &&
-          (document.activeElement === first ||
-            document.activeElement === dialog)
-        ) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
+        // WebKit can omit buttons from its native Tab order. Cycle these
+        // two explicit stops consistently, while preserving reading keys.
+        const index = Array.from(stops).indexOf(
+          document.activeElement as HTMLElement,
+        );
+        const next = event.shiftKey
+          ? index <= 0
+            ? stops.length - 1
+            : index - 1
+          : index < 0
+            ? 0
+            : (index + 1) % stops.length;
+        event.preventDefault();
+        stops[next].focus({ preventScroll: true });
       }}
     >
       <ul className="min-h-[calc(4lh+0.25rem)] space-y-1">
@@ -74,7 +75,7 @@ export function SimilarityReasons({
         onClick={(event) => {
           // WebKit touch does not focus buttons by default: keep this opener
           // as the shared dialog's explicit focus-return origin.
-          event.currentTarget.focus();
+          event.currentTarget.focus({ preventScroll: true });
           setOpen(true);
         }}
       >
