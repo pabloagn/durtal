@@ -103,6 +103,7 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
     expiresAt: delivery.expiresAt,
     fallbackUrl,
     cdOffset,
+    charCount: file.charCount,
   };
 }
 
@@ -150,7 +151,12 @@ export default async function ReaderPage(props: PageProps) {
         />
       )}
       <ReaderView
-        ebook={{ id: book.id, title: book.title, authors: book.authors }}
+        ebook={{
+          id: book.id,
+          title: book.title,
+          authors: book.authors,
+          language: book.language,
+        }}
         file={file}
         alternatives={book.files
           .filter((f) => f.id !== file?.id)
