@@ -524,6 +524,10 @@ The detail page for a single work. Displays the work and all its editions and in
 
 **External links**: Open Library, Google Books.
 
+**Related sections** (SLN-568): each section appears only with results. Similar Works mixes every enabled work kind using exact shared subjects, themes, keywords and applicable literary/art movements. It requires two retained shared items; a shared hierarchy chain counts once. Family-capped inverse-frequency scores use distinct enabled works, with at most a 10% proximity modifier from original exact publication/release/creation years. Missing, approximate and range dates add no modifier; edition/reissue years never substitute. Stable ties use matched-family count, title and UUID. Collection membership, credits, publishing, recommendations, status and ownership do not participate. Similarity has no reason captions, scores or explanation dialog.
+
+Independent rows show each distinct author/coauthor ("More by …"), translator ("More translated by …") and canonical edition publisher ("More from …"), up to 12 distinct books each. Translator/publisher cards show a deterministic matching edition and identify it. A publisher's existing family includes only that linked identity and its descendants; no parent or sibling is inferred. Collections remains explicitly named collection-card browsing, including whole-work and edition membership. Other Rarities and Other Anathemas use the existing work marks, with the existing Other Favourites row retained. Recorded relationships and series browsing stay separate.
+
 ---
 
 ### Add Book (`/library/new`)

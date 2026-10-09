@@ -25,6 +25,8 @@ interface BookCardProps {
   title: string;
   authorName: string;
   authorNames?: string[];
+  /** The particular edition responsible for a translator/publisher association. */
+  editionNote?: string;
   coverUrl?: string | null;
   coverCrop?: CoverCrop | null;
   /** The poster's main color: the frame shows it while the cover loads */
@@ -117,6 +119,7 @@ export function BookCard({
   title,
   authorName,
   authorNames,
+  editionNote,
   coverUrl,
   coverCrop,
   coverTone,
@@ -256,6 +259,11 @@ export function BookCard({
               )
             }
           />
+          {editionNote && (
+            <p className="mt-2 text-xs text-fg-secondary [overflow-wrap:anywhere]">
+              {editionNote}
+            </p>
+          )}
           <WorkCardInfo
             status={catalogueStatus}
             priority={acquisitionPriority}

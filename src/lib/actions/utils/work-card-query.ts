@@ -1,6 +1,11 @@
-import { asc, sql, type AnyColumn } from "drizzle-orm";
-import { workAuthors } from "@/lib/db/schema";
-import { lastReadAtSql, openReadingPercentSql, readCountSql, readingStateSql } from "@/lib/reading/summary";
+import { asc, inArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { editions, media, workAuthors } from "@/lib/db/schema";
+import {
+  lastReadAtSql,
+  openReadingPercentSql,
+  readCountSql,
+  readingStateSql,
+} from "@/lib/reading/summary";
 
 /**
  * Extra for a `media` relation: `tone`, the poster's main color
@@ -8,7 +13,9 @@ import { lastReadAtSql, openReadingPercentSql, readCountSql, readingStateSql } f
  * loads. Only the hex leaves the database, not the palette.
  */
 export const posterTone = (fields: { colorPalette: AnyColumn }) => ({
-  tone: sql<string | null>`${fields.colorPalette}->'dominant'->>'hex'`.as("tone"),
+  tone: sql<string | null>`${fields.colorPalette}->'dominant'->>'hex'`.as(
+    "tone",
+  ),
 });
 
 /**
@@ -17,22 +24,29 @@ export const posterTone = (fields: { colorPalette: AnyColumn }) => ({
  */
 export const workCardWith = {
   workAuthors: {
+    where: inArray(workAuthors.role, ["author", "co_author"]),
     with: { author: { columns: { name: true } } },
-    orderBy: asc(workAuthors.sortOrder),
+    orderBy: [asc(workAuthors.sortOrder), asc(workAuthors.authorId)] as SQL[],
   },
   editions: {
     columns: {
       id: true,
+      title: true,
+      coverS3Key: true,
       thumbnailS3Key: true,
       publicationYear: true,
       language: true,
     },
+    orderBy: [asc(editions.createdAt), asc(editions.id)] as SQL[],
     limit: 1,
     with: {
       instances: { columns: { id: true } },
     },
   },
   media: {
+    where: sql`${media.type} = 'poster' and ${media.isActive}`,
+    orderBy: asc(media.id),
+    limit: 1,
     columns: {
       s3Key: true,
       thumbnailS3Key: true,
@@ -57,7 +71,9 @@ export const workCardWith = {
  */
 export const workCardExtras = (work: { id: AnyColumn }) => ({
   readingState: readingStateSql(work.id).as("reading_state"),
-  readingPercent: sql<number | null>`${openReadingPercentSql(work.id)}`.mapWith(Number).as("reading_percent"),
+  readingPercent: sql<number | null>`${openReadingPercentSql(work.id)}`
+    .mapWith(Number)
+    .as("reading_percent"),
 });
 
 /**
@@ -67,5 +83,7 @@ export const workCardExtras = (work: { id: AnyColumn }) => ({
 export const workReadingExtras = (work: { id: AnyColumn }) => ({
   ...workCardExtras(work),
   timesRead: readCountSql(work.id).as("times_read"),
-  lastReadAt: sql<string | null>`${lastReadAtSql(work.id)}::text`.as("last_read_at"),
+  lastReadAt: sql<string | null>`${lastReadAtSql(work.id)}::text`.as(
+    "last_read_at",
+  ),
 });

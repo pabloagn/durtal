@@ -1,150 +1,121 @@
 "use server";
 
 import { z } from "zod";
-import { inArray, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { works } from "@/lib/db/schema";
+import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { resultRows } from "@/lib/harmonization/store";
+import { loadRelatedBooks } from "@/lib/catalogue/related-books";
 import {
-  workCardExtras,
-  workCardWith,
-} from "@/lib/actions/utils/work-card-query";
-
-/** Why a work counts as similar: one row per shared source. */
-export interface SimilarityReason {
-  kind:
-    | "collection"
-    | "subject"
-    | "theme"
-    | "movement"
-    | "series"
-    | "recommender"
-    | "author"
-    | "translator"
-    | "publisher";
-  id: string;
-  name: string;
-}
-
-function rows<T>(result: unknown): T[] {
-  return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
-}
+  loadRelatedTiles,
+  type SimilarWork,
+} from "@/lib/catalogue/related-tiles";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 
 /**
- * Explicit catalogue evidence only, independent of reading predictions and
- * sourced work relations. Each distinct (book, kind, source) contributes
- * baseWeight / sourceSize; size counts distinct books, including the target.
- * Series weighs 2 (a direct continuation); collections, subjects, themes,
- * movements and authors 1; translators and recommenders .75; publishers .25
- * (a broad publishing affinity). Several kinds add their weights together.
- * Only sources on the target are expanded; card data is fetched after LIMIT.
- * Ties retain collection member order, then title and UUID. Reasons put the
- * strongest evidence first, with stable kind/name/UUID ties.
+ * Similarity requires two exact shared semantic items. A shared hierarchy
+ * chain counts only its most specific shared item; no parent is inferred.
+ * Each item contributes 1 / distinct enabled-work frequency (.75 for a
+ * movement), capped at the family's weight. Original exact years add at most
+ * 10% to eligible content scores. Collections and personal/credit/publishing
+ * associations are deliberately absent, including from tie-breaking.
  */
-export async function getSimilarWorks(workId: string, limit = 12) {
-  z.string().uuid().parse(workId);
+export async function getSimilarWorks(
+  workId: string,
+  limit = 12,
+): Promise<SimilarWork[]> {
+  z.uuid().parse(workId);
   z.number().int().min(1).max(50).parse(limit);
-  const ranked = rows<{ workId: string; reasons: SimilarityReason[] }>(
+  const enabled = sql.join(
+    getEnabledWorkKinds().map((kind) => sql`${kind}`),
+    sql`, `,
+  );
+  const ranked = resultRows<{ id: string; kind: WorkKind }>(
     await db.execute(sql`
-      with target as (
-        select id from works where id = ${workId}::uuid and kind = 'book'
-      ), held as (
-        select ce.collection_id, e.work_id, ce.sort_order, ce.added_at
-        from collection_editions ce join editions e on e.id = ce.edition_id
-        union all
-        select cw.collection_id, cw.work_id, cw.sort_order, cw.added_at
-        from collection_works cw join works w on w.id = cw.work_id and w.kind = 'book'
-      ), collection_members as (
-        select collection_id, work_id,
-          min(sort_order) as position, min(added_at) as added_at
-        from held
-        where collection_id in (
-          select collection_id from held join target t on t.id = held.work_id
-        )
-        group by collection_id, work_id
-      ), raw_signals as (
-        select m.work_id, 'collection' as kind, c.id as source_id,
-          c.name as source_name, 1.0 as base_weight,
-          row_number() over (
-            order by c.sort_order, c.name, c.id, m.position, m.added_at, m.work_id
-          ) as ord
-        from collection_members m join collections c on c.id = m.collection_id
-        union all
-        select m.work_id, 'subject', s.id, s.name, 1.0, null::bigint
-        from work_subjects m join subjects s on s.id = m.subject_id
-        where m.subject_id in (select subject_id from work_subjects join target t on t.id = work_id)
-        union all
-        select m.work_id, 'theme', s.id, s.name, 1.0, null::bigint
-        from work_themes m join themes s on s.id = m.theme_id
-        where m.theme_id in (select theme_id from work_themes join target t on t.id = work_id)
-        union all
-        select m.work_id, 'movement', s.id, s.name, 1.0, null::bigint
-        from work_literary_movements m join literary_movements s on s.id = m.literary_movement_id
-        where m.literary_movement_id in (select literary_movement_id from work_literary_movements join target t on t.id = work_id)
-        union all
-        select w.id, 'series', s.id, s.title, 2.0, null::bigint
-        from works w join series s on s.id = w.series_id
-        where w.series_id in (select series_id from works join target t on t.id = works.id)
-        union all
-        select m.work_id, 'recommender', s.id, s.name, 0.75, null::bigint
-        from work_recommenders m join recommenders s on s.id = m.recommender_id
-        where m.recommender_id in (select recommender_id from work_recommenders join target t on t.id = work_id)
-        union all
-        select m.work_id, 'author', s.id, s.name, 1.0, null::bigint
-        from work_authors m join authors s on s.id = m.author_id
-        where m.role in ('author', 'co_author') and m.author_id in (
-          select author_id from work_authors join target t on t.id = work_id
-          where role in ('author', 'co_author')
-        )
-        union all
-        select e.work_id, 'translator', s.id, s.name, 0.75, null::bigint
-        from edition_contributors m join editions e on e.id = m.edition_id
-        join authors s on s.id = m.author_id
-        where m.role = 'translator' and m.author_id in (
-          select author_id from edition_contributors x join editions e on e.id = x.edition_id
-          join target t on t.id = e.work_id where x.role = 'translator'
-        )
-        union all
-        select e.work_id, 'publisher', s.id, s.name, 0.25, null::bigint
-        from edition_publishers m join editions e on e.id = m.edition_id
-        join publishing_houses s on s.id = m.publisher_id
-        where m.publisher_id in (
-          select publisher_id from edition_publishers x join editions e on e.id = x.edition_id
-          join target t on t.id = e.work_id
-        )
-      ), members as (
-        -- Multiple editions or credits never multiply a book's contribution.
-        select r.work_id, r.kind, r.source_id, r.source_name, r.base_weight, min(r.ord) as ord
-        from raw_signals r join works w on w.id = r.work_id and w.kind = 'book'
-        group by r.work_id, r.kind, r.source_id, r.source_name, r.base_weight
-      ), signals as (
-        select *, base_weight / count(*) over (partition by kind, source_id) as weight
-        from members
+    with recursive target as (
+      select id from works where id=${workId}::uuid and kind in (${enabled})
+    ), vocab as (
+      select 'subjects' as family, id, null::uuid as parent_id, 1.0 as base_weight from subjects
+      union all select 'themes', id, parent_id, 1.0 from themes
+      union all select 'keywords', id, null::uuid, 1.0 from keywords
+      union all select 'literary_movements', id, parent_id, .75 from literary_movements
+      union all select 'art_movements', id, null::uuid, .75 from art_movements
+    ), raw_target_items as (
+      select 'subjects' as family, subject_id as item_id from work_subjects where work_id in (select id from target)
+      union all select 'themes', theme_id from work_themes where work_id in (select id from target)
+      union all select 'keywords', keyword_id from work_keywords where work_id in (select id from target)
+      union all select 'literary_movements', literary_movement_id from work_literary_movements where work_id in (select id from target)
+      union all select 'art_movements', art_movement_id from work_art_movements where work_id in (select id from target)
+    ), target_items as (
+      select t.* from raw_target_items t
+      join taxonomy_families f on f.is_system and f.system_table=t.family
+      join works w on w.id=${workId}::uuid
+      join taxonomy_applicability a on a.family_id=f.id and a.kind=w.kind and a.level='work'
+    ), ancestors(family, item_id, ancestor_id) as (
+      select v.family, v.id, v.parent_id from vocab v join target_items t on t.family=v.family and t.item_id=v.id where v.parent_id is not null
+      union
+      select a.family, a.item_id, v.parent_id from ancestors a join vocab v on v.family=a.family and v.id=a.ancestor_id where v.parent_id is not null
+    ), raw_members as (
+      select 'subjects' as family, subject_id as item_id, work_id from work_subjects where subject_id in (select item_id from target_items where family='subjects')
+      union all select 'themes', theme_id, work_id from work_themes where theme_id in (select item_id from target_items where family='themes')
+      union all select 'keywords', keyword_id, work_id from work_keywords where keyword_id in (select item_id from target_items where family='keywords')
+      union all select 'literary_movements', literary_movement_id, work_id from work_literary_movements where literary_movement_id in (select item_id from target_items where family='literary_movements')
+      union all select 'art_movements', art_movement_id, work_id from work_art_movements where art_movement_id in (select item_id from target_items where family='art_movements')
+    ), members as (
+      select distinct m.family, m.item_id, m.work_id, v.base_weight
+      from raw_members m join works w on w.id=m.work_id and w.kind in (${enabled})
+      join vocab v on v.family=m.family and v.id=m.item_id
+      join taxonomy_families f on f.is_system and f.system_table=m.family
+      join taxonomy_applicability a on a.family_id=f.id and a.kind=w.kind and a.level='work'
+    ), weighted as (
+      select *, base_weight / count(*) over(partition by family,item_id) as weight from members
+    ), retained as (
+      select m.* from weighted m where not exists (
+        select 1 from ancestors a join members child on child.family=a.family and child.item_id=a.item_id and child.work_id=m.work_id
+        where a.family=m.family and a.ancestor_id=m.item_id
       )
-      select s.work_id as "workId",
-        jsonb_agg(
-          jsonb_build_object('kind', s.kind, 'id', source_id, 'name', source_name)
-          order by weight desc, s.kind collate "C", source_name collate "C", source_id
-        ) as reasons
-      from signals s join works w on w.id = s.work_id
-      where s.work_id <> ${workId}::uuid
-      group by s.work_id, w.title
-      order by sum(weight) desc, min(ord) nulls last, w.title collate "C", s.work_id
-      limit ${limit}
-    `),
+    ), family_scores as (
+      select work_id,family,least(max(base_weight),sum(weight)) as score,count(*) as items
+      from retained where work_id<>${workId}::uuid group by work_id,family
+    ), eligible as (
+      select work_id,sum(score) as content_score,count(*) as families
+      from family_scores group by work_id having sum(items)>=2
+    ), years as (
+      select w.id, case when w.kind='book' then w.original_year
+        when d.precision in ('year','month','day') and not d.approximate and d.end_year is null then d.start_year end as year
+      from works w
+      left join film_details f on f.work_id=w.id and w.kind='film'
+      left join perfume_details p on p.work_id=w.id and w.kind='perfume'
+      left join painting_details a on a.work_id=w.id and w.kind='painting'
+      left join catalogue_dates d on d.id=coalesce(f.release_date_id,p.release_date_id,a.creation_date_id)
+      where w.id=${workId}::uuid or w.id in (select work_id from eligible)
+    )
+    select w.id,w.kind from eligible e join works w on w.id=e.work_id
+    join years y on y.id=w.id cross join years t
+    where t.id=${workId}::uuid
+    order by e.content_score * (1 + case when y.year is not null and t.year is not null
+      then .10 / (1 + abs(y.year::numeric-t.year::numeric)/10) else 0 end) desc,
+      e.families desc,w.title collate "C",w.id
+    limit ${limit}
+  `),
   );
   if (!ranked.length) return [];
-
-  const found = await db.query.works.findMany({
-    where: inArray(
-      works.id,
-      ranked.map((r) => r.workId),
+  const [books, tiles] = await Promise.all([
+    loadRelatedBooks(
+      ranked
+        .filter((row) => row.kind === "book")
+        .map((row) => ({ workId: row.id })),
     ),
-    extras: workCardExtras,
-    with: workCardWith,
-  });
-  const byId = new Map(found.map((w) => [w.id, w]));
-  return ranked.flatMap(({ workId: id, reasons }) => {
-    const work = byId.get(id);
-    return work ? [{ ...work, reasons }] : [];
+    loadRelatedTiles(
+      ranked.filter((row) => row.kind !== "book").map((row) => row.id),
+    ),
+  ]);
+  return ranked.flatMap(({ id, kind }): SimilarWork[] => {
+    if (kind === "book") {
+      const book = books.books.get(id);
+      return book ? [{ id, title: book.title, kind, book }] : [];
+    }
+    const tile = tiles.get(id);
+    return tile ? [{ id, title: tile.title, kind, tile }] : [];
   });
 }

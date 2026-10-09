@@ -41,7 +41,6 @@ import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned"
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
-  getWorksByAuthorId,
   getWorksWithMark,
 } from "@/lib/actions/works";
 import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
@@ -68,7 +67,8 @@ import {
   collectionPoster,
 } from "@/components/collections/collection-card";
 import { WorkCarousel } from "@/components/books/work-carousel";
-import { SimilarityReasons } from "@/components/books/similarity-reasons";
+import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
+import { getBookRelatedGroups } from "@/lib/actions/book-related";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { WorkPosterImage } from "./work-poster-image";
 import { GallerySection } from "@/components/shared/gallery-section";
@@ -141,7 +141,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const [
     workOrders,
     digitalBooks,
-    relatedWorks,
+    relatedGroups,
     acquisitionTargets,
     workCollections,
     similarWorks,
@@ -153,9 +153,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getEbooksForWork(work.id),
-    primaryAuthor
-      ? getWorksByAuthorId(primaryAuthor.id, work.id, 12)
-      : Promise.resolve([]),
+    getBookRelatedGroups(work.id, 12),
     getAcquisitionTargets(work.id),
     getCollectionsForWork(work.id),
     getSimilarWorks(work.id, 12),
@@ -682,18 +680,31 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         </section>
       )}
 
-      {/* Works by same author */}
-      {relatedWorks.length > 0 && primaryAuthor && (
-        <section className="mb-8">
-          <WorkCarousel
-            title={`More by ${primaryAuthor.name}`}
-            titleHref={
-              primaryAuthor.slug ? `/people/${primaryAuthor.slug}` : undefined
-            }
-            works={relatedWorks}
-          />
+      {similarWorks.length > 0 && (
+        <section className="mb-8" aria-label="Similar Works">
+          <SimilarWorksCarousel works={similarWorks} />
         </section>
       )}
+
+      {relatedGroups.map((group) => (
+        <section
+          key={`${group.kind}:${group.id}`}
+          className="mb-8"
+          aria-label={`${group.kind}: ${group.name}`}
+        >
+          <WorkCarousel
+            title={
+              group.kind === "author"
+                ? `More by ${group.name}`
+                : group.kind === "translator"
+                  ? `More translated by ${group.name}`
+                  : `More from ${group.name}`
+            }
+            titleHref={group.href}
+            works={group.works}
+          />
+        </section>
+      ))}
 
       {/* Collections holding this book */}
       {workCollections.length > 0 && (
@@ -724,17 +735,6 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               </div>
             ))}
           </HorizontalCarousel>
-        </section>
-      )}
-
-      {/* Similarity from explicit catalogue signals, strongest first */}
-      {similarWorks.length > 0 && (
-        <section className="mb-8" aria-label="Similar books">
-          <WorkCarousel
-            title="Similar books"
-            works={similarWorks}
-            caption={(w) => <SimilarityReasons title={w.title} reasons={w.reasons} />}
-          />
         </section>
       )}
 
