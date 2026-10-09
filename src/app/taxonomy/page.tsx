@@ -20,7 +20,6 @@ async function TaxonomyContent({
       <EmptyState
         icon={Tags}
         title="No taxonomy families"
-        description="Create a family to classify your collections with your own terms"
       />
     );
   }
@@ -40,7 +39,6 @@ async function TaxonomyDirectory() {
     <>
       <PageHeader
         title="Taxonomy"
-        description="Manage your classification system"
         actions={
           <TaxonomyActions
             families={families.map(({ id, name }) => ({ id, name }))}

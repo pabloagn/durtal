@@ -262,7 +262,7 @@ export function WorkActionsMenu({
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
         title="Delete work"
-        description="Are you sure you want to delete this work? This action cannot be undone."
+        description="This cannot be undone."
         itemName={work.title}
         cascade={buildCascadeMessage()}
       />

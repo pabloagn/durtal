@@ -55,7 +55,6 @@ async function RecommendersContent({ params }: { params: SearchParams }) {
       <EmptyState
         icon={ThumbsUp}
         title="No recommenders yet"
-        description="Add the people and channels whose recommendations you follow"
         action={<RecommenderFormDialog />}
       />
     );
@@ -85,7 +84,6 @@ export default async function RecommendersPage({
     <>
       <PageHeader
         title="Recommenders"
-        description="People and channels whose recommendations you follow"
         actions={<RecommenderFormDialog />}
       />
       <RecommendersFiltersBar />

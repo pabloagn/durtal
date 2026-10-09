@@ -70,8 +70,7 @@ export function DeleteItemDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Delete Item"
-      description={`Are you sure you want to delete "${item.name}"?`}
+      title={`Delete ${item.name}`}
       className="max-w-lg"
       expandable={false}
     >

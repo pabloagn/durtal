@@ -23,8 +23,3 @@ export function DomainAddLink({
     </Link>
   );
 }
-
-/** The line under a collection home's title. */
-export function domainDescription(kind: WorkKind) {
-  return `Browse your ${WORK_DOMAINS[kind].label.toLowerCase()} catalogue`;
-}

@@ -9,7 +9,7 @@ export function ShortcutList() {
   return (
     <>
       <SettingsIntro>
-        Every keyboard shortcut. Press ? on any page for the same list, with that page&apos;s
+        Press ? on any page for this list, with that page&apos;s
         own shortcuts at the top.
       </SettingsIntro>
       {SHORTCUT_GROUPS.map((group) => (

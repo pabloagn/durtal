@@ -11,7 +11,6 @@ export default function ImportPage() {
     <>
       <PageHeader
         title="Import"
-        description="Bulk import books from CSV or external sources"
       />
 
       <p className="mb-6 text-sm text-fg-secondary" data-reading-import-link="">
@@ -32,10 +31,6 @@ export default function ImportPage() {
               <h3 className="type-item-title">
                 CSV Import
               </h3>
-              <p className="mt-1 text-center text-xs text-fg-secondary">
-                Upload a CSV file with book data. The file will be processed
-                through the medallion pipeline (bronze &rarr; silver &rarr; gold).
-              </p>
               <p className="mt-4 text-center text-micro text-fg-secondary">
                 Coming soon &mdash; use Python ingestion scripts for now
               </p>
@@ -97,8 +92,7 @@ export default function ImportPage() {
                   Import history
                 </h3>
                 <p className="mt-1 text-xs text-fg-secondary">
-                  No imports recorded yet. Import history will appear here once
-                  you run your first import.
+                  No imports recorded yet.
                 </p>
               </div>
             </div>

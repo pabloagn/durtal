@@ -69,7 +69,7 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
         clearHref={clearedListHref("/reading/journal", search)}
       />
     ) : (
-      <EmptyState icon={BookMarked} title="No readings yet" description="Every book you start, finish or log from the past shows here." action={<StartBookButton />} />
+      <EmptyState icon={BookMarked} title="No readings yet" action={<StartBookButton />} />
     );
   }
   if (rows.length === 0) return <PageOutOfRange firstPageHref={firstPageHref("/reading/journal", search)} />;
