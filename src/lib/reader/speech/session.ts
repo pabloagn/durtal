@@ -1,4 +1,4 @@
-import type { EngineEvents, ReaderEngine } from "../engine";
+import type { DurtalLocator, EngineEvents, ReaderEngine } from "../engine";
 import type { ReaderNavigation } from "../navigation";
 import { createNativeSpeechSpeaker } from "./native-speaker";
 import {
@@ -22,6 +22,7 @@ export interface SpeechSnapshot {
   open: boolean;
   preferences: SpeechPreferences;
   voices: SpeechVoice[];
+  selectionReady: boolean;
 }
 /** A reader owns its speech work, native callbacks and navigation leases. */
 export function createReaderSpeech(options: {
@@ -41,10 +42,29 @@ export function createReaderSpeech(options: {
     ? readSpeechPreferences(options.storage)
     : parseSpeechPreferences(null);
   let voices: SpeechVoice[] = [];
+  let selectionAnchor: string | null = null,
+    preparedSelection: string | null = null;
+  const locatorKey = (locator: DurtalLocator) =>
+    JSON.stringify([
+      locator.fileHash,
+      locator.sectionIndex,
+      locator.cfi ?? locator.pdf,
+    ]);
+  const snapshot = (): SpeechSnapshot => ({
+    state,
+    open,
+    preferences,
+    voices,
+    selectionReady:
+      !!state.current &&
+      (state.phase === "ready" || state.phase === "paused") &&
+      !!selectionAnchor &&
+      preparedSelection === selectionAnchor,
+  });
   let extraction = new AbortController();
   let extractionSequence = 0;
   const notify = () => {
-    if (!disposed) options.changed({ state, open, preferences, voices });
+    if (!disposed) options.changed(snapshot());
   };
   const speaker = createNativeSpeechSpeaker({
     synthesis: options.synthesis,
@@ -87,7 +107,13 @@ export function createReaderSpeech(options: {
           after: command.after,
           segment: result?.current ?? null,
         });
-      else if (result?.current)
+      else if (result?.current) {
+        preparedSelection =
+          command.target.kind === "from" &&
+          command.target.from !== "visible" &&
+          locatorKey(command.target.from) === selectionAnchor
+            ? selectionAnchor
+            : null;
         dispatch({
           kind: "prepared",
           generation: command.generation,
@@ -95,7 +121,7 @@ export function createReaderSpeech(options: {
           current: result.current,
           exhausted: !result.next,
         });
-      else
+      } else
         dispatch({
           kind: "preparation-failed",
           generation: command.generation,
@@ -115,6 +141,11 @@ export function createReaderSpeech(options: {
   };
   function dispatch(action: SpeechAction) {
     if (disposed) return;
+    if (action.kind === "prepare") {
+      preparedSelection = null;
+      if (action.target.kind === "from" && action.target.from === "visible")
+        selectionAnchor = null;
+    }
     const transition = transitionSpeechPlayer(state, action);
     state = transition.state;
     notify();
@@ -142,6 +173,15 @@ export function createReaderSpeech(options: {
           const generation = state.generation;
           void options.navigation
             .speechTo(command.segment.locator)
+            .then(() => {
+              if (
+                command.kind === "select" &&
+                !disposed &&
+                generation === state.generation &&
+                state.current === command.segment
+              )
+                options.engine.selectSpeechSentence?.(command.segment.locator);
+            })
             .catch(() => {
               if (
                 !disposed &&
@@ -166,6 +206,29 @@ export function createReaderSpeech(options: {
   return {
     prepare() {
       dispatch({ kind: "prepare", target: { kind: "from", from: "visible" } });
+    },
+    selection(locator: DurtalLocator | null) {
+      selectionAnchor = locator ? locatorKey(locator) : null;
+      if (!locator) {
+        preparedSelection = null;
+        notify();
+        return;
+      }
+      if (
+        state.phase === "paused" &&
+        state.current &&
+        locatorKey(state.current.locator) === selectionAnchor
+      ) {
+        preparedSelection = selectionAnchor;
+        notify();
+        return;
+      }
+      dispatch({ kind: "prepare", target: { kind: "from", from: locator } });
+    },
+    startSelection() {
+      if (!snapshot().selectionReady) return;
+      open = true;
+      dispatch({ kind: "play" });
     },
     toggle() {
       if (disposed || !state.current) return;
@@ -220,7 +283,7 @@ export function createReaderSpeech(options: {
       });
     },
     get snapshot(): SpeechSnapshot {
-      return { state, open, preferences, voices };
+      return snapshot();
     },
     destroy() {
       disposed = true;

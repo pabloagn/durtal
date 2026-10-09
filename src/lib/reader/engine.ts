@@ -158,6 +158,8 @@ export interface EngineEvents {
     /** Whether the current contents anchor begins on this visible page. */
     atChapterStart?: boolean;
   };
+  /** Keyboard focus entered book text outside the painted visible range. */
+  focus: { locator: DurtalLocator };
   selection: {
     text: string;
     locator: DurtalLocator;
@@ -195,7 +197,18 @@ export interface OpenOptions {
   at?: DurtalLocator | { fraction: number } | null;
 }
 
+/** Engine-side text enumeration, distinct from the native player/session coordinator. */
+export interface ReaderSpeech {
+  segments(
+    from: DurtalLocator | "visible",
+    options?: { signal: AbortSignal },
+  ): AsyncIterable<SpeechSegment>;
+}
+
 export interface ReaderEngine {
+  speech(): ReaderSpeech | null;
+  focusBook?(): void;
+  selectSpeechSentence?(locator: DurtalLocator): boolean;
   /** Adapter-owned exact text extraction. Aborting it never cancels visible rendering. */
   prepareSpeech?(request: {
     target: SpeechPreparation;

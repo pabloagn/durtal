@@ -1,5 +1,6 @@
 "use client";
 import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
+import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 
 import {
@@ -723,10 +724,16 @@ function ReaderSession({
           input.attach(doc);
           historyInput.attach(doc);
         });
+        engine.on("focus", ({ locator }) => {
+          void navigationRef.current
+            ?.focusTo(locator)
+            .catch(() => setNotice("That focused text could not be shown."));
+        });
         engine.on("link", ({ href, external, originMark }) => {
           if (!external) void navigate({ href }, "link", originMark);
         });
         engine.on("selection", (selected) => {
+          speechRef.current?.selection(selected?.locator ?? null);
           setSelection(selected);
           const value = selected
             ? {
@@ -930,13 +937,11 @@ function ReaderSession({
           "alt arrowleft",
           "alt arrowright",
           "?",
-          ...(indexRef.current?.info.capabilities.tts && engine.prepareSpeech
-            ? ["a", ",", "."]
-            : []),
+          ...(engine.speech() && engine.prepareSpeech ? ["a", ",", "."] : []),
           ...(document.fullscreenEnabled ? ["f"] : []),
         ]);
         // Wait for first paint, then load speech and prepare real text in a bounded idle task.
-        if (indexRef.current?.info.capabilities.tts && engine.prepareSpeech) {
+        if (engine.speech() && engine.prepareSpeech) {
           requestAnimationFrame(() => {
             if (cancelled) return;
             const load = () => {
@@ -961,7 +966,9 @@ function ReaderSession({
                     storage: localStorageOrNull(),
                     changed: setSpeech,
                   });
-                  speechRef.current.prepare();
+                  if (selectionRef.current)
+                    speechRef.current.selection(selectionRef.current.locator);
+                  else speechRef.current.prepare();
                 })
                 .catch(() => {
                   /* Reader remains usable when the speech chunk fails. */
@@ -1128,115 +1135,127 @@ function ReaderSession({
       barEvents={bars.barEvents}
       state={status.kind}
       overlay={overlay}
-      bars={
-        <>
-          <ReaderToolbar
-            speechControl={
-              speech &&
-              !speech.open && (
-                <Suspense fallback={null}>
-                  <SpeechStart
-                    ready={
-                      !!speech.state.current &&
-                      (speech.state.phase === "ready" ||
-                        speech.state.phase === "paused")
-                    }
-                    onStart={() => speechRef.current?.toggle()}
-                  />
-                </Suspense>
-              )
-            }
-            visible={bars.visible}
-            title={ebook.title}
-            chapter={chapter}
-            backHref={backHref}
-            onBack={onBack}
-            onContents={() => {
-              paceRef.current?.interrupt();
-              setContentsOpen(true);
-            }}
-            onSettings={() => {
-              paceRef.current?.interrupt();
-              setSettingsOpen(true);
-            }}
-            fullscreen={fullscreen}
-            onFullscreen={toggleFullscreen}
-            onShortcuts={() => {
-              paceRef.current?.interrupt();
-              setShortcutsOpen(true);
+      topBar={
+        <ReaderToolbar
+          speechControl={
+            speech &&
+            !speech.open && (
+              <Suspense fallback={null}>
+                <SpeechStart
+                  ready={
+                    !!speech.state.current &&
+                    (speech.state.phase === "ready" ||
+                      speech.state.phase === "paused")
+                  }
+                  onStart={() => speechRef.current?.toggle()}
+                />
+              </Suspense>
+            )
+          }
+          visible={bars.visible}
+          title={ebook.title}
+          chapter={chapter}
+          backHref={backHref}
+          onBack={onBack}
+          onContents={() => {
+            paceRef.current?.interrupt();
+            setContentsOpen(true);
+          }}
+          onSettings={() => {
+            paceRef.current?.interrupt();
+            setSettingsOpen(true);
+          }}
+          fullscreen={fullscreen}
+          onFullscreen={toggleFullscreen}
+          onShortcuts={() => {
+            paceRef.current?.interrupt();
+            setShortcutsOpen(true);
+          }}
+        />
+      }
+      bottomBar={
+        <ReaderBottomBar
+          visible={bars.visible}
+          chapter={chapter}
+          percent={percent}
+          bridge={bridge}
+          index={index}
+          locator={relocation?.locator}
+          linear={relocation?.linear}
+          timeLeftChapter={
+            index && relocation
+              ? paceRef.current?.remaining(
+                  ebook.language ?? index.info.language,
+                  Math.max(
+                    0,
+                    index.chapterEnd(relocation.locator.totalProgression) -
+                      relocation.locator.totalProgression,
+                  ) *
+                    (file?.charCount ??
+                      index.info.linearSize * index.textRatio),
+                  "chapter",
+                )
+              : undefined
+          }
+          onGoTo={() => {
+            paceRef.current?.interrupt();
+            setGotoOpen(true);
+          }}
+          onRunningLines={() => {
+            paceRef.current?.interrupt();
+            setRunningOpen(true);
+          }}
+          onScrub={(fraction) => void navigate({ fraction }, "scrubber")}
+          onPeek={(active) => {
+            setPeeking(active);
+            if (active) paceRef.current?.interrupt();
+          }}
+        />
+      }
+      player={
+        speech && (
+          <Suspense fallback={null}>
+            <SpeechControls
+              open={speech.open}
+              state={speech.state}
+              voices={speech.voices}
+              preferences={speech.preferences}
+              bookLanguage={ebook.language ?? index?.info.language ?? null}
+              bottomInset={bars.visible ? bottomHeight : 0}
+              onAction={(action) => {
+                speechRef.current?.action(action);
+                if (action.kind === "stop") {
+                  bars.show();
+                  queueMicrotask(() =>
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        'button[aria-label="Read aloud"]',
+                      )
+                      ?.focus({ preventScroll: true }),
+                  );
+                }
+              }}
+              onPreferences={(next) => speechRef.current?.preferences(next)}
+              onHeightChange={setSpeechHeight}
+            />
+          </Suspense>
+        )
+      }
+      skipLink={
+        status.kind === "ready" && (
+          <SkipToBook
+            onSkip={() => {
+              bars.show();
+              engineRef.current?.focusBook?.();
             }}
           />
-          <ReaderBottomBar
-            visible={bars.visible}
-            chapter={chapter}
-            percent={percent}
-            bridge={bridge}
-            index={index}
-            locator={relocation?.locator}
-            linear={relocation?.linear}
-            timeLeftChapter={
-              index && relocation
-                ? paceRef.current?.remaining(
-                    ebook.language ?? index.info.language,
-                    Math.max(
-                      0,
-                      index.chapterEnd(relocation.locator.totalProgression) -
-                        relocation.locator.totalProgression,
-                    ) *
-                      (file?.charCount ??
-                        index.info.linearSize * index.textRatio),
-                    "chapter",
-                  )
-                : undefined
-            }
-            onGoTo={() => {
-              paceRef.current?.interrupt();
-              setGotoOpen(true);
-            }}
-            onRunningLines={() => {
-              paceRef.current?.interrupt();
-              setRunningOpen(true);
-            }}
-            onScrub={(fraction) => void navigate({ fraction }, "scrubber")}
-            onPeek={(active) => {
-              setPeeking(active);
-              if (active) paceRef.current?.interrupt();
-            }}
-          />
-        </>
+        )
       }
     >
       <ReaderAnnouncer
         location={relocation}
         speechPhase={speech?.state.phase ?? "stopped"}
       />
-      {speech && (
-        <Suspense fallback={null}>
-          <SpeechControls
-            open={speech.open}
-            state={speech.state}
-            voices={speech.voices}
-            preferences={speech.preferences}
-            bookLanguage={ebook.language ?? index?.info.language ?? null}
-            bottomInset={bars.visible ? bottomHeight : 0}
-            onAction={(action) => {
-              speechRef.current?.action(action);
-              if (action.kind === "stop") {
-                bars.show();
-                queueMicrotask(() =>
-                  document
-                    .querySelector<HTMLButtonElement>(
-                      'button[aria-label="Read aloud"]',
-                    )
-                    ?.focus({ preventScroll: true }),
-                );
-              }
-            }}
-            onPreferences={(next) => speechRef.current?.preferences(next)}
-            onHeightChange={setSpeechHeight}
-          />
-        </Suspense>
-      )}
       <ReaderNotice bridge={bridge}>
         {notice ??
           (speech && !speech.open ? speech.state.message : null) ??
@@ -1280,6 +1299,10 @@ function ReaderSession({
         selection={selection}
         bridge={bridge}
         onClear={() => engineRef.current?.clearSelection()}
+        onReadAloud={
+          speech ? () => speechRef.current?.startSelection() : undefined
+        }
+        speechReady={speech?.selectionReady}
       />
       <Suspense fallback={null}>
         {index && contentsOpen && (

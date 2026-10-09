@@ -40,8 +40,13 @@ export const SelectionToolbar = forwardRef<
     selection: EngineEvents["selection"];
     bridge: ReaderBridgeController;
     onClear(): void;
+    onReadAloud?(): void;
+    speechReady?: boolean;
   }
->(function SelectionToolbar({ selection, bridge, onClear }, forwardedRef) {
+>(function SelectionToolbar(
+  { selection, bridge, onClear, onReadAloud, speechReady },
+  forwardedRef,
+) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [copyState, setCopyState] = useState<{
     selection: EngineEvents["selection"];
@@ -138,6 +143,18 @@ export const SelectionToolbar = forwardRef<
       >
         {failed ? "Copy failed" : copied ? "Copied" : "Copy"}
       </button>
+      {onReadAloud && (
+        <button
+          type="button"
+          aria-label="Read aloud from here"
+          data-tooltip="Read aloud from here"
+          onClick={onReadAloud}
+          disabled={!speechReady}
+          className="h-8 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+        >
+          Read aloud from here
+        </button>
+      )}
       <div ref={mountSlot} className="flex min-w-0 items-center gap-1" />
     </div>
   );

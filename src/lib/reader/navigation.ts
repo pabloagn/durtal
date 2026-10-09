@@ -31,6 +31,7 @@ type Command = {
   turn?: Turn;
   originMark?: string;
   automatic?: boolean;
+  focus?: boolean;
   resolve: (value: DurtalLocator | null) => void;
   reject: (reason: unknown) => void;
 };
@@ -161,7 +162,7 @@ export function createReaderNavigation(options: {
         return;
       }
       if (command.automatic) history.reanchor(destination.locator);
-      else if (command.turn) history.turn(destination.locator);
+      else if (command.turn || command.focus) history.turn(destination.locator);
       else if (command.direction)
         history.commit(command.direction, destination.locator);
       else
@@ -176,7 +177,7 @@ export function createReaderNavigation(options: {
         origin: command.automatic ? "speech" : "human",
         activity: command.automatic ? undefined : destination.activity,
         atEnd: command.automatic ? false : destination.atEnd,
-        reason: command.turn ? "turn" : "jump",
+        reason: command.turn || command.focus ? "turn" : "jump",
       });
       if (command.direction === -1 && history.current?.originMark)
         engine.setDecorations("history", [
@@ -314,7 +315,7 @@ export function createReaderNavigation(options: {
       if (!committed) return;
       // Late owned arrivals never become independent reading movements.
       if (relocation.navigationId !== undefined) return;
-      // Speech must enter through a future owned automatic-navigation operation.
+      // Unowned speech cannot replace a committed destination; speechTo owns valid arrivals.
       if (origin === "speech") {
         passive?.abort();
         passive = null;
@@ -332,6 +333,12 @@ export function createReaderNavigation(options: {
       if ("v" in target && sameLocation(committed?.locator ?? null, target))
         return Promise.resolve(null);
       return enqueue({ target, ...input });
+    },
+    /** Focus-driven painted movement is human navigation, without adding a jump history step. */
+    focusTo(target: DurtalLocator) {
+      if (sameLocation(committed?.locator ?? null, target))
+        return Promise.resolve(null);
+      return enqueue({ source: "edge", target, focus: true });
     },
     /** Automatic speech shares owned movement/paint/recovery, without human history or activity. */
     speechTo(target: DurtalLocator) {

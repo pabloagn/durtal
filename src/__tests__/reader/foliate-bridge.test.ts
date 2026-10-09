@@ -126,7 +126,10 @@ class TestView extends HTMLElement {
       pageItem: { label: "xii" },
     };
   }
-  resolveNavigation(target?: unknown) {
+  resolveNavigation(target?: unknown): {
+    index: number;
+    anchor?: (doc: Document) => Range | Element;
+  } {
     return {
       index:
         target === "notes-cfi" ? 2 : typeof target === "number" ? target : 0,
@@ -676,4 +679,94 @@ describe("actual reflowable speech extraction", () => {
     expect(host.querySelector("foliate-view")).toBe(view);
     expect(engine.currentLocator()).not.toBeNull();
   });
+});
+
+it("names the book frame, keeps it available to assistive technology and preserves declared languages", () => {
+  const doc = view.frame.contentDocument!;
+  // happy-dom does not attach its child Window's native frameElement property.
+  Object.defineProperty(doc.defaultView!, "frameElement", {
+    value: view.frame,
+    configurable: true,
+  });
+  view.report("page", 0.4, 0);
+  expect(view.frame.getAttribute("aria-label")).toContain("Test");
+  expect(view.frame.hasAttribute("aria-hidden")).toBe(false);
+  expect(view.frame.hasAttribute("inert")).toBe(false);
+  expect(view.frame.tabIndex).toBe(0);
+  expect(doc.documentElement.lang).toBe("und");
+  doc.documentElement.lang = "fr";
+  view.dispatchEvent(
+    new CustomEvent("relocate", {
+      detail: {
+        ...view.lastLocation!,
+        reason: "page",
+        tocItem: { label: "Chapter seven", href: "chapter" },
+      },
+    }),
+  );
+  expect(view.frame.getAttribute("aria-label")).toBe("Test, Chapter seven");
+  expect(doc.documentElement.lang).toBe("fr");
+  engine.focusBook!();
+  expect(doc.activeElement).toBe(doc.body);
+});
+it("requests owned movement when keyboard focus enters text outside the visible range", () => {
+  const doc = view.frame.contentDocument!;
+  doc.body.innerHTML =
+    '<p><a href="#first">First link.</a> <a href="#second">Second link.</a></p>';
+  const visible = doc.createRange();
+  visible.selectNodeContents(doc.querySelector("a")!);
+  view.report("page", 0.4, 0, visible);
+  const focus = vi.fn();
+  engine.on("focus", focus);
+  doc
+    .querySelector("a")!
+    .dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  expect(focus).not.toHaveBeenCalled();
+  doc
+    .querySelectorAll("a")[1]
+    .dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  expect(focus).toHaveBeenCalledOnce();
+  expect(focus.mock.calls[0][0].locator).toMatchObject({
+    fileHash: "a".repeat(64),
+    sectionIndex: 0,
+    cfi: "epubcfi(selection)",
+  });
+});
+it("creates a real keyboard selection from an exact sentence anchor and rejects another file", () => {
+  const doc = view.frame.contentDocument!;
+  doc.body.innerHTML = "<p>First sentence. Second sentence.</p>";
+  const range = doc.createRange();
+  range.setStart(doc.querySelector("p")!.firstChild!, 16);
+  range.setEnd(doc.querySelector("p")!.firstChild!, 32);
+  vi.spyOn(view, "resolveNavigation").mockReturnValue({
+    index: 0,
+    anchor: () => range,
+  });
+  vi.spyOn(range, "getBoundingClientRect").mockReturnValue({
+    left: 10,
+    top: 20,
+    right: 120,
+    bottom: 35,
+    width: 110,
+    height: 15,
+  } as DOMRect);
+  const selected = vi.fn();
+  engine.on("selection", selected);
+  expect(
+    engine.selectSpeechSentence!({
+      ...engine.currentLocator()!,
+      cfi: "sentence",
+    }),
+  ).toBe(true);
+  expect(doc.getSelection()?.toString()).toBe("Second sentence.");
+  expect(selected).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "Second sentence.", keyboard: true }),
+  );
+  expect(
+    engine.selectSpeechSentence!({
+      ...engine.currentLocator()!,
+      fileHash: "b".repeat(64),
+      cfi: "sentence",
+    }),
+  ).toBe(false);
 });

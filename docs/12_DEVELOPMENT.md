@@ -307,3 +307,10 @@ Ruff configuration in `pyproject.toml`:
 | `isbnlib` | >=3.10 | ISBN handling |
 
 Python dev dependencies: `pytest` (>=8.0), `ruff` (>=0.5.0), `basedpyright` (>=1.12.0).
+
+
+### Reader speech source validation boundary (SLN-508)
+
+Checkpoint `1640c284` passed 163 lightweight cases across 13 affected suites using existing dependencies. The subsequent accessibility/selection mounting passed 45 cases across five suites and scoped TypeScript before the root's QUIET-494 window. Follow-up engine enumeration and selection readiness tests are committed but unrun. Resume tests, scoped types/lint/formatting and full acceptance only after root releases the quiet window; a source-only commit is not final test acceptance.
+
+The remaining acceptance includes approved PDF/decorations/presentation/note runtimes, native Chromium/Firefox/WebKit at 1440/768/390, full accessibility and interaction audits, trusted touch, 200% zoom/text spacing, real speech/turn/section/idle measurements, the full zero-skip DB suite, project static/build/CI gates and root-authorized deployment. Test-double speech callbacks and happy-dom frame assertions establish source behavior only. Keep physical device/screen-reader proof separate. Do not run these against the primary checkout or manual port 3100, and do not install dependencies for a gated checkpoint.

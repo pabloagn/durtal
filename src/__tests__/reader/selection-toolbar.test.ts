@@ -35,7 +35,10 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
-const render = (selection: EngineEvents["selection"]) =>
+const render = (
+  selection: EngineEvents["selection"],
+  speech?: { ready: boolean; start: () => void },
+) =>
   act(() =>
     root.render(
       h(ReaderBridgeProvider, {
@@ -66,7 +69,13 @@ const render = (selection: EngineEvents["selection"]) =>
           },
         ],
         children: (bridge) =>
-          h(SelectionToolbar, { selection, bridge, onClear: clear }),
+          h(SelectionToolbar, {
+            selection,
+            bridge,
+            onClear: clear,
+            speechReady: speech?.ready,
+            onReadAloud: speech?.start,
+          }),
       }),
     ),
   );
@@ -83,6 +92,23 @@ describe("selection toolbar", () => {
     expect(
       [...host.querySelectorAll("button")].map((b) => b.textContent),
     ).toEqual(["Copy", "Quote"]);
+  });
+  it("keeps selection speech disabled until prepared, then invokes the trusted button handler", () => {
+    const start = vi.fn();
+    render(selected, { ready: false, start });
+    const button = () =>
+      host.querySelector<HTMLButtonElement>(
+        '[aria-label="Read aloud from here"]',
+      )!;
+    expect(button().disabled).toBe(true);
+    act(() => button().click());
+    expect(start).not.toHaveBeenCalled();
+    render(selected, { ready: true, start });
+    act(() => button().click());
+    expect(start).toHaveBeenCalledOnce();
+    expect(
+      [...host.querySelectorAll("button")].map((b) => b.textContent),
+    ).toEqual(["Copy", "Read aloud from here", "Quote"]);
   });
   it("copies through Clipboard API, holds Copied for two seconds and clears on Escape", async () => {
     vi.useFakeTimers();

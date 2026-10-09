@@ -648,6 +648,19 @@ it("mounted speech saves a painted location without tracker activity, pace event
   report.mockClear();
   act(() => start.click());
   expect(platform.speak).toHaveBeenCalledOnce();
+  const top = host.querySelector("header")!,
+    book = host.querySelector("#reader-book")!,
+    player = host.querySelector("[data-speech-player]")!,
+    bottom = host.querySelector("[data-reader-bottom-bar]")!;
+  expect(
+    top.compareDocumentPosition(book) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    book.compareDocumentPosition(player) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    player.compareDocumentPosition(bottom) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
   expect((platform.speak.mock.calls[0][0] as Utterance).text).toBe(
     current.text,
   );
@@ -668,4 +681,15 @@ it("mounted speech saves a painted location without tracker activity, pace event
   expect(JSON.parse(await (beacon[1] as Blob).text()).locator.cfi).toBe(
     "speech-sentence",
   );
+});
+
+it("puts Skip to the book before top-bar controls and delegates focus to the actual engine", async () => {
+  const reader: import("@/lib/reader/engine").ReaderEngine = fake.engine;
+  const focus = vi.fn();
+  reader.focusBook = focus;
+  await render();
+  const first = host.querySelector<HTMLAnchorElement>("a")!;
+  expect(first.textContent).toBe("Skip to the book");
+  act(() => first.click());
+  expect(focus).toHaveBeenCalledOnce();
 });

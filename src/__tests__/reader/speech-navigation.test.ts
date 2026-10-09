@@ -81,3 +81,13 @@ describe("owned automatic speech navigation", () => {
     expect(s.commit).not.toHaveBeenCalled();
   });
 });
+
+it("treats focus-driven movement as an owned human turn without a jump history step", async () => {
+  const s = setup();
+  await s.nav.focusTo(relocation(0.5).locator);
+  expect(s.commit).toHaveBeenCalledWith(
+    expect.objectContaining({ origin: "human", reason: "turn" }),
+  );
+  expect(s.beforeHuman).toHaveBeenCalledOnce();
+  expect(s.nav.history.back).toBeNull();
+});

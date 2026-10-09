@@ -47,7 +47,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 function setup() {
-  const engine: ReaderEngine = fakeEngine().engine;
+  const fake = fakeEngine();
+  const engine: ReaderEngine = fake.engine;
   let first = 1;
   const prepare = vi.fn<NonNullable<ReaderEngine["prepareSpeech"]>>(
     async ({ target }) => {
@@ -67,6 +68,16 @@ function setup() {
     paint: async () => {},
     beforeHuman: () => session.beginNavigation(),
     afterHuman: () => session.navigationSettled(),
+  });
+  fake.engine.goTo.mockImplementation(async (target, owner) => {
+    if (!("v" in target)) return;
+    const location = {
+      ...relocate({ text: "", lang: "en", locator: target }),
+      navigationId: owner?.id,
+      origin: owner?.origin,
+    };
+    fake.emit("relocate", location);
+    nav.relocate(location);
   });
   nav.start(relocate(sentence(1)));
   const platform = Object.assign(new EventTarget(), {
@@ -97,6 +108,7 @@ function setup() {
   });
   sessions.push(session);
   return {
+    engine,
     session,
     nav,
     platform,
@@ -183,4 +195,53 @@ describe("reader speech session ownership", () => {
     await settle();
     expect(s.platform.speak).toHaveBeenCalledTimes(count);
   });
+});
+
+it("prepares an explicit selection without speaking and starts that prepared sentence directly", async () => {
+  const s = setup();
+  let release!: (
+    value: Awaited<ReturnType<NonNullable<ReaderEngine["prepareSpeech"]>>>,
+  ) => void;
+  s.prepare.mockImplementationOnce(
+    () => new Promise((done) => (release = done)),
+  );
+  s.session.selection(sentence(4).locator);
+  expect(s.session.snapshot.selectionReady).toBe(false);
+  s.session.startSelection();
+  expect(s.platform.speak).not.toHaveBeenCalled();
+  release({ current: sentence(4), previous: null, next: null });
+  await settle();
+  expect(s.session.snapshot.selectionReady).toBe(true);
+  s.session.startSelection();
+  expect(s.platform.speak).toHaveBeenCalledOnce();
+  expect(s.utterance().text).toBe("Sentence 4.");
+});
+it("pausing selects the sentence only after its owned navigation settles", async () => {
+  const s = setup();
+  const selected = vi.fn(() => true);
+  s.engine.selectSpeechSentence = selected;
+  s.session.prepare();
+  await settle();
+  s.session.toggle();
+  s.utterance().dispatchEvent(new Event("start"));
+  await settle();
+  s.session.action({ kind: "pause" });
+  expect(selected).not.toHaveBeenCalled();
+  await settle();
+  expect(selected).toHaveBeenCalledWith(sentence(1).locator);
+});
+it("replaced selection preparation and stale paused-selection effects cannot change the new intent", async () => {
+  const s = setup();
+  const selected = vi.fn(() => true);
+  s.engine.selectSpeechSentence = selected;
+  s.session.prepare();
+  await settle();
+  s.session.toggle();
+  s.session.action({ kind: "pause" });
+  s.session.selection(sentence(4).locator);
+  await settle();
+  expect(selected).not.toHaveBeenCalled();
+  expect(s.session.snapshot.selectionReady).toBe(true);
+  s.session.selection(null);
+  expect(s.session.snapshot.selectionReady).toBe(false);
 });

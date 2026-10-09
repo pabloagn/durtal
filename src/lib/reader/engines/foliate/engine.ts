@@ -1,3 +1,4 @@
+import { createFoliateSpeech } from "./speech";
 import type {
   SpeechPreparation,
   SpeechSegment,
@@ -456,6 +457,7 @@ class FoliateEngine implements ReaderEngine {
       pdfPage: this.#isPdf() ? index + 1 : undefined,
     });
     this.#locator = locator;
+    this.#nameFrames();
     if (locator.position && this.#info)
       locator.position = Math.min(this.#info.locationCount, locator.position);
     if (reason === "turn") this.setDecorations("history", []);
@@ -520,7 +522,132 @@ class FoliateEngine implements ReaderEngine {
     }
   }
 
-  #onLoad({ doc }: { doc: Document; index: number }) {
+  #nameFrame(doc: Document, index: number) {
+    const title =
+      this.#info?.title || localized(this.#book?.metadata?.title) || "Book";
+    const frame = doc.defaultView?.frameElement;
+    const chapter =
+      index === this.#locator?.sectionIndex
+        ? (this.#locator.tocLabel ?? this.#info?.sections[index]?.label)
+        : this.#info?.sections[index]?.label;
+    if (frame) {
+      frame.setAttribute(
+        "aria-label",
+        chapter ? `${title}, ${chapter}` : title,
+      );
+      frame.removeAttribute("aria-hidden");
+      frame.removeAttribute("inert");
+      frame.setAttribute("tabindex", "0");
+    }
+    if (!doc.documentElement.getAttribute("lang"))
+      doc.documentElement.setAttribute(
+        "lang",
+        doc.documentElement.getAttributeNS(
+          "http://www.w3.org/XML/1998/namespace",
+          "lang",
+        ) ??
+          doc.documentElement.getAttribute("xml:lang") ??
+          this.#info?.language ??
+          (Array.isArray(this.#book?.metadata?.language)
+            ? this.#book.metadata.language[0]
+            : this.#book?.metadata?.language) ??
+          "und",
+      );
+  }
+  #nameFrames() {
+    for (const { doc, index } of this.#view?.renderer.getContents() ?? [])
+      this.#nameFrame(doc, index);
+  }
+
+  focusBook() {
+    const contents = this.#view?.renderer.getContents() ?? [];
+    const doc = (
+      contents.find((item) => item.index === this.#locator?.sectionIndex) ??
+      contents[0]
+    )?.doc;
+    if (!doc) return;
+    const frame = doc.defaultView?.frameElement;
+    if (frame && "focus" in frame && typeof frame.focus === "function")
+      frame.focus({ preventScroll: true });
+    if (doc.body) {
+      doc.body.tabIndex = -1;
+      doc.body.focus({ preventScroll: true });
+    }
+  }
+
+  selectSpeechSentence(locator: DurtalLocator): boolean {
+    if (
+      !this.#source ||
+      locator.fileHash !== this.#source.sha256 ||
+      !locator.cfi ||
+      !this.#view
+    )
+      return false;
+    const resolved = this.#view.resolveNavigation(locator.cfi);
+    const doc = this.#view.renderer
+      .getContents()
+      .find((item) => item.index === resolved?.index)?.doc;
+    if (!doc || !resolved?.anchor) return false;
+    const anchor = resolved.anchor(doc);
+    const range = "nodeType" in anchor ? doc.createRange() : anchor;
+    if ("nodeType" in anchor) range.selectNodeContents(anchor);
+    const selection = doc.getSelection();
+    if (!selection || range.collapsed) return false;
+    this.#keyboardSelection = true;
+    if (selection.setBaseAndExtent)
+      selection.setBaseAndExtent(
+        range.startContainer,
+        range.startOffset,
+        range.endContainer,
+        range.endOffset,
+      );
+    else {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    this.#selectionChanged();
+    return true;
+  }
+
+  #onLoad({ doc, index }: { doc: Document; index: number }) {
+    this.#nameFrame(doc, index);
+    doc.addEventListener("focusin", (event) => {
+      const target = event.target as Element | null;
+      if (
+        !target ||
+        target.nodeType !== 1 ||
+        target === doc.body ||
+        target === doc.documentElement ||
+        !this.#view ||
+        !this.#source ||
+        this.#destroyed
+      )
+        return;
+      const visible = this.#view.lastLocation?.range;
+      const range = doc.createRange();
+      range.selectNodeContents(target);
+      if (
+        visible?.startContainer.ownerDocument === doc &&
+        visible.comparePoint(
+          doc.createTreeWalker(target, 4).nextNode() ?? target,
+          0,
+        ) === 0
+      )
+        return;
+      const locator: DurtalLocator = {
+        ...(this.#locator ?? {
+          v: 1 as const,
+          progression: 0,
+          totalProgression: 0,
+        }),
+        fileHash: this.#source.sha256,
+        href: String(this.#book?.sections[index]?.id ?? index),
+        sectionIndex: index,
+        cfi: this.#view.getCFI(index, range),
+        text: quoteFromSelection(range),
+      };
+      this.#emit("focus", { locator });
+    });
     this.#images?.fill(doc);
     this.#emit("document", { doc });
     doc.addEventListener("keydown", (event) => {
@@ -554,11 +681,11 @@ class FoliateEngine implements ReaderEngine {
       const frame = doc?.defaultView?.frameElement;
       const host = frame?.getBoundingClientRect();
       const scaleX =
-        host && frame
+        host && frame && host.width > 0
           ? host.width / ((frame as HTMLElement).offsetWidth || host.width)
           : 1;
       const scaleY =
-        host && frame
+        host && frame && host.height > 0
           ? host.height / ((frame as HTMLElement).offsetHeight || host.height)
           : 1;
       const rect = {
@@ -590,6 +717,16 @@ class FoliateEngine implements ReaderEngine {
       return { range: selection.getRangeAt(0), index, text };
     }
     return null;
+  }
+
+  speech() {
+    const available = () => !this.#destroyed && !!this.#info?.capabilities.tts;
+    return available()
+      ? createFoliateSpeech({
+          available,
+          prepare: (request) => this.prepareSpeech(request),
+        })
+      : null;
   }
 
   async prepareSpeech({
