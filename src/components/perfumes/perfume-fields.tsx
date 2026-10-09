@@ -160,9 +160,9 @@ export function CreditListField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={`${CHIP} pointer-coarse:leading-11`}>
+        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={`${CHIP} pointer-coarse:flex-wrap pointer-coarse:leading-11`}>
           <span
-            className={`truncate ${entry.personId ? "" : "italic"}`}
+            className={`truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:leading-6 ${entry.personId ? "" : "italic"}`}
           >
             {creditName(entry)}
           </span>

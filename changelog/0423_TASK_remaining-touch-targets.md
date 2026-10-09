@@ -16,7 +16,7 @@ Resolve the remaining SLN-550 touch targets on the three creation forms and taxo
 - Audited the five reported routes before editing: Add and Unknown already meet 44px in all three engines. The remaining initial failures were taxonomy colour triggers, drag handles, picker choices, and item breadcrumbs.
 - Taxonomy controls now reserve distinct 44px boxes on coarse pointers, including hierarchy toggles and short row links. The colour palette fits inside the viewport, stops row-selection bubbling, and restores trigger focus when choosing a colour or closing with Escape. Escape keeps a parent dialog open.
 - Breadcrumb links have coarse 44px boxes and wrap with the current item. Long unbroken item titles remain readable inside the viewport.
-- Opening Unknown credits exposed small role, remove and credited-name controls. These now grow on touch; film credits wrap their controls to avoid collisions. The shared chip remove button opts in only for the affected perfume/painting credit rows; other chip callers keep their existing layout.
+- Opening Unknown credits exposed small role, remove and credited-name controls. These now grow on touch; credit labels and controls wrap to remain readable without collisions. The shared chip remove button opts in only for the affected perfume/painting credit rows; other chip callers keep their existing layout.
 
 ## Completion Notes
 
