@@ -47,6 +47,7 @@ const { values, positionals } = parseArgs({
     "cache-dir": { type: "string", default: resolve(homedir(), ".cache/durtal-ebooks") },
     "report-dir": { type: "string", default: "reports/ebooks" },
     preview: { type: "string" },
+    "aws-profile": { type: "string" },
     "env-dir": { type: "string", default: process.cwd() },
   },
 });
@@ -56,7 +57,7 @@ if (modes === 1 && positionals.length) throw new Error("Folders are planned; --a
 const limit = values.limit ? Number(values.limit) : undefined;
 if (limit !== undefined && !(Number.isInteger(limit) && limit > 0)) throw new Error("--limit takes a positive whole number");
 
-const { url, preview } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]! });
+const { url, preview } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"] });
 
 // Imported after the environment loads: the env schema and the S3 client read it
 const postgres = (await import("postgres")).default;
@@ -93,9 +94,11 @@ try {
       console.error("\nStopping after the groups in flight; resume with --resume.");
       controller.abort();
     });
-    const options = { database, host, cacheDir, target, backup: values.backup, live: values.live, localDatabase, reportDir, signal: controller.signal, onProgress: progress("Stored and registered") };
+    const options = { database, host, cacheDir, target, backup: values.backup, live: values.live, localDatabase, reportDir, signal: controller.signal, onProgress: progress("Stored and registered"),
+    };
     const result = values.apply ? await applyPlan(resolve(values.apply), options) : await resumeRun(values.resume!, options);
-    console.log(`Run ${result.runId}: ${result.state}. ${Object.entries(result.counts).map(([k, v]) => `${k} ${v}`).join(", ") || "nothing to do"}.`);
+    console.log(`Run ${result.runId}: ${result.state}. ${Object.entries(result.counts).map(([k, v]) => `${k} ${v}`).join(", ") || "nothing to do"}.`,
+    );
     console.log(`Uploaded ${formatBytes(result.uploadedBytes)} in ${formatDuration(result.seconds)}. Undo file: ${result.undoFile}`);
     if (result.state === "interrupted") console.log(`Resume with: pnpm ebooks:ingest --resume ${result.runId} --backup <dump>`);
     if (result.reconciliation) console.log(`${reconciliationLine(result.reconciliation)}${result.exact ? ": exact." : ": not exact; /ebooks/runs lists the exceptions."}`);

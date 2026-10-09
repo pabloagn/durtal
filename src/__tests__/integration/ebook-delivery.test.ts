@@ -167,9 +167,13 @@ describe.skipIf(!url)("e-book delivery and verification", () => {
 
     it("serves a range of a catalogued file from the bucket", async () => {
       const stored = await file("Against Nature, translated by Robert Baldick");
-      const res = await fileRoute(new NextRequest(`http://localhost/api/ebooks/files/${stored.id}`, { headers: { range: "bytes=8-13" } }), {
-        params: Promise.resolve({ fileId: stored.id }),
-      });
+      const res = await fileRoute(new NextRequest(`http://localhost/api/ebooks/files/${stored.id}`, {
+          headers: { range: "bytes=8-13" },
+        }),
+        {
+          params: Promise.resolve({ fileId: stored.id }),
+      },
+      );
       expect(res.status).toBe(206);
       expect(res.headers.get("content-range")).toBe(`bytes 8-13/${stored.bytes.length}`);
       expect(await res.text()).toBe("Nature");
@@ -218,12 +222,16 @@ describe.skipIf(!url)("e-book delivery and verification", () => {
       expect(report.rows.find((r) => r.id === rows.multipart.id)!.checksum).toBe("composite");
       expect(report.unreferenced.map((o) => o.key).sort()).toEqual([`derived/${stray}/manifest.json`, `files/${stray.slice(0, 2)}/${stray}.pdf`]);
       expect(report.inFlight.map((o) => o.key)).toEqual([`files/${young.slice(0, 2)}/${young}.pdf`]);
-      expect(report.objectsListed).toBe(bucket.size);
-      // One listing of the whole bucket, then a HEAD per listed row
+      expect(report.objectsListed).toBe(bucket.size - 1);
+      // List only eBook inventory prefixes, then verify listed rows and composite bytes
       const lists = sent().filter((command) => command instanceof ListObjectsV2Command);
       expect(lists.length).toBeGreaterThan(1);
-      expect(lists.every((command) => command.input.Prefix === "")).toBe(true);
-      expect(sent().filter((command) => command instanceof HeadObjectCommand)).toHaveLength(6);
+      expect(new Set(lists.map((command) => command.input.Prefix))).toEqual(new Set(["bronze/ebooks/", "silver/ebooks/", "gold/ebooks/", "files/", "derived/"]));
+      expect(
+        new Set(sent().filter((command) => command instanceof HeadObjectCommand)
+            .map((command) => command.input.Key),
+        ).size,
+      ).toBe(6);
       expect((await statusOf(rows.gone.id)).status).toBe("stored");
       expect((await statusOf(rows.match.id)).verified_at).toBeNull();
       expect(readFileSync(files.markdown, "utf8")).toMatch(/\| Missing objects \| 1 \|/);
@@ -255,7 +263,7 @@ describe.skipIf(!url)("e-book delivery and verification", () => {
       // A quarantined file keeps its status: its bytes are there, but unreadable
       expect((await statusOf(rows.quarantined.id)).status).toBe("quarantined");
       // Nothing in the bucket changed
-      expect(sent().every((command) => command instanceof ListObjectsV2Command || command instanceof HeadObjectCommand)).toBe(true);
+      expect(sent().every((command) => command instanceof ListObjectsV2Command || command instanceof HeadObjectCommand || command instanceof GetObjectCommand)).toBe(true);
     });
 
     it("lists an unreferenced object older than a day for the orphan report, and not a younger one", async () => {

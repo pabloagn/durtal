@@ -203,7 +203,7 @@ READER_TYPES = {
 
 
 def reader_seed(s3_dir, large_dir=None):
-    """The fixtures under their keys in DIR (bucket durtal-ebooks, no prefix), and the SQL that catalogues them."""
+    """The fixtures under their keys in DIR (bucket durtal, legacy keys without a prefix), and the SQL that catalogues them."""
     fixtures = ROOT / "src/__tests__/fixtures/ebooks"
     sql = []
     def text(value):
@@ -224,7 +224,7 @@ def reader_seed(s3_dir, large_dir=None):
         sha = digest.hexdigest()
         size = source.stat().st_size
         key = f"files/{sha[:2]}/{sha}.{fmt}"
-        target = s3_dir.resolve() / "durtal-ebooks" / key
+        target = s3_dir.resolve() / "durtal" / key
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         file_id = ebook_id[:-12] + "f" + ebook_id[-11:]
@@ -326,7 +326,7 @@ def main():
         # pass that check and are no credential: an S3 call is refused.
         env.update(AWS_ACCESS_KEY_ID="preview-no-s3", AWS_SECRET_ACCESS_KEY="preview-no-s3")
         # E-book files are always sent by the app's own Range route: a preview never needs AWS
-        env.update(EBOOK_DELIVERY="app")
+        env.update(EBOOK_DELIVERY="app", EBOOKS_BUCKET="durtal", EBOOKS_PREFIX="", EBOOKS_REGION="eu-north-1")
         def psql(sql):
             return run("docker", "exec", "-i", container, "psql", "-q", "-X", "-A", "-t",
                        "-v", "ON_ERROR_STOP=1", "-U", "durtal_preview", "-d", DATABASE, input=sql)

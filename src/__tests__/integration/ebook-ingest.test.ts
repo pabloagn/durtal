@@ -6,7 +6,7 @@ import path from "node:path";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/catalogue/work-store";
 
@@ -81,6 +81,28 @@ function fakeS3() {
         ...(command.input.ChecksumMode === "ENABLED" ? { ChecksumSHA256: sha256(object.bytes).toString("base64"), ChecksumType: "FULL_OBJECT" } : {}),
         Metadata: { sha256: sha256(object.bytes).toString("hex") },
         LastModified: object.lastModified,
+      };
+    }
+    if (command instanceof GetObjectCommand) {
+      const object = bucket.get(command.input.Key!);
+      if (!object)
+        throw Object.assign(new Error("NotFound"), {
+          name: "NotFound",
+          $metadata: { httpStatusCode: 404 },
+        });
+      const match = /bytes=(\d+)-(\d*)/.exec(command.input.Range ?? "bytes=0-")!;
+      const bytes = object.bytes.subarray(Number(match[1]), match[2] ? Number(match[2]) + 1 : undefined);
+      return {
+        ContentLength: bytes.length,
+        Body: {
+          transformToWebStream: () =>
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(bytes);
+                controller.close();
+              },
+            }),
+        },
       };
     }
     if (command instanceof PutObjectCommand) {
@@ -159,7 +181,10 @@ describe.skipIf(!url)("e-book ingestion", () => {
   };
   const itemsOf = async (runId: string) => {
     const rows = await c`select source_path, state, outcome, reason, ebook_id, file_id from ebook_ingest_items where run_id = ${runId}`;
-    return Object.fromEntries(rows.map((r) => [path.relative(root, r.source_path), r])) as Record<string, { state: string; outcome: string | null; reason: string | null; ebook_id: string | null; file_id: string | null }>;
+    return Object.fromEntries(rows.map((r) => [path.relative(root, r.source_path), r])) as Record<
+      string,
+      { state: string; outcome: string | null; reason: string | null; ebook_id: string | null; file_id: string | null }
+    >;
   };
 
   beforeAll(async () => {
@@ -176,14 +201,20 @@ describe.skipIf(!url)("e-book ingestion", () => {
 
     // A sidecar folder with two formats, loose books, a copy, a DRM EPUB beside its PDF, a damaged zip and a photo
     const letter = path.join(root, "Anna Vale", "The Letter and the Lamp (42)");
-    put(path.join(letter, "metadata.opf"), makeSidecarOpf({ title: "The Letter and the Lamp", author: "Anna Vale", fileAs: "Vale, Anna", uuid: LETTER_UUID, isbn: "9780306406157", rating: 8 }));
+    put(
+      path.join(letter, "metadata.opf"),
+      makeSidecarOpf({ title: "The Letter and the Lamp", author: "Anna Vale", fileAs: "Vale, Anna", uuid: LETTER_UUID, isbn: "9780306406157", rating: 8 }),
+    );
     put(path.join(letter, "The Letter and the Lamp - Anna Vale.epub"), makeEpub({ cover: await makeImage("png", { width: 600, height: 900, color: "#556677" }), salt: "letter" }));
     put(path.join(letter, "The Letter and the Lamp - Anna Vale.pdf"), makePdf({ info: { Title: "The Letter and the Lamp", Author: "Anna Vale" } }));
     put(path.join(root, "loose", "Night Harbour.cbz"), await makeCbz());
     const lamp = makeFb2({ title: "The Lamp" });
     put(path.join(root, "loose", "The Lamp.fb2"), lamp);
     put(path.join(root, "zz copies", "The Lamp (copy).fb2"), lamp);
-    put(path.join(root, "locked", "Locked.epub"), makeEpub({ entries: adobe, metadata: `<dc:title>The Locked Room</dc:title><dc:creator>Ben Moss</dc:creator><dc:language>en</dc:language>` }));
+    put(
+      path.join(root, "locked", "Locked.epub"),
+      makeEpub({ entries: adobe, metadata: `<dc:title>The Locked Room</dc:title><dc:creator>Ben Moss</dc:creator><dc:language>en</dc:language>` }),
+    );
     put(path.join(root, "locked", "Locked.pdf"), makePdf({ info: { Title: "Locked" } }));
     put(path.join(root, "broken.epub"), makeCorruptZip());
     put(path.join(root, "photo.png"), await makeImage("png", { width: 40, height: 40 }));
@@ -208,11 +239,22 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(await rowCounts()).toEqual({ ebooks: 0, files: 0, runs: 0, items: 0 });
     expect(puts()).toEqual([]);
     for (const file of Object.values(files)) expect(existsSync(file)).toBe(true);
-    expect(first.summary).toMatchObject({ found: 9, ebooksToCreate: 5, formatsToAdd: 2, duplicates: 1, alreadyStored: 0 });
-    expect(first.summary.quarantined).toEqual([{ path: path.join(root, "broken.epub"), reason: expect.stringMatching(/central directory/i) }]);
+    expect(first.summary).toMatchObject({ found: 9, ebooksToCreate: 5, formatsToAdd: 1, duplicates: 1, alreadyStored: 0 });
+    expect(first.summary.quarantined).toEqual(
+      expect.arrayContaining([
+        { path: path.join(root, "broken.epub"), reason: expect.stringMatching(/central directory/i) },
+        {
+          path: path.join(root, "locked", "Locked.epub"),
+          reason: expect.stringMatching(/DRM/i),
+        },
+      ]),
+    );
+    expect(first.summary.quarantined).toHaveLength(2);
     expect(first.summary.drm).toEqual({ "adobe-adept": 1 });
     expect(Object.values(first.summary.ignored)).toEqual([1]);
-    expect(readFileSync(files.csv, "utf8").split("\n")[0]).toBe("path,outcome,reason,format,size_bytes,sha256,drm,title,authors,word_count,page_estimate,language,duplicate_of,key");
+    expect(readFileSync(files.csv, "utf8").split("\n")[0]).toBe(
+      "path,outcome,reason,format,size_bytes,sha256,drm,title,authors,word_count,page_estimate,language,duplicate_of,key",
+    );
 
     // The probe must fail on purpose: a session that takes the write is refused
     await expect(assertReadOnly(c)).rejects.toThrow("accepted a write");
@@ -261,24 +303,35 @@ describe.skipIf(!url)("e-book ingestion", () => {
       const bytes = readFileSync(row.source_path);
       expect(row.sha256).toBe(sha256(bytes).toString("hex"));
       expect(Number(row.size_bytes)).toBe(bytes.length);
-      expect(row.s3_key).toBe(`files/${row.sha256.slice(0, 2)}/${row.sha256}.${row.format}`);
+      expect(row.s3_key).toBe(
+        `${row.status === "quarantined" ? "bronze" : "gold"}/ebooks/${row.format}/${row.sha256.slice(0, 2)}/${row.sha256}/${row.status === "quarantined" ? "source" : "file"}.${row.format}`,
+      );
       expect(bucket.get(row.s3_key)?.bytes.equals(bytes)).toBe(true);
       expect(row.source_host).toBe(host);
       if (row.manifest_key) expect(bucket.has(row.manifest_key)).toBe(true);
       if (row.cover_key) expect(bucket.has(row.cover_key)).toBe(true);
     }
     const byName = Object.fromEntries(rows.map((r) => [path.basename(r.source_path), r]));
-    expect(byName["The Letter and the Lamp - Anna Vale.epub"]).toMatchObject({ status: "stored", drm: null, text_language: "en", manifest_key: expect.stringContaining("/manifest.json") });
+    expect(byName["The Letter and the Lamp - Anna Vale.epub"]).toMatchObject({
+      status: "stored",
+      drm: null,
+      text_language: "en",
+      manifest_key: expect.stringContaining("/manifest.json"),
+    });
     expect(byName["The Letter and the Lamp - Anna Vale.epub"].word_count).toBeGreaterThan(900);
     expect(byName["The Letter and the Lamp - Anna Vale.epub"].front_back_word_count).toBeGreaterThan(0);
-    expect(byName["The Letter and the Lamp - Anna Vale.epub"].cover_key).toMatch(/derived\/[0-9a-f]{64}\/cover-800\.webp$/);
+    expect(byName["The Letter and the Lamp - Anna Vale.epub"].cover_key).toMatch(/derived\/v2\/[0-9a-f]{64}\/cover-800\.webp$/);
     // The sidecar's title wins; the file's own stays under embedded
-    expect(byName["The Letter and the Lamp - Anna Vale.epub"].metadata).toMatchObject({ title: "The Letter and the Lamp", embedded: { title: "The House by the River" }, sidecar: true });
+    expect(byName["The Letter and the Lamp - Anna Vale.epub"].metadata).toMatchObject({
+      title: "The Letter and the Lamp",
+      embedded: { title: "The House by the River" },
+      sidecar: true,
+    });
     expect(letter.preferred_file_id).toBe(byName["The Letter and the Lamp - Anna Vale.epub"].id);
     expect(letter.cover_key).toBe(byName["The Letter and the Lamp - Anna Vale.epub"].cover_key);
 
     // DRM is stored with its kind and never preferred; the damaged zip is quarantined with its reason
-    expect(byName["Locked.epub"]).toMatchObject({ status: "stored", drm: "adobe-adept", word_count: null, cover_key: null });
+    expect(byName["Locked.epub"]).toMatchObject({ status: "quarantined", drm: "adobe-adept", word_count: null, cover_key: null });
     expect(ebooks.find((e) => e.title === "The Locked Room")!.preferred_file_id).toBe(byName["Locked.pdf"].id);
     expect(byName["broken.epub"]).toMatchObject({ status: "quarantined", metadata: expect.objectContaining({ problem: expect.stringMatching(/central directory/i) }) });
 
@@ -298,7 +351,7 @@ describe.skipIf(!url)("e-book ingestion", () => {
     const [run] = await c`select state, counts, reconciliation, finished_at, plan_sha256 from ebook_ingest_runs where id = ${result.runId}`;
     // Exactly the outcomes, with nothing left over from while it ran
     expect(run).toMatchObject({ state: "finished" });
-    expect(run.counts).toEqual({ new_ebook: 4, new_format: 2, quarantined: 1, duplicate_in_run: 1, ignored: 1 });
+    expect(run.counts).toEqual({ new_ebook: 4, new_format: 1, quarantined: 2, duplicate_in_run: 1, ignored: 1 });
     expect(result.counts).toEqual(run.counts);
   });
 
@@ -308,7 +361,7 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(runs[0]).toMatchObject({ id: firstRun, kind: "apply", state: "finished", host, roots: [root] });
     expect((await getRun(firstRun))?.reconciliation?.exact).toBe(true);
     const sections = await runSections(firstRun, {});
-    expect(Object.fromEntries(sections.map((s) => [s.key, s.total]))).toEqual({ quarantined: 1, drm: 1, ignored: 1, duplicates: 1, new: 4, formats: 2 });
+    expect(Object.fromEntries(sections.map((s) => [s.key, s.total]))).toEqual({ quarantined: 2, drm: 1, ignored: 1, duplicates: 1, new: 4, formats: 1 });
     expect(sections.find((s) => s.key === "drm")!.items[0]).toMatchObject({ path: path.join(root, "locked", "Locked.epub"), drm: "adobe-adept", ebookTitle: "The Locked Room" });
     expect((await runSections(firstRun, { formats: 1 })).find((s) => s.key === "formats")!.items).toHaveLength(1);
   });
@@ -325,6 +378,63 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(Object.values(await itemsOf(result.runId)).filter((i) => i.outcome === "already_stored")).toHaveLength(7);
   });
 
+  it("resumes a committed gold duplicate using its actual older publication, without uploading fresh plan artifacts", async () => {
+    const { plan: fresh, files } = await plan();
+    const source = path.join(root, "Anna Vale", "The Letter and the Lamp (42)", "The Letter and the Lamp - Anna Vale.epub");
+    expect(bucket.has(fresh.files[source].medallion!.silver.key)).toBe(false);
+    const result = await applyPlan(files.plan, options());
+    expect(result.state).toBe("finished");
+    await c`update ebook_ingest_items set state='registered' where run_id=${result.runId} and source_path=${source}`;
+    await c`update ebook_ingest_runs set state='interrupted' where id=${result.runId}`;
+    const resumed = await resumeRun(result.runId, options());
+    expect(resumed).toMatchObject({ state: "finished", exact: true, uploadedBytes: 0 });
+    expect((await itemsOf(result.runId))[path.relative(root, source)]).toMatchObject({ state: "done", outcome: "already_stored" });
+    expect(bucket.has(fresh.files[source].medallion!.silver.key)).toBe(false);
+    expect(puts()).toEqual([]);
+  });
+
+  it("resumes a committed legacy duplicate without demanding medallion artifacts", async () => {
+    const folder = path.join(work, "legacy");
+    const source = path.join(folder, "Legacy.epub");
+    const bytes = makeEpub({ salt: "legacy-resume" });
+    put(source, bytes);
+    const digest = sha256(bytes).toString("hex");
+    const key = `files/${digest.slice(0, 2)}/${digest}.epub`;
+    bucket.set(key, { bytes: Buffer.from(bytes), lastModified: new Date() });
+    const [ebook] = await c`insert into ebooks(title,import_source) values ('Legacy resume','folder') returning id`;
+    try {
+      await c`insert into ebook_files(ebook_id,sha256,s3_key,format,size_bytes,content_type,original_filename,status,source_host,source_path) values (${ebook.id},${digest},${key},'epub',${bytes.length},'application/epub+zip','Legacy.epub','stored',${host},${source})`;
+      const { plan: fresh, files } = await plan([folder]);
+      const result = await applyPlan(files.plan, options());
+      await c`update ebook_ingest_items set state='registered' where run_id=${result.runId}`;
+      await c`update ebook_ingest_runs set state='interrupted' where id=${result.runId}`;
+      expect(await resumeRun(result.runId, options())).toMatchObject({ state: "finished", exact: true, uploadedBytes: 0 });
+      expect(bucket.has(fresh.files[source].medallion!.bronze.key)).toBe(false);
+      expect(puts()).toEqual([]);
+    } finally {
+      await c`update ebooks set preferred_file_id=null where id=${ebook.id}`;
+      await c`delete from ebook_files where ebook_id=${ebook.id}`;
+      await c`delete from ebooks where id=${ebook.id}`;
+      bucket.delete(key);
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps exhausted failed items blocking even when the existing catalogue publication is valid", async () => {
+    const { files } = await plan();
+    const result = await applyPlan(files.plan, options());
+    const source = path.join(root, "loose", "The Lamp.fb2");
+    await c`update ebook_ingest_items set state='failed',attempts=5,last_error='The attempted duplicate failed' where run_id=${result.runId} and source_path=${source}`;
+    await c`update ebook_ingest_runs set state='interrupted' where id=${result.runId}`;
+    const resumed = await resumeRun(result.runId, options());
+    expect(resumed).toMatchObject({ state: "failed", exact: false, uploadedBytes: 0 });
+    expect(resumed.reconciliation?.exceptions.filter((e) => e.blocking)).toEqual([
+      expect.objectContaining({ kind: "failed", path: source, reason: "The attempted duplicate failed" }),
+    ]);
+    expect((await itemsOf(result.runId))["loose/The Lamp.fb2"].state).toBe("failed");
+    expect(puts()).toEqual([]);
+  });
+
   it("keeps the reconciliation exact when a source file is deleted after its object was stored: it is no longer in the inbox", async () => {
     const gone = path.join(root, "loose", "Night Harbour.cbz");
     const bytes = readFileSync(gone);
@@ -337,7 +447,16 @@ describe.skipIf(!url)("e-book ingestion", () => {
 
   it("resumes an apply interrupted between the upload and the registration: the object is adopted and registered once", async () => {
     const train = path.join(root, "loose", "Night Train.mobi");
-    put(train, makeMobi({ title: "Night Train", exth: [[100, "Ben Moss"], [503, "Night Train"]] }));
+    put(
+      train,
+      makeMobi({
+        title: "Night Train",
+        exth: [
+          [100, "Ben Moss"],
+          [503, "Night Train"],
+        ],
+      }),
+    );
     const { files } = await plan();
     let calls = 0;
     const crash = options({
@@ -351,7 +470,7 @@ describe.skipIf(!url)("e-book ingestion", () => {
     const [run] = await c`select id, state from ebook_ingest_runs order by started_at desc limit 1`;
     expect(run.state).toBe("interrupted");
     const sha = sha256(readFileSync(train)).toString("hex");
-    expect(bucket.has(`files/${sha.slice(0, 2)}/${sha}.mobi`)).toBe(true);
+    expect(bucket.has(`gold/ebooks/mobi/${sha.slice(0, 2)}/${sha}/file.mobi`)).toBe(true);
     expect(await c`select 1 from ebook_files where sha256 = ${sha}`).toHaveLength(0);
     expect((await itemsOf(run.id))["loose/Night Train.mobi"].state).toBe("stored");
 
@@ -377,7 +496,12 @@ describe.skipIf(!url)("e-book ingestion", () => {
       expect(result.reconciliation?.exceptions.filter((e) => e.blocking)).toEqual([expect.objectContaining({ side: "disk", kind: "failed", path: refused })]);
       expect(await c`select 1 from ebooks where title = 'Refused'`).toHaveLength(0);
       expect(await c`select 1 from ebook_files where original_filename = 'Refused.fb2'`).toHaveLength(0);
-      expect((await itemsOf(result.runId))["loose/Refused.fb2"]).toMatchObject({ state: "failed", ebook_id: null, file_id: null, reason: expect.stringContaining("Refused for the test") });
+      expect((await itemsOf(result.runId))["loose/Refused.fb2"]).toMatchObject({
+        state: "failed",
+        ebook_id: null,
+        file_id: null,
+        reason: expect.stringContaining("Refused for the test"),
+      });
     } finally {
       await c.unsafe(`drop trigger refuse_ebook_file on ebook_files; drop function refuse_ebook_file();`);
     }
@@ -409,7 +533,7 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(current.sha256).toBe(sha256(readFileSync(epub)).toString("hex"));
     const [after] = await c`select preferred_file_id, cover_key from ebooks where id = ${letter.id}`;
     expect(after.preferred_file_id).toBe(current.id);
-    expect(after.cover_key).toBe(`derived/${current.sha256}/cover-800.webp`);
+    expect(after.cover_key).toMatch(new RegExp(`^gold/ebooks/epub/${current.sha256.slice(0, 2)}/${current.sha256}/derived/v2/[a-f0-9]{64}/cover-800\\.webp$`));
     const items = await itemsOf(result.runId);
     expect(items["Anna Vale/The Letter and the Lamp (42)/The Letter and the Lamp - Anna Vale.epub"]).toMatchObject({ outcome: "replaced_file", ebook_id: letter.id });
     expect(items["later/The Letter and the Lamp/The Letter and the Lamp.fb2"]).toMatchObject({ outcome: "new_format", ebook_id: letter.id });
@@ -478,7 +602,10 @@ describe.skipIf(!url)("e-book ingestion", () => {
     const shared = path.join(work, "shared");
     const uuid = "0b7e2c1d-4f5a-4b6c-9d8e-7f6a5b4c3d2e";
     put(path.join(shared, "A first", "metadata.opf"), makeSidecarOpf({ title: "Two Folders", author: "Ben Moss", uuid }));
-    put(path.join(shared, "A first", "Two Folders.epub"), makeEpub({ entries: adobe, salt: "two folders", metadata: "<dc:title>Two Folders</dc:title><dc:language>en</dc:language>" }));
+    put(
+      path.join(shared, "A first", "Two Folders.epub"),
+      makeEpub({ entries: adobe, salt: "two folders", metadata: "<dc:title>Two Folders</dc:title><dc:language>en</dc:language>" }),
+    );
     put(path.join(shared, "B second", "metadata.opf"), makeSidecarOpf({ title: "Two Folders", author: "Ben Moss", uuid }));
     put(path.join(shared, "B second", "Two Folders.pdf"), makePdf({ info: { Title: "Two Folders" } }));
     const { files } = await plan([shared]);

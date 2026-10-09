@@ -1,6 +1,6 @@
 import { createPrivateKey, createSign, type KeyObject } from "node:crypto";
 import { serverEnv } from "@/lib/env";
-import { ebooksPrefix } from "../keys";
+import { ebooksPrefix, parseStageKey } from "../keys";
 import { isDeliverable, type CatalogueFile } from "./files";
 
 /*
@@ -90,10 +90,12 @@ export function signedFileUrl(file: CatalogueFile, now = Date.now()): SignedUrl 
  * One custom-policy signature for every derived object (covers and
  * manifests): a page of 48 covers costs one RSA signature, not 48.
  */
-export function signedDerivedUrlBase(now = Date.now()): SignedDerivedBase {
+export function signedDerivedUrlBase(now = Date.now(), storedKey?: string): SignedDerivedBase {
   const { url, keyPairId, key } = cdn();
   const expires = signatureExpiry(now);
-  const base = `${url}/${ebooksPrefix()}derived/`;
+  const parsed = storedKey ? parseStageKey(storedKey) : null;
+  if (storedKey && !(parsed?.stage === "gold" && parsed.kind === "derived")) throw new Error("Not an accepted derived key");
+  const base = parsed ? `${url}/${storedKey!.slice(0, storedKey!.lastIndexOf("/") + 1)}` : `${url}/${ebooksPrefix()}derived/`;
   const text = policy(`${base}*`, expires);
   const query = `Policy=${cloudFrontBase64(Buffer.from(text, "utf8"))}&Key-Pair-Id=${keyPairId}&Signature=${signature(text, key)}`;
   return { base, query, expiresAt: new Date(expires * 1000) };

@@ -12,7 +12,12 @@ import {
   type CompletedPart,
 } from "@aws-sdk/client-s3";
 import { previewS3Dir } from "@/lib/s3/preview-dir";
-import { ebookObjectHeaders, ebookS3, ebookStorage, headEbookObject, previewFile, statusOf, type EbookObjectHead } from "../storage";
+import { ebookObjectHeaders,
+  ebookCredentialIdentity,
+  ebookOwner,
+  objectMatches,
+  ebookS3, ebookStorage, headEbookObject, previewFile, statusOf, type EbookObjectHead,
+} from "../storage";
 
 /*
  * Storing one object (SLN-494), idempotent and verified. The key is the
@@ -55,7 +60,8 @@ export interface StoreResult {
   multipart: boolean;
 }
 
-const RETRYABLE_NAMES = new Set(["SlowDown", "Throttling", "ThrottlingException", "RequestTimeout", "RequestTimeTooSkewed", "TimeoutError", "NetworkingError", "InternalError", "ServiceUnavailable"]);
+const RETRYABLE_NAMES = new Set(["SlowDown", "Throttling", "ThrottlingException", "RequestTimeout", "RequestTimeTooSkewed", "TimeoutError", "NetworkingError", "InternalError", "ServiceUnavailable",
+]);
 const RETRYABLE_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ENETUNREACH", "UND_ERR_SOCKET"]);
 
 /** S3 5xx, throttling and network errors: worth trying again */
@@ -99,7 +105,8 @@ async function readSlice(body: StoreInput["body"], start: number, length: number
 export async function compositeChecksum(body: StoreInput["body"], size: number, partSize = PART_SIZE): Promise<string> {
   const parts = Math.max(1, Math.ceil(size / partSize));
   const outer = createHash("sha256");
-  for (let n = 0; n < parts; n++) outer.update(createHash("sha256").update(await readSlice(body, n * partSize, partSize)).digest());
+  for (let n = 0; n < parts; n++) outer.update(createHash("sha256").update(await readSlice(body, n * partSize, partSize)).digest(),
+    );
   return `${outer.digest("base64")}-${parts}`;
 }
 
@@ -120,21 +127,24 @@ async function matches(head: EbookObjectHead, input: StoreInput, partSize: numbe
     const expected = await compositeChecksum(input.body, input.size, partSize);
     if (head.checksum === expected) return null;
     // Another writer's parts of another size: the sha256 metadata written with it names the whole
-    return head.metadataSha256 === input.sha256 ? null : "its multipart checksum differs";
+    return (await objectMatches(input.key, input.size, input.sha256)) ? null : "its multipart checksum differs";
   }
-  return head.metadataSha256 === input.sha256 ? null : "it has no checksum to compare";
+  return (await objectMatches(input.key, input.size, input.sha256)) ? null : "its bytes differ";
 }
 
 interface UploadState {
   key: string;
   uploadId: string;
   partSize: number;
+  bucket: string;
+  region: string;
+  credentialIdentity: string;
 }
 
-function uploadStateFile(cacheDir: string, sha256: string) {
+function uploadStateFile(cacheDir: string, key: string) {
   const dir = path.join(cacheDir, "uploads");
   mkdirSync(dir, { recursive: true });
-  return path.join(dir, `${sha256}.json`);
+  return path.join(dir, `${createHash("sha256").update(`${ebookStorage().bucket}/${ebookStorage().region}/${ebookCredentialIdentity()}/${key}`).digest("hex")}.json`);
 }
 
 /**
@@ -148,19 +158,22 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
   const s3 = ebookS3();
   const { bucket } = ebookStorage();
   const retry = <T>(run: () => Promise<T>) => withRetries(run, options.sleep);
-  const stateFile = uploadStateFile(options.cacheDir, input.sha256);
+  const stateFile = uploadStateFile(options.cacheDir, input.key);
   const partSize = options.partSize;
   const count = Math.ceil(input.size / partSize);
 
   // A saved upload of the same key and part size: list what S3 already has
   let state: UploadState | null = existsSync(stateFile) ? (JSON.parse(readFileSync(stateFile, "utf8")) as UploadState) : null;
   const sent = new Map<number, CompletedPart & { Size?: number }>();
-  if (state && (state.key !== input.key || state.partSize !== partSize)) state = null;
+  if (state && (state.bucket !== bucket ||
+      state.region !== ebookStorage().region ||
+      state.credentialIdentity !== ebookCredentialIdentity() ||
+      state.key !== input.key || state.partSize !== partSize)) state = null;
   if (state) {
     try {
       let marker: string | undefined;
       do {
-        const page = await retry(() => s3.send(new ListPartsCommand({ Bucket: bucket, Key: input.key, UploadId: state!.uploadId, PartNumberMarker: marker })));
+        const page = await retry(() => s3.send(new ListPartsCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state!.uploadId, PartNumberMarker: marker })));
         for (const part of page.Parts ?? [])
           if (part.PartNumber) sent.set(part.PartNumber, { PartNumber: part.PartNumber, ETag: part.ETag, ChecksumSHA256: part.ChecksumSHA256, Size: part.Size });
         marker = page.IsTruncated ? page.NextPartNumberMarker : undefined;
@@ -173,9 +186,14 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
   }
   if (!state) {
     const headers = ebookObjectHeaders({ key: input.key, contentType: input.contentType, sha256: input.sha256, filename: input.filename });
-    const created = await retry(() => s3.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: input.key, ChecksumAlgorithm: "SHA256", ...headers })));
+    const created = await retry(() => s3.send(new CreateMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, ChecksumAlgorithm: "SHA256", ...headers })));
     if (!created.UploadId) throw new Error("S3 gave no upload id");
-    state = { key: input.key, uploadId: created.UploadId, partSize };
+    state = {
+      bucket,
+      region: ebookStorage().region,
+      credentialIdentity: ebookCredentialIdentity(),
+      key: input.key, uploadId: created.UploadId, partSize,
+    };
     writeFileSync(stateFile, JSON.stringify(state));
   }
 
@@ -194,23 +212,28 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
       continue;
     }
     const uploaded = await retry(() =>
-      s3.send(new UploadPartCommand({ Bucket: bucket, Key: input.key, UploadId: state!.uploadId, PartNumber: n, Body: bytes, ContentLength: bytes.length, ChecksumSHA256: checksum })),
+      s3.send(new UploadPartCommand({ Bucket: bucket,
+          ...ebookOwner(),
+          Key: input.key, UploadId: state!.uploadId, PartNumber: n, Body: bytes, ContentLength: bytes.length, ChecksumSHA256: checksum,
+        }),
+      ),
     );
     parts.push({ PartNumber: n, ETag: uploaded.ETag, ChecksumSHA256: uploaded.ChecksumSHA256 ?? checksum });
   }
   if (whole.digest("hex") !== input.sha256) {
-    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: input.key, UploadId: state.uploadId })).catch(() => {});
+    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state.uploadId })).catch(() => {});
     rmSync(stateFile, { force: true });
     throw new Error(`The stored object ${input.key} differs from the file: the bytes sent are not the planned SHA-256 (the file changed since the plan)`);
   }
   try {
     await retry(() =>
-      s3.send(new CompleteMultipartUploadCommand({ Bucket: bucket, Key: input.key, UploadId: state!.uploadId, MultipartUpload: { Parts: parts }, IfNoneMatch: "*" })),
+      s3.send(new CompleteMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state!.uploadId, MultipartUpload: { Parts: parts }, IfNoneMatch: "*" }),
+      ),
     );
   } catch (error) {
     // 412: the key exists, so another upload stored the same bytes; this one is dropped and the object verified
     if (statusOf(error) !== 412) throw error;
-    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: input.key, UploadId: state.uploadId })).catch(() => {});
+    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state.uploadId })).catch(() => {});
     rmSync(stateFile, { force: true });
     return null;
   }
@@ -255,6 +278,7 @@ export async function storeObject(input: StoreInput, options: StoreOptions): Pro
         ebookS3().send(
           new PutObjectCommand({
             Bucket: ebookStorage().bucket,
+            ...ebookOwner(),
             Key: input.key,
             // A new stream for each attempt: a retried body starts from its first byte
             Body: "file" in input.body ? createReadStream(input.body.file) : input.body.bytes,

@@ -17,22 +17,23 @@
 import { parseArgs } from "node:util";
 import { hostname } from "node:os";
 import { resolve } from "node:path";
-import dotenv from "dotenv";
+import { loadEnvironment } from "./environment";
 
 const { values } = parseArgs({
   options: {
     apply: { type: "boolean", default: false },
+    preview: { type: "string" },
+    "aws-profile": { type: "string" },
     backup: { type: "string" },
     "report-dir": { type: "string", default: "reports/ebooks" },
     "env-dir": { type: "string", default: process.cwd() },
   },
 });
-dotenv.config({
-  path: [resolve(values["env-dir"]!, ".env.local"), resolve(values["env-dir"]!, ".env")],
-  quiet: true,
+const { url } = await loadEnvironment({
+  preview: values.preview,
+  envDir: values["env-dir"]!,
+  awsProfile: values["aws-profile"],
 });
-const url = process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is required");
 
 // Imported after the environment loads: the env schema and the S3 client read it
 const postgres = (await import("postgres")).default;

@@ -8,6 +8,7 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   HeadObjectCommand,
+  GetObjectCommand,
   ListPartsCommand,
   PutObjectCommand,
   S3Client,
@@ -28,6 +29,7 @@ interface Stored {
   checksum: string;
   composite: boolean;
   metadata: Record<string, string>;
+  bytes?: Uint8Array;
 }
 
 const httpError = (name: string, status: number) => Object.assign(new Error(name), { name, $metadata: { httpStatusCode: status } });
@@ -68,6 +70,22 @@ beforeEach(() => {
         ChecksumSHA256: input.ChecksumMode === "ENABLED" ? object.checksum : undefined,
         ChecksumType: object.composite ? "COMPOSITE" : "FULL_OBJECT",
         Metadata: object.metadata,
+      };
+    }
+    if (command instanceof GetObjectCommand) {
+      const object = objects.get(key);
+      if (!object?.bytes) throw httpError("NotFound", 404);
+      return {
+        ContentLength: object.bytes.length,
+        Body: {
+          transformToWebStream: () =>
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(object.bytes);
+                controller.close();
+              },
+            }),
+        },
       };
     }
     if (command instanceof PutObjectCommand) {
@@ -267,8 +285,10 @@ describe("storeObject, multipart", () => {
       if (name === "UploadPart" && ++sent === 8) throw Object.assign(new Error("The process was stopped"), { name: "AbortError" });
     };
     await expect(storeObject(input, { cacheDir, sleep: noSleep })).rejects.toThrow("The process was stopped");
-    expect(readdirSync(path.join(cacheDir, "uploads"))).toEqual([`${hex}.json`]);
-    expect(calls.find((c) => c.name === "CreateMultipartUpload")?.input).toMatchObject({ ChecksumAlgorithm: "SHA256", Metadata: { sha256: hex }, StorageClass: "INTELLIGENT_TIERING" });
+    expect(readdirSync(path.join(cacheDir, "uploads"))).toHaveLength(1);
+    expect(readdirSync(path.join(cacheDir, "uploads"))[0]).toMatch(/^[a-f0-9]{64}\.json$/);
+    expect(calls.find((c) => c.name === "CreateMultipartUpload")?.input).toMatchObject({ ChecksumAlgorithm: "SHA256", Metadata: { sha256: hex }, StorageClass: "INTELLIGENT_TIERING",
+    });
 
     // The restart lists the 7 parts S3 has and sends only the other 12
     calls = [];
@@ -324,7 +344,8 @@ describe("storeObject, multipart", () => {
     writeSync(handle, Buffer.from(new Uint8Array(40).map((_, i) => i * 11))); // the same size, other bytes
     closeSync(handle);
     const input = { ...bytesInput(planned), body: { file } };
-    await expect(storeObject(input, { cacheDir: dir, sleep: noSleep, singlePutMax: 16, partSize: 16 })).rejects.toThrow(/differs from the file: the bytes sent are not the planned SHA-256/);
+    await expect(storeObject(input, { cacheDir: dir, sleep: noSleep, singlePutMax: 16, partSize: 16 })).rejects.toThrow(/differs from the file: the bytes sent are not the planned SHA-256/,
+    );
     expect(names()).not.toContain("CompleteMultipartUpload");
     expect(names()).toContain("AbortMultipartUpload");
     expect(objects.has(input.key)).toBe(false);
@@ -346,12 +367,12 @@ describe("storeObject, multipart", () => {
     expect(objects.get(input.key)?.metadata).toEqual({ sha256: input.sha256 });
   });
 
-  it("adopts a multipart object written with other part sizes by its sha256 metadata", async () => {
+  it("streams and hashes an adopted multipart object with other part sizes; metadata alone is insufficient", async () => {
     const bytes = new Uint8Array(40).map((_, i) => i * 5);
     const input = bytesInput(bytes);
-    objects.set(input.key, { size: bytes.length, checksum: "c29tZXRoaW5nIGVsc2U=-2", composite: true, metadata: { sha256: input.sha256 } });
+    objects.set(input.key, { size: bytes.length, checksum: "c29tZXRoaW5nIGVsc2U=-2", composite: true, metadata: { sha256: input.sha256 }, bytes });
     expect(await storeObject(input, { cacheDir: dir, sleep: noSleep, singlePutMax: 16, partSize: 16 })).toEqual({ adopted: true, multipart: false });
-    objects.set(input.key, { size: bytes.length, checksum: "c29tZXRoaW5nIGVsc2U=-2", composite: true, metadata: {} });
+    objects.set(input.key, { size: bytes.length, checksum: "c29tZXRoaW5nIGVsc2U=-2", composite: true, metadata: { sha256: input.sha256 }, bytes: new Uint8Array(bytes.length) });
     await expect(storeObject(input, { cacheDir: dir, sleep: noSleep, singlePutMax: 16, partSize: 16 })).rejects.toThrow(/its multipart checksum differs/);
   });
 });

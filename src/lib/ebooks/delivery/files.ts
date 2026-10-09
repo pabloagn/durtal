@@ -1,7 +1,8 @@
 import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ebookFiles, ebooks } from "@/lib/db/schema";
-import { coverKeySha256 } from "../keys";
+import { medallionOf } from "../medallion";
+import { coverKeySha256, isDeliveryFileKey, parseStageKey } from "../keys";
 
 /*
  * What delivery may hand out (SLN-491). Only these readers make the types
@@ -23,6 +24,7 @@ export interface CatalogueFile {
   readonly contentType: string;
   readonly status: "stored" | "verified" | "missing" | "quarantined" | "replaced";
   readonly drm: string | null;
+  readonly metadata?: Record<string, unknown>;
   readonly [fromCatalogue]: true;
 }
 
@@ -31,6 +33,7 @@ export interface CatalogueCover {
   readonly ebookId: string;
   /** Null when no cover was made */
   readonly sha256: string | null;
+  readonly key?: string;
   readonly [fromCatalogue]: true;
 }
 
@@ -38,8 +41,17 @@ export interface CatalogueCover {
  * Whether a file may be served or signed: stored or verified, with no DRM.
  * Quarantined, missing, replaced and DRM files never leave the bucket.
  */
-export function isDeliverable(file: Pick<CatalogueFile, "status" | "drm">): boolean {
-  return (file.status === "stored" || file.status === "verified") && !file.drm;
+export function isDeliverable(file: Pick<CatalogueFile, "drm" | "s3Key" | "sha256" | "format" | "metadata"> & { status: string }): boolean {
+  const stages = medallionOf(file.metadata);
+  return (
+    (file.status === "stored" || file.status === "verified") && !file.drm &&
+    isDeliveryFileKey(file.s3Key, file.sha256, file.format) &&
+    (!parseStageKey(file.s3Key) ||
+      (!!stages?.validation.downloadable &&
+        stages.validation.integrity === "verified" &&
+        stages.validation.drm === "clear" &&
+        stages.gold.some((object) => object.key === file.s3Key && object.sha256 === file.sha256)))
+  );
 }
 
 /** One file row, or null when there is none */
@@ -55,6 +67,7 @@ export async function readCatalogueFile(fileId: string): Promise<CatalogueFile |
       contentType: ebookFiles.contentType,
       status: ebookFiles.status,
       drm: ebookFiles.drm,
+      metadata: ebookFiles.metadata,
     })
     .from(ebookFiles)
     .where(eq(ebookFiles.id, fileId))
@@ -69,14 +82,21 @@ export async function readCatalogueFile(fileId: string): Promise<CatalogueFile |
  */
 export async function readCatalogueCover(ebookId: string): Promise<CatalogueCover | null> {
   const [row] = await db
-    .select({ id: ebooks.id, coverKey: ebooks.coverKey, fileCoverKey: ebookFiles.coverKey })
+    .select({ id: ebooks.id, coverKey: ebooks.coverKey, fileCoverKey: ebookFiles.coverKey, metadata: ebookFiles.metadata, status: ebookFiles.status, drm: ebookFiles.drm })
     .from(ebooks)
     .leftJoin(ebookFiles, eq(ebookFiles.id, ebooks.preferredFileId))
     .where(eq(ebooks.id, ebookId))
     .limit(1);
   if (!row) return null;
-  const sha256 = coverKeySha256(row.fileCoverKey) ?? coverKeySha256(row.coverKey);
-  return { ebookId: row.id, sha256 } as CatalogueCover;
+  for (const key of [row.fileCoverKey, row.coverKey]) {
+    if (!key) continue;
+    const parsed = parseStageKey(key);
+    if (parsed && !(row.status === "stored" || row.status === "verified")) continue;
+    if (parsed && (row.drm || !medallionOf(row.metadata)?.gold.some((o) => o.key === key))) continue;
+    const sha256 = parsed?.stage === "gold" && parsed.kind === "derived" && parsed.name?.startsWith("cover-") ? parsed.sha256 : coverKeySha256(key);
+    if (sha256) return { ebookId: row.id, sha256, key } as CatalogueCover;
+  }
+  return { ebookId: row.id, sha256: null } as CatalogueCover;
 }
 
 /** The newest file that may be served, for the settings check; null when none is stored */

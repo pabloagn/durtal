@@ -24,10 +24,11 @@ const { values, positionals } = parseArgs({
     "cache-dir": { type: "string", default: resolve(homedir(), ".cache/durtal-ebooks") },
     "report-dir": { type: "string", default: "reports/ebooks" },
     preview: { type: "string" },
+    "aws-profile": { type: "string" },
     "env-dir": { type: "string", default: process.cwd() },
   },
 });
-const { url } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]! });
+const { url } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"] });
 
 // Imported after the environment loads: the env schema and the S3 client read it
 const { drizzle } = await import("drizzle-orm/postgres-js");

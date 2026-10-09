@@ -5,6 +5,7 @@ import { atomicOn } from "@/lib/db/atomic";
 import { withReadableErrors } from "@/lib/db/errors";
 import { ebookFiles, ebookIngestItems, ebooks } from "@/lib/db/schema";
 import type { IngestOutcome } from "@/lib/db/schema/ebook-ingest";
+import { medallionOf } from "../medallion";
 import { formatRank, isReadableFormat } from "../formats";
 import type { PlanFile, PlanGroup } from "./plan";
 
@@ -25,6 +26,7 @@ export interface CatalogueFileRow {
   status: string;
   drm: string | null;
   coverKey: string | null;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -43,6 +45,7 @@ const FILE_COLUMNS = {
   status: ebookFiles.status,
   drm: ebookFiles.drm,
   coverKey: ebookFiles.coverKey,
+  metadata: ebookFiles.metadata,
   createdAt: ebookFiles.createdAt,
 };
 
@@ -101,10 +104,11 @@ interface Candidate {
   status: string;
   drm: string | null;
   coverKey: string | null;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
 }
 
-const deliverable = (f: Candidate) => (f.status === "stored" || f.status === "verified") && !f.drm && isReadableFormat(f.format);
+const deliverable = (f: Candidate) => (f.status === "stored" || f.status === "verified") && !f.drm && isReadableFormat(f.format) && (!medallionOf(f.metadata) || medallionOf(f.metadata)!.validation.nativeReadable);
 
 /** The file the reader opens first: readable, no DRM, by FORMAT_PREFERENCE, the newest first */
 export function preferredFile<T extends Candidate>(files: T[]): T | null {
@@ -116,8 +120,7 @@ export function planRegistration(
   group: PlanGroup,
   files: PlanFile[],
   catalogue: GroupCatalogue,
-  options: { host: string | null; at: Date },
-): Registration {
+  options: { host: string | null; at: Date }): Registration {
   const at = options.at;
   const ebookId = catalogue.ebook?.id ?? randomUUID();
   const existing = catalogue.ebook?.files ?? [];
@@ -177,7 +180,7 @@ export function planRegistration(
   // The preferred file: kept unless it was replaced or cannot be read; a replaced one moves to its successor
   const after: Candidate[] = [
     ...existing.map((f) => (replaced.has(f.id) ? { ...f, status: "replaced" } : f)),
-    ...inserts.map((f) => ({ id: f.id!, format: f.format, status: f.status, drm: f.drm ?? null, coverKey: f.coverKey ?? null, createdAt: at })),
+    ...inserts.map((f) => ({ id: f.id!, format: f.format, status: f.status, drm: f.drm ?? null, coverKey: f.coverKey ?? null, metadata: f.metadata ?? {}, createdAt: at })),
   ];
   const before = catalogue.ebook?.preferredFileId ?? null;
   const keep = after.find((f) => f.id === before && deliverable(f));

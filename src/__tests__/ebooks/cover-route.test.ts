@@ -22,14 +22,16 @@ let dir: string;
 
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), "durtal-ebook-cover-"));
-  mkdirSync(join(dir, `durtal-ebooks/derived/${sha}`), { recursive: true });
-  writeFileSync(join(dir, `durtal-ebooks/derived/${sha}/cover-400.webp`), webp);
+  mkdirSync(join(dir, `durtal/derived/${sha}`), { recursive: true });
+  writeFileSync(join(dir, `durtal/derived/${sha}/cover-400.webp`), webp);
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 afterEach(() => vi.unstubAllEnvs());
 
 const cover = (query: string, ebookId = id) =>
-  GET(new NextRequest(`http://localhost/api/reader/${ebookId}/cover${query}`), { params: Promise.resolve({ ebookId }) });
+  GET(new NextRequest(`http://localhost/api/reader/${ebookId}/cover${query}`), {
+    params: Promise.resolve({ ebookId }),
+  });
 
 describe("GET /api/reader/[ebookId]/cover", () => {
   it("streams the derived WebP when the app delivers", async () => {

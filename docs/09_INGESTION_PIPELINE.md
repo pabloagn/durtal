@@ -474,11 +474,13 @@ and drop the eBooks in, or name a folder."
   string) is removed and an unpaired surrogate becomes U+FFFD. An apply cleans
   a plan the same way as it reads it.
 
+Non-preview commands require `--aws-profile durtal-personal` and a reviewed `EBOOKS_AWS_ACCOUNT_ID`. The explicit personal session is account-guarded, refreshed in memory and independent of app IAM credentials. New keys never inherit the legacy configured prefix.
+
 ### Plan
 
 `pnpm ebooks:ingest [<folder> ...]` is read-only. The catalogue is read
 through a session that refuses writes (a probe proves it before anything
-runs). The bucket's `files/` keys are listed once; before the AWS setup the
+runs). Canonical eBook stages and legacy file/derived prefixes are listed; before the AWS setup the
 bucket does not exist, and the plan says the storage is not set up yet and
 treats it as empty. The plan does five things
 for each file:
@@ -516,7 +518,7 @@ the groups of one e-book go one after another. For each file:
 
 1. It is re-checked: a file whose size or modification time changed since
    the plan is skipped and listed as changed.
-2. It is stored and verified (`docs/07_STORAGE.md`, Ingestion).
+2. Bronze source and versioned silver evidence are stored and verified; only accepted files publish checksum-verified gold artifacts and their report-bound marker (`docs/07_STORAGE.md`, eBook Files).
 3. Its group's rows are written in one atomic. The unique checksum and the
    atomic make sure a file is never registered twice.
 
