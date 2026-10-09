@@ -930,6 +930,9 @@ The works or editions linked to one item.
 
 ### Reader (`/reader/[ebookId]`)
 
+`/reader` permanently redirects (308) to `/ebooks`, keeping `q`.
+The reader's Back fallback is `/ebooks/[ebookId]`.
+
 The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no timer chip, no tab row. A full page load (the Read button is a plain link), because the page brings its own Content-Security-Policy (`src/proxy.ts`). The page (`src/app/reader/[ebookId]/page.tsx`) reads everything in one query (`readReaderBook`, `src/lib/ebooks/delivery/reader-book.ts`): the e-book, its readable files (stored or verified, no DRM, a format the reader opens, in the order EPUB, KEPUB, AZW3, MOBI, AZW, FB2, FBZ, PDF, CBZ), the file to open (`?file=` when it names one of them, else the preferred file, else the first), this device's place in it, its history across files, the newest other-device place, and the delivery URL. It runs the reader's plug-ins' loaders (`plugins.ts`) beside that query. An inline script asks for the book's first byte ranges as the HTML arrives (docs/07, Reading e-books by range), and the reading font is preloaded. Opens EPUB, KEPUB, MOBI, AZW, AZW3, FB2, FBZ, CBZ and PDF.
 
 - **Top bar** (`glass-bar`): Back (to the page the reader came from when it is in Durtal, else the linked book's page, else `/library`), the title with the current chapter, Contents (`t`), Settings (`s`), Reader shortcuts (`?`) and Full screen (`f`, only where the Fullscreen API exists, so never on an iPhone). **Bottom bar** (`glass-bar`): chapter, print page/Location, percent and chapter time, with the scrubber, Go to and Header and footer below. Both show on open and hide together after 3 seconds of reading or on a page turn; they come back on a tap in the middle, when the pointer nears the top or bottom edge, or when focus moves into them. An open navigation surface or Peek holds them visible. Hidden bars are `inert`.
@@ -978,3 +981,25 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
 - **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; reading (SLN-458): Readings (the Durtal reading CSV), Reading sessions, Quotes and notes (also as the Markdown commonplace book) and the Goodreads file (CSV only; when it carries half-star ratings, a dialog first says "12 half-star ratings will be rounded up", from `getGoodreadsExportNotice`); Enrichment (SLN-468): "Spend this month" (spent and reserved, of the cap) and "Evidence cache" (documents, and the stored size with each object counted once), read by `enrichmentSpend` and `evidenceCacheStats` in `src/lib/settings/data.ts`; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.
+
+### eBooks (`/ebooks`, `/ebooks/[ebookId]`)
+
+SLN-497 source preparation adds the eBook library after Reading in the sidebar,
+with **G K**. Grid/list and grid density are remembered through
+`LIST_PREFERENCES.ebooks`; page size uses the shared 24/48/96/192 control.
+Search updates `q` with replace after 150 ms. Linked, format, language, DRM,
+needs-review and excluded filters combine before bounded SQL pagination.
+Title, author, added, opened and size sorts use SQL, with additional list
+column sorts. Cards open detail; their Read link pins eligible bytes with
+`?file=`. Cards wrap naturally and share the current 208px minimum.
+
+Continue reading selects up to 12 eligible targets and retains the newest
+local historical locator, otherwise the newest remote locator. Replacement
+percentages are labelled Saved until resolved. Detail shows catalogue facts,
+identifiers, file status/source/checksum/download, valid device places and the
+latest 20 ingestion events with a total count and run links. Unknown UUIDs are
+404; malformed ids are refused with 400 by the proxy before a query, including
+ids containing dots. Runs, review, highlights and upload static paths are
+exempt. Open first uses the real `setPreferredEbookFile` action with current
+native eligibility and same-book file checks. Matching decisions and Restore await the approved mutation
+contracts; this source checkpoint does not claim matching/review controls are complete.

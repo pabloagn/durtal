@@ -1,5 +1,6 @@
 import { formatLabel } from "@/lib/ebooks/formats";
 import type { EbookDetail } from "@/lib/ebooks/library-queries";
+import { runTime } from "./run-row";
 export function EbookPlaces({ ebook }: { ebook: EbookDetail }) {
   if (!ebook.positions.length)
     return <p className="text-sm text-fg-secondary">No saved places yet.</p>;
@@ -20,11 +21,7 @@ export function EbookPlaces({ ebook }: { ebook: EbookDetail }) {
             </p>
             <p className="mt-1 text-xs text-fg-secondary">
               {file ? formatLabel(file.format) : "Historical file"} ·{" "}
-              {new Date(place.clientUpdatedAt)
-                .toISOString()
-                .slice(0, 16)
-                .replace("T", " ")}{" "}
-              UTC
+              {runTime(new Date(place.clientUpdatedAt))}
               {file?.status === "replaced"
                 ? " · Replaced file; resumes in the current file"
                 : ""}

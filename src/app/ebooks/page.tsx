@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
@@ -23,6 +24,7 @@ import { ContinueReading } from "@/components/ebooks/continue-reading";
 import { EbooksView } from "./ebooks-view";
 import { EbooksMenu } from "./ebooks-menu";
 export const metadata = { title: "eBooks" };
+const requestTime = cache(() => Date.now());
 function since(date: string | Date, now: number) {
   const minutes = Math.max(
     0,
@@ -53,7 +55,7 @@ export default async function EbooksPage({
       pageHref("/ebooks", search, lastPage(counts.total, params.perPage)),
     );
   const base = ebookPageCoverBase();
-  const now = Date.now();
+  const now = requestTime();
   const continuation = recent.flatMap(({ ebook, descriptor }) =>
     descriptor.anchor && descriptor.savedPercent !== null
       ? [

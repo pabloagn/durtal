@@ -23,6 +23,7 @@ import { readerPercent } from "@/lib/reader/events";
 import { positionUrl } from "@/lib/reader/device";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { createPlaceSync } from "@/lib/reader/sync/session";
+import { resolveContinueAnchor } from "@/lib/ebooks/continue-resolve";
 import { ReturnChip } from "@/components/reader/return-chip";
 import { PositionIndex, flattenContents } from "@/lib/reader/position-index";
 import {
@@ -221,13 +222,13 @@ function ReaderSession({
   bridge,
   onRetry,
 }: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void }) {
-  const openingPlace = ownPlace ?? devicePlace ?? otherPlace;
-  const place = openingPlace?.locator ?? null;
+  const openingPlace = devicePlace ?? ownPlace ?? otherPlace;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
   const { settings, setSettings, resetSettings } = useReaderSettings();
   const bookRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
+  const resumeClock = useRef<string | null>(null);
   const [status, setStatus] = useState<Status>(
     file
       ? { kind: "opening" }
@@ -256,7 +257,7 @@ function ReaderSession({
   const [clock, setClock] = useState("");
   const statusFilled = useReaderSlotFilled("toolbar-status");
   const [chapter, setChapter] = useState<string | null>(
-    place?.tocLabel ?? null,
+    openingPlace?.locator.tocLabel ?? null,
   );
   const [percent, setPercent] = useState<number | null>(null);
   const [offer, setOffer] = useState<ReaderPlace | null>(null);
@@ -616,7 +617,7 @@ function ReaderSession({
       /* Storage can be disabled. */
     }
     const sync = createPlaceSync({
-      own: ownPlace ?? devicePlace,
+      own: devicePlace ?? ownPlace,
       other: devicePlace ? otherPlace : null,
       declinedAt,
       flush: () => queue.flush(),
@@ -653,14 +654,18 @@ function ReaderSession({
     window.addEventListener("online", online);
     let noticeTimer: ReturnType<typeof setTimeout> | null = null;
     let saved: DurtalLocator | null = ownPlace?.locator ?? null;
-    const save = (locator: DurtalLocator, chapterLabel: string | null) => {
+    const save = (
+      locator: DurtalLocator,
+      chapterLabel: string | null,
+      clientUpdatedAt = resumeClock.current ?? new Date().toISOString(),
+    ) => {
       if (samePlace(locator, saved)) return;
       saved = locator;
       queue.push({
         fileId: file.id,
         locator,
         chapter: chapterLabel,
-        clientUpdatedAt: new Date().toISOString(),
+        clientUpdatedAt,
       });
     };
 
@@ -749,7 +754,7 @@ function ReaderSession({
               progression: locator.totalProgression,
               furthestProgression: locator.totalProgression,
               chapter: label,
-              clientUpdatedAt: new Date().toISOString(),
+              clientUpdatedAt: resumeClock.current ?? new Date().toISOString(),
             };
             if (reason === "turn") {
               sync.localTurn(local);
@@ -810,30 +815,27 @@ function ReaderSession({
             return ((await res.json()) as { url: string }).url;
           },
         };
-        const { resolved } = await engine.open(source, {
+        await engine.open(source, {
           container,
           presentation: presentationRef.current!,
-          at:
-            openingPlace && openingPlace.fileId !== file.id
-              ? { fraction: openingPlace.locator.totalProgression }
-              : (place ?? undefined),
         });
+        if (cancelled) return;
+        const resumed = openingPlace
+          ? await resolveContinueAnchor(
+              {
+                target: { id: file.id, sha256: file.sha256 },
+                anchor: openingPlace,
+              },
+              engine,
+            )
+          : null;
         if (cancelled) return;
         opened = true;
         clearTimeout(timeout);
         setStatus({ kind: "ready" });
-        const failedPlace =
-          place &&
-          openingPlace?.fileId === file.id &&
-          (!resolved || resolved.status === "failed");
-        if (failedPlace) {
-          setNotice(
-            "Your saved place could not be found. Opened at the start.",
-          );
-        }
         // A first open, or a place found again another way: save where the book opened
         const landing = latest as EngineEvents["relocate"] | null;
-        if (!failedPlace && !devicePlace && otherPlace) {
+        if (!devicePlace && otherPlace) {
           setNotice(
             `Opened where you left off on ${otherPlace.deviceLabel.split(" · ")[0]}`,
           );
@@ -857,9 +859,7 @@ function ReaderSession({
             furthestProgression: landing.locator.totalProgression,
             chapter: landing.chapter,
             clientUpdatedAt:
-              ownPlace && resolved?.status === "exact"
-                ? ownPlace.clientUpdatedAt
-                : new Date().toISOString(),
+              openingPlace?.clientUpdatedAt ?? new Date().toISOString(),
           });
           bridge.update({
             locator: landing.locator,
@@ -868,8 +868,13 @@ function ReaderSession({
           });
           bridge.bus.location({ ...landing, fileId: file.id, kind: "jump" });
         }
-        if (landing && (!ownPlace || resolved?.status !== "exact"))
-          save(landing.locator, landing.chapter);
+        if (
+          landing &&
+          (!ownPlace ||
+            resumed?.status !== "exact" ||
+            openingPlace?.fileId !== file.id)
+        )
+          save(landing.locator, landing.chapter, openingPlace?.clientUpdatedAt);
         unregisterShortcuts = registerCoreReaderShortcuts([
           "arrowleft",
           "arrowright",
@@ -941,14 +946,17 @@ function ReaderSession({
           }, 2000);
         };
         postponeIndex();
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         clearTimeout(timeout);
         // The engine says what kind of failure it was; this is for the rest
         if (!reported)
           setStatus({
             kind: "error",
-            message: "The file is damaged or not a valid eBook.",
+            message:
+              error instanceof Error
+                ? error.message
+                : "The file is damaged or not a valid eBook.",
           });
       }
     })();
@@ -1104,11 +1112,39 @@ function ReaderSession({
                 onClick={() => {
                   const target = offer;
                   syncRef.current?.dismiss();
-                  void navigate(
-                    target.fileId === file.id
-                      ? target.locator
-                      : { fraction: target.locator.totalProgression },
-                    "resume",
+                  const engine = engineRef.current;
+                  if (!engine) return;
+                  const before = engine.currentLocator();
+                  void resolveContinueAnchor(
+                    {
+                      target: { id: file.id, sha256: file.sha256 },
+                      anchor: target,
+                    },
+                    {
+                      resolve: (locator) => engine.resolve(locator),
+                      currentLocator: () => engine.currentLocator(),
+                      goTo: async (locator) => {
+                        if (engine.currentLocator() !== before)
+                          throw new Error(
+                            "Your place changed while locating the saved passage.",
+                          );
+                        resumeClock.current = target.clientUpdatedAt;
+                        try {
+                          if (!(await navigate(locator, "resume")))
+                            throw new Error(
+                              "Your saved place could not be opened.",
+                            );
+                        } finally {
+                          resumeClock.current = null;
+                        }
+                      },
+                    },
+                  ).catch((error) =>
+                    setNotice(
+                      error instanceof Error
+                        ? error.message
+                        : "Your saved place could not be opened.",
+                    ),
                   );
                 }}
               >

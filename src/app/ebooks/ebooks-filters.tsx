@@ -41,7 +41,9 @@ export function EbooksFilters({
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(search.toString());
-  latest.current = search.toString();
+  useEffect(() => {
+    latest.current = search.toString();
+  }, [search]);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
@@ -112,6 +114,7 @@ export function EbooksFilters({
         <input
           ref={input}
           type="search"
+          maxLength={200}
           aria-label="Search eBooks"
           data-shortcut-search=""
           placeholder="Search eBooks…"

@@ -489,3 +489,16 @@ A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-a
 - A menu beside text goes in `CapAlignedControls`, never in `CapAligned`: `CapAligned`'s box clips, so a menu drawn inside it opens as a sliver whose items cannot be clicked. `CapAlignedControls` takes the same `height` and `coarseHeight` and clips nothing. `src/__tests__/cap-aligned-menus.test.ts` fails on a menu inside `CapAligned`.
 - With the system's reduced-motion setting, nothing moves or loops: every animation and transition ends at once (`globals.css`), spinners and skeletons included. Their events still fire.
 - Check it with `node scripts/qa/interaction-audit.mjs --disposable --base <app url> [route...]` on a disposable preview (`scripts/qa/preview-local.py`). It opens menus and dialogs, pressing only controls that open something, never one that writes; it refuses to start without `--disposable`, on another host or on port 3100.
+
+### eBook library and record (SLN-497 source preparation)
+
+The eBook card follows the shared work-card anatomy: a 2:3 cover, naturally
+wrapping CardHeading, and formats/linked mark at the bottom of each stretched
+row. Cards use the shared 208px minimum and grid density control. Read appears
+on hover/focus and stays visible at a 44px touch target on coarse pointers;
+DRM-only, missing, quarantined, replaced and excluded records offer no Read.
+No digital badge is placed over a cover. Continue uses HorizontalCarousel and
+a thin progress bar, with Saved wording when a historical percentage is still
+awaiting re-anchoring. The detail page uses DetailColumns, RecordPanel, Prose
+and DataTable; covers use actual published widths. Quiet Glass tokens and the
+shared 4px controls/6px floating surfaces apply throughout.

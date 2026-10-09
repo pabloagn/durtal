@@ -19,9 +19,6 @@ export function EbookRow({ book }: { book: EbookCardData }) {
         >
           {book.title}
         </Link>
-        <p className="mt-1 text-xs text-fg-secondary">
-          {book.authors.join(", ") || "Unknown author"}
-        </p>
         {book.readHref && (
           <Link
             href={book.readHref}
@@ -30,6 +27,9 @@ export function EbookRow({ book }: { book: EbookCardData }) {
             Read
           </Link>
         )}
+      </td>
+      <td className="min-w-48 py-3 pr-4 text-xs">
+        {book.authors.join(", ") || "Unknown author"}
       </td>
       <td className="py-3 pr-4 text-xs">
         {book.formats.map(formatLabel).join(" · ") || "—"}

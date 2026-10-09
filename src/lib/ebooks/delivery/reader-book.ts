@@ -1,10 +1,11 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
-import { formatRank, READABLE_FORMATS } from "../formats";
+import { formatRank } from "../formats";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
-import { medallionOf } from "../medallion";
-import { isDeliverable, type CatalogueFile } from "./files";
+import type { CatalogueFile } from "./files";
+import { isEbookFileNativeReadable } from "../conditions";
+import { continueTarget, validContinueAnchor } from "../continue-target";
 
 /*
  * What the reader page needs, in one query (eBooks sub-issue 3): the
@@ -15,6 +16,7 @@ import { isDeliverable, type CatalogueFile } from "./files";
  */
 
 export interface ReaderFile extends CatalogueFile {
+  readonly createdAt: string;
   readonly manifestKey: string | null;
   readonly charCount: number | null;
 }
@@ -42,14 +44,10 @@ type Row = Omit<
   "file" | "place" | "devicePlace" | "otherPlace" | "files"
 > & {
   preferredFileId: string | null;
+  matchState: string;
   files: ReaderFile[];
   places: ReaderPlace[];
 };
-
-const readable = sql.join(
-  READABLE_FORMATS.map((format) => sql`${format}`),
-  sql`, `,
-);
 
 /** The reader's e-book, or null when there is none */
 export async function readReaderBook(
@@ -58,13 +56,12 @@ export async function readReaderBook(
 ): Promise<ReaderBook | null> {
   const [row] = resultRows<Row>(
     await db.execute(sql`select eb.id, eb.title, eb.authors, eb.language,
-        eb.preferred_file_id as "preferredFileId", w.slug as "workSlug",
+        eb.preferred_file_id as "preferredFileId", eb.match_state as "matchState", w.slug as "workSlug",
         coalesce((select json_agg(json_build_object('id', f.id, 'ebookId', f.ebook_id, 'sha256', f.sha256,
             's3Key', f.s3_key, 'format', f.format, 'sizeBytes', f.size_bytes, 'contentType', f.content_type,
-            'status', f.status, 'drm', f.drm, 'metadata', f.metadata, 'manifestKey', f.manifest_key, 'charCount', f.char_count) order by f.created_at, f.id)
+            'status', f.status, 'drm', f.drm, 'metadata', f.metadata, 'manifestKey', f.manifest_key, 'charCount', f.char_count, 'createdAt', f.created_at) order by f.created_at, f.id)
           from ebook_files f
-          where f.ebook_id = eb.id and f.status in ('stored', 'verified') and f.drm is null
-            and f.format in (${readable})), '[]'::json) as files,
+          where f.ebook_id = eb.id), '[]'::json) as files,
         coalesce((select json_agg(json_build_object('deviceId', p.device_id, 'deviceLabel', p.device_label,
             'fileId', p.file_id, 'locator', p.locator, 'progression', p.progression,
             'furthestProgression', p.furthest_progression, 'chapter', p.chapter,
@@ -79,20 +76,28 @@ export async function readReaderBook(
       where eb.id = ${ebookId}::uuid`),
   );
   if (!row) return null;
-  const files = row.files
-    .filter(
-      (f) =>
-        isDeliverable(f) &&
-        (!medallionOf(f.metadata) ||
-          medallionOf(f.metadata)!.validation.nativeReadable),
-    )
+  const places = row.places.filter((place) =>
+    validContinueAnchor(
+      place,
+      row.files.find((file) => file.id === place.fileId),
+    ),
+  );
+  const files = (row.matchState === "excluded" ? [] : row.files)
+    .filter(isEbookFileNativeReadable)
     .sort((a, b) => formatRank(a.format) - formatRank(b.format));
   const byId = (id: string | null | undefined) =>
     id ? files.find((f) => f.id === id.toLowerCase()) : undefined;
-  const file =
-    byId(options.fileId) ?? byId(row.preferredFileId) ?? files[0] ?? null;
+  const continuation = continueTarget({
+    ebookId: row.id,
+    excluded: row.matchState === "excluded",
+    preferredFileId: row.preferredFileId,
+    deviceId: options.deviceId ?? null,
+    files: row.files,
+    positions: places,
+  });
+  const file = byId(options.fileId) ?? byId(continuation?.target.id) ?? null;
   const place = file
-    ? (row.places.find((p) => p.thisDevice && p.fileId === file.id) ?? null)
+    ? (places.find((p) => p.thisDevice && p.fileId === file.id) ?? null)
     : null;
   return {
     id: row.id,
@@ -103,7 +108,7 @@ export async function readReaderBook(
     files,
     file,
     place,
-    devicePlace: row.places.find((p) => p.thisDevice) ?? null,
-    otherPlace: row.places.find((p) => !p.thisDevice) ?? null,
+    devicePlace: places.find((p) => p.thisDevice) ?? null,
+    otherPlace: places.find((p) => !p.thisDevice) ?? null,
   };
 }

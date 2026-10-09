@@ -5,6 +5,11 @@ import type {
 } from "@/lib/reader/engine";
 import type { ContinueDescriptor } from "./continue-target";
 
+/** The reader needs provenance and target identity, without serializing file metadata. */
+export type ContinueResumeInput = Pick<ContinueDescriptor, "anchor"> & {
+  target: Pick<ContinueDescriptor["target"], "id" | "sha256">;
+};
+
 export interface ContinueLanding {
   status: Exclude<ResolveResult["status"], "failed">;
   locator: DurtalLocator;
@@ -36,7 +41,7 @@ function validLanding(
  * Shared by historical opening and the existing remote-offer Go there handler.
  */
 export async function resolveContinueAnchor(
-  descriptor: ContinueDescriptor,
+  descriptor: ContinueResumeInput,
   engine: Pick<ReaderEngine, "resolve" | "goTo" | "currentLocator">,
 ): Promise<ContinueLanding | null> {
   const anchor = descriptor.anchor;

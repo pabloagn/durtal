@@ -46,12 +46,18 @@ open /reader/<id>. With --reader-large DIR as well, the large fixtures that
 50 MB illustrated EPUB, a 300 MB scanned PDF, a 2,000-page EPUB and a 2 MB
 chapter) are stored and catalogued the same way, for scripts/qa/reader-perf.mjs.
 
+With --ebooks M (needs --s3-dir), add M synthetic library eBooks with unique
+valid EPUB bytes, verified bronze/silver/gold lineage and 240/400/800 WebP
+covers. One third link to seeded catalogue copies; separate fixtures cover
+DRM, damage, a missing object and set-aside state. This is local preview data.
+Use 6000 and 7000 for the library performance acceptance runs.
+
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
 with curl. It is never the live token. Without it the variable stays unset
 and those routes answer 503.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]]] [--api-token]
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M]] [--api-token]
 """
 
 import argparse
@@ -282,6 +288,8 @@ def main():
                         help="keep S3 objects as files under DIR instead of S3")
     parser.add_argument("--seed-reader", action="store_true",
                         help="store and catalogue the e-book fixtures (needs --s3-dir)")
+    parser.add_argument("--ebooks", type=int, metavar="M",
+                        help="add M synthetic eBooks with valid unique medallion fixture objects (needs --s3-dir)")
     parser.add_argument("--reader-large", type=Path, metavar="DIR",
                         help="with --seed-reader, also the large fixtures make-ebook-fixtures.mjs --large wrote to DIR")
     parser.add_argument("--api-token", action="store_true",
@@ -291,6 +299,8 @@ def main():
         parser.error("--seed-reader needs --s3-dir: the e-books are stored there")
     if args.reader_large and not args.seed_reader:
         parser.error("--reader-large goes with --seed-reader")
+    if args.ebooks and (not args.s3_dir or not 1 <= args.ebooks <= 100000):
+        parser.error("--ebooks requires --s3-dir and a count between 1 and 100000")
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
@@ -361,6 +371,10 @@ def main():
             psql(reader_seed(args.s3_dir, args.reader_large))
             count = len(READER_EBOOKS) + (len(READER_LARGE) if args.reader_large else 0)
             print(f"Reader fixtures: {count} e-books, /reader/{READER_EBOOKS[0][0]} and on", flush=True)
+        if args.ebooks:
+            from ebook_library_seed import ebook_library_seed
+            psql(ebook_library_seed(ROOT, args.s3_dir, args.ebooks))
+            print(f"Library fixtures: {args.ebooks} eBooks, one third linked, valid unique bytes in {args.s3_dir}", flush=True)
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())

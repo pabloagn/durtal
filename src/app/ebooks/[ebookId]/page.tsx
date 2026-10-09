@@ -13,7 +13,10 @@ import {
 } from "@/lib/ebooks/library-cover";
 import { ebookCardData } from "@/lib/ebooks/library-view";
 import { continueTarget } from "@/lib/ebooks/continue-target";
-import { isEbookFileDownloadable } from "@/lib/ebooks/conditions";
+import {
+  isEbookFileDownloadable,
+  isEbookFileNativeReadable,
+} from "@/lib/ebooks/conditions";
 import { formatLabel } from "@/lib/ebooks/formats";
 import { languageName } from "@/lib/utils/language";
 import { PageHeader } from "@/components/layout/page-header";
@@ -82,6 +85,8 @@ export default async function EbookPage({ params }: Props) {
         : file.createdAt,
     preferred: file.id === ebook.preferredFileId,
     download: isEbookFileDownloadable(file),
+    readable:
+      ebook.matchState !== "excluded" && isEbookFileNativeReadable(file),
     status: file.drm
       ? `Protected by ${file.drm}, cannot be opened`
       : file.status === "verified"
@@ -205,7 +210,7 @@ export default async function EbookPage({ params }: Props) {
         </section>
         <section className="mb-8">
           <SectionHeading title="Files" count={files.length} />
-          <EbookFilesTable files={files} />
+          <EbookFilesTable ebookId={ebook.id} files={files} />
         </section>
         <section className="mb-8">
           <SectionHeading title="Places" count={ebook.positions.length} />

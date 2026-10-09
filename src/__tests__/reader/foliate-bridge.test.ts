@@ -42,6 +42,7 @@ vi.mock("@/vendor/foliate-js/view.js", () => ({}));
 import { createFoliateEngine } from "@/lib/reader/engines/foliate/engine";
 import { createReaderNavigation } from "@/lib/reader/navigation";
 import { PaceModel } from "@/lib/reader/pace";
+import { resolveContinueAnchor } from "@/lib/ebooks/continue-resolve";
 import type { ReaderEngine } from "@/lib/reader/engine";
 import {
   presentationFrom,
@@ -114,7 +115,9 @@ class TestView extends HTMLElement {
   async goRight() {
     await this.next();
   }
-  getCFI() {
+  getCFI(_index?: number, _range?: Range) {
+    void _index;
+    void _range;
     return "epubcfi(selection)";
   }
   getProgressOf() {
@@ -165,6 +168,90 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("foliate bridge adapter", () => {
+  it("heals a historical quote after inserted paragraphs through the actual adapter and reports its observed landing", async () => {
+    engine.destroy();
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML =
+      "<p>A newly inserted paragraph.</p><p>Context The paragraph I was reading following.</p>";
+    fixtures.book = {
+      sections: [
+        {
+          id: "chapter",
+          size: 500,
+          linear: "yes",
+          createDocument: async () => doc,
+        },
+      ],
+      metadata: { title: "Replacement" },
+      resolveHref: () => ({ index: 0 }),
+    };
+    engine = createFoliateEngine();
+    await engine.open(
+      {
+        ebookId: "book",
+        fileId: "epub",
+        format: "epub",
+        size: 1000,
+        sha256: "a".repeat(64),
+        url: "/unused",
+        fallbackUrl: "/unused",
+      },
+      {
+        container: host,
+        presentation: presentationFrom(
+          READER_DEFAULTS,
+          resolveThemeColors(),
+          "",
+        ),
+      },
+    );
+    view = host.querySelector("foliate-view") as TestView;
+    const cfi = vi.spyOn(view, "getCFI");
+    vi.spyOn(view.renderer, "goTo").mockImplementation(async (target) => {
+      view.report("anchor", 0.6, target.index);
+    });
+    const locator = {
+      v: 1 as const,
+      fileHash: "b".repeat(64),
+      href: "chapter",
+      sectionIndex: 0,
+      progression: 0.4,
+      totalProgression: 0.44,
+      cfi: "epubcfi(obsolete)",
+      text: {
+        before: "Context ",
+        highlight: "The paragraph I was reading",
+        after: " following.",
+      },
+    };
+    const result = await resolveContinueAnchor(
+      {
+        target: { id: "epub", sha256: "a".repeat(64) },
+        anchor: {
+          deviceId: "local",
+          deviceLabel: "Mac",
+          fileId: "replaced",
+          chapter: null,
+          clientUpdatedAt: "2026-10-09T10:00:00Z",
+          locator,
+        },
+      },
+      engine,
+    );
+    expect(result).toMatchObject({
+      status: "healed",
+      percent: 60,
+      sourceFileId: "replaced",
+      sourceHash: "b".repeat(64),
+      targetFileId: "epub",
+      clientUpdatedAt: "2026-10-09T10:00:00Z",
+    });
+    expect(cfi.mock.calls[0][1]?.startContainer.textContent).toContain(
+      "The paragraph I was reading",
+    );
+    expect(result?.locator.fileHash).toBe("a".repeat(64));
+    expect(locator.cfi).toBe("epubcfi(obsolete)");
+  });
   it("keeps owned boundary navigation a turn while unowned navigation and reflow remain layout", async () => {
     const seen = vi.fn();
     engine.on("relocate", seen);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Library } from "lucide-react";
 import { CardHeading } from "@/components/shared/card-heading";
+import { FadeImage } from "@/components/shared/fade-image";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
 import { formatLabel } from "@/lib/ebooks/formats";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
@@ -26,7 +27,7 @@ export function EbookCover({
   return (
     <div className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary">
       {book.cover ? (
-        <img
+        <FadeImage
           src={book.cover.src}
           srcSet={book.cover.srcSet}
           sizes={sizes}

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import {
   continueTarget,
+  validContinueAnchor,
   type ContinueAnchor,
   type ContinueDescriptor,
   type ContinueFile,
@@ -13,7 +14,7 @@ import {
 } from "./conditions";
 import type { EbookLibraryParams } from "./library-params";
 
-type Database = Pick<typeof db, "execute">;
+type Database = { execute(query: SQL): PromiseLike<unknown> };
 export interface LibraryFile extends ContinueFile {
   manifestKey: string | null;
   coverKey: string | null;
@@ -96,8 +97,14 @@ const summary = sql`e.id, e.title, e.subtitle, e.authors, e.language,
   e.cover_key as "coverKey", e.created_at as "createdAt", ${files} as files`;
 
 function normalizedDates<T extends LibraryEbook>(ebook: T): T {
-  return { ...ebook, createdAt: new Date(ebook.createdAt).toISOString(),
-    files: ebook.files.map((file) => ({ ...file, createdAt: new Date(file.createdAt).toISOString() })) };
+  return {
+    ...ebook,
+    createdAt: new Date(ebook.createdAt).toISOString(),
+    files: ebook.files.map((file) => ({
+      ...file,
+      createdAt: new Date(file.createdAt).toISOString(),
+    })),
+  };
 }
 
 export function ebookLibraryWhere(params: EbookLibraryParams): SQL {
@@ -169,25 +176,37 @@ export async function getEbooksPage(
   database: Database = db,
 ): Promise<LibraryEbook[]> {
   return resultRows<LibraryEbook>(
-    await database.execute(sql`with page as (
+    await database.execute(ebookLibraryPageQuery(params)),
+  ).map(normalizedDates);
+}
+/** Shared with EXPLAIN acceptance: exactly the query used by the page. */
+export function ebookLibraryPageQuery(params: EbookLibraryParams): SQL {
+  return sql`with page as (
     select e.* from ebooks e where ${ebookLibraryWhere(params)}
     order by ${ordering(params)} limit ${params.perPage} offset ${params.offset}
-  ) select ${summary} from page e order by ${ordering(params)}`),
-  ).map(normalizedDates);
+  ) select ${summary} from page e order by ${ordering(params)}`;
 }
 export async function getEbookLibraryCounts(
   params: EbookLibraryParams,
   database: Database = db,
 ): Promise<EbookLibraryCounts> {
+  const facetState =
+    params.state === "excluded"
+      ? sql`e.match_state = 'excluded'`
+      : sql`e.match_state <> 'excluded'`;
+  const fileFacetState =
+    params.state === "excluded"
+      ? sql`book.match_state = 'excluded'`
+      : sql`book.match_state <> 'excluded'`;
   const [row] = resultRows<EbookLibraryCounts>(
     await database.execute(sql`select
     (select count(*)::integer from ebooks e where ${ebookLibraryWhere(params)}) as total,
     count(*) filter (where e.match_state <> 'excluded')::integer as active,
     count(*) filter (where e.match_state = 'pending')::integer as review,
     count(*) filter (where e.match_state = 'excluded')::integer as excluded,
-    coalesce(array_agg(distinct e.language) filter (where e.language is not null and e.match_state <> 'excluded'), '{}'::text[]) as languages,
+    coalesce(array_agg(distinct e.language order by e.language) filter (where e.language is not null and ${facetState}), '{}'::text[]) as languages,
     coalesce((select array_agg(distinct f.format order by f.format) from ebook_files f
-      join ebooks book on book.id = f.ebook_id where book.match_state <> 'excluded'), '{}'::text[]) as formats
+      join ebooks book on book.id = f.ebook_id where ${fileFacetState}), '{}'::text[]) as formats
   from ebooks e`),
   );
   return row;
@@ -206,7 +225,7 @@ export async function getContinueReading(
   ) select ${summary}, ${positions} as positions from recent join ebooks e on e.id = recent.id
   order by recent.opened desc, e.id`),
   );
-  return rows.flatMap((ebook) => {
+  return rows.map(normalizedDates).flatMap((ebook) => {
     const descriptor = continueTarget({
       ebookId: ebook.id,
       excluded: false,
@@ -239,7 +258,17 @@ export async function getEbookDetail(
     left join editions edition on edition.id = copy.edition_id left join works w on w.id = edition.work_id
     where e.id = ${id}::uuid`),
   );
-  return row ?? null;
+  return row
+    ? normalizedDates({
+        ...row,
+        positions: row.positions.filter((place) =>
+          validContinueAnchor(
+            place,
+            row.files.find((file) => file.id === place.fileId),
+          ),
+        ),
+      })
+    : null;
 }
 export function ebookReadHref(ebook: LibraryEbook): string | null {
   const descriptor = continueTarget({

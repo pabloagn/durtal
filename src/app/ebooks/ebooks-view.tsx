@@ -119,7 +119,8 @@ export function EbooksView({
                   <tr className="border-b border-glass-border type-caption">
                     <th aria-label="Cover" />
                     {[
-                      ["title", "Title and authors"],
+                      ["title", "Title"],
+                      ["author", "Authors"],
                       ["format", "Formats"],
                       ["language", "Language"],
                       ["size", "Size"],

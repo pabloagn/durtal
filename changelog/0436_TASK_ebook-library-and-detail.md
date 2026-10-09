@@ -15,11 +15,19 @@ performance acceptance at 6,000 and 7,000 synthetic eBooks.
 
 ## Implementation Details
 
-Pure eligibility and Continue descriptors are prepared. Targets are eligible
+Library grid/list and detail source use shared page, filter, card, table and
+record components. Queries bound page rows before file aggregation; detail
+keeps ingestion history to twenty rows. Search, filters, sorting and pagination
+remain URL state; Continue is one bounded read. Matching/review controls await
+the approved SLN-495/496 contracts rather than duplicating their writers.
+
+Eligibility and Continue descriptors are integrated. Targets are eligible
 native-readable files; historical same-eBook locators retain their original
 file/hash identity, quote context and logical clock. Replacement projection
 uses the existing reader engine resolver before a safe fraction fallback and
-reports the observed target landing. Local intent and newer remote anchors
+reports the observed target landing. The exact approved SLN-499 reader source
+is merged normally; reader startup and the existing Go there action now call
+that resolver with the original locator. Local intent and newer remote anchors
 remain separate so SLN-493 owns its existing offer/dismissal policy.
 
 Natural title keys remove one declared-language article and encode each integer
@@ -37,16 +45,33 @@ Persisted unknown metadata is validated without casts to trusted medallion types
 source and report lineage, original file, marker, cover identities, checksums,
 safe positive sizes, MIME types and explicit boolean decisions. Malformed
 metadata fails closed for both staged and legacy keys without throwing.
-Database parity, query plans, pages and dependency integration remain pending.
+Delivery uses the same eligibility helper. Cover selection checks persisted
+publication evidence and emits only recorded widths. Page signing uses a single
+CloudFront custom-policy statement for gold derived cover WebP names only,
+excluding original files, manifests, bronze and silver. CloudFront supports one
+statement per custom policy; live service verification remains pending.
+
+Open first is a real validated action and one locked same-book update requiring
+current native capability. Matching/review and set-aside reasons remain upstream.
+Local QA preparation includes unique real EPUB bytes, report and manifest
+hashes, generated WebP covers, mixed states, 6,000/7,000-book seed options,
+page/search budgets and a cold 390px phone FCP/overflow check. Database parity,
+query plans, browser audits and remaining dependency integration are pending.
 No matching/review writer or status policy is duplicated. Set-aside reason
 storage belongs to SLN-495 and decisions to SLN-496.
 
 ## Completion Notes
 
-Not complete. The updated source checkpoint passes 243 focused tests (including
-187 malformed-metadata cases), `pnpm typecheck`, source lint and diff checks.
-SQL/database parity, schema and actual reader integration require subsequent
-validation and exact-source review. No production build,
+Not complete. Before the coordinator's QUIET-494 performance window, 331 tests
+in fifteen files passed (including 187 malformed-metadata cases, reader
+projection/clock and offer-race coverage, adapter quote healing, cover policy,
+card/navigation/validation and doc coverage). Typecheck passed; changed source
+lint had no errors (test files are ignored by repository lint policy); three
+small Python fixture tests and syntax/diff checks passed.
+
+The one-statement CloudFront policy correction was made after the quiet request
+and is not yet rerun. SQL/database parity, schema and native reader acceptance
+require subsequent validation and exact-source review. No production build,
 Docker, migration generation/application, AWS, live database or browser
 performance checks have run for this task. Full disposable database, browser,
 performance, independent review, CI and merge acceptance remain required.

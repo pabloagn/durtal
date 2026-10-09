@@ -983,6 +983,11 @@ E-book files live in their own private bucket (`docs/07_STORAGE.md`, eBook files
 
 Streams one stored file from the e-book bucket (or a preview's `--s3-dir` folder), by HTTP Range, without buffering it: the app's own delivery for development, previews and when CloudFront is not set up (`EBOOK_DELIVERY=app`).
 
+`?download=1` uses `Content-Disposition: attachment` with a canonical
+file-id/format filename on GET and HEAD. Range, ETag and eligibility rules
+stay the same. The library and delivery share structural publication
+validation; malformed medallion JSON cannot grant delivery.
+
 | Request | Response |
 |---|---|
 | No `Range` | `200`, the whole file, `Accept-Ranges: bytes` |

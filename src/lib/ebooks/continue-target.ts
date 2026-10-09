@@ -36,16 +36,23 @@ export interface ContinueDescriptor {
 }
 
 const at = (value: string | Date) =>
-  value instanceof Date ? value.getTime() : Date.parse(value);
+  value instanceof Date
+    ? value.getTime()
+    : typeof value === "string"
+      ? Date.parse(value)
+      : NaN;
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-function validAnchor(
+export function validContinueAnchor(
   anchor: ContinueAnchor,
   source: ContinueFile | undefined,
 ): boolean {
-  const locator = anchor.locator;
+  const locator = anchor?.locator;
   return (
     !!source &&
+    !!locator &&
+    typeof locator === "object" &&
+    !Array.isArray(locator) &&
     Number.isFinite(at(anchor.clientUpdatedAt)) &&
     locator.v === 1 &&
     locator.fileHash === source.sha256 &&
@@ -85,7 +92,9 @@ export function continueTarget(input: {
   if (!eligible.length) return null;
   // Historical files, including replaced ones, remain usable anchors; their bytes are not targets.
   const positions = input.positions
-    .filter((position) => validAnchor(position, sources.get(position.fileId)))
+    .filter((position) =>
+      validContinueAnchor(position, sources.get(position?.fileId)),
+    )
     .sort(
       (a, b) =>
         at(b.clientUpdatedAt) - at(a.clientUpdatedAt) ||
