@@ -206,3 +206,78 @@ output hashes/sizes, measured font metrics and <=200 KB English first-paint
 evidence must be recorded after the coordinator grants that work. The historical
 v1 assets at `90f55cbf` were not copied: their three Latin roman files total
 379508 bytes, exceeding the 200 KB budget when defaults differ across classes.
+
+## Generated font checkpoint
+
+The coordinator subsequently authorized reproducible WOFF2 generation and
+measurement within light bounds. The one-off environment pins fontTools
+4.63.0, Brotli 1.2.0 and zopfli 0.4.1; it adds no project dependency. Exact
+source URLs, input hashes and unchanged OFL files remain as recorded above.
+
+`scripts/reader-fonts/build.py` verifies all nine inputs, prepares each family
+with internal Durtal family/PostScript names, and subsets it with
+`--flavor=woff2 --layout-features='*' --no-hinting --no-recalc-timestamp
+--canonical-order --name-IDs=0,1,2,3,4,5,6,16,17,25
+--name-languages=0x409`. Full source weight ranges remain intact. Literata and
+Inter's optical-size axis is fixed at 20; EB Garamond has no optical-size axis.
+This removes automatic optical-size variation and hinting, rather than claiming
+those capabilities survive. All applicable layout features are retained,
+including Latin `smcp`, `c2sc`, `onum` and `liga` in both styles of Literata and
+EB Garamond. Inter's missing source features remain missing. The builder verifies
+every selected source codepoint survives and records actual per-file GSUB tags.
+
+The `latin` face contains basic Latin and common English punctuation; accented
+Latin, combining marks and remaining symbols are in `latin-ext`. The six exact
+Unicode ranges, font-processing policy and source-bound hashes are committed
+in `subsets.json` and `font-assets.json`. The generated inventory contains all
+36 WOFF2 files; total WOFF2 bytes are 1648480. File sizes in bytes:
+
+| Family/style       |  Latin | Latin-ext | Greek | Greek-ext | Cyrillic | Cyrillic-ext |
+| ------------------ | -----: | --------: | ----: | --------: | -------: | -----------: |
+| Literata roman     |  57040 |     80248 | 23888 |     12320 |    40184 |        13488 |
+| Literata italic    |  56536 |     80584 | 23244 |     12820 |    39432 |        13268 |
+| EB Garamond roman  |  95892 |    147024 | 25516 |     10380 |    25740 |        32992 |
+| EB Garamond italic | 110916 |    124052 | 18564 |     10780 |    25592 |        34484 |
+| Inter roman        |  48940 |    134384 | 18772 |     11292 |    18036 |        25592 |
+| Inter italic       |  52880 |    145252 | 20344 |     12020 |    19008 |        26976 |
+
+Reproduce the exact preparation/subsetting and metrics:
+
+```sh
+uvx --from 'fonttools[woff]==4.63.0' --with 'brotli==1.2.0' --with 'zopfli==0.4.1' python scripts/reader-fonts/build.py --inputs /private/tmp/durtal-sln501-font-inputs --assets public/fonts/reader/v1 --manifest src/lib/reader/presentation/font-assets.json --metric-ttfs /private/tmp/durtal-sln501-font-metric-ttfs
+node scripts/reader-fonts/measure.mjs --manifest src/lib/reader/presentation/font-assets.json --ttfs /private/tmp/durtal-sln501-font-metric-ttfs --output src/lib/reader/presentation/font-metrics.json
+pnpm exec prettier --write src/lib/reader/presentation/font-assets.json src/lib/reader/presentation/font-metrics.json
+```
+
+The builder uses fontTools' same `subset.main` entry point as `pyftsubset`; its
+exact flags and per-file Unicode ranges are source-controlled. A second build
+into `/private/tmp/durtal-sln501-font-reproduction` reproduced all 36 WOFF2
+hashes, source/policy hashes, axes, coverage and GSUB records exactly.
+
+`measure.mjs` uses the existing native canvas package 1.0.10 and Node 26.9.0
+to measure exact decoded shipped Latin roman files at weight 400, size 20 px.
+The published fixed sample is 124 characters. Mean advances in em:
+Literata 0.4680483910345262, EB Garamond 0.37770161782541584,
+Inter 0.46176211449407767. The metrics record sample, raw measured width,
+runtime, WOFF2 and decoded-TTF hashes; no guessed values are substituted.
+Browser agreement and native visual rendering remain acceptance work.
+
+`fonts.ts` exports the actual versioned inventory, hashes, measured
+`CHAR_WIDTH_EM`, absolute-origin `fontFaceCSS` with `font-display:block`, real
+weight ranges, Latin face selection and capability notes for unsupported
+EB Garamond weights / Inter features. Focused validation: 107 tests in nine
+files, zero skipped, 232 ms; focused TypeScript, zero-warning source ESLint,
+Prettier and integrity checks passed.
+
+**Open performance gate:** all three Latin roman preloads total 201872 bytes,
+above a strict decimal 200000-byte interpretation. EB Garamond roman + italic
+total 206808 bytes; mixed defaults plus an active italic face can cost more.
+These are file-size facts, not network first-paint acceptance. The loading
+strategy and actual cold-network English-book measurement still need to meet
+the 200 KB requirement; it is not waived or reported as passed.
+
+The coordinator relayed SCHEMA_DIRECTION_APPROVE for exact `e316b773` with
+103 focused tests plus two schema checks. Its accepted requirements include
+the shared class lock followed by a separate exact snapshot assertion,
+bounded conflicts, atomic defaults/override clearing and cookie adoption.
+Migration 0085 remains centrally ungenerated until 0082–0084 are sequenced.
