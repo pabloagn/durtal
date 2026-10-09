@@ -875,19 +875,21 @@ dialog::backdrop {
 .image-editor-preview {
   display: grid;
   place-items: center;
-  height: 382px;
+  --image-editor-preview-height: 382px;
+  height: var(--image-editor-preview-height);
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: linear-gradient(135deg, var(--color-bg-primary), var(--color-bg-secondary));
 }
-.image-editor-preview-landscape { height: 240px; }
+.image-editor-preview-landscape { --image-editor-preview-height: 240px; }
 .image-editor-frame { height: 100%; max-width: 100%; overflow: hidden; }
-.image-editor-preview-landscape .image-editor-frame {
+.image-editor-frame-shaped {
   /* Width may be constrained by the inspector; let height follow its true
-     aspect, and cap width so a wide host cannot exceed the 240px well. */
+     aspect, and cap width so a wide host cannot exceed the preview well.
+     This also keeps a policy-derived square/native contained frame whole. */
   width: 100%;
   height: auto;
-  max-width: min(100%, calc(240px * var(--image-frame-aspect)));
+  max-width: min(100%, calc(var(--image-editor-preview-height) * var(--image-frame-aspect)));
 }
 .image-editor-group + .image-editor-group {
   border-top: 1px solid var(--color-glass-border);
@@ -974,8 +976,12 @@ dialog::backdrop {
 }
 @container (width < 580px) {
   .image-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .image-editor-preview { height: min(28dvh, 220px); }
-  .image-editor-preview-landscape { height: auto; aspect-ratio: 16 / 9; }
+  .image-editor-preview { --image-editor-preview-height: min(28dvh, 220px); }
+  .image-editor-preview-landscape {
+    height: auto;
+    max-height: var(--image-editor-preview-height);
+    aspect-ratio: var(--image-frame-aspect);
+  }
   .image-editor-group + .image-editor-group { padding-top: 8px; }
 }
 @media (pointer: coarse) {

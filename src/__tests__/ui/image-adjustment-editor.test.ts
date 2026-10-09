@@ -40,6 +40,11 @@ function presentation(monochrome = false, framed = true) {
     assetKey: "gold/media/synthetic.webp",
     source,
     preview: source,
+    display: source,
+    revision: "a".repeat(32),
+    appliedCrop: null,
+    supportsCrop: framed,
+    fit: framed ? "cover" : "contain",
     monochrome,
     settings: {
       ...DEFAULT_IMAGE_ADJUSTMENTS,
@@ -69,6 +74,7 @@ beforeEach(() => {
     sources: [],
     settings: data.settings,
     monochrome: false,
+    revision: "b".repeat(32),
   }));
 });
 afterEach(() => {
@@ -103,6 +109,65 @@ function slide(value: number) {
 }
 
 describe("image adjustment editing across groups", () => {
+  it("retains edits and the loaded revision when Save returns a typed stale conflict", async () => {
+    actions.save.mockResolvedValue({
+      error: "stale",
+      message: "Reload and review this image.",
+    });
+    await render();
+    slide(0.8);
+    await act(async () => button("Save").click());
+    expect(actions.error).toHaveBeenCalledWith("Reload and review this image.");
+    expect(
+      host.querySelector<HTMLInputElement>('input[type="range"]')!.value,
+    ).toBe("0.8");
+    expect(button("Save").disabled).toBe(false);
+    expect(actions.update).not.toHaveBeenCalled();
+    expect(actions.refresh).not.toHaveBeenCalled();
+    await act(async () => button("Save").click());
+    expect(actions.save.mock.calls[1][1].revision).toBe("a".repeat(32));
+  });
+
+  it.each([1, 2, 0.8])(
+    "uses contained policy aspect %s without offering crop controls",
+    async (aspect) => {
+      actions.get.mockResolvedValue({ ...presentation(false, false), aspect });
+      await render();
+      expect(button("Framing")).toBeUndefined();
+      const image = host.querySelector<HTMLImageElement>("img")!;
+      expect(image.classList.contains("object-contain")).toBe(true);
+      const frame = image.parentElement!;
+      const [numerator, denominator = 1] = frame.style.aspectRatio
+        .split("/")
+        .map(Number);
+      expect(numerator / denominator).toBe(aspect);
+      expect(frame.hasAttribute("data-image-crop-frame")).toBe(false);
+      slide(0.5);
+      await act(async () => button("Save").click());
+      expect(actions.save.mock.calls[0][1]).not.toHaveProperty("crop");
+    },
+  );
+
+  it("keeps the retained crop base distinct from the stored display source", async () => {
+    const base = "/api/s3/read?key=gold/media/base.webp";
+    actions.get.mockResolvedValue({
+      ...presentation(),
+      preview: base,
+      display: source,
+      appliedCrop: { x: 30, y: 40, zoom: 140 },
+    });
+    await render();
+    const image = host.querySelector<HTMLImageElement>("img")!;
+    expect(image.getAttribute("src")).toBe(base);
+    expect(image.style.transform).toBe("scale(1.4)");
+    click("Framing");
+    slide(160);
+    click("Compare");
+    expect(image.getAttribute("src")).toBe(base);
+    expect(image.style.transform).toBe("scale(1.4)");
+    expect(actions.save).not.toHaveBeenCalled();
+  });
+
   it("resets one setting without losing other groups, then resets and saves every group", async () => {
     await render();
     slide(0.7);
@@ -117,6 +182,7 @@ describe("image adjustment editing across groups", () => {
     click("Reset all");
     await act(async () => button("Save").click());
     expect(actions.save).toHaveBeenCalledWith(source, {
+      revision: "a".repeat(32),
       settings: DEFAULT_IMAGE_ADJUSTMENTS,
       crop: { cropX: 50, cropY: 50, cropZoom: 100 },
     });
@@ -139,6 +205,7 @@ describe("image adjustment editing across groups", () => {
     expect(button("Compare").getAttribute("aria-pressed")).toBe("false");
     await act(async () => button("Save").click());
     expect(actions.save).toHaveBeenCalledWith(source, {
+      revision: "a".repeat(32),
       settings: { ...DEFAULT_IMAGE_ADJUSTMENTS, grayscale: 100 },
     });
   });
@@ -159,6 +226,7 @@ describe("image adjustment editing across groups", () => {
     expect(actions.save.mock.calls[2][0]).toBe(
       "/api/s3/read?key=gold%2Fmedia%2Fnew.webp",
     );
+    expect(actions.save.mock.calls[2][1].revision).toBe("b".repeat(32));
     expect(actions.refresh).toHaveBeenCalledTimes(2);
   });
 

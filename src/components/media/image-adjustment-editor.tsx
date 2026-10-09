@@ -104,15 +104,16 @@ function LoadedEditor({
 }) {
   // A saved crop writes new files, so the image key can change after a save
   const [source, setSource] = useState(initial.source);
+  const [revision, setRevision] = useState(initial.revision);
   const [settings, setSettings] = useState(initial.settings);
-  const [crop, setCrop] = useState(initial.crop);
+  const [crop, setCrop] = useState(initial.supportsCrop ? initial.crop : null);
   const [active, setActive] = useState("exposure");
   const [openGroup, setOpenGroup] = useState<string | null>("Tone");
   const [compare, setCompare] = useState(false);
   const [saving, setSaving] = useState(false);
   const [baseline, setBaseline] = useState({
     settings: initial.settings,
-    crop: initial.crop,
+    crop: initial.supportsCrop ? initial.crop : null,
   });
   const savingRef = useRef(false);
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -172,9 +173,15 @@ function LoadedEditor({
     try {
       const record = await saveImagePresentation(source, {
         settings,
+        revision,
         ...(crop ? { crop } : {}),
       });
+      if ("error" in record) {
+        toast.error(record.message);
+        return;
+      }
       setSource(s3ImageSource(record.assetKey));
+      setRevision(record.revision);
       update(record);
       setBaseline({ settings: record.settings, crop });
       setSettings(record.settings);
@@ -198,9 +205,13 @@ function LoadedEditor({
           <div className="min-w-0 space-y-3">
             <div
               className={`image-editor-preview ${initial.aspect && initial.aspect > 1 ? "image-editor-preview-landscape" : ""}`}
+              style={
+                { "--image-frame-aspect": initial.aspect ?? 1 } as CSSProperties
+              }
             >
               <div
-                className={`image-editor-frame ${crop ? "touch-none cursor-grab active:cursor-grabbing" : ""}`}
+                className={`image-editor-frame ${initial.aspect ? "image-editor-frame-shaped" : ""} ${crop ? "touch-none cursor-grab active:cursor-grabbing" : ""}`}
+                data-image-crop-frame={initial.supportsCrop ? "" : undefined}
                 onPointerDown={(event) => {
                   if (!crop || saving) return;
                   event.preventDefault();
@@ -236,10 +247,7 @@ function LoadedEditor({
                 style={
                   {
                     ...(initial.aspect
-                      ? {
-                          aspectRatio: initial.aspect,
-                          "--image-frame-aspect": initial.aspect,
-                        }
+                      ? { aspectRatio: initial.aspect }
                       : { width: "100%" }),
                   } as CSSProperties
                 }
@@ -249,7 +257,7 @@ function LoadedEditor({
                   src={initial.preview}
                   alt="Image adjustment preview"
                   draggable={false}
-                  className={`h-full w-full ${previewCrop ? "object-cover" : "object-contain"}`}
+                  className={`h-full w-full ${initial.fit === "cover" ? "object-cover" : "object-contain"}`}
                   style={{
                     filter: imageAdjustmentFilter(
                       previewSettings,

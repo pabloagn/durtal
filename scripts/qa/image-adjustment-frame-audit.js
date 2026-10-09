@@ -9,9 +9,9 @@
 (() => {
   const checked = [];
   const issues = [];
-  for (const frame of document.querySelectorAll(".image-editor-frame")) {
-    // Contained assets have no fixed crop frame to compare to saved output.
-    if (!frame.style.aspectRatio) continue;
+  for (const frame of document.querySelectorAll(".image-editor-frame[data-image-crop-frame]")) {
+    // Only server-declared crop capability gets the fixed crop contract;
+    // contained assets may also have a square/native presentation aspect.
     const well = frame.closest(".image-editor-preview");
     const shape = well.classList.contains("image-editor-preview-landscape")
       ? "background"

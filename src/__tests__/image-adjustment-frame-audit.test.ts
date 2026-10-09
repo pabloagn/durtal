@@ -23,6 +23,7 @@ function measuredFrame(
     (kind === "background" ? " image-editor-preview-landscape" : "");
   const frame = document.createElement("div");
   frame.className = "image-editor-frame";
+  frame.setAttribute("data-image-crop-frame", "");
   frame.style.aspectRatio = kind === "background" ? "16 / 9" : "2 / 3";
   // Independent measured-geometry fixtures; the browser audit will obtain
   // these rectangles from native layout, not this DOM stub.
