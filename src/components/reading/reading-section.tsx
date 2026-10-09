@@ -79,7 +79,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
           {home}
           {last && ` · last read ${last}`}
         </p>
-        {r.currentChapter && <p className="text-xs text-fg-secondary">Chapter {r.currentChapter}</p>}
+        {r.currentChapter && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">Chapter {r.currentChapter}</p>}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button size="sm" variant="primary" onClick={() => run("progress", row)} className="pointer-coarse:h-11">
             Log progress

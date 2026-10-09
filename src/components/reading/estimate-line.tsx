@@ -22,6 +22,7 @@ export function EstimateLine({
 }) {
   // A line breaks between its parts, never inside "Around 25 Oct"; a long part
   // ("Log a few sessions for an estimate") may wrap, so a narrow card never widens
+  const interactive = estimate.needsLength && !!onAddLength;
   const parts = estimate.text.split(" · ");
   const text = parts.map((part, i) => (
     <Fragment key={i}>
@@ -33,9 +34,9 @@ export function EstimateLine({
     </Fragment>
   ));
   return (
-    <div className={`flex items-start gap-1 text-xs text-fg-secondary ${className}`} data-estimate="">
+    <div className={`flex items-start gap-1 text-xs text-fg-secondary ${interactive ? "pointer-coarse:min-h-11 pointer-coarse:items-center" : ""} ${className}`} data-estimate="">
       {estimate.needsLength && onAddLength ? (
-        <button type="button" onClick={onAddLength} className={`${lines} text-left underline-offset-2 hover:text-fg-primary hover:underline`}>
+        <button type="button" onClick={onAddLength} className={`${lines} text-left underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11`}>
           {text}
         </button>
       ) : (

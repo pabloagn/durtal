@@ -28,7 +28,7 @@ import { readingDay, readingPeriodStart } from "./dates";
 import { readingDayStartHour } from "./day";
 import { stopProblem, stopTimes, TIMER_GONE } from "./timer";
 import { getAppSettings } from "@/lib/actions/settings";
-import { formatMinutes, percentOf, remapPosition } from "./positions";
+import { formatMinutes, percentOf, positionChanges, positionInUnit, remapPosition } from "./positions";
 import { duplicateVerdicts, type ExistingReading } from "./duplicates";
 import {
   createReadingSchema,
@@ -125,6 +125,7 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   const starts = new Map<string, { startPage: number | null; startPercent: number | null; startMinutes: number | null }>();
   let prev = startPosition(reading);
   let prevEdition = reading.editionId;
+  let lastPositionSession: Session | undefined;
   let position: Pos = { ...startPosition(reading), chapter: null };
   if (reading.startPage == null && reading.startPercent == null && reading.startMinutes == null)
     position = { page: reading.totalPages ? 0 : null, percent: 0, minutes: reading.totalMinutes ? 0 : null, chapter: null };
@@ -137,21 +138,30 @@ export function planPositions(reading: Reading, ordered: Session[]) {
     });
     prev = { page: s.endPage, percent: s.endPercent, minutes: s.endMinutes, chapter: s.endChapter };
     prevEdition = s.editionId;
-    if (s.source === "reader" && s.endPercent != null && position.percent != null && s.endPercent < position.percent) continue;
-    if (s.editionId === reading.editionId) {
-      const mapped = remapPosition(s.endPercent, reading);
-      position = {
-        page: s.endPage ?? mapped.page,
-        percent: s.endPercent,
-        minutes: s.endMinutes ?? mapped.minutes,
-        chapter: s.endChapter ?? position.chapter,
-      };
-    } else {
-      const mapped = remapPosition(s.endPercent, reading);
-      position = { page: mapped.page, percent: s.endPercent, minutes: mapped.minutes, chapter: s.endChapter ?? position.chapter };
-    }
+    // Percent-tracked readings keep the raw share. Audio sessions keep native
+    // minutes; print sessions keep pages in their own edition. Other counters
+    // are derived, so stale page/minute caches cannot override that authority.
+    const rawPercent = reading.unit === "percent" && s.endPercent != null;
+    const audioMinutes = !rawPercent && (s.format === "audio" || reading.unit === "minutes" && s.format === reading.format) && s.endMinutes != null;
+    const pagePercent = s.editionId === reading.editionId && s.endPage != null
+      && reading.totalPages != null && (s.pagesTotal !== reading.totalPages || s.endPercent == null)
+      ? percentOf({ page: s.endPage }, reading) : s.endPercent;
+    const pageMapped = remapPosition(pagePercent, reading);
+    const end = rawPercent ? remapPosition(s.endPercent, reading)
+      : audioMinutes ? positionInUnit({ minutes: s.endMinutes, percent: s.endPercent }, "minutes", reading)
+      : s.editionId === reading.editionId
+        ? { ...pageMapped, page: s.endPage ?? pageMapped.page, minutes: pageMapped.minutes ?? s.endMinutes }
+        : remapPosition(s.endPercent, reading);
+    if (s.source === "reader" && end.percent != null && position.percent != null && end.percent < position.percent) continue;
+    lastPositionSession = s;
+    position = { ...end, chapter: s.endChapter ?? position.chapter };
   }
-  return { starts, position };
+  // Chapter is also editable on the reading: an explicit unknown chapter stays unknown
+  // while the latest log has none. Deleting that log can reveal an earlier named chapter.
+  if (reading.currentChapter === null && lastPositionSession?.endChapter === null) position.chapter = null;
+  // With no contributing session, chapter remains the reading's independent field.
+  if (!lastPositionSession) position.chapter = reading.currentChapter;
+  return { starts, position, lastPositionSession };
 }
 
 /** The statements that lock a reading and check it is the row the write was computed from */
@@ -384,7 +394,7 @@ export async function recordProgress(
     else given = sessionEditionId === reading.editionId ? { page: current.page, percent: current.percent, minutes: current.minutes } : { percent: current.percent };
     checkWithinTotals(given, sessionTotals);
     const end = completePosition(given, sessionTotals);
-    const chapter = input.chapter ?? null;
+    const chapter = input.chapter ?? (planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
     const now = new Date();
     // A timer keeps the zone and the reading day it started with
     const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
@@ -575,8 +585,72 @@ export async function recordProgress(
   }
 }
 
+/** An Edit reading correction keeps the latest log's identity and timing, even when moving forward. */
+export function correctLastLog(
+  reading: Reading,
+  sessions: Session[],
+  position?: { page?: number; percent?: number; minutes?: number },
+  chapter?: string | null,
+) {
+  const ordered = sessionOrder(sessions);
+  const latest = ordered.at(-1);
+  if (!latest)
+    throw new Error(
+      "Log progress once before editing the current position or chapter",
+    );
+  if (sessions.some(isRunningTimer))
+    throw new Error(
+      "Stop or discard the timer before editing the current position or chapter",
+    );
+  checkWithinTotals(position ?? {}, reading);
+  const end = positionChanges(position, currentOf(reading), reading) ? completePosition(position!, reading) : null;
+  // A latest log in another edition keeps its own page count and format.
+  const mapped =
+    end && latest.editionId !== reading.editionId
+      ? completePosition(
+          { percent: end.percent },
+          { totalPages: latest.pagesTotal, totalMinutes: reading.totalMinutes },
+        )
+      : end;
+  if (end && latest.editionId !== reading.editionId && end.percent === null)
+    throw new Error(
+      "Give a percent, or add the total, to correct a log in another edition",
+    );
+  // A chapter belongs at the effective place. Behind-progress reader logs did not
+  // move that place, so a chapter-only edit targets the last contributing session.
+  const target = !end && chapter !== undefined
+    ? planPositions(reading, ordered).lastPositionSession : latest;
+  // A reading can have logs without any of them setting its place. Its chapter
+  // belongs on the reading, not on an ignored reader log.
+  if (!target) return { corrected: latest, sessions, writeSession: false };
+  const corrected = {
+    ...target,
+    // An explicit correction is manual: automatic reader updates alone must not move behind earlier progress.
+    source: end && target.source === "reader" ? "manual" as const : target.source,
+    ...(mapped
+      ? {
+          endPage: mapped.page,
+          endPercent: mapped.percent,
+          endMinutes: mapped.minutes,
+          ...(latest.editionId === reading.editionId
+            ? { pagesTotal: reading.totalPages }
+            : {}),
+        }
+      : {}),
+    ...(chapter !== undefined ? { endChapter: chapter } : {}),
+  };
+  const next = sessions.map((s) => (s.id === target.id ? corrected : s));
+  return { corrected, sessions: next, writeSession: true };
+}
+
 /** Recomputes session starts and an open reading's position after sessions changed */
-export function recomputeQueries(d: Db, reading: Reading, sessions: Session[], now = new Date()) {
+export function recomputeQueries(
+  d: Db,
+  reading: Reading,
+  sessions: Session[],
+  now = new Date(),
+  includeClosed = false,
+) {
   const ordered = sessionOrder(sessions);
   const plan = planPositions(reading, ordered);
   return [
@@ -584,7 +658,9 @@ export function recomputeQueries(d: Db, reading: Reading, sessions: Session[], n
     d
       .update(readings)
       .set({
-        ...(isOpenStatus(reading.status) ? positionValues(plan.position) : {}),
+        ...(isOpenStatus(reading.status) || includeClosed
+          ? positionValues(plan.position)
+          : {}),
         updatedAt: now,
       })
       .where(eq(readings.id, reading.id)),
