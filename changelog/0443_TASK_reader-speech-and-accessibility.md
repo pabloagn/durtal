@@ -9,7 +9,7 @@
 
 ## Overview
 
-SLN-508 adds sentence-by-sentence read aloud and complete keyboard/accessibility paths. The approved pure helpers start from reviewed reader source `626f4870`. The next source checkpoint adds a browser speech driver and unmounted player/accessibility components. The full ticket remains open; reader adapter/mounting, audits and deployment depend on accepted upstream runtime contracts and validation.
+SLN-508 adds sentence-by-sentence read aloud and complete keyboard/accessibility paths. The approved pure helpers start from reviewed reader source `626f4870`. The source checkpoints add a browser speech driver, reflowable extraction, and mounted player/accessibility components. The full ticket remains open; reader adapter/mounting, audits and deployment depend on accepted upstream runtime contracts and validation.
 
 ## Implementation Details
 
@@ -21,7 +21,7 @@ SLN-508 adds sentence-by-sentence read aloud and complete keyboard/accessibility
 
 Accepted root contracts: prepare lazy speech chunks and the first real sentence after reader first paint in bounded idle work; enable Start only after readiness; keep native first speak synchronous in the trusted handler and measure preparation separately. Five empty sampled PDF pages mean sampled absence, never proof of an entirely textless document; capabilities must recover when mixed/sparse PDF text is discovered. Physical device/screen-reader evidence must be distinguished from browser observations.
 
-No schema, migration, dependency, reader adapter, backend, AWS or live data changes are included in these source checkpoints.
+No schema, migration, dependency, backend, AWS or live data changes are included in these source checkpoints.
 
 ## Completion Notes
 
@@ -50,3 +50,17 @@ Unmounted player components reuse existing app popover/dialog controls, provide 
 Reviewed SLN-502's proposed `pdfPageText({ fileHash, pageIndex, signal })` and `locatorForPdfTextOffsets({ fileHash, pageIndex, signal, start, end })` contract. Speech offsets must remain UTF-16 offsets in the exact source text; a missing measured locator is null, never invented glyph geometry. Each speech extraction owns only its cancellation/measurement lease and cannot cancel visible PDF rendering or shared document transport. This checkpoint does not implement or pretend to use that unimplemented provider.
 
 Lightweight source validation: 14 native-driver test-double cases and 12 React/DOM component cases pass without skips. These checks establish callback ownership and component behavior, not native browser, screen-reader, touch-device, viewport/alignment or performance evidence. Full/heavy gates remain reserved to the root slot.
+
+
+### Reader mounting on approved navigation source
+
+Normal-merged exact independently approved SLN-499 `f1c4cadf994592755b3ac214f291c9e4e7fc1eea` (merge `b71f6519`), preserving speech source checkpoint `e1727f92` and approved pure `053960b4`. No primary-checkout changes or history rewrites.
+
+- Foliate now concretely implements optional `prepareSpeech({ target, signal })` for reflowable formats. It walks real text nodes, segments per block/language with `Intl.Segmenter`, creates exact CFI/range locators, and returns bounded current/previous/next sentence records. Traversal yields after 128 nodes or an 8 ms slice; a pathological block above one million characters fails visibly. It holds no persistent document/sentence cache, never reads image alt text, excludes semantic notes/page markers/ruby readings, rejects another file's anchor, and skips non-linear sections in automatic extraction. Requests own late delivery and do not destroy or move the renderer. Live visible ranges and explicit containing locators have focused regressions, including a reproduced/fixed boundary-comparison error.
+- The coordinator lazy-loads after first reader paint/idle scheduling, prepares actual text before enabling Start, then invokes native speak directly in the trusted handler. Latest `reader-speech-preparation` and `reader-speech-start` Performance entries separate extraction from the native start callback; no performance budget is asserted without native measurements.
+- `speechTo` uses the existing navigation ownership/paint/recovery path with a speech origin. It reanchors current history without human jump steps and suppresses activity/EOF publication. The reader updates actual context, sync place and position queue, while avoiding tracker location/activity/end events and pace samples. Human navigation cancels speech/extraction immediately, preserves already-authorized playback intent until the painted landing, and resumes only prepared landing text. Hidden/disposed/stale work cannot resume.
+- Player and announcer are mounted. Actual key routing handles a/comma/period and reserves Escape layering. Menus own input, the player reports actual height, the book reserves its occupied inset, and speed/voice choices retain actual preference storage. Focus restoration and reduced-motion classes reuse app controls.
+
+Final source checkpoint validation: **163 passed, 0 failed, 0 skipped across 13 affected lightweight suites**; scoped TypeScript (including adapter/reader integration), scoped zero-warning ESLint, formatting and whitespace checks pass. Test doubles/DOM checks are not native browser or physical screen-reader/device evidence.
+
+Still gated: measured PDF text/capability recovery from SLN-502; independent speech decoration groups/paused selection from SLN-500; non-semantic note detection and note/table keyboard paths from SLN-503; completed presentation/contrast/inset contracts from SLN-501. No fake geometry or competing PDF text API was added. Full keyboard/accessibility ticket completion, native three-engine/three-width audits, real performance budgets, zero-skip full DB suite, full static/build/CI gates and deployment remain unclaimed and root-controlled.

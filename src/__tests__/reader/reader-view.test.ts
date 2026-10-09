@@ -561,3 +561,111 @@ describe("reader view with a real bridge and fake engine", () => {
     expect(fake.engine.clearSelection).not.toHaveBeenCalled();
   });
 });
+
+it("mounted speech saves a painted location without tracker activity, pace events or completion", async () => {
+  class Utterance extends EventTarget {
+    lang = "";
+    rate = 1;
+    voice: SpeechSynthesisVoice | null = null;
+    constructor(public text: string) {
+      super();
+    }
+  }
+  const platform = Object.assign(new EventTarget(), {
+    paused: false,
+    getVoices: () =>
+      [
+        {
+          voiceURI: "en",
+          name: "English",
+          lang: "en",
+          localService: true,
+          default: true,
+        },
+      ] as SpeechSynthesisVoice[],
+    speak: vi.fn(),
+    cancel: vi.fn(),
+    resume: vi.fn(),
+  });
+  vi.stubGlobal("speechSynthesis", platform);
+  vi.stubGlobal("SpeechSynthesisUtterance", Utterance);
+  vi.stubGlobal("requestIdleCallback", (callback: () => void) => {
+    callback();
+    return 1;
+  });
+  const reader: import("@/lib/reader/engine").ReaderEngine = fake.engine;
+  const current = {
+    text: "A real prepared sentence.",
+    lang: "en",
+    locator: {
+      ...own.locator,
+      cfi: "speech-sentence",
+      progression: 0.9,
+      totalProgression: 0.9,
+    },
+  };
+  reader.prepareSpeech = vi.fn(async () => ({
+    current,
+    previous: null,
+    next: null,
+  }));
+  fake.engine.goTo.mockImplementation(async (target, owner) => {
+    if (!("v" in target)) return;
+    fake.emit("relocate", {
+      locator: target,
+      chapter: "Speech chapter",
+      reason: "jump",
+      origin: owner?.origin,
+      navigationId: owner?.id,
+      atEnd: true,
+      activity: "turn",
+      tocItem: null,
+      visibleChars: 300,
+      linear: true,
+      paginated: true,
+    });
+  });
+  expect(window.speechSynthesis).toBe(platform);
+  expect(window.SpeechSynthesisUtterance).toBe(Utterance);
+  await render();
+  await settle();
+  // Separate act boundaries let the real lazy module and React's reveal commit.
+  for (
+    let n = 0;
+    n < 40 && !host.querySelector('button[aria-label="Read aloud"]');
+    n++
+  )
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+  const start = host.querySelector<HTMLButtonElement>(
+    'button[aria-label="Read aloud"]',
+  )!;
+  expect(reader.prepareSpeech).toHaveBeenCalled();
+  expect(start).not.toBeNull();
+  expect(start.disabled).toBe(false);
+  expect(platform.speak).not.toHaveBeenCalled();
+  report.mockClear();
+  act(() => start.click());
+  expect(platform.speak).toHaveBeenCalledOnce();
+  expect((platform.speak.mock.calls[0][0] as Utterance).text).toBe(
+    current.text,
+  );
+  act(() =>
+    (platform.speak.mock.calls[0][0] as Utterance).dispatchEvent(
+      new Event("start"),
+    ),
+  );
+  await settle();
+  expect(host.querySelector("[data-reader-probe]")!.textContent).toBe("90");
+  expect(
+    report.mock.calls.filter(([name]) =>
+      ["activity", "location", "end"].includes(name),
+    ),
+  ).toEqual([]);
+  act(() => window.dispatchEvent(new Event("pagehide")));
+  const beacon = vi.mocked(navigator.sendBeacon).mock.calls.at(-1)!;
+  expect(JSON.parse(await (beacon[1] as Blob).text()).locator.cfi).toBe(
+    "speech-sentence",
+  );
+});

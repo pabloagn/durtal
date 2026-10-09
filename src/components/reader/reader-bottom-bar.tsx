@@ -51,6 +51,7 @@ export function ReaderBottomBar({
   );
   return (
     <footer
+      data-reader-bottom-bar
       data-reader-chrome
       data-reader-index={index?.complete ? "ready" : "pending"}
       inert={!visible}

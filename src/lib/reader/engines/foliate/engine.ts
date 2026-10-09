@@ -1,4 +1,8 @@
 import type {
+  SpeechPreparation,
+  SpeechSegment,
+} from "@/lib/reader/speech/player";
+import type {
   BookInfo,
   BookSource,
   DurtalLocator,
@@ -586,6 +590,192 @@ class FoliateEngine implements ReaderEngine {
       return { range: selection.getRangeAt(0), index, text };
     }
     return null;
+  }
+
+  async prepareSpeech({
+    target,
+    signal,
+  }: {
+    target: SpeechPreparation;
+    signal: AbortSignal;
+  }) {
+    const book = this.#book,
+      view = this.#view,
+      source = this.#source;
+    if (
+      !book ||
+      !view ||
+      !source ||
+      this.#destroyed ||
+      this.#isPdf() ||
+      source.format === "cbz"
+    )
+      return { current: null, previous: null, next: null };
+    const { domSpeechSentences } =
+      await import("@/lib/reader/speech/dom-sentences");
+    signal.throwIfAborted();
+    const requested = target.kind === "adjacent" ? target.locator : target.from;
+    if (requested !== "visible" && requested.fileHash !== source.sha256)
+      throw new Error("That speech place belongs to another file.");
+    const index =
+      requested === "visible"
+        ? (this.#locator?.sectionIndex ?? 0)
+        : requested.sectionIndex;
+    const visible = view.renderer
+      .getContents()
+      .find((item) => item.index === index)?.doc;
+    const liveRange = requested === "visible" ? view.lastLocation?.range : null;
+    if (requested !== "visible" && !requested.cfi)
+      throw new Error("That speech place has no exact text anchor.");
+    const anchorCfi =
+      requested === "visible" ? this.#locator?.cfi : requested.cfi;
+    const resolved = anchorCfi ? view.resolveNavigation(anchorCfi) : null;
+    const fractions = view.getSectionFractions();
+    const nextIndex = (at: number, direction: -1 | 1) => {
+      for (
+        let n = at + direction;
+        n >= 0 && n < book.sections.length;
+        n += direction
+      )
+        if (book.sections[n].linear !== "no") return n;
+      return null;
+    };
+    const sentences = async function* (at: number, engine: FoliateEngine) {
+      signal.throwIfAborted();
+      const section = book.sections[at];
+      const doc =
+        (at === index ? visible : undefined) ??
+        (await section.createDocument?.());
+      signal.throwIfAborted();
+      if (!doc || engine.#destroyed || engine.#book !== book) return;
+      for await (const sentence of domSpeechSentences(
+        doc,
+        engine.#info?.language ?? null,
+        signal,
+      )) {
+        const progress = view.getProgressOf(at, sentence.range);
+        const cfi = view.getCFI(at, sentence.range);
+        const locator: DurtalLocator = {
+          v: 1,
+          fileHash: source.sha256,
+          href: String(section.id),
+          sectionIndex: at,
+          progression:
+            at === engine.#locator?.sectionIndex
+              ? engine.#locator.progression
+              : 0,
+          totalProgression: fractions[at] ?? 0,
+          cfi,
+          text: {
+            ...quoteFromSelection(sentence.range),
+            highlight: sentence.text,
+          },
+          ...(progress?.tocItem?.label
+            ? { tocLabel: progress.tocItem.label }
+            : {}),
+          ...(progress?.pageItem?.label
+            ? { pageLabel: progress.pageItem.label }
+            : {}),
+        };
+        yield {
+          segment: { text: sentence.text, lang: sentence.lang, locator },
+          range: sentence.range,
+          doc,
+        };
+      }
+    };
+    let previous: SpeechSegment | null = null,
+      current: SpeechSegment | null = null,
+      next: SpeechSegment | null = null;
+    let anchor: Range | null = null,
+      matched = false;
+    for await (const item of sentences(index, this)) {
+      if (!anchor) {
+        if (
+          requested === "visible" &&
+          liveRange?.startContainer.ownerDocument === item.doc
+        )
+          anchor = liveRange;
+        else if (resolved?.index === index && resolved.anchor) {
+          const node = resolved.anchor(item.doc);
+          if ("nodeType" in node) {
+            anchor = item.doc.createRange();
+            anchor.selectNodeContents(node);
+          } else anchor = node;
+        }
+      }
+      if (current) {
+        next = item.segment;
+        break;
+      }
+      if (matched) {
+        current = item.segment;
+        continue;
+      }
+      if (!anchor && requested === "visible")
+        return { current: null, previous: null, next: null };
+      const same =
+        requested !== "visible" && item.segment.locator.cfi === requested.cfi;
+      const end = item.range.cloneRange();
+      end.collapse(false);
+      const reached = anchor
+        ? end.comparePoint(anchor.startContainer, anchor.startOffset) < 0
+        : same || requested === "visible";
+      if (reached) {
+        const start = item.range.cloneRange();
+        start.collapse(true);
+        if (
+          requested === "visible" &&
+          anchor &&
+          anchor === liveRange &&
+          item.range.comparePoint(anchor.endContainer, anchor.endOffset) < 0
+        )
+          return { current: null, previous: null, next: null };
+        if (target.kind === "adjacent" && target.direction === "previous") {
+          current = previous;
+          next = item.segment;
+          previous = null;
+          break;
+        }
+        if (target.kind === "adjacent") {
+          matched = true;
+          previous = item.segment;
+        } else current = item.segment;
+      } else previous = item.segment;
+    }
+    if (target.kind === "from" && !current)
+      return { current: null, previous: null, next: null };
+    // Cross-section extraction owns no renderer movement and skips non-linear spine entries.
+    if (
+      !current &&
+      target.kind === "adjacent" &&
+      target.direction === "previous"
+    ) {
+      let at = nextIndex(index, -1);
+      while (at !== null && !current) {
+        for await (const item of sentences(at, this)) {
+          previous = current;
+          current = item.segment;
+        }
+        at = nextIndex(at, -1);
+      }
+    } else if (!current || !next) {
+      let at = nextIndex(index, 1);
+      while (at !== null && !next) {
+        for await (const item of sentences(at, this)) {
+          if (!current) current = item.segment;
+          else {
+            next = item.segment;
+            break;
+          }
+        }
+        at = nextIndex(at, 1);
+      }
+    }
+    signal.throwIfAborted();
+    if (this.#destroyed || this.#book !== book)
+      throw new DOMException("Closed", "AbortError");
+    return { current, previous, next };
   }
 
   locatorFromSelection(): DurtalLocator | null {

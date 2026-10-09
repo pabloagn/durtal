@@ -67,6 +67,7 @@ export type SpeechAction =
     }
   | { kind: "preparation-failed"; generation: number; message: string }
   | { kind: "play" }
+  | { kind: "navigation-started" }
   | { kind: "pause" }
   | { kind: "hidden" }
   | { kind: "stop" }
@@ -298,6 +299,20 @@ export function transitionSpeechPlayer(
       return state.phase === "ready" || state.phase === "paused"
         ? begin({ ...state, retry: 0 }, true)
         : result(state);
+    case "navigation-started":
+      return result(
+        {
+          ...state,
+          generation: nextSpeechGeneration(state.generation),
+          phase: "preparing",
+          autoPlay: activePlayback(state),
+          preparation: null,
+          active: null,
+          queued: null,
+          started: false,
+        },
+        [{ kind: "cancel" }],
+      );
     case "pause":
     case "hidden":
       return pause(state);

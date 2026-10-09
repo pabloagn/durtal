@@ -14,6 +14,10 @@ const location = (
   reason: "turn" | "jump" = "turn",
 ): EngineEvents["relocate"] => ({
   reason,
+  tocItem: null,
+  visibleChars: 100,
+  linear: true,
+  paginated: true,
   chapter: "Chapter two",
   atEnd: false,
   locator: {
@@ -104,4 +108,13 @@ describe("reader polite announcements", () => {
     root = createRoot(host);
     expect(vi.getTimerCount()).toBe(0);
   });
+});
+
+it("does not announce speech or layout movement as a chapter jump", () => {
+  expect(
+    readerLocationAnnouncement({ ...location("12", "jump"), origin: "speech" }),
+  ).toBe("");
+  expect(
+    readerLocationAnnouncement({ ...location("12", "jump"), origin: "layout" }),
+  ).toBe("");
 });

@@ -1,3 +1,4 @@
+import type { SpeechPreparation, SpeechSegment } from "./speech/player";
 /**
  * The reader's engine interface (eBooks sub-issue 3, the epic's contract).
  * Everything in the reader talks to a ReaderEngine; only the foliate adapter
@@ -195,6 +196,15 @@ export interface OpenOptions {
 }
 
 export interface ReaderEngine {
+  /** Adapter-owned exact text extraction. Aborting it never cancels visible rendering. */
+  prepareSpeech?(request: {
+    target: SpeechPreparation;
+    signal: AbortSignal;
+  }): Promise<{
+    current: SpeechSegment | null;
+    previous: SpeechSegment | null;
+    next: SpeechSegment | null;
+  }>;
   /** Opens the book and goes to `at` (resolved) or to the start */
   open(
     source: BookSource,

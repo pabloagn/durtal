@@ -599,3 +599,29 @@ describe("pure speech player lifecycle", () => {
     ).toEqual([]);
   });
 });
+
+it("holds owned human navigation intent without speaking the old page and cancels autoplay on hide", () => {
+  const p = started();
+  const old = p.token();
+  expect(p.send({ kind: "navigation-started" })).toEqual([{ kind: "cancel" }]);
+  expect(p.state()).toMatchObject({
+    phase: "preparing",
+    autoPlay: true,
+    preparation: null,
+    active: null,
+    queued: null,
+  });
+  expect(p.send({ kind: "ended", token: old })).toEqual([]);
+  p.send({ kind: "hidden" });
+  p.send({
+    kind: "prepare",
+    target: { kind: "from", from: "visible" },
+    autoPlay: true,
+  });
+  const commands = p.send({
+    kind: "prepared",
+    generation: p.state().generation,
+    current: sentence(4),
+  });
+  expect(commands.some((command) => command.kind === "speak")).toBe(false);
+});

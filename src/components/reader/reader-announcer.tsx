@@ -10,6 +10,7 @@ const pageOrPercent = (location: Location, jump: boolean) => {
   return `${Math.round(Math.max(0, Math.min(1, location.locator.totalProgression)) * 100)}%`;
 };
 export function readerLocationAnnouncement(location: Location): string {
+  if (location.origin === "speech" || location.origin === "layout") return "";
   if (location.reason !== "jump" && location.reason !== "turn") return "";
   const page = pageOrPercent(location, location.reason === "jump");
   return location.reason === "jump" && location.chapter

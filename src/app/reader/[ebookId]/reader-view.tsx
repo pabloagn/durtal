@@ -1,4 +1,6 @@
 "use client";
+import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
+import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 
 import {
   useCallback,
@@ -73,6 +75,16 @@ import {
   presentationFrom,
   resolveThemeColors,
 } from "@/lib/reader/presentation";
+const SpeechControls = lazy(() =>
+  import("@/components/reader/speech-player").then((module) => ({
+    default: module.SpeechPlayer,
+  })),
+);
+const SpeechStart = lazy(() =>
+  import("@/components/reader/speech-player").then((module) => ({
+    default: module.SpeechStartButton,
+  })),
+);
 const GoToDialog = lazy(() =>
   import("@/components/reader/goto-dialog").then((module) => ({
     default: module.GoToDialog,
@@ -159,7 +171,7 @@ function samePlace(a: DurtalLocator | null, b: DurtalLocator | null): boolean {
 
 const isBlocked = () =>
   !!document.querySelector(
-    'dialog[open]:not([data-reader-side-panel]), dialog[open][data-reader-modal], [data-reader-running-lines][data-open="true"], [cmdk-root]',
+    'dialog[open]:not([data-reader-side-panel]), dialog[open][data-reader-modal], [data-reader-running-lines][data-open="true"], [cmdk-root], [role="menu"]',
   );
 
 /**
@@ -239,6 +251,10 @@ function ReaderSession({
   const [index, setIndex] = useState<PositionIndex | null>(null);
   const indexRef = useRef<PositionIndex | null>(null);
   const navigationRef = useRef<ReaderNavigation | null>(null);
+  const speechRef = useRef<ReaderSpeech | null>(null);
+  const [speech, setSpeech] = useState<SpeechSnapshot | null>(null);
+  const [speechHeight, setSpeechHeight] = useState(0);
+  const [bottomHeight, setBottomHeight] = useState(0);
   const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
     null,
   );
@@ -494,7 +510,14 @@ function ReaderSession({
         setShortcutsOpen(true);
       },
       chapter: chapterStep,
+      speech: () => speechRef.current?.toggle(),
+      sentence: (direction) =>
+        speechRef.current?.action({ kind: "skip", direction }),
       escape: () => {
+        if (speechRef.current?.snapshot.open) {
+          speechRef.current.action({ kind: "stop" });
+          return;
+        }
         if (document.fullscreenElement)
           void document.exitFullscreen().catch(() => {});
       },
@@ -556,6 +579,8 @@ function ReaderSession({
         contents: () => actions.current?.contents(),
         settings: () => actions.current?.settings(),
         fullscreen: () => actions.current?.fullscreen(),
+        speech: () => actions.current?.speech?.(),
+        sentence: (direction) => actions.current?.sentence?.(direction),
         goto: () => actions.current?.goto?.(),
         chapter: (direction) => actions.current?.chapter?.(direction),
         shortcuts: () => actions.current?.shortcuts?.(),
@@ -718,6 +743,7 @@ function ReaderSession({
         const publish = (relocation: EngineEvents["relocate"]) => {
           const { locator, chapter: label, reason, atEnd } = relocation;
           setRelocation(relocation);
+          speechRef.current?.relocate(relocation);
           setChapter(label);
           setPercent(Math.round(locator.totalProgression * 100));
           bridge.update({
@@ -730,6 +756,20 @@ function ReaderSession({
             (relocation.origin && relocation.origin !== "human")
           ) {
             paceRef.current?.interrupt();
+            if (opened && relocation.origin === "speech") {
+              save(locator, label);
+              sync.localPlace({
+                deviceId: deviceId ?? "",
+                deviceLabel: "Browser",
+                thisDevice: true,
+                fileId: file.id,
+                locator,
+                progression: locator.totalProgression,
+                furthestProgression: locator.totalProgression,
+                chapter: label,
+                clientUpdatedAt: new Date().toISOString(),
+              });
+            }
             return;
           }
           paceRef.current?.arrive(
@@ -770,6 +810,8 @@ function ReaderSession({
         const navigation = createReaderNavigation({
           engine,
           commit: publish,
+          beforeHuman: () => speechRef.current?.beginNavigation(),
+          afterHuman: () => speechRef.current?.navigationSettled(),
           changed: () => historyChanged((value) => value + 1),
           interrupt: () => paceRef.current?.interrupt(),
           fatal: () =>
@@ -888,8 +930,48 @@ function ReaderSession({
           "alt arrowleft",
           "alt arrowright",
           "?",
+          ...(indexRef.current?.info.capabilities.tts && engine.prepareSpeech
+            ? ["a", ",", "."]
+            : []),
           ...(document.fullscreenEnabled ? ["f"] : []),
         ]);
+        // Wait for first paint, then load speech and prepare real text in a bounded idle task.
+        if (indexRef.current?.info.capabilities.tts && engine.prepareSpeech) {
+          requestAnimationFrame(() => {
+            if (cancelled) return;
+            const load = () => {
+              if (cancelled) return;
+              void import("@/lib/reader/speech/session")
+                .then(({ createReaderSpeech }) => {
+                  if (
+                    cancelled ||
+                    !engine ||
+                    !window.speechSynthesis ||
+                    !window.SpeechSynthesisUtterance
+                  )
+                    return;
+                  speechRef.current = createReaderSpeech({
+                    engine,
+                    navigation,
+                    bookLanguage:
+                      ebook.language ?? indexRef.current?.info.language ?? null,
+                    synthesis: window.speechSynthesis,
+                    Utterance: window.SpeechSynthesisUtterance,
+                    document,
+                    storage: localStorageOrNull(),
+                    changed: setSpeech,
+                  });
+                  speechRef.current.prepare();
+                })
+                .catch(() => {
+                  /* Reader remains usable when the speech chunk fails. */
+                });
+            };
+            if (window.requestIdleCallback)
+              window.requestIdleCallback(load, { timeout: 1000 });
+            else setTimeout(load, 0);
+          });
+        }
         let indexing = false;
         postponeIndex = () => {
           if (indexing || cancelled) return;
@@ -970,12 +1052,32 @@ function ReaderSession({
       navigationRef.current = null;
       paceRef.current?.interrupt();
       input.destroy();
+      speechRef.current?.destroy();
+      speechRef.current = null;
       engine?.destroy();
       engineRef.current = null;
     };
     // A new file or a retry opens the book again; the place is read once per open
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.id]);
+
+  useEffect(() => {
+    const frame = bookRef.current;
+    if (frame)
+      frame.style.bottom = `${speechHeight ? speechHeight + (bars.visible ? bottomHeight : 0) : 0}px`;
+  }, [speechHeight, bars.visible, bottomHeight]);
+  useEffect(() => {
+    const bottom = document.querySelector<HTMLElement>(
+      "[data-reader-bottom-bar]",
+    );
+    if (!bottom) return;
+    const measure = () =>
+      setBottomHeight(bottom.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bottom);
+    return () => observer.disconnect();
+  }, []);
 
   const pick = useCallback(
     (href: string) => navigate({ href }, "contents"),
@@ -1029,6 +1131,21 @@ function ReaderSession({
       bars={
         <>
           <ReaderToolbar
+            speechControl={
+              speech &&
+              !speech.open && (
+                <Suspense fallback={null}>
+                  <SpeechStart
+                    ready={
+                      !!speech.state.current &&
+                      (speech.state.phase === "ready" ||
+                        speech.state.phase === "paused")
+                    }
+                    onStart={() => speechRef.current?.toggle()}
+                  />
+                </Suspense>
+              )
+            }
             visible={bars.visible}
             title={ebook.title}
             chapter={chapter}
@@ -1089,8 +1206,40 @@ function ReaderSession({
         </>
       }
     >
+      <ReaderAnnouncer
+        location={relocation}
+        speechPhase={speech?.state.phase ?? "stopped"}
+      />
+      {speech && (
+        <Suspense fallback={null}>
+          <SpeechControls
+            open={speech.open}
+            state={speech.state}
+            voices={speech.voices}
+            preferences={speech.preferences}
+            bookLanguage={ebook.language ?? index?.info.language ?? null}
+            bottomInset={bars.visible ? bottomHeight : 0}
+            onAction={(action) => {
+              speechRef.current?.action(action);
+              if (action.kind === "stop") {
+                bars.show();
+                queueMicrotask(() =>
+                  document
+                    .querySelector<HTMLButtonElement>(
+                      'button[aria-label="Read aloud"]',
+                    )
+                    ?.focus({ preventScroll: true }),
+                );
+              }
+            }}
+            onPreferences={(next) => speechRef.current?.preferences(next)}
+            onHeightChange={setSpeechHeight}
+          />
+        </Suspense>
+      )}
       <ReaderNotice bridge={bridge}>
         {notice ??
+          (speech && !speech.open ? speech.state.message : null) ??
           (offer && file ? (
             <div className="flex flex-wrap items-center gap-2">
               <p className="min-w-0 flex-1">

@@ -99,6 +99,8 @@ export function createNativeSpeechSpeaker(options: {
       generation = token.generation;
       sequence = -1;
     }
+    const firstInGeneration = sequence < 0;
+    const requestedAt = performance.now();
     sequence = token.utterance;
     if (doc.visibilityState === "hidden") {
       hidden();
@@ -156,6 +158,13 @@ export function createNativeSpeechSpeaker(options: {
     const onStart = () => {
       if (started || !pending.has(id)) return;
       started = true;
+      if (firstInGeneration) {
+        performance.clearMeasures("reader-speech-start");
+        performance.measure("reader-speech-start", {
+          start: requestedAt,
+          end: performance.now(),
+        });
+      }
       // Native queue advancement is stronger than a missing predecessor end callback.
       // Retire its handlers/deadline without fabricating an end event.
       for (const [previousId, previous] of pending) {

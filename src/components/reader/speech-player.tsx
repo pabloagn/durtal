@@ -8,6 +8,7 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { SpeechOptionsMenu } from "./speech-options-menu";
 import { SpeechVoiceMenu } from "./speech-voice-menu";
@@ -63,13 +64,15 @@ export function SpeechStartButton({
   onStart(): void;
 }) {
   return (
-    <Control label="Read aloud" keys="a" disabled={!ready} onClick={onStart}>
-      <AudioLines className="size-4" strokeWidth={1.5} aria-hidden="true" />
-    </Control>
+    <CapAligned height={32} coarseHeight={44}>
+      <Control label="Read aloud" keys="a" disabled={!ready} onClick={onStart}>
+        <AudioLines className="size-4" strokeWidth={1.5} aria-hidden="true" />
+      </Control>
+    </CapAligned>
   );
 }
 
-/** Unmounted until the reader supplies its real preparation/navigation/decoration contracts. */
+/** Persistent reader speech controls; state and effects belong to the session coordinator. */
 export function SpeechPlayer({
   open,
   state,
