@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import {
   Bold,
   Italic,
@@ -37,6 +37,8 @@ function ToolbarButton({
   return (
     <button
       type="button"
+      // Keep the passage selected when a pointer presses a formatting tool.
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       aria-label={label}
       data-tooltip={label}
@@ -57,6 +59,14 @@ export function RichTextEditor({
   disabled = false,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+
+  // The browser owns the caret and selection while typing. Replacing its
+  // HTML on every React render moves the caret back to the start. Only sync
+  // a value that came from outside (initial content, reset or another person).
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (editor && editor.innerHTML !== value) editor.innerHTML = value;
+  }, [value]);
 
   const exec = useCallback(
     (command: string, val?: string) => {
@@ -152,6 +162,9 @@ export function RichTextEditor({
       <div
         ref={editorRef}
         contentEditable={!disabled}
+        role="textbox"
+        aria-label={label}
+        aria-multiline="true"
         onInput={handleInput}
         onPaste={handlePaste}
         onFocus={handleFocus}
@@ -159,7 +172,6 @@ export function RichTextEditor({
         style={{ minHeight }}
         data-placeholder={placeholder}
         suppressContentEditableWarning
-        dangerouslySetInnerHTML={{ __html: value }}
       />
     </div>
   );

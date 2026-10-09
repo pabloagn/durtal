@@ -150,11 +150,17 @@ export function EditionDetailCard({
                   </span>
                 )}
               </h3>
+              <div id={`edition-${edition.id}`} className="mt-1.5 scroll-mt-8">
+                <EditionPublishers
+                  editionId={edition.id}
+                  confirmed={edition.publisherLinksConfirmed}
+                  publicationNames={[edition.publisher, edition.imprint].filter(
+                    (name): name is string => !!name,
+                  )}
+                  linked={edition.publisherLinks?.map((l) => l.publisher)}
+                />
+              </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
-                {edition.publisher && <span>{edition.publisher}</span>}
-                {edition.imprint && edition.imprint !== edition.publisher && (
-                  <span className="text-fg-secondary">{edition.imprint}</span>
-                )}
                 {edition.publicationYear && (
                   <span className="font-mono">{edition.publicationYear}</span>
                 )}
@@ -204,13 +210,7 @@ export function EditionDetailCard({
                 )}
               </div>
             )}
-            <div id={`edition-${edition.id}`} className="scroll-mt-8">
-              <EditionPublishers
-                editionId={edition.id}
-                confirmed={edition.publisherLinksConfirmed}
-                linked={edition.publisherLinks?.map((l) => l.publisher)}
-              />
-            </div>
+
             {hasActionProps && (
               <div
                 role="group"

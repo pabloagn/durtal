@@ -1,6 +1,6 @@
 # Task 0418: Layout and typography hierarchy
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-09
 **Priority**: HIGH
 **Type**: Enhancement
@@ -17,6 +17,10 @@ SLN-563 establishes a clearer edition composition and applies the same metadata 
 - Publication details and copy acquisition, digital and disposition details share `DetailFacts`: intrinsic label widths, aligned baselines, readable 14px values and wrapping long data. Card header and body content use the same 20px inset.
 - Edition and copy forms share `FormSection` and `FormColumns`. Functional field groups use the established 21px sans role, predictable 16px spacing, accessible disclosure state and cap-aligned chevrons. Columns listen to the form container, stacking below 440px; three-column dimensions appear only above 560px.
 - Address-mode tab icons align with the first cap height when labels wrap on phones. Person approximate-date labels provide 44px touch areas, and the biography toolbar wraps with separate 44px touch buttons while retaining desktop geometry. The shared address picker covers location creation/editing; the biography editor is used only by person creation/editing.
+- Display-settings list columns now respond to their container width: the 768px viewport with a 6px scrollbar previously overflowed by 3px. All eight list choices, labels and preferences remain intact.
+- Runtime checks corrected edition quote-row inset and intrinsic metadata label widths. Exact raw/linked publisher names share one linked display; distinct publisher, imprint and canonical names remain complete. Closed publisher search no longer references a missing listbox; long alias labels can shrink and wrap within the editor in WebKit, with the entire checkbox label acting as the touch target and showing keyboard focus.
+- Biography typing/formatting verification exposed repeated HTML replacement resetting the caret. The editor now syncs external values only when different, preserving forward typing and selection; pointer toolbar actions keep the selection, and the editor has its existing Biography label as its accessible name.
+- Equivalent film/perfume/painting create-form inspection found legacy Add/Unknown targets only 24px tall. Their existing targets now reach 44px on coarse pointers while retaining desktop dimensions, labels and payloads. Selected publisher chips also provide a 44px remove target on touch, cap-aligned with the first line and contained within the chip; long names wrap in full.
 - Shared page headers use the established 32px section rhythm, keep long identities within the available width and give supporting text a readable measure.
 
 ### Surface audit and affected call sites
@@ -31,15 +35,20 @@ SLN-563 establishes a clearer edition composition and applies the same metadata 
 | Record side panels on books, people, publishers, series, places and other detail pages | Existing stacked 14px labels, 16px values, 16px inset and quiet dividers already establish clear rank. Preserve `RecordPanel`, `RecordGroup` and `RecordFields`. |
 | Film versions/copies, perfume formulations/bottles, painting objects | Existing item titles, supporting metadata and nearby action menus already group subordinate records coherently. Preserve them. Their forms already stack narrow field grids. |
 | Location address mode tabs and person forms | Read-only baseline audit reproduced a 10.09px postal-tab first-line alignment error and nine undersized person controls (two date labels, seven biography tools). Fix the shared address-mode icon composition, date-label hit areas and biography toolbar reflow. Preserve all labels, payloads and desktop action dimensions. |
+| Display settings | Actual 768px/762px content width caused 3px overflow from the fixed list table. Its four-column layout now depends on 640px of container width; narrower content retains the existing two-column arrangement and all eight controls. |
 | Shared dialogs and image-adjustment controls | Preserve glass, fixed header/scrolling body, focus/Escape behavior and trial action/menu sizes. Image-adjustment redesign is separately scoped. |
 | Cards, prose and collection descriptions | Preserve the 208px readable card minimum, complete identifying text and existing bounded prose. Do not change shared truncation or card-height behavior. |
 
-Editorial deletions belong to SLN-559. No database schema, data-loading behavior, dependency, image-adjustment layout, action size or menu width changes.
+Editorial deletions belong to SLN-559. No database schema, data-loading behavior, dependency, image-adjustment layout, desktop action size or menu width changes.
 
 ## Completion Notes
 
-Initial static checks: typecheck passes; lint passes with 75 existing warnings and zero errors; 52 focused existing tests pass across eight files (copy labels/drafts, edition image selection, menus, glass, address utilities, person names and biography HTML). Before evidence captured on the reported book at desktop, tablet and phone widths.
+Implementation complete. Production build and typecheck pass. Repository lint passes with zero errors and 75 existing warnings. Ten focused suites pass (86 tests), including regression checks for biography caret/selection preservation and external content/reset synchronization.
 
-Expanded read-only baseline measurements at 390px: the postal tab was 10.09px off its wrapped label; both approximate-date labels were 24px tall and all seven biography tools were 28px square. Final rendered verification of these fixes is included in the pending disposable-app gates.
+Disposable-app rendering covered long, short and absent publication data, three richly described copies, edition/copy add/edit dialogs, shared page-header routes and equivalent create forms. Chrome used 1440, 768, 390 and 320px; WebKit used desktop and phone widths. A broad 180-state matrix exposed the publisher-editor findings; final 24-state short/long detail and editor checks pass after correction, including full-label clicks, Space toggling and visible keyboard focus. Eighteen additional wizard/settings/prose states pass. Twelve reported-book header/dialog checks use a disposable reconstruction of read-only visible metadata and unchanged copied media. Actual Inter, Cirka and EB Garamond fonts were loaded; nonempty geometry checks use a 0.5px tolerance, painted text is contained within its full control target, and adjacent controls do not overlap.
 
-Pending the coordinator's heavy-validation slot: production and Docker builds; disposable-app fixtures covering long, short and absent data, multiple copies, detail headers and dialogs; nonempty geometry audits with loaded fonts and alignment within 0.5px; narrow/coarse-pointer and keyboard/Escape checks; page-weight checks; full zero-skipped `pnpm test:local`; independent review.
+Measured corrections: the postal-tab icon moves from a 10.09px first-line error to +0.01px in Chrome and -0.01px in WebKit. Both approximate-year labels and all seven biography tools reach 44px on touch. Publisher remove controls reach 44px on touch while retaining 12px desktop geometry. Display settings retain all eight page-size choices and have zero overflow at a real 768px viewport / 762px content width, previously 3px.
+
+The repository interaction audit passes all nine representative routes: keyboard focus, menus, modal Tab containment, Escape/focus return, reduced motion and touch spacing. Page-weight checks pass on all 29 available configured routes plus four explicit hierarchy/settings routes; four optional configured detail routes have no fixture records. Main and added HTML/time budgets remain unchanged.
+
+Docker, the full zero-skipped local suite, exact-head CI and independent review are tracked in PR #185 before landing. Editorial deletions and image-adjustment redesign remain separately scoped.

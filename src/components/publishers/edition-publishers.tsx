@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,13 @@ export function EditionPublishers({
   editionId,
   confirmed,
   linked = [],
+  publicationNames = [],
 }: {
   editionId: string;
   confirmed: boolean;
   linked?: PublisherOption[];
+  /** Preserve raw publisher/imprint names beside linked houses; identical names share one link. */
+  publicationNames?: string[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -75,8 +79,15 @@ export function EditionPublishers({
     });
   }
   return (
-    <div className="space-y-2 text-sm">
+    <div className="space-y-2 text-xs [overflow-wrap:anywhere]">
       <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-5">
+        {[...new Set(publicationNames)]
+          .filter((name) => !linked.some((p) => p.name === name))
+          .map((name) => (
+            <span key={name} className="text-fg-secondary">
+              {name}
+            </span>
+          ))}
         {linked.map((p) => (
           <Link
             key={p.id}
@@ -89,7 +100,9 @@ export function EditionPublishers({
         <Button type="button" variant="ghost" size="sm" onClick={open}>
           {linked.length ? "Edit publisher links" : "Link publisher"}
         </Button>
-        {confirmed && <span className="text-xs text-fg-secondary">Confirmed</span>}
+        {confirmed && (
+          <span className="text-xs text-fg-secondary">Confirmed</span>
+        )}
       </div>
       {editing && (
         <div className="max-w-md space-y-3 rounded-sm border border-glass-border p-3">
@@ -119,24 +132,36 @@ export function EditionPublishers({
             names.map((n) => (
               <label
                 key={n.name}
-                className="flex gap-2 text-xs leading-5 text-fg-secondary"
+                className="flex gap-2 rounded-sm text-xs leading-5 text-fg-secondary focus-within:glass-input-focus pointer-coarse:min-h-11"
               >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  disabled={pending}
+                  checked={aliasNames.includes(n.name)}
+                  onChange={(e) =>
+                    setAliasNames(
+                      e.target.checked
+                        ? [...aliasNames, n.name]
+                        : aliasNames.filter((x) => x !== n.name),
+                    )
+                  }
+                />
                 <CapAligned height={13}>
-                  <input
-                    type="checkbox"
-                    className="m-0 block h-[13px] w-[13px]"
-                    disabled={pending}
-                    checked={aliasNames.includes(n.name)}
-                    onChange={(e) =>
-                      setAliasNames(
-                        e.target.checked
-                          ? [...aliasNames, n.name]
-                          : aliasNames.filter((x) => x !== n.name),
-                      )
-                    }
-                  />
+                  <span
+                    aria-hidden
+                    className={`flex size-[13px] items-center justify-center rounded-sm border ${
+                      aliasNames.includes(n.name)
+                        ? "border-selection-bg bg-selection-bg"
+                        : "border-glass-border"
+                    }`}
+                  >
+                    {aliasNames.includes(n.name) && (
+                      <Check size={10} strokeWidth={1.5} />
+                    )}
+                  </span>
                 </CapAligned>
-                <span>
+                <span className="min-w-0 flex-1">
                   Save &ldquo;{n.name}&rdquo; as another name of{" "}
                   {aliasTarget.name}.{" "}
                   {n.others

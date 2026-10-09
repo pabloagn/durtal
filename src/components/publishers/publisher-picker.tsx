@@ -118,7 +118,7 @@ export function PublisherSearch({
           label={label}
           role="combobox"
           aria-expanded={open}
-          aria-controls={listId}
+          aria-controls={open ? listId : undefined}
           aria-autocomplete="list"
           aria-activedescendant={
             open && items.length ? optionId(current) : undefined
@@ -207,16 +207,16 @@ export function PublisherChip({
   disabled?: boolean;
 }) {
   return (
-    <span className="inline-flex gap-1.5 rounded-sm border border-glass-border px-2 py-1 text-xs text-fg-secondary">
-      <span>{publisherLabel(publisher)}</span>
-      <CapAligned height={12}>
+    <span className="inline-flex max-w-full gap-1.5 rounded-sm border border-glass-border px-2 py-1 text-xs text-fg-secondary pointer-coarse:py-4">
+      <span className="min-w-0 [overflow-wrap:anywhere]">{publisherLabel(publisher)}</span>
+      <CapAligned height={12} coarseHeight={44}>
         <button
           type="button"
           onClick={onRemove}
           disabled={disabled}
           aria-label={`Remove ${publisher.name}`}
           data-tooltip={`Remove ${publisher.name}`}
-          className="block text-fg-muted transition-colors hover:text-fg-primary"
+          className="flex size-3 items-center justify-center text-fg-muted transition-colors hover:text-fg-primary pointer-coarse:size-11"
         >
           <X size={12} strokeWidth={1.5} />
         </button>
