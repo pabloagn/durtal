@@ -65,16 +65,23 @@ describe("similarity evidence", () => {
     const dialog = host.querySelector("dialog")!;
     expect(dialog.open).toBe(true);
     const close = dialog.querySelector<HTMLButtonElement>("button")!;
-    for (const shiftKey of [false, true]) {
+    const area = dialog.querySelector<HTMLElement>("[tabindex='0']")!;
+    for (const [from, shiftKey, expected] of [
+      [close, true, area],
+      [area, false, close],
+    ] as const) {
       const tab = new KeyboardEvent("keydown", {
         key: "Tab",
         shiftKey,
         bubbles: true,
         cancelable: true,
       });
-      act(() => close.dispatchEvent(tab));
+      act(() => {
+        from.focus();
+        from.dispatchEvent(tab);
+      });
       expect(tab.defaultPrevented).toBe(true);
-      expect(document.activeElement).toBe(close);
+      expect(document.activeElement).toBe(expected);
     }
     expect(dialog.querySelectorAll("li")).toHaveLength(4);
     expect(dialog.querySelector("li")!.textContent).toBe(`Collection: ${name}`);
@@ -83,6 +90,18 @@ describe("similarity evidence", () => {
       await Promise.resolve();
     });
     expect(host.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("keeps the trigger as focus origin even when a touch click did not focus it", async () => {
+    render();
+    const button = host.querySelector<HTMLButtonElement>("button")!;
+    act(() => button.click());
+    const dialog = host.querySelector("dialog")!;
+    act(() => dialog.dispatchEvent(new Event("cancel", { cancelable: true })));
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(document.activeElement).toBe(button);
   });
 

@@ -32,14 +32,26 @@ export function SimilarityReasons({
       className="mt-2 text-xs text-fg-secondary [overflow-wrap:anywhere]"
       data-similarity-reasons
       onKeyDown={(event) => {
-        // This read-only dialog has one control. Keep both Tab directions
-        // on it, including the native dialog's browser-chrome focus cycle.
+        // Wrap between Close and the focusable reading area. The latter
+        // lets keyboard users scroll complete, exceptionally long reasons.
         if (!open || event.key !== "Tab") return;
         const dialog = (event.target as HTMLElement).closest("dialog");
-        const close = dialog?.querySelector<HTMLButtonElement>("button");
-        if (close) {
+        const stops = dialog?.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), [tabindex='0']",
+        );
+        if (!dialog || !stops?.length) return;
+        const first = stops[0];
+        const last = stops[stops.length - 1];
+        if (
+          event.shiftKey &&
+          (document.activeElement === first ||
+            document.activeElement === dialog)
+        ) {
           event.preventDefault();
-          close.focus();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
         }
       }}
     >
@@ -59,7 +71,12 @@ export function SimilarityReasons({
         className="mt-1"
         aria-haspopup="dialog"
         aria-label={`All similarity reasons for ${title}`}
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          // WebKit touch does not focus buttons by default: keep this opener
+          // as the shared dialog's explicit focus-return origin.
+          event.currentTarget.focus();
+          setOpen(true);
+        }}
       >
         All reasons{reasons.length > 2 ? ` (${reasons.length})` : ""}
       </Button>
@@ -71,7 +88,11 @@ export function SimilarityReasons({
         className="max-w-lg"
         expandable={false}
       >
-        <ul className="space-y-3 text-sm text-fg-secondary">
+        <ul
+          tabIndex={0}
+          aria-label="Complete similarity reasons"
+          className="space-y-3 text-sm text-fg-secondary"
+        >
           {reasons.map((reason) => (
             <li
               key={`${reason.kind}:${reason.id}`}
