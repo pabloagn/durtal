@@ -25,7 +25,7 @@ describe("the corpus", () => {
       database: emptyCatalogue,
       host: "test",
       cacheDir: path.join(dir, "cache"),
-      target: { database: "test", bucket: "durtal-ebooks", prefix: "", preview: false },
+      target: { database: "test", bucket: "durtal", prefix: "", preview: false },
     });
     const ms = performance.now() - start;
     console.info(`Planned ${plan.items.length} files in ${Math.round(ms)} ms: ${(ms / plan.items.length).toFixed(1)} ms a file`);
@@ -34,7 +34,17 @@ describe("the corpus", () => {
     expect(plan.items).toHaveLength(written.length - 1);
     expect(plan.items.every((i) => i.outcome)).toBe(true);
     const outcomes = (outcome: string) => plan.items.filter((i) => i.outcome === outcome).map((i) => path.relative(root, i.path)).sort();
-    expect(outcomes("quarantined")).toEqual(["Damaged/Cut Short.epub", "Damaged/No Spine.epub"]);
+    expect(outcomes("quarantined")).toEqual([
+      "DRM/A Kindle Book.azw", "DRM/A Password.pdf", "DRM/The Locked Room.epub",
+      "Damaged/Cut Short.epub", "Damaged/No Spine.epub", "Kindle/A KFX Book.kfx",
+    ]);
+    for (const item of plan.items.filter((i) => i.outcome === "quarantined")) {
+      const file = plan.files[item.path];
+      expect(file.medallion!.validation.downloadable).toBe(false);
+      expect(file.medallion!.gold).toEqual([]);
+      expect(file.derived).toEqual([]);
+      expect(file.key).toBe(file.medallion!.bronze.key);
+    }
     expect(outcomes("duplicate_in_run")).toHaveLength(1);
     expect(outcomes("ignored")).toEqual(["Not books/archive.zip", "Not books/letter.docx", "Not books/notes.txt", "Not books/photo.png"]);
     expect(plan.summary.drm).toEqual({ "adobe-adept": 1, kindle: 1, "pdf-password": 1 });
