@@ -160,9 +160,9 @@ export function CreditListField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={CHIP}>
+        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={`${CHIP} pointer-coarse:flex-wrap pointer-coarse:leading-11`}>
           <span
-            className={`truncate ${entry.personId ? "" : "italic"}`}
+            className={`truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:leading-6 ${entry.personId ? "" : "italic"}`}
           >
             {creditName(entry)}
           </span>
@@ -177,7 +177,7 @@ export function CreditListField({
                   ),
                 )
               }
-              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none"
+              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
             >
               {Object.entries(PERFUME_CREDIT_ROLE_LABELS).map(([role, roleLabel]) => (
                 <option key={role} value={role}>
@@ -187,6 +187,7 @@ export function CreditListField({
             </select>
           )}
           <RemoveButton
+            touchTarget
             label={`Remove ${creditName(entry)}`}
             onClick={() => onChange(value.filter((_, i) => i !== index))}
           />
