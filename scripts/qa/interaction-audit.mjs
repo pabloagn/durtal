@@ -30,7 +30,7 @@
  * no package; other engines use existing playwright-core from PLAYWRIGHT_CORE
  * (or the QA/project runtime) and PLAYWRIGHT_BROWSERS_PATH. Exits 1 on any failure.
  */
-import { HELPERS } from "./interaction-page.mjs";
+import { HELPERS, dialogFocusState } from "./interaction-page.mjs";
 import { effectiveTarget } from "./interaction-target.mjs";
 import { createDriver } from "./interaction-driver.mjs";
 import {
@@ -290,17 +290,26 @@ async function checkDialog(route, label, expectBack) {
       },
       dialog,
     );
+    let browserChromeStops = 0;
     for (let i = 0; i < 25; i++) {
       await press("Tab");
-      if (
-        !(await evaluate(
-          `__ia.element(${JSON.stringify(dialog)}).contains(document.activeElement)`,
-        ))
-      ) {
-        fail(route, "dialog", `${label}: Tab leaves the dialog`);
+      const focus = await evaluate(
+        `(${dialogFocusState.toString()})(__ia.element(${JSON.stringify(dialog)}))`,
+      );
+      if (!focus.valid) {
+        fail(
+          route,
+          "dialog",
+          `${label}: Tab leaves the dialog (body=${focus.body}, documentFocused=${focus.documentFocused})`,
+        );
         break;
       }
+      if (!focus.inside && focus.body && !focus.documentFocused)
+        browserChromeStops++;
     }
+    notes.push(
+      `${route}: ${label}: ${browserChromeStops} measured BODY stops with document.hasFocus() false`,
+    );
   } finally {
     for (let i = 0; i < 3 && (await evaluate("!!__ia.dialog()")); i++)
       await press("Escape");

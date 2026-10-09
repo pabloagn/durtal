@@ -49,3 +49,19 @@ export const HELPERS = `window.__ia = {
   dialog() { return [...document.querySelectorAll('dialog[open], [role=dialog]')].filter((d) => !this.hidden(d)).pop() ?? null; },
   menu() { return [...document.querySelectorAll('[role=menu]')].filter((m) => !this.hidden(m)).pop() ?? null; },
 };`;
+
+/** Measure each native Tab result. Browser chrome can own focus while the
+ * document reports BODY; only that exact outside-dialog state is allowed.
+ */
+export function dialogFocusState(dialog) {
+  const active = document.activeElement;
+  const inside = dialog.contains(active);
+  const body = active === document.body;
+  const documentFocused = document.hasFocus();
+  return {
+    inside,
+    body,
+    documentFocused,
+    valid: inside || (body && !documentFocused),
+  };
+}

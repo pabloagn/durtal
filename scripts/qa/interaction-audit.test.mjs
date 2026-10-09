@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { HELPERS } from "./interaction-page.mjs";
+import { HELPERS, dialogFocusState } from "./interaction-page.mjs";
 import {
   installDisclosureHelpers,
   withDisclosures,
@@ -220,6 +220,64 @@ test("broken Escape is reported but newly opened native dialogs are still cleane
   assert(f.failures.some((s) => /not restored by Escape/.test(s)));
   assert.equal(f.window.document.querySelector("dialog").open, false);
   assert.equal(f.window.document.querySelector("details").open, false);
+});
+
+test("dialog Tab allows BODY only when the measured document has no focus", async () => {
+  const f = fixture(
+    '<button id="background">Background</button><dialog><button id="inside">Inside</button></dialog>',
+  );
+  const dialog = f.window.document.querySelector("dialog");
+  dialog.showModal();
+  f.window.document.body.tabIndex = -1;
+  f.window.document.body.focus();
+  f.window.document.hasFocus = () => false;
+  const focus = f.window.eval(
+    `(${dialogFocusState.toString()})(document.querySelector('dialog'))`,
+  );
+  assert.deepEqual(
+    { ...focus },
+    { inside: false, body: true, documentFocused: false, valid: true },
+  );
+});
+
+test("dialog Tab rejects BODY when the measured document still has focus", async () => {
+  const f = fixture("<dialog><button>Inside</button></dialog>");
+  f.window.document.querySelector("dialog").showModal();
+  f.window.document.body.tabIndex = -1;
+  f.window.document.body.focus();
+  f.window.document.hasFocus = () => true;
+  const focus = f.window.eval(
+    `(${dialogFocusState.toString()})(document.querySelector('dialog'))`,
+  );
+  assert.deepEqual(
+    { ...focus },
+    { inside: false, body: true, documentFocused: true, valid: false },
+  );
+});
+
+test("dialog Tab rejects a background control regardless of document focus", async () => {
+  const f = fixture(
+    '<button id="background">Background</button><dialog><button id="inside">Inside</button></dialog>',
+  );
+  f.window.document.querySelector("dialog").showModal();
+  f.window.document.getElementById("background").focus();
+  for (const documentFocused of [false, true]) {
+    f.window.document.hasFocus = () => documentFocused;
+    const focus = f.window.eval(
+      `(${dialogFocusState.toString()})(document.querySelector('dialog'))`,
+    );
+    assert.deepEqual(
+      { ...focus },
+      { inside: false, body: false, documentFocused, valid: false },
+    );
+  }
+  f.window.document.getElementById("inside").focus();
+  assert.equal(
+    f.window.eval(
+      `(${dialogFocusState.toString()})(document.querySelector('dialog')).valid`,
+    ),
+    true,
+  );
 });
 
 test("CLI refuses unsafe targets before finding or starting any browser", () => {
