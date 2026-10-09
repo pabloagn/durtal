@@ -40,7 +40,10 @@ service workers, downloads and offline pages remain integration work.
 - `transport.ts`: one common position/annotation coordinator online and offline;
   Web Lock ownership across network requests, transactional foreground fallback,
   bounded abort deadlines and lifecycle bytes, expected-device headers, durable
-  auth/device blocks and explicit exact-snapshot reconciliation. No beacon or
+  auth/device blocks and explicit exact-snapshot reconciliation. A visible tab
+  schedules a cancellable wake at the persisted head claim expiry, including
+  ownership races after inspection; hidden tabs and blocked heads get no wake.
+  No beacon or
   annotation-only replayer. `createAnnotationTransport` implements the annotation
   owner's injectable shape via its trusted codecs; pending codecs must reflect
   the persisted claim and Undo seal, not only the original opaque owner payload.
@@ -76,3 +79,8 @@ SLN-500 still need to inject this shared module with their codecs and wire the
 annotation route's captured-device guard; there is no mounted production reader
 integration in this checkpoint. No SQL migration, dependency or live/cloud write
 is included. This task remains In Progress.
+
+Review correction: five focused abandoned-claim wake regressions passed before
+the QUIET-494 window, covering a newly visible tab after 31 seconds, cancellation
+while hidden/destroyed, blocked-head preservation and a peer ownership race.
+TypeScript passed. All local checking is paused during QUIET-494.
