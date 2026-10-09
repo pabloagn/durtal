@@ -58,3 +58,17 @@ with zero skips; corpus and browser/performance acceptance; guarded real Neon
 pooled dry-run using durtal-personal / account 608240934043 / eu-north-1 with
 before/after catalogue and object-inventory evidence. No live writes, cloud
 mutations, builds, Docker, browser preview or deployment performed here.
+
+Independent source review approved implementation checkpoint
+44f0fbca690669772b6f1d973c122a4b0dc2cac5. Review-only proof wrappers now bind
+the source/tree/lock, installed dependency runtime, original three input bytes
+and nanosecond mtimes, approved SLN-569 plan, full pooled URL hash and reviewed
+21-key inventory/download hashes. The pooled runner uses explicit personal
+credentials in memory and guards actual SDK commands, owner/prefix/key scopes,
+requests, bytes and elapsed time. It compares every public-table row multiset
+and all 21 objects' LIST/HEAD metadata and streamed-byte SHA-256 before/after
+planning; it captures read-only state, savepoint 25006 and unchanged backend.
+Reports/cache/input copies are isolated and private. The disposable wrapper
+binds the installed postgres:16 image and runs the full existing zero-skip
+suite. These harnesses have not executed; independent harness review and
+separate execution approval remain required.
