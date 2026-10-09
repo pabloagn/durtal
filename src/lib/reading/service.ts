@@ -138,13 +138,18 @@ export function planPositions(reading: Reading, ordered: Session[]) {
     });
     prev = { page: s.endPage, percent: s.endPercent, minutes: s.endMinutes, chapter: s.endChapter };
     prevEdition = s.editionId;
-    if (s.source === "reader" && s.endPercent != null && position.percent != null && s.endPercent < position.percent) continue;
+    // Session totals stay historical; a position in this same edition uses the
+    // reading's revised page total. Apply that share to the reader-behind rule too.
+    const endPercent = s.editionId === reading.editionId && s.endPage != null
+      && reading.totalPages != null && s.pagesTotal !== reading.totalPages
+      ? percentOf({ page: s.endPage }, reading) : s.endPercent;
+    if (s.source === "reader" && endPercent != null && position.percent != null && endPercent < position.percent) continue;
     lastPositionSession = s;
     if (s.editionId === reading.editionId) {
-      const mapped = remapPosition(s.endPercent, reading);
+      const mapped = remapPosition(endPercent, reading);
       position = {
         page: s.endPage ?? mapped.page,
-        percent: s.endPercent,
+        percent: endPercent,
         minutes: s.endMinutes ?? mapped.minutes,
         chapter: s.endChapter ?? position.chapter,
       };
@@ -156,7 +161,9 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   // Chapter is also editable on the reading: an explicit unknown chapter stays unknown
   // while the latest log has none. Deleting that log can reveal an earlier named chapter.
   if (reading.currentChapter === null && lastPositionSession?.endChapter === null) position.chapter = null;
-  return { starts, position };
+  // With no contributing session, chapter remains the reading's independent field.
+  if (!lastPositionSession) position.chapter = reading.currentChapter;
+  return { starts, position, lastPositionSession };
 }
 
 /** The statements that lock a reading and check it is the row the write was computed from */
@@ -389,7 +396,7 @@ export async function recordProgress(
     else given = sessionEditionId === reading.editionId ? { page: current.page, percent: current.percent, minutes: current.minutes } : { percent: current.percent };
     checkWithinTotals(given, sessionTotals);
     const end = completePosition(given, sessionTotals);
-    const chapter = input.chapter ?? (ordered.length ? null : reading.currentChapter);
+    const chapter = input.chapter ?? (planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
     const now = new Date();
     // A timer keeps the zone and the reading day it started with
     const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
@@ -613,15 +620,11 @@ export function correctLastLog(
     );
   // A chapter belongs at the effective place. Behind-progress reader logs did not
   // move that place, so a chapter-only edit targets the last contributing session.
-  let target = latest;
-  if (!end && chapter !== undefined) {
-    let percent = startPosition(reading).percent;
-    for (const s of ordered) {
-      if (s.source === "reader" && s.endPercent != null && percent != null && s.endPercent < percent) continue;
-      target = s;
-      percent = s.endPercent;
-    }
-  }
+  const target = !end && chapter !== undefined
+    ? planPositions(reading, ordered).lastPositionSession : latest;
+  // A reading can have logs without any of them setting its place. Its chapter
+  // belongs on the reading, not on an ignored reader log.
+  if (!target) return { corrected: latest, sessions, writeSession: false };
   const corrected = {
     ...target,
     // An explicit correction is manual: automatic reader updates alone must not move behind earlier progress.
@@ -639,7 +642,7 @@ export function correctLastLog(
     ...(chapter !== undefined ? { endChapter: chapter } : {}),
   };
   const next = sessions.map((s) => (s.id === target.id ? corrected : s));
-  return { corrected, sessions: next };
+  return { corrected, sessions: next, writeSession: true };
 }
 
 /** Recomputes session starts and an open reading's position after sessions changed */

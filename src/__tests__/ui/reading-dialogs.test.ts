@@ -31,6 +31,7 @@ import { LogProgressDialog } from "@/components/reading/dialogs/log-progress-dia
 import { FinishReadingDialog } from "@/components/reading/dialogs/finish-reading-dialog";
 import { AbandonReadingDialog } from "@/components/reading/dialogs/abandon-reading-dialog";
 import { StartReadingDialog } from "@/components/reading/dialogs/start-reading-dialog";
+import { correctLastLog, planPositions, sessionOrder, type Reading, type Session } from "@/lib/reading/service";
 import { EditReadingDialog } from "@/components/reading/dialogs/edit-reading-dialog";
 import type { ReadingDialogProps } from "@/components/reading/reading-provider";
 
@@ -304,6 +305,32 @@ describe("Edit reading", () => {
     );
     expect(actions.updateReading).toHaveBeenCalledTimes(1);
     expect(actions.logProgress).not.toHaveBeenCalled();
+  });
+
+  it("submits an explicitly re-entered percent under a larger total, and the session helper moves to that revised place", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, unit: "percent" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Pages to read"), "1200");
+    expect(field("Current position").value).toBe("25");
+    type(field("Current position"), "49");
+    type(field("Current position"), "50");
+    await submit();
+    const patch = actions.updateReading.mock.calls[0][0];
+    expect(patch).toMatchObject({ totalPages: 1200, currentPosition: { percent: 50 } });
+    const revised = { ...effective.reading, totalPages: 1200, currentPercent: 25 } as unknown as Reading;
+    const latest = { id: "last", editionId: "e1", source: "manual", readOn: "2026-09-02", createdAt: new Date("2026-09-02"), updatedAt: new Date("2026-09-02"), endedAt: null, startedAt: null, endPage: 300, endPercent: 50, endMinutes: null, endChapter: null, pagesTotal: 600 } as Session;
+    const correction = correctLastLog(revised, [latest], patch.currentPosition);
+    expect(planPositions(revised, sessionOrder(correction.sessions)).position).toMatchObject({ page: 600, percent: 50 });
+  });
+
+  it("normalizes an untouched percent under a revised total without submitting a chapter-only position correction", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, currentChapter: "I", unit: "percent" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Pages to read"), "1200");
+    expect(field("Current position").value).toBe("25");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 1200, currentChapter: "II" });
   });
 
   it.each([false, true])("does not submit unchanged current fields for a chapter-only edit (touched=%s)", async (touched) => {

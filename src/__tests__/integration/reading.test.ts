@@ -580,6 +580,37 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect((await loadReading(reading.id))!).toMatchObject({ currentPage: 240, currentChapter: "II" });
     });
 
+    it("keeps chapter edits at the start when all logs are ignored, across recomputation and metadata saves", async () => {
+      const { reading } = await started({ pages: 600, startPage: 400 });
+      await recordProgress({ readingId: reading.id, page: 240, readOn: "2026-09-02" }, { source: "reader" });
+      await recordProgress({ readingId: reading.id, page: 180, readOn: "2026-09-03" }, { source: "reader" });
+      const before = await q(`select * from reading_sessions where reading_id = $1 order by read_on`, [reading.id]);
+      const history = await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id]);
+      for (const chapter of ["II", null]) {
+        const edited = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: chapter });
+        expect(edited).toMatchObject({ currentPage: 400, currentPercent: 66.67, currentChapter: chapter });
+        expect(await q(`select * from reading_sessions where reading_id = $1 order by read_on`, [reading.id])).toEqual(before);
+        const recomputed = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), startPage: 400 });
+        expect(recomputed).toMatchObject({ currentPage: 400, currentChapter: chapter });
+        const metadata = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 });
+        expect(metadata).toMatchObject({ currentPage: 400, currentChapter: chapter, rating: 4 });
+        expect(await q(`select * from reading_sessions where reading_id = $1 order by read_on`, [reading.id])).toEqual(before);
+        expect(await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id])).toEqual(history);
+      }
+      await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: "II" });
+      const next = await log(reading.id, { page: 420, readOn: "2026-09-04" });
+      expect(next.reading).toMatchObject({ currentPage: 420, currentChapter: "II" });
+    });
+
+    it("interprets an explicit percentage against the revised total while preserving session history", async () => {
+      const { reading } = await started({ pages: 600 });
+      const last = await log(reading.id, { page: 300, durationSeconds: 1200, note: "Keep", readOn: "2026-09-02" });
+      const before = await q(`select id, source, read_on, duration_seconds, note, created_at from reading_sessions where id = $1`, [last.session.id]);
+      const edited = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 1200, currentPosition: { percent: 50 } });
+      expect(edited).toMatchObject({ totalPages: 1200, currentPage: 600, currentPercent: 50 });
+      expect(await q(`select id, source, read_on, duration_seconds, note, created_at from reading_sessions where id = $1`, [last.session.id])).toEqual(before);
+    });
+
     it.each([[90, 75], [30, 25]])("uses a changed audio duration during an edition/start edit: %i minutes becomes %i percent", async (startMinutes, startPercent) => {
       const workId = await book("Audio edition duration");
       const from = await edition(workId, null);
@@ -752,6 +783,17 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
         startPage: 100,
       });
       expect(await counted(workId)).toBe(140);
+    });
+
+    it("keeps the revised current share during later chapter-only saves without altering an ignored reader log", async () => {
+      const { reading } = await started({ pages: 600 });
+      await log(reading.id, { page: 300, readOn: "2026-09-02" });
+      const ignored = await recordProgress({ readingId: reading.id, page: 180, readOn: "2026-09-03" }, { source: "reader" });
+      const before = await q(`select * from reading_sessions where id = $1`, [ignored.session.id]);
+      await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 1200 });
+      const edited = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: "II" });
+      expect(edited).toMatchObject({ currentPage: 300, currentPercent: 25, currentChapter: "II" });
+      expect(await q(`select * from reading_sessions where id = $1`, [ignored.session.id])).toEqual(before);
     });
 
     it("normalizes the current share to revised totals while retaining historical session totals", async () => {

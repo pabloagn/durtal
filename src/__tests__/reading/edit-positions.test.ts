@@ -122,6 +122,30 @@ describe("reading edit session plan", () => {
     expect(planPositions(clearedReading, sessionOrder(cleared.sessions)).position).toMatchObject({ page: 240, chapter: null });
   });
 
+  it("retains the canonical revised share across later chapter edits and reader-behind decisions", () => {
+    const revised = { ...reading, totalPages: 1200, startPage: 0, startPercent: 0, currentPage: 300, currentPercent: 25, currentChapter: "II" };
+    const last = session("manual", 300, "2026-09-01");
+    const ignored = { ...session("ignored", 180, "2026-09-02"), source: "reader" } as Session;
+    const correction = correctLastLog(revised, [last, ignored], undefined, "II");
+    expect(correction.corrected.id).toBe("manual");
+    expect(correction.corrected.pagesTotal).toBe(600);
+    expect(correction.sessions[1]).toBe(ignored);
+    expect(planPositions(revised, sessionOrder(correction.sessions)).position).toMatchObject({ page: 300, percent: 25, chapter: "II" });
+  });
+
+  it.each(["II", null])("keeps the reading chapter %j when every log is ignored, without writing a reader session", (chapter) => {
+    const effective = { ...reading, startPage: 400, startPercent: 66.67, startMinutes: 400, currentPage: 400, currentPercent: 66.67, currentMinutes: 400, currentChapter: chapter };
+    const ignored = [240, 180].map((page, index) => ({ ...session(`reader-${index}`, page, `2026-09-0${index + 1}`), source: "reader" } as Session));
+    const correction = correctLastLog(effective, ignored, undefined, chapter);
+    expect(correction.writeSession).toBe(false);
+    expect(correction.sessions).toBe(ignored);
+    const plan = planPositions(effective, sessionOrder(correction.sessions));
+    expect(plan.lastPositionSession).toBeUndefined();
+    expect(plan.position).toMatchObject({ page: 400, percent: 66.67, chapter });
+    expect(planPositions({ ...effective, rating: 4 }, sessionOrder(ignored)).position).toEqual(plan.position);
+    expect(ignored.map((s) => ({ source: s.source, page: s.endPage, chapter: s.endChapter }))).toEqual([{ source: "reader", page: 240, chapter: "I" }, { source: "reader", page: 180, chapter: "I" }]);
+  });
+
   it("keeps a reader log unchanged when only its displayed position is resubmitted", () => {
     const effective = { ...reading, currentPage: 240, currentPercent: 40, currentMinutes: 240 };
     const ignored = { ...session("ignored", 180, "2026-09-02"), source: "reader" } as Session;

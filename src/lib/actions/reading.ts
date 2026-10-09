@@ -864,7 +864,7 @@ export async function updateReading(input: UpdateReadingInput) {
         )
       : null;
   const normalizeTotals = !editionChanged && (patch.totalPages !== undefined || patch.totalMinutes !== undefined);
-  if ((startGiven && isOpenStatus(reading.status)) || correction) {
+  if ((isOpenStatus(reading.status) && (startGiven || correction)) || currentCorrection) {
     const ordered = sessionOrder(correction?.sessions ?? sessions);
     const position = planPositions(nextReading, ordered).position;
     Object.assign(values, positionValues(normalizeTotals && ordered.at(-1)?.editionId === nextReading.editionId
@@ -887,7 +887,7 @@ export async function updateReading(input: UpdateReadingInput) {
         .update(readings)
         .set({ ...values, updatedAt: now })
         .where(eq(readings.id, reading.id)),
-      ...(correction
+      ...(correction?.writeSession
         ? [
             d
               .update(readingSessions)
@@ -909,7 +909,7 @@ export async function updateReading(input: UpdateReadingInput) {
             nextReading,
             correction?.sessions ?? sessions,
             now,
-            !!correction,
+            !!currentCorrection,
             normalizeTotals,
           )
         : []),

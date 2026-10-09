@@ -177,6 +177,22 @@ export function EditReadingDialog({
         finish,
       )
     : null;
+  const totals = { totalPages: newTotal, totalMinutes: parseLength(length) };
+  const startEdited = startTouched;
+  const parsedStart = startPosition(startText, startUnit, totals);
+  const parsedCurrent = startPosition(currentText, currentUnit, totals);
+  const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
+  const effectiveCurrent = editionSwitched ? remapPosition(r.currentPercent, totals)
+    : { page: r.currentPage, minutes: r.currentMinutes,
+      percent: percentOf({ page: r.currentPage, minutes: r.currentMinutes, percent: r.currentPercent }, totals) };
+  const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent);
+  const sessionlessStart = { page: parsedStart.value.startPage, percent: parsedStart.value.startPercent, minutes: parsedStart.value.startMinutes };
+  const sessionlessCurrent = { ...remapPosition(percentOf(sessionlessStart, totals), totals),
+    ...(sessionlessStart.page !== undefined ? { page: sessionlessStart.page } : {}),
+    ...(sessionlessStart.minutes !== undefined ? { minutes: sessionlessStart.minutes } : {}) };
+  const currentDisplay = !row!.sessionCount && !done ? editPositionText(sessionlessCurrent, currentUnit)
+    : !currentTouched && currentUnit === "percent" ? editPositionText(effectiveCurrent, currentUnit) : currentText;
+
   // A page count that is not a whole number above 0 is an error, never a cleared count
   const totalError =
     pages.trim() &&
@@ -184,7 +200,7 @@ export function EditReadingDialog({
       ? "Enter the number of pages as a whole number above 0"
       : !editionSwitched &&
           (row!.sessionCount > 0 || done) &&
-          currentText === initialCurrent &&
+          !currentEdited &&
           newTotal !== null &&
           r.currentPage !== null &&
           newTotal < r.currentPage
@@ -198,24 +214,12 @@ export function EditReadingDialog({
     !editionSwitched &&
     newTotal &&
     newTotal !== r.totalPages &&
+    !currentEdited &&
     r.currentPage !== null &&
     (row!.sessionCount > 0 || done)
       ? `p. ${r.currentPage} of ${newTotal} · ${Math.round(percentOf({ page: r.currentPage }, { totalPages: newTotal }) ?? 0)}%`
       : null;
 
-  const totals = { totalPages: newTotal, totalMinutes: parseLength(length) };
-  const startEdited = startTouched;
-  const parsedStart = startPosition(startText, startUnit, totals);
-  const parsedCurrent = startPosition(currentText, currentUnit, totals);
-  const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
-  const effectiveCurrent = editionSwitched ? remapPosition(r.currentPercent, totals)
-    : { page: r.currentPage, percent: r.currentPercent, minutes: r.currentMinutes };
-  const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent);
-  const sessionlessStart = { page: parsedStart.value.startPage, percent: parsedStart.value.startPercent, minutes: parsedStart.value.startMinutes };
-  const sessionlessCurrent = { ...remapPosition(percentOf(sessionlessStart, totals), totals),
-    ...(sessionlessStart.page !== undefined ? { page: sessionlessStart.page } : {}),
-    ...(sessionlessStart.minutes !== undefined ? { minutes: sessionlessStart.minutes } : {}) };
-  const currentDisplay = !row!.sessionCount && !done ? editPositionText(sessionlessCurrent, currentUnit) : currentText;
   const startError = startText.trim()
     ? parsedStart.error
     : "Enter a starting position (0 for the beginning)";
@@ -232,7 +236,7 @@ export function EditReadingDialog({
 
   function changeUnit(kind: "start" | "current", unit: ReadingUnit) {
     const value = kind === "start" ? parsedStart.value : parsedCurrent.value;
-    const percent = percentOf(
+    const percent = kind === "current" && !currentTouched ? effectiveCurrent.percent : percentOf(
       {
         page: value.startPage,
         percent: value.startPercent,
@@ -246,7 +250,6 @@ export function EditReadingDialog({
       setStartUnit(unit);
       setStartText(editPositionText(mapped, unit));
     } else {
-      setCurrentTouched(true);
       setCurrentUnit(unit);
       setCurrentText(editPositionText(mapped, unit));
     }
